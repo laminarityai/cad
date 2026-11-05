@@ -1,0 +1,48 @@
+{
+ "lib": "build123d",
+ "model": "opus",
+ "part": "u_bracket",
+ "sample": 0,
+ "first_try": false,
+ "after_repair": true,
+ "attempts": [
+  {
+   "pass": false,
+   "category": "features",
+   "measured": {
+    "extents": [
+     30.0,
+     40.0,
+     50.0
+    ],
+    "volume": 9486.9
+   },
+   "detail": "0 cylinders at r=2.0, need 2",
+   "duration_ms": 11283,
+   "cost_usd": 0.026511999999999997,
+   "output_tokens": 1042,
+   "models": [
+    "claude-opus-5-5"
+   ]
+  },
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     30.0,
+     40.0,
+     50.0
+    ],
+    "volume": 9572.74
+   },
+   "detail": "",
+   "duration_ms": 5841,
+   "cost_usd": 0.02302,
+   "output_tokens": 675,
+   "models": [
+    "claude-opus-5-5"
+   ]
+  }
+ ]
+}

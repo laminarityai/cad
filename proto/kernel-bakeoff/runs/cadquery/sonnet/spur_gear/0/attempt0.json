@@ -1,0 +1,98 @@
+{
+ "duration_api_ms": 12168,
+ "stop_reason": "end_turn",
+ "session_id": "736407e7-509f-4e5b-8696-965f208b5784",
+ "total_cost_usd": 0.017162,
+ "usage": {
+  "input_tokens": 2,
+  "cache_creation_input_tokens": 647,
+  "cache_read_input_tokens": 0,
+  "output_tokens": 1457,
+  "output_tokens_details": {
+   "thinking_tokens": 879
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 647,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "global",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 1457,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 647,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 647
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard",
+  "fallback_credit": null
+ },
+ "modelUsage": {
+  "claude-sonnet-5-5": {
+   "inputTokens": 2,
+   "outputTokens": 1457,
+   "cacheReadInputTokens": 0,
+   "cacheCreationInputTokens": 647,
+   "webSearchRequests": 0,
+   "costUSD": 0.017162,
+   "contextWindow": 1000000,
+   "maxOutputTokens": 128000,
+   "thinkingTokens": 879,
+   "canonicalModel": "claude-sonnet-5-5",
+   "provider": "firstParty",
+   "costBasis": "list"
+  }
+ },
+ "permission_denials": [],
+ "terminal_reason": "completed",
+ "fast_mode_state": "off",
+ "fast_mode_disabled_reason": "sdk_opt_in_required",
+ "subagent_stats": {
+  "spawned": 0,
+  "requested": {
+   "background": 0,
+   "foreground": 0,
+   "unset": 0
+  },
+  "started_in_background": 0,
+  "max_depth": 0,
+  "spawned_by_subagents": 0,
+  "completed": 0,
+  "failed": 0,
+  "killed": {
+   "parent": 0,
+   "user": 0,
+   "system": 0
+  },
+  "refused": {
+   "depth_limit": 0,
+   "concurrency_limit": 0,
+   "budget": 0
+  },
+  "by_type": {}
+ },
+ "is_error": false,
+ "num_turns": 1,
+ "subtype": "success",
+ "api_error_status": null,
+ "result": "```python\nimport math\nimport cadquery as cq\n\nz = 24\nm = 2.0\npa = math.radians(20)\nthickness = 10.0\nbore = 8.0\n\nrp = m * z / 2\nrb = rp * math.cos(pa)\nra = rp + m\nrr = rp - 1.25 * m\n\ndef inv(a):\n    return math.tan(a) - a\n\ninvp = inv(pa)\n\ndef half_angle(r):\n    a = math.acos(min(1.0, rb / r))\n    return math.pi / (2 * z) + invp - inv(a)\n\ndef pt(r, th):\n    return (r * math.cos(th), r * math.sin(th))\n\nn = 10\nradii = [rb + (ra - rb) * i / n for i in range(n + 1)]\npts = []\npitch = 2 * math.pi / z\nfor i in range(z):\n    c = i * pitch\n    hb = half_angle(rb)\n    # root point, right flank rising\n    pts.append(pt(rr, c - hb))\n    for r in radii:\n        pts.append(pt(r, c - half_angle(r)))\n    # tip midpoint\n    pts.append(pt(ra, c))\n    for r in reversed(radii):\n        pts.append(pt(r, c + half_angle(r)))\n    pts.append(pt(rr, c + hb))\n    # root circle midpoint in gap\n    pts.append(pt(rr, c + pitch / 2))\n\ngear = (\n    cq.Workplane(\"XY\")\n    .polyline(pts)\n    .close()\n    .extrude(thickness)\n)\ngear = gear.cut(\n    cq.Workplane(\"XY\").circle(bore / 2).extrude(thickness)\n)\n\ncq.exporters.export(gear, \"out.step\")\n```",
+ "ttft_ms": 9312,
+ "type": "result",
+ "duration_ms": 12276,
+ "uuid": "94f3d443-757e-4992-a945-ec0b7d698535",
+ "ttft_stream_ms": 2038,
+ "time_to_request_ms": 115,
+ "first_content_frame_ms": 2038,
+ "queued_turn_count": 0,
+ "result_index": 0
+}

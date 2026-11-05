@@ -1,0 +1,29 @@
+{
+ "lib": "cadquery",
+ "model": "sonnet",
+ "part": "hex_spacer",
+ "sample": 2,
+ "first_try": true,
+ "after_repair": true,
+ "attempts": [
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     10.0,
+     25.0,
+     25.0
+    ],
+    "volume": 3511.93
+   },
+   "detail": "",
+   "duration_ms": 3015,
+   "cost_usd": 0.004896,
+   "output_tokens": 248,
+   "models": [
+    "claude-sonnet-5-5"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,98 @@
+{
+ "duration_api_ms": 3771,
+ "stop_reason": "end_turn",
+ "session_id": "ec1eaadf-de16-4169-9f87-830d31b7a0a3",
+ "total_cost_usd": 0.010572000000000002,
+ "usage": {
+  "input_tokens": 2,
+  "cache_creation_input_tokens": 613,
+  "cache_read_input_tokens": 0,
+  "output_tokens": 283,
+  "output_tokens_details": {
+   "thinking_tokens": 0
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 613,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "global",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 283,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 613,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 613
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard",
+  "fallback_credit": null
+ },
+ "modelUsage": {
+  "claude-opus-5-5": {
+   "inputTokens": 2,
+   "outputTokens": 283,
+   "cacheReadInputTokens": 0,
+   "cacheCreationInputTokens": 613,
+   "webSearchRequests": 0,
+   "costUSD": 0.010572000000000002,
+   "contextWindow": 1000000,
+   "maxOutputTokens": 128000,
+   "thinkingTokens": 0,
+   "canonicalModel": "claude-opus-5-5",
+   "provider": "firstParty",
+   "costBasis": "list"
+  }
+ },
+ "permission_denials": [],
+ "terminal_reason": "completed",
+ "fast_mode_state": "off",
+ "fast_mode_disabled_reason": "sdk_opt_in_required",
+ "subagent_stats": {
+  "spawned": 0,
+  "requested": {
+   "background": 0,
+   "foreground": 0,
+   "unset": 0
+  },
+  "started_in_background": 0,
+  "max_depth": 0,
+  "spawned_by_subagents": 0,
+  "completed": 0,
+  "failed": 0,
+  "killed": {
+   "parent": 0,
+   "user": 0,
+   "system": 0
+  },
+  "refused": {
+   "depth_limit": 0,
+   "concurrency_limit": 0,
+   "budget": 0
+  },
+  "by_type": {}
+ },
+ "is_error": false,
+ "num_turns": 1,
+ "subtype": "success",
+ "api_error_status": null,
+ "result": "```python\nimport cadquery as cq\n\nOD = 25.0\nID = 12.7\nL = 10.0\nHOLE_D = 3.3\n\n# Tube along Z\ncollar = (\n    cq.Workplane(\"XY\")\n    .circle(OD / 2)\n    .circle(ID / 2)\n    .extrude(L)\n)\n\n# Radial hole along +X from outside into bore, one wall only, at mid-length\nhole_len = OD / 2 - ID / 2 + 2.0  # through wall with overlap into bore\nhole = (\n    cq.Workplane(\"YZ\", origin=(ID / 2 - 1.0, 0, L / 2))\n    .circle(HOLE_D / 2)\n    .extrude(hole_len + 1.0)\n)\n\ncollar = collar.cut(hole)\n\ncq.exporters.export(collar, \"out.step\")\n```",
+ "ttft_ms": 3808,
+ "type": "result",
+ "duration_ms": 3833,
+ "uuid": "e749ca0a-e71e-4bb0-9cc4-962392e10d9f",
+ "ttft_stream_ms": 1626,
+ "time_to_request_ms": 61,
+ "first_content_frame_ms": 1626,
+ "queued_turn_count": 0,
+ "result_index": 0
+}

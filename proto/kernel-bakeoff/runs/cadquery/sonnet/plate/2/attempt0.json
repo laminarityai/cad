@@ -1,0 +1,98 @@
+{
+ "duration_api_ms": 2399,
+ "stop_reason": "end_turn",
+ "session_id": "f1a60962-3d4e-43d1-9bf7-753ea3a7f249",
+ "total_cost_usd": 0.004164,
+ "usage": {
+  "input_tokens": 2,
+  "cache_creation_input_tokens": 605,
+  "cache_read_input_tokens": 0,
+  "output_tokens": 174,
+  "output_tokens_details": {
+   "thinking_tokens": 0
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 605,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "global",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 174,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 605,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 605
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard",
+  "fallback_credit": null
+ },
+ "modelUsage": {
+  "claude-sonnet-5-5": {
+   "inputTokens": 2,
+   "outputTokens": 174,
+   "cacheReadInputTokens": 0,
+   "cacheCreationInputTokens": 605,
+   "webSearchRequests": 0,
+   "costUSD": 0.004164,
+   "contextWindow": 1000000,
+   "maxOutputTokens": 128000,
+   "thinkingTokens": 0,
+   "canonicalModel": "claude-sonnet-5-5",
+   "provider": "firstParty",
+   "costBasis": "list"
+  }
+ },
+ "permission_denials": [],
+ "terminal_reason": "completed",
+ "fast_mode_state": "off",
+ "fast_mode_disabled_reason": "sdk_opt_in_required",
+ "subagent_stats": {
+  "spawned": 0,
+  "requested": {
+   "background": 0,
+   "foreground": 0,
+   "unset": 0
+  },
+  "started_in_background": 0,
+  "max_depth": 0,
+  "spawned_by_subagents": 0,
+  "completed": 0,
+  "failed": 0,
+  "killed": {
+   "parent": 0,
+   "user": 0,
+   "system": 0
+  },
+  "refused": {
+   "depth_limit": 0,
+   "concurrency_limit": 0,
+   "budget": 0
+  },
+  "by_type": {}
+ },
+ "is_error": false,
+ "num_turns": 1,
+ "subtype": "success",
+ "api_error_status": null,
+ "result": "```python\nimport cadquery as cq\n\nL, W, T = 100.0, 50.0, 6.0\nd = 5.1\ninset = 8.0\n\nplate = (\n    cq.Workplane(\"XY\")\n    .box(L, W, T, centered=(True, True, False))\n    .faces(\">Z\")\n    .workplane()\n    .rect(L - 2 * inset, W - 2 * inset, forConstruction=True)\n    .vertices()\n    .hole(d)\n)\n\ncq.exporters.export(plate, \"out.step\")\n```",
+ "ttft_ms": 2437,
+ "type": "result",
+ "duration_ms": 2447,
+ "uuid": "2e8673e8-16ee-445f-863f-bc56e34aa9f5",
+ "ttft_stream_ms": 1109,
+ "time_to_request_ms": 47,
+ "first_content_frame_ms": 1110,
+ "queued_turn_count": 0,
+ "result_index": 0
+}

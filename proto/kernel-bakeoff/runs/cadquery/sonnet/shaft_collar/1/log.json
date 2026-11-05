@@ -1,0 +1,29 @@
+{
+ "lib": "cadquery",
+ "model": "sonnet",
+ "part": "shaft_collar",
+ "sample": 1,
+ "first_try": true,
+ "after_repair": true,
+ "attempts": [
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     10.0,
+     25.0,
+     25.0
+    ],
+    "volume": 3589.16
+   },
+   "detail": "",
+   "duration_ms": 2572,
+   "cost_usd": 0.00464,
+   "output_tokens": 216,
+   "models": [
+    "claude-sonnet-5-5"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,29 @@
+{
+ "lib": "cadquery",
+ "model": "sonnet",
+ "part": "plate",
+ "sample": 1,
+ "first_try": true,
+ "after_repair": true,
+ "attempts": [
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     6.0,
+     50.0,
+     100.0
+    ],
+    "volume": 29509.72
+   },
+   "detail": "",
+   "duration_ms": 2344,
+   "cost_usd": 0.0050539999999999995,
+   "output_tokens": 263,
+   "models": [
+    "claude-sonnet-5-5"
+   ]
+  }
+ ]
+}

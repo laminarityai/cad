@@ -1,0 +1,29 @@
+{
+ "lib": "build123d",
+ "model": "opus",
+ "part": "spur_gear",
+ "sample": 2,
+ "first_try": true,
+ "after_repair": true,
+ "attempts": [
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     10.0,
+     52.0,
+     52.0
+    ],
+    "volume": 17250.32
+   },
+   "detail": "",
+   "duration_ms": 17865,
+   "cost_usd": 0.041328000000000004,
+   "output_tokens": 1820,
+   "models": [
+    "claude-opus-5-5"
+   ]
+  }
+ ]
+}

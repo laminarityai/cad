@@ -1,0 +1,40 @@
+{
+ "lib": "cadquery",
+ "model": "sonnet",
+ "part": "u_bracket",
+ "sample": 1,
+ "first_try": false,
+ "after_repair": true,
+ "attempts": [
+  {
+   "category": "runtime_error",
+   "pass": false,
+   "detail": "Traceback (most recent call last):\n  File \"/Users/kevin/VisualStudioProjects/cad/proto/kernel-bakeoff/runs/cadquery/sonnet/u_bracket/1/attempt0.py\", line 19, in <module>\n    ).fillet(2.0)\n      ^^^^^^^^^^^\n  File \"/Users/kevin/VisualStudioProjects/cad/proto/kernel-bakeoff/.venv-cq/lib/python3.12/site-packages/cadquery/cq.py\", line 1244, in fillet\n    s = solid.fillet(radius, edgeList)\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/kevin/VisualStudioProjects/cad/proto/kernel-bakeoff/.venv-cq/lib/python3.12/site-packages/cadquery/occ_impl/shapes.py\", line 3987, in fillet\n    return self.__class__(fillet_builder.Shape())\n                          ^^^^^^^^^^^^^^^^^^^^^^\nOCP.OCP.Standard.Standard_Failure: BRep_API: command not done\n",
+   "duration_ms": 5601,
+   "cost_usd": 0.005242599999999999,
+   "output_tokens": 432,
+   "models": [
+    "claude-sonnet-5-5"
+   ]
+  },
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     30.0,
+     40.0,
+     50.0
+    ],
+    "volume": 9572.74
+   },
+   "detail": "",
+   "duration_ms": 9118,
+   "cost_usd": 0.016358,
+   "output_tokens": 1005,
+   "models": [
+    "claude-sonnet-5-5"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,29 @@
+{
+ "lib": "build123d",
+ "model": "opus",
+ "part": "shaft_collar",
+ "sample": 2,
+ "first_try": true,
+ "after_repair": true,
+ "attempts": [
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     10.0,
+     25.0,
+     25.0
+    ],
+    "volume": 3589.16
+   },
+   "detail": "",
+   "duration_ms": 3216,
+   "cost_usd": 0.012088000000000002,
+   "output_tokens": 360,
+   "models": [
+    "claude-opus-5-5"
+   ]
+  }
+ ]
+}

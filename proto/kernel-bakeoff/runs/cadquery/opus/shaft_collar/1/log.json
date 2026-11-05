@@ -1,0 +1,29 @@
+{
+ "lib": "cadquery",
+ "model": "opus",
+ "part": "shaft_collar",
+ "sample": 1,
+ "first_try": true,
+ "after_repair": true,
+ "attempts": [
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     10.0,
+     25.0,
+     25.0
+    ],
+    "volume": 3589.16
+   },
+   "detail": "",
+   "duration_ms": 3202,
+   "cost_usd": 0.010672000000000001,
+   "output_tokens": 288,
+   "models": [
+    "claude-opus-5-5"
+   ]
+  }
+ ]
+}

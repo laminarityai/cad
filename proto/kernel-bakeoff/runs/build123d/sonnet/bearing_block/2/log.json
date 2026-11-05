@@ -1,0 +1,29 @@
+{
+ "lib": "build123d",
+ "model": "sonnet",
+ "part": "bearing_block",
+ "sample": 2,
+ "first_try": true,
+ "after_repair": true,
+ "attempts": [
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     20.0,
+     40.0,
+     40.0
+    ],
+    "volume": 24736.73
+   },
+   "detail": "",
+   "duration_ms": 2653,
+   "cost_usd": 0.006072,
+   "output_tokens": 340,
+   "models": [
+    "claude-sonnet-5-5"
+   ]
+  }
+ ]
+}

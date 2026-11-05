@@ -1,0 +1,98 @@
+{
+ "duration_api_ms": 6910,
+ "stop_reason": "end_turn",
+ "session_id": "439c10a7-a425-43d3-9085-0f9033c1e110",
+ "total_cost_usd": 0.013107999999999998,
+ "usage": {
+  "input_tokens": 2,
+  "cache_creation_input_tokens": 625,
+  "cache_read_input_tokens": 0,
+  "output_tokens": 405,
+  "output_tokens_details": {
+   "thinking_tokens": 168
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 625,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "global",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 405,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 625,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 625
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard",
+  "fallback_credit": null
+ },
+ "modelUsage": {
+  "claude-opus-5-5": {
+   "inputTokens": 2,
+   "outputTokens": 405,
+   "cacheReadInputTokens": 0,
+   "cacheCreationInputTokens": 625,
+   "webSearchRequests": 0,
+   "costUSD": 0.013107999999999998,
+   "contextWindow": 1000000,
+   "maxOutputTokens": 128000,
+   "thinkingTokens": 168,
+   "canonicalModel": "claude-opus-5-5",
+   "provider": "firstParty",
+   "costBasis": "list"
+  }
+ },
+ "permission_denials": [],
+ "terminal_reason": "completed",
+ "fast_mode_state": "off",
+ "fast_mode_disabled_reason": "sdk_opt_in_required",
+ "subagent_stats": {
+  "spawned": 0,
+  "requested": {
+   "background": 0,
+   "foreground": 0,
+   "unset": 0
+  },
+  "started_in_background": 0,
+  "max_depth": 0,
+  "spawned_by_subagents": 0,
+  "completed": 0,
+  "failed": 0,
+  "killed": {
+   "parent": 0,
+   "user": 0,
+   "system": 0
+  },
+  "refused": {
+   "depth_limit": 0,
+   "concurrency_limit": 0,
+   "budget": 0
+  },
+  "by_type": {}
+ },
+ "is_error": false,
+ "num_turns": 1,
+ "subtype": "success",
+ "api_error_status": null,
+ "result": "```python\nfrom build123d import *\n\nleg = 50.0\nthk = 4.0\nhole_d = 20.0\nr_corner = 3.0\n\ncx = leg / 3.0\ncy = leg / 3.0\n\nwith BuildPart() as part:\n    with BuildSketch():\n        Polygon((0, 0), (leg, 0), (0, leg), align=None)\n    extrude(amount=thk)\n    fillet(part.edges().filter_by(Axis.Z), radius=r_corner)\n    with Locations((cx, cy, 0)):\n        Cylinder(radius=hole_d / 2, height=thk * 3, mode=Mode.SUBTRACT)\n\nexport_step(part.part, \"out.step\")\n```",
+ "ttft_ms": 5130,
+ "type": "result",
+ "duration_ms": 6937,
+ "uuid": "cb1fdb5e-f601-4a02-985a-82fee3189976",
+ "ttft_stream_ms": 3238,
+ "time_to_request_ms": 21,
+ "first_content_frame_ms": 3238,
+ "queued_turn_count": 0,
+ "result_index": 0
+}

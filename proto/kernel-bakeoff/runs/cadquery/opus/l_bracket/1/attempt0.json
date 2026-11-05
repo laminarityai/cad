@@ -1,0 +1,98 @@
+{
+ "duration_api_ms": 5188,
+ "stop_reason": "end_turn",
+ "session_id": "e434b0c8-6f06-4d20-b08c-483e8b125138",
+ "total_cost_usd": 0.016808,
+ "usage": {
+  "input_tokens": 2,
+  "cache_creation_input_tokens": 645,
+  "cache_read_input_tokens": 0,
+  "output_tokens": 582,
+  "output_tokens_details": {
+   "thinking_tokens": 142
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 645,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "global",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 582,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 645,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 645
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard",
+  "fallback_credit": null
+ },
+ "modelUsage": {
+  "claude-opus-5-5": {
+   "inputTokens": 2,
+   "outputTokens": 582,
+   "cacheReadInputTokens": 0,
+   "cacheCreationInputTokens": 645,
+   "webSearchRequests": 0,
+   "costUSD": 0.016808,
+   "contextWindow": 1000000,
+   "maxOutputTokens": 128000,
+   "thinkingTokens": 142,
+   "canonicalModel": "claude-opus-5-5",
+   "provider": "firstParty",
+   "costBasis": "list"
+  }
+ },
+ "permission_denials": [],
+ "terminal_reason": "completed",
+ "fast_mode_state": "off",
+ "fast_mode_disabled_reason": "sdk_opt_in_required",
+ "subagent_stats": {
+  "spawned": 0,
+  "requested": {
+   "background": 0,
+   "foreground": 0,
+   "unset": 0
+  },
+  "started_in_background": 0,
+  "max_depth": 0,
+  "spawned_by_subagents": 0,
+  "completed": 0,
+  "failed": 0,
+  "killed": {
+   "parent": 0,
+   "user": 0,
+   "system": 0
+  },
+  "refused": {
+   "depth_limit": 0,
+   "concurrency_limit": 0,
+   "budget": 0
+  },
+  "by_type": {}
+ },
+ "is_error": false,
+ "num_turns": 1,
+ "subtype": "success",
+ "api_error_status": null,
+ "result": "```python\nimport cadquery as cq\n\nT = 3.0\nW = 30.0\nL = 40.0\nD = 5.1\nhole_pos = [12.0, 30.0]\n\n# Horizontal leg: x 0..L, y 0..W, z 0..T\nhoriz = cq.Workplane(\"XY\").box(L, W, T, centered=False)\n# Vertical leg: x 0..T, y 0..W, z 0..L\nvert = cq.Workplane(\"XY\").box(T, W, L, centered=False)\n\nbracket = horiz.union(vert)\n\n# Holes in horizontal leg (through Z)\nfor p in hole_pos:\n    cyl = (\n        cq.Workplane(\"XY\")\n        .workplane(offset=-1)\n        .center(p, W / 2)\n        .circle(D / 2)\n        .extrude(T + 2)\n    )\n    bracket = bracket.cut(cyl)\n\n# Holes in vertical leg (through X)\nfor p in hole_pos:\n    cyl = (\n        cq.Workplane(\"YZ\")\n        .workplane(offset=-1)\n        .center(W / 2, p)\n        .circle(D / 2)\n        .extrude(T + 2)\n    )\n    bracket = bracket.cut(cyl)\n\nresult = bracket.clean()\ncq.exporters.export(result, \"out.step\")\n```",
+ "ttft_ms": 2246,
+ "type": "result",
+ "duration_ms": 5218,
+ "uuid": "dc46a3ac-5412-4189-8655-27aef105c3c4",
+ "ttft_stream_ms": 920,
+ "time_to_request_ms": 27,
+ "first_content_frame_ms": 920,
+ "queued_turn_count": 0,
+ "result_index": 0
+}

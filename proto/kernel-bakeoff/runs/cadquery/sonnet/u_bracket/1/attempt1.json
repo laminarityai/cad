@@ -1,0 +1,98 @@
+{
+ "duration_api_ms": 9082,
+ "stop_reason": "end_turn",
+ "session_id": "d7b6800f-399c-41f8-9c39-cbaab7890179",
+ "total_cost_usd": 0.016358,
+ "usage": {
+  "input_tokens": 2,
+  "cache_creation_input_tokens": 1576,
+  "cache_read_input_tokens": 0,
+  "output_tokens": 1005,
+  "output_tokens_details": {
+   "thinking_tokens": 536
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 1576,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "global",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 1005,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 1576,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 1576
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard",
+  "fallback_credit": null
+ },
+ "modelUsage": {
+  "claude-sonnet-5-5": {
+   "inputTokens": 2,
+   "outputTokens": 1005,
+   "cacheReadInputTokens": 0,
+   "cacheCreationInputTokens": 1576,
+   "webSearchRequests": 0,
+   "costUSD": 0.016358,
+   "contextWindow": 1000000,
+   "maxOutputTokens": 128000,
+   "thinkingTokens": 536,
+   "canonicalModel": "claude-sonnet-5-5",
+   "provider": "firstParty",
+   "costBasis": "list"
+  }
+ },
+ "permission_denials": [],
+ "terminal_reason": "completed",
+ "fast_mode_state": "off",
+ "fast_mode_disabled_reason": "sdk_opt_in_required",
+ "subagent_stats": {
+  "spawned": 0,
+  "requested": {
+   "background": 0,
+   "foreground": 0,
+   "unset": 0
+  },
+  "started_in_background": 0,
+  "max_depth": 0,
+  "spawned_by_subagents": 0,
+  "completed": 0,
+  "failed": 0,
+  "killed": {
+   "parent": 0,
+   "user": 0,
+   "system": 0
+  },
+  "refused": {
+   "depth_limit": 0,
+   "concurrency_limit": 0,
+   "budget": 0
+  },
+  "by_type": {}
+ },
+ "is_error": false,
+ "num_turns": 1,
+ "subtype": "success",
+ "api_error_status": null,
+ "result": "```python\nimport cadquery as cq\n\nW, H, D, t = 40.0, 30.0, 50.0, 2.0\n\n# U profile in XZ plane (local x = X, local y = Z), extruded along +Y\npts = [\n    (-W / 2, 0),\n    (W / 2, 0),\n    (W / 2, H),\n    (W / 2 - t, H),\n    (W / 2 - t, t),\n    (-W / 2 + t, t),\n    (-W / 2 + t, H),\n    (-W / 2, H),\n]\nbody = cq.Workplane(\"XZ\").polyline(pts).close().extrude(-D)\n\n# Select only the two inside corner edges (parallel to Y)\ninner_edges = [\n    e\n    for e in body.edges(\"|Y\").vals()\n    if abs(abs(e.Center().x) - (W / 2 - t)) < 1e-3 and abs(e.Center().z - t) < 1e-3\n]\nbody = body.newObject(inner_edges).fillet(2.0)\n\n# Cross hole through both walls along X, centered along depth, 20 mm above bottom\nhole = (\n    cq.Workplane(\"YZ\")\n    .workplane(offset=-W / 2 - 1)\n    .center(D / 2, 20)\n    .circle(3.0)\n    .extrude(W + 2)\n)\nbody = body.cut(hole)\n\ncq.exporters.export(body, \"out.step\")\n```",
+ "ttft_ms": 7153,
+ "type": "result",
+ "duration_ms": 9118,
+ "uuid": "b98aff15-6eb1-4108-81ab-d1d92cd98812",
+ "ttft_stream_ms": 1744,
+ "time_to_request_ms": 28,
+ "first_content_frame_ms": 1744,
+ "queued_turn_count": 0,
+ "result_index": 0
+}

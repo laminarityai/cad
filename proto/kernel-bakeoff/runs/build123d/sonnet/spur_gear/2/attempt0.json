@@ -1,0 +1,98 @@
+{
+ "duration_api_ms": 15362,
+ "stop_reason": "end_turn",
+ "session_id": "570a468f-510f-489f-97ab-33117ac61907",
+ "total_cost_usd": 0.020238000000000003,
+ "usage": {
+  "input_tokens": 2,
+  "cache_creation_input_tokens": 621,
+  "cache_read_input_tokens": 0,
+  "output_tokens": 1775,
+  "output_tokens_details": {
+   "thinking_tokens": 994
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 621,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "global",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 1775,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 621,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 621
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard",
+  "fallback_credit": null
+ },
+ "modelUsage": {
+  "claude-sonnet-5-5": {
+   "inputTokens": 2,
+   "outputTokens": 1775,
+   "cacheReadInputTokens": 0,
+   "cacheCreationInputTokens": 621,
+   "webSearchRequests": 0,
+   "costUSD": 0.020238000000000003,
+   "contextWindow": 1000000,
+   "maxOutputTokens": 128000,
+   "thinkingTokens": 994,
+   "canonicalModel": "claude-sonnet-5-5",
+   "provider": "firstParty",
+   "costBasis": "list"
+  }
+ },
+ "permission_denials": [],
+ "terminal_reason": "completed",
+ "fast_mode_state": "off",
+ "fast_mode_disabled_reason": "sdk_opt_in_required",
+ "subagent_stats": {
+  "spawned": 0,
+  "requested": {
+   "background": 0,
+   "foreground": 0,
+   "unset": 0
+  },
+  "started_in_background": 0,
+  "max_depth": 0,
+  "spawned_by_subagents": 0,
+  "completed": 0,
+  "failed": 0,
+  "killed": {
+   "parent": 0,
+   "user": 0,
+   "system": 0
+  },
+  "refused": {
+   "depth_limit": 0,
+   "concurrency_limit": 0,
+   "budget": 0
+  },
+  "by_type": {}
+ },
+ "is_error": false,
+ "num_turns": 1,
+ "subtype": "success",
+ "api_error_status": null,
+ "result": "```python\nfrom build123d import *\nimport math\n\nm = 2.0\nz = 24\nalpha = math.radians(20)\nthickness = 10.0\nbore_d = 8.0\n\nrp = m * z / 2\nrb = rp * math.cos(alpha)\nra = rp + m\nrr = rp - 1.25 * m\n\ndef inv(a):\n    return math.tan(a) - a\n\ndef psi(r):\n    ar = math.acos(min(1.0, rb / r))\n    return math.pi / (2 * z) + inv(alpha) - inv(ar)\n\ndef pt(r, a):\n    return (r * math.cos(a), r * math.sin(a))\n\npitch = 2 * math.pi / z\nn_flank = 12\npts = []\nfor i in range(z):\n    tc = i * pitch\n    # right flank, rising\n    rs = [rb + (ra - rb) * k / n_flank for k in range(n_flank + 1)]\n    pts.append(pt(rr, tc - psi(rb)))\n    for r in rs:\n        pts.append(pt(r, tc - psi(r)))\n    # tip midpoint\n    pts.append(pt(ra, tc))\n    # left flank, descending\n    for r in reversed(rs):\n        pts.append(pt(r, tc + psi(r)))\n    pts.append(pt(rr, tc + psi(rb)))\n    # root arc to next tooth\n    a0 = tc + psi(rb)\n    a1 = tc + pitch - psi(rb)\n    for k in range(1, 4):\n        pts.append(pt(rr, a0 + (a1 - a0) * k / 4))\n\n# remove consecutive duplicates\nclean = []\nfor p in pts:\n    if not clean or math.hypot(p[0] - clean[-1][0], p[1] - clean[-1][1]) > 1e-6:\n        clean.append(p)\nif math.hypot(clean[0][0] - clean[-1][0], clean[0][1] - clean[-1][1]) < 1e-6:\n    clean.pop()\n\nwire = Polyline(*clean, close=True)\nface = make_face(wire)\ngear = extrude(face, thickness)\nbore = Cylinder(bore_d / 2, thickness, align=(Align.CENTER, Align.CENTER, Align.MIN))\nresult = gear - bore\n\nexport_step(result, \"out.step\")\n```",
+ "ttft_ms": 11641,
+ "type": "result",
+ "duration_ms": 15445,
+ "uuid": "abc30832-f29b-4623-a0d8-5356a208b6ae",
+ "ttft_stream_ms": 2772,
+ "time_to_request_ms": 80,
+ "first_content_frame_ms": 2772,
+ "queued_turn_count": 0,
+ "result_index": 0
+}

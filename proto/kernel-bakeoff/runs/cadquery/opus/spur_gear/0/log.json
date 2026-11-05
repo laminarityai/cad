@@ -1,0 +1,29 @@
+{
+ "lib": "cadquery",
+ "model": "opus",
+ "part": "spur_gear",
+ "sample": 0,
+ "first_try": true,
+ "after_repair": true,
+ "attempts": [
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     10.0,
+     52.0,
+     52.0
+    ],
+    "volume": 17250.32
+   },
+   "detail": "",
+   "duration_ms": 14136,
+   "cost_usd": 0.033172,
+   "output_tokens": 1411,
+   "models": [
+    "claude-opus-5-5"
+   ]
+  }
+ ]
+}

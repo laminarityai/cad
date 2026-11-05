@@ -1,0 +1,29 @@
+{
+ "lib": "build123d",
+ "model": "opus",
+ "part": "l_bracket",
+ "sample": 2,
+ "first_try": true,
+ "after_repair": true,
+ "attempts": [
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     30.0,
+     40.0,
+     40.0
+    ],
+    "volume": 6684.86
+   },
+   "detail": "",
+   "duration_ms": 4881,
+   "cost_usd": 0.016064000000000002,
+   "output_tokens": 546,
+   "models": [
+    "claude-opus-5-5"
+   ]
+  }
+ ]
+}

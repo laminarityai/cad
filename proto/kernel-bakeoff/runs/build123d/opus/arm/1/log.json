@@ -1,0 +1,29 @@
+{
+ "lib": "build123d",
+ "model": "opus",
+ "part": "arm",
+ "sample": 1,
+ "first_try": true,
+ "after_repair": true,
+ "attempts": [
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     6.0,
+     40.0,
+     290.0
+    ],
+    "volume": 49489.86
+   },
+   "detail": "",
+   "duration_ms": 4808,
+   "cost_usd": 0.013692,
+   "output_tokens": 405,
+   "models": [
+    "claude-opus-5-5"
+   ]
+  }
+ ]
+}

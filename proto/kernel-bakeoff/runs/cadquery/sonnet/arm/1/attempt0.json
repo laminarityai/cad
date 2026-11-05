@@ -1,0 +1,98 @@
+{
+ "duration_api_ms": 4812,
+ "stop_reason": "end_turn",
+ "session_id": "bf599d83-21bb-4c44-b058-909ba6aef284",
+ "total_cost_usd": 0.006232,
+ "usage": {
+  "input_tokens": 2,
+  "cache_creation_input_tokens": 707,
+  "cache_read_input_tokens": 0,
+  "output_tokens": 340,
+  "output_tokens_details": {
+   "thinking_tokens": 0
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 707,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "global",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 340,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 707,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 707
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard",
+  "fallback_credit": null
+ },
+ "modelUsage": {
+  "claude-sonnet-5-5": {
+   "inputTokens": 2,
+   "outputTokens": 340,
+   "cacheReadInputTokens": 0,
+   "cacheCreationInputTokens": 707,
+   "webSearchRequests": 0,
+   "costUSD": 0.006232,
+   "contextWindow": 1000000,
+   "maxOutputTokens": 128000,
+   "thinkingTokens": 0,
+   "canonicalModel": "claude-sonnet-5-5",
+   "provider": "firstParty",
+   "costBasis": "list"
+  }
+ },
+ "permission_denials": [],
+ "terminal_reason": "completed",
+ "fast_mode_state": "off",
+ "fast_mode_disabled_reason": "sdk_opt_in_required",
+ "subagent_stats": {
+  "spawned": 0,
+  "requested": {
+   "background": 0,
+   "foreground": 0,
+   "unset": 0
+  },
+  "started_in_background": 0,
+  "max_depth": 0,
+  "spawned_by_subagents": 0,
+  "completed": 0,
+  "failed": 0,
+  "killed": {
+   "parent": 0,
+   "user": 0,
+   "system": 0
+  },
+  "refused": {
+   "depth_limit": 0,
+   "concurrency_limit": 0,
+   "budget": 0
+  },
+  "by_type": {}
+ },
+ "is_error": false,
+ "num_turns": 1,
+ "subtype": "success",
+ "api_error_status": null,
+ "result": "```python\nimport cadquery as cq\n\n# Plate: slot shape, bore centers 250 apart, end radius 20, width 40, thickness 6\nplate = (\n    cq.Workplane(\"XY\")\n    .center(125, 0)\n    .slot2D(290, 40, 0)\n    .extrude(6)\n)\n\n# Bearing bores at each end\nplate = (\n    plate.faces(\">Z\").workplane(origin=(0, 0, 6))\n    .pushPoints([(0, 0), (250, 0)])\n    .hole(28)\n)\n\n# Lightening pockets (30 long along X, 20 wide along Y), 3 mm corner radii\ncutter = (\n    cq.Workplane(\"XY\")\n    .pushPoints([(62.5, 0), (125, 0), (187.5, 0)])\n    .rect(30, 20)\n    .extrude(6)\n    .edges(\"|Z\")\n    .fillet(3)\n)\nplate = plate.cut(cutter)\n\ncq.exporters.export(plate, \"out.step\")\n```",
+ "ttft_ms": 4943,
+ "type": "result",
+ "duration_ms": 4961,
+ "uuid": "d42cc537-82c6-4846-b293-f3fa5fcc8646",
+ "ttft_stream_ms": 2746,
+ "time_to_request_ms": 146,
+ "first_content_frame_ms": 2746,
+ "queued_turn_count": 0,
+ "result_index": 0
+}

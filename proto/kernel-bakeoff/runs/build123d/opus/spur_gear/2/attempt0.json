@@ -1,0 +1,98 @@
+{
+ "duration_api_ms": 17828,
+ "stop_reason": "end_turn",
+ "session_id": "d8e83aea-d4f5-420f-9946-971f5ad10f2b",
+ "total_cost_usd": 0.041328000000000004,
+ "usage": {
+  "input_tokens": 2,
+  "cache_creation_input_tokens": 615,
+  "cache_read_input_tokens": 0,
+  "output_tokens": 1820,
+  "output_tokens_details": {
+   "thinking_tokens": 944
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 615,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "global",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 1820,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 615,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 615
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard",
+  "fallback_credit": null
+ },
+ "modelUsage": {
+  "claude-opus-5-5": {
+   "inputTokens": 2,
+   "outputTokens": 1820,
+   "cacheReadInputTokens": 0,
+   "cacheCreationInputTokens": 615,
+   "webSearchRequests": 0,
+   "costUSD": 0.041328000000000004,
+   "contextWindow": 1000000,
+   "maxOutputTokens": 128000,
+   "thinkingTokens": 944,
+   "canonicalModel": "claude-opus-5-5",
+   "provider": "firstParty",
+   "costBasis": "list"
+  }
+ },
+ "permission_denials": [],
+ "terminal_reason": "completed",
+ "fast_mode_state": "off",
+ "fast_mode_disabled_reason": "sdk_opt_in_required",
+ "subagent_stats": {
+  "spawned": 0,
+  "requested": {
+   "background": 0,
+   "foreground": 0,
+   "unset": 0
+  },
+  "started_in_background": 0,
+  "max_depth": 0,
+  "spawned_by_subagents": 0,
+  "completed": 0,
+  "failed": 0,
+  "killed": {
+   "parent": 0,
+   "user": 0,
+   "system": 0
+  },
+  "refused": {
+   "depth_limit": 0,
+   "concurrency_limit": 0,
+   "budget": 0
+  },
+  "by_type": {}
+ },
+ "is_error": false,
+ "num_turns": 1,
+ "subtype": "success",
+ "api_error_status": null,
+ "result": "```python\nimport math\nfrom build123d import *\n\n# Gear parameters\nm = 2.0\nz = 24\npa = math.radians(20.0)\nthickness = 10.0\nbore_d = 8.0\n\nrp = m * z / 2.0            # pitch radius\nrb = rp * math.cos(pa)      # base radius\nra = rp + 1.0 * m           # addendum radius\nrf = rp - 1.25 * m          # root radius\n\n\ndef inv(a):\n    return math.tan(a) - a\n\n\ndef psi(r):\n    \"\"\"Half tooth thickness angle at radius r.\"\"\"\n    if r <= rb:\n        r = rb\n    ar = math.acos(rb / r)\n    return math.pi / (2 * z) + inv(pa) - inv(ar)\n\n\ndef pt(r, ang):\n    return (r * math.cos(ang), r * math.sin(ang))\n\n\nn_flank = 20\nn_tip = 6\nn_root = 6\n\n# radii along the involute flank (base -> tip)\nr_start = max(rb, rf)\nflank_r = [r_start + (ra - r_start) * i / n_flank for i in range(n_flank + 1)]\n\npts = []\npitch_ang = 2 * math.pi / z\nfor i in range(z):\n    th = i * pitch_ang\n    # right flank (going up)\n    if rf < rb:\n        pts.append(pt(rf, th - psi(rb)))\n    for r in flank_r:\n        pts.append(pt(r, th - psi(r)))\n    # tip arc (interior points)\n    a0 = th - psi(ra)\n    a1 = th + psi(ra)\n    for k in range(1, n_tip):\n        pts.append(pt(ra, a0 + (a1 - a0) * k / n_tip))\n    # left flank (going down)\n    for r in reversed(flank_r):\n        pts.append(pt(r, th + psi(r)))\n    if rf < rb:\n        pts.append(pt(rf, th + psi(rb)))\n    # root arc (interior points) to next tooth\n    b0 = th + psi(rb)\n    b1 = th + pitch_ang - psi(rb)\n    for k in range(1, n_root):\n        pts.append(pt(rf, b0 + (b1 - b0) * k / n_root))\n\nprofile = make_face(Polyline(*pts, close=True))\ngear = extrude(profile, amount=thickness)\n\nbore = Cylinder(bore_d / 2.0, thickness + 2, align=(Align.CENTER, Align.CENTER, Align.MIN))\ngear = gear - Pos(0, 0, -1) * bore\n\nexport_step(gear, \"out.step\")\n```",
+ "ttft_ms": 11399,
+ "type": "result",
+ "duration_ms": 17865,
+ "uuid": "4745aef7-2e86-4a73-938a-d641edaa5d60",
+ "ttft_stream_ms": 1417,
+ "time_to_request_ms": 36,
+ "first_content_frame_ms": 1417,
+ "queued_turn_count": 0,
+ "result_index": 0
+}

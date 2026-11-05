@@ -1,0 +1,29 @@
+{
+ "lib": "cadquery",
+ "model": "opus",
+ "part": "arm",
+ "sample": 2,
+ "first_try": true,
+ "after_repair": true,
+ "attempts": [
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     6.0,
+     40.0,
+     290.0
+    ],
+    "volume": 49489.86
+   },
+   "detail": "",
+   "duration_ms": 5281,
+   "cost_usd": 0.017436,
+   "output_tokens": 591,
+   "models": [
+    "claude-opus-5-5"
+   ]
+  }
+ ]
+}

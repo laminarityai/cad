@@ -1,0 +1,29 @@
+{
+ "lib": "cadquery",
+ "model": "opus",
+ "part": "motor_plate",
+ "sample": 1,
+ "first_try": true,
+ "after_repair": true,
+ "attempts": [
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     6.0,
+     60.0,
+     60.0
+    ],
+    "volume": 19126.18
+   },
+   "detail": "",
+   "duration_ms": 3868,
+   "cost_usd": 0.011256,
+   "output_tokens": 310,
+   "models": [
+    "claude-opus-5-5"
+   ]
+  }
+ ]
+}

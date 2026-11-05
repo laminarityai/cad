@@ -1,0 +1,29 @@
+{
+ "lib": "build123d",
+ "model": "sonnet",
+ "part": "motor_plate",
+ "sample": 2,
+ "first_try": true,
+ "after_repair": true,
+ "attempts": [
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     6.0,
+     60.0,
+     60.0
+    ],
+    "volume": 19126.18
+   },
+   "detail": "",
+   "duration_ms": 2523,
+   "cost_usd": 0.00507,
+   "output_tokens": 253,
+   "models": [
+    "claude-sonnet-5-5"
+   ]
+  }
+ ]
+}

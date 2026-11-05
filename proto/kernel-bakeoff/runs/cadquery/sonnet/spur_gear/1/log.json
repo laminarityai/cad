@@ -1,0 +1,29 @@
+{
+ "lib": "cadquery",
+ "model": "sonnet",
+ "part": "spur_gear",
+ "sample": 1,
+ "first_try": true,
+ "after_repair": true,
+ "attempts": [
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     10.0,
+     51.98,
+     51.98
+    ],
+    "volume": 17246.16
+   },
+   "detail": "",
+   "duration_ms": 12905,
+   "cost_usd": 0.01659,
+   "output_tokens": 1409,
+   "models": [
+    "claude-sonnet-5-5"
+   ]
+  }
+ ]
+}

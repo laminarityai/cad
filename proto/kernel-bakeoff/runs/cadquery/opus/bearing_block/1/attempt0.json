@@ -1,0 +1,98 @@
+{
+ "duration_api_ms": 4820,
+ "stop_reason": "end_turn",
+ "session_id": "e2c1c353-a858-4ec9-ab96-2f75e78e6964",
+ "total_cost_usd": 0.016259999999999997,
+ "usage": {
+  "input_tokens": 2,
+  "cache_creation_input_tokens": 664,
+  "cache_read_input_tokens": 0,
+  "output_tokens": 547,
+  "output_tokens_details": {
+   "thinking_tokens": 119
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 664,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "global",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 547,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 664,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 664
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard",
+  "fallback_credit": null
+ },
+ "modelUsage": {
+  "claude-opus-5-5": {
+   "inputTokens": 2,
+   "outputTokens": 547,
+   "cacheReadInputTokens": 0,
+   "cacheCreationInputTokens": 664,
+   "webSearchRequests": 0,
+   "costUSD": 0.016259999999999997,
+   "contextWindow": 1000000,
+   "maxOutputTokens": 128000,
+   "thinkingTokens": 119,
+   "canonicalModel": "claude-opus-5-5",
+   "provider": "firstParty",
+   "costBasis": "list"
+  }
+ },
+ "permission_denials": [],
+ "terminal_reason": "completed",
+ "fast_mode_state": "off",
+ "fast_mode_disabled_reason": "sdk_opt_in_required",
+ "subagent_stats": {
+  "spawned": 0,
+  "requested": {
+   "background": 0,
+   "foreground": 0,
+   "unset": 0
+  },
+  "started_in_background": 0,
+  "max_depth": 0,
+  "spawned_by_subagents": 0,
+  "completed": 0,
+  "failed": 0,
+  "killed": {
+   "parent": 0,
+   "user": 0,
+   "system": 0
+  },
+  "refused": {
+   "depth_limit": 0,
+   "concurrency_limit": 0,
+   "budget": 0
+  },
+  "by_type": {}
+ },
+ "is_error": false,
+ "num_turns": 1,
+ "subtype": "success",
+ "api_error_status": null,
+ "result": "```python\nimport cadquery as cq\n\nL = 40.0\nW = 40.0\nH = 20.0\n\npocket_d = 28.0\npocket_depth = 8.0\nbore_d = 12.7\n\nmount_d = 5.1\ninset = 5.0\n\n# Base block, bottom at z=0, top at z=H\nblock = cq.Workplane(\"XY\").box(L, W, H, centered=(True, True, False))\n\n# Bearing pocket from the top face\npocket = (\n    cq.Workplane(\"XY\")\n    .workplane(offset=H - pocket_depth)\n    .circle(pocket_d / 2.0)\n    .extrude(pocket_depth)\n)\n\n# Through bore on the same axis\nbore = cq.Workplane(\"XY\").circle(bore_d / 2.0).extrude(H)\n\n# Two mounting holes at diagonally opposite corners\nhx = L / 2.0 - inset\nhy = W / 2.0 - inset\nmounts = (\n    cq.Workplane(\"XY\")\n    .pushPoints([(-hx, -hy), (hx, hy)])\n    .circle(mount_d / 2.0)\n    .extrude(H)\n)\n\nresult = block.cut(pocket).cut(bore).cut(mounts)\n\ncq.exporters.export(result, \"out.step\")\n```",
+ "ttft_ms": 1788,
+ "type": "result",
+ "duration_ms": 4887,
+ "uuid": "43acadb3-60ec-4bb7-b053-ece9c23acec3",
+ "ttft_stream_ms": 556,
+ "time_to_request_ms": 56,
+ "first_content_frame_ms": 557,
+ "queued_turn_count": 0,
+ "result_index": 0
+}

@@ -1,0 +1,29 @@
+{
+ "lib": "build123d",
+ "model": "sonnet",
+ "part": "plate",
+ "sample": 1,
+ "first_try": true,
+ "after_repair": true,
+ "attempts": [
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     6.0,
+     50.0,
+     100.0
+    ],
+    "volume": 29509.72
+   },
+   "detail": "",
+   "duration_ms": 2147,
+   "cost_usd": 0.004592000000000001,
+   "output_tokens": 218,
+   "models": [
+    "claude-sonnet-5-5"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,29 @@
+{
+ "lib": "build123d",
+ "model": "sonnet",
+ "part": "spur_gear",
+ "sample": 0,
+ "first_try": true,
+ "after_repair": true,
+ "attempts": [
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     10.0,
+     52.0,
+     52.0
+    ],
+    "volume": 17513.15
+   },
+   "detail": "",
+   "duration_ms": 10126,
+   "cost_usd": 0.016008,
+   "output_tokens": 1352,
+   "models": [
+    "claude-sonnet-5-5"
+   ]
+  }
+ ]
+}

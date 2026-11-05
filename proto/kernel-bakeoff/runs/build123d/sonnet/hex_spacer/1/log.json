@@ -1,0 +1,29 @@
+{
+ "lib": "build123d",
+ "model": "sonnet",
+ "part": "hex_spacer",
+ "sample": 1,
+ "first_try": true,
+ "after_repair": true,
+ "attempts": [
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     10.0,
+     25.0,
+     25.0
+    ],
+    "volume": 3511.93
+   },
+   "detail": "",
+   "duration_ms": 3307,
+   "cost_usd": 0.0056240000000000005,
+   "output_tokens": 322,
+   "models": [
+    "claude-sonnet-5-5"
+   ]
+  }
+ ]
+}

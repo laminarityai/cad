@@ -1,0 +1,98 @@
+{
+ "duration_api_ms": 6940,
+ "stop_reason": "end_turn",
+ "session_id": "837693f5-4a89-418e-af75-95fa06c87e91",
+ "total_cost_usd": 0.019896,
+ "usage": {
+  "input_tokens": 2,
+  "cache_creation_input_tokens": 711,
+  "cache_read_input_tokens": 0,
+  "output_tokens": 710,
+  "output_tokens_details": {
+   "thinking_tokens": 243
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 711,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "global",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 710,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 711,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 711
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard",
+  "fallback_credit": null
+ },
+ "modelUsage": {
+  "claude-opus-5-5": {
+   "inputTokens": 2,
+   "outputTokens": 710,
+   "cacheReadInputTokens": 0,
+   "cacheCreationInputTokens": 711,
+   "webSearchRequests": 0,
+   "costUSD": 0.019896,
+   "contextWindow": 1000000,
+   "maxOutputTokens": 128000,
+   "thinkingTokens": 243,
+   "canonicalModel": "claude-opus-5-5",
+   "provider": "firstParty",
+   "costBasis": "list"
+  }
+ },
+ "permission_denials": [],
+ "terminal_reason": "completed",
+ "fast_mode_state": "off",
+ "fast_mode_disabled_reason": "sdk_opt_in_required",
+ "subagent_stats": {
+  "spawned": 0,
+  "requested": {
+   "background": 0,
+   "foreground": 0,
+   "unset": 0
+  },
+  "started_in_background": 0,
+  "max_depth": 0,
+  "spawned_by_subagents": 0,
+  "completed": 0,
+  "failed": 0,
+  "killed": {
+   "parent": 0,
+   "user": 0,
+   "system": 0
+  },
+  "refused": {
+   "depth_limit": 0,
+   "concurrency_limit": 0,
+   "budget": 0
+  },
+  "by_type": {}
+ },
+ "is_error": false,
+ "num_turns": 1,
+ "subtype": "success",
+ "api_error_status": null,
+ "result": "```python\nimport cadquery as cq\n\nW, H, D, T = 40.0, 30.0, 50.0, 2.0\nFILLET_R = 2.0\nHOLE_D = 6.0\nHOLE_Z = 20.0\n\n# Outer block\nbody = cq.Workplane(\"XY\").box(W, D, H, centered=(True, True, False))\n\n# Remove interior (open top and both ends)\ncut = (\n    cq.Workplane(\"XY\")\n    .workplane(offset=T)\n    .box(W - 2 * T, D + 2, H, centered=(True, True, False))\n)\nbody = body.cut(cut)\n\n# Fillet the two inside corners (edges parallel to Y at z=T, x=\u00b1(W/2-T))\ndef inner_corner(e):\n    c = e.Center()\n    return abs(c.z - T) < 1e-6 and abs(abs(c.x) - (W / 2 - T)) < 1e-6\n\nbody = body.edges(\"|Y\").filter(inner_corner).fillet(FILLET_R)\n\n# Coaxial through holes in both side walls\nhole = (\n    cq.Workplane(\"YZ\")\n    .workplane(offset=-W / 2 - 1)\n    .center(0, HOLE_Z)\n    .circle(HOLE_D / 2)\n    .extrude(W + 2)\n)\nbody = body.cut(hole)\n\ncq.exporters.export(body, \"out.step\")\n```",
+ "ttft_ms": 3507,
+ "type": "result",
+ "duration_ms": 6972,
+ "uuid": "d43c9ebe-d3e4-47c7-8b54-5d60fe8e6c7e",
+ "ttft_stream_ms": 1006,
+ "time_to_request_ms": 27,
+ "first_content_frame_ms": 1006,
+ "queued_turn_count": 0,
+ "result_index": 0
+}

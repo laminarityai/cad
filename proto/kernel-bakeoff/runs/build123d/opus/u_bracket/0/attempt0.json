@@ -1,0 +1,98 @@
+{
+ "duration_api_ms": 11248,
+ "stop_reason": "end_turn",
+ "session_id": "dd4db9a7-a060-45d3-ab28-3569d31ed1f7",
+ "total_cost_usd": 0.026511999999999997,
+ "usage": {
+  "input_tokens": 2,
+  "cache_creation_input_tokens": 708,
+  "cache_read_input_tokens": 0,
+  "output_tokens": 1042,
+  "output_tokens_details": {
+   "thinking_tokens": 612
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 708,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "global",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 1042,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 708,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 708
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard",
+  "fallback_credit": null
+ },
+ "modelUsage": {
+  "claude-opus-5-5": {
+   "inputTokens": 2,
+   "outputTokens": 1042,
+   "cacheReadInputTokens": 0,
+   "cacheCreationInputTokens": 708,
+   "webSearchRequests": 0,
+   "costUSD": 0.026511999999999997,
+   "contextWindow": 1000000,
+   "maxOutputTokens": 128000,
+   "thinkingTokens": 612,
+   "canonicalModel": "claude-opus-5-5",
+   "provider": "firstParty",
+   "costBasis": "list"
+  }
+ },
+ "permission_denials": [],
+ "terminal_reason": "completed",
+ "fast_mode_state": "off",
+ "fast_mode_disabled_reason": "sdk_opt_in_required",
+ "subagent_stats": {
+  "spawned": 0,
+  "requested": {
+   "background": 0,
+   "foreground": 0,
+   "unset": 0
+  },
+  "started_in_background": 0,
+  "max_depth": 0,
+  "spawned_by_subagents": 0,
+  "completed": 0,
+  "failed": 0,
+  "killed": {
+   "parent": 0,
+   "user": 0,
+   "system": 0
+  },
+  "refused": {
+   "depth_limit": 0,
+   "concurrency_limit": 0,
+   "budget": 0
+  },
+  "by_type": {}
+ },
+ "is_error": false,
+ "num_turns": 1,
+ "subtype": "success",
+ "api_error_status": null,
+ "result": "```python\nfrom build123d import *\n\nW, H, D, T = 40.0, 30.0, 50.0, 2.0\nFILLET_R = 2.0\nHOLE_D = 6.0\nHOLE_Z = 20.0\n\nwith BuildPart() as bracket:\n    with BuildSketch(Plane.XZ) as profile:\n        Rectangle(W, H, align=(Align.CENTER, Align.MIN))\n        with Locations((0, T)):\n            Rectangle(W - 2 * T, H + 5, align=(Align.CENTER, Align.MIN), mode=Mode.SUBTRACT)\n        inner_corners = [\n            v for v in profile.vertices()\n            if abs(v.Z - T) < 1e-4 and abs(abs(v.X) - (W / 2 - T)) < 1e-4\n        ]\n        fillet(inner_corners, radius=FILLET_R)\n    extrude(amount=D / 2, both=True)\n\n    # Coaxial through holes in both side walls\n    with Locations(Location((0, 0, HOLE_Z), (0, 90, 0))):\n        Cylinder(HOLE_D / 2, W + 10, mode=Mode.SUBTRACT)\n\nresult = bracket.part\nexport_step(result, \"out.step\")\n```",
+ "ttft_ms": 8270,
+ "type": "result",
+ "duration_ms": 11283,
+ "uuid": "87fb5b40-358a-4115-8670-9b9f6f8cc362",
+ "ttft_stream_ms": 1557,
+ "time_to_request_ms": 35,
+ "first_content_frame_ms": 1557,
+ "queued_turn_count": 0,
+ "result_index": 0
+}

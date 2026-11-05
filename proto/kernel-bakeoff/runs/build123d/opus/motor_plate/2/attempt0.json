@@ -1,0 +1,98 @@
+{
+ "duration_api_ms": 6179,
+ "stop_reason": "end_turn",
+ "session_id": "ba923ce7-8b5b-4b57-928c-e396badbacb4",
+ "total_cost_usd": 0.009692,
+ "usage": {
+  "input_tokens": 2,
+  "cache_creation_input_tokens": 628,
+  "cache_read_input_tokens": 0,
+  "output_tokens": 233,
+  "output_tokens_details": {
+   "thinking_tokens": 0
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 628,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "global",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 233,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 628,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 628
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard",
+  "fallback_credit": null
+ },
+ "modelUsage": {
+  "claude-opus-5-5": {
+   "inputTokens": 2,
+   "outputTokens": 233,
+   "cacheReadInputTokens": 0,
+   "cacheCreationInputTokens": 628,
+   "webSearchRequests": 0,
+   "costUSD": 0.009692,
+   "contextWindow": 1000000,
+   "maxOutputTokens": 128000,
+   "thinkingTokens": 0,
+   "canonicalModel": "claude-opus-5-5",
+   "provider": "firstParty",
+   "costBasis": "list"
+  }
+ },
+ "permission_denials": [],
+ "terminal_reason": "completed",
+ "fast_mode_state": "off",
+ "fast_mode_disabled_reason": "sdk_opt_in_required",
+ "subagent_stats": {
+  "spawned": 0,
+  "requested": {
+   "background": 0,
+   "foreground": 0,
+   "unset": 0
+  },
+  "started_in_background": 0,
+  "max_depth": 0,
+  "spawned_by_subagents": 0,
+  "completed": 0,
+  "failed": 0,
+  "killed": {
+   "parent": 0,
+   "user": 0,
+   "system": 0
+  },
+  "refused": {
+   "depth_limit": 0,
+   "concurrency_limit": 0,
+   "budget": 0
+  },
+  "by_type": {}
+ },
+ "is_error": false,
+ "num_turns": 1,
+ "subtype": "success",
+ "api_error_status": null,
+ "result": "```python\nimport math\nfrom build123d import *\n\nL = 60.0\nT = 6.0\ncenter_d = 22.0\nbolt_d = 3.2\nbc_d = 50.8\nr = bc_d / 2\n\nwith BuildPart() as plate:\n    Box(L, L, T)\n    Cylinder(center_d / 2, T, mode=Mode.SUBTRACT)\n    for ang in (45, 135, 225, 315):\n        a = math.radians(ang)\n        with Locations((r * math.cos(a), r * math.sin(a), 0)):\n            Cylinder(bolt_d / 2, T, mode=Mode.SUBTRACT)\n\nexport_step(plate.part, \"out.step\")\n```",
+ "ttft_ms": 6227,
+ "type": "result",
+ "duration_ms": 6245,
+ "uuid": "573fbc73-e28a-41f6-a14e-bdb5bc9b756f",
+ "ttft_stream_ms": 4421,
+ "time_to_request_ms": 66,
+ "first_content_frame_ms": 4422,
+ "queued_turn_count": 0,
+ "result_index": 0
+}

@@ -1,0 +1,29 @@
+{
+ "lib": "cadquery",
+ "model": "opus",
+ "part": "gusset",
+ "sample": 2,
+ "first_try": true,
+ "after_repair": true,
+ "attempts": [
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     4.0,
+     45.757,
+     45.757
+    ],
+    "volume": 3646.64
+   },
+   "detail": "",
+   "duration_ms": 3909,
+   "cost_usd": 0.013131999999999998,
+   "output_tokens": 405,
+   "models": [
+    "claude-opus-5-5"
+   ]
+  }
+ ]
+}

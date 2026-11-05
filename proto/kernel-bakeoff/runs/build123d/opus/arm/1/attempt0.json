@@ -1,0 +1,98 @@
+{
+ "duration_api_ms": 4592,
+ "stop_reason": "end_turn",
+ "session_id": "4070e454-7cdd-4197-89ad-a7f2daa669a0",
+ "total_cost_usd": 0.013692,
+ "usage": {
+  "input_tokens": 2,
+  "cache_creation_input_tokens": 698,
+  "cache_read_input_tokens": 0,
+  "output_tokens": 405,
+  "output_tokens_details": {
+   "thinking_tokens": 89
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 698,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "global",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 405,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 698,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 698
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard",
+  "fallback_credit": null
+ },
+ "modelUsage": {
+  "claude-opus-5-5": {
+   "inputTokens": 2,
+   "outputTokens": 405,
+   "cacheReadInputTokens": 0,
+   "cacheCreationInputTokens": 698,
+   "webSearchRequests": 0,
+   "costUSD": 0.013692,
+   "contextWindow": 1000000,
+   "maxOutputTokens": 128000,
+   "thinkingTokens": 89,
+   "canonicalModel": "claude-opus-5-5",
+   "provider": "firstParty",
+   "costBasis": "list"
+  }
+ },
+ "permission_denials": [],
+ "terminal_reason": "completed",
+ "fast_mode_state": "off",
+ "fast_mode_disabled_reason": "sdk_opt_in_required",
+ "subagent_stats": {
+  "spawned": 0,
+  "requested": {
+   "background": 0,
+   "foreground": 0,
+   "unset": 0
+  },
+  "started_in_background": 0,
+  "max_depth": 0,
+  "spawned_by_subagents": 0,
+  "completed": 0,
+  "failed": 0,
+  "killed": {
+   "parent": 0,
+   "user": 0,
+   "system": 0
+  },
+  "refused": {
+   "depth_limit": 0,
+   "concurrency_limit": 0,
+   "budget": 0
+  },
+  "by_type": {}
+ },
+ "is_error": false,
+ "num_turns": 1,
+ "subtype": "success",
+ "api_error_status": null,
+ "result": "```python\nfrom build123d import *\n\nT = 6.0\nW = 40.0\nC2C = 250.0\nBORE_D = 28.0\nPOCKET_L = 30.0\nPOCKET_W = 20.0\nPOCKET_R = 3.0\npocket_x = [62.5, 125.0, 187.5]\n\nwith BuildPart() as arm:\n    with BuildSketch() as sk:\n        with Locations((C2C / 2, 0)):\n            SlotCenterToCenter(C2C, W)\n        with Locations((0, 0), (C2C, 0)):\n            Circle(BORE_D / 2, mode=Mode.SUBTRACT)\n        with Locations(*[(x, 0) for x in pocket_x]):\n            RectangleRounded(POCKET_L, POCKET_W, POCKET_R, mode=Mode.SUBTRACT)\n    extrude(amount=T)\n\nexport_step(arm.part, \"out.step\")\n```",
+ "ttft_ms": 2566,
+ "type": "result",
+ "duration_ms": 4808,
+ "uuid": "b850541a-4393-4538-a63b-11f07abf983c",
+ "ttft_stream_ms": 1766,
+ "time_to_request_ms": 221,
+ "first_content_frame_ms": 1767,
+ "queued_turn_count": 0,
+ "result_index": 0
+}

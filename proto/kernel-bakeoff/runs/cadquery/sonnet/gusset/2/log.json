@@ -1,0 +1,29 @@
+{
+ "lib": "cadquery",
+ "model": "sonnet",
+ "part": "gusset",
+ "sample": 2,
+ "first_try": true,
+ "after_repair": true,
+ "attempts": [
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     4.0,
+     45.757,
+     45.757
+    ],
+    "volume": 3646.64
+   },
+   "detail": "",
+   "duration_ms": 2548,
+   "cost_usd": 0.005209999999999999,
+   "output_tokens": 267,
+   "models": [
+    "claude-sonnet-5-5"
+   ]
+  }
+ ]
+}

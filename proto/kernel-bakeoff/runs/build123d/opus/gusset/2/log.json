@@ -1,0 +1,29 @@
+{
+ "lib": "build123d",
+ "model": "opus",
+ "part": "gusset",
+ "sample": 2,
+ "first_try": true,
+ "after_repair": true,
+ "attempts": [
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     4.0,
+     45.757,
+     45.757
+    ],
+    "volume": 3646.64
+   },
+   "detail": "",
+   "duration_ms": 3987,
+   "cost_usd": 0.013248,
+   "output_tokens": 412,
+   "models": [
+    "claude-opus-5-5"
+   ]
+  }
+ ]
+}

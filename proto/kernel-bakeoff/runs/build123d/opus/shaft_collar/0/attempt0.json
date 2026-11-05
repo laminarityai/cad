@@ -1,0 +1,98 @@
+{
+ "duration_api_ms": 4870,
+ "stop_reason": "end_turn",
+ "session_id": "d149b960-4af3-493c-a1f4-a9dc41fc0a04",
+ "total_cost_usd": 0.013367999999999998,
+ "usage": {
+  "input_tokens": 2,
+  "cache_creation_input_tokens": 610,
+  "cache_read_input_tokens": 0,
+  "output_tokens": 424,
+  "output_tokens_details": {
+   "thinking_tokens": 72
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 610,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "global",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 424,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 610,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 610
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard",
+  "fallback_credit": null
+ },
+ "modelUsage": {
+  "claude-opus-5-5": {
+   "inputTokens": 2,
+   "outputTokens": 424,
+   "cacheReadInputTokens": 0,
+   "cacheCreationInputTokens": 610,
+   "webSearchRequests": 0,
+   "costUSD": 0.013367999999999998,
+   "contextWindow": 1000000,
+   "maxOutputTokens": 128000,
+   "thinkingTokens": 72,
+   "canonicalModel": "claude-opus-5-5",
+   "provider": "firstParty",
+   "costBasis": "list"
+  }
+ },
+ "permission_denials": [],
+ "terminal_reason": "completed",
+ "fast_mode_state": "off",
+ "fast_mode_disabled_reason": "sdk_opt_in_required",
+ "subagent_stats": {
+  "spawned": 0,
+  "requested": {
+   "background": 0,
+   "foreground": 0,
+   "unset": 0
+  },
+  "started_in_background": 0,
+  "max_depth": 0,
+  "spawned_by_subagents": 0,
+  "completed": 0,
+  "failed": 0,
+  "killed": {
+   "parent": 0,
+   "user": 0,
+   "system": 0
+  },
+  "refused": {
+   "depth_limit": 0,
+   "concurrency_limit": 0,
+   "budget": 0
+  },
+  "by_type": {}
+ },
+ "is_error": false,
+ "num_turns": 1,
+ "subtype": "success",
+ "api_error_status": null,
+ "result": "```python\nfrom build123d import *\n\nOD = 25.0\nBORE = 12.7\nL = 10.0\nHOLE_D = 3.3\n\nouter = Cylinder(OD / 2, L, align=(Align.CENTER, Align.CENTER, Align.MIN))\nbore = Cylinder(BORE / 2, L + 2, align=(Align.CENTER, Align.CENTER, Align.CENTER)).moved(\n    Location((0, 0, L / 2))\n)\ncollar = outer - bore\n\n# Radial hole through one wall only (+X side), at mid-length\nhole_len = OD / 2 + 2  # from axis outward past the OD\nhole = Cylinder(HOLE_D / 2, hole_len, align=(Align.CENTER, Align.CENTER, Align.MIN))\nhole = hole.moved(Location((0, 0, L / 2), (0, 90, 0)))\ncollar = collar - hole\n\nif isinstance(collar, ShapeList):\n    collar = collar[0]\n\nexport_step(collar, \"out.step\")\n```",
+ "ttft_ms": 2120,
+ "type": "result",
+ "duration_ms": 4905,
+ "uuid": "1a5e403c-b02c-4269-b99f-34ad5f0608b9",
+ "ttft_stream_ms": 1226,
+ "time_to_request_ms": 33,
+ "first_content_frame_ms": 1226,
+ "queued_turn_count": 0,
+ "result_index": 0
+}

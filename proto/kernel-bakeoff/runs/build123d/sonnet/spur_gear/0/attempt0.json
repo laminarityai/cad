@@ -1,0 +1,98 @@
+{
+ "duration_api_ms": 10017,
+ "stop_reason": "end_turn",
+ "session_id": "e933f67c-2379-4276-a109-ba994b8d6ba0",
+ "total_cost_usd": 0.016008,
+ "usage": {
+  "input_tokens": 2,
+  "cache_creation_input_tokens": 621,
+  "cache_read_input_tokens": 0,
+  "output_tokens": 1352,
+  "output_tokens_details": {
+   "thinking_tokens": 0
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 621,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "global",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 1352,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 621,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 621
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard",
+  "fallback_credit": null
+ },
+ "modelUsage": {
+  "claude-sonnet-5-5": {
+   "inputTokens": 2,
+   "outputTokens": 1352,
+   "cacheReadInputTokens": 0,
+   "cacheCreationInputTokens": 621,
+   "webSearchRequests": 0,
+   "costUSD": 0.016008,
+   "contextWindow": 1000000,
+   "maxOutputTokens": 128000,
+   "thinkingTokens": 0,
+   "canonicalModel": "claude-sonnet-5-5",
+   "provider": "firstParty",
+   "costBasis": "list"
+  }
+ },
+ "permission_denials": [],
+ "terminal_reason": "completed",
+ "fast_mode_state": "off",
+ "fast_mode_disabled_reason": "sdk_opt_in_required",
+ "subagent_stats": {
+  "spawned": 0,
+  "requested": {
+   "background": 0,
+   "foreground": 0,
+   "unset": 0
+  },
+  "started_in_background": 0,
+  "max_depth": 0,
+  "spawned_by_subagents": 0,
+  "completed": 0,
+  "failed": 0,
+  "killed": {
+   "parent": 0,
+   "user": 0,
+   "system": 0
+  },
+  "refused": {
+   "depth_limit": 0,
+   "concurrency_limit": 0,
+   "budget": 0
+  },
+  "by_type": {}
+ },
+ "is_error": false,
+ "num_turns": 1,
+ "subtype": "success",
+ "api_error_status": null,
+ "result": "```python\nfrom build123d import *\nimport math\n\nz = 24\nm = 2.0\npa = math.radians(20)\nthickness = 10.0\nbore = 8.0\n\nrp = m * z / 2\nrb = rp * math.cos(pa)\nra = rp + m\nrr = rp - 1.25 * m\n\ndef inv(a):\n    return math.tan(a) - a\n\n# Involute point at radius r, starting at angle 0 on base circle\ndef involute_pt(r):\n    t = math.sqrt(max((r / rb) ** 2 - 1, 0))\n    ang = t - math.atan(t)  # involute polar angle\n    return ang\n\n# Half tooth thickness angle at pitch circle = pi/(2z)\n# Involute polar angle at pitch radius\nphi_p = involute_pt(rp)\n# Right flank rotated so that at pitch radius angle = +pi/(2z); left mirrored\nr_start = max(rb, rr)\nn = 12\nradii = [r_start + (ra - r_start) * i / (n - 1) for i in range(n)]\n\noffset = math.pi / (2 * z) - phi_p  # rotate right flank so that tooth centered on x-axis\nright = []\nleft = []\nfor r in radii:\n    a = involute_pt(r)\n    th = a + offset  # angle of the flank point (this flank at angle -? )\n    # right flank: below axis at base, passes through +pi/(2z)... use mirror symmetry\n    right.append((r * math.cos(-th), r * math.sin(-th)))\n    left.append((r * math.cos(th), r * math.sin(th)))\n\n# Tooth outline: start at root on right flank, go up right flank to tip, across tip, down left flank\npts = []\n# root start points (radial line from root circle to base if root < base)\nth0 = (involute_pt(r_start) + offset)\npts_right = right\npts_left = left[::-1]\n\ntooth_pts = []\nif rr < rb:\n    tooth_pts.append((rr * math.cos(-th0), rr * math.sin(-th0)))\ntooth_pts += pts_right\n# tip arc midpoint\ntip_th = involute_pt(ra) + offset\ntooth_pts_tip_mid = (ra, 0)\ntooth_pts_left = pts_left\ntooth_left_end = None\n\npitch_ang = 2 * math.pi / z\n# Build one tooth sketch face with root-circle-based sector\ndef rot(p, a):\n    c, s = math.cos(a), math.sin(a)\n    return (p[0] * c - p[1] * s, p[0] * s + p[1] * c)\n\nwith BuildPart() as gear:\n    with BuildSketch() as sk:\n        Circle(rr + 0.01)\n        for i in range(z):\n            a = i * pitch_ang\n            with BuildLine() as ln:\n                r_pts = [rot(p, a) for p in tooth_pts]\n                l_pts = [rot(p, a) for p in tooth_pts_left]\n                tip_mid = rot(tooth_pts_tip_mid, a)\n                Polyline(*r_pts)\n                ThreePointArc(r_pts[-1], tip_mid, l_pts[0])\n                Polyline(*l_pts)\n                # close back to root circle along radial line\n                last = l_pts[-1]\n                first = r_pts[0]\n                rr_l = rr * 0.9\n                p1 = (rr_l * math.cos(math.atan2(last[1], last[0])),\n                      rr_l * math.sin(math.atan2(last[1], last[0])))\n                p2 = (rr_l * math.cos(math.atan2(first[1], first[0])),\n                      rr_l * math.sin(math.atan2(first[1], first[0])))\n                Polyline(last, p1, p2, first)\n            make_face()\n    extrude(amount=thickness)\n    with BuildSketch():\n        Circle(bore / 2)\n    extrude(amount=thickness, mode=Mode.SUBTRACT)\n\nresult = gear.part\nexport_step(result, \"out.step\")\n```",
+ "ttft_ms": 10118,
+ "type": "result",
+ "duration_ms": 10126,
+ "uuid": "4319d8a7-9899-45d1-9791-c4fb93415fde",
+ "ttft_stream_ms": 1023,
+ "time_to_request_ms": 117,
+ "first_content_frame_ms": 1023,
+ "queued_turn_count": 0,
+ "result_index": 0
+}

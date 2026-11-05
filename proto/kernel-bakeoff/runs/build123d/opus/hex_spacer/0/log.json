@@ -1,0 +1,29 @@
+{
+ "lib": "build123d",
+ "model": "opus",
+ "part": "hex_spacer",
+ "sample": 0,
+ "first_try": true,
+ "after_repair": true,
+ "attempts": [
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     10.0,
+     25.0,
+     25.0
+    ],
+    "volume": 3511.93
+   },
+   "detail": "",
+   "duration_ms": 4092,
+   "cost_usd": 0.010000000000000002,
+   "output_tokens": 262,
+   "models": [
+    "claude-opus-5-5"
+   ]
+  }
+ ]
+}

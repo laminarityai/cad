@@ -1,0 +1,98 @@
+{
+ "duration_api_ms": 14266,
+ "stop_reason": "end_turn",
+ "session_id": "bf768658-c4be-40a3-a43b-364340c83bf1",
+ "total_cost_usd": 0.037011999999999996,
+ "usage": {
+  "input_tokens": 2,
+  "cache_creation_input_tokens": 618,
+  "cache_read_input_tokens": 0,
+  "output_tokens": 1603,
+  "output_tokens_details": {
+   "thinking_tokens": 610
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 618,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "global",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 1603,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 618,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 618
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard",
+  "fallback_credit": null
+ },
+ "modelUsage": {
+  "claude-opus-5-5": {
+   "inputTokens": 2,
+   "outputTokens": 1603,
+   "cacheReadInputTokens": 0,
+   "cacheCreationInputTokens": 618,
+   "webSearchRequests": 0,
+   "costUSD": 0.037011999999999996,
+   "contextWindow": 1000000,
+   "maxOutputTokens": 128000,
+   "thinkingTokens": 610,
+   "canonicalModel": "claude-opus-5-5",
+   "provider": "firstParty",
+   "costBasis": "list"
+  }
+ },
+ "permission_denials": [],
+ "terminal_reason": "completed",
+ "fast_mode_state": "off",
+ "fast_mode_disabled_reason": "sdk_opt_in_required",
+ "subagent_stats": {
+  "spawned": 0,
+  "requested": {
+   "background": 0,
+   "foreground": 0,
+   "unset": 0
+  },
+  "started_in_background": 0,
+  "max_depth": 0,
+  "spawned_by_subagents": 0,
+  "completed": 0,
+  "failed": 0,
+  "killed": {
+   "parent": 0,
+   "user": 0,
+   "system": 0
+  },
+  "refused": {
+   "depth_limit": 0,
+   "concurrency_limit": 0,
+   "budget": 0
+  },
+  "by_type": {}
+ },
+ "is_error": false,
+ "num_turns": 1,
+ "subtype": "success",
+ "api_error_status": null,
+ "result": "```python\nimport math\nimport cadquery as cq\n\n# Gear parameters\nz = 24\nm = 2.0\nalpha = math.radians(20.0)\nthickness = 10.0\nbore_d = 8.0\n\nrp = m * z / 2.0              # pitch radius\nrb = rp * math.cos(alpha)     # base radius\nra = rp + 1.0 * m             # addendum radius\nrf = rp - 1.25 * m            # root radius\n\n\ndef inv(a):\n    return math.tan(a) - a\n\n\ndef half_angle(r):\n    \"\"\"Angular half-thickness of tooth at radius r (r >= rb).\"\"\"\n    ar = math.acos(min(1.0, rb / r))\n    return math.pi / (2 * z) + inv(alpha) - inv(ar)\n\n\ndef pol(r, t):\n    return (r * math.cos(t), r * math.sin(t))\n\n\nn_flank = 20\nn_tip = 6\nn_root = 8\npitch_ang = 2 * math.pi / z\n\npts = []\nr_start = max(rb, rf)\nfor i in range(z):\n    t0 = i * pitch_ang\n    # radial segment from root to base circle (root is below base here)\n    psi_b = half_angle(r_start)\n    pts.append(pol(rf, t0 - psi_b))\n    # right flank (rising)\n    flank_r = [r_start + (ra - r_start) * k / n_flank for k in range(n_flank + 1)]\n    for r in flank_r:\n        pts.append(pol(r, t0 - half_angle(r)))\n    # tip arc\n    psi_a = half_angle(ra)\n    for k in range(1, n_tip):\n        t = t0 - psi_a + 2 * psi_a * k / n_tip\n        pts.append(pol(ra, t))\n    # left flank (descending)\n    for r in reversed(flank_r):\n        pts.append(pol(r, t0 + half_angle(r)))\n    pts.append(pol(rf, t0 + psi_b))\n    # root arc to next tooth\n    t_a = t0 + psi_b\n    t_b = t0 + pitch_ang - psi_b\n    for k in range(1, n_root):\n        t = t_a + (t_b - t_a) * k / n_root\n        pts.append(pol(rf, t))\n\n# remove consecutive duplicates\nclean = []\nfor p in pts:\n    if not clean or math.hypot(p[0] - clean[-1][0], p[1] - clean[-1][1]) > 1e-6:\n        clean.append(p)\nif math.hypot(clean[0][0] - clean[-1][0], clean[0][1] - clean[-1][1]) < 1e-6:\n    clean.pop()\n\ngear = cq.Workplane(\"XY\").polyline(clean).close().extrude(thickness)\nbore = cq.Workplane(\"XY\").circle(bore_d / 2.0).extrude(thickness)\ngear = gear.cut(bore)\n\ncq.exporters.export(gear, \"out.step\")\n```",
+ "ttft_ms": 7123,
+ "type": "result",
+ "duration_ms": 14300,
+ "uuid": "829133b1-fe37-46b8-b53b-0492d2c4ea75",
+ "ttft_stream_ms": 797,
+ "time_to_request_ms": 30,
+ "first_content_frame_ms": 797,
+ "queued_turn_count": 0,
+ "result_index": 0
+}

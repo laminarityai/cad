@@ -1,0 +1,29 @@
+{
+ "lib": "build123d",
+ "model": "opus",
+ "part": "plate",
+ "sample": 1,
+ "first_try": true,
+ "after_repair": true,
+ "attempts": [
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     6.0,
+     50.0,
+     100.0
+    ],
+    "volume": 29509.72
+   },
+   "detail": "",
+   "duration_ms": 3375,
+   "cost_usd": 0.008116,
+   "output_tokens": 167,
+   "models": [
+    "claude-opus-5-5"
+   ]
+  }
+ ]
+}

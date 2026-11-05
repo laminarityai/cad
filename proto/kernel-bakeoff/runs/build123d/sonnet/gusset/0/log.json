@@ -1,0 +1,29 @@
+{
+ "lib": "build123d",
+ "model": "sonnet",
+ "part": "gusset",
+ "sample": 0,
+ "first_try": true,
+ "after_repair": true,
+ "attempts": [
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     4.0,
+     45.757,
+     45.757
+    ],
+    "volume": 3646.64
+   },
+   "detail": "",
+   "duration_ms": 2149,
+   "cost_usd": 0.004358000000000001,
+   "output_tokens": 183,
+   "models": [
+    "claude-sonnet-5-5"
+   ]
+  }
+ ]
+}

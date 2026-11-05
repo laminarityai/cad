@@ -1,0 +1,98 @@
+{
+ "duration_api_ms": 15803,
+ "stop_reason": "end_turn",
+ "session_id": "7c8dc454-d717-4cbc-b551-79f793386fc9",
+ "total_cost_usd": 0.037212,
+ "usage": {
+  "input_tokens": 2,
+  "cache_creation_input_tokens": 618,
+  "cache_read_input_tokens": 0,
+  "output_tokens": 1613,
+  "output_tokens_details": {
+   "thinking_tokens": 650
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 618,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "global",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 1613,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 618,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 618
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard",
+  "fallback_credit": null
+ },
+ "modelUsage": {
+  "claude-opus-5-5": {
+   "inputTokens": 2,
+   "outputTokens": 1613,
+   "cacheReadInputTokens": 0,
+   "cacheCreationInputTokens": 618,
+   "webSearchRequests": 0,
+   "costUSD": 0.037212,
+   "contextWindow": 1000000,
+   "maxOutputTokens": 128000,
+   "thinkingTokens": 650,
+   "canonicalModel": "claude-opus-5-5",
+   "provider": "firstParty",
+   "costBasis": "list"
+  }
+ },
+ "permission_denials": [],
+ "terminal_reason": "completed",
+ "fast_mode_state": "off",
+ "fast_mode_disabled_reason": "sdk_opt_in_required",
+ "subagent_stats": {
+  "spawned": 0,
+  "requested": {
+   "background": 0,
+   "foreground": 0,
+   "unset": 0
+  },
+  "started_in_background": 0,
+  "max_depth": 0,
+  "spawned_by_subagents": 0,
+  "completed": 0,
+  "failed": 0,
+  "killed": {
+   "parent": 0,
+   "user": 0,
+   "system": 0
+  },
+  "refused": {
+   "depth_limit": 0,
+   "concurrency_limit": 0,
+   "budget": 0
+  },
+  "by_type": {}
+ },
+ "is_error": false,
+ "num_turns": 1,
+ "subtype": "success",
+ "api_error_status": null,
+ "result": "```python\nimport math\nimport cadquery as cq\n\n# Gear parameters\nz = 24\nm = 2.0\npa = math.radians(20.0)\nthickness = 10.0\nbore_d = 8.0\n\nr = m * z / 2.0            # pitch radius\nrb = r * math.cos(pa)      # base radius\nra = r + 1.0 * m           # addendum radius\nrf = r - 1.25 * m          # root radius\n\n\ndef inv(a):\n    return math.tan(a) - a\n\n\ndef half_angle(rad):\n    \"\"\"Half angular tooth thickness at radius rad (rad >= rb).\"\"\"\n    a = math.acos(rb / rad)\n    return math.pi / (2 * z) + inv(pa) - inv(a)\n\n\ndef polar(rad, ang):\n    return (rad * math.cos(ang), rad * math.sin(ang))\n\n\nn_inv = 20\nn_tip = 6\nn_root = 8\n\npts = []\npitch_ang = 2 * math.pi / z\npsi_b = half_angle(rb)\npsi_a = half_angle(ra)\n\nfor i in range(z):\n    th = i * pitch_ang\n\n    # Right flank (lower angle side), from root up to tip\n    flank = []\n    if rf < rb:\n        flank.append((rf, psi_b))\n    for k in range(n_inv + 1):\n        rad = rb + (ra - rb) * k / n_inv\n        flank.append((rad, half_angle(rad)))\n\n    for rad, psi in flank:\n        pts.append(polar(rad, th - psi))\n\n    # Tip arc (interior points)\n    for k in range(1, n_tip):\n        a = th - psi_a + 2 * psi_a * k / n_tip\n        pts.append(polar(ra, a))\n\n    # Left flank, from tip down to root\n    for rad, psi in reversed(flank):\n        pts.append(polar(rad, th + psi))\n\n    # Root arc (interior points) to next tooth\n    a0 = th + psi_b\n    a1 = th + pitch_ang - psi_b\n    for k in range(1, n_root):\n        a = a0 + (a1 - a0) * k / n_root\n        pts.append(polar(rf, a))\n\n# Remove consecutive near-duplicates\nclean = []\nfor p in pts:\n    if not clean or math.hypot(p[0] - clean[-1][0], p[1] - clean[-1][1]) > 1e-6:\n        clean.append(p)\nif math.hypot(clean[0][0] - clean[-1][0], clean[0][1] - clean[-1][1]) < 1e-6:\n    clean.pop()\n\ngear = cq.Workplane(\"XY\").polyline(clean).close().extrude(thickness)\n\nbore = cq.Workplane(\"XY\").circle(bore_d / 2.0).extrude(thickness)\ngear = gear.cut(bore)\n\ncq.exporters.export(gear, \"out.step\")\n```",
+ "ttft_ms": 8663,
+ "type": "result",
+ "duration_ms": 15841,
+ "uuid": "bc8755bb-6886-4c73-9d3f-967334af4519",
+ "ttft_stream_ms": 1693,
+ "time_to_request_ms": 37,
+ "first_content_frame_ms": 1694,
+ "queued_turn_count": 0,
+ "result_index": 0
+}

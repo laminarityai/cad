@@ -1,0 +1,40 @@
+{
+ "lib": "build123d",
+ "model": "sonnet",
+ "part": "u_bracket",
+ "sample": 0,
+ "first_try": false,
+ "after_repair": true,
+ "attempts": [
+  {
+   "category": "runtime_error",
+   "pass": false,
+   "detail": "/Users/kevin/VisualStudioProjects/cad/proto/kernel-bakeoff/runs/build123d/sonnet/u_bracket/0/attempt0.py:8: UserWarning: line is None - BuildLine didn't create anything\n  with BuildLine():\nTraceback (most recent call last):\n  File \"/Users/kevin/VisualStudioProjects/cad/proto/kernel-bakeoff/runs/build123d/sonnet/u_bracket/0/attempt0.py\", line 10, in <module>\n    outer = Rectangle(W, H, align=(Alignment.CENTER, Alignment.MIN))\n                                   ^^^^^^^^^\nNameError: name 'Alignment' is not defined\n",
+   "duration_ms": 4730,
+   "cost_usd": 0.007359999999999999,
+   "output_tokens": 450,
+   "models": [
+    "claude-sonnet-5-5"
+   ]
+  },
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     30.0,
+     40.0,
+     50.0
+    ],
+    "volume": 9572.74
+   },
+   "detail": "",
+   "duration_ms": 10306,
+   "cost_usd": 0.013412,
+   "output_tokens": 766,
+   "models": [
+    "claude-sonnet-5-5"
+   ]
+  }
+ ]
+}

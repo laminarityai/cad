@@ -1,0 +1,29 @@
+{
+ "lib": "cadquery",
+ "model": "opus",
+ "part": "bearing_block",
+ "sample": 0,
+ "first_try": true,
+ "after_repair": true,
+ "attempts": [
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     20.0,
+     40.0,
+     40.0
+    ],
+    "volume": 24736.73
+   },
+   "detail": "",
+   "duration_ms": 5023,
+   "cost_usd": 0.014359999999999998,
+   "output_tokens": 452,
+   "models": [
+    "claude-opus-5-5"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,98 @@
+{
+ "duration_api_ms": 3955,
+ "stop_reason": "end_turn",
+ "session_id": "278ae515-9c3e-4834-ad92-969957eafc83",
+ "total_cost_usd": 0.012584,
+ "usage": {
+  "input_tokens": 2,
+  "cache_creation_input_tokens": 642,
+  "cache_read_input_tokens": 0,
+  "output_tokens": 372,
+  "output_tokens_details": {
+   "thinking_tokens": 0
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 642,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "global",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 372,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 642,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 642
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard",
+  "fallback_credit": null
+ },
+ "modelUsage": {
+  "claude-opus-5-5": {
+   "inputTokens": 2,
+   "outputTokens": 372,
+   "cacheReadInputTokens": 0,
+   "cacheCreationInputTokens": 642,
+   "webSearchRequests": 0,
+   "costUSD": 0.012584,
+   "contextWindow": 1000000,
+   "maxOutputTokens": 128000,
+   "thinkingTokens": 0,
+   "canonicalModel": "claude-opus-5-5",
+   "provider": "firstParty",
+   "costBasis": "list"
+  }
+ },
+ "permission_denials": [],
+ "terminal_reason": "completed",
+ "fast_mode_state": "off",
+ "fast_mode_disabled_reason": "sdk_opt_in_required",
+ "subagent_stats": {
+  "spawned": 0,
+  "requested": {
+   "background": 0,
+   "foreground": 0,
+   "unset": 0
+  },
+  "started_in_background": 0,
+  "max_depth": 0,
+  "spawned_by_subagents": 0,
+  "completed": 0,
+  "failed": 0,
+  "killed": {
+   "parent": 0,
+   "user": 0,
+   "system": 0
+  },
+  "refused": {
+   "depth_limit": 0,
+   "concurrency_limit": 0,
+   "budget": 0
+  },
+  "by_type": {}
+ },
+ "is_error": false,
+ "num_turns": 1,
+ "subtype": "success",
+ "api_error_status": null,
+ "result": "```python\nfrom build123d import *\n\nT = 3.0\nW = 30.0\nL = 40.0\nD = 5.1\n\n# Horizontal leg: along X, thickness in Z, width in Y\nh_leg = Box(L, W, T, align=(Align.MIN, Align.MIN, Align.MIN))\n# Vertical leg: along Z, thickness in X\nv_leg = Box(T, W, L, align=(Align.MIN, Align.MIN, Align.MIN))\n\npart = h_leg + v_leg\n\n# Holes in horizontal leg (through Z), distances from outside corner (x=0)\nfor x in (12.0, 30.0):\n    part -= Cylinder(D / 2, T * 4).moved(Location((x, W / 2, T / 2)))\n\n# Holes in vertical leg (through X), distances from outside corner (z=0)\nfor z in (12.0, 30.0):\n    cyl = Cylinder(D / 2, T * 4, rotation=(0, 90, 0))\n    part -= cyl.moved(Location((T / 2, W / 2, z)))\n\nexport_step(part, \"out.step\")\n```",
+ "ttft_ms": 3975,
+ "type": "result",
+ "duration_ms": 3990,
+ "uuid": "bd6a5572-a637-4933-bfd7-004aa15badd1",
+ "ttft_stream_ms": 1236,
+ "time_to_request_ms": 32,
+ "first_content_frame_ms": 1236,
+ "queued_turn_count": 0,
+ "result_index": 0
+}

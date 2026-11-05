@@ -1,0 +1,29 @@
+{
+ "lib": "cadquery",
+ "model": "opus",
+ "part": "l_bracket",
+ "sample": 0,
+ "first_try": true,
+ "after_repair": true,
+ "attempts": [
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     30.0,
+     40.0,
+     40.0
+    ],
+    "volume": 6684.86
+   },
+   "detail": "",
+   "duration_ms": 5325,
+   "cost_usd": 0.017107999999999998,
+   "output_tokens": 597,
+   "models": [
+    "claude-opus-5-5"
+   ]
+  }
+ ]
+}

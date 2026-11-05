@@ -1,0 +1,98 @@
+{
+ "duration_api_ms": 9079,
+ "stop_reason": "end_turn",
+ "session_id": "863e52c6-d10a-488c-a45e-674f87f513fe",
+ "total_cost_usd": 0.0180946,
+ "usage": {
+  "input_tokens": 2,
+  "cache_creation_input_tokens": 198,
+  "cache_read_input_tokens": 513,
+  "output_tokens": 820,
+  "output_tokens_details": {
+   "thinking_tokens": 313
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 198,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "global",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 820,
+    "cache_read_input_tokens": 513,
+    "cache_creation_input_tokens": 198,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 198
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard",
+  "fallback_credit": null
+ },
+ "modelUsage": {
+  "claude-opus-5-5": {
+   "inputTokens": 2,
+   "outputTokens": 820,
+   "cacheReadInputTokens": 513,
+   "cacheCreationInputTokens": 198,
+   "webSearchRequests": 0,
+   "costUSD": 0.0180946,
+   "contextWindow": 1000000,
+   "maxOutputTokens": 128000,
+   "thinkingTokens": 313,
+   "canonicalModel": "claude-opus-5-5",
+   "provider": "firstParty",
+   "costBasis": "list"
+  }
+ },
+ "permission_denials": [],
+ "terminal_reason": "completed",
+ "fast_mode_state": "off",
+ "fast_mode_disabled_reason": "sdk_opt_in_required",
+ "subagent_stats": {
+  "spawned": 0,
+  "requested": {
+   "background": 0,
+   "foreground": 0,
+   "unset": 0
+  },
+  "started_in_background": 0,
+  "max_depth": 0,
+  "spawned_by_subagents": 0,
+  "completed": 0,
+  "failed": 0,
+  "killed": {
+   "parent": 0,
+   "user": 0,
+   "system": 0
+  },
+  "refused": {
+   "depth_limit": 0,
+   "concurrency_limit": 0,
+   "budget": 0
+  },
+  "by_type": {}
+ },
+ "is_error": false,
+ "num_turns": 1,
+ "subtype": "success",
+ "api_error_status": null,
+ "result": "```python\nimport cadquery as cq\n\nW, H, D, t = 40.0, 30.0, 50.0, 2.0\nfillet_r = 2.0\nhole_d = 6.0\nhole_z = 20.0\n\n# Outer block: X = width, Y = depth, Z = height (bottom at z=0)\nouter = cq.Workplane(\"XY\").box(W, D, H, centered=(True, True, False))\n\n# Inner cavity: open on top and both ends\ninner = (\n    cq.Workplane(\"XY\")\n    .workplane(offset=t)\n    .box(W - 2 * t, D + 2, H, centered=(True, True, False))\n)\n\nbracket = outer.cut(inner)\n\n# Fillet the two inside corners where walls meet base (edges along Y at z=t)\nbracket = (\n    bracket.edges(\"|Y\")\n    .edges(cq.selectors.BoxSelector((-W / 2 + t - 0.5, -D, t - 0.5),\n                                    (W / 2 - t + 0.5, D, t + 0.5)))\n    .fillet(fillet_r)\n)\n\n# Coaxial through holes in side walls, along X, centered in depth, 20 mm up\nhole = (\n    cq.Workplane(\"YZ\")\n    .workplane(offset=-W / 2 - 5)\n    .center(0, hole_z)\n    .circle(hole_d / 2)\n    .extrude(W + 10)\n)\nbracket = bracket.cut(hole)\n\ncq.exporters.export(bracket, \"out.step\")\n```",
+ "ttft_ms": 5191,
+ "type": "result",
+ "duration_ms": 9118,
+ "uuid": "870d0d71-8d26-42bc-a648-1081425f9d1f",
+ "ttft_stream_ms": 1829,
+ "time_to_request_ms": 35,
+ "first_content_frame_ms": 1829,
+ "queued_turn_count": 0,
+ "result_index": 0
+}

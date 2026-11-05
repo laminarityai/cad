@@ -1,0 +1,29 @@
+{
+ "lib": "build123d",
+ "model": "sonnet",
+ "part": "arm",
+ "sample": 0,
+ "first_try": true,
+ "after_repair": true,
+ "attempts": [
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     6.0,
+     40.0,
+     290.0
+    ],
+    "volume": 49489.86
+   },
+   "detail": "",
+   "duration_ms": 2256,
+   "cost_usd": 0.00476,
+   "output_tokens": 194,
+   "models": [
+    "claude-sonnet-5-5"
+   ]
+  }
+ ]
+}

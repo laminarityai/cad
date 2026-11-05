@@ -1,0 +1,29 @@
+{
+ "lib": "cadquery",
+ "model": "opus",
+ "part": "plate",
+ "sample": 0,
+ "first_try": true,
+ "after_repair": true,
+ "attempts": [
+  {
+   "pass": true,
+   "category": "pass",
+   "measured": {
+    "extents": [
+     6.0,
+     50.0,
+     100.0
+    ],
+    "volume": 29509.72
+   },
+   "detail": "",
+   "duration_ms": 3372,
+   "cost_usd": 0.009744000000000001,
+   "output_tokens": 238,
+   "models": [
+    "claude-opus-5-5"
+   ]
+  }
+ ]
+}

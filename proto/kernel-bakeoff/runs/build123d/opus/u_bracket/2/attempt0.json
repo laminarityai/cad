@@ -1,0 +1,98 @@
+{
+ "duration_api_ms": 8118,
+ "stop_reason": "end_turn",
+ "session_id": "59fd5193-2e24-48b5-9346-2599f88de3a8",
+ "total_cost_usd": 0.023672,
+ "usage": {
+  "input_tokens": 2,
+  "cache_creation_input_tokens": 708,
+  "cache_read_input_tokens": 0,
+  "output_tokens": 900,
+  "output_tokens_details": {
+   "thinking_tokens": 456
+  },
+  "server_tool_use": {
+   "web_search_requests": 0,
+   "web_fetch_requests": 0
+  },
+  "service_tier": "standard",
+  "cache_creation": {
+   "ephemeral_1h_input_tokens": 708,
+   "ephemeral_5m_input_tokens": 0
+  },
+  "inference_geo": "global",
+  "iterations": [
+   {
+    "input_tokens": 2,
+    "output_tokens": 900,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 708,
+    "cache_creation": {
+     "ephemeral_5m_input_tokens": 0,
+     "ephemeral_1h_input_tokens": 708
+    },
+    "type": "message"
+   }
+  ],
+  "speed": "standard",
+  "fallback_credit": null
+ },
+ "modelUsage": {
+  "claude-opus-5-5": {
+   "inputTokens": 2,
+   "outputTokens": 900,
+   "cacheReadInputTokens": 0,
+   "cacheCreationInputTokens": 708,
+   "webSearchRequests": 0,
+   "costUSD": 0.023672,
+   "contextWindow": 1000000,
+   "maxOutputTokens": 128000,
+   "thinkingTokens": 456,
+   "canonicalModel": "claude-opus-5-5",
+   "provider": "firstParty",
+   "costBasis": "list"
+  }
+ },
+ "permission_denials": [],
+ "terminal_reason": "completed",
+ "fast_mode_state": "off",
+ "fast_mode_disabled_reason": "sdk_opt_in_required",
+ "subagent_stats": {
+  "spawned": 0,
+  "requested": {
+   "background": 0,
+   "foreground": 0,
+   "unset": 0
+  },
+  "started_in_background": 0,
+  "max_depth": 0,
+  "spawned_by_subagents": 0,
+  "completed": 0,
+  "failed": 0,
+  "killed": {
+   "parent": 0,
+   "user": 0,
+   "system": 0
+  },
+  "refused": {
+   "depth_limit": 0,
+   "concurrency_limit": 0,
+   "budget": 0
+  },
+  "by_type": {}
+ },
+ "is_error": false,
+ "num_turns": 1,
+ "subtype": "success",
+ "api_error_status": null,
+ "result": "```python\nfrom build123d import *\n\nW, H, D, T = 40.0, 30.0, 50.0, 2.0\nR_FILLET = 2.0\nHOLE_D = 6.0\nHOLE_Z = 20.0\n\n# Outer block\nouter = Box(W, D, H, align=(Align.CENTER, Align.CENTER, Align.MIN))\n\n# Inner cavity: open top and both ends\ninner = Pos(0, 0, T) * Box(\n    W - 2 * T, D + 10, H, align=(Align.CENTER, Align.CENTER, Align.MIN)\n)\n\npart = outer - inner\n\n# Fillet the two inside corners where walls meet the base\ninner_edges = (\n    part.edges()\n    .filter_by(Axis.Y)\n    .filter_by(lambda e: abs(e.center().Z - T) < 1e-6\n               and abs(abs(e.center().X) - (W / 2 - T)) < 1e-6)\n)\npart = fillet(inner_edges, radius=R_FILLET)\n\n# Coaxial through holes in both side walls (axis along X)\nhole = Pos(0, 0, HOLE_Z) * Rot(0, 90, 0) * Cylinder(HOLE_D / 2, W + 20)\npart = part - hole\n\nexport_step(part, \"out.step\")\n```",
+ "ttft_ms": 5106,
+ "type": "result",
+ "duration_ms": 8185,
+ "uuid": "d7e4b170-e376-44de-b148-5e3bb97cd42f",
+ "ttft_stream_ms": 621,
+ "time_to_request_ms": 65,
+ "first_content_frame_ms": 621,
+ "queued_turn_count": 0,
+ "result_index": 0
+}
