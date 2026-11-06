@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 
 from cad.server.app import REPO_ROOT
 
@@ -7,7 +6,7 @@ MCP_CONFIG = REPO_ROOT / ".mcp.json"
 
 
 def cad_entry() -> dict[str, object]:
-    config = json.loads(Path(MCP_CONFIG).read_text())
+    config = json.loads(MCP_CONFIG.read_text())
     return config["mcpServers"]["cad"]
 
 
