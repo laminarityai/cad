@@ -22,7 +22,7 @@ build-backend = "uv_build"
 [tool.basedpyright]
 typeCheckingMode = "strict"
 pythonVersion = "3.12"
-include = ["src", "tests", "tools"]
+exclude = ["proto", "**/.*", "**/__pycache__"]
 venvPath = "."
 venv = ".venv"
 
