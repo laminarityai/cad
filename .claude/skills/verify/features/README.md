@@ -23,3 +23,4 @@ This directory is the maintained source for verifying what an MCP client sees fr
 ## Features
 
 - [Server info](./server-info.md) covers the `server_info` tool through a scripted call and through Claude Code, plus the error results for bad calls.
+- [Build variant](./build-variant.md) covers the `build_variant` tool: each outcome kind, the stored variant, Docker down, and the `sandbox image` verify step.
