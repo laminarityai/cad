@@ -28,10 +28,10 @@ def is_dirty() -> bool:
     return bool(done.stdout.strip())
 
 
-async def test_lists_exactly_server_info() -> None:
+async def test_lists_exactly_server_info_and_build_variant() -> None:
     async with Client(build_server()) as client:
         listed = await client.list_tools()
-    assert [tool.name for tool in listed.tools] == ["server_info"]
+    assert [tool.name for tool in listed.tools] == ["server_info", "build_variant"]
 
 
 async def test_server_info_names_the_head_sha_python_and_tools() -> None:
@@ -42,7 +42,7 @@ async def test_server_info_names_the_head_sha_python_and_tools() -> None:
         "sha": head_sha(),
         "dirty": is_dirty(),
         "python": sys.version.split()[0],
-        "tools": ["server_info"],
+        "tools": ["build_variant", "server_info"],
     }
 
 
