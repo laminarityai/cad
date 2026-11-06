@@ -17,11 +17,14 @@ export EVIDENCE=$(mktemp -d)
 
 ## Launch
 
-There is no long-running process to start. Each drive starts its own server and stops it when the call ends.
+There is no long-running process to start. Each drive starts its own server and stops it when the call ends. `build_variant` runs each build in a Docker container, so Docker Desktop must run, and the sandbox image must exist.
 
 ```
 uv sync --frozen
+uv run cad-sandbox build-image
 ```
+
+The second command prints `sandbox image cad-sandbox:<tag> is current` when the image exists, and builds it otherwise, which takes minutes the first time. With Docker down it prints one line that names the cause and exits 1.
 
 Ready means `uv run cad-call server_info '{}'` exits 0 (see Doctor).
 
@@ -45,7 +48,7 @@ Scripted call, one tool per run. Output is the MCP result as JSON, exit code 1 w
 uv run cad-call <tool> '<json args>'
 ```
 
-Tools today: `server_info` (no arguments). A tool rejects any argument it does not declare. An unknown tool name returns an error result naming the tool. Arguments that are not a JSON object exit 2 with a usage error, and a tool error exits 1.
+Tools today: `server_info` (no arguments) and `build_variant` (`code`, the build123d Python source). A tool rejects any argument it does not declare. An unknown tool name returns an error result naming the tool. Arguments that are not a JSON object exit 2 with a usage error, and a tool error exits 1.
 
 Claude Code session. This runs `claude -p` with `--mcp-config .mcp.json --strict-mcp-config --allowedTools 'mcp__cad__*' --output-format json --verbose`, saves the event transcript, and fails unless the `system/init` event lists `cad` as `connected` with no `mcp_server_errors`. Claude Code skips a broken `.mcp.json` entry and still exits 0, so never run `claude -p` against the server without that check. `--verbose` is what puts the init event in the JSON output.
 
@@ -54,6 +57,14 @@ uv run python .claude/skills/verify/scripts/claude_session.py "call the server_i
 ```
 
 It prints `init: cad connected`, one `tool call: mcp__cad__<name> <args>` line per MCP call, and the final reply.
+
+Build a variant from a file. `jq -Rs '{code: .}'` turns the file into the JSON object `cad-call` takes:
+
+```
+uv run cad-call build_variant "$(jq -Rs '{code: .}' < tests/sandbox/parts/plate.py)" > "$EVIDENCE/build-plate.json"
+```
+
+Variants live in `~/.cad/variants/<variant_id>/`. The same code returns its stored outcome without a new build.
 
 The whole gate. Its app step calls `server_info`, runs `git rev-parse HEAD` itself, and fails when git fails, when either SHA is `unknown`, or when they differ. It prints the SHA and `dirty=True` or `dirty=False`, and a dirty tree does not fail it:
 
@@ -71,7 +82,13 @@ uv run verify
 
 ## Cleanup
 
-Nothing to tear down. `cad-call` and `claude_session.py` each end their own server process. After a run that was killed, look for leftovers with a filter on this checkout's interpreter. `pgrep -f` takes a regular expression and matches the whole command line, so a bare `cad.server` also matches other checkouts' servers and `uv run cad-server`. Stop only the PIDs this run started.
+Nothing to tear down. `cad-call` and `claude_session.py` each end their own server process, and each build removes its own container. After a run that was killed, list leftover build containers. The label marks only sandbox builds:
+
+```
+docker ps -a --filter label=cad.sandbox=build
+```
+
+Look for leftover servers with a filter on this checkout's interpreter. `pgrep -f` takes a regular expression and matches the whole command line, so a bare `cad.server` also matches other checkouts' servers and `uv run cad-server`. Stop only the PIDs this run started.
 
 ```
 pgrep -fl "$PWD/.venv/bin/python.*(-m cad\.server|bin/cad-server)"
