@@ -19,15 +19,12 @@ if TYPE_CHECKING:
 
 VARIANT = Path("/tmp/variant.py")
 CPU_KILL_AFTER_SECONDS = 5
-REPRODUCIBLE_STEP_TIMESTAMP = "2000-01-01T00:00:00"
 
 
 class Build123d(Protocol):
     Shape: type[object]
 
     def export_brep(self, to_export: object, file_path: io.BytesIO) -> bool: ...
-
-    def export_step(self, to_export: object, file_path: io.BytesIO, *, timestamp: str) -> bool: ...
 
 
 def main() -> None:
@@ -70,16 +67,10 @@ def result_report(namespace: dict[str, object]) -> Report:
     build123d = cast(Build123d, importlib.import_module("build123d"))
     if not isinstance(shape, build123d.Shape):
         return {"kind": "not_a_shape", "found": utf8(type(shape).__name__)}
-    brep, step = io.BytesIO(), io.BytesIO()
+    brep = io.BytesIO()
     if not build123d.export_brep(shape, brep):
         raise RuntimeError("build123d could not export `result` as BREP")
-    if not build123d.export_step(shape, step, timestamp=REPRODUCIBLE_STEP_TIMESTAMP):
-        raise RuntimeError("build123d could not export `result` as STEP")
-    return {
-        "kind": "built",
-        "brep": b64encode(brep.getvalue()).decode(),
-        "step": b64encode(step.getvalue()).decode(),
-    }
+    return {"kind": "built", "brep": b64encode(brep.getvalue()).decode()}
 
 
 def failed(error: BaseException) -> FailedReport:

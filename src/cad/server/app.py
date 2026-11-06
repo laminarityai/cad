@@ -8,15 +8,15 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.mcpserver.tools import Tool
 from pydantic import BaseModel, Field
 
-from cad.sandbox import host
+from cad.sandbox import container, host
 from cad.sandbox.outcome import SandboxUnavailable
-from cad.variants import store
+from cad.variants import entry, store
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 MAX_CODE_CHARS = 256 * 1024
 BUILD_VARIANT = (
     "Build one variant from build123d Python code in a sandbox with no network, "
-    f"{host.MEMORY_MB // 1024} GB of memory and a {host.WALL_SECONDS} second limit. "
+    f"{container.MEMORY_MB // 1024} GB of memory and a {container.WALL_SECONDS} second limit. "
     f"The code runs as a script; {host.CONTRACT}. "
     "Returns the variant id, the outcome (built, build_failed with the error and traceback, "
     "timed_out, out_of_memory or no_result) and the tail of what the code printed. "
@@ -67,7 +67,7 @@ def strict_tool(tool: Tool) -> Tool:
     return tool
 
 
-def build_server(variants_root: Path = store.VARIANTS_ROOT) -> MCPServer:
+def build_server(variants_root: Path = entry.VARIANTS_ROOT) -> MCPServer:
     async def server_info() -> ServerInfo:
         """Report the git SHA the server runs from, whether the tree is dirty, Python and tools."""
         tools = await server.list_tools()

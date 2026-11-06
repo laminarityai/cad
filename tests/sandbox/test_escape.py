@@ -4,7 +4,7 @@ from unittest.mock import ANY
 
 import pytest
 
-from cad.sandbox import host
+from cad.sandbox import container, host
 from cad.sandbox.image import context_tar, current_image, image_tag
 from cad.sandbox.outcome import BuildFailed, BuildOutcome, Built, Failure, OutOfMemory, TimedOut
 
@@ -16,7 +16,9 @@ def image_id() -> str:
     return current_image(image_tag(context_tar()))
 
 
-def outcome(code: str, image_id: str, wall_seconds: int = host.WALL_SECONDS) -> Built | Failure:
+def outcome(
+    code: str, image_id: str, wall_seconds: int = container.WALL_SECONDS
+) -> Built | Failure:
     verdict = host.build(code, image_id, wall_seconds=wall_seconds).verdict
     return Built() if isinstance(verdict, host.Artifacts) else verdict
 
@@ -31,7 +33,7 @@ def exited(code: int) -> BuildFailed:
 
 
 def stopped_build_containers() -> str:
-    filters = ("--filter", f"label={host.LABEL}", "--filter", "status=exited")
+    filters = ("--filter", f"label={container.label('build')}", "--filter", "status=exited")
     done = subprocess.run(
         ("docker", "ps", "--all", "--quiet", *filters),
         capture_output=True,
@@ -73,7 +75,7 @@ def stopped_build_containers() -> str:
             id="fork-bomb",
         ),
         pytest.param(
-            "x = bytearray(4 * 1024**3)\n", OutOfMemory(limit_mb=host.MEMORY_MB), id="4-gb"
+            "x = bytearray(4 * 1024**3)\n", OutOfMemory(limit_mb=container.MEMORY_MB), id="4-gb"
         ),
         pytest.param(
             "x = '\udc80'\n",

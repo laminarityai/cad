@@ -8,8 +8,6 @@ class _Outcome(BaseModel):
 
 
 class Built(_Outcome):
-    """The build reported a shape for `result`; result.brep and result.step are stored."""
-
     kind: Literal["built"] = "built"
 
 
