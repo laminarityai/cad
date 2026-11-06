@@ -4,7 +4,7 @@ The `build_variant` tool runs agent-written build123d code in a sandbox containe
 
 ## Sub-features
 
-- `build-built` returns `built` for a reference part and stores `result.brep` and `result.step`.
+- `build-built` returns `built` for a reference part and stores `result.brep`. There is no `result.step` yet: the first `run-checks` of the variant writes it (see [Run checks](./run-checks.md)).
 - `build-cached` returns the stored outcome and the same id for the same code, without a new container.
 - `build-failed` returns `build_failed` with the error line and a traceback that starts in `/tmp/variant.py`.
 - `build-no-result` returns `no_result` with a reason that names the contract.
@@ -26,9 +26,9 @@ Preconditions:
 - Docker Desktop runs. `docker version` prints a `Server` section.
 - `uv run cad-sandbox build-image` prints `sandbox image cad-sandbox:<12 hex digits> is current` or `built sandbox image ...` and exits 0.
 
-Variants live in `~/.cad/variants/<variant_id>/`, which holds `code.py` and `build.json`, plus `result.brep` and `result.step` when the outcome is `built`. A timed-out build is never stored.
+Variants live in `~/.cad/variants/<variant_id>/`, which holds `code.py` and `build.json`, plus `result.brep` when the outcome is `built`. `build.json` also holds the sha256 of `result.brep`. A timed-out build is never stored.
 
-- **Built.** Run `uv run cad-call build_variant "$(jq -Rs '{code: .}' < tests/sandbox/parts/plate.py)" > "$EVIDENCE/build-plate.json"`. Exit code `0`. `structuredContent.outcome` is `{"kind": "built"}`, and `~/.cad/variants/<variant_id>/result.step` exists. List that directory into the evidence.
+- **Built.** Run `uv run cad-call build_variant "$(jq -Rs '{code: .}' < tests/sandbox/parts/plate.py)" > "$EVIDENCE/build-plate.json"`. Exit code `0`. `structuredContent.outcome` is `{"kind": "built"}`, and `~/.cad/variants/<variant_id>/` holds `build.json`, `code.py` and `result.brep` and no `result.step`. List that directory into the evidence.
 - **Cached.** Run the same command again. `structuredContent` is the same, `variant_id` included. The call takes about a second, the time to start the server, against 3 to 4 seconds for a build.
 - **Build failed.** Run `uv run cad-call build_variant '{"code": "from build123d import *\nresult = Box(1, 1, 1, align=Alignment.CENTER)\n"}'`. `outcome.kind` is `build_failed`, `outcome.error` is `NameError: name 'Alignment' is not defined`, and `outcome.traceback` names `Alignment`.
 - **No result.** Run `uv run cad-call build_variant '{"code": "x = 1\n"}'`. `outcome` is `no_result` with the reason ``the code never assigned `result`; assign the final shape to `result` ``.
@@ -40,10 +40,10 @@ Variants live in `~/.cad/variants/<variant_id>/`, which holds `code.py` and `bui
 
 ## Cleanup
 
-Each build removes its own container. After a run that was killed, list leftovers. The label marks only sandbox builds, so removing what it lists is safe.
+Each build removes its own container. After a run that was killed, list leftovers. The label marks only sandbox containers, `build` or `check`, so removing what it lists is safe.
 
 ```
-docker ps -a --filter label=cad.sandbox=build
+docker ps -a --filter label=cad.sandbox
 ```
 
 ## Gotchas
@@ -53,3 +53,4 @@ docker ps -a --filter label=cad.sandbox=build
 - With Docker down, a call for code that is already stored still succeeds, because the variant id needs no Docker.
 - The MCP stdio client passes the server only `HOME`, `LOGNAME`, `PATH`, `SHELL`, `TERM` and `USER`. `DOCKER_HOST` set on `cad-call` never reaches the server, so the build uses the default Docker. `tests/sandbox/test_build.py` covers an unreachable daemon in-process.
 - Editing `sandbox/Dockerfile` or `sandbox/requirements.txt` changes the image tag. The tool then answers ``sandbox image cad-sandbox:<tag> is missing; run `uv run cad-sandbox build-image` ``. Editing `src/cad/sandbox/runner.py` needs no rebuild, because the host sends the runner with each build.
+- The variant id hashes the image tag, every `*.py` in `src/cad/sandbox/` and `src/cad/variants/`, and the code. Editing any of those files gives the same code a new id, so a variant built before the edit is built again, and `run-checks` refuses its old id.

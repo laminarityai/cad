@@ -17,7 +17,7 @@ export EVIDENCE=$(mktemp -d)
 
 ## Launch
 
-There is no long-running process to start. Each drive starts its own server and stops it when the call ends. `build_variant` runs each build in a Docker container, so Docker Desktop must run, and the sandbox image must exist.
+There is no long-running process to start. Each drive starts its own server and stops it when the call ends. `build_variant` runs each build in a Docker container, and `cad-sandbox run-checks` runs the checks in a second one, so Docker Desktop must run, and the sandbox image must exist.
 
 ```
 uv sync --frozen
@@ -64,7 +64,15 @@ Build a variant from a file. `jq -Rs '{code: .}'` turns the file into the JSON o
 uv run cad-call build_variant "$(jq -Rs '{code: .}' < tests/sandbox/parts/plate.py)" > "$EVIDENCE/build-plate.json"
 ```
 
-Variants live in `~/.cad/variants/<variant_id>/`. The same code returns its stored outcome without a new build.
+Variants live in `~/.cad/variants/<variant_id>/`. The same code returns its stored outcome without a new build. A build stores `result.brep` only.
+
+Run the checks on a built variant. There is no MCP tool for this yet, so the driver is a command of the sandbox CLI. It prints the `CheckRun` as JSON, exits 0 when the run completed even if a check failed, and exits 1 with one line for a refusal or an unavailable sandbox:
+
+```
+uv run cad-sandbox run-checks "$(jq -r .structuredContent.variant_id "$EVIDENCE/build-plate.json")" prusament-pla > "$EVIDENCE/checks-plate.json"
+```
+
+The first run of a variant also writes `~/.cad/variants/<variant_id>/result.step`, derived from the BREP the checks measured. Any edit under `src/cad/sandbox/` or `src/cad/variants/` changes every variant id, so ids from before the edit are refused with `StaleVariant`: build the code again.
 
 The whole gate. Its app step calls `server_info`, runs `git rev-parse HEAD` itself, and fails when git fails, when either SHA is `unknown`, or when they differ. It prints the SHA and `dirty=True` or `dirty=False`, and a dirty tree does not fail it:
 
@@ -82,10 +90,10 @@ uv run verify
 
 ## Cleanup
 
-Nothing to tear down. `cad-call` and `claude_session.py` each end their own server process, and each build removes its own container. After a run that was killed, list leftover build containers. The label marks only sandbox builds:
+Nothing to tear down. `cad-call` and `claude_session.py` each end their own server process, and each build removes its own container. After a run that was killed, list leftover sandbox containers. The label marks only the sandbox, `build` for a build and `check` for a check run:
 
 ```
-docker ps -a --filter label=cad.sandbox=build
+docker ps -a --filter label=cad.sandbox
 ```
 
 Look for leftover servers with a filter on this checkout's interpreter. `pgrep -f` takes a regular expression and matches the whole command line, so a bare `cad.server` also matches other checkouts' servers and `uv run cad-server`. Stop only the PIDs this run started.
