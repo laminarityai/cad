@@ -17,6 +17,17 @@ def head_sha() -> str:
     return done.stdout.strip()
 
 
+def is_dirty() -> bool:
+    done = subprocess.run(
+        ("git", "status", "--porcelain"),
+        capture_output=True,
+        text=True,
+        check=True,
+        cwd=REPO_ROOT,
+    )
+    return bool(done.stdout.strip())
+
+
 async def test_lists_exactly_server_info() -> None:
     async with Client(build_server()) as client:
         listed = await client.list_tools()
@@ -29,6 +40,7 @@ async def test_server_info_names_the_head_sha_python_and_tools() -> None:
     assert not result.is_error
     assert result.structured_content == {
         "sha": head_sha(),
+        "dirty": is_dirty(),
         "python": sys.version.split()[0],
         "tools": ["server_info"],
     }

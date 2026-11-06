@@ -7,6 +7,12 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: basedpyright-skills
+        name: basedpyright skills
+        entry: uv run verify --only "basedpyright skills"
+        language: system
+        pass_filenames: false
+        always_run: true
       - id: ruff-check
         name: ruff check
         entry: uv run verify --only "ruff check"
@@ -22,6 +28,12 @@ repos:
       - id: file-size
         name: file size
         entry: uv run verify --only "file size"
+        language: system
+        pass_filenames: false
+        always_run: true
+      - id: materials-table
+        name: materials table
+        entry: uv run verify --only "materials table"
         language: system
         pass_filenames: false
         always_run: true

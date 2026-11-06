@@ -5,6 +5,8 @@ description = "Local MCP server where an agent builds CAD variants in a sandbox 
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "mcp==2.3.0",
+    "pint>=0.24",
+    "pyyaml>=6",
 ]
 
 [project.scripts]
@@ -17,6 +19,7 @@ dev = [
     "basedpyright>=1.40,<1.41",
     "pytest>=8",
     "ruff==0.17.4",
+    "types-pyyaml>=6.0.12.20261103",
 ]
 
 [build-system]
