@@ -17,6 +17,7 @@ def test_steps_run_in_the_documented_order() -> None:
         "ruff format",
         "file size",
         "pytest",
+        "app",
     ]
 
 

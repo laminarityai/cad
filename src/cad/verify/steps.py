@@ -18,4 +18,5 @@ STEPS: tuple[Step, ...] = (
     Step("ruff format", (PYTHON, "-m", "ruff", "format", "--check")),
     Step("file size", (PYTHON, str(ROOT / "tools" / "check_file_size.py"))),
     Step("pytest", (PYTHON, "-m", "pytest", "-q")),
+    Step("app", (PYTHON, "-m", "cad.server.check_app")),
 )

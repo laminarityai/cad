@@ -31,3 +31,9 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: app
+        name: app
+        entry: uv run verify --only app
+        language: system
+        pass_filenames: false
+        always_run: true

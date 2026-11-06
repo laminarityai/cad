@@ -3,10 +3,14 @@ name = "cad"
 version = "0.1.0"
 description = "Local MCP server where an agent builds CAD variants in a sandbox and fixed checks score them."
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = [
+    "mcp==2.3.0",
+]
 
 [project.scripts]
 verify = "cad.verify.__main__:main"
+cad-server = "cad.server.__main__:main"
+cad-call = "cad.server.call:main"
 
 [dependency-groups]
 dev = [
