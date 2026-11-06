@@ -1,0 +1,151 @@
+# CAD harness product spec
+
+Nov 5, 2026 · @Kevin · revised after a grilling session; terms follow [GLOSSARY.md](GLOSSARY.md)
+
+## Summary
+
+We are building an AI engineer that turns what you ask for into several engineering-checked designs to choose from. Pitch: CAD at the speed of thought, with the engineering already done.
+
+- **Who it's for:** early CADders, such as students, makers and hobbyists, who can describe what a part must do but can't yet model it fast or size it confidently. The bar is that a working engineer would trust the same output.
+- **What it does:** turns a brief into 3 to 5 parametric variants, checks each one, shows every result with its math, lets you tune the chosen one live, and sends it to Onshape.
+- **How it stays honest:** the agent proposes designs, and checks it cannot change decide whether they pass. Each scorecard lists every requirement that no reviewed check covers, so a design never looks more checked than it is.
+- **What it is not:** a new CAD program, a text-to-mesh generator, or a blueprint-to-CAD converter.
+- **First version:** a generalist. It designs any part it can build reliably, with universal checks on everything. Engineering skills for specific domains come later, chosen by what people actually design.
+
+## Problem and evidence
+
+Engineers don't trust AI to design parts, and beginners can't catch AI's mistakes, so the product has to check its own work and show the math.
+
+- **Trust is low.** 89% of engineers verify every AI result and 52% use back-of-the-envelope calculations to do it ([Omni Calculator, 2026](https://www.omnicalculator.com/reports/ai-adoption-in-engineering)). Full reliance on AI does not exceed 3% for any activity surveyed, and 61% say transparency and explainability would raise their trust ([IoT Analytics, Sep 2026](https://iot-analytics.com/the-ai-trust-gap-in-design-and-engineering-software/)).
+- **What engineers want is the work around modeling.** In the [HN thread on Adam's AI CAD Harness](https://news.ycombinator.com/item?id=47977694), the strongest asks were standard and vendor parts, drafting, and checks, delivered as inspectable scripts or feature-tree edits inside tools they already use. Commenters worried about "one hallucinated miscalculation."
+- **Text-to-CAD breaks on real parts.** In [Xometry's test](https://xometry.pro/en/articles/text-to-cad-tools-test/) of free tiers, most tools failed a 24-tooth, 2 mm module gear. On [Text2CAD-Bench](https://arxiv.org/html/2605.18430v1), invalid output rises from about 15% to 70 to 90% for most models at the hardest difficulty tier, where sweeps, lofts and shells appear.
+- **Checks work.** Feeding FEA results back to the agent raised designs that hit their target safety factor from 22% to 59% ([Physics-in-the-Loop](https://arxiv.org/html/2605.19717)).
+- **The gap.** Zoo, Adam, MecAgent and Autodesk compete on generation. In our assessment as of November 2026, none combines checks the agent cannot change, standard-part grounding, and variant comparison.
+
+The full user research is in the report *AI CAD harness user needs*. The knowledge-layer research is in [docs/research/knowledge-architecture.md](docs/research/knowledge-architecture.md).
+
+## Core loop
+
+1. **Brief.** You say what you need, in your own words, and attach images, drawings or documents if you have them.
+2. **Requirements.** The agent turns the brief into checkable requirements and shows where each one came from. You confirm them.
+3. **Variants.** The agent builds 3 to 5 parametric variants.
+4. **Checks.** Every variant gets a scorecard. This step is what sets us apart.
+5. **Tune and export.** You pick a variant, tune it with sliders, and send it to Onshape.
+
+Attachments are context, not input to convert. The agent reads them for intent and dimensions, and every dimension it takes from an image becomes a requirement you confirm before any variant is built.
+
+## How the agent works
+
+### Modes
+
+You switch modes in the chat, the way you switch modes in Claude Code.
+
+- **Plan mode.** The agent asks questions and turns the brief into requirements, without making geometry. It ends when you confirm the requirements.
+- **Design mode** is the default. The agent makes variants, runs checks, shows scorecards, and stops for you to pick or tune.
+- **Auto mode.** The agent revises variants against the checks without stopping. It stops in exactly three cases. The first is that every requirement passes. The second is that it needs a decision only you can make, such as relaxing one of two conflicting requirements, changing something you set, or using a source it found. The third is that three revisions in a row improved no failing requirement, in which case it reports what it tried and asks how to proceed. There is no budget.
+- **Test mode.** Deeper, slower analysis of one chosen variant, such as full FEA, tolerance stack-ups and slicing.
+
+### Checks
+
+A check is a fixed, deterministic piece of code that measures a variant and returns pass or fail with its formula and source. The agent cannot edit checks or their inputs. Its only move is to change the design and run the checks again.
+
+- **Universal checks** run on every variant: builds as one closed solid, no interference, mass and center of mass from the materials table, manufacturability (wall thickness, overhangs), and FEA under the loads you state.
+- **Domain checks** come from engineering skills, such as gear tooth strength or bolted joint preload. The first version ships none. The first skill goes to whichever domain people design in most.
+- **Agent-written checks** cover requirements no existing check handles, such as a snap-fit. Their results show as unreviewed. You can review one for your own project, and its results then show as user-reviewed. Only our team can add a check to an engineering skill that every user gets. Before a person reviews it, an agent-written check must pass automatic gates: consistent units, deterministic output, and at least one worked example from its cited source.
+- **Unverified requirements** are listed on every scorecard. If nothing reviewed checks a requirement, the scorecard says so.
+
+The first version does not design freeform or loft-heavy shapes reliably, and the agent says so. It offers the closest prismatic version if one exists and marks the shape requirement unverified.
+
+### Knowledge
+
+Knowledge lives in five places. Numbers a check uses never come from vector search, because retrieval returns near misses and a check that reads a near-miss yield strength is worse than no check.
+
+1. **Engineering skills.** A bundle for one kind of design: its domain checks, the rules for which check applies to which requirement, its templates, its sources, and worked examples that test each check. Checks are executed, never read into the agent's context. A change to a check's code reverts it to unreviewed.
+2. **Knowledge base.** Standards summaries, design guides, datasheets and the agent's own research, each stored as a source with its page and section. Keyword and vector search run together. The knowledge base supplies reasons and pointers, never a number a check reads. When it finds nothing confident, the requirement shows as unverified.
+3. **Parts and materials tables.** YAML and CSV files in git, validated in CI (units, yield strength no higher than tensile strength, plausible density) and read by exact key. Every value cites its source. Every scorecard records the table version it used. Missing data is "unknown," never a guess.
+4. **build123d know-how.** API notes, worked examples and common error fixes, kept small and found by keyword.
+5. **Design library, later.** Past variants with their scorecards. Each records the check and table versions that scored it, so an old pass is not reused after a check changes.
+
+A number the agent extracts from a PDF is a candidate value. No check reads it until a person confirms it, under the same rule as agent-written checks.
+
+**Data policy.** The agent may open a specific vendor page while designing and cite it as a source you confirm. Building a shared catalog from a vendor's site needs that vendor's written permission. McMaster-Carr blocks AI agents, so for its parts you paste the details or attach the STEP file. We implement formulas from paid standards and cite the clause. We never ship a standard's text or tables. You supply any copyrighted standard tables yourself. We build our own materials table from manufacturer data sheets and do not use MatWeb data.
+
+## Architecture
+
+The MCP server is the product ([ADR-0002](docs/adr/0002-mcp-server-is-the-product.md)). Every capability is an MCP tool: making variants, running checks, reading tables and the knowledge base, and exporting to Onshape. Our web app's agent is the first client and uses the same interface as Claude Code or any other MCP client. Because checks run on the server, any agent that connects can do the engineering but cannot grade its own work.
+
+- **Sandbox.** Every variant is Python written by an AI. The server runs it in a locked-down container with no network access and with time and memory limits. This is a security requirement from the first release.
+- **Hosted, with accounts.** The first version is hosted only. The web app and MCP clients both sign in, and accounts carry usage limits because FEA and slicing cost compute.
+- **Modes travel as guidance.** Outside clients get the tools and the same checks. They also get the modes and stopping rules as guidance, but only our own agent enforces them.
+- **Sliders skip the model.** A slider change calls the tool server directly and rebuilds without calling the LLM.
+- **Long jobs stream.** FEA and slicing take seconds to minutes, so they run as background jobs and the scorecard fills in as results arrive.
+
+## Stack
+
+Python on the backend, because the CAD kernel, FEA and slicer wrappers all have Python APIs. A thin web front end sits on top.
+
+| Layer | Pick | Why | Alternatives |
+| --- | --- | --- | --- |
+| Code-CAD kernel | [build123d](https://pypi.org/project/build123d/0.12.0/) 0.12 (Sep 2026, Apache-2.0, OCCT) | Our bake-off tied it with CadQuery on model reliability; the parts generators and joint objects we need are native to it ([ADR-0001](docs/adr/0001-build123d-as-cad-kernel.md)) | CadQuery |
+| Standard parts | [bd_warehouse](https://pypi.org/project/bd-warehouse/) 0.4 (Apache-2.0 tables for fasteners, bearings, o-rings, keys), [py_gearworks](https://pypi.org/project/py-gearworks/0.0.24/) (gear geometry) | Generators draw parts from standard tables, so the model never draws threads or gear teeth | Vendor STEP files the user attaches |
+| Engineering calcs | Our own tested Python module + Pint for units | Each calc returns its formula and source, so the scorecard can show its work. Few open libraries exist; shaft, bearing, bolt and belt calcs must be written in-house | [python-gearbox](https://github.com/efirvida/python-gearbox) for gear rating once a gear skill exists (install from a pinned commit) |
+| Materials | Our own YAML table in git, every value cited from manufacturer data sheets | One validated table prevents mass and strength errors | FreeCAD material cards (CC-BY) as a starting point, checked by hand |
+| FEA | [gmsh](https://gmsh.info) + CalculiX via [pygccx](https://github.com/calculix/pygccx) (install from git) | CalculiX is a mature solver that engineers recognize; pygccx covers static, buckling and frequency analysis on solids | torch-fem, which [Physics-in-the-Loop](https://arxiv.org/html/2605.19717) used |
+| Print cost and time | OrcaSlicer CLI ([orca-mcp](https://pypi.org/project/orca-mcp/) wraps it) | A real slice gives print time, filament weight and cost | Volume times density as a fast first pass |
+| Knowledge store | Postgres + [pgvector](https://github.com/pgvector/pgvector) + Postgres full-text search, fused with reciprocal rank fusion | One database holds briefs, requirements, sources and scorecards with real foreign keys | LanceDB |
+| PDF extraction | [Docling](https://github.com/docling-project/docling) (MIT) | Keeps layout and table structure; output becomes candidate values | MinerU, if table errors show up in testing |
+| Agent tools | Our own MCP server (official Python MCP SDK) | [build123d-mcp](https://pypi.org/project/build123d-mcp/0.3.70/) reports render-and-measure feedback lifting GPT-5.5 from 0.360 to 0.457 on CADGenBench | Fork build123d-mcp or [mcp-build123d](https://jsr.io/@casys/mcp-build123d) as a starting point |
+| LLM | Model-agnostic through MCP | Our bake-off ran Claude Sonnet and Opus at about $0.01 per generated part | Route cheap edits to a small model later |
+| Viewer | three-cad-viewer (the viewer inside [OCP CAD Viewer](https://pypi.org/project/ocp-vscode/4.1.0/)) | Built for build123d B-rep: picking, measuring, part tree | [OCP.wasm](https://github.com/Yeicor/OCP.wasm) (active as of Sep 2026) for in-browser build123d later |
+| App | FastAPI backend, React front end, job queue for FEA and slicing | Long jobs run in the background and stream results | None needed |
+| Onshape link | Onshape REST API (STEP import, translated into Onshape parts) | You stay in Onshape for the rest of your design | An Onshape extension panel later; it is an iframe inside Onshape, and App Store listing needs OAuth2 |
+| History | Git per design: each variant a branch, each edit a commit | Diffs and undo for free; regression checks run on every commit | None needed |
+
+## Build plan
+
+The first version is built in five phases, in this order. Each phase ends when its exit condition holds, not on a date.
+
+1. **Server and universal checks.** Project setup ([AGENTS.md](AGENTS.md)), an MCP server that runs build123d code in the sandbox, the geometric universal checks, and the first materials table. Also a 50-brief comparison that adds edits to existing models and assemblies, which tests [ADR-0001](docs/adr/0001-build123d-as-cad-kernel.md).
+   - Exit: Claude Code, connected to the server, produces scorecards for the 10 bake-off parts that agree with the bake-off grader, and the sandbox blocks network access and enforces its limits.
+2. **Briefs, requirements and scorecards.** Plan mode, 3 to 5 variants, scorecards that list unverified requirements, sources and candidate values, the knowledge base, and agent-written checks with per-project review.
+   - Exit: on a private set of briefs from at least five domains, every number on every scorecard traces to a confirmed source.
+3. **Physics and manufacturing.** FEA under stated loads, printability checks, slicer cost and print time, and Test mode.
+   - Exit: FEA results land within a stated error of hand calculations on beam and plate cases with known answers.
+4. **Web app.** Chat, 3D viewer, scorecards, sliders, the mode switcher, and Auto mode with its stopping rules.
+   - Exit: a slider change rebuilds in under 1 second, and Auto mode stops correctly on a brief whose requirements conflict.
+5. **Onshape.** Send to Onshape through the REST API.
+   - Exit: someone who doesn't use CAD designs and prints a working part from a brief, and an engineer reads its scorecard and agrees with it.
+
+Track progress with two numbers on a private set of briefs that spans at least five domains. The first is the strict pass rate, graded by executable checks, not "valid STL" rates. The second is the share of requirements covered by reviewed checks, which shows whether the "checks decide" claim holds as the agent takes on new domains. Report public benchmarks such as Text2CAD-Bench and BenchCAD-Edit alongside.
+
+## Out of scope for the first version
+
+- Converting blueprints or drawings into models. Drawings are context only. Image-to-code scored 0.32 to 0.40 on [BenchCAD](https://arxiv.org/html/2605.10865v1), depending on the model's mode.
+- Freeform and loft-heavy shapes as a goal.
+- Engineering skills and domain checks.
+- Voice input.
+- Robot simulation export and comparing predictions with measured test data.
+- The Onshape extension panel.
+- Self-hosting the server.
+- Drawing generation, CNC and sheet-metal quotes, and SolidWorks and Fusion plugins.
+
+## Risks
+
+- **Adam is already inside Onshape.** We win on checks the agent cannot change and on variant comparison, not on having an Onshape integration.
+- **Licensed standards.** ASME, ISO, AGMA and DIN documents are paid. We implement formulas and cite the clause, and never ship a standard's text or tables. DIN also forbids AI use of its documents, which matters when users upload standard PDFs.
+- **Silent edit damage.** About 64% of edits that look successful break unrelated features ([BenchCAD](https://arxiv.org/html/2605.10865v1)), so regression checks run on every commit.
+- **Running AI-written code.** Every variant is code an AI wrote, and outside MCP clients can send code too. The sandbox ships in phase 1.
+- **Compute cost.** Any MCP client can trigger FEA and slicing on our servers, so accounts and usage limits ship with the server.
+- **Auto mode has no hard stop.** If the stuck detection has a bug, Auto mode can loop and spend without limit. Watch run lengths and costs from the first Auto run.
+- **Speed.** FEA and slicing take seconds to minutes. The scorecard fills in as results arrive while the viewer stays live.
+- **Onshape API limits.** Onshape tracks API usage per user or company. Check the published limits before relying on live sync.
+- **Vendor terms.** Most vendors' data terms are unknown. The data policy above holds until each vendor gives written permission.
+
+## Open questions
+
+- [ ] Are edits to existing models and multi-part assemblies much less reliable in build123d? Phase 1's 50-brief comparison answers this, and a large gap reopens [ADR-0001](docs/adr/0001-build123d-as-cad-kernel.md).
+- [ ] What do novices actually get wrong, such as fits, wall thickness or fastener sizing?
+- [ ] Which domain gets the first engineering skill?
+- [ ] Is three revisions without progress the right stuck threshold for Auto mode?
+- [ ] Will WCP, REV, igus, Misumi and SDP-SI give written permission to build catalogs from their data?
+- [ ] Do we keep checks and tables private or open-source them? The answer decides whether self-hosting makes sense.

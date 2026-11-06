@@ -1,0 +1,3 @@
+.DS_Store
+# The kernel bake-off lives on branch proto/kernel-bakeoff; this ignores its local venvs and caches.
+proto/

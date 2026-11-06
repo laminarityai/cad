@@ -1,0 +1,72 @@
+# CAD harness
+
+A companion that turns what a user asks for into several engineering-checked designs to choose from. The agent proposes designs; checks it cannot change decide whether they are good.
+
+## Language
+
+**Brief**:
+What the user asks for, in their own words, together with any images, drawings or documents they attach.
+_Avoid_: Spec, prompt, request
+
+**Requirement**:
+One checkable target taken from a brief, such as a ratio, a load, or a size limit.
+_Avoid_: Constraint, goal
+
+**Variant**:
+One candidate design produced for a brief.
+_Avoid_: Option, candidate, design
+
+**Check**:
+A fixed, deterministic test of a variant against a requirement or an engineering standard, which the agent cannot change.
+_Avoid_: Validator, test, verification
+
+**Universal check**:
+A check that applies to every variant whatever it is, such as building as a closed solid, interference, mass, manufacturability, or FEA under stated loads.
+
+**Domain check**:
+A check that applies only to one kind of design, such as gear tooth strength or bolted joint preload, and comes from an engineering skill.
+
+**Agent-written check**:
+A check the agent drafted for a requirement no existing check covers. Its results count as unverified until the user reviews it for their project, and it joins an engineering skill only after the team reviews it.
+_Avoid_: Generated check, custom check
+
+**Candidate value**:
+A number extracted from a source that no person has confirmed yet. Checks never read candidate values.
+_Avoid_: Extracted value, parsed value
+
+**Unverified requirement**:
+A requirement that no reviewed check covers. The scorecard always lists these.
+
+**Engineering skill**:
+A packaged body of know-how for one kind of design, bundling its domain checks, templates and sources.
+_Avoid_: Plugin, module, domain pack
+
+**Scorecard**:
+All of a variant's check results, each with the formula and source behind it.
+_Avoid_: Report, evaluation
+
+**Source**:
+A document, datasheet, table or standard that a requirement or check cites, either attached by the user or found by the agent.
+_Avoid_: Reference, citation, research
+
+**Template**:
+A family of designs controlled by parameters, from which variants are made.
+_Avoid_: Model, generator
+
+## Modes
+
+**Mode**:
+A setting on the conversation that decides what the agent does next and when it hands back to the user.
+
+**Plan mode**:
+The agent asks questions and turns the brief into requirements, without making geometry. It ends when the user confirms the requirements.
+
+**Design mode**:
+The default mode. The agent makes variants, runs checks, shows scorecards, and stops for the user to pick or tune.
+
+**Auto mode**:
+The agent revises variants against the checks without stopping, until every requirement passes, it needs a decision from the user, or it stops making progress.
+
+**Test mode**:
+Deeper, slower analysis of one chosen variant, such as full FEA, tolerance stack-ups and slicing.
+_Avoid_: Verify mode, analysis mode
