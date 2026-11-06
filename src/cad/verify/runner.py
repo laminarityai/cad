@@ -16,4 +16,6 @@ def run_steps(steps: Sequence[Step]) -> int:
             print(done.stderr, end="")
             return 1
         print(f"ok   {step.name} ({seconds:.1f}s)")
+        if step.show_output:
+            print(done.stdout, end="")
     return 0

@@ -10,6 +10,7 @@ ROOT = Path(__file__).resolve().parents[3]
 class Step:
     name: str
     argv: tuple[str, ...]
+    show_output: bool = False
 
 
 STEPS: tuple[Step, ...] = (
@@ -18,5 +19,5 @@ STEPS: tuple[Step, ...] = (
     Step("ruff format", (PYTHON, "-m", "ruff", "format", "--check")),
     Step("file size", (PYTHON, str(ROOT / "tools" / "check_file_size.py"))),
     Step("pytest", (PYTHON, "-m", "pytest", "-q")),
-    Step("app", (PYTHON, "-m", "cad.server.check_app")),
+    Step("app", (PYTHON, "-m", "cad.server.probe"), show_output=True),
 )
