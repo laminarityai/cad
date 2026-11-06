@@ -20,6 +20,6 @@
 
 ## Verify your work
 
-Phase 1 of the build plan adds a single `verify` command that runs type checking, lint, tests, and the app itself. A change is done when `verify` passes and you have exercised the change through the MCP server or the app, not only through unit tests.
+`uv run verify` is the single command that runs type checking, lint, the format check, the file-size check and tests, and exits non-zero on the first failure. The app step joins it in a later PR. A change is done when `verify` passes and you have exercised the change through the MCP server or the app, not only through unit tests.
 
-Until `verify` exists, the only code in the repo is the throwaway bake-off on branch `proto/kernel-bakeoff`.
+After `uv sync`, run `uvx pre-commit install` once. Each commit then runs the same steps through `verify --only <step>`.
