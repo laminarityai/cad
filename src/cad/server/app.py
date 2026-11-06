@@ -8,7 +8,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.mcpserver.tools import Tool
 from pydantic import BaseModel, Field
 
-from cad.sandbox import host
+from cad.sandbox import container, host
 from cad.sandbox.outcome import SandboxUnavailable
 from cad.variants import store
 
@@ -16,7 +16,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 MAX_CODE_CHARS = 256 * 1024
 BUILD_VARIANT = (
     "Build one variant from build123d Python code in a sandbox with no network, "
-    f"{host.MEMORY_MB // 1024} GB of memory and a {host.WALL_SECONDS} second limit. "
+    f"{container.MEMORY_MB // 1024} GB of memory and a {container.WALL_SECONDS} second limit. "
     f"The code runs as a script; {host.CONTRACT}. "
     "Returns the variant id, the outcome (built, build_failed with the error and traceback, "
     "timed_out, out_of_memory or no_result) and the tail of what the code printed. "

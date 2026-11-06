@@ -4,7 +4,7 @@ import subprocess
 import tarfile
 from pathlib import Path
 
-from cad.sandbox.host import docker, first_line
+from cad.sandbox.container import docker, first_line
 from cad.sandbox.outcome import SandboxUnavailable
 
 SANDBOX_DIR = Path(__file__).resolve().parents[3] / "sandbox"

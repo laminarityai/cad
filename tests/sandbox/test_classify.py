@@ -4,16 +4,15 @@ from pathlib import Path
 
 import pytest
 
-from cad.sandbox.host import (
+from cad.sandbox.container import (
     MEMORY_MB,
-    TEXT_CAP,
-    Artifacts,
     Attended,
     ContainerState,
+    Job,
     TooMuchOutput,
-    classify,
     run_argv,
 )
+from cad.sandbox.host import TEXT_CAP, Artifacts, build_job, classify
 from cad.sandbox.outcome import BuildFailed, Failure, NoResult, OutOfMemory, TimedOut
 
 WALL = 60
@@ -115,7 +114,9 @@ def test_report_strings_keep_the_error_head_and_the_traceback_tail() -> None:
 
 def test_the_container_runs_locked_down() -> None:
     runner = (Path(__file__).parents[2] / "src/cad/sandbox/runner.py").read_text()
-    assert run_argv("cad-build-1", "sha256:abc", WALL) == (
+    job = build_job("x = 1\n", "sha256:abc", WALL)
+    assert job == Job("build", "sha256:abc", ("python", "-I", "-c", runner, "120"), b"x = 1\n")
+    assert run_argv("cad-build-1", job) == (
         "docker", "run", "--name", "cad-build-1", "--label", "cad.sandbox=build",
         "--interactive", "--init", "--pull", "never", "--log-driver", "none",
         "--network", "none",

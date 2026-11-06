@@ -5,7 +5,7 @@ import shutil
 from pathlib import Path
 from typing import NewType
 
-from cad.sandbox import host
+from cad.sandbox import container, host
 from cad.sandbox.image import context_tar, current_image, image_tag
 from cad.sandbox.outcome import Build, Built, Failure, SandboxUnavailable, TimedOut
 
@@ -31,7 +31,7 @@ def variant_id(code: str, tag: str) -> VariantId:
 
 
 def build_variant(
-    code: str, root: Path = VARIANTS_ROOT, *, wall_seconds: int = host.WALL_SECONDS
+    code: str, root: Path = VARIANTS_ROOT, *, wall_seconds: int = container.WALL_SECONDS
 ) -> BuildResult:
     tag = image_tag(context_tar())
     vid = variant_id(code, tag)
