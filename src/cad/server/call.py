@@ -27,7 +27,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("tool")
     parser.add_argument("arguments", help="tool arguments as a JSON object")
     args = parser.parse_args(argv)
-    parsed: object = json.loads(args.arguments)
+    try:
+        parsed: object = json.loads(args.arguments)
+    except json.JSONDecodeError as error:
+        parser.error(f"arguments are not valid JSON: {error}")
     if not isinstance(parsed, dict):
         parser.error("arguments must be a JSON object")
     arguments = cast(dict[str, Any], parsed)
