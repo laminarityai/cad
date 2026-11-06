@@ -1,5 +1,3 @@
-# Every value cites a manufacturer data sheet. A value the sheet does not state is `unknown`.
-# Plastic strengths are for printed specimens in the build plane, as each quote names.
 materials:
   - key: prusament-pla
     name: Prusament PLA
