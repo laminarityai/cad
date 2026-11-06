@@ -1,0 +1,125 @@
+import json
+from base64 import b64encode
+from pathlib import Path
+
+import pytest
+
+from cad.sandbox.host import (
+    MEMORY_MB,
+    TEXT_CAP,
+    Artifacts,
+    Attended,
+    ContainerState,
+    classify,
+    run_argv,
+)
+from cad.sandbox.outcome import BuildFailed, Failure, NoResult, OutOfMemory, TimedOut
+
+WALL = 60
+CONTRACT = "assign the final shape to `result`"
+MALFORMED = BuildFailed(error="the build sent a malformed result", traceback="")
+
+
+def built_report(brep: bytes = b"brep bytes", step: bytes = b"step bytes") -> bytes:
+    return json.dumps(
+        {"kind": "built", "brep": b64encode(brep).decode(), "step": b64encode(step).decode()}
+    ).encode()
+
+
+def failed_report(error: str = "ValueError: boom", traceback: str = "Traceback ...") -> bytes:
+    return json.dumps({"kind": "build_failed", "error": error, "traceback": traceback}).encode()
+
+
+def seen(report: bytes | None, *, killed: bool = False) -> Attended:
+    return Attended(killed_at_deadline=killed, report=report, output="")
+
+
+def state(exit_code: int, *, oom: bool = False) -> ContainerState:
+    return ContainerState(Status="exited", ExitCode=exit_code, OOMKilled=oom, Error="")
+
+
+def exited_without_report(code: int) -> BuildFailed:
+    return BuildFailed(
+        error=f"the build process exited with code {code} before it sent a result", traceback=""
+    )
+
+
+@pytest.mark.parametrize(
+    ("attended", "container", "expected"),
+    [
+        pytest.param(
+            seen(built_report(), killed=True), state(0), TimedOut(limit_seconds=WALL), id="kill"
+        ),
+        pytest.param(
+            seen(built_report()), state(0), Artifacts(b"brep bytes", b"step bytes"), id="built"
+        ),
+        pytest.param(
+            seen(built_report()), state(0, oom=True), Artifacts(b"brep bytes", b"step bytes"),
+            id="report-beats-a-child-oom",
+        ),
+        pytest.param(
+            seen(failed_report()), state(0),
+            BuildFailed(error="ValueError: boom", traceback="Traceback ..."), id="failed",
+        ),
+        pytest.param(
+            seen(b'{"kind": "no_result", "found": null}'), state(0),
+            NoResult(reason=f"the code never assigned `result`; {CONTRACT}"), id="no-result",
+        ),
+        pytest.param(
+            seen(b'{"kind": "no_result", "found": "int"}'), state(0),
+            NoResult(reason=f"`result` is of type int, not a build123d Shape; {CONTRACT}"),
+            id="not-a-shape",
+        ),
+        pytest.param(
+            seen(b""), state(137, oom=True), OutOfMemory(limit_mb=MEMORY_MB), id="oom"
+        ),
+        pytest.param(seen(b""), state(152), TimedOut(limit_seconds=WALL), id="sigxcpu"),
+        pytest.param(seen(b""), state(137), exited_without_report(137), id="137-is-not-timeout"),
+        pytest.param(seen(built_report()), state(1), exited_without_report(1), id="nonzero-exit"),
+        pytest.param(seen(b""), state(0), exited_without_report(0), id="exit-0-silent"),
+        pytest.param(
+            seen(None), state(0),
+            BuildFailed(error="the build sent more than 64 MiB of output", traceback=""),
+            id="over-the-cap",
+        ),
+        pytest.param(seen(b'{"kind": "won"}'), state(0), MALFORMED, id="bad-tag"),
+        pytest.param(
+            seen(b'{"kind": "build_failed", "error": 1, "traceback": ""}'), state(0), MALFORMED,
+            id="wrong-type",
+        ),
+        pytest.param(seen(failed_report() + b"{}"), state(0), MALFORMED, id="extra-json"),
+        pytest.param(seen(b"[]"), state(0), MALFORMED, id="not-an-object"),
+        pytest.param(
+            seen(b'{"kind": "built", "brep": "@@", "step": "@@"}'), state(0), MALFORMED,
+            id="bad-base64",
+        ),
+    ],
+)  # fmt: skip
+def test_classify(
+    attended: Attended, container: ContainerState, expected: Artifacts | Failure
+) -> None:
+    assert classify(attended, container, WALL) == expected
+
+
+def test_report_strings_keep_the_error_head_and_the_traceback_tail() -> None:
+    error = "ValueError: " + "e" * TEXT_CAP
+    traceback = "t" * TEXT_CAP + "ValueError: last line"
+    verdict = classify(seen(failed_report(error=error, traceback=traceback)), state(0), WALL)
+    assert verdict == BuildFailed(error=error[:TEXT_CAP], traceback=traceback[-TEXT_CAP:])
+
+
+def test_the_container_runs_locked_down() -> None:
+    runner = (Path(__file__).parents[2] / "src/cad/sandbox/runner.py").read_text()
+    assert run_argv("cad-build-1", "sha256:abc", WALL) == (
+        "docker", "run", "--name", "cad-build-1", "--label", "cad.sandbox=build",
+        "--interactive", "--init", "--pull", "never", "--log-driver", "none",
+        "--network", "none",
+        "--memory", "2048m", "--memory-swap", "2048m",
+        "--pids-limit", "128", "--cpus", "2",
+        "--read-only", "--tmpfs", "/tmp:rw,noexec,nosuid,size=256m",
+        "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
+        "--user", "65534:65534", "--env", "HOME=/tmp", "--workdir", "/tmp",
+        "sha256:abc",
+        "timeout", "--signal", "KILL", "65",
+        "python", "-I", "-c", runner, "60",
+    )  # fmt: skip
