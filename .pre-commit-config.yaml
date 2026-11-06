@@ -37,6 +37,12 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: sandbox-image
+        name: sandbox image
+        entry: uv run verify --only "sandbox image"
+        language: system
+        pass_filenames: false
+        always_run: true
       - id: pytest
         name: pytest
         entry: uv run verify --only pytest
