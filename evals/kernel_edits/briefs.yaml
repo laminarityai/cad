@@ -1,0 +1,618 @@
+# Edit and assembly briefs for the kernel comparison (PR9). All units mm.
+#
+# start:   the starting model, start/<library>/<start>.py, given to the model with the brief.
+# expect:  facts derived by hand from the brief, which validate_grader.py checks against
+#          the reference: the volume change from the starting model (an arithmetic
+#          expression), and the bounding-box center and size of each solid, in any order.
+#          A size is left out where the part's outline makes it irrational.
+
+# Edits ----------------------------------------------------------------------------------
+
+- id: plate_holes_outward
+  kind: edit
+  start: plate
+  brief: >-
+    Move each of the four holes 5 mm farther from the plate's center along X, so the hole
+    centers sit at X = -47 and X = 47. Keep their Y positions and their 5.1 mm diameter.
+    Keep everything else as it is.
+  expect:
+    volume_delta: "0"
+    solids: [{center: [0, 0, 0], size: [100, 50, 6]}]
+
+- id: plate_center_hole
+  kind: edit
+  start: plate
+  brief: >-
+    Add a 12 mm diameter through hole at the center of the plate, with its axis along Z.
+    Keep everything else as it is.
+  expect:
+    volume_delta: "-pi * 6**2 * 6"
+    solids: [{center: [0, 0, 0], size: [100, 50, 6]}]
+
+- id: plate_round_corners
+  kind: edit
+  start: plate
+  brief: >-
+    Round the plate's four corner edges that run along Z, the 6 mm long edges at the
+    corners of the 100 x 50 outline, with a 5 mm radius. Keep everything else as it is.
+  expect:
+    volume_delta: "-4 * (1 - pi / 4) * 5**2 * 6"
+    solids: [{center: [0, 0, 0], size: [100, 50, 6]}]
+
+- id: l_bracket_longer_base
+  kind: edit
+  start: l_bracket
+  brief: >-
+    Make the horizontal leg (the base along +X) 60 mm long measured on the outside of the
+    L, instead of 40 mm, by extending its free end in +X. Keep its two holes where they
+    are, 12 mm and 30 mm from the outside corner. Keep everything else as it is.
+  expect:
+    volume_delta: "20 * 30 * 3"
+    solids: [{center: [30, 15, 20], size: [60, 30, 40]}]
+
+- id: l_bracket_inside_fillet
+  kind: edit
+  start: l_bracket
+  brief: >-
+    Add a 4 mm radius fillet along the inside corner of the L, the edge parallel to Y where
+    the top face of the base meets the inside face of the wall (at X = 3, Z = 3). Keep
+    everything else as it is.
+  expect:
+    volume_delta: "(1 - pi / 4) * 4**2 * 30"
+    solids: [{center: [20, 15, 20], size: [40, 30, 40]}]
+
+- id: l_bracket_bigger_wall_holes
+  kind: edit
+  start: l_bracket
+  brief: >-
+    Enlarge the two holes in the vertical leg (the wall along +Z) from 5.1 mm to 6.6 mm
+    diameter, keeping their centers. Leave the two holes in the base at 5.1 mm. Keep
+    everything else as it is.
+  expect:
+    volume_delta: "-2 * pi * (3.3**2 - 2.55**2) * 3"
+    solids: [{center: [20, 15, 20], size: [40, 30, 40]}]
+
+- id: motor_plate_smaller_bolt_circle
+  kind: edit
+  start: motor_plate
+  brief: >-
+    Move the four 3.2 mm holes onto a 44 mm diameter bolt circle instead of the 50.8 mm
+    one, keeping them at 45, 135, 225 and 315 degrees around the center. Keep everything
+    else as it is.
+  expect:
+    volume_delta: "0"
+    solids: [{center: [0, 0, 0], size: [60, 60, 6]}]
+
+- id: motor_plate_counterbore
+  kind: edit
+  start: motor_plate
+  brief: >-
+    Counterbore the 22 mm center hole from the top face (the face at Z = 3): a 30 mm
+    diameter counterbore, 2 mm deep, coaxial with the hole. Keep everything else as it is.
+  expect:
+    volume_delta: "-pi * (15**2 - 11**2) * 2"
+    solids: [{center: [0, 0, 0], size: [60, 60, 6]}]
+
+- id: motor_plate_chamfer_top
+  kind: edit
+  start: motor_plate
+  brief: >-
+    Chamfer the four outer edges of the top face (the face at Z = 3) by 1 mm, with equal
+    1 mm setbacks on both faces. Do not chamfer the bottom face or the hole edges. Keep
+    everything else as it is.
+  expect:
+    volume_delta: "-(60**2 * 1 - (60**2 + 58**2 + 60 * 58) / 3)"
+    solids: [{center: [0, 0, 0], size: [60, 60, 6]}]
+
+- id: spur_gear_bigger_bore
+  kind: edit
+  start: spur_gear
+  brief: >-
+    Enlarge the center bore of the gear from 8 mm to 10 mm diameter, coaxial with the
+    gear. Keep everything else as it is.
+  expect:
+    volume_delta: "-pi * (5**2 - 4**2) * 10"
+    solids: [{center: [0, 0, 5]}]
+
+- id: spur_gear_hub
+  kind: edit
+  start: spur_gear
+  brief: >-
+    Add a round hub on the gear's top face: a 20 mm diameter cylinder, 5 mm long, coaxial
+    with the gear, from Z = 10 to Z = 15. The 8 mm bore runs through the hub as well. Keep
+    everything else as it is.
+  expect:
+    volume_delta: "pi * (10**2 - 4**2) * 5"
+    solids: [{center: [0, 0, 7.5]}]
+
+- id: spur_gear_keyway
+  kind: edit
+  start: spur_gear
+  brief: >-
+    Cut a keyway into the bore, through the full 10 mm thickness: a slot 3 mm wide,
+    centered on the Y axis (from X = -1.5 to X = 1.5), running from the bore out to
+    Y = 5.5. Keep everything else as it is.
+  expect:
+    volume_delta: "-(3 * 5.5 - 2 * (0.75 * sqrt(13.75) + 8 * asin(0.375))) * 10"
+    solids: [{center: [0, 0, 5]}]
+
+- id: hex_spacer_longer
+  kind: edit
+  start: hex_spacer
+  brief: >-
+    Make the spacer 16 mm long instead of 10 mm, still centered on the origin, so it runs
+    from Z = -8 to Z = 8. The hex bore still runs all the way through. Keep everything
+    else as it is.
+  expect:
+    volume_delta: "(pi * 12.5**2 - sqrt(3) / 2 * 12.7**2) * 6"
+    solids: [{center: [0, 0, 0], size: [25, 25, 16]}]
+
+- id: hex_spacer_chamfer_outside
+  kind: edit
+  start: hex_spacer
+  brief: >-
+    Chamfer both outer circular edges of the spacer (where the 25 mm outside surface
+    meets each end face) by 1 mm, with equal setbacks. Do not chamfer the hex bore. Keep
+    everything else as it is.
+  expect:
+    volume_delta: "-2 * 2 * pi * (12.5 - 1 / 3) * 0.5"
+    solids: [{center: [0, 0, 0], size: [25, 25, 10]}]
+
+- id: hex_spacer_wider
+  kind: edit
+  start: hex_spacer
+  brief: >-
+    Change the spacer's outside diameter from 25 mm to 30 mm, coaxial with the bore. Keep
+    everything else as it is.
+  expect:
+    volume_delta: "pi * (15**2 - 12.5**2) * 10"
+    solids: [{center: [0, 0, 0], size: [30, 30, 10]}]
+
+- id: shaft_collar_longer
+  kind: edit
+  start: shaft_collar
+  brief: >-
+    Make the collar 14 mm long instead of 10 mm by extending only its top end, so the
+    bottom face stays at Z = -5 and the top face moves to Z = 9. Keep the radial screw
+    hole where it is, at Z = 0. Keep everything else as it is.
+  expect:
+    volume_delta: "pi * (12.5**2 - 6.35**2) * 4"
+    solids: [{center: [0, 0, 2], size: [25, 25, 14]}]
+
+- id: shaft_collar_chamfer_bore
+  kind: edit
+  start: shaft_collar
+  brief: >-
+    Chamfer both circular edges of the 12.7 mm bore (where the bore meets each end face)
+    by 0.5 mm, with equal setbacks. Keep everything else as it is.
+  expect:
+    volume_delta: "-2 * 2 * pi * (6.35 + 0.5 / 3) * 0.5**2 / 2"
+    solids: [{center: [0, 0, 0], size: [25, 25, 10]}]
+
+- id: shaft_collar_clamp_slot
+  kind: edit
+  start: shaft_collar
+  brief: >-
+    Turn the collar into a clamp collar: cut a 1 mm wide slot through the wall on the -X
+    side, centered on the X axis (from Y = -0.5 to Y = 0.5), along the full length of the
+    collar, from the outside surface into the bore. Keep everything else as it is.
+  expect:
+    volume_delta: >-
+      -10 * 2 * ((0.25 * sqrt(12.5**2 - 0.25) + 12.5**2 / 2 * asin(0.5 / 12.5))
+      - (0.25 * sqrt(6.35**2 - 0.25) + 6.35**2 / 2 * asin(0.5 / 6.35)))
+    solids: [{center: [0, 0, 0], size: [25, 25, 10]}]
+
+- id: gusset_smaller_hole
+  kind: edit
+  start: gusset
+  brief: >-
+    Shrink the center hole from 20 mm to 12 mm diameter, keeping it on the triangle's
+    centroid. Keep everything else as it is.
+  expect:
+    volume_delta: "pi * (10**2 - 6**2) * 4"
+    solids: [{}]
+
+- id: gusset_thicker
+  kind: edit
+  start: gusset
+  brief: >-
+    Make the gusset 6 mm thick instead of 4 mm, keeping its bottom face at Z = 0, so the
+    top face moves to Z = 6. Keep everything else as it is.
+  expect:
+    volume_delta: "2 * (1250 - 3**2 * (1 - pi / 4) - 2 * 3**2 * (1 / tan(pi / 8) - 3 * pi / 8) - pi * 10**2)"
+    solids: [{}]
+
+- id: gusset_mount_holes
+  kind: edit
+  start: gusset
+  brief: >-
+    Add two 4 mm diameter through holes with their axes along Z, one centered at X = 35,
+    Y = 5 and one centered at X = 5, Y = 35. Keep everything else as it is.
+  expect:
+    volume_delta: "-2 * pi * 2**2 * 4"
+    solids: [{}]
+
+- id: u_bracket_taller
+  kind: edit
+  start: u_bracket
+  brief: >-
+    Make the two side walls 40 mm tall instead of 30 mm, so the bracket is 40 mm tall
+    overall. Keep the wall holes where they are, 20 mm above the bottom. Keep everything
+    else as it is.
+  expect:
+    volume_delta: "2 * 2 * 50 * 10"
+    solids: [{center: [0, 0, 20], size: [40, 50, 40]}]
+
+- id: u_bracket_base_holes
+  kind: edit
+  start: u_bracket
+  brief: >-
+    Add two 4 mm diameter through holes in the base, with their axes along Z, centered at
+    X = 0, Y = -15 and at X = 0, Y = 15. Keep everything else as it is.
+  expect:
+    volume_delta: "-2 * pi * 2**2 * 2"
+    solids: [{center: [0, 0, 15], size: [40, 50, 30]}]
+
+- id: u_bracket_raise_holes
+  kind: edit
+  start: u_bracket
+  brief: >-
+    Move both wall holes up 5 mm, so their shared axis is 25 mm above the bottom of the
+    bracket instead of 20 mm. They stay coaxial and 6 mm in diameter. Keep everything
+    else as it is.
+  expect:
+    volume_delta: "0"
+    solids: [{center: [0, 0, 15], size: [40, 50, 30]}]
+
+- id: bearing_block_deeper_pocket
+  kind: edit
+  start: bearing_block
+  brief: >-
+    Make the 28 mm bearing pocket 10 mm deep instead of 8 mm, measured from the top face.
+    Keep everything else as it is.
+  expect:
+    volume_delta: "-pi * (14**2 - 6.35**2) * 2"
+    solids: [{center: [0, 0, 10], size: [40, 40, 20]}]
+
+- id: bearing_block_four_holes
+  kind: edit
+  start: bearing_block
+  brief: >-
+    Add mounting holes at the other two corners, so there is one at each corner: two more
+    5.1 mm vertical through holes, centered at X = 15, Y = -15 and at X = -15, Y = 15.
+    Keep everything else as it is.
+  expect:
+    volume_delta: "-2 * pi * 2.55**2 * 20"
+    solids: [{center: [0, 0, 10], size: [40, 40, 20]}]
+
+- id: bearing_block_round_corners
+  kind: edit
+  start: bearing_block
+  brief: >-
+    Round the block's four vertical corner edges (the 20 mm long edges at the corners of
+    the 40 x 40 outline) with a 3 mm radius. Keep everything else as it is.
+  expect:
+    volume_delta: "-4 * (1 - pi / 4) * 3**2 * 20"
+    solids: [{center: [0, 0, 10], size: [40, 40, 20]}]
+
+- id: arm_smaller_bores
+  kind: edit
+  start: arm
+  brief: >-
+    Shrink both bearing bores from 28 mm to 22 mm diameter, keeping their centers. Keep
+    everything else as it is.
+  expect:
+    volume_delta: "2 * pi * (14**2 - 11**2) * 6"
+    solids: [{center: [0, 0, 3], size: [290, 40, 6]}]
+
+- id: arm_fill_middle_pocket
+  kind: edit
+  start: arm
+  brief: >-
+    Remove the middle lightening pocket (the one centered at X = 0), filling it in with
+    solid material. Keep the other two pockets. Keep everything else as it is.
+  expect:
+    volume_delta: "(30 * 20 - (4 - pi) * 3**2) * 6"
+    solids: [{center: [0, 0, 3], size: [290, 40, 6]}]
+
+- id: arm_longer
+  kind: edit
+  start: arm
+  brief: >-
+    Lengthen the arm so its two bearing bores are 300 mm apart instead of 250 mm. Keep the
+    bore at X = -125 and the three pockets where they are, and move the other bore and
+    the rounded +X end 50 mm in +X. Keep everything else as it is.
+  expect:
+    volume_delta: "50 * 40 * 6"
+    solids: [{center: [25, 0, 3], size: [340, 40, 6]}]
+
+# Assemblies -----------------------------------------------------------------------------
+
+- id: asm_plate_standoffs
+  kind: assembly
+  start: asm_plate_standoffs
+  brief: >-
+    Keep the plate where it is. Move the four standoffs, without rotating them, so that
+    one standoff sits under each of the plate's four holes, coaxial with that hole, with
+    its top end touching the plate's bottom face. Do not change the shape of any part.
+  expect:
+    volume_delta: "0"
+    solids:
+      - {center: [0, 0, 0], size: [60, 60, 4]}
+      - {center: [25, 25, -7], size: [6, 6, 10]}
+      - {center: [-25, 25, -7], size: [6, 6, 10]}
+      - {center: [25, -25, -7], size: [6, 6, 10]}
+      - {center: [-25, -25, -7], size: [6, 6, 10]}
+
+- id: asm_block_on_plate
+  kind: assembly
+  start: asm_block_on_plate
+  brief: >-
+    Keep the plate where it is. Move the bearing block, without rotating it, so its bottom
+    face lies on the plate's top face and it is centered on the plate, with the block's
+    bore axis passing through the plate's center. Do not change the shape of any part.
+  expect:
+    volume_delta: "0"
+    solids:
+      - {center: [0, 0, 0], size: [100, 50, 6]}
+      - {center: [0, 0, 13], size: [40, 40, 20]}
+
+- id: asm_shaft_in_block
+  kind: assembly
+  start: asm_shaft_in_block
+  brief: >-
+    Keep the bearing block where it is. Move the shaft, without rotating it, into the
+    block's 12.7 mm through hole, coaxial with it, so the shaft's bottom end is flush with
+    the block's bottom face. Do not change the shape of any part.
+  expect:
+    volume_delta: "0"
+    solids:
+      - {center: [0, 0, 10], size: [40, 40, 20]}
+      - {center: [0, 0, 20], size: [12, 12, 40]}
+
+- id: asm_bearing_in_block
+  kind: assembly
+  start: asm_bearing_in_block
+  brief: >-
+    Keep the bearing block where it is. Seat the bearing ring in the block's 28 mm pocket,
+    coaxial with the pocket, with the ring's bottom face resting on the pocket floor. Do
+    not rotate it. Do not change the shape of any part.
+  expect:
+    volume_delta: "0"
+    solids:
+      - {center: [0, 0, 10], size: [40, 40, 20]}
+      - {center: [0, 0, 16], size: [27.8, 27.8, 8]}
+
+- id: asm_gear_on_shaft
+  kind: assembly
+  start: asm_gear_on_shaft
+  brief: >-
+    Keep the shaft where it is. Slide the gear onto the shaft, coaxial with it and without
+    rotating it, so the gear's bottom face is 10 mm above the shaft's bottom end. Do not
+    change the shape of any part.
+  expect:
+    volume_delta: "0"
+    solids:
+      - {center: [0, 0, 0], size: [7.9, 7.9, 30]}
+      - {center: [0, 0, 0]}
+
+- id: asm_collars_on_shaft
+  kind: assembly
+  start: asm_collars_on_shaft
+  brief: >-
+    Keep the shaft where it is. Put one collar on each end of the shaft, coaxial with it
+    and without rotating the collars, so each collar's outer end face is flush with the
+    shaft end it sits on. Do not change the shape of any part.
+  expect:
+    volume_delta: "0"
+    solids:
+      - {center: [0, 0, 0], size: [12.6, 12.6, 50]}
+      - {center: [0, 0, 20], size: [25, 25, 10]}
+      - {center: [0, 0, -20], size: [25, 25, 10]}
+
+- id: asm_l_bracket_on_plate
+  kind: assembly
+  start: asm_l_bracket_on_plate
+  brief: >-
+    Keep the plate where it is. Move the L-bracket, without rotating it, so the bottom of
+    its base lies on the plate's top face, the outside face of its wall is flush with the
+    plate's end face at X = -50, and the bracket is centered on the plate along Y. Do not
+    change the shape of any part.
+  expect:
+    volume_delta: "0"
+    solids:
+      - {center: [0, 0, 0], size: [100, 50, 6]}
+      - {center: [-30, 0, 23], size: [40, 30, 40]}
+
+- id: asm_l_brackets_facing
+  kind: assembly
+  start: asm_l_brackets_facing
+  brief: >-
+    Keep the plate where it is. Stand both L-brackets on the plate's top face, centered on
+    the plate along Y, with their walls facing each other. Move the first bracket without
+    rotating it, so the outside face of its wall is flush with the plate's end face at
+    X = -50. Turn the second bracket half a turn about a vertical axis, so its base points
+    toward -X, and place it so the outside face of its wall is flush with the plate's end
+    face at X = 50. Do not change the shape of any part.
+  expect:
+    volume_delta: "0"
+    solids:
+      - {center: [0, 0, 0], size: [100, 50, 6]}
+      - {center: [-30, 0, 23], size: [40, 30, 40]}
+      - {center: [30, 0, 23], size: [40, 30, 40]}
+
+- id: asm_arm_on_shafts
+  kind: assembly
+  start: asm_arm_on_shafts
+  brief: >-
+    Keep the arm where it is. Put one shaft through each of the arm's two bearing bores,
+    coaxial with the bore and without rotating the shafts, so each shaft's mid-length is
+    at the arm's mid-thickness. Do not change the shape of any part.
+  expect:
+    volume_delta: "0"
+    solids:
+      - {center: [0, 0, 3], size: [290, 40, 6]}
+      - {center: [-125, 0, 3], size: [27.8, 27.8, 20]}
+      - {center: [125, 0, 3], size: [27.8, 27.8, 20]}
+
+- id: asm_motor_plate_on_u_bracket
+  kind: assembly
+  start: asm_motor_plate_on_u_bracket
+  brief: >-
+    Keep the U-bracket where it is. Lay the motor plate flat on top of the bracket's two
+    walls, without rotating it, so the plate's bottom face rests on the top ends of the
+    walls and the plate is centered over the bracket in X and in Y. Do not change the
+    shape of any part.
+  expect:
+    volume_delta: "0"
+    solids:
+      - {center: [0, 0, 15], size: [40, 50, 30]}
+      - {center: [0, 0, 33], size: [60, 60, 6]}
+
+- id: asm_spacer_stack
+  kind: assembly
+  start: asm_spacer_stack
+  brief: >-
+    Leave one spacer where it is and stack the other two on top of it, end to end along
+    +Z, coaxial and without rotating them, so the hex bores line up. Each spacer's bottom
+    face touches the top face of the spacer below it. Do not change the shape of any part.
+  expect:
+    volume_delta: "0"
+    solids:
+      - {center: [0, 0, 0], size: [25, 25, 10]}
+      - {center: [0, 0, 10], size: [25, 25, 10]}
+      - {center: [0, 0, 20], size: [25, 25, 10]}
+
+- id: asm_pin_through_u_bracket
+  kind: assembly
+  start: asm_pin_through_u_bracket
+  brief: >-
+    Keep the U-bracket where it is. Put the pin through both wall holes, coaxial with
+    them, so the pin's mid-length is at X = 0, halfway between the walls. Do not change
+    the shape of any part.
+  expect:
+    volume_delta: "0"
+    solids:
+      - {center: [0, 0, 15], size: [40, 50, 30]}
+      - {center: [0, 0, 20], size: [44, 5.8, 5.8]}
+
+- id: asm_gusset_in_l_bracket
+  kind: assembly
+  start: asm_gusset_in_l_bracket
+  brief: >-
+    Keep the L-bracket where it is. Stand the triangular gusset in the inside corner of
+    the bracket: its triangle lies in a plane parallel to XZ, its right-angle corner is at
+    the bracket's inside corner (X = 3, Z = 3), one leg lies on the top face of the base
+    and the other on the inside face of the wall, and its 3 mm thickness runs from Y = 0
+    to Y = 3, flush with the bracket's side face at Y = 0. Do not change the shape of any
+    part.
+  expect:
+    volume_delta: "0"
+    solids:
+      - {center: [20, 15, 20], size: [40, 30, 40]}
+      - {center: [18, 1.5, 18], size: [30, 3, 30]}
+
+- id: asm_two_gears_on_shaft
+  kind: assembly
+  start: asm_two_gears_on_shaft
+  brief: >-
+    Keep the shaft where it is. Slide both gears onto the shaft, coaxial with it and
+    without rotating them. The first gear's bottom face is flush with the shaft's bottom
+    end. The second gear sits above the first with a 5 mm gap between them. Do not change
+    the shape of any part.
+  expect:
+    volume_delta: "0"
+    solids:
+      - {center: [0, 0, 0], size: [7.9, 7.9, 30]}
+      - {center: [0, 0, -10]}
+      - {center: [0, 0, 5]}
+
+- id: asm_blocks_on_plate
+  kind: assembly
+  start: asm_blocks_on_plate
+  brief: >-
+    Keep the plate where it is. Stand both bearing blocks on the plate's top face, without
+    rotating them, both centered on Y = 0, one with its bore axis at X = -25 and the other
+    with its bore axis at X = 25. Do not change the shape of any part.
+  expect:
+    volume_delta: "0"
+    solids:
+      - {center: [0, 0, 0], size: [100, 50, 6]}
+      - {center: [-25, 0, 13], size: [40, 40, 20]}
+      - {center: [25, 0, 13], size: [40, 40, 20]}
+
+- id: asm_shaft_block_collar
+  kind: assembly
+  start: asm_shaft_block_collar
+  brief: >-
+    Keep the bearing block where it is. Put the shaft through the block's 12.7 mm hole,
+    coaxial with it, so the shaft's bottom end is flush with the block's bottom face.
+    Slide the collar onto the shaft, coaxial and without rotating it, so the collar's
+    bottom face rests on the floor of the block's 28 mm pocket. Do not change the shape of
+    any part.
+  expect:
+    volume_delta: "0"
+    solids:
+      - {center: [0, 0, 10], size: [40, 40, 20]}
+      - {center: [0, 0, 25], size: [12.6, 12.6, 50]}
+      - {center: [0, 0, 17], size: [25, 25, 10]}
+
+- id: asm_plates_on_standoffs
+  kind: assembly
+  start: asm_plates_on_standoffs
+  brief: >-
+    Leave one plate where it is. Stand the two standoffs on its top face, coaxial with its
+    holes at X = 25, Y = 25 and at X = -25, Y = -25. Rest the second plate on the top ends
+    of the standoffs, directly above the first plate with its holes lined up with the
+    first plate's holes. Do not rotate any part. Do not change the shape of any part.
+  expect:
+    volume_delta: "0"
+    solids:
+      - {center: [0, 0, 0], size: [60, 60, 4]}
+      - {center: [0, 0, 14], size: [60, 60, 4]}
+      - {center: [25, 25, 7], size: [6, 6, 10]}
+      - {center: [-25, -25, 7], size: [6, 6, 10]}
+
+- id: asm_box_in_u_bracket
+  kind: assembly
+  start: asm_box_in_u_bracket
+  brief: >-
+    Keep the U-bracket where it is. Place the box inside the U, without rotating it, so
+    its bottom face rests on the top face of the base and it is centered at X = 0, Y = 0.
+    Do not change the shape of any part.
+  expect:
+    volume_delta: "0"
+    solids:
+      - {center: [0, 0, 15], size: [40, 50, 30]}
+      - {center: [0, 0, 12], size: [30, 20, 20]}
+
+- id: asm_motor_plate_on_l_bracket
+  kind: assembly
+  start: asm_motor_plate_on_l_bracket
+  brief: >-
+    Keep the L-bracket where it is. Stand the motor plate up against the outside of the
+    bracket's wall: turn it a quarter turn about the Y axis so its 6 mm thickness runs
+    along X, put its back face against the wall's outside face (the face at X = 0), and
+    place the center of its 22 mm hole at Y = 15, Z = 20. Do not change the shape of any
+    part.
+  expect:
+    volume_delta: "0"
+    solids:
+      - {center: [20, 15, 20], size: [40, 30, 40]}
+      - {center: [-3, 15, 20], size: [6, 60, 60]}
+
+- id: asm_motor_on_plate
+  kind: assembly
+  start: asm_motor_on_plate
+  brief: >-
+    Keep the motor plate where it is. Move the motor body, without rotating it, under the
+    plate, centered on the plate's 22 mm center hole, with its top face touching the
+    plate's bottom face. Move the motor shaft, without rotating it, so it is coaxial with
+    the center hole, its bottom end touches the motor body's top face, and it passes up
+    through the hole. Do not change the shape of any part.
+  expect:
+    volume_delta: "0"
+    solids:
+      - {center: [0, 0, 0], size: [60, 60, 6]}
+      - {center: [0, 0, -23], size: [42, 42, 40]}
+      - {center: [0, 0, 9], size: [5, 5, 24]}
