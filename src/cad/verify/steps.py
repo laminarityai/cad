@@ -15,6 +15,7 @@ class Step:
 
 STEPS: tuple[Step, ...] = (
     Step("basedpyright", (PYTHON, "-m", "basedpyright")),
+    Step("basedpyright skills", (PYTHON, "-m", "basedpyright", "-p", ".claude/pyrightconfig.json")),
     Step("ruff check", (PYTHON, "-m", "ruff", "check")),
     Step("ruff format", (PYTHON, "-m", "ruff", "format", "--check")),
     Step("file size", (PYTHON, str(ROOT / "tools" / "check_file_size.py"))),

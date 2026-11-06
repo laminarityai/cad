@@ -13,6 +13,7 @@ def python_step(name: str, code: str) -> Step:
 def test_steps_run_in_the_documented_order() -> None:
     assert [step.name for step in STEPS] == [
         "basedpyright",
+        "basedpyright skills",
         "ruff check",
         "ruff format",
         "file size",
