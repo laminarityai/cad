@@ -20,10 +20,8 @@ CONTRACT = "assign the final shape to `result`"
 MALFORMED = BuildFailed(error="the build sent a malformed result", traceback="")
 
 
-def built_report(brep: bytes = b"brep bytes", step: bytes = b"step bytes") -> bytes:
-    return json.dumps(
-        {"kind": "built", "brep": b64encode(brep).decode(), "step": b64encode(step).decode()}
-    ).encode()
+def built_report(brep: bytes = b"brep bytes", **extra: str) -> bytes:
+    return json.dumps({"kind": "built", "brep": b64encode(brep).decode(), **extra}).encode()
 
 
 def failed_report(error: str = "ValueError: boom", traceback: str = "Traceback ...") -> bytes:
@@ -50,11 +48,13 @@ def exited_without_report(code: int) -> BuildFailed:
         pytest.param(
             seen(built_report(), killed=True), state(0), TimedOut(limit_seconds=WALL), id="kill"
         ),
+        pytest.param(seen(built_report()), state(0), Artifacts(b"brep bytes"), id="built"),
         pytest.param(
-            seen(built_report()), state(0), Artifacts(b"brep bytes", b"step bytes"), id="built"
+            seen(built_report(step=b64encode(b"FORGED-STEP").decode())), state(0),
+            Artifacts(b"brep bytes"), id="a-step-in-the-report-is-discarded",
         ),
         pytest.param(
-            seen(built_report()), state(0, oom=True), Artifacts(b"brep bytes", b"step bytes"),
+            seen(built_report()), state(0, oom=True), Artifacts(b"brep bytes"),
             id="report-beats-a-child-oom",
         ),
         pytest.param(
@@ -90,11 +90,11 @@ def exited_without_report(code: int) -> BuildFailed:
         pytest.param(seen(failed_report() + b"{}"), state(0), MALFORMED, id="extra-json"),
         pytest.param(seen(b"[]"), state(0), MALFORMED, id="not-an-object"),
         pytest.param(
-            seen(b'{"kind": "built", "brep": "@@", "step": "@@"}'), state(0), MALFORMED,
+            seen(b'{"kind": "built", "brep": "@@"}'), state(0), MALFORMED,
             id="bad-base64",
         ),
         pytest.param(
-            seen(b'{"kind": "built", "brep": "caf\\u00e9", "step": "AA=="}'), state(0), MALFORMED,
+            seen(b'{"kind": "built", "brep": "caf\\u00e9"}'), state(0), MALFORMED,
             id="non-ascii-base64",
         ),
     ],

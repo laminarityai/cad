@@ -10,7 +10,8 @@ from mcp import Client
 from cad.sandbox.image import context_tar, image_tag
 from cad.sandbox.outcome import Built, TimedOut
 from cad.server.app import build_server
-from cad.variants.store import BuildResult, build_variant, variant_id
+from cad.variants.entry import variant_id
+from cad.variants.store import BuildResult, build_variant
 
 PARTS = {path.stem: path.read_text() for path in (Path(__file__).parent / "parts").glob("*.py")}
 NO_DOCKER = "unix:///nonexistent/docker.sock"
@@ -40,7 +41,6 @@ def test_reference_part_builds_and_stores_its_files(
         "build.json",
         "code.py",
         "result.brep",
-        "result.step",
     ]
     assert (stored / "code.py").read_text() == PARTS[part]
 
@@ -68,11 +68,13 @@ def error_text(result: Any) -> str:
 
 
 @pytest.mark.anyio
-async def test_plate_over_mcp_is_built_with_a_step_file(tmp_path: Path) -> None:
+async def test_plate_over_mcp_is_built_with_a_brep_and_no_step_file(tmp_path: Path) -> None:
     result = await call(tmp_path, PARTS["plate"])
     assert not result.is_error
     assert result.structured_content["outcome"] == {"kind": "built"}
-    assert (tmp_path / result.structured_content["variant_id"] / "result.step").is_file()
+    stored = tmp_path / result.structured_content["variant_id"]
+    assert (stored / "result.brep").is_file()
+    assert not (stored / "result.step").exists()
 
 
 @pytest.mark.anyio

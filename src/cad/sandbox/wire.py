@@ -4,7 +4,6 @@ from typing import Literal, TypedDict
 class BuiltReport(TypedDict):
     kind: Literal["built"]
     brep: str
-    step: str
 
 
 class FailedReport(TypedDict):

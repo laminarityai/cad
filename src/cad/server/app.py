@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 from cad.sandbox import container, host
 from cad.sandbox.outcome import SandboxUnavailable
-from cad.variants import store
+from cad.variants import entry, store
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 MAX_CODE_CHARS = 256 * 1024
@@ -67,7 +67,7 @@ def strict_tool(tool: Tool) -> Tool:
     return tool
 
 
-def build_server(variants_root: Path = store.VARIANTS_ROOT) -> MCPServer:
+def build_server(variants_root: Path = entry.VARIANTS_ROOT) -> MCPServer:
     async def server_info() -> ServerInfo:
         """Report the git SHA the server runs from, whether the tree is dirty, Python and tools."""
         tools = await server.list_tools()

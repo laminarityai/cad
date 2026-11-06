@@ -9,6 +9,7 @@ from cad.sandbox import container
 from cad.sandbox.container import Attended, ContainerState, Job, TooMuchOutput
 from cad.sandbox.outcome import BuildFailed, Failure, NoResult, OutOfMemory, TimedOut
 from cad.sandbox.wire import Report
+from cad.variants import entry
 
 TEXT_CAP = 8 * 1024
 CONTRACT = "assign the final shape to `result`"
@@ -19,8 +20,10 @@ REPORT = TypeAdapter[Report](Annotated[Report, Field(discriminator="kind")])
 
 @dataclass(frozen=True, slots=True)
 class Artifacts:
+    """What a build container may hand over: one BREP. There is no STEP field, so there is no STEP
+    to forge; `result.step` is derived later by code that never ran the variant."""
+
     brep: bytes
-    step: bytes
 
 
 @dataclass(frozen=True, slots=True)
@@ -29,13 +32,9 @@ class Run:
     output: str
 
 
-def utf8_keeping_surrogates(code: str) -> bytes:
-    return code.encode("utf-8", "surrogatepass")
-
-
 def build_job(code: str, image_id: str, wall_seconds: int) -> Job:
     command = ("python", "-I", "-c", RUNNER, str(wall_seconds * container.CPUS))
-    return Job("build", image_id, command, utf8_keeping_surrogates(code), wall_seconds=wall_seconds)
+    return Job("build", image_id, command, entry.encode_code(code), wall_seconds=wall_seconds)
 
 
 def build(code: str, image_id: str, *, wall_seconds: int = container.WALL_SECONDS) -> Run:
@@ -76,10 +75,7 @@ def reported(raw: bytes) -> Artifacts | Failure | None:
     match report["kind"]:
         case "built":
             try:
-                return Artifacts(
-                    b64decode(report["brep"], validate=True),
-                    b64decode(report["step"], validate=True),
-                )
+                return Artifacts(b64decode(report["brep"], validate=True))
             except ValueError:
                 return None
         case "build_failed":
