@@ -34,7 +34,8 @@ SCORE_VARIANT = (
     "its measured values, its formula, its sources and its check version. unknown means the "
     "check could not decide, and it is not a pass. "
     "The scorecard names the table version and the sandbox image digest, and it says that phase 1 "
-    "reads no requirements from the brief. Quote every verdict as the scorecard gives it. "
+    "reads no requirements from the brief. When you report it, give every verdict as the "
+    "scorecard states it, with each check's formula and source, the table version, and that note. "
     "material_key is a key from list_materials. You cannot change a check, the materials table "
     "or a stored scorecard. Scoring the same variant and key again gives the same scorecard."
 )
