@@ -17,12 +17,6 @@ SCORECARD: Final = "scorecard.json"
 def score_variant(
     variant_id: str, material_key: str, root: Path = entry.VARIANTS_ROOT
 ) -> Scorecard:
-    """Runs the checks on a built variant, stores the scorecard beside it, and returns it.
-
-    Raises what `host.run_checks` raises, and `SandboxUnavailable` when the scorecard cannot be
-    stored. The scorecard is built from the check run alone and is never read back from disk, so
-    an edited `scorecard.json` changes nothing the server reports.
-    """
     run = host.run_checks(variant_id, material_key, root)
     card = scorecard_of(run, current_image(run.image_tag))
     store(card, root)
