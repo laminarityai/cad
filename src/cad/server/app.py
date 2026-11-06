@@ -14,11 +14,15 @@ from cad.sandbox.container import first_line
 from cad.sandbox.outcome import SandboxUnavailable
 from cad.scorecard import score
 from cad.scorecard.model import Scorecard
-from cad.tables.materials import load_materials
+from cad.tables.materials import KEY_PATTERN, load_materials
 from cad.variants import entry, store
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 MAX_CODE_CHARS = 256 * 1024
+MAX_KEY_CHARS = 64
+type MaterialKey = Annotated[
+    str, Field(pattern=f"^{KEY_PATTERN.pattern}$", max_length=MAX_KEY_CHARS)
+]
 BUILD_VARIANT = (
     "Build one variant from build123d Python code in a sandbox with no network, "
     f"{container.MEMORY_MB // 1024} GB of memory and a {container.WALL_SECONDS} second limit. "
@@ -36,8 +40,11 @@ SCORE_VARIANT = (
     "The scorecard names the table version and the sandbox image digest, and it says that phase 1 "
     "reads no requirements from the brief. When you report it, give every verdict as the "
     "scorecard states it, with each check's formula and source, the table version, and that note. "
-    "material_key is a key from list_materials. You cannot change a check, the materials table "
-    "or a stored scorecard. Scoring the same variant and key again gives the same scorecard."
+    "material_key is a key from list_materials. You cannot change a check or the materials table. "
+    "Only score_variant writes a stored scorecard, from its own check run, and the server never "
+    "reads one back. The file itself is not protected from edits outside the server. "
+    "Scoring the same variant and key again gives the same scorecard while the materials table "
+    "and the sandbox image are unchanged."
 )
 LIST_MATERIALS = (
     "List the material keys that score_variant accepts, each with its name. "
@@ -117,7 +124,7 @@ def build_server(variants_root: Path = entry.VARIANTS_ROOT) -> MCPServer:
         except SandboxUnavailable as error:
             raise ToolError(str(error)) from error
 
-    def score_variant(variant_id: str, material_key: str) -> Scorecard:
+    def score_variant(variant_id: str, material_key: MaterialKey) -> Scorecard:
         try:
             return score.score_variant(variant_id, material_key, variants_root)
         except entry.VariantRefused as error:
