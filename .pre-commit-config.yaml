@@ -25,6 +25,12 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: materials-table
+        name: materials table
+        entry: uv run verify --only "materials table"
+        language: system
+        pass_filenames: false
+        always_run: true
       - id: pytest
         name: pytest
         entry: uv run verify --only pytest

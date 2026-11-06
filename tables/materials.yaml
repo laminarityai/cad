@@ -1,0 +1,128 @@
+# Every value cites a manufacturer data sheet. A value the sheet does not state is `unknown`.
+# Plastic strengths are for printed specimens in the build plane, as each quote names.
+materials:
+  - key: prusament-pla
+    name: Prusament PLA
+    density:
+      value: 1.24 g/cm^3
+      source:
+        url: https://storage.googleapis.com/prusa3d-content-prod-14e8-wordpress-prusament-prod/2024/05/7ca620c4-prusament-pla-plablend.zip
+        title: Technical datasheet, Prusament PLA by Prusa Polymers, version 1.1, last update 27-07-2022 (Prusament PLA/1_PLA_Prusament_TDS_2022_EN.pdf in the zip)
+        page: page 2, Typical material properties
+        retrieved: 2026-11-05
+        standard: ISO 1183
+        quote: Density [g/cm3] 1.24 ISO 1183
+    yield_strength:
+      value: 51 MPa
+      source:
+        url: https://storage.googleapis.com/prusa3d-content-prod-14e8-wordpress-prusament-prod/2024/05/7ca620c4-prusament-pla-plablend.zip
+        title: Technical datasheet, Prusament PLA by Prusa Polymers, version 1.1, last update 27-07-2022 (Prusament PLA/1_PLA_Prusament_TDS_2022_EN.pdf in the zip)
+        page: page 2, Mechanical properties of 3D printed testing specimens, Horizontal column
+        retrieved: 2026-11-05
+        standard: ISO 527-1
+        quote: Tensile Yield Strength [MPa] 51 ± 3 59 ± 2 ISO 527-1
+    tensile_strength: unknown
+
+  - key: prusament-petg
+    name: Prusament PETG
+    density:
+      value: 1.27 g/cm^3
+      source:
+        url: https://storage.googleapis.com/prusa3d-content-prod-14e8-wordpress-prusament-prod/2023/10/9f8d2165-tds_prusament-petg_n_en.pdf
+        title: Technical datasheet, Prusament PETG by Prusa Polymers, version 1.1, last update 16-02-2022
+        page: page 2, Typical material properties
+        retrieved: 2026-11-05
+        standard: ISO 1183
+        quote: Density [g/cm3] 1.27 ISO 1183
+    yield_strength:
+      value: 47 MPa
+      source:
+        url: https://storage.googleapis.com/prusa3d-content-prod-14e8-wordpress-prusament-prod/2023/10/9f8d2165-tds_prusament-petg_n_en.pdf
+        title: Technical datasheet, Prusament PETG by Prusa Polymers, version 1.1, last update 16-02-2022
+        page: page 2, Mechanical properties of 3D printed testing specimens, Horizontal column
+        retrieved: 2026-11-05
+        standard: ISO 527-1
+        quote: Tensile Yield Strength [MPa] 47 ± 2 50 ± 1 ISO 527-1
+    tensile_strength: unknown
+
+  - key: polymaker-polylite-abs
+    name: Polymaker PolyLite ABS
+    density:
+      value: 1.04 g/cm^3
+      source:
+        url: https://polymaker.com/wp-content/uploads/lana-downloads/TDS_Polymaker_PolyLite-ABS_V5.6_2025-12-30_EN.pdf
+        title: Technical Data Sheet V5.6, PolyLite ABS, Polymaker
+        page: page 1, Physical properties
+        retrieved: 2026-11-05
+        standard: ISO 1183, GB/T 1033
+        quote: Density ISO1183, GB/T1033 1.04 g/cm3 at 23°C
+    yield_strength: unknown
+    tensile_strength:
+      value: 33.4 MPa
+      source:
+        url: https://polymaker.com/wp-content/uploads/lana-downloads/TDS_Polymaker_PolyLite-ABS_V5.6_2025-12-30_EN.pdf
+        title: Technical Data Sheet V5.6, PolyLite ABS, Polymaker
+        page: page 1, Mechanical properties
+        retrieved: 2026-11-05
+        standard: ISO 527, GB/T 1040
+        quote: Tensile strength (X-Y) ISO 527, GB/T 1040 33.4 ± 92.7 MPa
+
+  - key: kaiser-6061-t6
+    name: Kaiser Aluminum 6061-T6 sheet, coil and plate
+    density:
+      value: 2.70 Mg/m^3
+      source:
+        url: https://online.kaiseraluminum.com/depot/PublicProductInformation/Document/1015/Kaiser_Aluminum_6061_Sheet_Coil_and_Plate.pdf
+        title: Sheet Coil & Plate Alloy 6061 Technical Data, Kaiser Aluminum, Rev. 05/06
+        page: page 2, Typical physical properties
+        retrieved: 2026-11-05
+        standard: null
+        quote: Nominal Density (68 °F/20 °C) 0.098 lbs./in. 3 2.70 Mg/m 3
+    yield_strength:
+      value: 276 MPa
+      source:
+        url: https://online.kaiseraluminum.com/depot/PublicProductInformation/Document/1015/Kaiser_Aluminum_6061_Sheet_Coil_and_Plate.pdf
+        title: Sheet Coil & Plate Alloy 6061 Technical Data, Kaiser Aluminum, Rev. 05/06
+        page: page 1, Typical mechanical properties, T6, T651 row
+        retrieved: 2026-11-05
+        standard: null
+        quote: T6, T651 45 310 40 276 17 95 30 207 14 97 10.0 68.3 (Tensile Ultimate KSI MPa, Yield KSI MPa)
+    tensile_strength:
+      value: 310 MPa
+      source:
+        url: https://online.kaiseraluminum.com/depot/PublicProductInformation/Document/1015/Kaiser_Aluminum_6061_Sheet_Coil_and_Plate.pdf
+        title: Sheet Coil & Plate Alloy 6061 Technical Data, Kaiser Aluminum, Rev. 05/06
+        page: page 1, Typical mechanical properties, T6, T651 row
+        retrieved: 2026-11-05
+        standard: null
+        quote: T6, T651 45 310 40 276 17 95 30 207 14 97 10.0 68.3 (Tensile Ultimate KSI MPa, Yield KSI MPa)
+
+  - key: cliffs-304
+    name: Cleveland-Cliffs Type 304 stainless steel
+    density:
+      value: 0.29 lb/in^3
+      source:
+        url: https://www.clevelandcliffs.com/_assets/_7ce3a04c09e74bf31ff5f89fc888db25/clevelandcliffs/db/1190/10510/file/CLF_ProductData_304-304LSS_052021.pdf
+        title: 304/304L Stainless Steel Product Data Bulletin, Cleveland-Cliffs, 2021
+        page: page 4, Physical properties
+        retrieved: 2026-11-05
+        standard: null
+        quote: Density, lbs/in.3 (g/cm3) 0.29 (8.03)
+    yield_strength:
+      value: 42 ksi
+      source:
+        url: https://www.clevelandcliffs.com/_assets/_7ce3a04c09e74bf31ff5f89fc888db25/clevelandcliffs/db/1190/10510/file/CLF_ProductData_304-304LSS_052021.pdf
+        title: 304/304L Stainless Steel Product Data Bulletin, Cleveland-Cliffs, 2021
+        page: page 3, Table 1 Typical room temperature mechanical properties, Type 304 row
+        retrieved: 2026-11-05
+        standard: null
+        quote: UTS, ksi. (MPa) 0.2% YS, ksi. (MPa) ... Type 304 95 (655) 42 (290) 55 84
+    tensile_strength:
+      value: 95 ksi
+      source:
+        url: https://www.clevelandcliffs.com/_assets/_7ce3a04c09e74bf31ff5f89fc888db25/clevelandcliffs/db/1190/10510/file/CLF_ProductData_304-304LSS_052021.pdf
+        title: 304/304L Stainless Steel Product Data Bulletin, Cleveland-Cliffs, 2021
+        page: page 3, Table 1 Typical room temperature mechanical properties, Type 304 row
+        retrieved: 2026-11-05
+        standard: null
+        quote: UTS, ksi. (MPa) 0.2% YS, ksi. (MPa) ... Type 304 95 (655) 42 (290) 55 84

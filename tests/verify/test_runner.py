@@ -16,6 +16,7 @@ def test_steps_run_in_the_documented_order() -> None:
         "ruff check",
         "ruff format",
         "file size",
+        "materials table",
         "pytest",
     ]
 
