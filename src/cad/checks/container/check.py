@@ -34,6 +34,11 @@ class CheckModule(Protocol):
         """name -> Pint unit string. The host rejects a measured value whose unit differs."""
         ...
 
+    @property
+    def REQUIRES(self) -> tuple["CheckModule", ...]:
+        """Checks this one runs first and needs to pass. Their files feed this check's version."""
+        ...
+
     def run(self, subject: Subject) -> FindingWire: ...
 
 

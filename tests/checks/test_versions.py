@@ -36,10 +36,20 @@ def test_the_check_ids_are_the_suite_order() -> None:
     assert [spec.id for spec in SPECS] == ["closed_solid", "interference", "mass"]
 
 
-def test_editing_one_check_file_changes_only_that_checks_version() -> None:
+@pytest.mark.parametrize(
+    ("check_file", "changed"),
+    [
+        ("closed_solid.py", {"closed_solid", "mass"}),
+        ("interference.py", {"interference", "mass"}),
+        ("mass.py", {"mass"}),
+    ],
+)
+def test_editing_a_check_file_changes_the_version_of_every_check_that_runs_it(
+    check_file: str, changed: set[str]
+) -> None:
     before = versions(SOURCES)
-    after = versions(edited(SOURCES, "closed_solid.py"))
-    assert {i for i in before if before[i] != after[i]} == {"closed_solid"}
+    after = versions(edited(SOURCES, check_file))
+    assert {i for i in before if before[i] != after[i]} == changed
 
 
 @pytest.mark.parametrize("shared", ["kernel.py", "check.py", "wire.py", "runner.py", "suite.py"])
@@ -47,6 +57,23 @@ def test_editing_a_shared_file_changes_every_version(shared: str) -> None:
     before = versions(SOURCES)
     after = versions(edited(SOURCES, shared))
     assert {i for i in before if before[i] != after[i]} == set(before)
+
+
+def checks_imported_by(path: Path) -> set[str]:
+    ids = {check.ID for check in CHECKS}
+    return {
+        alias.name
+        for node in ast.walk(ast.parse(path.read_text()))
+        if isinstance(node, ast.ImportFrom) and node.module == CONTAINER_PACKAGE
+        for alias in node.names
+        if alias.name in ids
+    }
+
+
+def test_every_check_a_check_file_imports_feeds_its_version_through_requires() -> None:
+    for check in CHECKS:
+        imported = checks_imported_by(stage.CHECKS_DIR / f"{check.ID}.py")
+        assert imported == {required.ID for required in check.REQUIRES}, check.ID
 
 
 def test_the_three_versions_differ_from_each_other() -> None:

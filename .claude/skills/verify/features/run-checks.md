@@ -9,9 +9,10 @@
 - `checks-interference-fail` returns `fail` for two overlapping boxes and reports the overlap volume.
 - `checks-mass` multiplies the volume by the density of the material key. The key must match a key of `tables/materials.yaml` exactly.
 - `checks-unknown-key` returns `unknown` for `mass` with a key that is not in the table, and the other two checks still run.
+- `checks-mass-needs-a-solid` returns `unknown` for `mass`, with no measured value, when `closed_solid` or `interference` does not pass. Its reason names that check and quotes its reason.
 - `checks-step` writes `result.step` beside the BREP at the first run, from the shape the checks measured.
 - `checks-deterministic` prints byte-identical output for two runs of one variant.
-- `checks-version` changes only the version of a check whose own file changed.
+- `checks-version` changes the version of a check whose own file changed, and of each check that runs it. `mass` runs `closed_solid` and `interference`, so an edit to either file also changes the `mass` version.
 - `checks-garbage-brep` returns `fail` for `closed_solid` and `unknown` for the other two when the BREP is not a BREP, and the next run still works.
 - `checks-refused` exits 1 with one line for an unknown, stale, or unbuilt variant, and starts no container.
 
@@ -35,12 +36,12 @@ ID=$(jq -r .structuredContent.variant_id "$EVIDENCE/build-plate.json")
 ```
 
 - **Pass.** Run `uv run cad-sandbox run-checks "$ID" prusament-pla > "$EVIDENCE/checks-plate.json"; echo $?`. Exit code `0`. `results` has `closed_solid`, `interference` and `mass`, each with `verdict` `pass`, a non-empty `formula` and a non-empty `sources` list. `mass` has a `volume` measure of 29509.72 mm^3 within 0.01 and lists the density datasheet as its last source. `step_sha256` is a hash, and `~/.cad/variants/$ID/result.step` exists.
-- **Closed solid fails.** Build the plate code with `from build123d import Shell` and `result = Shell(result.faces()[:-1])` appended, then run. `closed_solid` is `fail`, its reason starts `found 0 solids` and `solids` is 0. The exit code is still `0`, because the run completed.
-- **Interference fails.** Build `from build123d import *` and `result = Compound([Box(10, 10, 10), Pos(5, 5, 5) * Box(10, 10, 10)])`, then run. `interference` is `fail` with `common_volume:0-1` of 125 mm^3.
+- **Closed solid fails.** Build the plate code with `from build123d import Shell` and `result = Shell(result.faces()[:-1])` appended, then run. `closed_solid` is `fail`, its reason starts `found 0 solids` and `solids` is 0. `mass` is `unknown` with an empty `measured` list, and its reason starts `closed_solid is fail`. The exit code is still `0`, because the run completed.
+- **Interference fails.** Build `from build123d import *` and `result = Compound([Box(10, 10, 10), Pos(5, 5, 5) * Box(10, 10, 10)])`, then run. `interference` is `fail` with `common_volume:0-1` of 125 mm^3. `mass` is `unknown` with an empty `measured` list, because `closed_solid` fails on 2 solids.
 - **Mass ratio.** Run `prusament-pla` and then `kaiser-6061-t6` on one id. Both `volume` measures match, and the ratio of the two `mass` measures equals the ratio of the two densities in `tables/materials.yaml` to four digits.
 - **Unknown key.** Run with `unobtainium`. `mass` is `unknown`, its reason names the key, `volume` is still measured, and the other two are `pass`. A key with a trailing space or capitals gives the same.
 - **Deterministic.** Run the plate twice into two files and run `cmp` on them. Then `cmp` the `result.step` hash in both. Both pairs are identical.
-- **Version.** Note each `version` in the output. Append a comment to `src/cad/checks/container/closed_solid.py`, then run again from a new process. The `closed_solid` version changed and the other two did not. Revert the edit. This re-keys no variant, because the file is outside `src/cad/sandbox/` and `src/cad/variants/`.
+- **Version.** Note each `version` in the output. Append a comment to `src/cad/checks/container/closed_solid.py`, then run again from a new process. The `closed_solid` and `mass` versions changed and the `interference` version did not. Revert the edit. This re-keys no variant, because the file is outside `src/cad/sandbox/` and `src/cad/variants/`.
 - **Garbage BREP.** Build a variant whose code writes a built report with random bytes as `brep` to fd 3 (`os.write(3, ...)`, then `os._exit(0)`), then run it twice. `closed_solid` is `fail` with a reason that starts `the BREP could not be read`, the other two are `unknown`, `step_sha256` is `null` and no `result.step` exists. The second run answers the same.
 - **Refusals.** Run `uv run cad-sandbox run-checks fe250eb62250be75 prusament-pla; echo $?` on an id from before this change. The output is one line, `StaleVariant: variant fe250eb62250be75 was not stored by this version of the sandbox; build its code again`, and the exit code is `1`. An id that is not 16 lowercase hex digits prints an `UnknownVariant` line, and an id whose build failed prints a `NotBuilt` line. No container starts for any of them.
 - **Test suite.** Run `uv run pytest tests/checks -q`. It needs Docker for the mutant, reference part, forgery and CLI tests.

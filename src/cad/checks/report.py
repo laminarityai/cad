@@ -7,6 +7,7 @@ from typing import Final
 
 from pydantic import TypeAdapter, ValidationError
 
+from cad.checks.container.check import CheckModule
 from cad.checks.container.suite import CHECKS
 from cad.checks.container.wire import CheckedReport, RequestWire, ResultWire, SourceLiteral
 from cad.checks.result import CheckResult, Measure, Verdict
@@ -30,13 +31,18 @@ class CheckSpec:
     version: str
 
 
-def check_version(own: str, sources: Sources) -> str:
+def check_version(check: CheckModule, sources: Sources) -> str:
     checks = {_path(module.ID) for module in CHECKS}
+    shared = (path for path in sorted(sources.files) if path not in checks)
     digest = hashlib.sha256()
-    for path in (own, *(path for path in sorted(sources.files) if path not in checks)):
+    for path in (*_run_by(check), *shared):
         digest.update(f"{path}\0".encode())
         digest.update(hashlib.sha256(sources.files[path]).digest())
     return digest.hexdigest()
+
+
+def _run_by(check: CheckModule) -> tuple[str, ...]:
+    return (_path(check.ID), *(path for required in check.REQUIRES for path in _run_by(required)))
 
 
 def specs(sources: Sources) -> tuple[CheckSpec, ...]:
@@ -46,7 +52,7 @@ def specs(sources: Sources) -> tuple[CheckSpec, ...]:
             formula=module.FORMULA,
             sources=tuple(_source(literal) for literal in module.SOURCES),
             measures=module.MEASURES,
-            version=check_version(_path(module.ID), sources),
+            version=check_version(module, sources),
         )
         for module in CHECKS
     )

@@ -214,6 +214,24 @@ def test_mass_fails_a_volume_that_is_not_positive_and_finite(volume: float) -> N
     assert mass.run(subject(kernel))["verdict"] == "fail"
 
 
+@pytest.mark.parametrize(
+    "kernel",
+    [
+        pytest.param(FakeKernel(solid_count=0, uses=EdgeUses(2, 0)), id="a-shell-has-no-solid"),
+        pytest.param(FakeKernel(solid_count=2, commons={(0, 1): 125.0}), id="overlapping-solids"),
+        pytest.param(FakeKernel(valid=False), id="invalid"),
+        pytest.param(FakeKernel(uses=EdgeUses(4, 0)), id="a-loose-face"),
+        pytest.param(FakeKernel(outside=1), id="a-closed-shell-beside-the-solid"),
+    ],
+)
+def test_mass_is_unknown_with_no_number_on_a_shape_closed_solid_does_not_pass(
+    kernel: FakeKernel,
+) -> None:
+    found = mass.run(subject(kernel))
+    assert (found["verdict"], found["measured"]) == ("unknown", [])
+    assert closed_solid.run(subject(kernel))["reason"] in found["reason"]
+
+
 def test_mass_of_an_unreadable_brep_is_unknown_never_pass() -> None:
     assert mass.run(unreadable())["verdict"] == "unknown"
 
@@ -229,7 +247,7 @@ def test_a_check_that_raises_becomes_unknown_and_the_others_still_run() -> None:
     assert (
         results["closed_solid"]["reason"] == "closed_solid raised RuntimeError: BRepCheck exploded"
     )
-    assert (results["interference"]["verdict"], results["mass"]["verdict"]) == ("pass", "pass")
+    assert (results["interference"]["verdict"], results["mass"]["verdict"]) == ("pass", "unknown")
 
 
 def test_the_report_lists_every_check_in_suite_order_with_the_step_of_the_measured_shape() -> None:

@@ -25,6 +25,7 @@ SOLID_AND_CLOSED_SHELL = (
 OVERLAPPING_BOXES = (
     STAR_IMPORT + "result = Compound([Box(10, 10, 10), Pos(5, 5, 5) * Box(10, 10, 10)])\n"
 )
+OPEN_SHELL = STAR_IMPORT + "result = Shell(Box(10, 10, 10).faces()[:-1])\n"
 
 type Check = Callable[..., CheckRun]
 
@@ -86,3 +87,19 @@ def test_a_seam_or_a_degenerated_edge_is_not_a_free_edge(shape: str, check: Chec
     closed = run.result("closed_solid")
     assert closed.verdict == Verdict.PASS, closed.reason
     assert (count(run, "free_edges"), count(run, "over_used_edges")) == (0, 0)
+
+
+@pytest.mark.parametrize(
+    "code",
+    [PLATE_SHELL, PLATE_TWO, OPEN_SHELL, OVERLAPPING_BOXES, LOOSE_FACE, SOLID_AND_CLOSED_SHELL],
+    ids=["plate_shell", "plate_two", "open_shell", "overlapping_boxes", "loose_face", "and_shell"],
+)
+def test_mass_is_unknown_with_no_number_when_closed_solid_does_not_pass(
+    code: str, check: Check
+) -> None:
+    run = check(code)
+    closed, mass = run.result("closed_solid"), run.result("mass")
+    assert closed.verdict == Verdict.FAIL
+    assert mass.verdict == Verdict.UNKNOWN, mass.reason
+    assert mass.measured == ()
+    assert closed.reason in mass.reason

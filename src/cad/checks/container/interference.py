@@ -31,6 +31,7 @@ MEASURES = {
     "max_common_volume": "mm^3",
     "common_volume": "mm^3",
 }
+REQUIRES = ()
 
 
 def run(subject: Subject) -> FindingWire:
