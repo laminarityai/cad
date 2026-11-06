@@ -120,10 +120,8 @@ async def test_docker_down_is_a_one_line_tool_error(
 ) -> None:
     monkeypatch.setenv("DOCKER_HOST", NO_DOCKER)
     text = error_text(await call(tmp_path, "result = 1\n"))
-    assert text.startswith(
-        "Error executing tool build_variant: "
-        "docker is not reachable: failed to connect to the docker API at "
-    )
+    assert text.startswith("Error executing tool build_variant: docker is not reachable: ")
+    assert NO_DOCKER in text
     assert "\n" not in text
 
 
