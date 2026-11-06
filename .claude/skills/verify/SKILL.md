@@ -55,7 +55,7 @@ uv run python .claude/skills/verify/scripts/claude_session.py "call the server_i
 
 It prints `init: cad connected`, one `tool call: mcp__cad__<name> <args>` line per MCP call, and the final reply.
 
-The whole gate. Its app step calls `server_info`, runs `git rev-parse HEAD` itself, and fails when git fails, when either SHA is `unknown`, or when they differ. It prints the SHA and `dirty=<true or false>`, and a dirty tree does not fail it:
+The whole gate. Its app step calls `server_info`, runs `git rev-parse HEAD` itself, and fails when git fails, when either SHA is `unknown`, or when they differ. It prints the SHA and `dirty=True` or `dirty=False`, and a dirty tree does not fail it:
 
 ```
 uv run verify

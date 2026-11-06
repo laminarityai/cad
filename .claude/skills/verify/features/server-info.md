@@ -28,7 +28,7 @@ Preconditions:
 - **Claude Code call.** Run `uv run python .claude/skills/verify/scripts/claude_session.py "call the server_info tool and print its sha" "$EVIDENCE/claude-server-info.json"`. Output starts with `init: cad connected`, has a `tool call: mcp__cad__server_info {}` line, and the reply contains the head SHA.
 - **Unknown tool.** Run `uv run cad-call no_such_tool '{}'`. Exit code `1`. The result has `isError` true and text `Unknown tool: no_such_tool`.
 - **Extra argument.** Run `uv run cad-call server_info '{"x": 1}'`. Exit code `1`. The result has `isError` true and text that says `Extra inputs are not permitted`.
-- **App step.** Run `uv run verify --only app`. Prints `ok   app`, then `server_info sha <head sha> dirty=<true or false>`, and exits 0. It fails when git fails, when either SHA is `unknown`, or when the SHAs differ.
+- **App step.** Run `uv run verify --only app`. Prints `ok   app`, then `server_info sha <head sha> dirty=True` or `dirty=False`, and exits 0. It fails when git fails, when either SHA is `unknown`, or when the SHAs differ.
 - **Malformed arguments.** Run `uv run cad-call server_info '{not json'`. Exit code `2` and a usage error on stderr, with no traceback.
 
 ## Gotchas
