@@ -1,0 +1,24 @@
+# cad verification map
+
+This directory is the maintained source for verifying what an MCP client sees from the cad server. Read this index, then use the matching feature file as the recipe.
+
+## Baseline preconditions
+
+- Work in a checkout where `uv sync --frozen` has run.
+- Run `uv run cad-call server_info '{}'` and require its `sha` to equal `git rev-parse HEAD`.
+- Every Claude Code session goes through `scripts/claude_session.py`, never a bare `claude -p`.
+
+## Driving conventions
+
+- Treat every command as literal. Keep quoted names and flags unchanged.
+- Save evidence under `/tmp/swarm-<pr-id>/worker-<n>/`.
+- Report an unreachable path with the attempted command and the unmet precondition. Do not report a skipped entry point as verified through a different path.
+
+## Proof and skip reporting
+
+- A scripted proof includes the command, the JSON result and the exit code.
+- A Claude Code proof includes the transcript, with `cad` connected in the init event and the `mcp__cad__*` tool call in the events.
+
+## Features
+
+- [Server info](./server-info.md) covers the `server_info` tool through a scripted call and through Claude Code, plus the error results for bad calls.
