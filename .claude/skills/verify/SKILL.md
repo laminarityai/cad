@@ -48,7 +48,7 @@ Scripted call, one tool per run. Output is the MCP result as JSON, exit code 1 w
 uv run cad-call <tool> '<json args>'
 ```
 
-Tools today: `server_info` (no arguments) and `build_variant` (`code`, the build123d Python source). A tool rejects any argument it does not declare. An unknown tool name returns an error result naming the tool. Arguments that are not a JSON object exit 2 with a usage error, and a tool error exits 1.
+Tools today: `server_info` (no arguments), `build_variant` (`code`, the build123d Python source), `score_variant` (`variant_id`, `material_key`) and `list_materials` (no arguments). A tool rejects any argument it does not declare. An unknown tool name returns an error result naming the tool. Arguments that are not a JSON object exit 2 with a usage error, and a tool error exits 1.
 
 Claude Code session. This runs `claude -p` with `--mcp-config .mcp.json --strict-mcp-config --allowedTools 'mcp__cad__*' --output-format json --verbose`, saves the event transcript, and fails unless the `system/init` event lists `cad` as `connected` with no `mcp_server_errors`. Claude Code skips a broken `.mcp.json` entry and still exits 0, so never run `claude -p` against the server without that check. `--verbose` is what puts the init event in the JSON output.
 
@@ -66,13 +66,20 @@ uv run cad-call build_variant "$(jq -Rs '{code: .}' < tests/sandbox/parts/plate.
 
 Variants live in `~/.cad/variants/<variant_id>/`. The same code returns its stored outcome without a new build. A build stores `result.brep` only.
 
-Run the checks on a built variant. There is no MCP tool for this yet, so the driver is a command of the sandbox CLI. It prints the `CheckRun` as JSON, exits 0 when the run completed even if a check failed, and exits 1 with one line for a refusal or an unavailable sandbox:
+Score a built variant. `score_variant` runs the three checks and prints the scorecard as the MCP result, and it stores the same scorecard in `~/.cad/variants/<variant_id>/scorecard.json`. `list_materials` lists the keys it accepts:
+
+```
+uv run cad-call list_materials '{}' > "$EVIDENCE/list-materials.json"
+uv run cad-call score_variant "{\"variant_id\": \"$(jq -r .structuredContent.variant_id "$EVIDENCE/build-plate.json")\", \"material_key\": \"prusament-pla\"}" > "$EVIDENCE/score-plate.json"
+```
+
+The checks alone, without a scorecard, run through the sandbox CLI. It prints the `CheckRun` as JSON, exits 0 when the run completed even if a check failed, and exits 1 with one line for a refusal or an unavailable sandbox:
 
 ```
 uv run cad-sandbox run-checks "$(jq -r .structuredContent.variant_id "$EVIDENCE/build-plate.json")" prusament-pla > "$EVIDENCE/checks-plate.json"
 ```
 
-The first run of a variant also writes `~/.cad/variants/<variant_id>/result.step`, derived from the BREP the checks measured. Any edit under `src/cad/sandbox/` or `src/cad/variants/` changes every variant id, so ids from before the edit are refused with `StaleVariant`: build the code again.
+The first run of the checks on a variant (either command) also writes `~/.cad/variants/<variant_id>/result.step`, derived from the BREP the checks measured. Any edit under `src/cad/sandbox/` or `src/cad/variants/` changes every variant id, so ids from before the edit are refused with `StaleVariant`: build the code again.
 
 The whole gate. Its app step calls `server_info`, runs `git rev-parse HEAD` itself, and fails when git fails, when either SHA is `unknown`, or when they differ. It prints the SHA and `dirty=True` or `dirty=False`, and a dirty tree does not fail it:
 

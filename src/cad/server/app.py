@@ -3,13 +3,18 @@ import sys
 from pathlib import Path
 from typing import Annotated, NamedTuple
 
+import yaml
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.mcpserver.tools import Tool
 from pydantic import BaseModel, Field
 
 from cad.sandbox import container, host
+from cad.sandbox.container import first_line
 from cad.sandbox.outcome import SandboxUnavailable
+from cad.scorecard import score
+from cad.scorecard.model import Scorecard
+from cad.tables.materials import load_materials
 from cad.variants import entry, store
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -23,6 +28,21 @@ BUILD_VARIANT = (
     "Building the same code again returns its stored outcome without rebuilding, "
     "except after a timeout."
 )
+SCORE_VARIANT = (
+    "Score one built variant with the fixed checks closed_solid, interference and mass, and "
+    "store the scorecard beside the variant. Every result has a verdict (pass, fail or unknown), "
+    "its measured values, its formula, its sources and its check version. unknown means the "
+    "check could not decide, and it is not a pass. "
+    "The scorecard names the table version and the sandbox image digest, and it says that phase 1 "
+    "reads no requirements from the brief. Quote every verdict as the scorecard gives it. "
+    "material_key is a key from list_materials. You cannot change a check, the materials table "
+    "or a stored scorecard. Scoring the same variant and key again gives the same scorecard."
+)
+LIST_MATERIALS = (
+    "List the material keys that score_variant accepts, each with its name. "
+    "The checks look the density up by exact key. No value is returned, so there is nothing "
+    "to copy."
+)
 
 
 class ServerInfo(BaseModel):
@@ -30,6 +50,15 @@ class ServerInfo(BaseModel):
     dirty: bool
     python: str
     tools: list[str]
+
+
+class MaterialListing(BaseModel):
+    key: str
+    name: str
+
+
+class MaterialListings(BaseModel):
+    materials: list[MaterialListing]
 
 
 class GitState(NamedTuple):
@@ -87,11 +116,30 @@ def build_server(variants_root: Path = entry.VARIANTS_ROOT) -> MCPServer:
         except SandboxUnavailable as error:
             raise ToolError(str(error)) from error
 
+    def score_variant(variant_id: str, material_key: str) -> Scorecard:
+        try:
+            return score.score_variant(variant_id, material_key, variants_root)
+        except entry.VariantRefused as error:
+            raise ToolError(f"{type(error).__name__}: {error}") from error
+        except SandboxUnavailable as error:
+            raise ToolError(str(error)) from error
+
+    def list_materials() -> MaterialListings:
+        try:
+            table = load_materials()
+        except (OSError, ValueError, yaml.YAMLError) as error:
+            raise ToolError(f"cannot read the materials table: {first_line(str(error))}") from error
+        return MaterialListings(
+            materials=[MaterialListing(key=m.key, name=m.name) for m in table.materials.values()]
+        )
+
     server = MCPServer(
         "cad",
         tools=[
             strict_tool(Tool.from_function(server_info)),
             strict_tool(Tool.from_function(build_variant, description=BUILD_VARIANT)),
+            strict_tool(Tool.from_function(score_variant, description=SCORE_VARIANT)),
+            strict_tool(Tool.from_function(list_materials, description=LIST_MATERIALS)),
         ],
     )
     return server
