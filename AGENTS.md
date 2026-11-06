@@ -20,6 +20,6 @@
 
 ## Verify your work
 
-`uv run verify` is the single command that runs type checking, lint, the format check, the file-size check and tests, and exits non-zero on the first failure. The app step joins it in a later PR. A change is done when `verify` passes and you have exercised the change through the MCP server or the app, not only through unit tests.
+`uv run verify` is the single command that runs type checking, lint, the format check, the file-size check, tests and the app step, and exits non-zero on the first failure. The app step starts the MCP server and fails unless `server_info` reports the SHA that `git rev-parse HEAD` gives. A change is done when `verify` passes and you have exercised the change through the MCP server or the app, not only through unit tests.
 
 After `uv sync`, run `uvx pre-commit install` once. Each commit then runs the same steps through `verify --only <step>`.
