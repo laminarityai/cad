@@ -3,7 +3,10 @@ name = "cad"
 version = "0.1.0"
 description = "Local MCP server where an agent builds CAD variants in a sandbox and fixed checks score them."
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = [
+    "pint>=0.24",
+    "pyyaml>=6",
+]
 
 [project.scripts]
 verify = "cad.verify.__main__:main"
@@ -13,6 +16,7 @@ dev = [
     "basedpyright>=1.40,<1.41",
     "pytest>=8",
     "ruff==0.17.4",
+    "types-pyyaml>=6.0.12.20261103",
 ]
 
 [build-system]
