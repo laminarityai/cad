@@ -4,4 +4,4 @@ We build on build123d, not CadQuery. A bake-off on branch `proto/kernel-bakeoff`
 
 ## Consequences
 
-The bake-off's prompts were too easy to discriminate. If edits to existing models or multi-part assemblies turn out to be much less reliable in build123d, that is the evidence that would reopen this decision.
+The bake-off's prompts were too easy to discriminate, and it covered single parts only. On 2026-11-06 we dropped the planned 50-brief comparison of edits and assemblies, because we will not use CadQuery. A weakness in build123d on edits or assemblies is now ours to work around, not evidence that reopens this decision.

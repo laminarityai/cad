@@ -105,7 +105,7 @@ Python on the backend, because the CAD kernel, FEA and slicer wrappers all have 
 
 The first version is built in five phases, in this order. Each phase ends when its exit condition holds, not on a date.
 
-1. **Server and universal checks.** Project setup ([AGENTS.md](AGENTS.md)), an MCP server that runs build123d code in the sandbox, the geometric universal checks, and the first materials table. Also a 50-brief comparison that adds edits to existing models and assemblies, which tests [ADR-0001](docs/adr/0001-build123d-as-cad-kernel.md).
+1. **Server and universal checks.** Project setup ([AGENTS.md](AGENTS.md)), an MCP server that runs build123d code in the sandbox, the geometric universal checks, and the first materials table.
    - Exit: Claude Code, connected to the server, produces scorecards for the 10 bake-off parts that agree with the bake-off grader, and the sandbox blocks network access and enforces its limits.
 2. **Briefs, requirements and scorecards.** Plan mode, 3 to 5 variants, scorecards that list unverified requirements, sources and candidate values, the knowledge base, and agent-written checks with per-project review.
    - Exit: on a private set of briefs from at least five domains, every number on every scorecard traces to a confirmed source.
@@ -143,7 +143,6 @@ Track progress with two numbers on a private set of briefs that spans at least f
 
 ## Open questions
 
-- [ ] Are edits to existing models and multi-part assemblies much less reliable in build123d? Phase 1's 50-brief comparison answers this, and a large gap reopens [ADR-0001](docs/adr/0001-build123d-as-cad-kernel.md).
 - [ ] What do novices actually get wrong, such as fits, wall thickness or fastener sizing?
 - [ ] Which domain gets the first engineering skill?
 - [ ] Is three revisions without progress the right stuck threshold for Auto mode?
