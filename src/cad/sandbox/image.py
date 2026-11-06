@@ -1,9 +1,3 @@
-"""The sandbox image: its content-addressed tag, finding it, and building it.
-
-The tag is a digest of the exact build context, so editing the Dockerfile or the lock gives a new
-tag and a stale image is never run. "Is the image current" is "does the tag exist".
-"""
-
 import hashlib
 import io
 import subprocess
@@ -20,13 +14,16 @@ BUILD_IMAGE = "uv run cad-sandbox build-image"
 
 
 def context_tar(directory: Path = SANDBOX_DIR) -> bytes:
-    """The whole build context as a tar with fixed metadata, so equal files give equal bytes."""
     buffer = io.BytesIO()
     with tarfile.open(fileobj=buffer, mode="w", format=tarfile.USTAR_FORMAT) as tar:
         for name in CONTEXT:
             data = (directory / name).read_bytes()
             entry = tarfile.TarInfo(name)
             entry.size = len(data)
+            entry.mtime = 0
+            entry.mode = 0o644
+            entry.uid = entry.gid = 0
+            entry.uname = entry.gname = ""
             tar.addfile(entry, io.BytesIO(data))
     return buffer.getvalue()
 
@@ -36,7 +33,6 @@ def image_tag(context: bytes) -> str:
 
 
 def find_image(tag: str) -> str | None:
-    """The image id for `tag`, or None when Docker has no such image."""
     done = docker("images", "--quiet", "--no-trunc", tag)
     if done.returncode != 0:
         raise SandboxUnavailable(f"docker is not reachable: {first_line(done.stderr)}")
@@ -51,7 +47,6 @@ def current_image(tag: str) -> str:
 
 
 def build_image() -> str:
-    """Build the image for the context on disk unless it exists. Returns a one-line status."""
     context = context_tar()
     tag = image_tag(context)
     if find_image(tag) is not None:

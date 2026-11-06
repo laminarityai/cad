@@ -1,15 +1,3 @@
-"""The variant store: one directory per variant id, written once, read by id.
-
-    <root>/<id>/code.py              the code as given, never run on the host
-    <root>/<id>/build.json           a cad.sandbox.outcome.Build
-    <root>/<id>/result.brep          only when the outcome is Built
-    <root>/<id>/result.step          only when the outcome is Built
-    <root>/.incoming-<random>/       a build in progress, which no reader looks at
-
-A directory named by an id is complete or absent, because it appears by one rename of a finished
-temporary directory.
-"""
-
 import hashlib
 import json
 import secrets
@@ -19,11 +7,13 @@ from typing import NewType
 
 from cad.sandbox import host
 from cad.sandbox.image import context_tar, current_image, image_tag
-from cad.sandbox.outcome import Build, SandboxUnavailable, TimedOut
+from cad.sandbox.outcome import Build, Built, Failure, SandboxUnavailable, TimedOut
 
 VARIANTS_ROOT = Path.home() / ".cad" / "variants"
-ID_SCHEME = "cad-variant-1"
-"""Bump when Build changes shape, so newer code never reads an older build.json."""
+CODE = "code.py"
+BUILD = "build.json"
+BREP = "result.brep"
+STEP = "result.step"
 ID_HEX = 16
 
 VariantId = NewType("VariantId", str)
@@ -34,20 +24,15 @@ class BuildResult(Build):
 
 
 def variant_id(code: str, tag: str) -> VariantId:
-    """Needs no Docker, so a stored variant is returned while Docker is down."""
+    schema = json.dumps(Build.model_json_schema(), sort_keys=True)
     runner = hashlib.sha256(host.RUNNER.encode()).hexdigest()
-    key = json.dumps([ID_SCHEME, tag, runner, code])
+    key = json.dumps([schema, tag, runner, code])
     return VariantId(hashlib.sha256(key.encode()).hexdigest()[:ID_HEX])
 
 
 def build_variant(
     code: str, root: Path = VARIANTS_ROOT, *, wall_seconds: int = host.WALL_SECONDS
 ) -> BuildResult:
-    """Build `code`, or return the stored build when this code already built on this image.
-
-    TimedOut is returned but not stored, because it depends on how busy the host was, so the same
-    code gets a fresh attempt next time. Raises SandboxUnavailable only.
-    """
     tag = image_tag(context_tar())
     vid = variant_id(code, tag)
     try:
@@ -65,12 +50,19 @@ def build_and_store(
     incoming = root / f".incoming-{secrets.token_hex(8)}"
     try:
         incoming.mkdir(parents=True)
-        (incoming / "code.py").write_bytes(host.encoded(code))
-        build = host.build(code, image_id, incoming, wall_seconds=wall_seconds)
-        result = BuildResult(variant_id=vid, outcome=build.outcome, output=build.output)
-        if isinstance(build.outcome, TimedOut):
+        (incoming / CODE).write_bytes(host.utf8_keeping_surrogates(code))
+        run = host.build(code, image_id, wall_seconds=wall_seconds)
+        outcome: Built | Failure
+        if isinstance(run.verdict, host.Artifacts):
+            (incoming / BREP).write_bytes(run.verdict.brep)
+            (incoming / STEP).write_bytes(run.verdict.step)
+            outcome = Built()
+        else:
+            outcome = run.verdict
+        result = BuildResult(variant_id=vid, outcome=outcome, output=run.output)
+        if isinstance(outcome, TimedOut):
             return result
-        (incoming / "build.json").write_text(build.model_dump_json())
+        (incoming / BUILD).write_text(Build(outcome=outcome, output=run.output).model_dump_json())
         try:
             incoming.rename(root / vid)
         except OSError:
@@ -84,10 +76,13 @@ def build_and_store(
 
 
 def load(root: Path, vid: VariantId) -> BuildResult | None:
-    """Only this module writes build.json, so a file that does not parse is a bug, not a state."""
+    path = root / vid / BUILD
     try:
-        stored = (root / vid / "build.json").read_text()
+        build = Build.model_validate_json(path.read_text())
     except FileNotFoundError:
         return None
-    build = Build.model_validate_json(stored)
+    except ValueError as error:
+        raise SandboxUnavailable(
+            f"cannot read {path}; delete {path.parent} to build it again"
+        ) from error
     return BuildResult(variant_id=vid, outcome=build.outcome, output=build.output)

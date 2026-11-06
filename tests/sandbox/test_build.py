@@ -1,6 +1,3 @@
-"""The bake-off reference parts build, the store keeps one variant per code, and the MCP tool
-returns outcomes, or a one-line error when the sandbox is unavailable."""
-
 from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
@@ -10,9 +7,10 @@ from typing import Any
 import pytest
 from mcp import Client
 
+from cad.sandbox.image import context_tar, image_tag
 from cad.sandbox.outcome import Built, TimedOut
 from cad.server.app import build_server
-from cad.variants.store import BuildResult, build_variant
+from cad.variants.store import BuildResult, build_variant, variant_id
 
 PARTS = {path.stem: path.read_text() for path in (Path(__file__).parent / "parts").glob("*.py")}
 NO_DOCKER = "unix:///nonexistent/docker.sock"
@@ -130,3 +128,14 @@ async def test_code_over_the_size_limit_is_rejected_before_it_runs(tmp_path: Pat
     text = error_text(await call(tmp_path, "#" * (256 * 1024 + 1)))
     assert "at most 262144 characters" in text
     assert list(tmp_path.iterdir()) == []
+
+
+@pytest.mark.anyio
+async def test_a_corrupt_stored_build_is_a_one_line_tool_error(tmp_path: Path) -> None:
+    stored = tmp_path / variant_id("x = 1\n", image_tag(context_tar()))
+    stored.mkdir()
+    (stored / "build.json").write_text('{"outcome": {"kind": "built"}, "output": ')
+    assert error_text(await call(tmp_path, "x = 1\n")) == (
+        "Error executing tool build_variant: "
+        f"cannot read {stored / 'build.json'}; delete {stored} to build it again"
+    )

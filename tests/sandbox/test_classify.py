@@ -10,6 +10,7 @@ from cad.sandbox.host import (
     Artifacts,
     Attended,
     ContainerState,
+    TooMuchOutput,
     classify,
     run_argv,
 )
@@ -30,7 +31,7 @@ def failed_report(error: str = "ValueError: boom", traceback: str = "Traceback .
     return json.dumps({"kind": "build_failed", "error": error, "traceback": traceback}).encode()
 
 
-def seen(report: bytes | None, *, killed: bool = False) -> Attended:
+def seen(report: bytes | TooMuchOutput, *, killed: bool = False) -> Attended:
     return Attended(killed_at_deadline=killed, report=report, output="")
 
 
@@ -62,23 +63,23 @@ def exited_without_report(code: int) -> BuildFailed:
             BuildFailed(error="ValueError: boom", traceback="Traceback ..."), id="failed",
         ),
         pytest.param(
-            seen(b'{"kind": "no_result", "found": null}'), state(0),
+            seen(b'{"kind": "no_result"}'), state(0),
             NoResult(reason=f"the code never assigned `result`; {CONTRACT}"), id="no-result",
         ),
         pytest.param(
-            seen(b'{"kind": "no_result", "found": "int"}'), state(0),
+            seen(b'{"kind": "not_a_shape", "found": "int"}'), state(0),
             NoResult(reason=f"`result` is of type int, not a build123d Shape; {CONTRACT}"),
             id="not-a-shape",
         ),
         pytest.param(
             seen(b""), state(137, oom=True), OutOfMemory(limit_mb=MEMORY_MB), id="oom"
         ),
-        pytest.param(seen(b""), state(152), TimedOut(limit_seconds=WALL), id="sigxcpu"),
+        pytest.param(seen(b""), state(152), exited_without_report(152), id="152-is-not-timeout"),
         pytest.param(seen(b""), state(137), exited_without_report(137), id="137-is-not-timeout"),
         pytest.param(seen(built_report()), state(1), exited_without_report(1), id="nonzero-exit"),
         pytest.param(seen(b""), state(0), exited_without_report(0), id="exit-0-silent"),
         pytest.param(
-            seen(None), state(0),
+            seen(TooMuchOutput()), state(0),
             BuildFailed(error="the build sent more than 64 MiB of output", traceback=""),
             id="over-the-cap",
         ),
@@ -92,6 +93,10 @@ def exited_without_report(code: int) -> BuildFailed:
         pytest.param(
             seen(b'{"kind": "built", "brep": "@@", "step": "@@"}'), state(0), MALFORMED,
             id="bad-base64",
+        ),
+        pytest.param(
+            seen(b'{"kind": "built", "brep": "caf\\u00e9", "step": "AA=="}'), state(0), MALFORMED,
+            id="non-ascii-base64",
         ),
     ],
 )  # fmt: skip
@@ -121,5 +126,5 @@ def test_the_container_runs_locked_down() -> None:
         "--user", "65534:65534", "--env", "HOME=/tmp", "--workdir", "/tmp",
         "sha256:abc",
         "timeout", "--signal", "KILL", "65",
-        "python", "-I", "-c", runner, "60",
+        "python", "-I", "-c", runner, "120",
     )  # fmt: skip

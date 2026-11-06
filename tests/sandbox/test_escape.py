@@ -1,8 +1,3 @@
-"""Variant code that tries to leave the sandbox, against the real image.
-
-The kernel's error text is the behavior under test here: it is the evidence that a flag held.
-"""
-
 import subprocess
 from pathlib import Path
 from unittest.mock import ANY
@@ -11,7 +6,7 @@ import pytest
 
 from cad.sandbox import host
 from cad.sandbox.image import context_tar, current_image, image_tag
-from cad.sandbox.outcome import Build, BuildFailed, BuildOutcome, Built, OutOfMemory, TimedOut
+from cad.sandbox.outcome import BuildFailed, BuildOutcome, Built, Failure, OutOfMemory, TimedOut
 
 FAST_WALL_SECONDS = 2
 
@@ -21,8 +16,9 @@ def image_id() -> str:
     return current_image(image_tag(context_tar()))
 
 
-def build(code: str, image_id: str, into: Path, wall_seconds: int = host.WALL_SECONDS) -> Build:
-    return host.build(code, image_id, into, wall_seconds=wall_seconds)
+def outcome(code: str, image_id: str, wall_seconds: int = host.WALL_SECONDS) -> Built | Failure:
+    verdict = host.build(code, image_id, wall_seconds=wall_seconds).verdict
+    return Built() if isinstance(verdict, host.Artifacts) else verdict
 
 
 def failed(error: str) -> BuildFailed:
@@ -85,9 +81,21 @@ def stopped_build_containers() -> str:
                 "SyntaxError: (unicode error) 'utf-8' codec can't decode byte 0xed "
                 "in position 0: invalid continuation byte"
             ),
-            id="lone-surrogate",
+            id="lone-surrogate-in-code",
+        ),
+        pytest.param(
+            'raise ValueError("bad \\ud800 char")\n',
+            failed("ValueError: bad ? char"),
+            id="lone-surrogate-in-error",
+        ),
+        pytest.param(
+            'try:\n    compile("(", "x", "exec")\n'
+            'except SyntaxError as error:\n    error.add_note("a note")\n    raise\n',
+            failed("SyntaxError: '(' was never closed"),
+            id="syntax-error-with-a-note",
         ),
         pytest.param("import os\nos._exit(125)\n", exited(125), id="exit-125-is-not-docker"),
+        pytest.param("import os\nos._exit(152)\n", exited(152), id="exit-152-is-not-a-timeout"),
         pytest.param(
             "import os, signal, time\nos.kill(os.getppid(), signal.SIGKILL)\ntime.sleep(60)\n",
             exited(137),
@@ -98,23 +106,16 @@ def stopped_build_containers() -> str:
             BuildFailed(error="the build sent more than 64 MiB of output", traceback=""),
             id="report-flood",
         ),
-        pytest.param(
-            "import resource as r\nr.setrlimit(r.RLIMIT_CPU, (1, 6))\nwhile True:\n    pass\n",
-            TimedOut(limit_seconds=host.WALL_SECONDS),
-            id="cpu-limit",
-        ),
     ],
 )
 def test_escape_attempts_end_as_exact_outcomes(
-    code: str, expected: BuildOutcome, image_id: str, tmp_path: Path
+    code: str, expected: BuildOutcome, image_id: str
 ) -> None:
-    assert build(code, image_id, tmp_path).outcome == expected
-    assert list(tmp_path.iterdir()) == []
+    assert outcome(code, image_id) == expected
 
 
-def test_the_traceback_starts_in_the_variant_code(image_id: str, tmp_path: Path) -> None:
-    outcome = build("x = 1\nraise ValueError('boom')\n", image_id, tmp_path).outcome
-    assert outcome == BuildFailed(
+def test_the_traceback_starts_in_the_variant_code(image_id: str) -> None:
+    assert outcome("x = 1\nraise ValueError('boom')\n", image_id) == BuildFailed(
         error="ValueError: boom",
         traceback=(
             "Traceback (most recent call last):\n"
@@ -125,25 +126,24 @@ def test_the_traceback_starts_in_the_variant_code(image_id: str, tmp_path: Path)
     )
 
 
-def test_the_code_runs_under_a_cpu_time_limit(image_id: str, tmp_path: Path) -> None:
+def test_the_cpu_time_limit_allows_every_cpu_for_the_whole_wall_clock(image_id: str) -> None:
     code = "import resource\nprint(resource.getrlimit(resource.RLIMIT_CPU))\n"
-    assert build(code, image_id, tmp_path).output == "(60, 65)\n"
+    assert host.build(code, image_id).output == "(120, 125)\n"
 
 
-def test_an_infinite_loop_is_killed_and_its_container_removed(
-    image_id: str, tmp_path: Path
-) -> None:
-    built = build("while True:\n    pass\n", image_id, tmp_path, FAST_WALL_SECONDS)
-    assert built.outcome == TimedOut(limit_seconds=FAST_WALL_SECONDS)
+def test_an_infinite_loop_is_killed_and_its_container_removed(image_id: str) -> None:
+    assert outcome("while True:\n    pass\n", image_id, FAST_WALL_SECONDS) == TimedOut(
+        limit_seconds=FAST_WALL_SECONDS
+    )
     assert stopped_build_containers() == ""
 
 
-def test_a_sleeping_build_is_killed_at_the_wall_clock(image_id: str, tmp_path: Path) -> None:
-    built = build("import time\ntime.sleep(600)\n", image_id, tmp_path, FAST_WALL_SECONDS)
-    assert built.outcome == TimedOut(limit_seconds=FAST_WALL_SECONDS)
+def test_a_sleeping_build_is_killed_at_the_wall_clock(image_id: str) -> None:
+    assert outcome("import time\ntime.sleep(600)\n", image_id, FAST_WALL_SECONDS) == TimedOut(
+        limit_seconds=FAST_WALL_SECONDS
+    )
 
 
-def test_a_forked_child_never_writes_a_second_report(image_id: str, tmp_path: Path) -> None:
+def test_a_forked_child_never_writes_a_second_report(image_id: str) -> None:
     code = "import os\nfrom build123d import Box\nos.fork()\nresult = Box(1, 1, 1)\n"
-    assert build(code, image_id, tmp_path).outcome == Built()
-    assert sorted(path.name for path in tmp_path.iterdir()) == ["result.brep", "result.step"]
+    assert outcome(code, image_id) == Built()
