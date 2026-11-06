@@ -13,10 +13,12 @@ def python_step(name: str, code: str) -> Step:
 def test_steps_run_in_the_documented_order() -> None:
     assert [step.name for step in STEPS] == [
         "basedpyright",
+        "basedpyright skills",
         "ruff check",
         "ruff format",
         "file size",
         "pytest",
+        "app",
     ]
 
 
@@ -25,6 +27,17 @@ def test_passing_steps_print_one_ok_line_each(capsys: pytest.CaptureFixture[str]
     lines = capsys.readouterr().out.splitlines()
     assert code == 0
     assert [line.split()[0:2] for line in lines] == [["ok", "first"], ["ok", "second"]]
+
+
+def test_a_step_that_asks_for_it_shows_its_output_on_success(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    quiet = python_step("quiet", "print('hidden detail')")
+    loud = Step("loud", (sys.executable, "-c", "print('shown detail')"), show_output=True)
+    assert run_steps([quiet, loud]) == 0
+    out = capsys.readouterr().out
+    assert "shown detail" in out
+    assert "hidden detail" not in out
 
 
 def test_first_failure_stops_the_run_and_shows_its_output(
