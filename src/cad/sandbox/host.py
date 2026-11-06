@@ -1,11 +1,10 @@
 from base64 import b64decode
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Annotated
 
 from pydantic import Field, TypeAdapter, ValidationError
 
-from cad.sandbox import container
+from cad.sandbox import container, stage
 from cad.sandbox.container import Attended, ContainerState, Job, TooMuchOutput
 from cad.sandbox.outcome import BuildFailed, Failure, NoResult, OutOfMemory, TimedOut
 from cad.sandbox.wire import Report
@@ -13,7 +12,6 @@ from cad.variants import entry
 
 TEXT_CAP = 8 * 1024
 CONTRACT = "assign the final shape to `result`"
-RUNNER = Path(__file__).with_name("runner.py").read_text()
 
 REPORT = TypeAdapter[Report](Annotated[Report, Field(discriminator="kind")])
 
@@ -33,7 +31,7 @@ class Run:
 
 
 def build_job(code: str, image_id: str, wall_seconds: int) -> Job:
-    command = ("python", "-I", "-c", RUNNER, str(wall_seconds * container.CPUS))
+    command = ("python", "-I", "-c", stage.RUNNER, str(wall_seconds * container.CPUS))
     return Job("build", image_id, command, entry.encode_code(code), wall_seconds=wall_seconds)
 
 
