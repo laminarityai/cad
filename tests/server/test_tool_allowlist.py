@@ -1,0 +1,30 @@
+import pytest
+from mcp import Client
+
+from cad.server.app import build_server
+
+pytestmark = pytest.mark.anyio
+
+ALLOWED_ARGUMENTS = {
+    "server_info": set[str](),
+    "build_variant": {"code"},
+    "score_variant": {"variant_id", "material_key"},
+    "list_materials": set[str](),
+}
+
+
+async def listed_arguments() -> dict[str, set[str]]:
+    async with Client(build_server()) as client:
+        listed = await client.list_tools()
+    return {tool.name: set(tool.input_schema.get("properties", {})) for tool in listed.tools}
+
+
+async def test_the_server_exposes_no_tool_outside_the_allowlist() -> None:
+    exposed = await listed_arguments()
+    extra = sorted(set(exposed) - set(ALLOWED_ARGUMENTS))
+    assert extra == [], f"tools outside the allowlist: {extra}"
+    assert sorted(exposed) == sorted(ALLOWED_ARGUMENTS)
+
+
+async def test_no_tool_takes_a_check_a_table_or_a_scorecard_as_an_argument() -> None:
+    assert await listed_arguments() == ALLOWED_ARGUMENTS
