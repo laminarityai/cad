@@ -213,11 +213,10 @@ def live_one(part: str, brief: str, out: Path, model: str) -> Row:
         str(SESSION),
         "--model",
         model,
-        "--lean",
         brief_prompt(brief, MATERIAL_KEY),
         str(transcript),
     ]
-    subprocess.run(command, capture_output=True, text=True, check=False, cwd=ROOT)
+    done = subprocess.run(command, capture_output=True, text=True, check=False, cwd=ROOT)
     events: list[dict[str, Any]] = (
         json.loads(transcript.read_text()) if transcript.is_file() else []
     )
@@ -225,9 +224,9 @@ def live_one(part: str, brief: str, out: Path, model: str) -> Row:
     row = evaluate(
         part, part, session.scored_variant, entry.VARIANTS_ROOT, time.monotonic() - started
     )
-    foreign = [c for c in session.tool_calls if not c.startswith("mcp__cad__")]
-    if foreign:
-        reasons = (*row.agreement.reasons, f"the session used tools outside the server: {foreign}")
+    if done.returncode != 0:
+        last = (done.stdout.strip().splitlines() or ["no output"])[-1]
+        reasons = (*row.agreement.reasons, f"the session failed: {last}")
         row = replace(row, agreement=Agreement(False, reasons))
     return replace(row, cost_usd=session.cost_usd, tool_calls=session.tool_calls)
 

@@ -9,7 +9,6 @@ TRANSCRIPTS = Path(__file__).resolve().parent / "transcripts"
 
 
 def drive(transcript: str, tmp_path: Path) -> subprocess.CompletedProcess[str]:
-    """Run the driver against a stand-in `claude` that prints a saved transcript."""
     stub = tmp_path / "bin" / "claude"
     stub.parent.mkdir()
     stub.write_text(f"#!/bin/sh\ncat {TRANSCRIPTS / transcript}\n")

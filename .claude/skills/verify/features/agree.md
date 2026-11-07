@@ -32,7 +32,7 @@ A replay builds into a temporary store, `agree-store-*` under the temp directory
 
 ## Gotchas
 
-- A live row with no scored variant is a disagreement, not a skipped row.
+- A live row with no scored variant is a disagreement, not a skipped row. So is a row whose `claude_session.py` run failed, for example on a tool call outside cad.
 - A scorecard whose `closed_solid` is `unknown` (the checks did not finish) never agrees, even when `grade.py` also finds no output.
 - `sonnet/shaft_collar/0` disagrees in a replay. `closed_solid` fails on an edge used by more than two faces, and `grade.py` has no such test.
 - The reply report matches phrases and units. The rule the server sends as its instructions and in the `score_variant` description (`RULE` in `src/cad/server/app.py`) is what enforces the behaviour. The report only measures how often replies follow it.
