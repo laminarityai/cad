@@ -1,3 +1,4 @@
+import ast
 import hashlib
 import secrets
 import shutil
@@ -9,14 +10,14 @@ from typing import Final
 from cad.sandbox.container import ReadOnlyMount
 
 SANDBOX_DIR: Final = Path(__file__).parent
-CHECKS_DIR: Final = Path(__file__).parents[1] / "checks" / "container"
+SRC_ROOT: Final = Path(__file__).parents[2]
+CONTAINER_ENTRY: Final = "cad.checks.container.runner"
 PACKAGE_PATH: Final = "cad/checks/container"
 STAGE_ROOT: Final = Path.home() / ".cad" / "stage"
 DIGEST_CHARS: Final = 16
 TARGET: Final = "/opt/trusted"
 BOOT: Final = (
-    f"import sys; sys.path.insert(0, {TARGET!r}); "
-    "from cad.checks.container.runner import main; main()"
+    f"import sys; sys.path.insert(0, {TARGET!r}); from {CONTAINER_ENTRY} import main; main()"
 )
 
 
@@ -26,15 +27,53 @@ class Sources:
     digest: str
 
 
-def read_sources(directory: Path = CHECKS_DIR) -> Sources:
-    files = {
-        f"{PACKAGE_PATH}/{path.name}": path.read_bytes() for path in sorted(directory.glob("*.py"))
-    }
+def read_sources(*entries: str, root: Path = SRC_ROOT) -> Sources:
+    found: dict[str, bytes] = {}
+    pending = [
+        path for entry in entries for path in _files_run_by_importing(entry, root, required=True)
+    ]
+    while pending:
+        path = pending.pop()
+        name = path.relative_to(root).as_posix()
+        if name not in found:
+            found[name] = path.read_bytes()
+            pending += (
+                file for module in _imports(path) for file in _files_run_by_importing(module, root)
+            )
+    files = dict(sorted(found.items()))
     digest = hashlib.sha256()
     for path, data in files.items():
         digest.update(f"{path}\0".encode())
         digest.update(hashlib.sha256(data).digest())
     return Sources(files, digest.hexdigest())
+
+
+def _imports(path: Path) -> set[str]:
+    modules: set[str] = set()
+    for node in ast.walk(ast.parse(path.read_bytes(), str(path))):
+        if isinstance(node, ast.Import):
+            modules |= {alias.name for alias in node.names}
+        elif isinstance(node, ast.ImportFrom):
+            if node.level or node.module is None:
+                raise ValueError(f"{path} has a relative import, which read_sources cannot follow")
+            modules |= {node.module, *(f"{node.module}.{alias.name}" for alias in node.names)}
+    return modules
+
+
+def _files_run_by_importing(module: str, root: Path, *, required: bool = False) -> list[Path]:
+    parts = module.split(".")
+    files: list[Path] = []
+    for depth in range(1, len(parts) + 1):
+        base = root.joinpath(*parts[:depth])
+        if (base / "__init__.py").is_file():
+            files.append(base / "__init__.py")
+        elif base.with_suffix(".py").is_file():
+            files.append(base.with_suffix(".py"))
+        elif not base.is_dir():
+            if required:
+                raise ModuleNotFoundError(f"no module {module} under {root}")
+            break
+    return files
 
 
 def materialize(sources: Sources, root: Path = STAGE_ROOT) -> Path:
@@ -95,4 +134,4 @@ def _discard(path: Path) -> None:
 
 
 RUNNER: Final = (SANDBOX_DIR / "runner.py").read_text()
-SOURCES: Final = read_sources()
+SOURCES: Final = read_sources(CONTAINER_ENTRY)

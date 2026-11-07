@@ -21,7 +21,8 @@ VERSIONS = (
 
 LOADED = (
     "import json, sys; import cad.scorecard.score, cad.checks.container.runner; "
-    "print(json.dumps([m.__file__ for n, m in sys.modules.items() if n.split('.')[0] == 'cad']))"
+    "print(json.dumps([m.__file__ for n, m in sys.modules.items() "
+    "if n.split('.')[0] == 'cad' and m.__file__]))"
 )
 
 
