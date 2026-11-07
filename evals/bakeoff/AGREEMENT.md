@@ -31,13 +31,15 @@ A replay rewrites the final `export_step(shape, "out.step")` line of each stored
 
 Live, run 1 and run 2: 10/10 agree both times. Run 1 cost 0.401 USD.
 
-Replay: 59/60 agree. The one disagreement is `sonnet/shaft_collar/0`.
+Replay: 59/60 agree. The replay exit is 59/60, with one accepted exception.
+
+### Accepted exception: `sonnet/shaft_collar/0`
 
 - The `closed_solid` check fails with "1 edges are used by more than two faces".
 - `grade.py` passes the same part. It only counts solids and runs `BRepCheck_Analyzer`, so it cannot see a non-manifold edge.
-- The bake-off's own stored `out0.step` for that attempt has the same over-used edge, so the edge comes from the script's geometry and not from the sandbox. Its volume is 3589.62 mm3, against 3589.16 mm3 for the other two `shaft_collar` attempts that agree.
-
-The rule was not loosened. The operator decides whether the plan's 60/60 stands, or whether this attempt is a known blind spot of `grade.py`.
+- The defect is in the bake-off's stored `out0.step` for that attempt, so the edge comes from the script's geometry and not from the sandbox. Run `cad.checks.container.kernel.ocp_kernel().edge_uses` on `grade.load_step` of that file, taken from `142404a:proto/kernel-bakeoff/runs/build123d/sonnet/shaft_collar/0/out0.step`. It reports `EdgeUses(free=0, over_used=1)`, while `grade.py` returns `pass`. The same part from `sonnet/shaft_collar/1` reports `over_used=0`.
+- The volume is 3589.62 mm3, against 3589.16 mm3 for the other two `shaft_collar` attempts that agree.
+- The operator accepted 59/60 on 2026-11-07. `grade.py` and the rule are unchanged, and `agree.py` has no special case for this attempt, so `agree.py --replay` still prints `59/60 agree` and exits 1.
 
 ## Live run 1 (10/10 agree)
 
