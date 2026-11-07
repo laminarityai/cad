@@ -49,6 +49,14 @@ def status(name: str) -> str | None:
     return None if state is None else state.Status
 
 
+def wait_until(condition: Callable[[], bool]) -> None:
+    wait_for(lambda: True if condition() else None)
+
+
+def wait_until_exited(name: str) -> None:
+    wait_until(lambda: status(name) == "exited")
+
+
 def running_build(client: int) -> tuple[Process, Process, str] | None:
     for server in children_of(client):
         for docker in children_of(server.pid):
@@ -62,12 +70,35 @@ def cad_call(tool: str, arguments: str) -> list[str]:
     return [sys.executable, "-m", "cad.server.call", tool, arguments]
 
 
-def gone(pid: int) -> bool:
+def start(image_id: str, owner: int, *command: str) -> str:
+    name = f"cad-build-{secrets.token_hex(8)}"
+    subprocess.run(
+        ("docker", "run", "--detach", "--name", name, "--label", container.label("build"),
+         "--label", f"{container.OWNER}={owner}", "--pull", "never", "--network", "none",
+         image_id, *command),
+        capture_output=True, check=True,
+    )  # fmt: skip
+    return name
+
+
+def test_only_exited_containers_whose_owner_is_gone_are_removed(image_id: str) -> None:
+    ended = subprocess.run(
+        (sys.executable, "-c", "import os; print(os.getpid())"),
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    dead = int(ended.stdout)
+    orphan = start(image_id, dead, "true")
+    owned = start(image_id, os.getpid(), "true")
+    running = start(image_id, dead, "sleep", "60")
     try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return True
-    return False
+        for name in (orphan, owned):
+            wait_until_exited(name)
+        container.remove_orphans()
+        assert (status(orphan), status(owned), status(running)) == (None, "exited", "running")
+    finally:
+        container.docker("rm", "--force", orphan, owned, running)
 
 
 def test_a_server_killed_mid_build_leaves_no_container_after_the_next_start(
@@ -89,8 +120,8 @@ def test_a_server_killed_mid_build_leaves_no_container_after_the_next_start(
         os.kill(docker.pid, signal.SIGTERM)
         client.kill()
         client.wait()
-        wait_for(lambda: True if gone(server.pid) else None)
-        assert wait_for(lambda: True if status(name) == "exited" else None)
+        wait_until(lambda: not container.alive(server.pid))
+        wait_until_exited(name)
         subprocess.run(cad_call("server_info", "{}"), env=env, check=True, capture_output=True)
         assert status(name) is None
     finally:

@@ -1,3 +1,4 @@
+import os
 import secrets
 import subprocess
 import threading
@@ -24,6 +25,7 @@ CHUNK = 64 * 1024
 DOCKER_TIMEOUT_SECONDS = 15
 KILL_GRACE_SECONDS = 10
 NO_DOCKER = "docker is not installed: no `docker` command on PATH"
+OWNER = "cad.owner-pid"
 
 SLOTS = threading.Semaphore(DOCKER_MEMORY_BUDGET_MB // MEMORY_MB)
 
@@ -77,6 +79,33 @@ def label(kind: Kind) -> str:
     return f"cad.sandbox={kind}"
 
 
+def remove_orphans() -> None:
+    listed = docker(
+        "ps", "--all", "--filter", "label=cad.sandbox", "--filter", "status=exited",
+        "--format", f'{{{{.Names}}}}\t{{{{.Label "{OWNER}"}}}}',
+    )  # fmt: skip
+    if listed.returncode != 0:
+        return
+    rows = (line.split("\t") for line in listed.stdout.splitlines())
+    orphans = [name for name, owner in rows if abandoned(owner)]
+    if orphans:
+        docker("rm", *orphans)
+
+
+def abandoned(owner: str) -> bool:
+    return owner.isdigit() and not alive(int(owner))
+
+
+def alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
 def run(job: Job) -> Ran:
     """Raises `SandboxUnavailable` when Docker is missing, down, or could not start the
     container."""
@@ -101,6 +130,7 @@ def run_argv(name: str, job: Job) -> tuple[str, ...]:
     )
     return (
         "docker", "run", "--name", name, "--label", label(job.kind),
+        "--label", f"{OWNER}={os.getpid()}",
         "--interactive", "--init", "--pull", "never", "--log-driver", "none",
         "--network", "none",
         "--memory", f"{MEMORY_MB}m", "--memory-swap", f"{MEMORY_MB}m",

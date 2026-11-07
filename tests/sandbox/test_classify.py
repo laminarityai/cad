@@ -1,4 +1,5 @@
 import json
+import os
 from base64 import b64encode
 from pathlib import Path
 
@@ -118,6 +119,7 @@ def test_the_container_runs_locked_down() -> None:
     assert job == Job("build", "sha256:abc", ("python", "-I", "-c", runner, "120"), b"x = 1\n")
     assert run_argv("cad-build-1", job) == (
         "docker", "run", "--name", "cad-build-1", "--label", "cad.sandbox=build",
+        "--label", f"cad.owner-pid={os.getpid()}",
         "--interactive", "--init", "--pull", "never", "--log-driver", "none",
         "--network", "none",
         "--memory", "2048m", "--memory-swap", "2048m",
