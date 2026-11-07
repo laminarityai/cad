@@ -4,7 +4,7 @@
 
 ## Sub-features
 
-- `agree-live` makes Claude Code on Sonnet build and score each of the 10 bake-off briefs through the cad tools, then compares the stored scorecard with `grade.py` on the stored STEP. It prints one row per brief and `10/10 agree`.
+- `agree-live` makes Claude Code on Sonnet build and score each of the 10 bake-off briefs through the cad tools, then compares the stored scorecard with `grade.py` on the stored STEP. A row also fails when the final reply states a volume, mass, area or bounding box that no `score_variant` result returned (`evals/bakeoff/reply.py`). It prints one row per brief and `10/10 agree`.
 - `agree-replay` builds and scores the 60 stored build123d attempts with no model call. It prints one row per attempt and a final `N/60 agree`.
 - `agree-one` runs one row, with `--only <part>` (live) or `--only <model>/<part>/<sample>` (replay).
 - `agree-first-attempt` replays attempt N of the runs that have it, with `--attempt N`.
@@ -33,4 +33,5 @@ A replay builds into a temporary store, `agree-store-*` under the temp directory
 - A live row with no scored variant is a disagreement, not a skipped row.
 - A scorecard whose `closed_solid` is `unknown` (the checks did not finish) never agrees, even when `grade.py` also finds no output.
 - `sonnet/shaft_collar/0` disagrees in a replay. `closed_solid` fails on an edge used by more than two faces, and `grade.py` has no such test.
+- The reply check counts a number from `build_variant`'s `output` as unchecked, because that field is what the agent's own code printed.
 - The scorecard has no extents. `agree.py` measures the stored `result.brep` that the scorecard's `brep_sha256` names.
