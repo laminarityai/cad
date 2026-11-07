@@ -1,48 +1,57 @@
-"""Usage: uv run python .claude/skills/verify/scripts/claude_session.py [--model <alias>] [--lean]
+"""Usage: uv run python .claude/skills/verify/scripts/claude_session.py [--model <alias>]
     "<prompt>" <transcript.json>
 
---lean starts a session with the repo's settings only, no skills and no built-in tools, so the
-model can call only the cad tools and the context stays small.
-
-Claude Code skips a broken .mcp.json entry and still exits 0, so this script fails unless the
-system/init event lists `cad` as connected with no mcp_server_errors.
+Claude Code skips a broken MCP server entry and still exits 0, so this script fails unless the
+system/init event lists `cad` as connected with no mcp_server_errors. It also fails when the
+init event lists a tool outside cad, or the transcript has a tool call outside cad.
 """
 
 import argparse
 import json
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[4]
+CAD_TOOL_PREFIX = "mcp__cad__"
 
 
-LEAN = ["--setting-sources", "project", "--disable-slash-commands", "--tools", ""]
+def mcp_config() -> str:
+    config = json.loads((ROOT / ".mcp.json").read_text())
+    cad = config["mcpServers"]["cad"]
+    cad["args"] = ["--directory", str(ROOT), *cad["args"]]
+    return json.dumps(config)
 
 
-def main(prompt: str, transcript: Path, model: str | None = None, lean: bool = False) -> int:
-    done = subprocess.run(
-        [
-            "claude",
-            "-p",
-            prompt,
-            "--mcp-config",
-            ".mcp.json",
-            "--strict-mcp-config",
-            "--allowedTools",
-            "mcp__cad__*",
-            "--output-format",
-            "json",
-            "--verbose",
-            *(["--model", model] if model else []),
-            *(LEAN if lean else []),
-        ],
-        capture_output=True,
-        text=True,
-        check=False,
-        cwd=ROOT,
-    )
+def main(prompt: str, transcript: Path, model: str | None = None) -> int:
+    with tempfile.TemporaryDirectory(prefix="claude-session-") as empty:
+        done = subprocess.run(
+            [
+                "claude",
+                "-p",
+                prompt,
+                "--mcp-config",
+                mcp_config(),
+                "--strict-mcp-config",
+                "--tools",
+                "",
+                "--allowedTools",
+                f"{CAD_TOOL_PREFIX}*",
+                "--setting-sources",
+                "project",
+                "--disable-slash-commands",
+                "--output-format",
+                "json",
+                "--verbose",
+                *(["--model", model] if model else []),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+            cwd=empty,
+        )
     transcript.parent.mkdir(parents=True, exist_ok=True)
     transcript.write_text(done.stdout)
     if done.returncode != 0:
@@ -55,22 +64,31 @@ def main(prompt: str, transcript: Path, model: str | None = None, lean: bool = F
         print(f"cad is not connected: {servers} errors={init.get('mcp_server_errors')}")
         return 1
     print("init: cad connected")
+    reachable = [t for t in init["tools"] if not t.startswith(CAD_TOOL_PREFIX)]
+    if reachable:
+        print(f"tools available outside cad: {', '.join(reachable)}")
+    foreign: list[str] = []
     for event in events:
         if event.get("type") != "assistant":
             continue
         for block in event["message"]["content"]:
-            if block.get("type") == "tool_use" and block["name"].startswith("mcp__cad__"):
+            if block.get("type") != "tool_use":
+                continue
+            if block["name"].startswith(CAD_TOOL_PREFIX):
                 print(f"tool call: {block['name']} {json.dumps(block['input'])}")
+            else:
+                foreign.append(block["name"])
     result = next(e for e in events if e.get("type") == "result")
     print(f"result: {result['result']}")
-    return 1 if result.get("is_error") else 0
+    if foreign:
+        print(f"tools outside cad: {', '.join(foreign)}")
+    return 1 if reachable or foreign or result.get("is_error") else 0
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model")
-    parser.add_argument("--lean", action="store_true")
     parser.add_argument("prompt")
     parser.add_argument("transcript", type=Path)
     args = parser.parse_args()
-    sys.exit(main(args.prompt, args.transcript, args.model, args.lean))
+    sys.exit(main(args.prompt, args.transcript, args.model))

@@ -7,7 +7,7 @@ description: Drive the cad MCP server the way a client does, either with one scr
 
 The product is a local MCP server over stdio (`uv run cad-server`). It has no screen. Evidence is a saved JSON transcript or a terminal capture. Run every command from the repo root, in a checkout where `uv sync --frozen` has run. Run each command as written, and replace only a `<placeholder>` in angle brackets or the `$EVIDENCE` variable.
 
-Launch every Claude Code session from the repo root. `.mcp.json` starts the server with `uv run --frozen cad-server`, and `uv` finds the project from the launcher's working directory. `${CLAUDE_PROJECT_DIR}` does not help. With `claude -p --mcp-config <absolute path>` run from `/tmp`, the variable was unset, and an entry that used it as `uv run --frozen --project "${CLAUDE_PROJECT_DIR}" cad-server` failed to connect.
+`claude_session.py` runs each Claude Code session from an empty temporary directory outside the repo, so the agent works away from `tables/` and the checks. `.mcp.json` starts the server with `uv run --frozen cad-server`, and `uv` finds the project from its working directory, so the script passes that entry with `--directory <repo root>` added in front. `${CLAUDE_PROJECT_DIR}` does not help. With `claude -p --mcp-config <absolute path>` run from `/tmp`, the variable was unset, and an entry that used it as `uv run --frozen --project "${CLAUDE_PROJECT_DIR}" cad-server` failed to connect.
 
 Set the evidence directory once per run. A swarm lane sets it to its own lane directory.
 
@@ -50,13 +50,13 @@ uv run cad-call <tool> '<json args>'
 
 Tools today: `server_info` (no arguments), `build_variant` (`code`, the build123d Python source), `score_variant` (`variant_id`, `material_key`) and `list_materials` (no arguments). A tool rejects any argument it does not declare. An unknown tool name returns an error result naming the tool. Arguments that are not a JSON object exit 2 with a usage error, and a tool error exits 1.
 
-Claude Code session. This runs `claude -p` with `--mcp-config .mcp.json --strict-mcp-config --allowedTools 'mcp__cad__*' --output-format json --verbose`, saves the event transcript, and fails unless the `system/init` event lists `cad` as `connected` with no `mcp_server_errors`. Claude Code skips a broken `.mcp.json` entry and still exits 0, so never run `claude -p` against the server without that check. `--verbose` is what puts the init event in the JSON output.
+Claude Code session. This runs `claude -p` with `--strict-mcp-config --tools "" --allowedTools 'mcp__cad__*' --setting-sources project --disable-slash-commands --output-format json --verbose`. `--tools ""` removes every built-in tool, so only the cad tools exist. `--allowedTools` alone only approves the cad tools, and the built-in read-only tools such as Bash `git grep` still run. The script saves the event transcript, and fails unless the `system/init` event lists `cad` as `connected` with no `mcp_server_errors`. It also fails when the init event's `tools` list names a tool outside cad, or when the transcript has a tool call outside cad. The first check asserts what the model could reach. The second asserts what it called. Claude Code skips a broken `.mcp.json` entry and still exits 0, so never run `claude -p` against the server without that check. `--verbose` is what puts the init event in the JSON output.
 
 ```
 uv run python .claude/skills/verify/scripts/claude_session.py "call the server_info tool and print its sha" "$EVIDENCE/claude-server-info.json"
 ```
 
-It prints `init: cad connected`, one `tool call: mcp__cad__<name> <args>` line per MCP call, and the final reply.
+It prints `init: cad connected`, one `tool call: mcp__cad__<name> <args>` line per MCP call, and the final reply. Any other tool in the init `tools` list prints `tools available outside cad: <names>` after the init line, and a call to any other tool prints `tools outside cad: <names>` last. Either one exits 1.
 
 Build a variant from a file. `jq -Rs '{code: .}'` turns the file into the JSON object `cad-call` takes:
 
@@ -113,6 +113,6 @@ Never use `pkill` by name. Keep the files under `$EVIDENCE`, because they are th
 
 ## Helpers
 
-- `scripts/claude_session.py [--model <alias>] [--lean] "<prompt>" <transcript.json>` is shown in Drive. It exits 1 when `cad` is not connected, when `claude` fails, or when the session reports an error. `--lean` loads the repo's settings only, no skills and no built-in tools, so the model can call only the cad tools.
+- `scripts/claude_session.py [--model <alias>] "<prompt>" <transcript.json>` is shown in Drive. It exits 1 when `cad` is not connected, when `claude` fails, when the session can reach or calls a tool outside cad, or when the session reports an error.
 
 Feature recipes live in [features/README.md](features/README.md).

@@ -12,7 +12,7 @@ This directory is the maintained source for verifying what an MCP client sees fr
 
 - Run each command as written. Keep quoted names and flags unchanged, and replace only a `<placeholder>` in angle brackets or the `$EVIDENCE` variable, which `../SKILL.md` sets.
 - Save evidence under `$EVIDENCE`.
-- Launch Claude Code sessions from the repo root.
+- Run `claude_session.py` from the repo root. It starts each session in an empty directory outside the repo.
 - Report an unreachable path with the attempted command and the unmet precondition. Do not report a skipped entry point as verified through a different path.
 
 ## Proof and skip reporting

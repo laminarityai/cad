@@ -24,7 +24,7 @@ uv run python evals/bakeoff/agree.py --replay    # the 60 stored build123d attem
 uv run python evals/bakeoff/agree.py --replay --attempt 0 --only opus/u_bracket/0   # one row
 ```
 
-A live run starts each session with `claude_session.py --lean`, which keeps the repo's `.mcp.json`, `--strict-mcp-config` and `--allowedTools 'mcp__cad__*'`, and adds `--setting-sources project --disable-slash-commands --tools ""`. Only the cad tools exist in that session, and a session costs about 0.04 USD instead of 0.12 USD.
+A live run starts each session with `claude_session.py`, which runs it from an empty directory outside the repo with `--tools ""`, so only the cad tools exist. A session that can reach or calls any other tool fails its row. A session costs about 0.04 USD.
 
 A replay rewrites the final `export_step(shape, "out.step")` line of each stored script to `result = shape`, and builds each attempt into a fresh store.
 
