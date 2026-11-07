@@ -9,7 +9,7 @@ import pytest
 
 from cad.checks.container.suite import CHECKS
 from cad.checks.report import SPECS, build_request, specs
-from cad.sandbox import stage
+from cad.sandbox import container, stage
 from cad.sandbox.container import run_argv
 from cad.sandbox.host import build_job, check_job
 from cad.sandbox.stage import PACKAGE_PATH, SOURCES, Sources, materialize, read_sources
@@ -185,9 +185,10 @@ def test_the_check_container_gets_one_read_only_mount_and_the_limits_of_a_build(
     assert job.wall_seconds == 60
 
 
-def test_the_check_command_boots_the_staged_package_with_the_request() -> None:
+def test_the_check_command_boots_the_staged_package_with_the_request_and_the_report_cap() -> None:
     request = build_request("unobtainium", load_materials())
     job = check_job(b"", IMAGE, request, 60)
     assert job.command[:4] == ("python", "-I", "-c", stage.BOOT)
     assert job.command[4] == "120"
     assert "unobtainium" in job.command[5]
+    assert job.command[6] == str(container.REPORT_CAP)

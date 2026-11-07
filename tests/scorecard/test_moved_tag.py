@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 
+from cad.checks.result import StepStored
 from cad.sandbox import container, image
 from cad.sandbox.container import Job, Ran
 from cad.scorecard import score
@@ -60,4 +61,4 @@ def test_a_moving_tag_gives_a_stored_scorecard_naming_the_image_the_checks_ran_i
     directory = store / variant_id
     assert Scorecard.model_validate_json((directory / score.SCORECARD).read_text()) == card
     step = (directory / entry.STEP).read_bytes()
-    assert card.step_sha256 == hashlib.sha256(step).hexdigest()
+    assert card.step == StepStored(sha256=hashlib.sha256(step).hexdigest())

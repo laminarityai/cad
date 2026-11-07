@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 
-from cad.checks.result import CheckRun, Verdict
+from cad.checks.result import CheckRun, StepStored, Verdict
 from cad.sandbox.host import run_checks
 from cad.sandbox.outcome import Built
 from cad.tables.materials import Cited, load_materials
@@ -72,7 +72,7 @@ def test_the_same_variant_checked_twice_serializes_to_the_same_bytes(
     second = check(PLATE)
     assert second.model_dump_json() == first.model_dump_json()
     assert step.read_bytes() == first_step
-    assert first.step_sha256 == hashlib.sha256(first_step).hexdigest()
+    assert first.step == StepStored(sha256=hashlib.sha256(first_step).hexdigest())
 
 
 def table_density(key: str) -> float:
@@ -102,4 +102,4 @@ def test_a_key_that_is_not_in_the_table_makes_mass_unknown_and_the_other_checks_
         GRADE_PY_142404A_VOLUMES_MM3["plate"], abs=0.01
     )
     assert [run.result(id).verdict for id in ("closed_solid", "interference")] == [Verdict.PASS] * 2
-    assert run.step_sha256 is not None
+    assert isinstance(run.step, StepStored)
