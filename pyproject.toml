@@ -5,6 +5,7 @@ description = "Local MCP server where an agent builds CAD variants in a sandbox 
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "mcp==2.3.0",
+    "packaging>=24",
     "pint>=0.24",
     "pyyaml>=6",
 ]
