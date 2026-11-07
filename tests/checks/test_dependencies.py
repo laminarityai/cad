@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from packaging.utils import canonicalize_name
 
 from cad.checks import report
 from cad.checks.report import SPECS
@@ -86,10 +87,7 @@ def test_every_module_scoring_loads_feeds_the_check_versions() -> None:
 
 
 def test_every_library_scoring_loads_feeds_the_check_versions() -> None:
-    loaded = {
-        re.sub(r"[-_.]+", "-", name).lower()
-        for name in json.loads(run_python(DISTRIBUTIONS_LOADED))
-    }
+    loaded = {canonicalize_name(name) for name in json.loads(run_python(DISTRIBUTIONS_LOADED))}
     assert loaded - set(report.DEPENDENCIES.packages) == set()
 
 

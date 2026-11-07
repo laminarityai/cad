@@ -1,7 +1,6 @@
 import ast
 import hashlib
 import importlib.metadata
-import re
 import secrets
 import shutil
 import sys
@@ -9,6 +8,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
+
+from packaging.requirements import Requirement
+from packaging.utils import canonicalize_name
 
 from cad.sandbox.container import ReadOnlyMount
 
@@ -64,17 +66,15 @@ def _installed(libraries: set[str]) -> dict[str, str]:
     pending = [owner for library in libraries for owner in owners[library]]
     versions: dict[str, str] = {}
     while pending:
-        try:
-            distribution = importlib.metadata.distribution(pending.pop())
-        except importlib.metadata.PackageNotFoundError:
-            continue
-        name = re.sub(r"[-_.]+", "-", distribution.name).lower()
+        distribution = importlib.metadata.distribution(pending.pop())
+        name = canonicalize_name(distribution.name)
         if name not in versions:
             versions[name] = distribution.version
+            requirements = map(Requirement, distribution.requires or ())
             pending += (
-                re.split(r"[^A-Za-z0-9._-]", requirement, maxsplit=1)[0]
-                for requirement in distribution.requires or ()
-                if "extra" not in requirement.partition(";")[2]
+                required.name
+                for required in requirements
+                if required.marker is None or required.marker.evaluate({"extra": ""})
             )
     return dict(sorted(versions.items()))
 
