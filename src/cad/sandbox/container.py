@@ -1,4 +1,5 @@
 import os
+import re
 import secrets
 import subprocess
 import threading
@@ -8,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, Literal
 
-from pydantic import BaseModel, ConfigDict, TypeAdapter
+from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 
 from cad.sandbox.outcome import SandboxUnavailable
 
@@ -26,6 +27,7 @@ DOCKER_TIMEOUT_SECONDS = 15
 KILL_GRACE_SECONDS = 10
 NO_DOCKER = "docker is not installed: no `docker` command on PATH"
 OWNER = "cad.owner-pid"
+PID = re.compile("[1-9][0-9]{0,9}")
 PID_MAX = 2**31 - 1
 ROW = TypeAdapter(tuple[str, str])
 
@@ -88,15 +90,19 @@ def remove_orphans() -> None:
     )  # fmt: skip
     if listed.returncode != 0:
         return
-    rows = (ROW.validate_json(line) for line in listed.stdout.splitlines())
-    orphans = [name for name, owner in rows if (pid := owner_pid(owner)) and not alive(pid)]
+    owned = (owned_by(line) for line in listed.stdout.split("\n"))
+    orphans = [name for name, pid in filter(None, owned) if not alive(pid)]
     if orphans:
         docker("rm", *orphans)
 
 
-def owner_pid(owner: str) -> int | None:
-    if owner.isascii() and owner.isdigit() and 0 < int(owner) <= PID_MAX:
-        return int(owner)
+def owned_by(row: str) -> tuple[str, int] | None:
+    try:
+        name, owner = ROW.validate_json(row)
+    except ValidationError:
+        return None
+    if PID.fullmatch(owner) and int(owner) <= PID_MAX:
+        return name, int(owner)
     return None
 
 
