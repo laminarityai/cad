@@ -1,4 +1,6 @@
+import importlib.metadata
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -23,6 +25,20 @@ LOADED = (
     "import json, sys; import cad.scorecard.score, cad.checks.container.runner; "
     "print(json.dumps([m.__file__ for n, m in sys.modules.items() "
     "if n.split('.')[0] == 'cad' and m.__file__]))"
+)
+
+
+VERSIONS_WITH_SITE = (
+    "import json, sys; sys.path.insert(0, sys.argv[1]); "
+    "from cad.checks.report import SPECS; "
+    "print(json.dumps({spec.id: spec.version for spec in SPECS}))"
+)
+
+DISTRIBUTIONS_LOADED = (
+    "import json, sys, importlib.metadata as m; import cad.scorecard.score; "
+    "owners = m.packages_distributions(); "
+    "print(json.dumps(sorted({m.distribution(d).name for n in list(sys.modules) "
+    "for d in owners.get(n.split('.')[0], ())})))"
 )
 
 
@@ -69,6 +85,14 @@ def test_every_module_scoring_loads_feeds_the_check_versions() -> None:
     assert loaded - set(report.DEPENDENCIES.files) == set()
 
 
+def test_every_library_scoring_loads_feeds_the_check_versions() -> None:
+    loaded = {
+        re.sub(r"[-_.]+", "-", name).lower()
+        for name in json.loads(run_python(DISTRIBUTIONS_LOADED))
+    }
+    assert loaded - set(report.DEPENDENCIES.packages) == set()
+
+
 def test_an_installed_cad_package_does_not_shadow_the_staged_checks(tmp_path: Path) -> None:
     staged = stage.materialize(stage.SOURCES, tmp_path / "stage")
     installed = tmp_path / "site" / "cad" / "checks" / "container"
@@ -82,3 +106,34 @@ def test_an_installed_cad_package_does_not_shadow_the_staged_checks(tmp_path: Pa
     )
     shown = run_python(program, str(staged), str(tmp_path / "site"))
     assert Path(shown.strip()).is_relative_to(staged)
+
+
+def site_with_bumped(tmp_path: Path, distribution: str) -> Path:
+    metadata = importlib.metadata.distribution(distribution).read_text("METADATA") or ""
+    site = tmp_path / "site"
+    bumped = site / f"{distribution.replace('-', '_')}-999.0.dist-info"
+    bumped.mkdir(parents=True)
+    text = re.sub(r"^Version: .*$", "Version: 999.0", metadata, flags=re.M)
+    (bumped / "METADATA").write_text(text)
+    return site
+
+
+@pytest.mark.parametrize(
+    "distribution",
+    ["pint", "pydantic", "pydantic-core", "pyyaml", "typing-extensions", "flexparser"],
+)
+def test_bumping_a_library_scoring_imports_changes_every_check_version(
+    tmp_path: Path, distribution: str
+) -> None:
+    after = json.loads(
+        run_python(VERSIONS_WITH_SITE, str(site_with_bumped(tmp_path, distribution)))
+    )
+    unchanged = [spec.id for spec in SPECS if after[spec.id] == spec.version]
+    assert unchanged == [], (
+        f"{distribution} changed, but these checks kept their version: {unchanged}"
+    )
+
+
+def test_bumping_a_dev_tool_keeps_every_check_version(tmp_path: Path) -> None:
+    after = json.loads(run_python(VERSIONS_WITH_SITE, str(site_with_bumped(tmp_path, "ruff"))))
+    assert after == {spec.id: spec.version for spec in SPECS}
