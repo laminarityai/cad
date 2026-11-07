@@ -1,5 +1,6 @@
 import hashlib
 import json
+import logging
 import os
 import re
 import secrets
@@ -12,10 +13,12 @@ from typing import Final, NewType, Self
 from pydantic import model_validator
 
 from cad.sandbox.outcome import Build, Built, SandboxUnavailable
+from cad.variants import key
 
 VARIANTS_ROOT: Final = Path.home() / ".cad" / "variants"
 CODE: Final = "code.py"
 MANIFEST: Final = "build.json"
+MAC: Final = "build.mac"
 BREP: Final = "result.brep"
 STEP: Final = "result.step"
 ID_PATTERN: Final = re.compile(r"[0-9a-f]{16}")
@@ -26,6 +29,7 @@ TRUSTED_DIRECTORIES: Final = (
 )
 
 VariantId = NewType("VariantId", str)
+LOG = logging.getLogger(__name__)
 
 
 class VariantRefused(Exception):
@@ -110,7 +114,9 @@ def save(root: Path, vid: VariantId, code: str, build: Build, brep: bytes | None
             output=build.output,
             brep_sha256=None if brep is None else hashlib.sha256(brep).hexdigest(),
         )
-        (incoming / MANIFEST).write_text(manifest.model_dump_json())
+        record = manifest.model_dump_json().encode()
+        (incoming / MANIFEST).write_bytes(record)
+        (incoming / MAC).write_bytes(key.sign(root, vid, record))
         try:
             incoming.rename(root / vid)
         except OSError:
@@ -124,15 +130,14 @@ def save(root: Path, vid: VariantId, code: str, build: Build, brep: bytes | None
 
 
 def read_manifest(root: Path, vid: VariantId) -> Manifest | None:
-    path = root / vid / MANIFEST
-    try:
-        return Manifest.model_validate_json(path.read_text())
-    except FileNotFoundError:
+    if not _is_directory(root / vid):
         return None
-    except ValueError as error:
+    manifest = _signed_manifest(root, vid)
+    if manifest is None:
         raise SandboxUnavailable(
-            f"cannot read {path}; delete {path.parent} to build it again"
-        ) from error
+            f"{_report_unsigned(root, vid)} before its code can be built again"
+        )
+    return manifest
 
 
 def open_entry(root: Path, raw_id: str, image_tag: str) -> Entry:
@@ -144,7 +149,9 @@ def open_entry(root: Path, raw_id: str, image_tag: str) -> Entry:
         raise StaleVariant(
             f"variant {vid} was not stored by this version of the sandbox; build its code again"
         )
-    manifest = _manifest(directory / MANIFEST, vid)
+    manifest = _signed_manifest(root, vid)
+    if manifest is None:
+        raise StaleVariant(f"{_report_unsigned(root, vid)}, then build its code again")
     if not isinstance(manifest.outcome, Built):
         raise NotBuilt(
             f"variant {vid} has no shape: its build ended as {manifest.outcome.kind}; "
@@ -167,15 +174,27 @@ def _stored_id(path: Path, image_tag: str) -> VariantId | None:
         return None
 
 
-def _manifest(path: Path, vid: VariantId) -> Manifest:
-    raw = _read_regular(path)
+def _signed_manifest(root: Path, vid: VariantId) -> Manifest | None:
+    record = _read_regular(root / vid / MANIFEST)
+    mac = _read_regular(root / vid / MAC)
+    if record is None or mac is None or not key.verify(root, vid, record, mac):
+        return None
     try:
-        return Manifest.model_validate_json(b"" if raw is None else raw)
-    except ValueError as error:
-        raise StaleVariant(
-            f"variant {vid} has no build record this version of the sandbox can read; "
-            "build its code again"
-        ) from error
+        return Manifest.model_validate_json(record)
+    except ValueError:
+        return None
+
+
+def _report_unsigned(root: Path, vid: VariantId) -> str:
+    LOG.error(
+        "%s has a build.json that %s did not sign or that cannot be read",
+        root / vid,
+        key.key_path(root),
+    )
+    return (
+        f"variant {vid} has a build record this store did not sign or cannot read; "
+        "the operator must delete it from the variant store"
+    )
 
 
 def _is_directory(path: Path) -> bool:

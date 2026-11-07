@@ -1,10 +1,11 @@
 import hashlib
+import json
 import shutil
 from pathlib import Path
 
 import pytest
 
-from cad.sandbox.outcome import Build, Built, NoResult
+from cad.sandbox.outcome import Build, Built, NoResult, SandboxUnavailable
 from cad.variants import entry
 from cad.variants.entry import (
     NotBuilt,
@@ -12,6 +13,7 @@ from cad.variants.entry import (
     UnknownVariant,
     VariantId,
     open_entry,
+    read_manifest,
     save,
     variant_id,
 )
@@ -104,6 +106,38 @@ def test_an_entry_whose_brep_was_swapped_is_stale(tmp_path: Path) -> None:
         open_entry(tmp_path, vid, TAG)
 
 
+def test_an_entry_whose_brep_and_its_hash_were_both_rewritten_is_stale(tmp_path: Path) -> None:
+    vid = stored(tmp_path)
+    forged = BREP + b"another shape"
+    (tmp_path / vid / "result.brep").write_bytes(forged)
+    record = tmp_path / vid / "build.json"
+    fields = json.loads(record.read_text())
+    fields["brep_sha256"] = hashlib.sha256(forged).hexdigest()
+    record.write_text(json.dumps(fields))
+    with pytest.raises(StaleVariant, match=f"variant {vid} has a build record this store did not"):
+        open_entry(tmp_path, vid, TAG)
+    with pytest.raises(SandboxUnavailable, match=f"variant {vid} has a build record this store"):
+        read_manifest(tmp_path, vid)
+
+
+def test_a_build_record_copied_from_another_entry_is_stale(tmp_path: Path) -> None:
+    vid = stored(tmp_path)
+    other = stored(tmp_path, "result = Box(2, 2, 2)\n", BREP + b"another shape")
+    for path in (tmp_path / other).iterdir():
+        if path.name != "code.py":
+            shutil.copyfile(path, tmp_path / vid / path.name)
+    with pytest.raises(StaleVariant, match="did not sign"):
+        open_entry(tmp_path, vid, TAG)
+
+
+def test_an_entry_moved_into_another_store_is_stale(tmp_path: Path) -> None:
+    vid = stored(tmp_path / "here")
+    stored(tmp_path / "there", "result = Box(2, 2, 2)\n")
+    shutil.copytree(tmp_path / "here" / vid, tmp_path / "there" / vid)
+    with pytest.raises(StaleVariant, match="did not sign"):
+        open_entry(tmp_path / "there", vid, TAG)
+
+
 def test_an_entry_whose_brep_is_a_link_is_stale(tmp_path: Path) -> None:
     vid = stored(tmp_path)
     target = tmp_path / "elsewhere.brep"
@@ -136,6 +170,7 @@ def test_a_step_attached_twice_leaves_one_file_and_the_last_bytes(tmp_path: Path
     assert (opened.directory / "result.step").read_bytes() == b"STEP two"
     assert sorted(path.name for path in opened.directory.iterdir()) == [
         "build.json",
+        "build.mac",
         "code.py",
         "result.brep",
         "result.step",
