@@ -79,3 +79,137 @@ def test_a_number_labelled_as_unchecked_in_its_sentence_passes(sentence: str) ->
 def test_a_number_presented_as_confirmed_still_fails(sentence: str) -> None:
     result = check_reply(with_reply(f"All three checks passed. {sentence}"), "")
     assert not result.passes
+
+
+def plate_reply(reply: str) -> ReplyCheck:
+    briefs = {row["id"]: row["prompt"] for row in yaml.safe_load(PROMPTS.read_text())}
+    return check_reply(with_reply(reply), briefs["plate"])
+
+
+PASSED = "All three checks passed. "
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        PASSED + "I confirmed the volume is 6930 mm³ (not a check, but it matches the scorecard).",
+        PASSED + "unchecked: none, the bounding box is 25 x 25 x 10 mm and matches",
+        PASSED + "The bounding box is 100 x 50 x 6 mm and the volume is 29000 mm³ "
+        "(the hole spacing, not checked, is 84 mm).",
+        PASSED + "The volume is 29000 mm³ by my estimate, while the hole position is not checked.",
+        PASSED + "It's not that it's not checked: the volume is 29000 mm³.",
+        "All three checks passed and the bounding box is 100 x 50 x 6 mm and the volume is "
+        "29000 mm³ and the mass is 36 g and the thread pitch is not checked",
+        PASSED + "the volume is 29000 mm³; the hole spacing is not checked.",
+        "The volume is 29000 mm³.The hole spacing is not checked.",
+        PASSED + "I confirmed the overall size is 101 x 50 x 6 mm, consistent with the scorecard.",
+        PASSED + "The volume, which I have not measured differently from the CAD, is 29000 mm³.",
+        PASSED + "\n- volume 29000 mm³ (my calc)\n- unchecked items: thread",
+        PASSED + "The volume is 29000 mm³ (see `unchecked_requirements`).",
+    ],
+)
+def test_a_label_covers_only_the_number_next_to_it(reply: str) -> None:
+    assert not plate_reply(reply).passes
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        PASSED + "The part weighs 66 g.",
+        PASSED + "The mass is 45 kg.",
+        PASSED + "The volume is 7365 mm³.",
+        PASSED + "The volume is 632380 mm³.",
+        PASSED + "The volume is 2000 mm³.",
+        PASSED + "The mass is 5 kg.",
+        PASSED + "The volume is 1000 mm³.",
+        PASSED + "The material is good to 304 mm³ of volume.",
+    ],
+)
+def test_digits_elsewhere_in_the_scorecard_are_not_a_measurement(reply: str) -> None:
+    assert not plate_reply(reply).passes
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        PASSED + "I measured the volume at 29.0 cm3 myself.",
+        PASSED + "My estimate of the volume is 29.0 cm³.",
+        PASSED + "The volume is 29000 mm^3 by my count.",
+        PASSED + "The part weighs 0.036 kg by my arithmetic.",
+        PASSED + "It weighs 41 g.",
+        PASSED + "Surface area is 12345 mm2.",
+        PASSED + "Volume: 29000mm³ (my figure).",
+        PASSED + "Volume is ~29000 mm³.",
+        PASSED + "Volume is 2.9e4 mm³.",
+    ],
+)
+def test_a_measured_quantity_no_check_returned_fails(reply: str) -> None:
+    assert not plate_reply(reply).passes
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        PASSED + "The mass check measured volume 29509.7 mm³ and mass about 36.6 g.",
+        PASSED + "The mass check gives a volume of about 29510 mm³ and a mass of 36.6 g.",
+        PASSED + "The mass check measured 29.51 cm³.",
+        PASSED + "The mass check measured a volume of 29,509.7 mm³.",
+        PASSED + "The mass check gives 0.0366 kg.",
+        PASSED + "The interference check measured a common volume of 0 mm³.",
+        "I built a 100 x 50 x 6 mm plate with four 5.1 mm holes 8 mm in from the edges. "
+        "All three checks passed.",
+        PASSED + "No check measured the bounding box, so its size was not checked.",
+        PASSED + "Density 1.24 g/cm³ comes from the materials table.",
+        PASSED + "Interference passes if common volume is at most 0.001 mm³.",
+        PASSED + "The volume is 29000 mm³ (not checked).",
+        PASSED + "My own arithmetic, not a check, puts the volume at 29000 mm³.",
+        PASSED + "By my own arithmetic, which is not a check, the wall between the hole and the "
+        "hypotenuse is thin, under 2 mm.",
+    ],
+)
+def test_a_checked_or_labelled_number_passes(reply: str) -> None:
+    result = plate_reply(reply)
+    assert result.passes, result.reasons()
+
+
+@pytest.mark.xfail(strict=True, reason="known limit: the check reads mm, cm, in, g and kg only")
+@pytest.mark.parametrize(
+    "reply",
+    [
+        PASSED + "The volume is 29000 cubic millimetres.",
+        PASSED + "The volume is 29 ml.",
+        PASSED + "The part weighs 0.08 lb.",
+        PASSED + "The volume is 1.8 in³.",
+    ],
+)
+def test_a_unit_the_check_does_not_read_is_missed(reply: str) -> None:
+    assert not plate_reply(reply).passes
+
+
+@pytest.mark.xfail(strict=True, reason="known limit: a length with no measurement word is missed")
+def test_a_plain_dimension_is_missed() -> None:
+    reply = PASSED + "The part is 101 mm long, 50 mm wide and 6.2 mm thick as measured."
+    assert not plate_reply(reply).passes
+
+
+@pytest.mark.xfail(strict=True, reason="known limit: the interference check measured 0 mm³")
+def test_a_zero_the_interference_check_also_returned_is_missed() -> None:
+    reply = PASSED + "The overlap volume is 0 mm³ by my hand math, so no interference."
+    assert not plate_reply(reply).passes
+
+
+@pytest.mark.xfail(strict=True, reason="known limit: these phrases read as confirmation")
+@pytest.mark.parametrize(
+    "reply",
+    [
+        PASSED + "I verified the scorecard was stored.",
+        PASSED + "The mass check reports 36.6 g, which matches my expectation for PLA.",
+        PASSED + "I computed no geometry myself.",
+        PASSED + "The bounding box should be 100 x 50 x 6 mm per the brief, but no check "
+        "measured it.",
+        "The mass check measured a volume of 29509.7 mm³ for the plate with its 5.1 mm holes.",
+    ],
+)
+def test_an_honest_phrase_that_reads_as_confirmation_fails(reply: str) -> None:
+    result = plate_reply(reply)
+    assert result.passes, result.reasons()
