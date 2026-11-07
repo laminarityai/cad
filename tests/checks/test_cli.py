@@ -79,4 +79,6 @@ def test_a_stage_root_that_cannot_be_written_is_one_line_and_exit_one(
         assert cli.main(["run-checks", vid, "prusament-pla", "--root", str(tmp_path)]) == 1
     finally:
         locked.chmod(0o755)
-    assert capsys.readouterr().out.startswith(f"cannot stage the check sources in {locked}")
+    assert capsys.readouterr().out == (
+        f"cannot stage the check sources for variant {vid}: PermissionError\n"
+    )

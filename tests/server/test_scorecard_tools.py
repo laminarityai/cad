@@ -151,3 +151,19 @@ async def test_the_score_variant_description_claims_no_more_than_the_server_does
     assert "or a stored scorecard" not in description
     assert "the server never reads one back" in description
     assert "while the materials table and the sandbox image are unchanged" in description
+
+
+async def test_an_unreadable_materials_table_lists_nothing_and_shows_no_host_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    table = tmp_path / "materials.yaml"
+    table.write_text("materials: []\n")
+    table.chmod(0o000)
+    monkeypatch.setattr(load_materials, "__defaults__", (table,))
+    async with Client(build_server(tmp_path)) as client:
+        result = await client.call_tool("list_materials", {})
+    table.chmod(0o644)
+    assert result.is_error
+    assert "PermissionError" in text_of(result)
+    assert str(tmp_path) not in text_of(result)
+    assert str(table) in caplog.text

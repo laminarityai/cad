@@ -10,7 +10,7 @@ from pydantic import Field, TypeAdapter, ValidationError
 from cad.checks.report import Request, build_request, parse
 from cad.checks.result import CheckRun
 from cad.sandbox import container, stage
-from cad.sandbox.container import Attended, ContainerState, Job, TooMuchOutput, first_line
+from cad.sandbox.container import Attended, ContainerState, Job, TooMuchOutput
 from cad.sandbox.image import context_tar, current_image, image_tag
 from cad.sandbox.outcome import (
     BuildFailed,
@@ -21,7 +21,7 @@ from cad.sandbox.outcome import (
     TimedOut,
 )
 from cad.sandbox.wire import Report
-from cad.tables.materials import MaterialsTable, load_materials
+from cad.tables.materials import TABLE_PATH, MaterialsTable, load_materials
 from cad.variants import entry
 
 TEXT_CAP = 8 * 1024
@@ -76,37 +76,40 @@ def run_checks(
     """
     tag = image_tag(context_tar())
     held = entry.open_entry(root, variant_id, tag)
-    request = build_request(material_key, _materials())
+    request = build_request(material_key, materials_table())
     image_id = current_image(tag)
     try:
         job = check_job(held.brep, image_id, request, wall_seconds)
     except OSError as error:
-        raise SandboxUnavailable(
-            f"cannot stage the check sources in {stage.STAGE_ROOT}: {error}"
+        raise SandboxUnavailable.hiding_path(
+            f"cannot stage the check sources for variant {held.id}", error, stage.STAGE_ROOT
         ) from error
     ran = container.run(job)
     parsed = parse(ran, request, wall_seconds)
     try:
         step_sha256 = None if parsed.step is None else held.attach_step(parsed.step)
     except OSError as error:
-        raise SandboxUnavailable(f"cannot store {held.directory / entry.STEP}: {error}") from error
+        raise SandboxUnavailable.hiding_path(
+            f"cannot store the STEP of variant {held.id}", error, held.directory / entry.STEP
+        ) from error
     return CheckRun(
         variant_id=held.id,
         material_key=material_key,
         table_version=request.table_version,
         image_tag=tag,
+        image_digest=image_id,
         brep_sha256=held.brep_sha256,
         step_sha256=step_sha256,
         results=parsed.results,
     )
 
 
-def _materials() -> MaterialsTable:
+def materials_table() -> MaterialsTable:
     try:
         return load_materials()
     except (OSError, ValueError, yaml.YAMLError) as error:
-        raise SandboxUnavailable(
-            f"cannot read the materials table: {first_line(str(error))}"
+        raise SandboxUnavailable.hiding_path(
+            "cannot read the materials table", error, TABLE_PATH
         ) from error
 
 
