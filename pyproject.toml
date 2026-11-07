@@ -18,6 +18,7 @@ cad-sandbox = "cad.sandbox.__main__:main"
 [dependency-groups]
 dev = [
     "basedpyright>=1.40,<1.41",
+    "cadquery-ocp-novtk==7.9.3.1.1",
     "pytest>=8",
     "ruff==0.17.4",
     "types-pyyaml>=6.0.12.20261103",
@@ -30,14 +31,22 @@ build-backend = "uv_build"
 [tool.basedpyright]
 typeCheckingMode = "strict"
 pythonVersion = "3.12"
-exclude = ["proto", "**/.*", "**/__pycache__", "tests/sandbox/parts"]
+exclude = [
+    "proto",
+    "**/.*",
+    "**/__pycache__",
+    "tests/sandbox/parts",
+    "evals/bakeoff/grade.py",
+    "evals/bakeoff/runs",
+]
 venvPath = "."
 venv = ".venv"
+extraPaths = ["src", "evals/bakeoff"]
 
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-extend-exclude = ["proto"]
+extend-exclude = ["proto", "evals/bakeoff/grade.py", "evals/bakeoff/runs"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
@@ -45,3 +54,4 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --import-mode=importlib"
+pythonpath = ["evals/bakeoff"]
