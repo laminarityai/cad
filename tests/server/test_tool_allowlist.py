@@ -10,6 +10,10 @@ ALLOWED_ARGUMENTS = {
     "build_variant": {"code"},
     "score_variant": {"variant_id", "material_key"},
     "list_materials": set[str](),
+    "create_brief": {"text"},
+    "propose_requirements": {"brief_id", "requirements"},
+    "confirm_requirements": {"brief_id"},
+    "list_requirements": {"brief_id"},
 }
 
 
@@ -26,5 +30,5 @@ async def test_the_server_exposes_no_tool_outside_the_allowlist() -> None:
     assert sorted(exposed) == sorted(ALLOWED_ARGUMENTS)
 
 
-async def test_no_tool_takes_a_check_a_table_or_a_scorecard_as_an_argument() -> None:
+async def test_no_tool_takes_a_check_a_table_a_scorecard_or_a_decision_as_an_argument() -> None:
     assert await listed_arguments() == ALLOWED_ARGUMENTS
