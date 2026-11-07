@@ -3,18 +3,16 @@ import sys
 from pathlib import Path
 from typing import Annotated, NamedTuple
 
-import yaml
 from mcp.server import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.mcpserver.tools import Tool
 from pydantic import BaseModel, Field
 
 from cad.sandbox import container, host
-from cad.sandbox.container import first_line
 from cad.sandbox.outcome import SandboxUnavailable
 from cad.scorecard import score
 from cad.scorecard.model import Scorecard
-from cad.tables.materials import KEY_PATTERN, load_materials
+from cad.tables.materials import KEY_PATTERN
 from cad.variants import entry, store
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -134,9 +132,9 @@ def build_server(variants_root: Path = entry.VARIANTS_ROOT) -> MCPServer:
 
     def list_materials() -> MaterialListings:
         try:
-            table = load_materials()
-        except (OSError, ValueError, yaml.YAMLError) as error:
-            raise ToolError(f"cannot read the materials table: {first_line(str(error))}") from error
+            table = host.materials_table()
+        except SandboxUnavailable as error:
+            raise ToolError(str(error)) from error
         return MaterialListings(
             materials=[MaterialListing(key=m.key, name=m.name) for m in table.materials.values()]
         )

@@ -129,6 +129,7 @@ def test_a_check_run_serializes_and_reads_back_equal(request_for_pla: Request) -
         material_key="prusament-pla",
         table_version=request_for_pla.table_version,
         image_tag="cad-sandbox:test",
+        image_digest="sha256:" + "c" * 64,
         brep_sha256="a" * 64,
         step_sha256="b" * 64,
         results=parsed.results,

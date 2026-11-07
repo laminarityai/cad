@@ -30,6 +30,7 @@ def offline_run() -> CheckRun:
         material_key="prusament-pla",
         table_version="t" * 64,
         image_tag="cad-sandbox:0",
+        image_digest="sha256:" + "i" * 64,
         brep_sha256="b" * 64,
         step_sha256=None,
         results=unknown_for_all("offline"),
@@ -37,20 +38,7 @@ def offline_run() -> CheckRun:
 
 
 def offline_card() -> Scorecard:
-    return score.scorecard_of(offline_run(), "sha256:" + "i" * 64)
-
-
-def lookups_returning(monkeypatch: pytest.MonkeyPatch, *image_ids: str) -> None:
-    ids = iter(image_ids)
-
-    def current_image(tag: str) -> str:
-        return next(ids)
-
-    def run_checks(variant_id: str, material_key: str, root: Path) -> CheckRun:
-        return offline_run()
-
-    monkeypatch.setattr(score, "current_image", current_image)
-    monkeypatch.setattr(score.host, "run_checks", run_checks)
+    return score.scorecard_of(offline_run())
 
 
 def test_the_plate_scorecard_equals_the_one_stored_beside_the_variant(
@@ -163,29 +151,6 @@ def test_a_directory_that_cannot_be_written_is_unavailable_and_leaves_no_tempora
     with pytest.raises(SandboxUnavailable, match="cannot store"):
         score.store(card, tmp_path)
     assert sorted(child.name for child in directory.iterdir()) == [score.SCORECARD]
-
-
-def test_an_image_re_tagged_during_the_run_gives_no_scorecard(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    (tmp_path / UNBUILT_ID).mkdir()
-    lookups_returning(monkeypatch, "sha256:" + "a" * 64, "sha256:" + "b" * 64)
-    with pytest.raises(SandboxUnavailable, match="changed while variant") as refused:
-        score.score_variant(UNBUILT_ID, "prusament-pla", tmp_path)
-    assert "a" * 64 in str(refused.value)
-    assert "b" * 64 in str(refused.value)
-    assert list((tmp_path / UNBUILT_ID).iterdir()) == []
-
-
-def test_an_image_that_stays_put_during_the_run_is_the_one_the_scorecard_names(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    (tmp_path / UNBUILT_ID).mkdir()
-    image_id = "sha256:" + "a" * 64
-    lookups_returning(monkeypatch, image_id, image_id)
-    card = score.score_variant(UNBUILT_ID, "prusament-pla", tmp_path)
-    assert card.image_digest == image_id
-    assert stored(tmp_path, UNBUILT_ID) == card
 
 
 def test_a_store_failure_names_the_variant_and_the_kind_and_no_host_path(

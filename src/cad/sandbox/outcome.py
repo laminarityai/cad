@@ -1,6 +1,10 @@
-from typing import Annotated, Literal
+import logging
+from pathlib import Path
+from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field
+
+LOG = logging.getLogger(__name__)
 
 
 class _Outcome(BaseModel):
@@ -53,4 +57,7 @@ class Build(BaseModel):
 
 
 class SandboxUnavailable(Exception):
-    pass
+    @classmethod
+    def hiding_path(cls, message: str, error: Exception, path: Path) -> Self:
+        LOG.error("%s (%s): %s", message, path, error)
+        return cls(f"{message}: {type(error).__name__}")
