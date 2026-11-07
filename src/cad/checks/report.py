@@ -13,10 +13,11 @@ from cad.checks.container.wire import CheckedReport, RequestWire, ResultWire, So
 from cad.checks.result import CheckResult, Measure, StepMissing, Verdict
 from cad.sandbox import container
 from cad.sandbox.container import Ran, TooMuchOutput
-from cad.sandbox.stage import PACKAGE_PATH, SOURCES, Sources
+from cad.sandbox.stage import CONTAINER_ENTRY, PACKAGE_PATH, Sources, read_sources
 from cad.tables.materials import UNITS, Cited, MaterialsTable, Source, UnknownMaterial
 
 REASON_CAP = 1024
+SCORER: Final = "cad.scorecard.score"
 
 # NaN passes `strict=True`, so `parse` checks `math.isfinite` itself.
 REPORT: Final = TypeAdapter(CheckedReport)
@@ -73,7 +74,8 @@ def _source(literal: SourceLiteral) -> Source:
     )
 
 
-SPECS: Final = specs(SOURCES)
+DEPENDENCIES: Final = read_sources(CONTAINER_ENTRY, SCORER)
+SPECS: Final = specs(DEPENDENCIES)
 
 
 @dataclass(frozen=True, slots=True)

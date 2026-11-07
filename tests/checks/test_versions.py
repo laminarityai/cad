@@ -8,15 +8,23 @@ from pathlib import Path
 import pytest
 
 from cad.checks.container.suite import CHECKS
-from cad.checks.report import SPECS, build_request, specs
+from cad.checks.report import DEPENDENCIES, SPECS, build_request, specs
 from cad.sandbox import container, stage
 from cad.sandbox.container import run_argv
 from cad.sandbox.host import build_job, check_job
-from cad.sandbox.stage import PACKAGE_PATH, SOURCES, Sources, materialize, read_sources
+from cad.sandbox.stage import (
+    CONTAINER_ENTRY,
+    PACKAGE_PATH,
+    SOURCES,
+    Sources,
+    materialize,
+    read_sources,
+)
 from cad.tables.materials import load_materials
 
 CONTAINER_PACKAGE = "cad.checks.container"
 IMAGE = "sha256:abc"
+CHECKS_DIR = stage.SRC_ROOT / PACKAGE_PATH
 
 
 def edited(sources: Sources, name: str) -> Sources:
@@ -47,15 +55,15 @@ def test_the_check_ids_are_the_suite_order() -> None:
 def test_editing_a_check_file_changes_the_version_of_every_check_that_runs_it(
     check_file: str, changed: set[str]
 ) -> None:
-    before = versions(SOURCES)
-    after = versions(edited(SOURCES, check_file))
+    before = versions(DEPENDENCIES)
+    after = versions(edited(DEPENDENCIES, check_file))
     assert {i for i in before if before[i] != after[i]} == changed
 
 
 @pytest.mark.parametrize("shared", ["kernel.py", "check.py", "wire.py", "runner.py", "suite.py"])
 def test_editing_a_shared_file_changes_every_version(shared: str) -> None:
-    before = versions(SOURCES)
-    after = versions(edited(SOURCES, shared))
+    before = versions(DEPENDENCIES)
+    after = versions(edited(DEPENDENCIES, shared))
     assert {i for i in before if before[i] != after[i]} == set(before)
 
 
@@ -72,7 +80,7 @@ def checks_imported_by(path: Path) -> set[str]:
 
 def test_every_check_a_check_file_imports_feeds_its_version_through_requires() -> None:
     for check in CHECKS:
-        imported = checks_imported_by(stage.CHECKS_DIR / f"{check.ID}.py")
+        imported = checks_imported_by(CHECKS_DIR / f"{check.ID}.py")
         assert imported == {required.ID for required in check.REQUIRES}, check.ID
 
 
@@ -92,7 +100,7 @@ def imports_in(path: Path) -> set[str]:
 
 def test_container_modules_import_only_the_standard_library_and_themselves() -> None:
     allowed = sys.stdlib_module_names
-    for path in sorted(stage.CHECKS_DIR.glob("*.py")):
+    for path in sorted(CHECKS_DIR.glob("*.py")):
         for name in imports_in(path):
             top = name.split(".")[0]
             assert top in allowed or name.startswith(CONTAINER_PACKAGE), (
@@ -111,8 +119,8 @@ def ocp_module_names_in(path: Path) -> set[str]:
 
 
 def test_only_kernel_py_names_an_ocp_module() -> None:
-    assert ocp_module_names_in(stage.CHECKS_DIR / "kernel.py")
-    for path in sorted(stage.CHECKS_DIR.glob("*.py")):
+    assert ocp_module_names_in(CHECKS_DIR / "kernel.py")
+    for path in sorted(CHECKS_DIR.glob("*.py")):
         if path.name != "kernel.py":
             assert not ocp_module_names_in(path), f"{path.name} must reach OCP through kernel.py"
 
@@ -171,13 +179,14 @@ def test_a_symlinked_staged_directory_is_replaced_without_touching_its_target(
 def test_reading_the_sources_twice_gives_the_same_digest_and_a_changed_file_a_new_one(
     tmp_path: Path,
 ) -> None:
-    for path in stage.CHECKS_DIR.glob("*.py"):
-        (tmp_path / path.name).write_bytes(path.read_bytes())
-    first = read_sources(tmp_path)
-    assert first == read_sources(tmp_path)
-    with (tmp_path / "mass.py").open("a") as changed:
+    for name, data in SOURCES.files.items():
+        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / name).write_bytes(data)
+    first = read_sources(CONTAINER_ENTRY, root=tmp_path)
+    assert first == read_sources(CONTAINER_ENTRY, root=tmp_path) == SOURCES
+    with (tmp_path / PACKAGE_PATH / "mass.py").open("a") as changed:
         changed.write("# edited\n")
-    assert read_sources(tmp_path).digest != first.digest
+    assert read_sources(CONTAINER_ENTRY, root=tmp_path).digest != first.digest
 
 
 def test_the_build_container_gets_no_mount() -> None:

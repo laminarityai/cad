@@ -12,7 +12,7 @@
 - `checks-mass-needs-a-solid` returns `unknown` for `mass`, with no measured value, when `closed_solid` or `interference` does not pass. Its reason names that check and quotes its reason.
 - `checks-step` writes `result.step` beside the BREP at the first run, from the shape the checks measured.
 - `checks-deterministic` prints byte-identical output for two runs of one variant.
-- `checks-version` changes the version of a check whose own file changed, and of each check that runs it. `mass` runs `closed_solid` and `interference`, so an edit to either file also changes the `mass` version.
+- `checks-version` changes the version of a check whose own file changed, and of each check that runs it. `mass` runs `closed_solid` and `interference`, so an edit to either file also changes the `mass` version. An edit to any other file that scoring imports, such as `src/cad/checks/report.py`, changes all three versions.
 - `checks-garbage-brep` returns `fail` for `closed_solid` and `unknown` for the other two when the BREP is not a BREP, and the next run still works.
 - `checks-refused` exits 1 with one line for an unknown, stale, or unbuilt variant, and starts no container.
 
@@ -54,7 +54,7 @@ Each run removes its own container. After a run that was killed, list leftovers.
 docker ps -a --filter label=cad.sandbox
 ```
 
-The check sources are staged in `~/.cad/stage/<16 hex digits>/`, read-only, one directory per version of `src/cad/checks/container/`. Old ones are safe to delete.
+The check sources are staged in `~/.cad/stage/<16 hex digits>/`, read-only, one directory per version of the files `cad.checks.container.runner` imports, package `__init__.py` files included. Old ones are safe to delete.
 
 ## Gotchas
 
