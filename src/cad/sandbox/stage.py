@@ -83,6 +83,9 @@ def _holds(directory: Path, sources: Sources) -> bool:
 
 
 def _discard(path: Path) -> None:
+    if path.is_symlink():
+        path.unlink()
+        return
     if not path.exists():
         return
     for item in (path, *path.rglob("*")):
