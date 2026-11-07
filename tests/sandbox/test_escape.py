@@ -1,3 +1,4 @@
+import os
 import subprocess
 from pathlib import Path
 from unittest.mock import ANY
@@ -32,8 +33,8 @@ def exited(code: int) -> BuildFailed:
     return BuildFailed(error=error, traceback="")
 
 
-def stopped_build_containers() -> str:
-    filters = ("--filter", f"label={container.label('build')}", "--filter", "status=exited")
+def containers_this_process_started() -> str:
+    filters = ("--filter", f"label={container.OWNER}={os.getpid()}")
     done = subprocess.run(
         ("docker", "ps", "--all", "--quiet", *filters),
         capture_output=True,
@@ -137,7 +138,7 @@ def test_an_infinite_loop_is_killed_and_its_container_removed(image_id: str) -> 
     assert outcome("while True:\n    pass\n", image_id, FAST_WALL_SECONDS) == TimedOut(
         limit_seconds=FAST_WALL_SECONDS
     )
-    assert stopped_build_containers() == ""
+    assert containers_this_process_started() == ""
 
 
 def test_a_sleeping_build_is_killed_at_the_wall_clock(image_id: str) -> None:

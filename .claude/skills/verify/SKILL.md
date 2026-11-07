@@ -97,7 +97,7 @@ uv run verify
 
 ## Cleanup
 
-Nothing to tear down. `cad-call` and `claude_session.py` each end their own server process, and each build removes its own container. After a run that was killed, list leftover sandbox containers. The label marks only the sandbox, `build` for a build and `check` for a check run:
+Nothing to tear down. `cad-call` and `claude_session.py` each end their own server process, and each build removes its own container. A killed server cannot remove its container, so each server start removes every exited sandbox container whose `cad.owner-pid` process is gone. It never removes a running container. To see what is left, list the sandbox containers. The `cad.sandbox` label is `build` for a build and `check` for a check run:
 
 ```
 docker ps -a --filter label=cad.sandbox

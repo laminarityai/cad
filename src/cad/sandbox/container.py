@@ -1,3 +1,5 @@
+import os
+import re
 import secrets
 import subprocess
 import threading
@@ -7,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 
 from cad.sandbox.outcome import SandboxUnavailable
 
@@ -24,6 +26,10 @@ CHUNK = 64 * 1024
 DOCKER_TIMEOUT_SECONDS = 15
 KILL_GRACE_SECONDS = 10
 NO_DOCKER = "docker is not installed: no `docker` command on PATH"
+OWNER = "cad.owner-pid"
+PID = re.compile("[1-9][0-9]{0,9}")
+PID_MAX = 2**31 - 1
+ROW = TypeAdapter(tuple[str, str])
 
 SLOTS = threading.Semaphore(DOCKER_MEMORY_BUDGET_MB // MEMORY_MB)
 
@@ -77,6 +83,39 @@ def label(kind: Kind) -> str:
     return f"cad.sandbox={kind}"
 
 
+def remove_orphans() -> None:
+    listed = docker(
+        "ps", "--all", "--filter", "label=cad.sandbox", "--filter", "status=exited",
+        "--format", f'[{{{{json .Names}}}},{{{{json (.Label "{OWNER}")}}}}]',
+    )  # fmt: skip
+    if listed.returncode != 0:
+        return
+    owned = (owned_by(line) for line in listed.stdout.split("\n"))
+    orphans = [name for name, pid in filter(None, owned) if not alive(pid)]
+    if orphans:
+        docker("rm", *orphans)
+
+
+def owned_by(row: str) -> tuple[str, int] | None:
+    try:
+        name, owner = ROW.validate_json(row)
+    except ValidationError:
+        return None
+    if PID.fullmatch(owner) and int(owner) <= PID_MAX:
+        return name, int(owner)
+    return None
+
+
+def alive(pid: int) -> bool:
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
 def run(job: Job) -> Ran:
     """Raises `SandboxUnavailable` when Docker is missing, down, or could not start the
     container."""
@@ -101,6 +140,7 @@ def run_argv(name: str, job: Job) -> tuple[str, ...]:
     )
     return (
         "docker", "run", "--name", name, "--label", label(job.kind),
+        "--label", f"{OWNER}={os.getpid()}",
         "--interactive", "--init", "--pull", "never", "--log-driver", "none",
         "--network", "none",
         "--memory", f"{MEMORY_MB}m", "--memory-swap", f"{MEMORY_MB}m",
