@@ -70,7 +70,7 @@ def cad_call(tool: str, arguments: str) -> list[str]:
     return [sys.executable, "-m", "cad.server.call", tool, arguments]
 
 
-def start(image_id: str, owner: int, *command: str) -> str:
+def start(image_id: str, owner: int | str, *command: str) -> str:
     name = f"cad-build-{secrets.token_hex(8)}"
     subprocess.run(
         ("docker", "run", "--detach", "--name", name, "--label", container.label("build"),
@@ -81,14 +81,18 @@ def start(image_id: str, owner: int, *command: str) -> str:
     return name
 
 
-def test_only_exited_containers_whose_owner_is_gone_are_removed(image_id: str) -> None:
+def dead_pid() -> int:
     ended = subprocess.run(
         (sys.executable, "-c", "import os; print(os.getpid())"),
         capture_output=True,
         text=True,
         check=True,
     )
-    dead = int(ended.stdout)
+    return int(ended.stdout)
+
+
+def test_only_exited_containers_whose_owner_is_gone_are_removed(image_id: str) -> None:
+    dead = dead_pid()
     orphan = start(image_id, dead, "true")
     owned = start(image_id, os.getpid(), "true")
     running = start(image_id, dead, "sleep", "60")
@@ -99,6 +103,23 @@ def test_only_exited_containers_whose_owner_is_gone_are_removed(image_id: str) -
         assert (status(orphan), status(owned), status(running)) == (None, "exited", "running")
     finally:
         container.docker("rm", "--force", orphan, owned, running)
+
+
+def test_owner_labels_that_are_not_a_pid_keep_the_container_and_spare_the_rest(
+    image_id: str,
+) -> None:
+    dead = dead_pid()
+    malformed = ("1\t2", f"{dead}\t2", f"{dead}\n2", "", "abc", "\u00b2", "0", "2147483648")
+    kept = [start(image_id, owner, "true") for owner in malformed]
+    orphan = start(image_id, dead, "true")
+    try:
+        for name in (*kept, orphan):
+            wait_until_exited(name)
+        container.remove_orphans()
+        assert [status(name) for name in kept] == ["exited"] * len(malformed)
+        assert status(orphan) is None
+    finally:
+        container.docker("rm", "--force", *kept, orphan)
 
 
 def test_a_server_killed_mid_build_leaves_no_container_after_the_next_start(
