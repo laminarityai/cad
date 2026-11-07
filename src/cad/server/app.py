@@ -30,6 +30,13 @@ BUILD_VARIANT = (
     "Building the same code again returns its stored outcome without rebuilding, "
     "except after a timeout."
 )
+RULE = (
+    "Only check results decide whether a design is good. In a reply to the user, state a volume, "
+    "mass, dimension, bounding box or other measured geometry only when a score_variant result "
+    "returned it, and name the check. Numbers your own build code printed and arithmetic you did "
+    "yourself are not checks: do not report them as measurements or as confirming the scorecard. "
+    "For anything no check measured, say that it was not checked."
+)
 SCORE_VARIANT = (
     "Score one built variant with the fixed checks closed_solid, interference and mass, and "
     "store the scorecard beside the variant. Every result has a verdict (pass, fail or unknown), "
@@ -42,7 +49,7 @@ SCORE_VARIANT = (
     "Only score_variant writes a stored scorecard, from its own check run, and the server never "
     "reads one back. The file itself is not protected from edits outside the server. "
     "Scoring the same variant and key again gives the same scorecard while the materials table "
-    "and the sandbox image are unchanged."
+    "and the sandbox image are unchanged. " + RULE
 )
 LIST_MATERIALS = (
     "List the material keys that score_variant accepts, each with its name. "
@@ -141,6 +148,7 @@ def build_server(variants_root: Path = entry.VARIANTS_ROOT) -> MCPServer:
 
     server = MCPServer(
         "cad",
+        instructions=RULE,
         tools=[
             strict_tool(Tool.from_function(server_info)),
             strict_tool(Tool.from_function(build_variant, description=BUILD_VARIANT)),
