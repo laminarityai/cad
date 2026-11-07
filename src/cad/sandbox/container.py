@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import IO, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, TypeAdapter
 
 from cad.sandbox.outcome import SandboxUnavailable
 
@@ -26,6 +26,8 @@ DOCKER_TIMEOUT_SECONDS = 15
 KILL_GRACE_SECONDS = 10
 NO_DOCKER = "docker is not installed: no `docker` command on PATH"
 OWNER = "cad.owner-pid"
+PID_MAX = 2**31 - 1
+ROW = TypeAdapter(tuple[str, str])
 
 SLOTS = threading.Semaphore(DOCKER_MEMORY_BUDGET_MB // MEMORY_MB)
 
@@ -82,18 +84,20 @@ def label(kind: Kind) -> str:
 def remove_orphans() -> None:
     listed = docker(
         "ps", "--all", "--filter", "label=cad.sandbox", "--filter", "status=exited",
-        "--format", f'{{{{.Names}}}}\t{{{{.Label "{OWNER}"}}}}',
+        "--format", f'[{{{{json .Names}}}},{{{{json (.Label "{OWNER}")}}}}]',
     )  # fmt: skip
     if listed.returncode != 0:
         return
-    rows = (line.split("\t") for line in listed.stdout.splitlines())
-    orphans = [name for name, owner in rows if abandoned(owner)]
+    rows = (ROW.validate_json(line) for line in listed.stdout.splitlines())
+    orphans = [name for name, owner in rows if (pid := owner_pid(owner)) and not alive(pid)]
     if orphans:
         docker("rm", *orphans)
 
 
-def abandoned(owner: str) -> bool:
-    return owner.isdigit() and not alive(int(owner))
+def owner_pid(owner: str) -> int | None:
+    if owner.isascii() and owner.isdigit() and 0 < int(owner) <= PID_MAX:
+        return int(owner)
+    return None
 
 
 def alive(pid: int) -> bool:
