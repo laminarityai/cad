@@ -28,7 +28,7 @@ import yaml
 from inputs import Attempt, as_result_contract, brief_prompt, read_session, stored_attempts
 
 from cad.checks.container.kernel import Unreadable, ocp_kernel
-from cad.checks.result import Verdict
+from cad.checks.result import StepStored, Verdict
 from cad.sandbox.outcome import Built
 from cad.scorecard import score
 from cad.scorecard.model import Scorecard
@@ -168,7 +168,7 @@ def card_side(directory: Path) -> CardSide:
     verdict = next(r for r in card.results if r.check_id == "closed_solid").verdict
     if card.brep_sha256 != sha256_of(directory / entry.BREP):
         raise EvidenceError("result.brep is not the BREP the scorecard measured")
-    if card.step_sha256 is not None and card.step_sha256 != sha256_of(directory / entry.STEP):
+    if isinstance(card.step, StepStored) and card.step.sha256 != sha256_of(directory / entry.STEP):
         raise EvidenceError("result.step is not the STEP the scorecard names")
     if verdict != Verdict.PASS:
         return CardSide(verdict.value, None, None)

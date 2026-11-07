@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 
 from cad.checks.report import SPECS, Request, build_request, parse
-from cad.checks.result import CheckRun, Verdict
+from cad.checks.result import CheckRun, StepMissing, StepStored, Verdict
 from cad.sandbox.container import Attended, ContainerState, Ran, TooMuchOutput
 from cad.tables.materials import Cited, Material, MaterialsTable, Unknown, load_materials
 
@@ -55,7 +55,7 @@ def good_report() -> dict[str, Any]:
                 "reason": "1000 mm^3",
             },
         ],
-        "step": b64encode(STEP).decode(),
+        "step": {"kind": "written", "base64": b64encode(STEP).decode()},
     }
 
 
@@ -131,7 +131,7 @@ def test_a_check_run_serializes_and_reads_back_equal(request_for_pla: Request) -
         image_tag="cad-sandbox:test",
         image_digest="sha256:" + "c" * 64,
         brep_sha256="a" * 64,
-        step_sha256="b" * 64,
+        step=StepStored(sha256="b" * 64),
         results=parsed.results,
     )
     text = run.model_dump_json()
@@ -162,8 +162,10 @@ MISBEHAVIORS = {
     "wrong-unit": sent(with_result(2, measured=[measured("volume", 1000.0, "m^3")])),
     "nan": sent(with_result(2, measured=[measured("volume", float("nan"), "mm^3")])),
     "infinity": sent(with_result(2, measured=[measured("volume", float("inf"), "mm^3")])),
-    "step-not-base64": sent({**good_report(), "step": "@@"}),
+    "step-not-base64": sent({**good_report(), "step": {"kind": "written", "base64": "@@"}}),
     "step-not-a-string": sent({**good_report(), "step": 7}),
+    "step-kind-unknown": sent({**good_report(), "step": {"kind": "elsewhere", "reason": "x"}}),
+    "step-missing-without-reason": sent({**good_report(), "step": {"kind": "missing"}}),
 }
 
 
@@ -174,11 +176,11 @@ def test_every_misbehavior_gives_three_unknown_results_and_no_step(
     parsed = parse(seen, request_for_pla, WALL)
     assert [result.check_id for result in parsed.results] == [spec.id for spec in SPECS]
     assert {result.verdict for result in parsed.results} == {Verdict.UNKNOWN}
-    assert parsed.step is None
     reasons = {result.reason for result in parsed.results}
     assert len(reasons) == 1
     (reason,) = reasons
     assert reason and "\n" not in reason
+    assert parsed.step == StepMissing(reason=reason)
 
 
 @pytest.mark.parametrize(
@@ -191,7 +193,11 @@ def test_every_misbehavior_gives_three_unknown_results_and_no_step(
         ),
         pytest.param(ran(b""), "sent no report", id="silent"),
         pytest.param(ran(TooMuchOutput()), "sent more than 64 MiB", id="flood"),
-        pytest.param(sent({**good_report(), "step": "@@"}), "STEP that is not base64", id="step"),
+        pytest.param(
+            sent({**good_report(), "step": {"kind": "written", "base64": "@@"}}),
+            "STEP that is not base64",
+            id="step",
+        ),
         pytest.param(
             sent(with_result(2, measured=[measured("volume", 1.0, "m^3")])),
             "mass: volume is in 'm^3', not 'mm^3'",
@@ -201,6 +207,19 @@ def test_every_misbehavior_gives_three_unknown_results_and_no_step(
 )
 def test_the_reason_names_the_cause(seen: Ran, reason: str, request_for_pla: Request) -> None:
     assert reason in parse(seen, request_for_pla, WALL).results[0].reason
+
+
+def test_a_step_the_container_left_out_keeps_the_verdicts_and_says_why(
+    request_for_pla: Request,
+) -> None:
+    reason = "the STEP is 58392064 bytes, over the 50331000 bytes left in the report"
+    parsed = parse(
+        sent({**good_report(), "step": {"kind": "missing", "reason": reason}}),
+        request_for_pla,
+        WALL,
+    )
+    assert [result.verdict for result in parsed.results] == [Verdict.PASS] * 3
+    assert parsed.step == StepMissing(reason=reason)
 
 
 def test_unknown_results_keep_the_formula_sources_and_version_of_a_real_one(

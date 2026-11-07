@@ -1,9 +1,9 @@
 from collections.abc import Mapping
 from enum import StrEnum
-from typing import Annotated, TypedDict, cast
+from typing import Annotated, Literal, TypedDict, cast
 
 import pint
-from pydantic import BaseModel, ConfigDict, PlainSerializer, PlainValidator
+from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, PlainValidator
 
 from cad.tables.materials import UNITS, Source
 
@@ -70,10 +70,24 @@ class CheckResult(_Frozen):
         return float(self.value(name).m_as(unit))  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
 
 
+class StepStored(_Frozen):
+    kind: Literal["stored"] = "stored"
+    sha256: str
+
+
+class StepMissing(_Frozen):
+    kind: Literal["missing"] = "missing"
+    reason: str
+
+
+type Step = Annotated[StepStored | StepMissing, Field(discriminator="kind")]
+
+
 class CheckRun(_Frozen):
     """One `run_checks` call. Holds the hashes that make "checks measured what the user gets"
-    auditable: `step_sha256` is the STEP derived from the BREP whose hash is `brep_sha256`, and
-    `image_digest` is the image the check container ran, whatever `image_tag` points to later."""
+    auditable: `step` is the STEP derived from the BREP whose hash is `brep_sha256`, or why there is
+    none, and `image_digest` is the image the check container ran, whatever `image_tag` points to
+    later."""
 
     variant_id: str
     material_key: str
@@ -81,7 +95,7 @@ class CheckRun(_Frozen):
     image_tag: str
     image_digest: str
     brep_sha256: str
-    step_sha256: str | None
+    step: Step
     results: tuple[CheckResult, ...]
 
     def result(self, check_id: str) -> CheckResult:

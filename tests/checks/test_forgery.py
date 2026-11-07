@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from cad.checks.result import CheckRun, Verdict
+from cad.checks.result import CheckRun, StepMissing, StepStored, Verdict
 from cad.sandbox import container
 from cad.sandbox.container import Job, ReadOnlyMount
 from cad.sandbox.host import run_checks
@@ -107,7 +107,7 @@ def test_a_forged_brep_is_checked_and_no_step_is_invented_from_it(
     assert closed.verdict == Verdict.FAIL
     assert closed.reason.startswith("the BREP could not be read")
     assert [run.result(id).verdict for id in ("interference", "mass")] == [Verdict.UNKNOWN] * 2
-    assert run.step_sha256 is None
+    assert run.step == StepMissing(reason="no STEP was derived, because the BREP could not be read")
     assert "result.step" not in stored_files(tmp_path, built.variant_id)
     again = run_checks(built.variant_id, "prusament-pla", tmp_path)
     assert again.model_dump_json() == run.model_dump_json()
@@ -125,7 +125,7 @@ def test_patching_the_step_exporter_changes_nothing_that_is_stored(tmp_path: Pat
     run = run_checks(built.variant_id, "prusament-pla", tmp_path)
     assert run.result("mass").number("volume", "mm^3") == pytest.approx(8000, rel=1e-6)
     step = tmp_path / built.variant_id / "result.step"
-    assert run.step_sha256 == hashlib.sha256(step.read_bytes()).hexdigest()
+    assert run.step == StepStored(sha256=hashlib.sha256(step.read_bytes()).hexdigest())
     read_back = read_step_back(step, tmp_path)
     assert read_back["volume"] == pytest.approx(8000, rel=1e-6)
     assert read_back["extent"] == pytest.approx([20, 20, 20], abs=0.01)

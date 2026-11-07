@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from cad.checks.report import unknown_for_all
-from cad.checks.result import CheckRun, Verdict
+from cad.checks.result import CheckRun, StepMissing, Verdict
 from cad.sandbox.outcome import SandboxUnavailable
 from cad.scorecard import score
 from cad.scorecard.model import NO_REQUIREMENTS_NOTE, Scorecard
@@ -32,7 +32,7 @@ def offline_run() -> CheckRun:
         image_tag="cad-sandbox:0",
         image_digest="sha256:" + "i" * 64,
         brep_sha256="b" * 64,
-        step_sha256=None,
+        step=StepMissing(reason="offline"),
         results=unknown_for_all("offline"),
     )
 

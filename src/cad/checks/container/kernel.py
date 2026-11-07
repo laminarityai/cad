@@ -178,6 +178,11 @@ class Unreadable:
     reason: str
 
 
+@dataclass(frozen=True, slots=True)
+class StepTooLarge:
+    size: int
+
+
 class EdgeUses(NamedTuple):
     free: int
     over_used: int
@@ -211,7 +216,7 @@ class Kernel(Protocol):
 
     def common_volume(self, first: Shape, second: Shape) -> float | None: ...
 
-    def step_bytes(self, shape: Shape) -> bytes:
+    def step_bytes(self, shape: Shape, cap: int) -> bytes | StepTooLarge:
         """The writer numbers PRODUCT names per process, so a second call raises: one
         container writes one STEP, which keeps the bytes stable."""
         ...
@@ -286,7 +291,7 @@ class OcpKernel:
         common = self._ocp.new_common(first, second)
         return self.volume_props(common.Shape()).volume if common.IsDone() else None
 
-    def step_bytes(self, shape: Shape) -> bytes:
+    def step_bytes(self, shape: Shape, cap: int) -> bytes | StepTooLarge:
         if self._wrote_step:
             raise RuntimeError("one container writes one STEP")
         self._wrote_step = True
@@ -306,7 +311,8 @@ class OcpKernel:
             path = Path(directory) / "result.step"
             if transferred != ocp.ret_done or writer.Write(str(path)) != ocp.ret_done:
                 raise RuntimeError("STEPControl_Writer could not write the shape")
-            return path.read_bytes()
+            size = path.stat().st_size
+            return StepTooLarge(size) if size > cap else path.read_bytes()
 
 
 def first_line(text: str) -> str:
