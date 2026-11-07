@@ -32,3 +32,16 @@ def test_a_session_that_calls_only_cad_tools_passes(tmp_path: Path) -> None:
     done = drive("cad_only.json", tmp_path)
     assert done.returncode == 0, done.stdout
     assert "tool call: mcp__cad__score_variant" in done.stdout
+
+
+def test_a_session_that_can_reach_a_tool_outside_cad_fails(tmp_path: Path) -> None:
+    done = drive("bash_reachable.json", tmp_path)
+    assert done.returncode == 1
+    assert "tools available outside cad: Bash" in done.stdout
+
+
+def test_a_tool_from_another_mcp_server_is_outside_cad(tmp_path: Path) -> None:
+    done = drive("other_mcp_server.json", tmp_path)
+    assert done.returncode == 1
+    assert "tools available outside cad: mcp__other__x" in done.stdout
+    assert "tools outside cad: mcp__other__x" in done.stdout

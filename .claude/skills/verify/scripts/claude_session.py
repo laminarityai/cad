@@ -1,12 +1,9 @@
 """Usage: uv run python .claude/skills/verify/scripts/claude_session.py [--model <alias>]
     "<prompt>" <transcript.json>
 
-The session has no built-in tools, loads no skills and no user settings, and runs from an empty
-directory outside the repo, so the model can reach only the cad tools.
-
 Claude Code skips a broken MCP server entry and still exits 0, so this script fails unless the
 system/init event lists `cad` as connected with no mcp_server_errors. It also fails when the
-transcript has a tool call outside cad.
+init event lists a tool outside cad, or the transcript has a tool call outside cad.
 """
 
 import argparse
@@ -67,6 +64,9 @@ def main(prompt: str, transcript: Path, model: str | None = None) -> int:
         print(f"cad is not connected: {servers} errors={init.get('mcp_server_errors')}")
         return 1
     print("init: cad connected")
+    reachable = [t for t in init["tools"] if not t.startswith(CAD_TOOL_PREFIX)]
+    if reachable:
+        print(f"tools available outside cad: {', '.join(reachable)}")
     foreign: list[str] = []
     for event in events:
         if event.get("type") != "assistant":
@@ -82,8 +82,7 @@ def main(prompt: str, transcript: Path, model: str | None = None) -> int:
     print(f"result: {result['result']}")
     if foreign:
         print(f"tools outside cad: {', '.join(foreign)}")
-        return 1
-    return 1 if result.get("is_error") else 0
+    return 1 if reachable or foreign or result.get("is_error") else 0
 
 
 if __name__ == "__main__":
