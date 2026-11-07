@@ -109,7 +109,10 @@ def test_owner_labels_that_are_not_a_pid_keep_the_container_and_spare_the_rest(
     image_id: str,
 ) -> None:
     dead = dead_pid()
-    malformed = ("1\t2", f"{dead}\t2", f"{dead}\n2", "", "abc", "\u00b2", "0", "2147483648")
+    malformed = (
+        "1\t2", f"{dead}\t2", f"{dead}\n2", f"{dead}\u0085x", "", "abc", "\u00b2", "0",
+        "2147483648", "9" * 5000,
+    )  # fmt: skip
     kept = [start(image_id, owner, "true") for owner in malformed]
     orphan = start(image_id, dead, "true")
     try:
