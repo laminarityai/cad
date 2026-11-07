@@ -1,7 +1,10 @@
 import ast
 import hashlib
+import importlib.metadata
+import re
 import secrets
 import shutil
+import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
@@ -25,10 +28,12 @@ BOOT: Final = (
 class Sources:
     files: Mapping[str, bytes]
     digest: str
+    packages: Mapping[str, str]
 
 
 def read_sources(*entries: str, root: Path = SRC_ROOT) -> Sources:
     found: dict[str, bytes] = {}
+    libraries: set[str] = set()
     pending = [
         path for entry in entries for path in _files_run_by_importing(entry, root, required=True)
     ]
@@ -37,15 +42,41 @@ def read_sources(*entries: str, root: Path = SRC_ROOT) -> Sources:
         name = path.relative_to(root).as_posix()
         if name not in found:
             found[name] = path.read_bytes()
+            imports = _imports(path)
             pending += (
-                file for module in _imports(path) for file in _files_run_by_importing(module, root)
+                file for module in imports for file in _files_run_by_importing(module, root)
             )
+            libraries |= {
+                top
+                for top in (module.split(".")[0] for module in imports)
+                if top not in sys.stdlib_module_names and not _files_run_by_importing(top, root)
+            }
     files = dict(sorted(found.items()))
     digest = hashlib.sha256()
     for path, data in files.items():
         digest.update(f"{path}\0".encode())
         digest.update(hashlib.sha256(data).digest())
-    return Sources(files, digest.hexdigest())
+    return Sources(files, digest.hexdigest(), _installed(libraries))
+
+
+def _installed(libraries: set[str]) -> dict[str, str]:
+    owners = importlib.metadata.packages_distributions()
+    pending = [owner for library in libraries for owner in owners[library]]
+    versions: dict[str, str] = {}
+    while pending:
+        try:
+            distribution = importlib.metadata.distribution(pending.pop())
+        except importlib.metadata.PackageNotFoundError:
+            continue
+        name = re.sub(r"[-_.]+", "-", distribution.name).lower()
+        if name not in versions:
+            versions[name] = distribution.version
+            pending += (
+                re.split(r"[^A-Za-z0-9._-]", requirement, maxsplit=1)[0]
+                for requirement in distribution.requires or ()
+                if "extra" not in requirement.partition(";")[2]
+            )
+    return dict(sorted(versions.items()))
 
 
 def _imports(path: Path) -> set[str]:

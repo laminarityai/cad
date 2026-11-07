@@ -55,6 +55,6 @@ Each score removes its own container. After a run that was killed, list leftover
 
 - `unknown` is not `pass`. `mass` is `unknown`, with no measured value, unless `closed_solid` and `interference` pass.
 - `scorecard.json` is an output. The server never reads it back, so editing it changes nothing the next call returns. It is not signed, so do not treat a copy of it as proof (issue 11).
-- A check version hashes every file that `cad.scorecard.score` or the check runner imports, so an edit to `src/cad/checks/report.py` or `src/cad/sandbox/stage.py` changes all three versions.
+- A check version hashes every file that `cad.scorecard.score` or the check runner imports, so an edit to `src/cad/checks/report.py` or `src/cad/sandbox/stage.py` changes all three versions. It also folds the installed version of each third-party distribution those files import, with the distributions they require, so a `uv.lock` bump of pint or pydantic changes all three versions too. A dev tool such as ruff does not.
 - A STEP larger than the 64 MiB report cap turns every result `unknown` (issue 14).
 - A material key is matched exactly. `list_materials` gives the keys.

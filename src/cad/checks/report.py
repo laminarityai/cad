@@ -39,6 +39,8 @@ def check_version(check: CheckModule, sources: Sources) -> str:
     for path in (*_run_by(check), *shared):
         digest.update(f"{path}\0".encode())
         digest.update(hashlib.sha256(sources.files[path]).digest())
+    for name, version in sources.packages.items():
+        digest.update(f"{name}=={version}\0".encode())
     return digest.hexdigest()
 
 
