@@ -1,14 +1,38 @@
+"""Report what each saved agent reply states about geometry, and where each number came from.
+
+Run it over saved transcripts, such as the tests/evals/replies fixtures or the files that
+`agree.py --out DIR` writes:
+
+    uv run python evals/bakeoff/reply.py tests/evals/replies
+
+For each reply it lists the numbers that match a score_variant result, the numbers no check
+returned (with or without a "not checked" label), and the phrases that present the agent's own
+arithmetic as confirmation. It always exits 0. It is a measurement, not a gate.
+
+It matches phrases and units, so it misses paraphrases such as "you're good to go" and units it
+does not read. The rule the server sends to every client (RULE in cad.server.app) is what
+enforces the behaviour.
+"""
+
+import argparse
 import json
 import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from enum import StrEnum
+from pathlib import Path
 from typing import Any, Final, cast
 
 import pint
+import yaml
 from inputs import blocks
+from pydantic import TypeAdapter
 
-from cad.scorecard.model import Scorecard
-from cad.tables.materials import UNITS
+from cad.checks.result import CheckResult
+from cad.tables.materials import UNITS, magnitude
+
+PROMPTS: Final = Path(__file__).resolve().parent / "prompts.yaml"
+RESULTS: Final = TypeAdapter(tuple[CheckResult, ...])
 
 NUM: Final = r"[-+±]?\d+(?:,\d{3})*(?:\.\d+)?(?:e[-+]?\d+)?"
 UNIT: Final = (
@@ -51,6 +75,7 @@ WIDEST_FIRST: Final = (CHAIN, TUPLE, LIST, SINGLE)
 
 
 class Origin(StrEnum):
+    CHECK = "a score_variant result"
     BRIEF = "the brief"
     BUILD_OUTPUT = "what the build code printed"
     CODE = "a literal in the build code"
@@ -58,32 +83,26 @@ class Origin(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
-class Unchecked:
+class Stated:
     value: float
     unit: str
     origin: Origin
+    labelled_unchecked: bool
     snippet: str
 
 
 @dataclass(frozen=True, slots=True)
-class ReplyCheck:
-    unchecked: tuple[Unchecked, ...]
+class Findings:
+    numbers: tuple[Stated, ...]
     confirmations: tuple[str, ...]
 
     @property
-    def passes(self) -> bool:
-        return not self.unchecked and not self.confirmations
+    def checked(self) -> tuple[Stated, ...]:
+        return tuple(n for n in self.numbers if n.origin == Origin.CHECK)
 
-    def reasons(self) -> tuple[str, ...]:
-        numbers = (
-            f"the reply states {n.value:g} {n.unit} that no check returned (from {n.origin}): "
-            f"...{n.snippet}..."
-            for n in self.unchecked
-        )
-        phrases = (
-            f"the reply presents its own arithmetic as a check: {p!r}" for p in self.confirmations
-        )
-        return (*numbers, *phrases)
+    @property
+    def unchecked(self) -> tuple[Stated, ...]:
+        return tuple(n for n in self.numbers if n.origin != Origin.CHECK)
 
 
 @dataclass(frozen=True, slots=True)
@@ -169,8 +188,7 @@ def quantity(value: float, unit: str) -> pint.Quantity:
 def checked_by(found: Found, checked: list[pint.Quantity]) -> bool:
     stated = quantity(found.value, found.unit)
     same_kind = (value for value in checked if value.dimensionality == stated.dimensionality)
-    # Pint's annotations leave conversions partly untyped, as in cad.tables.materials.
-    in_reply_unit = (float(v.m_as(stated.units)) for v in same_kind)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+    in_reply_unit = (magnitude(v, str(stated.units)) for v in same_kind)
     return any(abs(v - found.value) <= tolerance(found) for v in in_reply_unit)
 
 
@@ -209,26 +227,26 @@ def pools(events: list[dict[str, Any]]) -> Pools:
                 if name.endswith("build_variant"):
                     found.printed.extend(numbers(str(json.loads(text).get("output", ""))))
                 elif name.endswith("score_variant"):
-                    found.checked.extend(checked_quantities(Scorecard.model_validate_json(text)))
+                    found.checked.extend(checked_quantities(json.loads(text)["results"]))
     return found
 
 
-def checked_quantities(card: Scorecard) -> list[pint.Quantity]:
+def checked_quantities(raw: object) -> list[pint.Quantity]:
+    results = RESULTS.validate_python(raw)
     values = [
-        abs(m.value)
-        for result in card.results
-        for m in result.measured
-        if not m.value.dimensionless
+        abs(m.value) for result in results for m in result.measured if not m.value.dimensionless
     ]
     thresholds = (
         quantity(parse_number(match.group(1))[0], match.group(2))
-        for result in card.results
+        for result in results
         for match in SINGLE.finditer(result.formula)
     )
     return [*values, *thresholds]
 
 
 def origin(found: Found, brief: list[float], seen: Pools) -> Origin:
+    if checked_by(found, seen.checked):
+        return Origin.CHECK
     if matches(found, brief, BRIEF_SCALES):
         return Origin.BRIEF
     if matches(found, seen.printed, (1.0,)):
@@ -238,20 +256,62 @@ def origin(found: Found, brief: list[float], seen: Pools) -> Origin:
     return Origin.NONE
 
 
-def check_reply(events: list[dict[str, Any]], brief: str) -> ReplyCheck:
+def findings(events: list[dict[str, Any]], brief: str) -> Findings:
     reply = next((str(e.get("result") or "") for e in events if e.get("type") == "result"), "")
     seen = pools(events)
     brief_numbers = numbers(brief)
-    unchecked: list[Unchecked] = []
+    stated: list[Stated] = []
     for found in reply_numbers(reply):
-        if found.labelled_unchecked or checked_by(found, seen.checked):
-            continue
         source = origin(found, brief_numbers, seen)
         measured_unit = bool(MEASURE_UNIT.fullmatch(found.unit)) and source != Origin.BRIEF
-        if found.in_measurement_sentence or measured_unit:
-            unchecked.append(Unchecked(found.value, found.unit, source, found.snippet))
+        if source == Origin.CHECK or found.in_measurement_sentence or measured_unit:
+            stated.append(
+                Stated(found.value, found.unit, source, found.labelled_unchecked, found.snippet)
+            )
     self_computed = (
         m for m in SELF_COMPUTED.finditer(reply) if not labelled_unchecked(reply, *m.span())
     )
     confirmations = {m.group(0).lower() for m in (*CONFIRM.finditer(reply), *self_computed)}
-    return ReplyCheck(tuple(unchecked), tuple(sorted(confirmations)))
+    return Findings(tuple(stated), tuple(sorted(confirmations)))
+
+
+def part_of(transcript: Path, parts: Sequence[str]) -> str | None:
+    named = (p for p in parts if transcript.stem == p or transcript.stem.startswith(f"{p}_"))
+    return max(named, key=len, default=None)
+
+
+def report(name: str, part: str | None, found: Findings) -> str:
+    def line(n: Stated) -> str:
+        return f"    {n.value:g} {n.unit} from {n.origin}: ...{n.snippet}..."
+
+    checked = ", ".join(f"{n.value:g} {n.unit}" for n in found.checked) or "none"
+    labelled = [line(n) for n in found.unchecked if n.labelled_unchecked]
+    unlabelled = [line(n) for n in found.unchecked if not n.labelled_unchecked]
+    return "\n".join(
+        [
+            f"{name} (brief: {part or 'none matched'})",
+            f"  checked numbers: {checked}",
+            f"  numbers no check returned, labelled as not checked: {len(labelled)}",
+            *labelled,
+            f"  numbers no check returned, unlabelled: {len(unlabelled)}",
+            *unlabelled,
+            f"  confirmation phrases: {', '.join(map(repr, found.confirmations)) or 'none'}",
+        ]
+    )
+
+
+def main(argv: Sequence[str] | None = None) -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("paths", nargs="+", type=Path, help="transcript files or directories")
+    args = parser.parse_args(argv)
+    briefs = {row["id"]: row["prompt"] for row in yaml.safe_load(PROMPTS.read_text())}
+    paths = cast(list[Path], args.paths)
+    transcripts = sorted(f for p in paths for f in (p.glob("*.json") if p.is_dir() else [p]))
+    for transcript in transcripts:
+        part = part_of(transcript, list(briefs))
+        events = cast(list[dict[str, Any]], json.loads(transcript.read_text()))
+        print(report(transcript.name, part, findings(events, briefs.get(part or "", ""))))
+
+
+if __name__ == "__main__":
+    main()

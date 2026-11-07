@@ -5,8 +5,7 @@
 
 Geometry comes from build_variant and score_variant only. The model never computes a verdict:
 this script reads the scorecard and the STEP that the server stored, and runs grade.py on that
-STEP. A live row also fails when the final reply states measured geometry that no check returned
-(reply.py).
+STEP.
 """
 
 import argparse
@@ -27,7 +26,6 @@ from typing import Any, Final, Protocol, cast
 
 import yaml
 from inputs import Attempt, as_result_contract, brief_prompt, read_session, stored_attempts
-from reply import check_reply
 
 from cad.checks.container.kernel import Unreadable, ocp_kernel
 from cad.checks.result import StepStored, Verdict
@@ -231,9 +229,6 @@ def live_one(part: str, brief: str, out: Path, model: str) -> Row:
     if foreign:
         reasons = (*row.agreement.reasons, f"the session used tools outside the server: {foreign}")
         row = replace(row, agreement=Agreement(False, reasons))
-    reply = check_reply(events, brief)
-    if not reply.passes:
-        row = replace(row, agreement=Agreement(False, (*row.agreement.reasons, *reply.reasons())))
     return replace(row, cost_usd=session.cost_usd, tool_calls=session.tool_calls)
 
 

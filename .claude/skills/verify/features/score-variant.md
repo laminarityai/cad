@@ -12,7 +12,7 @@
 - `score-unknown-key` returns `mass` as `unknown` for a key that is not in the table, and the other two checks still run.
 - `materials-list` returns the five keys and names, and no number.
 - `score-requirements` says in one line that phase 1 reads no requirements from the brief, so `unverified_requirements` is empty.
-- `reply-rule` sends one rule as the server's `instructions` and at the end of the `score_variant` description: a reply states measured geometry only when a `score_variant` result returned it. The live run of [Agree](./agree.md) checks each reply against it.
+- `reply-rule` sends one rule as the server's `instructions` and at the end of the `score_variant` description: a reply states measured geometry only when a `score_variant` result returned it. The reply report of [Agree](./agree.md) measures how often saved replies follow it.
 - `allowlist` fails the build when the server exposes a tool outside `server_info`, `build_variant`, `score_variant` and `list_materials`.
 - `claude-score` makes Claude Code build a part, score it, and quote the verdicts. `claude-override` shows that Claude Code cannot change a verdict.
 

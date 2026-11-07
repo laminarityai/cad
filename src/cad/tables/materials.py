@@ -35,7 +35,7 @@ class Cited:
     source: Source
 
     def magnitude_in(self, unit: str) -> float:
-        return _magnitude(self.quantity, unit)
+        return magnitude(self.quantity, unit)
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,7 +94,7 @@ def load_materials(path: Path = TABLE_PATH) -> MaterialsTable:
     return MaterialsTable(version=hashlib.sha256(data).hexdigest(), materials=materials)
 
 
-def _magnitude(quantity: pint.Quantity, unit: str) -> float:
+def magnitude(quantity: pint.Quantity, unit: str) -> float:
     # Pint's annotations leave conversions partly untyped, so the gap stays in this one place.
     return float(quantity.m_as(unit))  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
 
@@ -155,7 +155,7 @@ def _parse_value(key: str, field: str, raw: object, problems: list[str]) -> Valu
         return Unknown()
     try:
         quantity = UNITS.Quantity(text)
-        _magnitude(quantity, FIELD_UNITS[field])
+        magnitude(quantity, FIELD_UNITS[field])
     except pint.PintError as error:
         problems.append(f"{key}: {field} {text!r}: {error}")
         return Unknown()
