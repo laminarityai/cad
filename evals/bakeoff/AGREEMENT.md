@@ -7,8 +7,9 @@
 The rule is `agree_rule` in `evals/bakeoff/agree.py`, fixed before any run.
 
 - `closed_solid` passes exactly when `grade.py`'s category is not `no_output` or `invalid_solid`. The categories `bbox`, `volume` and `features` compare against a part's reference STEP, so they count as a valid solid.
-- When both call the solid valid, the scorecard volume matches `grade.py`'s volume to 0.01 mm3, and the sorted extents match to 0.002 mm.
+- When both call the solid valid, the scorecard volume differs from `grade.py`'s volume by at most 0.01 mm3, and each sorted extent differs by at most 0.002 mm. A difference equal to the limit agrees, with 1e-9 of slack for float error.
 - A variant with no scorecard never agrees.
+- A scorecard whose `closed_solid` is `unknown` never agrees, because the checks did not finish (for example the check container timed out). That holds even when `grade.py` finds no output.
 
 ## What each side measures
 
@@ -31,7 +32,7 @@ A replay rewrites the final `export_step(shape, "out.step")` line of each stored
 
 Live, run 1 and run 2: 10/10 agree both times. Run 1 cost 0.401 USD.
 
-Replay: 59/60 agree. The replay exit is 59/60, with one accepted exception.
+Replay: 59/60 agree. The replay result is 59/60, with one accepted exception.
 
 ### Accepted exception: `sonnet/shaft_collar/0`
 

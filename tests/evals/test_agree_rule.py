@@ -49,6 +49,15 @@ def test_an_extent_off_by_0_003_mm_disagrees(offset: float) -> None:
     assert "extents" in result.reasons[0]
 
 
+@pytest.mark.parametrize("offset", [0.002, -0.002])
+def test_an_extent_off_by_exactly_the_tolerance_agrees(offset: float) -> None:
+    assert agree_rule(card(extents=(6.0, 50.0 + offset, 100.0)), grader()).agrees
+
+
+def test_a_volume_off_by_exactly_the_tolerance_agrees() -> None:
+    assert agree_rule(card(volume=29509.73), grader()).agrees
+
+
 def test_an_extent_off_by_0_001_mm_agrees() -> None:
     assert agree_rule(card(extents=(6.0, 50.001, 100.0)), grader()).agrees
 
@@ -80,6 +89,13 @@ def test_a_passing_closed_solid_disagrees_with_an_invalid_grade(category: str) -
 @pytest.mark.parametrize("verdict", ["fail", "unknown"])
 def test_a_closed_solid_that_does_not_pass_disagrees_with_a_valid_grade(verdict: str) -> None:
     assert not agree_rule(card(verdict, None, None), grader()).agrees
+
+
+@pytest.mark.parametrize("category", ["no_output", "pass"])
+def test_a_scorecard_whose_checks_did_not_finish_never_agrees(category: str) -> None:
+    result = agree_rule(card("unknown", None, None), grader(category, None, None))
+    assert not result.agrees
+    assert result.reasons == ("the checks did not finish (closed_solid is unknown)",)
 
 
 def test_a_variant_with_no_scorecard_never_agrees() -> None:

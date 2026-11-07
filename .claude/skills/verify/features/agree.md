@@ -31,5 +31,6 @@ A replay builds into a temporary store, `agree-store-*` under the temp directory
 ## Gotchas
 
 - A live row with no scored variant is a disagreement, not a skipped row.
+- A scorecard whose `closed_solid` is `unknown` (the checks did not finish) never agrees, even when `grade.py` also finds no output.
 - `sonnet/shaft_collar/0` disagrees in a replay. `closed_solid` fails on an edge used by more than two faces, and `grade.py` has no such test.
 - The scorecard has no extents. `agree.py` measures the stored `result.brep` that the scorecard's `brep_sha256` names.

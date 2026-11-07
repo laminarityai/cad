@@ -43,6 +43,7 @@ VOLUME_TOL_MM3: Final = 0.01
 EXTENT_TOL_MM: Final = 0.002
 INVALID_CATEGORIES: Final = frozenset({"no_output", "invalid_solid"})
 UNSCORED: Final = "unscored"
+FLOAT_SLACK: Final = 1e-9
 
 type Extents = tuple[float, float, float]
 
@@ -75,6 +76,10 @@ class Agreement:
     reasons: tuple[str, ...]
 
 
+def within(a: float, b: float, tolerance: float) -> bool:
+    return abs(a - b) <= tolerance + FLOAT_SLACK
+
+
 @dataclass(frozen=True, slots=True)
 class Row:
     label: str
@@ -90,9 +95,12 @@ class Row:
 def agree_rule(card: CardSide, grader: GraderSide) -> Agreement:
     """The scorecard and grade.py agree when `closed_solid` passes exactly when grade.py's
     category is not `no_output` or `invalid_solid`. When both call the solid valid, the volumes
-    must match to 0.01 mm3 and the sorted extents to 0.002 mm."""
+    must differ by at most 0.01 mm3 and each sorted extent by at most 0.002 mm. A scorecard
+    whose `closed_solid` is `unknown`, because the checks did not finish, never agrees."""
     if card.closed_solid == UNSCORED:
         return Agreement(False, ("no scorecard: the variant was not built or not scored",))
+    if card.closed_solid == Verdict.UNKNOWN:
+        return Agreement(False, ("the checks did not finish (closed_solid is unknown)",))
     card_valid = card.closed_solid == Verdict.PASS
     grader_valid = grader.category not in INVALID_CATEGORIES
     if card_valid != grader_valid:
@@ -104,14 +112,14 @@ def agree_rule(card: CardSide, grader: GraderSide) -> Agreement:
     reasons: list[str] = []
     if card.volume_mm3 is None or grader.volume_mm3 is None:
         reasons.append(f"volume missing: scorecard {card.volume_mm3}, grade.py {grader.volume_mm3}")
-    elif abs(card.volume_mm3 - grader.volume_mm3) > VOLUME_TOL_MM3:
+    elif not within(card.volume_mm3, grader.volume_mm3, VOLUME_TOL_MM3):
         reasons.append(f"volume {card.volume_mm3} vs {grader.volume_mm3} mm3")
     if card.extents_mm is None or grader.extents_mm is None:
         reasons.append(
             f"extents missing: scorecard {card.extents_mm}, grade.py {grader.extents_mm}"
         )
-    elif any(
-        abs(a - b) > EXTENT_TOL_MM for a, b in zip(card.extents_mm, grader.extents_mm, strict=True)
+    elif not all(
+        within(a, b, EXTENT_TOL_MM) for a, b in zip(card.extents_mm, grader.extents_mm, strict=True)
     ):
         reasons.append(f"extents {card.extents_mm} vs {grader.extents_mm} mm")
     return Agreement(not reasons, tuple(reasons))
