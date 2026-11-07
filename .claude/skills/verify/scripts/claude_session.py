@@ -1,9 +1,14 @@
-"""Usage: uv run python .claude/skills/verify/scripts/claude_session.py "<prompt>" <transcript.json>
+"""Usage: uv run python .claude/skills/verify/scripts/claude_session.py [--model <alias>] [--lean]
+    "<prompt>" <transcript.json>
+
+--lean starts a session with the repo's settings only, no skills and no built-in tools, so the
+model can call only the cad tools and the context stays small.
 
 Claude Code skips a broken .mcp.json entry and still exits 0, so this script fails unless the
 system/init event lists `cad` as connected with no mcp_server_errors.
 """
 
+import argparse
 import json
 import subprocess
 import sys
@@ -13,7 +18,10 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[4]
 
 
-def main(prompt: str, transcript: Path) -> int:
+LEAN = ["--setting-sources", "project", "--disable-slash-commands", "--tools", ""]
+
+
+def main(prompt: str, transcript: Path, model: str | None = None, lean: bool = False) -> int:
     done = subprocess.run(
         [
             "claude",
@@ -27,6 +35,8 @@ def main(prompt: str, transcript: Path) -> int:
             "--output-format",
             "json",
             "--verbose",
+            *(["--model", model] if model else []),
+            *(LEAN if lean else []),
         ],
         capture_output=True,
         text=True,
@@ -57,6 +67,10 @@ def main(prompt: str, transcript: Path) -> int:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
-        sys.exit(__doc__)
-    sys.exit(main(sys.argv[1], Path(sys.argv[2])))
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--model")
+    parser.add_argument("--lean", action="store_true")
+    parser.add_argument("prompt")
+    parser.add_argument("transcript", type=Path)
+    args = parser.parse_args()
+    sys.exit(main(args.prompt, args.transcript, args.model, args.lean))

@@ -113,6 +113,6 @@ Never use `pkill` by name. Keep the files under `$EVIDENCE`, because they are th
 
 ## Helpers
 
-- `scripts/claude_session.py "<prompt>" <transcript.json>` is shown in Drive. It exits 1 when `cad` is not connected, when `claude` fails, or when the session reports an error.
+- `scripts/claude_session.py [--model <alias>] [--lean] "<prompt>" <transcript.json>` is shown in Drive. It exits 1 when `cad` is not connected, when `claude` fails, or when the session reports an error. `--lean` loads the repo's settings only, no skills and no built-in tools, so the model can call only the cad tools.
 
 Feature recipes live in [features/README.md](features/README.md).

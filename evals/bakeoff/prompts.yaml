@@ -1,0 +1,101 @@
+# Each part is graded against reference/<id>.step (bbox extents and volume)
+# plus the feature counts below. All units mm.
+- id: plate
+  prompt: >-
+    Flat mounting plate, 100 x 50 mm, 6 mm thick. Four 5.1 mm through holes,
+    one near each corner, each hole center 8 mm in from both adjacent edges.
+  features:
+    - {radius: 2.55, min_count: 4}
+
+- id: l_bracket
+  prompt: >-
+    L-bracket made from 3 mm thick material, 30 mm wide. Both legs are 40 mm
+    long measured on the outside of the L, with a sharp (unfilleted) corner.
+    Each leg has two 5.1 mm through holes, centered across the 30 mm width,
+    placed 12 mm and 30 mm from the outside corner.
+  features:
+    - {radius: 2.55, min_count: 4}
+
+- id: motor_plate
+  prompt: >-
+    Square motor plate, 60 x 60 mm, 6 mm thick. A 22 mm through hole in the
+    center, and four 3.2 mm through holes evenly spaced on a 50.8 mm diameter
+    bolt circle around it, at 45, 135, 225 and 315 degrees.
+  features:
+    - {radius: 11.0, min_count: 1}
+    - {radius: 1.6, min_count: 4}
+
+- id: spur_gear
+  prompt: >-
+    Spur gear with 24 teeth, module 2, 20 degree pressure angle, standard
+    involute teeth (addendum 1 module, dedendum 1.25 modules, no backlash),
+    10 mm thick, with an 8 mm round center bore.
+  features:
+    - {radius: 4.0, min_count: 1}
+  gear: {outer_diameter: 52.0, teeth: 24}
+  volume_tol: 0.05
+  # Extents vary ~0.3 mm with tooth rotation; outer_diameter is the real check.
+  bbox_tol: 0.5
+
+- id: hex_spacer
+  prompt: >-
+    Round spacer, 25 mm outside diameter, 10 mm long, with a 1/2 inch hex bore
+    (12.7 mm across the flats) running all the way through along its axis.
+  features:
+    - {radius: 12.5, min_count: 1}
+
+- id: shaft_collar
+  prompt: >-
+    Shaft collar: a tube 25 mm outside diameter, 12.7 mm bore, 10 mm long.
+    Add one 3.3 mm hole drilled radially from the outside into the bore at
+    mid-length, through one wall only.
+  features:
+    - {radius: 6.35, min_count: 1}
+    - {radius: 1.65, min_count: 1}
+
+- id: gusset
+  prompt: >-
+    Triangular gusset plate, 4 mm thick. The triangle is a right triangle with
+    both legs 50 mm long. Put one 20 mm through hole centered on the
+    triangle's centroid. Round all three corners of the triangle (the edges
+    through the thickness) with a 3 mm radius.
+  features:
+    - {radius: 10.0, min_count: 1}
+    - {radius: 3.0, min_count: 3}
+
+- id: u_bracket
+  prompt: >-
+    U-channel pan-tilt bracket with 2 mm walls. Outside size: 40 mm wide,
+    30 mm tall, 50 mm deep. It's a flat base with two side walls going up
+    from its two 50 mm long edges, open on top and at both ends. Put a 2 mm
+    fillet on the two inside corners where the walls meet the base (outside
+    corners stay sharp). Each side wall gets one 6 mm through hole, coaxial
+    with the other, centered along the 50 mm length and 20 mm above the
+    bottom of the bracket.
+  features:
+    - {radius: 3.0, min_count: 2}
+    - {radius: 2.0, min_count: 2}
+
+- id: bearing_block
+  prompt: >-
+    Bearing block, 40 x 40 mm square and 20 mm tall. From the center of the
+    top face, a 28 mm diameter bearing pocket 8 mm deep, with a 12.7 mm hole
+    through the rest of the block on the same axis. Two 5.1 mm vertical
+    through holes for mounting at two diagonally opposite corners, each 5 mm
+    in from both adjacent edges.
+  features:
+    - {radius: 14.0, min_count: 1}
+    - {radius: 6.35, min_count: 1}
+    - {radius: 2.55, min_count: 2}
+
+- id: arm
+  prompt: >-
+    Robot arm plate, 6 mm thick and 40 mm wide, with fully rounded ends
+    (20 mm radius, so 290 mm long overall). A 28 mm bearing bore through each
+    end, centered on the end radius, so the bores are 250 mm apart. Between
+    them, three 30 mm long by 20 mm wide rectangular lightening pockets cut
+    all the way through, centered across the width, with 3 mm corner radii,
+    their centers at 62.5, 125 and 187.5 mm from the first bore's center.
+  features:
+    - {radius: 14.0, min_count: 2}
+    - {radius: 3.0, min_count: 12}
