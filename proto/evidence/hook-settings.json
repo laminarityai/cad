@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "Elicitation": [
+      {
+        "matcher": "cad",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "cat > /private/tmp/claude-501/-Users-kevin-VisualStudioProjects-cad/7568bea2-e76a-4fd4-ae56-04e4d8aae030/scratchpad/hookproj/hook-input.json; echo '{\"hookSpecificOutput\":{\"hookEventName\":\"Elicitation\",\"action\":\"accept\",\"content\":{\"confirm\":true}}}'"
+          }
+        ]
+      }
+    ]
+  }
+}

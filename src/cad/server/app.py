@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from cad.sandbox import container, host
 from cad.sandbox.outcome import SandboxUnavailable
 from cad.scorecard import score
+from cad.server import proto_confirm
 from cad.scorecard.model import Scorecard
 from cad.tables.materials import KEY_PATTERN
 from cad.variants import entry, store
@@ -154,6 +155,8 @@ def build_server(variants_root: Path = entry.VARIANTS_ROOT) -> MCPServer:
             strict_tool(Tool.from_function(build_variant, description=BUILD_VARIANT)),
             strict_tool(Tool.from_function(score_variant, description=SCORE_VARIANT)),
             strict_tool(Tool.from_function(list_materials, description=LIST_MATERIALS)),
+            strict_tool(Tool.from_function(proto_confirm.proto_confirm_elicit)),
+            strict_tool(Tool.from_function(proto_confirm.proto_confirm_page)),
         ],
     )
     return server
