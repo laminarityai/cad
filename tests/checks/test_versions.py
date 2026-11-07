@@ -147,6 +147,27 @@ def test_a_tampered_or_extended_staged_directory_is_rebuilt_from_the_hashed_byte
     assert os.listdir(tmp_path) == [staged.name]
 
 
+def test_a_symlinked_staged_directory_is_replaced_without_touching_its_target(
+    tmp_path: Path,
+) -> None:
+    root = tmp_path / "stage"
+    root.mkdir()
+    outside = tmp_path / "outside"
+    locked = outside / "locked"
+    locked.mkdir(parents=True)
+    locked.chmod(0o500)
+    planted = root / SOURCES.digest[: stage.DIGEST_CHARS]
+    planted.symlink_to(outside, target_is_directory=True)
+    try:
+        staged = materialize(SOURCES, root)
+        assert stat.S_IMODE(locked.stat().st_mode) == 0o500
+    finally:
+        locked.chmod(0o755)
+    assert staged == planted
+    assert not staged.is_symlink()
+    assert os.listdir(outside) == ["locked"]
+
+
 def test_reading_the_sources_twice_gives_the_same_digest_and_a_changed_file_a_new_one(
     tmp_path: Path,
 ) -> None:
