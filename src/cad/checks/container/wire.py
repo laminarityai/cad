@@ -44,7 +44,20 @@ class ResultWire(FindingWire):
     id: str
 
 
+class StepWritten(TypedDict):
+    kind: Literal["written"]
+    base64: str
+
+
+class StepNotWritten(TypedDict):
+    kind: Literal["missing"]
+    reason: str
+
+
+type StepWire = StepWritten | StepNotWritten
+
+
 class CheckedReport(TypedDict):
     kind: Literal["checked"]
     results: list[ResultWire]
-    step: str | None
+    step: StepWire

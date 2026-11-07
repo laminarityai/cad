@@ -28,7 +28,7 @@ def scorecard_of(run: CheckRun) -> Scorecard:
         table_version=run.table_version,
         image_digest=run.image_digest,
         brep_sha256=run.brep_sha256,
-        step_sha256=run.step_sha256,
+        step=run.step,
         results=run.results,
     )
 

@@ -10,7 +10,7 @@ from pydantic import TypeAdapter, ValidationError
 from cad.checks.container.check import CheckModule
 from cad.checks.container.suite import CHECKS
 from cad.checks.container.wire import CheckedReport, RequestWire, ResultWire, SourceLiteral
-from cad.checks.result import CheckResult, Measure, Verdict
+from cad.checks.result import CheckResult, Measure, StepMissing, Verdict
 from cad.sandbox import container
 from cad.sandbox.container import Ran, TooMuchOutput
 from cad.sandbox.stage import PACKAGE_PATH, SOURCES, Sources
@@ -108,7 +108,7 @@ def _unknown_density(material_key: str, table: MaterialsTable, reason: str) -> R
 @dataclass(frozen=True, slots=True)
 class Parsed:
     results: tuple[CheckResult, ...]
-    step: bytes | None
+    step: bytes | StepMissing
 
 
 def parse(ran: Ran, request: Request, wall_seconds: int) -> Parsed:
@@ -143,13 +143,13 @@ def _accepted(report: CheckedReport, request: Request) -> Parsed:
         if problem is not None:
             return _refused(f"{spec.id}: {problem}")
         results.append(_result(spec, wire, request))
-    step: bytes | None = None
-    if report["step"] is not None:
-        try:
-            step = b64decode(report["step"], validate=True)
-        except ValueError:
-            return _refused("the check container sent a STEP that is not base64")
-    return Parsed(tuple(results), step)
+    step = report["step"]
+    if step["kind"] == "missing":
+        return Parsed(tuple(results), StepMissing(reason=_one_line(step["reason"])))
+    try:
+        return Parsed(tuple(results), b64decode(step["base64"], validate=True))
+    except ValueError:
+        return _refused("the check container sent a STEP that is not base64")
 
 
 def _problem(spec: CheckSpec, wire: ResultWire) -> str | None:
@@ -174,14 +174,18 @@ def _result(spec: CheckSpec, wire: ResultWire, request: Request) -> CheckResult:
             for one in wire["measured"]
         ),
         formula=spec.formula,
-        reason=" ".join(wire["reason"].split())[:REASON_CAP],
+        reason=_one_line(wire["reason"]),
         sources=(*spec.sources, *datasheet),
         version=spec.version,
     )
 
 
+def _one_line(text: str) -> str:
+    return " ".join(text.split())[:REASON_CAP]
+
+
 def _refused(reason: str) -> Parsed:
-    return Parsed(unknown_for_all(reason), None)
+    return Parsed(unknown_for_all(reason), StepMissing(reason=reason))
 
 
 def unknown_for_all(reason: str) -> tuple[CheckResult, ...]:

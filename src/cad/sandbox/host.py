@@ -8,7 +8,7 @@ import yaml
 from pydantic import Field, TypeAdapter, ValidationError
 
 from cad.checks.report import Request, build_request, parse
-from cad.checks.result import CheckRun
+from cad.checks.result import CheckRun, StepMissing, StepStored
 from cad.sandbox import container, stage
 from cad.sandbox.container import Attended, ContainerState, Job, TooMuchOutput
 from cad.sandbox.image import context_tar, current_image, image_tag
@@ -53,7 +53,8 @@ def build(code: str, image_id: str, *, wall_seconds: int = container.WALL_SECOND
 
 def check_job(brep: bytes, image_id: str, request: Request, wall_seconds: int) -> Job:
     cpu_seconds = str(wall_seconds * container.CPUS)
-    command = ("python", "-I", "-c", stage.BOOT, cpu_seconds, json.dumps(request.wire))
+    report_cap = str(container.REPORT_CAP)
+    command = ("python", "-I", "-c", stage.BOOT, cpu_seconds, json.dumps(request.wire), report_cap)
     return Job("check", image_id, command, brep, (stage.check_mount(),), wall_seconds)
 
 
@@ -72,7 +73,8 @@ def run_checks(
         SandboxUnavailable   Docker, the image, the store, or the materials table is unusable
     Returns a `CheckRun` with one result per check, always. A container that times out, runs out of
     memory, dies, or sends a malformed report yields `unknown` results, never an exception and
-    never `pass`. A material key that is not in the table makes `mass` `unknown`.
+    never `pass`. A STEP too large for the report is left out, and the results stand. A material
+    key that is not in the table makes `mass` `unknown`.
     """
     tag = image_tag(context_tar())
     held = entry.open_entry(root, variant_id, tag)
@@ -87,7 +89,11 @@ def run_checks(
     ran = container.run(job)
     parsed = parse(ran, request, wall_seconds)
     try:
-        step_sha256 = None if parsed.step is None else held.attach_step(parsed.step)
+        step = (
+            parsed.step
+            if isinstance(parsed.step, StepMissing)
+            else StepStored(sha256=held.attach_step(parsed.step))
+        )
     except OSError as error:
         raise SandboxUnavailable.hiding_path(
             f"cannot store the STEP of variant {held.id}", error, held.directory / entry.STEP
@@ -99,7 +105,7 @@ def run_checks(
         image_tag=tag,
         image_digest=image_id,
         brep_sha256=held.brep_sha256,
-        step_sha256=step_sha256,
+        step=step,
         results=parsed.results,
     )
 

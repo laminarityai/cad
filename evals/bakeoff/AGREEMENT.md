@@ -13,7 +13,7 @@ The rule is `agree_rule` in `evals/bakeoff/agree.py`, fixed before any run.
 
 ## What each side measures
 
-- The scorecard side is `closed_solid`, the `mass` volume, and the sorted extents of the stored `result.brep`. The scorecard has no extents field, because phase 1 has no bounding-box check. `agree.py` measures the BREP that the scorecard's `brep_sha256` names, and it refuses a row when that hash, or `step_sha256`, does not match the stored file.
+- The scorecard side is `closed_solid`, the `mass` volume, and the sorted extents of the stored `result.brep`. The scorecard has no extents field, because phase 1 has no bounding-box check. `agree.py` measures the BREP that the scorecard's `brep_sha256` names, and it refuses a row when that hash, or the stored `step` hash, does not match the stored file.
 - The `grade.py` side is its category, volume and extents for the stored `result.step`.
 
 ## Reproduce
