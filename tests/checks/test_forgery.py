@@ -84,7 +84,12 @@ def read_step_back(step: Path, workdir: Path) -> dict[str, object]:
 def test_a_step_in_the_report_is_discarded(tmp_path: Path) -> None:
     built = build_variant(FORGED_STEP_REPORT, tmp_path)
     assert built.outcome == Built(), built.output
-    assert stored_files(tmp_path, built.variant_id) == ["build.json", "code.py", "result.brep"]
+    assert stored_files(tmp_path, built.variant_id) == [
+        "build.json",
+        "build.mac",
+        "code.py",
+        "result.brep",
+    ]
     for path in tmp_path.rglob("*"):
         assert path.is_dir() or FORGED_STEP_MARKER not in path.read_bytes(), path
 
@@ -111,7 +116,12 @@ def test_a_forged_brep_is_checked_and_no_step_is_invented_from_it(
 def test_patching_the_step_exporter_changes_nothing_that_is_stored(tmp_path: Path) -> None:
     built = build_variant(FORGE_PATCH, tmp_path)
     assert built.outcome == Built(), built.output
-    assert stored_files(tmp_path, built.variant_id) == ["build.json", "code.py", "result.brep"]
+    assert stored_files(tmp_path, built.variant_id) == [
+        "build.json",
+        "build.mac",
+        "code.py",
+        "result.brep",
+    ]
     run = run_checks(built.variant_id, "prusament-pla", tmp_path)
     assert run.result("mass").number("volume", "mm^3") == pytest.approx(8000, rel=1e-6)
     step = tmp_path / built.variant_id / "result.step"

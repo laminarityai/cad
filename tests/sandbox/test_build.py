@@ -39,6 +39,7 @@ def test_reference_part_builds_and_stores_its_files(
     stored = root / result.variant_id
     assert sorted(path.name for path in stored.iterdir()) == [
         "build.json",
+        "build.mac",
         "code.py",
         "result.brep",
     ]
@@ -139,5 +140,6 @@ async def test_a_corrupt_stored_build_is_a_one_line_tool_error(tmp_path: Path) -
     (stored / "build.json").write_text('{"outcome": {"kind": "built"}, "output": ')
     assert error_text(await call(tmp_path, "x = 1\n")) == (
         "Error executing tool build_variant: "
-        f"cannot read {stored / 'build.json'}; delete {stored} to build it again"
+        f"variant {stored.name} has a build record this store did not sign or cannot read; "
+        "the operator must delete it from the variant store before its code can be built again"
     )

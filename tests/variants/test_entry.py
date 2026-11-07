@@ -170,6 +170,7 @@ def test_a_step_attached_twice_leaves_one_file_and_the_last_bytes(tmp_path: Path
     assert (opened.directory / "result.step").read_bytes() == b"STEP two"
     assert sorted(path.name for path in opened.directory.iterdir()) == [
         "build.json",
+        "build.mac",
         "code.py",
         "result.brep",
         "result.step",

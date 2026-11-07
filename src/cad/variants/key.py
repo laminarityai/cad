@@ -1,0 +1,61 @@
+import hashlib
+import hmac
+import logging
+import os
+import secrets
+import stat
+from contextlib import suppress
+from pathlib import Path
+from typing import Final
+
+from cad.sandbox.outcome import SandboxUnavailable
+
+KEY_BYTES: Final = 32
+UNUSABLE: Final = "the variant store's key is unusable; the operator must fix it"
+LOG = logging.getLogger(__name__)
+
+
+def key_path(root: Path) -> Path:
+    store = root.absolute()
+    return store.with_name(f"{store.name}.key")
+
+
+def sign(root: Path, vid: str, record: bytes) -> bytes:
+    path = key_path(root)
+    try:
+        key = _load_or_create(path)
+    except OSError as error:
+        LOG.error("cannot use %s: %s", path, error)
+        raise SandboxUnavailable(UNUSABLE) from error
+    return hmac.new(key, vid.encode() + b"\0" + record, hashlib.sha256).hexdigest().encode()
+
+
+def verify(root: Path, vid: str, record: bytes, mac: bytes) -> bool:
+    return hmac.compare_digest(sign(root, vid, record), mac)
+
+
+def _load_or_create(path: Path) -> bytes:
+    with suppress(FileNotFoundError):
+        return _load(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}-{secrets.token_hex(8)}")
+    try:
+        descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(descriptor, "wb") as file:
+            file.write(secrets.token_bytes(KEY_BYTES))
+        with suppress(FileExistsError):
+            os.link(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+    return _load(path)
+
+
+def _load(path: Path) -> bytes:
+    descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(descriptor, "rb") as file:
+        status = os.fstat(file.fileno())
+        key = file.read(KEY_BYTES + 1)
+    if not stat.S_ISREG(status.st_mode) or status.st_mode & 0o077 or len(key) != KEY_BYTES:
+        LOG.error("%s must be a private %d-byte file with mode 0600", path, KEY_BYTES)
+        raise SandboxUnavailable(UNUSABLE)
+    return key
