@@ -62,7 +62,7 @@ def with_reply(reply: str) -> list[dict[str, Any]]:
         "By my own calculation, which is not a check, the volume is 29000 mm³.",
     ],
 )
-def test_a_number_labelled_as_unchecked_in_its_sentence_passes(sentence: str) -> None:
+def test_a_number_labelled_as_unchecked_next_to_it_passes(sentence: str) -> None:
     result = check_reply(with_reply(f"All three checks passed. {sentence}"), "")
     assert result.passes, result.reasons()
 
@@ -106,6 +106,7 @@ PASSED = "All three checks passed. "
         PASSED + "The volume, which I have not measured differently from the CAD, is 29000 mm³.",
         PASSED + "\n- volume 29000 mm³ (my calc)\n- unchecked items: thread",
         PASSED + "The volume is 29000 mm³ (see `unchecked_requirements`).",
+        PASSED + "The volume is 29000 mm³.\n\n**Not checked:**\n- the hole spacing",
     ],
 )
 def test_a_label_covers_only_the_number_next_to_it(reply: str) -> None:

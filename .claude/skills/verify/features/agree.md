@@ -34,4 +34,12 @@ A replay builds into a temporary store, `agree-store-*` under the temp directory
 - A scorecard whose `closed_solid` is `unknown` (the checks did not finish) never agrees, even when `grade.py` also finds no output.
 - `sonnet/shaft_collar/0` disagrees in a replay. `closed_solid` fails on an edge used by more than two faces, and `grade.py` has no such test.
 - The reply check counts a number from `build_variant`'s `output` as unchecked, because that field is what the agent's own code printed.
+- The reply check reads the measured quantities and the formula thresholds of each `score_variant` result through `Scorecard`, and compares a reply number with them in the reply's own unit. Counts, hashes and ids in the scorecard are never matched.
+- A label ("not a check", "not from a check", "not checked", "unchecked", "not measured") covers a number or a phrase such as "my own arithmetic" only in its own clause, or in the next clause of the same sentence when the label is all that clause says. Commas, semicolons, colons, brackets, "and", "but" and "while" end a clause. A label never excuses "I confirmed", "I verified", "matches my" or "consistent with the scorecard".
+- Known limits of the reply check, each a strict xfail in `tests/evals/test_reply_check.py`:
+  - It reads mm, cm, in, g, kg and their squares, cubes and densities only. It misses ml, lb, in³ and spelled-out units such as "cubic millimetres".
+  - It misses a length with no measurement word, such as "101 mm long, 50 mm wide and 6.2 mm thick".
+  - A zero passes when the interference check measured a common volume of 0 mm³, which it does for every single-body part.
+  - Some honest replies fail: "I verified the scorecard was stored", "which matches my expectation", "I computed no geometry", a brief dimension in a bounding-box sentence, and a brief hole diameter in a volume sentence.
+- The live gate for the reply check is the red agree row of commit `69c1952`, not a unit test. The unit tests use recorded transcripts.
 - The scorecard has no extents. `agree.py` measures the stored `result.brep` that the scorecard's `brep_sha256` names.

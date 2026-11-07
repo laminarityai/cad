@@ -4,11 +4,16 @@ from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any, Final, cast
 
+import pint
 from inputs import blocks
+
+from cad.scorecard.model import Scorecard
+from cad.tables.materials import UNITS
 
 NUM: Final = r"[-+±]?\d+(?:,\d{3})*(?:\.\d+)?(?:e[-+]?\d+)?"
 UNIT: Final = (
-    r"(?:mm(?:³|\^3|3|²|\^2|2)?|cm(?:³|\^3|²)?|kg|g|grams?|°|deg(?:rees)?|in(?:ch(?:es)?)?)(?![\w])"
+    r"(?:k?g/(?:mm|cm)(?:³|\^3|3)|(?:mm|cm)(?:³|\^3|3|²|\^2|2)?|kg|g|grams?|°|deg(?:rees)?"
+    r"|in(?:ch(?:es)?)?)(?![\w])"
 )
 SEP: Final = r"\s*(?:\u00d7|x|X|by|\*)\s*"
 CHAIN: Final = re.compile(rf"({NUM}(?:\s*(?:mm|cm))?(?:{SEP}{NUM}(?:\s*(?:mm|cm))?)+)\s*({UNIT})")
@@ -20,17 +25,25 @@ MEASURE_WORDS: Final = re.compile(
 )
 MEASURE_UNIT: Final = re.compile(r"mm(?:³|\^3|3|²|\^2|2)|cm\S*|kg|g|grams?", re.IGNORECASE)
 CONFIRM: Final = re.compile(
-    r"hand[- ]calculat|matches my|my (?:own )?(?:calculation|estimate|check|math|arithmetic)"
-    r"|i (?:computed|calculated|verified|double[- ]checked|cross[- ]checked)|sanity[- ]check"
-    r"|which (?:matches|agrees with|confirms)|consistent with (?:my|the expected|the analytic)"
-    r"|expected (?:volume|value)|analytic(?:al)? (?:volume|value)",
+    r"matches my|i (?:confirmed|verified|double[- ]checked|cross[- ]checked)|sanity[- ]check"
+    r"|which (?:matches|agrees with|confirms)"
+    r"|consistent with (?:my|the expected|the analytic|the scorecard)"
+    r"|(?:matches|agrees with|confirms) the scorecard",
     re.IGNORECASE,
 )
-UNCHECKED_LABEL: Final = re.compile(
-    r"\bnot (?:from )?a check\b|\bnot checked\b|\bunchecked\b|\bnot measured\b", re.IGNORECASE
+SELF_COMPUTED: Final = re.compile(
+    r"hand[- ]calculat|my (?:own )?(?:calculation|estimate|check|math|arithmetic)"
+    r"|i (?:computed|calculated)|expected (?:volume|value)|analytic(?:al)? (?:volume|value)",
+    re.IGNORECASE,
 )
+LABEL: Final = r"\bnot (?:from )?a check\b|\bnot checked\b|\bunchecked\b|\bnot measured\b"
+UNCHECKED_LABEL: Final = re.compile(LABEL, re.IGNORECASE)
+BARE_LABEL: Final = re.compile(
+    rf"(?:(?:which|that|this|it) )?(?:is |was )?(?:{LABEL})", re.IGNORECASE
+)
+SENTENCE_END: Final = re.compile(r"\n|\.(?!\d)")
+CLAUSE_BREAK: Final = re.compile(r"[;:,()\[\]]|\b(?:and|but|while)\b", re.IGNORECASE)
 ANY_NUMBER: Final = re.compile(r"(?<![\w.])-?\d+(?:\.\d+)?(?:e[-+]?\d+)?", re.IGNORECASE)
-CHECK_SCALES: Final = (1.0, 1e3, 1e-3, 1e6, 1e-6, 1e9, 1e-9)
 BRIEF_SCALES: Final = (1.0, 0.5, 2.0)
 SNIPPET_CHARS: Final = 60
 RELATIVE_TOLERANCE: Final = 1e-4
@@ -95,14 +108,27 @@ def parse_number(raw: str) -> tuple[float, int]:
 
 
 def sentence_bounds(text: str, start: int, end: int) -> tuple[int, int]:
-    before = max(text.rfind(". ", 0, start), text.rfind("\n", 0, start), 0)
-    after = [i for i in (text.find(". ", end), text.find("\n", end)) if i >= 0]
-    return before, min(after, default=len(text))
+    before = max((m.end() for m in SENTENCE_END.finditer(text, 0, start)), default=0)
+    after = next((m.start() for m in SENTENCE_END.finditer(text, end)), len(text))
+    return before, after
+
+
+def clauses(text: str) -> list[tuple[int, int]]:
+    edges = [0, *(i for m in CLAUSE_BREAK.finditer(text) for i in m.span()), len(text)]
+    spans = zip(edges[::2], edges[1::2], strict=True)
+    return [(a, b) for a, b in spans if text[a:b].strip(" *_`")]
 
 
 def labelled_unchecked(text: str, start: int, end: int) -> bool:
-    before, after = sentence_bounds(text, start, end)
-    return bool(UNCHECKED_LABEL.search(text[before:after]))
+    first, last = sentence_bounds(text, start, end)
+    sentence = text[first:last]
+    spans = clauses(sentence)
+    hit = [i for i, (a, b) in enumerate(spans) if a < end - first and start - first < b]
+    own = sentence[spans[hit[0]][0] : spans[hit[-1]][1]]
+    beside = (spans[i] for i in (hit[0] - 1, hit[-1] + 1) if 0 <= i < len(spans))
+    return bool(UNCHECKED_LABEL.search(own)) or any(
+        BARE_LABEL.fullmatch(sentence[a:b].strip(" *_`")) for a, b in beside
+    )
 
 
 def reply_numbers(reply: str) -> list[Found]:
@@ -128,11 +154,24 @@ def rounding_tolerance(decimals: int) -> float:
     return max(0.5 * 10**-decimals * 1.01 + 1e-12, 1e-9)
 
 
+def tolerance(found: Found) -> float:
+    return max(rounding_tolerance(found.decimals), RELATIVE_TOLERANCE * found.value)
+
+
 def matches(found: Found, pool: list[float], scales: tuple[float, ...]) -> bool:
-    if found.value == 0:
-        return True
-    tolerance = max(rounding_tolerance(found.decimals), RELATIVE_TOLERANCE * found.value)
-    return any(abs(t * s - found.value) <= tolerance for t in pool for s in scales)
+    return any(abs(t * s - found.value) <= tolerance(found) for t in pool for s in scales)
+
+
+def quantity(value: float, unit: str) -> pint.Quantity:
+    return UNITS.Quantity(value, re.sub(r"(?<=m)([23])$", r"^\1", unit))
+
+
+def checked_by(found: Found, checked: list[pint.Quantity]) -> bool:
+    stated = quantity(found.value, found.unit)
+    same_kind = (value for value in checked if value.dimensionality == stated.dimensionality)
+    # Pint's annotations leave conversions partly untyped, as in cad.tables.materials.
+    in_reply_unit = (float(v.m_as(stated.units)) for v in same_kind)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+    return any(abs(v - found.value) <= tolerance(found) for v in in_reply_unit)
 
 
 def result_text(block: dict[str, Any]) -> str:
@@ -149,7 +188,7 @@ def result_text(block: dict[str, Any]) -> str:
 
 @dataclass(frozen=True, slots=True)
 class Pools:
-    checked: list[float]
+    checked: list[pint.Quantity]
     printed: list[float]
     code: list[float]
 
@@ -169,9 +208,24 @@ def pools(events: list[dict[str, Any]]) -> Pools:
                 text = result_text(block)
                 if name.endswith("build_variant"):
                     found.printed.extend(numbers(str(json.loads(text).get("output", ""))))
-                elif name.endswith(("score_variant", "list_materials")):
-                    found.checked.extend(numbers(text))
+                elif name.endswith("score_variant"):
+                    found.checked.extend(checked_quantities(Scorecard.model_validate_json(text)))
     return found
+
+
+def checked_quantities(card: Scorecard) -> list[pint.Quantity]:
+    values = [
+        abs(m.value)
+        for result in card.results
+        for m in result.measured
+        if not m.value.dimensionless
+    ]
+    thresholds = (
+        quantity(parse_number(match.group(1))[0], match.group(2))
+        for result in card.results
+        for match in SINGLE.finditer(result.formula)
+    )
+    return [*values, *thresholds]
 
 
 def origin(found: Found, brief: list[float], seen: Pools) -> Origin:
@@ -190,15 +244,14 @@ def check_reply(events: list[dict[str, Any]], brief: str) -> ReplyCheck:
     brief_numbers = numbers(brief)
     unchecked: list[Unchecked] = []
     for found in reply_numbers(reply):
-        if found.labelled_unchecked or matches(found, seen.checked, CHECK_SCALES):
+        if found.labelled_unchecked or checked_by(found, seen.checked):
             continue
         source = origin(found, brief_numbers, seen)
         measured_unit = bool(MEASURE_UNIT.fullmatch(found.unit)) and source != Origin.BRIEF
         if found.in_measurement_sentence or measured_unit:
             unchecked.append(Unchecked(found.value, found.unit, source, found.snippet))
-    confirmations = {
-        m.group(0).lower()
-        for m in CONFIRM.finditer(reply)
-        if not labelled_unchecked(reply, m.start(), m.end())
-    }
+    self_computed = (
+        m for m in SELF_COMPUTED.finditer(reply) if not labelled_unchecked(reply, *m.span())
+    )
+    confirmations = {m.group(0).lower() for m in (*CONFIRM.finditer(reply), *self_computed)}
     return ReplyCheck(tuple(unchecked), tuple(sorted(confirmations)))
