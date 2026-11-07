@@ -26,6 +26,9 @@ CONFIRM: Final = re.compile(
     r"|expected (?:volume|value)|analytic(?:al)? (?:volume|value)",
     re.IGNORECASE,
 )
+UNCHECKED_LABEL: Final = re.compile(
+    r"\bnot (?:from )?a check\b|\bnot checked\b|\bunchecked\b|\bnot measured\b", re.IGNORECASE
+)
 ANY_NUMBER: Final = re.compile(r"(?<![\w.])-?\d+(?:\.\d+)?(?:e[-+]?\d+)?", re.IGNORECASE)
 CHECK_SCALES: Final = (1.0, 1e3, 1e-3, 1e6, 1e-6, 1e9, 1e-9)
 BRIEF_SCALES: Final = (1.0, 0.5, 2.0)
@@ -77,6 +80,7 @@ class Found:
     unit: str
     snippet: str
     in_measurement_sentence: bool
+    labelled_unchecked: bool
 
 
 def numbers(text: str) -> list[float]:
@@ -90,6 +94,17 @@ def parse_number(raw: str) -> tuple[float, int]:
     return float(plain), decimals
 
 
+def sentence_bounds(text: str, start: int, end: int) -> tuple[int, int]:
+    before = max(text.rfind(". ", 0, start), text.rfind("\n", 0, start), 0)
+    after = [i for i in (text.find(". ", end), text.find("\n", end)) if i >= 0]
+    return before, min(after, default=len(text))
+
+
+def labelled_unchecked(text: str, start: int, end: int) -> bool:
+    before, after = sentence_bounds(text, start, end)
+    return bool(UNCHECKED_LABEL.search(text[before:after]))
+
+
 def reply_numbers(reply: str) -> list[Found]:
     found: list[Found] = []
     taken: list[tuple[int, int]] = []
@@ -100,11 +115,12 @@ def reply_numbers(reply: str) -> list[Found]:
             taken.append((match.start(), match.end()))
             snippet = reply[max(0, match.start() - SNIPPET_CHARS) : match.end() + 20]
             snippet = snippet.replace("\n", " ")
-            sentence = max(reply.rfind(". ", 0, match.start()), reply.rfind("\n", 0, match.start()))
-            measuring = bool(MEASURE_WORDS.search(reply[max(sentence, 0) : match.start()]))
+            sentence, _ = sentence_bounds(reply, match.start(), match.end())
+            measuring = bool(MEASURE_WORDS.search(reply[sentence : match.start()]))
+            labelled = labelled_unchecked(reply, match.start(), match.end())
             for raw in re.findall(NUM, match.group(1)):
                 value, decimals = parse_number(raw)
-                found.append(Found(value, decimals, match.group(2), snippet, measuring))
+                found.append(Found(value, decimals, match.group(2), snippet, measuring, labelled))
     return found
 
 
@@ -174,11 +190,15 @@ def check_reply(events: list[dict[str, Any]], brief: str) -> ReplyCheck:
     brief_numbers = numbers(brief)
     unchecked: list[Unchecked] = []
     for found in reply_numbers(reply):
-        if matches(found, seen.checked, CHECK_SCALES):
+        if found.labelled_unchecked or matches(found, seen.checked, CHECK_SCALES):
             continue
         source = origin(found, brief_numbers, seen)
         measured_unit = bool(MEASURE_UNIT.fullmatch(found.unit)) and source != Origin.BRIEF
         if found.in_measurement_sentence or measured_unit:
             unchecked.append(Unchecked(found.value, found.unit, source, found.snippet))
-    confirmations = tuple(sorted({m.group(0).lower() for m in CONFIRM.finditer(reply)}))
-    return ReplyCheck(tuple(unchecked), confirmations)
+    confirmations = {
+        m.group(0).lower()
+        for m in CONFIRM.finditer(reply)
+        if not labelled_unchecked(reply, m.start(), m.end())
+    }
+    return ReplyCheck(tuple(unchecked), tuple(sorted(confirmations)))
