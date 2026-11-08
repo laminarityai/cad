@@ -74,5 +74,7 @@ def _editable(requirement: Requirement) -> Editable | None:
 
 
 def _decides(kind: Kind) -> str:
+    if kind is Kind.MADE_OF:
+        return "Fixes the material that scoring uses"
     check = deciding_check(kind)
     return f"Decided by the {check} check" if check else "No reviewed check: unverified"
