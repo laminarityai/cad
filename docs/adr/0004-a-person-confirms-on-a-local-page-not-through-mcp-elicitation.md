@@ -32,4 +32,4 @@ One click answers the whole page. The page lists every brief in the project whos
 
 The guarantee and its gap are unchanged. An agent that reaches the server only through MCP cannot answer the page. An agent with shell tools that runs as the same user can read the projects key, as it could read the brief store's key before.
 
-This amendment awaits the operator's approval.
+The operator approved this amendment on 2026-11-08.
