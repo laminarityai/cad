@@ -224,7 +224,7 @@ def docker(*args: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             ("docker", *args),
             capture_output=True,
-            text=True,
+            encoding="utf-8",
             check=False,
             timeout=DOCKER_TIMEOUT_SECONDS,
         )
