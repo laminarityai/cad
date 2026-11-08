@@ -11,8 +11,18 @@ from typing import Final
 import pint
 
 from cad.briefs.model import Envelope, Limit, Requirement, deciding_check, describe, limits
+from cad.briefs.store import ConfirmedSet
 from cad.checks.result import CheckResult, Comparator, Verdict
-from cad.scorecard.model import AgainstBrief, Checked, Comparison, RequirementResult, Unverified
+from cad.scorecard.model import (
+    AgainstBrief,
+    AwaitingConfirmation,
+    Basis,
+    Checked,
+    Comparison,
+    RequirementResult,
+    Unverified,
+)
+from cad.scorecard.score import Assess
 
 # Absorbs float noise from unit conversion, so 4 cm read as 40.00000000000001 mm still meets a
 # 40 mm limit. It is not an engineering tolerance.
@@ -30,6 +40,27 @@ ROTATION: Final = (
     "The bounding box in the part's own axes is larger than the confirmed box. A rotated part "
     "might still fit, and no check measures the smallest box over all rotations."
 )
+
+
+def against(confirmed: ConfirmedSet) -> Assess:
+    """Judge the set a person confirmed. Only the brief store makes a ConfirmedSet."""
+
+    def assess(results: tuple[CheckResult, ...]) -> Basis:
+        return assess_requirements(
+            confirmed.brief_id, confirmed.decision_sha256, confirmed.requirements, results
+        )
+
+    return assess
+
+
+def awaiting(brief_id: str) -> Assess:
+    """The brief has nothing confirmed yet: every check runs and no requirement is judged."""
+
+    def assess(results: tuple[CheckResult, ...]) -> Basis:
+        del results
+        return AwaitingConfirmation(brief_id=brief_id)
+
+    return assess
 
 
 def assess_requirements(

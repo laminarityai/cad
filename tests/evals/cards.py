@@ -14,7 +14,7 @@ from trace_store import SPEC_BY_ID
 
 from cad.checks.report import SPECS, CheckSpec
 from cad.checks.result import CheckResult, Measure, StepStored, Verdict
-from cad.scorecard.model import Scorecard
+from cad.scorecard.model import NoBrief, Scorecard
 from cad.scorecard.score import SCORECARD
 from cad.tables.materials import UNITS, Cited, MaterialsTable, load_materials
 
@@ -71,6 +71,7 @@ def genuine_card(**changes: object) -> Scorecard:
         brep_sha256=BREP_SHA,
         step=StepStored(sha256=STEP_SHA),
         results=tuple(genuine_result(spec) for spec in SPECS),
+        basis=NoBrief(),
     )
     return card.model_copy(update=changes)
 

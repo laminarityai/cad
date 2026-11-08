@@ -1,14 +1,8 @@
-from typing import Annotated, Literal
+from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from cad.checks.result import CheckResult, Comparator, Measured, Step, Verdict
-
-NO_REQUIREMENTS_NOTE = (
-    "Phase 1 reads no requirements from the brief, so unverified_requirements is empty. "
-    "This scorecard covers only the universal checks above and says nothing about whether the "
-    "variant meets the brief."
-)
 
 
 class _Frozen(BaseModel):
@@ -63,13 +57,37 @@ class AgainstBrief(_Frozen):
     requirements: tuple[RequirementResult, ...]
     unverified_requirements: tuple[str, ...]
 
+    @model_validator(mode="after")
+    def _lists_the_unverified_entries(self) -> Self:
+        ids = tuple(one.requirement_id for one in self.requirements if isinstance(one, Unverified))
+        if ids != self.unverified_requirements:
+            raise ValueError("unverified_requirements must list the Unverified requirements")
+        return self
+
+
+class NoBrief(_Frozen):
+    """Scored with no brief: the card covers the universal checks and no requirement."""
+
+    kind: Literal["no_brief"] = "no_brief"
+
+
+class AwaitingConfirmation(_Frozen):
+    """Scored against a brief whose requirements nobody has confirmed yet, so none is judged."""
+
+    kind: Literal["awaiting_confirmation"] = "awaiting_confirmation"
+    brief_id: str
+
+
+type Basis = Annotated[NoBrief | AwaitingConfirmation | AgainstBrief, Field(discriminator="kind")]
+
 
 class Scorecard(BaseModel):
     """All of a variant's check results, each with its formula and source.
 
     `brep_sha256` names the shape the checks measured. `step` names the STEP derived from it, or
     says why there is none. `table_version` and `image_digest` name the materials table and the
-    sandbox image that the run used. Each result carries its own check version.
+    sandbox image that the run used. Each result carries its own check version. `basis` says
+    what the card was scored against, and holds the requirements when there are any.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -81,5 +99,4 @@ class Scorecard(BaseModel):
     brep_sha256: str
     step: Step
     results: tuple[CheckResult, ...]
-    unverified_requirements: tuple[str, ...] = ()
-    requirements_note: str = NO_REQUIREMENTS_NOTE
+    basis: Basis
