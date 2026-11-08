@@ -175,6 +175,7 @@ def _place(
     match found.where:
         case ("results", int() as index, "measured", int() as place, "value"):
             result = card.results[index]
+            assert isinstance(result, CheckResult), "only a finished check has measures"
             measure = result.measured[place]
             outcome = _trace(card, result, measure, table, specs)
             return Traced(f"{result.check_id}.{measure.name}", found.value, outcome)

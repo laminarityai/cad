@@ -6,7 +6,6 @@ from pathlib import Path
 import pytest
 
 from cad.sandbox.container import (
-    MEMORY_MB,
     Attended,
     ContainerState,
     Job,
@@ -16,7 +15,7 @@ from cad.sandbox.container import (
 from cad.sandbox.host import TEXT_CAP, Artifacts, build_job, classify
 from cad.sandbox.outcome import BuildFailed, Failure, NoResult, OutOfMemory, TimedOut
 
-WALL = 60
+OWN_LIMITS = Job("build", "sha256:sandbox", (), b"", wall_seconds=60, memory_mb=1536)
 CONTRACT = "assign the final shape to `result`"
 MALFORMED = BuildFailed(error="the build sent a malformed result", traceback="")
 
@@ -47,7 +46,9 @@ def exited_without_report(code: int) -> BuildFailed:
     ("attended", "container", "expected"),
     [
         pytest.param(
-            seen(built_report(), killed=True), state(0), TimedOut(limit_seconds=WALL), id="kill"
+            seen(built_report(), killed=True), state(0),
+            TimedOut(limit_seconds=OWN_LIMITS.wall_seconds),
+            id="kill",
         ),
         pytest.param(seen(built_report()), state(0), Artifacts(b"brep bytes"), id="built"),
         pytest.param(
@@ -72,7 +73,7 @@ def exited_without_report(code: int) -> BuildFailed:
             id="not-a-shape",
         ),
         pytest.param(
-            seen(b""), state(137, oom=True), OutOfMemory(limit_mb=MEMORY_MB), id="oom"
+            seen(b""), state(137, oom=True), OutOfMemory(limit_mb=1536), id="oom"
         ),
         pytest.param(seen(b""), state(152), exited_without_report(152), id="152-is-not-timeout"),
         pytest.param(seen(b""), state(137), exited_without_report(137), id="137-is-not-timeout"),
@@ -103,19 +104,19 @@ def exited_without_report(code: int) -> BuildFailed:
 def test_classify(
     attended: Attended, container: ContainerState, expected: Artifacts | Failure
 ) -> None:
-    assert classify(attended, container, WALL) == expected
+    assert classify(attended, container, OWN_LIMITS) == expected
 
 
 def test_report_strings_keep_the_error_head_and_the_traceback_tail() -> None:
     error = "ValueError: " + "e" * TEXT_CAP
     traceback = "t" * TEXT_CAP + "ValueError: last line"
-    verdict = classify(seen(failed_report(error=error, traceback=traceback)), state(0), WALL)
+    verdict = classify(seen(failed_report(error=error, traceback=traceback)), state(0), OWN_LIMITS)
     assert verdict == BuildFailed(error=error[:TEXT_CAP], traceback=traceback[-TEXT_CAP:])
 
 
 def test_the_container_runs_locked_down() -> None:
     runner = (Path(__file__).parents[2] / "src/cad/sandbox/runner.py").read_text()
-    job = build_job("x = 1\n", "sha256:abc", WALL)
+    job = build_job("x = 1\n", "sha256:abc", OWN_LIMITS.wall_seconds)
     assert job == Job("build", "sha256:abc", ("python", "-I", "-c", runner, "120"), b"x = 1\n")
     assert run_argv("cad-build-1", job) == (
         "docker", "run", "--name", "cad-build-1", "--label", "cad.sandbox=build",

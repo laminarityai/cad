@@ -5,10 +5,13 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Final
 
-from cad.checks.result import CheckResult, CheckRun
-from cad.sandbox import host
+from cad.checks import jobs
+from cad.checks.lanes import LANES, WAIT_SECONDS, Done, Lanes, Pending, Settled
+from cad.checks.report import SPECS, CheckSpec, Request, build_request, unknown_for_all
+from cad.checks.result import CheckResult
+from cad.sandbox import host, image
 from cad.sandbox.outcome import Built, SandboxUnavailable
-from cad.scorecard.model import Basis, NoBrief, Scorecard
+from cad.scorecard.model import Basis, NoBrief, PendingCheck, Scorecard
 from cad.variants import entry
 from cad.variants import store as variants
 
@@ -27,32 +30,63 @@ def score_variant(
     material_key: str,
     root: Path = entry.VARIANTS_ROOT,
     assess: Assess = no_brief,
+    lanes: Lanes = LANES,
 ) -> Scorecard:
-    try:
-        run = host.run_checks(variant_id, material_key, root)
-        rebuilt_from = None
-    except entry.OutdatedVariant as outdated:
-        rebuilt = variants.build_variant(outdated.code, root)
-        if not isinstance(rebuilt.outcome, Built):
-            raise variants.RebuildFailed(outdated.id, rebuilt) from outdated
-        run = host.run_checks(rebuilt.variant_id, material_key, root)
-        rebuilt_from = outdated.id
-    card = scorecard_of(run, assess(run.results), rebuilt_from)
+    held, rebuilt_from = open_or_rebuild(variant_id, root)
+    request = build_request(material_key, host.materials_table())
+    plan = jobs.plan(root, held, request)
+    card = scorecard_of(plan, request, lanes.settle(plan, WAIT_SECONDS), assess, rebuilt_from)
     store(card, root)
     return card
 
 
-def scorecard_of(run: CheckRun, basis: Basis, rebuilt_from: str | None = None) -> Scorecard:
+def open_or_rebuild(variant_id: str, root: Path) -> tuple[entry.Entry, str | None]:
+    tag = image.image_tag(image.BUILD)
+    try:
+        return entry.open_entry(root, variant_id, tag), None
+    except entry.OutdatedVariant as outdated:
+        rebuilt = variants.build_variant(outdated.code, root)
+        if not isinstance(rebuilt.outcome, Built):
+            raise variants.RebuildFailed(outdated.id, rebuilt) from outdated
+        return entry.open_entry(root, rebuilt.variant_id, tag), outdated.id
+
+
+def scorecard_of(
+    plan: jobs.Plan,
+    request: Request,
+    settled: Settled,
+    assess: Assess,
+    rebuilt_from: str | None = None,
+) -> Scorecard:
+    by_check: dict[str, CheckResult | PendingCheck] = {
+        one.check_id: one for one in settled.quick.results
+    }
+    for job, outcome in zip(plan.background, settled.background, strict=True):
+        match outcome:
+            case Done(result):
+                by_check.update((one.check_id, one) for one in result.results)
+            case Pending():
+                by_check.update((one.id, _pending(one)) for one in job.checks)
+            case jobs.Refused(reason):
+                by_check.update((one.check_id, one) for one in unknown_for_all(reason, job.checks))
+    results = tuple(by_check[spec.id] for spec in SPECS)
     return Scorecard(
         rebuilt_from=rebuilt_from,
-        variant_id=run.variant_id,
-        material_key=run.material_key,
-        table_version=run.table_version,
-        check_image_digest=run.check_image_digest,
-        brep_sha256=run.brep_sha256,
-        step=run.step,
-        results=run.results,
-        basis=basis,
+        variant_id=plan.quick.variant_id,
+        material_key=request.material_key,
+        table_version=request.table_version,
+        check_image_digest=settled.quick.check_image_digest,
+        brep_sha256=plan.quick.brep_sha256,
+        step=settled.quick.step,
+        results=results,
+        pending=tuple(one.check_id for one in results if isinstance(one, PendingCheck)),
+        basis=assess(tuple(one for one in results if isinstance(one, CheckResult))),
+    )
+
+
+def _pending(spec: CheckSpec) -> PendingCheck:
+    return PendingCheck(
+        check_id=spec.id, formula=spec.formula, sources=spec.sources, version=spec.version
     )
 
 

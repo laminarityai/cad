@@ -48,14 +48,14 @@ def test_scoring_a_variant_an_older_sandbox_stored_scores_its_code_rebuilt(
     assert (tmp_path / old / entry.CODE).read_text() == PLATE
 
 
-def test_scoring_the_older_variant_again_reuses_the_rebuild(
+def test_scoring_the_older_variant_again_reuses_the_rebuild_and_its_checks(
     tmp_path: Path, jobs: list[str]
 ) -> None:
     old = stored_by_an_older_sandbox(tmp_path, PLATE)
     first = score.score_variant(old, "prusament-pla", tmp_path)
     jobs.clear()
     again = score.score_variant(old, "prusament-pla", tmp_path)
-    assert jobs == ["check"]
+    assert jobs == []
     assert (again.variant_id, again.rebuilt_from) == (first.variant_id, old)
 
 

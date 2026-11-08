@@ -19,7 +19,7 @@ from cad.checks.container.wire import (
 )
 from cad.checks.result import CheckResult, Measure, StepMissing, Verdict
 from cad.sandbox import container
-from cad.sandbox.container import Ran, TooMuchOutput
+from cad.sandbox.container import Job, Ran, TooMuchOutput
 from cad.sandbox.image import ANALYSIS, image_tag
 from cad.sandbox.stage import CONTAINER_ENTRY, PACKAGE_PATH, Sources, read_sources
 from cad.tables.materials import UNITS, Cited, Material, MaterialsTable, Source, UnknownMaterial
@@ -154,12 +154,12 @@ class Parsed:
     step: bytes | StepMissing
 
 
-def parse(ran: Ran, request: Request, wall_seconds: int) -> Parsed:
+def parse(ran: Ran, request: Request, job: Job) -> Parsed:
     seen, state = ran.attended, ran.state
     if seen.killed_at_deadline:
-        return _refused(f"the check container ran past {wall_seconds} s and was killed")
+        return _refused(f"the check container ran past {job.wall_seconds} s and was killed")
     if state.OOMKilled and (isinstance(seen.report, TooMuchOutput) or state.ExitCode != 0):
-        return _refused(f"the check container ran out of memory ({container.MEMORY_MB} MB)")
+        return _refused(f"the check container ran out of memory ({job.memory_mb} MB)")
     if isinstance(seen.report, TooMuchOutput):
         return _refused(f"the check container sent more than {container.REPORT_CAP // 2**20} MiB")
     if state.ExitCode != 0:
@@ -245,7 +245,7 @@ def _refused(reason: str) -> Parsed:
     return Parsed(unknown_for_all(reason), StepMissing(reason=reason))
 
 
-def unknown_for_all(reason: str) -> tuple[CheckResult, ...]:
+def unknown_for_all(reason: str, checks: Sequence[CheckSpec] = SPECS) -> tuple[CheckResult, ...]:
     return tuple(
         CheckResult(
             check_id=spec.id,
@@ -256,5 +256,5 @@ def unknown_for_all(reason: str) -> tuple[CheckResult, ...]:
             sources=spec.sources,
             version=spec.version,
         )
-        for spec in SPECS
+        for spec in checks
     )

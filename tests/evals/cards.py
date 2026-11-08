@@ -141,7 +141,7 @@ def _confirmed(roots: Roots, brief_id: str) -> ConfirmedSet:
 
 def judged_card(confirmed: ConfirmedSet) -> Scorecard:
     card = genuine_card()
-    basis: Basis = against(confirmed)(card.results)
+    basis: Basis = against(confirmed)(card.finished)
     return card.model_copy(update={"basis": basis})
 
 
@@ -154,7 +154,7 @@ def with_result(card: Scorecard, check_id: str, **changes: object) -> Scorecard:
 
 
 def result_of(card: Scorecard, check_id: str) -> CheckResult:
-    return next(result for result in card.results if result.check_id == check_id)
+    return next(result for result in card.finished if result.check_id == check_id)
 
 
 def reasons(traced: CardTrace, kind: type[Stale] | type[Unresolved], label: str = "") -> list[str]:
