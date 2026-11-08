@@ -4,6 +4,8 @@ No type here has a status field. The store derives status from which signed deci
 exist, so there is no stored "confirmed" for anyone to edit.
 """
 
+import hashlib
+import json
 import math
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -194,6 +196,15 @@ class Requirement(_Frozen):
     origin: BriefSpan
 
 
+def requirement_id(brief_id: BriefId, target: Target, origin: BriefSpan) -> RequirementId:
+    """The id of a requirement: the same brief, target and span always give the same id."""
+    identity = json.dumps(
+        [brief_id, target.model_dump(mode="json"), origin.model_dump(mode="json")],
+        sort_keys=True,
+    )
+    return RequirementId(hashlib.sha256(identity.encode()).hexdigest()[:16])
+
+
 class Proposal(_Frozen):
     """One whole numbered set of requirements for a brief. Never edited once stored."""
 
@@ -225,7 +236,7 @@ class Decision(_Frozen):
     decided_at: datetime
 
 
-def _amount(quantity: pint.Quantity) -> str:
+def amount(quantity: pint.Quantity) -> str:
     return f"{_magnitude(quantity):g} {quantity.units:~P}"
 
 
@@ -236,11 +247,11 @@ def describe(requirement: Requirement) -> str:
         case ClosedSolid():
             return "The part is one closed solid"
         case MaxMass():
-            return f"Mass at most {_amount(target.mass)}"
+            return f"Mass at most {amount(target.mass)}"
         case MinMass():
-            return f"Mass at least {_amount(target.mass)}"
+            return f"Mass at least {amount(target.mass)}"
         case Envelope():
-            return "Fits inside a box of " + " x ".join(_amount(edge) for edge in target.edges)
+            return "Fits inside a box of " + " x ".join(amount(edge) for edge in target.edges)
         case Unchecked():
             return target.statement
         case _:

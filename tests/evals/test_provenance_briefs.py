@@ -97,6 +97,25 @@ def test_a_limit_confirmed_on_the_page_resolves_to_the_page_answer(
     }
 
 
+def test_a_number_the_person_changed_on_the_page_resolves_to_their_answer(
+    store: Path, roots: Roots, brief_id: str
+) -> None:
+    confirmed = confirm_on_page(roots, brief_id, drafts(LIGHT, BOX, FRIENDLY), {0: "120 g"})
+    [(answer_sha256, _)] = answers.read_ledger(roots.projects, project_of(roots, brief_id)).answers
+    card = judged_card(confirmed)
+    light = confirmed.requirements[0].id
+    assert card.model_dump(mode="json")["basis"]["requirements"][0]["comparisons"][0]["limit"] == {
+        "magnitude": 120.0,
+        "unit": "g",
+    }
+    assert trace(card, store).failures == ()
+    assert {one.outcome for one in trace(card, store).numbers if one.label == FIRST_LIMIT} == {
+        Resolved((ConfirmedStep(confirmed.brief_id, answer_sha256, light, "Mass at most 120 g"),))
+    }
+    proposed = {"comparison": {"limit": {"magnitude": 150, "unit": "g"}}}
+    assert failures_of(edited(card, proposed), store) == [Misjudged]
+
+
 def test_a_tampered_page_answer_is_unconfirmed(store: Path, roots: Roots, brief_id: str) -> None:
     card = judged_card(confirm_on_page(roots, brief_id, drafts(LIGHT)))
     [path] = roots.projects.glob("*/answers/0001.signed")
