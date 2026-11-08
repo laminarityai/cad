@@ -1,5 +1,8 @@
 """Usage: uv run python .claude/skills/verify/scripts/claude_session.py [--model <alias>]
-    [--opener <program>] "<prompt>" <transcript.json>
+    [--opener <program>] [--home <dir> | --real-home] "<prompt>" <transcript.json>
+
+The cad server runs with HOME set to a fresh temporary directory, so a drive never writes to the
+operator's ~/.cad (issue #81). --home reuses a directory across sessions; --real-home opts out.
 
 Claude Code skips a broken MCP server entry and still exits 0, so this script fails unless the
 system/init event lists `cad` as connected with no mcp_server_errors. It also fails when the
@@ -18,9 +21,11 @@ ROOT = Path(__file__).resolve().parents[4]
 CAD_TOOL_PREFIX = "mcp__cad__"
 
 
-def mcp_config(opener: str | None = None) -> str:
+def mcp_config(opener: str | None = None, home: Path | None = None) -> str:
     config = json.loads((ROOT / ".mcp.json").read_text())
     cad = config["mcpServers"]["cad"]
+    if home is not None:
+        cad["env"] = {"HOME": str(home)}
     cad["args"] = [
         "--directory",
         str(ROOT),
@@ -30,7 +35,14 @@ def mcp_config(opener: str | None = None) -> str:
     return json.dumps(config)
 
 
-def main(prompt: str, transcript: Path, model: str | None = None, opener: str | None = None) -> int:
+def main(
+    prompt: str,
+    transcript: Path,
+    model: str | None = None,
+    opener: str | None = None,
+    home: Path | None = None,
+) -> int:
+    print(f"server home: {home or Path.home()}")
     with tempfile.TemporaryDirectory(prefix="claude-session-") as empty:
         done = subprocess.run(
             [
@@ -38,7 +50,7 @@ def main(prompt: str, transcript: Path, model: str | None = None, opener: str | 
                 "-p",
                 prompt,
                 "--mcp-config",
-                mcp_config(opener),
+                mcp_config(opener, home),
                 "--strict-mcp-config",
                 "--tools",
                 "",
@@ -94,7 +106,16 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model")
     parser.add_argument("--opener", help="program the cad server runs with the page URL")
+    homes = parser.add_mutually_exclusive_group()
+    homes.add_argument("--home", type=Path, help="HOME for the cad server, kept across sessions")
+    homes.add_argument("--real-home", action="store_true", help="run the server in your own HOME")
     parser.add_argument("prompt")
     parser.add_argument("transcript", type=Path)
     args = parser.parse_args()
-    sys.exit(main(args.prompt, args.transcript, args.model, args.opener))
+    home = None
+    if args.home:
+        home = args.home.resolve()
+        home.mkdir(parents=True, exist_ok=True)
+    elif not args.real_home:
+        home = Path(tempfile.mkdtemp(prefix="cad-home-"))
+    sys.exit(main(args.prompt, args.transcript, args.model, args.opener, home))

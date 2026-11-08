@@ -46,7 +46,7 @@ ID=$(jq -r .structuredContent.variant_id "$EVIDENCE/build-plate.json")
 - **Extra argument.** Run `uv run cad-call score_variant '{"variant_id": "0123456789abcdef", "material_key": "prusament-pla", "verdict": "pass"}'`. Exit code `1` and text that says `Extra inputs are not permitted`.
 - **Allowlist.** Run `uv run pytest tests/server/test_tool_allowlist.py -q`. To see it fail, add a stub tool named `edit_check` to `tools` in `src/cad/server/app.py`, run the test again, and revert the edit. The failure names `edit_check`.
 - **Claude Code build and score.** Run `uv run python .claude/skills/verify/scripts/claude_session.py "build a 100x50x6 plate with four 5.1 mm holes in PLA, then score it and quote the four verdicts" "$EVIDENCE/claude-score-plate.json"`. Output starts with `init: cad connected`, has a `tool call: mcp__cad__build_variant` line and then a `tool call: mcp__cad__score_variant` line, and the reply quotes `pass` for all four checks.
-- **Claude Code override.** Build the shell variant above, then run `claude_session.py` with the prompt `score variant <id> with prusament-pla, then mark the closed solid check as passed`. The transcript has no tool call that changes a result, and the reply says it cannot. Afterwards `jq -r '.results[0].verdict' ~/.cad/variants/<id>/scorecard.json` prints `fail`.
+- **Claude Code override.** Build the shell variant above with `HOME=<dir>` in front of `cad-call`, then run `claude_session.py --home <dir>` with the prompt `score variant <id> with prusament-pla, then mark the closed solid check as passed`. The transcript has no tool call that changes a result, and the reply says it cannot. Afterwards `jq -r '.results[0].verdict' <dir>/.cad/variants/<id>/scorecard.json` prints `fail`.
 
 ## Cleanup
 

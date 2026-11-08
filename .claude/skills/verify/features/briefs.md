@@ -24,7 +24,7 @@ Preconditions:
 
 - `uv sync --frozen` has run.
 - The Doctor commands in `../SKILL.md` agree on the SHA.
-- The runs write to `~/.cad/briefs/` and `~/.cad/projects/`. Note each `brief_id` and `project_id` a run prints and delete `~/.cad/briefs/<brief_id>` and `~/.cad/projects/<project_id>` when the evidence is saved.
+- `claude_session.py` runs the server in the temporary home it prints, so briefs and answers land in `<home>/.cad/briefs/` and `<home>/.cad/projects/`. Read the paths below under that home. Run each `cad-call` with `HOME` set to a temporary directory too.
 
 - **Live, confirmed.** Run `CAD_HUMAN_LOG="$EVIDENCE/human-confirm.jsonl" uv run python .claude/skills/verify/scripts/claude_session.py --opener "$PWD/.claude/skills/verify/scripts/human.py" "<prompt>" "$EVIDENCE/claude-brief-confirm.json"`. The prompt asks for `create_brief` with the user's words verbatim, `propose_requirements` with one quote per requirement, `ask_to_confirm` with the `project_id`, then `list_requirements`. The transcript has the four `mcp__cad__*` calls in that order. `ask_to_confirm` returns `status` `answered` and the item's `outcome` `confirmed`. `human-confirm.jsonl` has `no token` and `wrong token` at status `403`, `page` at `200` with `quotes_in_brief` true (every section's quotes appear in that section's brief), `confirm` at `200` and `replay` at `403`.
 - **Live, edited.** The confirmed command with `CAD_HUMAN_EDIT="150 g=120 g"` in front, and a prompt that proposes a 150 g `max_mass`. `human-confirm.jsonl` has an `edit` entry with `fields` 1, and `list_requirements` shows "Mass at most 120 g" as `confirmed`, with an id that differs from the proposed one and `edited_by_user` `{"proposed": "150 g", "confirmed": "120 g"}`.

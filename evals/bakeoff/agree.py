@@ -213,11 +213,14 @@ def replay_one(attempt: Attempt, root: Path) -> Row:
 def live_one(part: str, brief: str, out: Path, model: str) -> Row:
     started = time.monotonic()
     transcript = out / f"{part}.json"
+    home = out / f"{part}-home"
     command = [
         sys.executable,
         str(SESSION),
         "--model",
         model,
+        "--home",
+        str(home),
         brief_prompt(brief, MATERIAL_KEY),
         str(transcript),
     ]
@@ -227,7 +230,7 @@ def live_one(part: str, brief: str, out: Path, model: str) -> Row:
     )
     session = read_session(events)
     row = evaluate(
-        part, part, session.scored_variant, entry.VARIANTS_ROOT, time.monotonic() - started
+        part, part, session.scored_variant, home / ".cad" / "variants", time.monotonic() - started
     )
     if done.returncode != 0:
         last = (done.stdout.strip().splitlines() or ["no output"])[-1]

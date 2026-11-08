@@ -28,7 +28,7 @@ Preconditions:
 
 ## Cleanup
 
-A replay builds into a temporary store, `agree-store-*` under the temp directory, and removes it at the end. A live run uses `~/.cad/variants`.
+A replay builds into a temporary store, `agree-store-*` under the temp directory, and removes it at the end. A live run gives each part its own server home, `<part>-home` next to its transcript, and reads `<part>-home/.cad/variants`.
 
 ## Gotchas
 
