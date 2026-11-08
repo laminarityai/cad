@@ -37,7 +37,7 @@ def run(subject: Subject) -> FindingWire:
     if isinstance(shape, Unreadable):
         return no_shape(shape)
     for required in REQUIRES:
-        found = required.run(subject)
+        found = subject.reported[required.ID]
         if found["verdict"] != "pass":
             return finding(
                 "unknown",

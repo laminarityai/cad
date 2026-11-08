@@ -45,8 +45,11 @@ def main() -> None:
 
 def run(request: RequestWire, brep: bytes, kernel: Kernel, report_cap: int) -> CheckedReport:
     shape = kernel.read_brep(brep)
-    subject = Subject(kernel, shape, request["density"])
-    results = [_run_check(check.ID, check.run, subject) for check in CHECKS]
+    results: list[ResultWire] = []
+    for check in CHECKS:
+        reported = {result["id"]: result for result in results}
+        subject = Subject(kernel, shape, request["density"], reported)
+        results.append(_run_check(check.ID, check.run, subject))
     room = _step_room(results, report_cap)
     return {"kind": "checked", "results": results, "step": _step(kernel, shape, room)}
 
