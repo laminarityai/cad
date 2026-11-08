@@ -9,6 +9,8 @@ basis is trusted: it is re-derived.
 from dataclasses import dataclass
 from pathlib import Path
 
+import pint
+
 from cad.briefs import store
 from cad.briefs.model import Requirement
 from cad.briefs.records import BriefStoreUnusable
@@ -115,7 +117,7 @@ def _misjudged(card: Scorecard, basis: AgainstBrief, shown: Shown) -> Misjudged 
         derived = assess_requirements(
             basis.brief_id, basis.decision_sha256, shown.requirements, card.results
         )
-    except NoDecidingResult as error:
+    except (NoDecidingResult, pint.DimensionalityError) as error:
         return Misjudged(f"cannot judge the confirmed requirements: {error}")
     if derived == basis:
         return None
