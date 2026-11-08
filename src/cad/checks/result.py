@@ -14,6 +14,11 @@ class Verdict(StrEnum):
     UNKNOWN = "unknown"
 
 
+class Comparator(StrEnum):
+    AT_MOST = "at_most"
+    AT_LEAST = "at_least"
+
+
 class QuantityJson(TypedDict):
     magnitude: float
     unit: str
