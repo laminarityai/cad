@@ -1,13 +1,15 @@
 from datetime import date
 
 from cad.checks.report import DEPENDENCIES, SPECS, build_request, reads_of
-from cad.checks.result import ReadCited, ReadMissing, ReadResearched, Verdict
+from cad.checks.result import ReadCited, ReadMissing, ReadResearched, StepStored, Verdict
 from cad.projects.model import ProjectId
 from cad.research.ledger import Ledger, ResearchedRecord
-from cad.research.overlay import overlay
+from cad.research.overlay import ProjectTable, overlay
 from cad.research.requests import requests_on
-from cad.scorecard import requirements
-from cad.scorecard.model import Checked, PendingCheck
+from cad.scorecard import material, requirements
+from cad.scorecard.material import ReportedScorecard
+from cad.scorecard.model import Checked, NoBrief, PendingCheck, Scorecard
+from cad.server.research_tools import with_research
 from cad.tables.materials import MaterialsTable, load_materials
 from tests.scorecard.test_requirements import max_mass, result
 
@@ -54,6 +56,8 @@ def test_a_missing_material_value_on_a_pending_fea_asks_for_research() -> None:
         "poisson_ratio",
     )
     assert (request.unit, request.low, request.high) == ("dimensionless", 0.0, 0.5)
+    assert request.exclusive
+    assert "more than 0 and less than 0.5" in request.instruction
     assert "submit_research" in request.instruction
     assert "Never type the number" in request.instruction
 
@@ -103,3 +107,31 @@ def test_a_requirement_on_cited_values_has_the_checks_basis() -> None:
 def test_the_research_code_stays_out_of_every_check_version() -> None:
     assert not [path for path in DEPENDENCIES.files if path.startswith("cad/research/")]
     assert MASS.version
+
+
+def card_asking() -> ReportedScorecard:
+    card = Scorecard(
+        variant_id="0123456789abcdef",
+        material_key="prusament-pla",
+        table_version=GIT.version,
+        check_image_digest="sha256:" + "i" * 64,
+        brep_sha256="b" * 64,
+        step=StepStored(sha256="s" * 64),
+        results=(pending(GIT),),
+        pending=("fea",),
+        basis=NoBrief(),
+    )
+    return material.reported(card, None)
+
+
+def test_a_readable_project_gets_a_research_request() -> None:
+    card = with_research(card_asking(), ProjectTable(GIT), "b-1")
+    assert [one.field for one in card.research] == ["poisson_ratio"]
+    assert card.research_problem is None
+
+
+def test_an_unreadable_ledger_puts_its_problem_on_the_card_and_asks_for_nothing() -> None:
+    problem = "project p-1's research records cannot be read"
+    card = with_research(card_asking(), ProjectTable(GIT, problem=problem), "b-1")
+    assert card.research == ()
+    assert card.research_problem == problem

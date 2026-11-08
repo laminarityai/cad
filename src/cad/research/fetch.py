@@ -1,10 +1,11 @@
 import hashlib
 import http.client
 import ipaddress
+import math
 import socket
 import ssl
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Buffer, Callable, Sequence
 from dataclasses import dataclass
 from email.message import Message
 from html.parser import HTMLParser
@@ -20,6 +21,7 @@ TEXT_TYPES: Final = frozenset({"text/html", "application/xhtml+xml", "text/plain
 SKIPPED_TAGS: Final = frozenset({"script", "style", "noscript", "template", "svg"})
 
 _NAT64: Final = ipaddress.IPv6Network("64:ff9b::/96")
+_RESERVED_V6: Final = ipaddress.IPv6Network("::/8")
 
 type Address = ipaddress.IPv4Address | ipaddress.IPv6Address
 type Resolve = Callable[[str, int], Sequence[str]]
@@ -63,7 +65,7 @@ def fetch(
     url: str, *, resolve: Resolve | None = None, transport: Transport | None = None
 ) -> Page | FetchFailed:
     resolve = resolve or _resolve
-    transport = transport or _tls_get
+    transport = transport or tls_get
     deadline = time.monotonic() + TIMEOUT_SECONDS
     current = url
     try:
@@ -77,7 +79,7 @@ def fetch(
             return _page(current, response)
     except _Refused as refused:
         return FetchFailed(str(refused))
-    except (OSError, ValueError) as error:
+    except (OSError, ValueError, http.client.HTTPException) as error:
         return FetchFailed(f"the fetch of {current} failed: {type(error).__name__}: {error}")
     return FetchFailed(f"{url} redirects more than {MAX_REDIRECTS} times")
 
@@ -99,11 +101,8 @@ def _target(url: str, resolve: Resolve) -> Target:
         raise _Refused(f"the host {host} does not resolve: {error}") from error
     if not addresses:
         raise _Refused(f"the host {host} does not resolve")
-    private = [str(one) for one in addresses if not _public(one)]
-    if private:
-        raise _Refused(
-            f"the host {host} resolves to {', '.join(private)}, which is not a public address"
-        )
+    if not all(_public(one) for one in addresses):
+        raise _Refused(f"the host {host} resolves to a non-public address")
     path = parts.path or "/"
     return Target(host, str(addresses[0]), f"{path}?{parts.query}" if parts.query else path)
 
@@ -123,7 +122,10 @@ def _address(text: str) -> Address:
 
 def _public(address: Address) -> bool:
     """Private, loopback, link-local (which holds 169.254.169.254, the cloud metadata address),
-    shared, reserved and multicast addresses are all refused."""
+    shared, reserved and multicast addresses are all refused, and so is all of ::/8, which holds
+    the IPv4-compatible ::/96 that some stacks route to the IPv4 address it carries."""
+    if isinstance(address, ipaddress.IPv6Address) and address in _RESERVED_V6:
+        return False
     return address.is_global and not address.is_multicast
 
 
@@ -132,19 +134,39 @@ def _resolve(host: str, port: int) -> Sequence[str]:
     return [str(info[4][0]) for info in infos]
 
 
+class _DeadlineSocket(ssl.SSLSocket):
+    """Every read waits only for the time left before `deadline`, so a server that drips bytes,
+    in the headers or the body, cannot hold a fetch past it."""
+
+    deadline: float = math.inf
+
+    def recv_into(self, buffer: Buffer, nbytes: int | None = None, flags: int = 0) -> int:
+        self.settimeout(_left(self.deadline))
+        return super().recv_into(buffer, nbytes, flags)
+
+
 class _Pinned(http.client.HTTPSConnection):
-    def __init__(self, target: Target, timeout: float) -> None:
-        self._tls = ssl.create_default_context()
-        super().__init__(target.host, PORT, timeout=timeout, context=self._tls)
+    def __init__(
+        self, target: Target, deadline: float, port: int, context: ssl.SSLContext | None
+    ) -> None:
+        self._tls = context or ssl.create_default_context()
+        self._tls.sslsocket_class = _DeadlineSocket
+        super().__init__(target.host, port, timeout=_left(deadline), context=self._tls)
         self._address = target.address
+        self._deadline = deadline
 
     def connect(self) -> None:
-        raw = socket.create_connection((self._address, PORT), timeout=self.timeout)
-        self.sock = self._tls.wrap_socket(raw, server_hostname=self.host)
+        raw = socket.create_connection((self._address, self.port), timeout=_left(self._deadline))
+        sock = self._tls.wrap_socket(raw, server_hostname=self.host)
+        assert isinstance(sock, _DeadlineSocket)
+        sock.deadline = self._deadline
+        self.sock = sock
 
 
-def _tls_get(target: Target, deadline: float) -> Response:
-    connection = _Pinned(target, _left(deadline))
+def tls_get(
+    target: Target, deadline: float, *, port: int = PORT, context: ssl.SSLContext | None = None
+) -> Response:
+    connection = _Pinned(target, deadline, port, context)
     try:
         connection.request(
             "GET",
@@ -158,8 +180,7 @@ def _tls_get(target: Target, deadline: float) -> Response:
         response = connection.getresponse()
         body = bytearray()
         while len(body) <= MAX_BYTES:
-            _left(deadline)
-            chunk = response.read(64 * 1024)
+            chunk = response.read1(64 * 1024)
             if not chunk:
                 break
             body += chunk

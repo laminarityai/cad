@@ -75,8 +75,10 @@ def submit(
     today: Callable[[], date] = date.today,
 ) -> ResearchAnswer:
     ask = _Asker(question)
-    current = overlay(git, question.project, read_ledger(projects, question.project)).table
-    material = current.materials.get(question.key)
+    ledger = read_ledger(projects, question.project)
+    if ledger.problem is not None:
+        return ask(ledger.problem, other_source_could_answer=False)
+    material = overlay(git, question.project, ledger).table.materials.get(question.key)
     if material is None:
         return ask(
             f"no row in the materials table has the key {question.key!r}",
@@ -93,17 +95,18 @@ def submit(
             "replaces; score the variant again",
             other_source_could_answer=False,
         )
-    page = fetcher(question.url)
-    if isinstance(page, FetchFailed):
-        return ask(page.reason)
-    if _plain(question.quote) not in _plain(page.text):
-        return ask(
-            f"the quote does not appear word for word on {page.url}; copy it exactly from the "
-            "page as the server fetched it, without the page's markup"
-        )
     read = one_quantity(question.quote, question.field)
     if isinstance(read, Refusal):
         return ask(f"the quote cannot be read: {read.detail}; the server needs {read.needed}")
+    page = fetcher(question.url)
+    if isinstance(page, FetchFailed):
+        return ask(page.reason)
+    if not on_page(question.quote, page.text):
+        return ask(
+            f"the quote does not appear word for word on {page.url}, starting and ending where "
+            "the page's words and numbers do; copy it exactly from the page as the server "
+            "fetched it, without the page's markup"
+        )
     record = ResearchedRecord(
         project=question.project,
         key=question.key,
@@ -120,7 +123,7 @@ def submit(
         projects, question.project, record, _admit_at_append(git, question.project, record)
     )
     if isinstance(stored, Turned):
-        return ask(stored.reason)
+        return ask(stored.reason, other_source_could_answer=stored.other_source_could_answer)
     return ResearchAccepted(
         key=question.key,
         field=question.field,
@@ -185,3 +188,32 @@ def _already_answered(question: Question, held: Known) -> ResearchAccepted | Non
 
 def _plain(text: str) -> str:
     return fold(text).replace("\u2019", "'")
+
+
+def on_page(quote: str, text: str) -> bool:
+    """The quote must sit on boundaries in the page's text, so it never starts or ends partway
+    through a number: "960 kg/m3" is not on a page that says "8960 kg/m3"."""
+    needle, hay = _plain(quote).strip(), _plain(text)
+    start = hay.find(needle) if needle else -1
+    while start != -1:
+        if _opens(hay, start) and _closes(hay, start + len(needle)):
+            return True
+        start = hay.find(needle, start + 1)
+    return False
+
+
+def _opens(text: str, at: int) -> bool:
+    if at == 0:
+        return True
+    before = text[at - 1]
+    in_number = before in ".," and (text[at].isdigit() or text[at - 2 : at - 1].isdigit())
+    return not (before.isalnum() or in_number)
+
+
+def _closes(text: str, at: int) -> bool:
+    """A "." or "," after the quote ends it unless a digit follows, as in "0.35." at the end of
+    a sentence; "0.3" is cut from "0.35"."""
+    if at == len(text):
+        return True
+    after = text[at]
+    return not (after.isalnum() or (after in ".," and text[at + 1 : at + 2].isdigit()))

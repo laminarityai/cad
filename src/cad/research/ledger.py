@@ -52,6 +52,7 @@ class AlreadyStored:
 @dataclass(frozen=True, slots=True)
 class Turned:
     reason: str
+    other_source_could_answer: bool = True
 
 
 type Admit = Callable[[tuple[ResearchedRecord, ...]], AlreadyStored | Turned | None]
@@ -94,7 +95,10 @@ def append_record(
     try:
         stored = signed.append(store, directory, _slot_of(project), record_for)
     except signed.Tampered:
-        return Turned(f"project {project}'s research records cannot be read; {_OPERATOR}")
+        return Turned(
+            f"project {project}'s research records cannot be read; {_OPERATOR}",
+            other_source_could_answer=False,
+        )
     except signed.Contended as error:
         raise ProjectBusy(
             f"project {project} is being researched concurrently; try again"

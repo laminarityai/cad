@@ -143,11 +143,11 @@ def _settle(found: Value, shown: str, spec: FieldSpec) -> Quantity | Refusal:
                 f"one {spec.label} value with a tolerance of at most {MAX_TOLERANCE_PERCENT}%",
             )
     canonical = number * found.unit.to_canonical
-    if not spec.low <= canonical <= spec.high:
+    if not spec.admits(canonical):
         return Refusal(
             Reason.OUT_OF_BAND,
             f"{shown} is {canonical.normalize():f} {spec.canonical_unit}",
-            f"a {spec.label} between {spec.low:g} and {spec.high:g} {spec.canonical_unit}",
+            f"a {spec.label} of {spec.accepts}",
         )
     return Quantity(float(number), found.unit.symbol, float(canonical))
 

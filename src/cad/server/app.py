@@ -58,7 +58,9 @@ RESEARCH = (
     "research lists a request, answer each one with submit_research: a public page and a "
     "quote from it, never a number of your own. Then score again. A result labelled "
     "researched rests on a value the server read from that quote: report a pass on it as "
-    '"passes on researched data" and name the source. When a page is refused, try another.'
+    '"passes on researched data" and name the source. When a page is refused, try another. '
+    "When a scorecard has a research_problem, tell the user what it says and research "
+    "nothing for that project: only the operator can fix it."
 )
 TEST_MODE = (
     "Test mode is deeper analysis of one variant the user picks, for example when they ask "

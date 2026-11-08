@@ -9,7 +9,14 @@ from cad.records.roots import Roots
 from cad.research.fetch import FetchFailed, Page
 from cad.research.ledger import Ledger, read_ledger
 from cad.research.overlay import overlay, project_table
-from cad.research.submit import Fetch, Question, ResearchAccepted, ResearchRefused, submit
+from cad.research.submit import (
+    Fetch,
+    Question,
+    ResearchAccepted,
+    ResearchRefused,
+    on_page,
+    submit,
+)
 from cad.sources.fields import Field
 from cad.tables.materials import FromResearch, Known, MaterialsTable, Unknown, load_materials
 
@@ -133,13 +140,89 @@ def test_a_record_git_now_cites_is_dropped_and_the_table_still_loads(roots: Root
 
 
 def test_a_ledger_the_store_did_not_sign_gives_no_values_and_says_why(roots: Roots) -> None:
-    pid = create_brief(roots, "a bracket", new_project_id()).project
-    assert isinstance(ask(roots, project=pid), ResearchAccepted)
-    record = next((roots.projects / pid / "research").glob("*.signed"))
-    record.write_bytes(record.read_bytes().replace(b"0.36", b"0.46"))
+    pid = unreadable(roots)
     ledger = read_ledger(roots.projects, pid)
     assert ledger.records == ()
     assert ledger.problem is not None
     loaded = project_table(GIT, roots.projects, pid)
     assert loaded.table.version == GIT.version
     assert loaded.problem == ledger.problem
+
+
+@pytest.mark.parametrize(
+    ("quote", "text"),
+    [
+        ("960 kg/m3", "Density: 8960 kg/m3"),
+        ("1.34 g/cm3", "Density 11.34 g/cm3"),
+        ("250 MPa", "Yield strength 1250 MPa"),
+        ("Poisson's ratio 0.3", "Poisson's ratio 0.35"),
+        ("Poisson's ratio 0", "Poisson's ratio 0.35"),
+        ("34 g/cm3", "Density .34 g/cm3"),
+        ("960 kg/m3", "Density 8,960 kg/m3"),
+    ],
+)
+def test_a_quote_that_starts_or_ends_inside_a_number_is_not_on_the_page(
+    quote: str, text: str
+) -> None:
+    assert not on_page(quote, text)
+
+
+@pytest.mark.parametrize(
+    ("quote", "text"),
+    [
+        ("Density 8960 kg/m3", "Density 8960 kg/m3"),
+        ("Poisson's ratio 0.35", "(Poisson's ratio 0.35)"),
+        ("Poisson's ratio 0.35", "Poisson's ratio 0.35. Density 1.24 g/cm3"),
+        ("Poisson's ratio 0.35", "Poisson's ratio 0.35, density 1.24 g/cm3"),
+        ("Poisson's ratio 0.35", "Poisson's ratio 0.3 and Poisson's ratio 0.35"),
+    ],
+)
+def test_a_quote_bounded_by_the_text_or_punctuation_is_on_the_page(quote: str, text: str) -> None:
+    assert on_page(quote, text)
+
+
+def test_a_quote_cut_from_a_longer_number_is_refused(roots: Roots) -> None:
+    answer = ask(roots, "Poisson's ratio 0.3", fetcher=page("Poisson's ratio 0.35"))
+    assert isinstance(answer, ResearchRefused)
+    assert "does not appear word for word" in answer.reason
+
+
+@pytest.mark.parametrize("value", ["0", "0.5"])
+def test_a_poisson_ratio_the_table_rules_refuse_is_refused_before_the_fetch(
+    roots: Roots, value: str
+) -> None:
+    fetched: list[str] = []
+
+    def fetcher(url: str) -> Page:
+        fetched.append(url)
+        return Page(url, "PLA", f"Poisson's ratio {value}", "ab" * 32)
+
+    answer = ask(roots, f"Poisson's ratio {value}", fetcher=fetcher)
+    assert isinstance(answer, ResearchRefused)
+    assert "more than 0 and less than 0.5" in answer.reason
+    assert fetched == []
+
+
+def unreadable(roots: Roots) -> ProjectId:
+    pid = create_brief(roots, "a bracket", new_project_id()).project
+    assert isinstance(ask(roots, project=pid), ResearchAccepted)
+    record = next((roots.projects / pid / "research").glob("*.signed"))
+    record.write_bytes(record.read_bytes().replace(b"0.36", b"0.46"))
+    return pid
+
+
+def test_an_unreadable_ledger_is_refused_before_the_fetch_and_asks_for_nothing(
+    roots: Roots,
+) -> None:
+    pid = unreadable(roots)
+    fetched: list[str] = []
+
+    def fetcher(url: str) -> Page:
+        fetched.append(url)
+        return Page(url, "PLA", TEXT, "ab" * 32)
+
+    answer = ask(roots, project=pid, fetcher=fetcher)
+    assert isinstance(answer, ResearchRefused)
+    assert answer.reason == read_ledger(roots.projects, pid).problem
+    assert answer.request is None
+    assert fetched == []

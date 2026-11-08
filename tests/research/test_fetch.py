@@ -81,6 +81,10 @@ def test_a_url_outside_the_guards_is_refused_before_any_request(url: str, said: 
         "::ffff:127.0.0.1",
         "64:ff9b::a9fe:a9fe",
         "2002:7f00:1::1",
+        "::7f00:1",
+        "::a00:5",
+        "::808:808",
+        "::",
         "100.64.0.1",
         "224.0.0.1",
     ],
@@ -93,7 +97,7 @@ def test_a_host_that_resolves_to_a_private_address_is_refused(address: str) -> N
         transport=transport,
     )
     assert isinstance(failed, FetchFailed)
-    assert "not a public address" in failed.reason
+    assert failed.reason == "the host inside.test resolves to a non-public address"
     assert seen == []
 
 
@@ -105,7 +109,8 @@ def test_a_redirect_is_checked_again_and_refused_when_it_points_inside() -> None
         transport=transport,
     )
     assert isinstance(failed, FetchFailed)
-    assert "169.254.169.254" in failed.reason
+    assert "metadata.test resolves to a non-public address" in failed.reason
+    assert "169.254" not in failed.reason
     assert len(seen) == 1
 
 

@@ -13,8 +13,9 @@ SUBMIT: Final = "submit_research"
 
 
 class ResearchRequest(BaseModel):
-    """`low` and `high` bound the value in `unit` that the server accepts. `problems` says why an
-    earlier answer for the same field gave no value."""
+    """`low` and `high` bound the value in `unit` that the server accepts; when `exclusive`, the
+    bounds themselves are refused. `problems` says why an earlier answer for the same field gave
+    no value."""
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -24,6 +25,7 @@ class ResearchRequest(BaseModel):
     unit: str
     low: float
     high: float
+    exclusive: bool
     instruction: str
     problems: tuple[str, ...] = ()
 
@@ -32,7 +34,6 @@ def request_for(
     brief_id: str | None, key: str, field: Field, problems: Sequence[str] = ()
 ) -> ResearchRequest:
     spec = SPECS[field]
-    unit = "" if spec.unitless else f" {spec.canonical_unit}"
     if brief_id is None:
         first = (
             "Score the variant again with a brief_id first: researched values are stored for "
@@ -47,7 +48,7 @@ def request_for(
         f"the {spec.label} and gives one value, such as {spec.labels[0]!r} and its value. "
         "Never type the number: the server fetches the page and reads it from the quote. A "
         "source for a near material, such as plain PLA for a PLA blend, is allowed. The server "
-        f"accepts {spec.low:g} to {spec.high:g}{unit}. Then call score_variant again."
+        f"accepts {spec.accepts}. Then call score_variant again."
     )
     return ResearchRequest(
         brief_id=brief_id,
@@ -56,6 +57,7 @@ def request_for(
         unit=spec.canonical_unit,
         low=spec.low,
         high=spec.high,
+        exclusive=spec.exclusive,
         instruction=instruction,
         problems=tuple(problems),
     )

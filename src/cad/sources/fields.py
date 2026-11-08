@@ -16,6 +16,8 @@ GENERIC_LABELS: Final = ("typical", "nominal", "value")
 
 @dataclass(frozen=True, slots=True)
 class FieldSpec:
+    """`exclusive` keeps `low` and `high` themselves out, as the materials table's rules do."""
+
     label: str
     canonical_unit: str
     low: float
@@ -24,6 +26,20 @@ class FieldSpec:
     unit_hint: str
     labels: tuple[str, ...]
     needs_label: bool = True
+    exclusive: bool = False
+
+    def admits(self, value: Decimal) -> bool:
+        if self.exclusive:
+            return self.low < value < self.high
+        return self.low <= value <= self.high
+
+    @property
+    def accepts(self) -> str:
+        """The accepted range, in words: "0.1 to 5000 MPa" or "more than 0 and less than 0.5"."""
+        unit = "" if self.unitless else f" {self.canonical_unit}"
+        if self.exclusive:
+            return f"more than {self.low:g} and less than {self.high:g}{unit}"
+        return f"{self.low:g} to {self.high:g}{unit}"
 
     @property
     def unitless(self) -> bool:
@@ -91,6 +107,7 @@ SPECS: Final[dict[Field, FieldSpec]] = {
         {},
         "a number with no unit",
         ("poisson's ratio", "poissons ratio", "poisson ratio"),
+        exclusive=True,
     ),
     "yield_strength": _strength(
         "yield strength",
