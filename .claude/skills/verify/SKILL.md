@@ -7,7 +7,7 @@ description: Drive the cad MCP server the way a client does, either with one scr
 
 The product is a local MCP server over stdio (`uv run cad-server`). It has no screen. Evidence is a saved JSON transcript or a terminal capture. Run every command from the repo root, in a checkout where `uv sync --frozen` has run. Run each command as written, and replace only a `<placeholder>` in angle brackets or the `$EVIDENCE` variable.
 
-`claude_session.py` runs each Claude Code session from an empty temporary directory outside the repo, so the agent works away from `tables/` and the checks. `.mcp.json` starts the server with `uv run --frozen cad-server`, and `uv` finds the project from its working directory, so the script passes that entry with `--directory <repo root>` added in front. `${CLAUDE_PROJECT_DIR}` does not help. With `claude -p --mcp-config <absolute path>` run from `/tmp`, the variable was unset, and an entry that used it as `uv run --frozen --project "${CLAUDE_PROJECT_DIR}" cad-server` failed to connect.
+`claude_session.py` runs each Claude Code session from an empty temporary directory outside the repo, so the agent works away from `tables/` and the checks. It starts the server with `HOME` set to a fresh temporary directory and prints `server home: <path>` first, so a drive never writes to the operator's `~/.cad` (issue #81). Pass `--home <dir>` to keep one home across several sessions, such as a confirmation followed by a build, and run `cad-call` with `HOME=<dir>` to reach the same stores. `.mcp.json` starts the server with `uv run --frozen cad-server`, and `uv` finds the project from its working directory, so the script passes that entry with `--directory <repo root>` added in front. `${CLAUDE_PROJECT_DIR}` does not help. With `claude -p --mcp-config <absolute path>` run from `/tmp`, the variable was unset, and an entry that used it as `uv run --frozen --project "${CLAUDE_PROJECT_DIR}" cad-server` failed to connect.
 
 Set the evidence directory once per run. A swarm lane sets it to its own lane directory.
 
@@ -113,7 +113,7 @@ Never use `pkill` by name. Keep the files under `$EVIDENCE`, because they are th
 
 ## Helpers
 
-- `scripts/claude_session.py [--model <alias>] [--opener <program>] "<prompt>" <transcript.json>` is shown in Drive. `--opener` is passed to `cad-server`, which runs that program with the confirmation page URL instead of `open`.
+- `scripts/claude_session.py [--model <alias>] [--opener <program>] [--home <dir> | --real-home] "<prompt>" <transcript.json>` is shown in Drive. `--real-home` runs the server in your own `HOME`; use it only when the operator asks. `--opener` is passed to `cad-server`, which runs that program with the confirmation page URL instead of `open`.
 - `scripts/human.py` is the scripted person to pass as `--opener`. [Briefs](features/briefs.md) says how. It exits 1 when `cad` is not connected, when `claude` fails, when the session can reach or calls a tool outside cad, or when the session reports an error.
 
 Feature recipes live in [features/README.md](features/README.md).

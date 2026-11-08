@@ -53,6 +53,15 @@ RULE = (
     "yourself are not checks: do not report them as measurements or as confirming the scorecard. "
     "For anything no check measured, say that it was not checked."
 )
+TEST_MODE = (
+    "Test mode is deeper analysis of one variant the user picks, for example when they ask "
+    "whether it will hold a load or how long it takes to print. If the user states a load, a "
+    "print process or a print time that no confirmed requirement holds, propose it, as "
+    "unchecked when no check decides it, and have the user confirm before you score. Words "
+    "that are not in the brief go into a new brief in the same project first. Then score only "
+    "that variant, with its brief_id. Report only what the checks returned. Do not estimate a "
+    "strength, a deflection or a print time yourself: say it was not checked."
+)
 SCORE_VARIANT = (
     "Score one built variant with the fixed checks closed_solid, interference, mass and "
     "extents (the axis-aligned bounding box in mm), and store the scorecard beside the variant. "
@@ -82,7 +91,7 @@ SCORE_VARIANT = (
     "Scoring the same variant and key again gives the same scorecard while the materials table, "
     "the sandbox image and the confirmed requirements are unchanged. Scoring a rebuilt "
     "variant by its new id gives the same scorecard with rebuilt_from empty, and that card "
-    "replaces the stored one. " + RULE
+    "replaces the stored one. In Test mode, score only the variant the user picked. " + RULE
 )
 LIST_MATERIALS = (
     "List the material keys that score_variant accepts, each with its name. "
@@ -195,7 +204,7 @@ def build_server(
 
     server = MCPServer(
         "cad",
-        instructions=RULE + " " + PLAN_MODE,
+        instructions=" ".join((RULE, PLAN_MODE, TEST_MODE)),
         tools=[
             strict_tool(tool)
             for tool in (

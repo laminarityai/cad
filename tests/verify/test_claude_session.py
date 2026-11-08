@@ -3,6 +3,7 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
 SESSION = ROOT / ".claude/skills/verify/scripts/claude_session.py"
@@ -48,10 +49,10 @@ def test_a_tool_from_another_mcp_server_is_outside_cad(tmp_path: Path) -> None:
     assert "tools outside cad: mcp__other__x" in done.stdout
 
 
-def test_the_opener_flag_reaches_the_cad_server_arguments(tmp_path: Path) -> None:
+def cad_entry(tmp_path: Path, *flags: str) -> dict[str, Any]:
     argv = tmp_path / "argv.json"
     stub = tmp_path / "bin" / "claude"
-    stub.parent.mkdir()
+    stub.parent.mkdir(parents=True)
     stub.write_text(
         f"#!{sys.executable}\n"
         "import json, sys\n"
@@ -60,7 +61,7 @@ def test_the_opener_flag_reaches_the_cad_server_arguments(tmp_path: Path) -> Non
     )
     stub.chmod(0o755)
     done = subprocess.run(
-        [sys.executable, str(SESSION), "--opener", "/bin/echo", "a prompt", str(tmp_path / "o")],
+        [sys.executable, str(SESSION), *flags, "a prompt", str(tmp_path / "o")],
         capture_output=True,
         text=True,
         check=False,
@@ -69,4 +70,16 @@ def test_the_opener_flag_reaches_the_cad_server_arguments(tmp_path: Path) -> Non
     assert done.returncode == 0, done.stdout
     arguments = json.loads(argv.read_text())
     config = json.loads(arguments[arguments.index("--mcp-config") + 1])
-    assert config["mcpServers"]["cad"]["args"][-2:] == ["--opener", "/bin/echo"]
+    return config["mcpServers"]["cad"]
+
+
+def test_the_opener_flag_reaches_the_cad_server_arguments(tmp_path: Path) -> None:
+    assert cad_entry(tmp_path, "--opener", "/bin/echo")["args"][-2:] == ["--opener", "/bin/echo"]
+
+
+def test_the_server_runs_in_a_fresh_home_unless_told_otherwise(tmp_path: Path) -> None:
+    fresh = Path(cad_entry(tmp_path / "fresh")["env"]["HOME"])
+    assert fresh.is_dir() and not any(fresh.iterdir()) and fresh != Path.home()
+    kept = tmp_path / "kept"
+    assert cad_entry(tmp_path / "kept-run", "--home", str(kept))["env"] == {"HOME": str(kept)}
+    assert "env" not in cad_entry(tmp_path / "real", "--real-home")

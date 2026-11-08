@@ -29,3 +29,4 @@ This directory is the maintained source for verifying what an MCP client sees fr
 - [Briefs](./briefs.md) covers `create_brief`, `propose_requirements`, `ask_to_confirm` and `list_requirements`: the confirmation page, the scripted person, and the refusals when the agent tries to confirm.
 - [Knowledge](./knowledge.md) covers `search_knowledge`: ranked sections of the cited sources in `knowledge/`, and a live agent choosing between a hit and its near miss.
 - [Agree](./agree.md) covers `evals/bakeoff/agree.py`: scorecards against the bake-off grader, for 10 live Claude Code sessions and for the 60 stored attempts replayed with no model.
+- [Test mode](./test-mode.md) covers the Test mode guidance: a live agent scores only the variant the user picked, proposes a load the user adds, and reports what no check measured as not checked.
