@@ -270,7 +270,7 @@ def _table_step(
         material = table.get_material(card.material_key)
     except UnknownMaterial:
         return Unresolved(f"the materials table has no row {card.material_key!r}")
-    cited = getattr(material, field)
+    cited = material.value(field)
     if not isinstance(cited, Cited):
         return Unresolved(f"{card.material_key} has no cited {field}: the table says unknown")
     if not math.isclose(measure.value.m_as(unit), cited.magnitude_in(unit), rel_tol=REL_TOL):  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
