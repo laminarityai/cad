@@ -7,7 +7,7 @@ if TYPE_CHECKING:
 
 WATER = {
     "water": (
-        "## Density\nFresh water density is about 1 g/cm3 near 4 C.\n\n"
+        '## Density\nThe source says "fresh water density is about 1 g/cm3 near 4 C".\n\n'
         "## Ice\nIce floats on water.\n"
     )
 }
@@ -46,12 +46,7 @@ def test_a_query_that_names_no_subject_finds_nothing(make_index: MakeIndex) -> N
 
 def test_hits_are_ordered_by_id_and_ignore_case(make_index: MakeIndex) -> None:
     index = make_index(
-        {
-            "b": "## Heat\nwater heat capacity\n",
-            "a": "## Heat\nWater Heat Capacity density\n",
-        },
-        {"a": ["water"], "b": ["water"]},
-        {"a": "water", "b": "water"},
+        {"water": '## Zinc heat\n"water heat capacity"\n\n## Alpha heat\n"Water Heat Capacity"\n'}
     )
     hits = index.search("WATER heat capacity")
-    assert [h.pointer.id for h in hits] == ["kb:a#heat", "kb:b#heat"]
+    assert [h.pointer.id for h in hits] == ["kb:water#alpha-heat", "kb:water#zinc-heat"]

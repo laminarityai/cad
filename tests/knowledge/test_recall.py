@@ -34,14 +34,14 @@ SOURCES: dict[str, tuple[str, list[str], str]] = {
     ),
     "polylite-abs": (
         "PolyLite ABS technical data sheet V5.2 (Polymaker)",
-        ["PolyLite ABS", "ABS"],
+        ["PolyLite ABS", "Polymaker PolyLite ABS"],
         '## Density\nThe table lists "Density 1.04 g/cm3 at 21.5°C".\n\n'
         "## Vicat softening temperature\n"
         'The sheet lists "Vicat softening temperature 103 °C (ASTM D1525)".\n',
     ),
     "polylite-asa": (
         "PolyLite ASA technical data sheet V5.1 (Polymaker)",
-        ["PolyLite ASA", "ASA"],
+        ["PolyLite ASA", "Polymaker PolyLite ASA"],
         '## Weather resistance\nThe sheet says "excellent UV resistance, better than ABS".\n\n'
         '## Density\nThe table lists "Density 1.07 g/cm3".\n',
     ),
@@ -53,13 +53,13 @@ SOURCES: dict[str, tuple[str, list[str], str]] = {
     ),
     "ninjaflex-tpu": (
         "NinjaFlex TPU 85A technical specifications (NinjaTek)",
-        ["NinjaFlex TPU", "NinjaFlex", "TPU"],
+        ["NinjaFlex TPU", "NinjaFlex"],
         '## Shore hardness\nThe sheet lists "Shore Hardness 85A".\n\n'
         '## Density\nThe sheet lists "Specific gravity 1.19".\n',
     ),
     "aluminium-6061": (
         "Aluminum 6061-T6 properties (ASM)",
-        ["Aluminum 6061-T6", "6061-T6", "6061"],
+        ["Aluminum 6061-T6", "6061-T6"],
         '## Density\nThe page lists "Density 2.70 g/cc".\n\n'
         '## Yield strength\nThe page lists "Tensile Yield Strength 276 MPa".\n',
     ),
@@ -71,7 +71,7 @@ SOURCES: dict[str, tuple[str, list[str], str]] = {
     ),
     "stainless-316l": (
         "Stainless steel 316L data sheet (AK Steel)",
-        ["Stainless steel 316L", "316L"],
+        ["Stainless steel 316L", "316L stainless steel", "316L"],
         '## Density\nThe sheet lists "Density 0.29 lbs/in3 (8.00 g/cm3)".\n',
     ),
 }
@@ -89,36 +89,55 @@ HITS = [
     ("PETG HF heat deflection temperature", "bambu-petg-hf#heat-deflection-temperature"),
     ("PETG HF HDT", "bambu-petg-hf#heat-deflection-temperature"),
     ("Bambu PETG HF density", "bambu-petg-hf#density"),
-    ("ABS density", "polylite-abs#density"),
     ("PolyLite ABS density", "polylite-abs#density"),
-    ("ABS Vicat softening temperature", "polylite-abs#vicat-softening-temperature"),
-    ("ABS vicat temperature", "polylite-abs#vicat-softening-temperature"),
-    ("ASA UV resistance", "polylite-asa#weather-resistance"),
-    ("ASA weather resistance", "polylite-asa#weather-resistance"),
-    ("ASA density", "polylite-asa#density"),
+    ("PolyLite ABS Vicat softening temperature", "polylite-abs#vicat-softening-temperature"),
+    ("PolyLite ABS vicat temperature", "polylite-abs#vicat-softening-temperature"),
+    ("PolyLite ASA UV resistance", "polylite-asa#weather-resistance"),
+    ("PolyLite ASA weather resistance", "polylite-asa#weather-resistance"),
+    ("PolyLite ASA density", "polylite-asa#density"),
     ("PA6-CF density", "bambu-pa6-cf#density"),
     ("PA6-CF drying", "bambu-pa6-cf#drying"),
     ("PA6 CF density", "bambu-pa6-cf#density"),
-    ("TPU shore hardness", "ninjaflex-tpu#shore-hardness"),
     ("NinjaFlex shore hardness", "ninjaflex-tpu#shore-hardness"),
-    ("TPU density", "ninjaflex-tpu#density"),
+    ("NinjaFlex TPU density", "ninjaflex-tpu#density"),
     ("6061-T6 density", "aluminium-6061#density"),
     ("aluminum 6061-T6 density", "aluminium-6061#density"),
     ("6061-T6 yield strength", "aluminium-6061#yield-strength"),
-    ("6061 yield strength", "aluminium-6061#yield-strength"),
+    ("aluminum 6061-T6 yield strength", "aluminium-6061#yield-strength"),
     ("M5 clearance hole", "iso-273-clearance#clearance-hole-sizes"),
     ("ISO 273 M5 clearance", "iso-273-clearance#clearance-hole-sizes"),
     ("316L density", "stainless-316l#density"),
     ("316L stainless steel density", "stainless-316l#density"),
 ]
 MISSES = [
-    "PA6-CF drying temperature",
-    "M5 clearance hole size",
-    "PLA Basic density at 23 °C",
-    "ABS densities",
+    ("PA6-CF drying temperature", "bambu-pa6-cf#drying"),
+    ("M5 clearance hole size", "iso-273-clearance#clearance-hole-sizes"),
+    ("PLA Basic density at 23 °C", "bambu-pla-basic#density"),
+    ("PolyLite ABS densities", "polylite-abs#density"),
+]
+HELD_OUT = [
+    ("PLA Basic heat deflection", "bambu-pla-basic#heat-deflection-temperature"),
+    ("PolyLite ABS specific gravity", "polylite-abs#density"),
+    ("NinjaFlex TPU hardness", "ninjaflex-tpu#shore-hardness"),
+    ("aluminium 6061-T6 density", "aluminium-6061#density"),
+    ("6061-T6 tensile yield", "aluminium-6061#yield-strength"),
+    ("PA6-CF drying time", "bambu-pa6-cf#drying"),
+    ("PETG HF HDT temperature", "bambu-petg-hf#heat-deflection-temperature"),
+    ("M4 clearance hole diameter", "iso-273-clearance#clearance-hole-sizes"),
+    ("316L density g/cm3", "stainless-316l#density"),
+    ("PolyLite ASA UV", "polylite-asa#weather-resistance"),
+    ("PolyLite ABS vicat", "polylite-abs#vicat-softening-temperature"),
+    ("PLA Matte density?", "bambu-pla-matte#density"),
 ]
 NEAR_MISSES = [
     "PLA density",
+    "TPU shore hardness",
+    "6061 yield strength",
+    "ABS density",
+    "ASA density",
+    "TPU density",
+    "6061 density",
+    "Polymaker ABS density",
     "PETG density",
     "nylon drying",
     "PA6 density",
@@ -152,10 +171,26 @@ def test_every_named_question_finds_its_unit_and_only_its_unit(index: Index) -> 
     assert wrong == {}
 
 
+def test_a_known_miss_finds_nothing_rather_than_something_else(index: Index) -> None:
+    wrong = {q: answer(index, q) for q, _ in MISSES if answer(index, q) != []}
+    assert wrong == {}
+
+
+def recall(index: Index, asked: list[tuple[str, str]]) -> float:
+    return sum(1 for q, expected in asked if answer(index, q) == [expected]) / len(asked)
+
+
 def test_recall_over_all_the_questions_an_agent_would_ask(index: Index) -> None:
-    asked = [*HITS, *((q, None) for q in MISSES)]
-    found = sum(1 for q, expected in asked if answer(index, q) == [expected])
-    assert found / len(asked) >= 0.85
+    assert recall(index, [*HITS, *MISSES]) >= 0.85
+
+
+def test_held_out_paraphrases_never_return_a_wrong_unit(index: Index) -> None:
+    wrong = {q: answer(index, q) for q, e in HELD_OUT if answer(index, q) not in ([e], [])}
+    assert wrong == {}
+
+
+def test_held_out_paraphrases_are_not_all_misses(index: Index) -> None:
+    assert recall(index, HELD_OUT) >= 0.5
 
 
 @pytest.mark.parametrize("query", NEAR_MISSES)

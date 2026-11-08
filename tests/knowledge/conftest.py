@@ -14,7 +14,6 @@ class MakeIndex(Protocol):
         self,
         files: Mapping[str, str],
         aliases: Mapping[str, list[str]] | None = None,
-        subjects: Mapping[str, str] | None = None,
     ) -> Index: ...
 
 
@@ -23,7 +22,8 @@ title: {title}
 url: https://example.com/{stem}
 retrieved: 2026-11-07
 license: own-summary
-subject: {subject}
+subject: {stem}
+family: true
 aliases: {aliases}
 ---
 """
@@ -31,18 +31,16 @@ aliases: {aliases}
 
 @pytest.fixture
 def make_index(tmp_path: Path) -> MakeIndex:
-    """Write one file per stem. Its subject is the stem and its alias is the stem, unless given."""
+    """Write one file per stem. Its subject is the stem and its alias is the stem unless given."""
 
     def build(
         files: Mapping[str, str],
         aliases: Mapping[str, list[str]] | None = None,
-        subjects: Mapping[str, str] | None = None,
     ) -> Index:
         for stem, body in files.items():
             front = FRONT_MATTER.format(
                 title=stem.replace("-", " "),
                 stem=stem,
-                subject=(subjects or {}).get(stem, stem),
                 aliases=json.dumps((aliases or {}).get(stem, [stem.replace("-", " ")])),
             )
             (tmp_path / f"{stem}.md").write_text(front + body)

@@ -3,8 +3,8 @@ title: PolyTerra PLA+ technical data sheet V5.1 (Polymaker)
 url: https://cdn.shopify.com/s/files/1/0789/2979/files/PolyTerra_PLA_Plus_EN_V5.1.pdf
 retrieved: 2026-11-07
 license: own-summary
-subject: polymaker-polyterra-pla-plus
-aliases: [PolyTerra PLA+, Polymaker PolyTerra PLA+, PLA+]
+subject: pla-plus
+aliases: [PolyTerra PLA+, Polymaker PolyTerra PLA+]
 ---
 ## Density
 <!-- page: 2 -->

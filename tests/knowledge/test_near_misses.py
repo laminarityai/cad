@@ -18,7 +18,7 @@ def ids(hits: Sequence[Hit]) -> list[str]:
 
 def test_m5_returns_nothing_when_only_m6_is_present(make_index: MakeIndex) -> None:
     index = make_index(
-        {"metric": "## Clearance holes\nM6 clearance hole is 6.6 mm.\n"}, {"metric": ["M6"]}
+        {"metric": '## Clearance holes\n"M6 clearance hole is 6.6 mm".\n'}, {"metric": ["M6"]}
     )
     assert index.search("M5 clearance hole") == ()
     assert ids(index.search("M6 clearance hole")) == ["kb:metric#clearance-holes"]
@@ -26,14 +26,14 @@ def test_m5_returns_nothing_when_only_m6_is_present(make_index: MakeIndex) -> No
 
 def test_m5_does_not_match_m5x0_8(make_index: MakeIndex) -> None:
     index = make_index(
-        {"metric": "## Pitch\nM5x0.8 is the coarse thread pitch.\n"}, {"metric": ["M5x0.8"]}
+        {"metric": '## Pitch\n"M5x0.8 is the coarse thread pitch".\n'}, {"metric": ["M5x0.8"]}
     )
     assert index.search("M5 thread pitch") == ()
     assert ids(index.search("M5x0.8 thread pitch")) == ["kb:metric#pitch"]
 
 
 def test_a_decimal_is_one_word(make_index: MakeIndex) -> None:
-    index = make_index({"drill": "## Sizes\nThe drill size 5.5 mm suits a tap.\n"})
+    index = make_index({"drill": '## Sizes\n"The drill size 5.5 mm suits a tap".\n'})
     assert index.search("drill size 5 mm") == ()
     assert index.search("drill size 55 mm") == ()
     assert ids(index.search("drill size 5.5 mm")) == ["kb:drill#sizes"]
@@ -133,7 +133,7 @@ def test_a_name_that_fits_two_subjects_equally_finds_nothing(make_index: MakeInd
 
 def test_two_units_of_one_subject_may_answer_together(make_index: MakeIndex) -> None:
     index = make_index(
-        {"w": "## Density\nFresh water density.\n\n## Heat\nFresh water heat.\n"},
+        {"w": '## Density\n"Fresh water density."\n\n## Heat\n"Fresh water heat."\n'},
         {"w": ["water"]},
     )
     assert ids(index.search("water fresh")) == ["kb:w#density", "kb:w#heat"]
@@ -166,8 +166,8 @@ def test_a_material_a_unit_only_compares_against_is_not_what_it_is_about(
 def test_a_mention_does_not_remove_recall_for_the_mentioned_words(make_index: MakeIndex) -> None:
     index = make_index(
         {
-            "pla": "## Heat\nPLA softens near its HDT, below the ISO 75 limit, and UV ages it.\n",
-            "abs": "## Heat\nABS HDT is higher; ISO 75, UV also ages ABS.\n",
+            "pla": '## Heat\n"PLA softens near its HDT, below the ISO 75 limit, and UV ages it".\n',
+            "abs": '## Heat\n"ABS HDT is higher; ISO 75, UV also ages ABS".\n',
         },
         {"pla": ["PLA"], "abs": ["ABS"]},
     )
@@ -236,3 +236,54 @@ def test_a_format_character_beside_the_plus_is_ignored(make_index: MakeIndex, hi
 def test_a_plus_spelling_joins_a_name_with_digits(make_index: MakeIndex, query: str) -> None:
     index = make_index({"u": "## Density\nPA12+ density.\n"}, {"u": ["PA12+"]})
     assert ids(index.search(query)) == ["kb:u#density"]
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "!PLA density",
+        "PLA* density",
+        "PLA% density",
+        "PLA# density",
+        "PLA & density",
+        "#PLA density",
+    ],
+)
+def test_punctuation_that_changes_meaning_is_a_word_and_fails_closed(
+    make_index: MakeIndex, query: str
+) -> None:
+    index = make_index({"pla": "## Density\nPLA density from the data sheet.\n"}, {"pla": ["PLA"]})
+    assert index.search(query) == ()
+
+
+@pytest.mark.parametrize(
+    "query", ["PLA density?", "PLA, density", "(PLA) density", '"PLA" density']
+)
+def test_harmless_punctuation_is_dropped(make_index: MakeIndex, query: str) -> None:
+    index = make_index({"pla": "## Density\nPLA density from the data sheet.\n"}, {"pla": ["PLA"]})
+    assert ids(index.search(query)) == ["kb:pla#density"]
+
+
+SECTIONED = {
+    "water": (
+        '## Pure water\nThe report says "strictly true only for pure water". '
+        "Caveat prose mentions mineral matter and heating.\n"
+    )
+}
+
+
+def test_a_word_only_in_caveat_prose_does_not_choose_a_section(make_index: MakeIndex) -> None:
+    index = make_index(SECTIONED, {"water": ["water"]})
+    assert index.search("mineral water") == ()
+    assert index.search("water heating") == ()
+    assert ids(index.search("water pure")) == ["kb:water#pure-water"]
+    assert ids(index.search("water strictly true")) == ["kb:water#pure-water"]
+
+
+def test_the_source_title_does_not_choose_a_section(make_index: MakeIndex) -> None:
+    index = make_index(
+        {"polyterra-pla": '## Density\nA quote "1.31 g/cm3".\n'}, {"polyterra-pla": ["PLA"]}
+    )
+    assert index.search("Polymaker PLA density") == ()
+    assert index.search("PLA polyterra") == ()
+    assert ids(index.search("PLA 1.31")) == ["kb:polyterra-pla#density"]

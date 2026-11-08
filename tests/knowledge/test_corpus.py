@@ -12,7 +12,7 @@ title: Example
 url: https://example.com/x
 retrieved: 2026-11-07
 license: own-summary
-subject: example-subject
+subject: x
 aliases: [Example]
 ---
 ## First
@@ -61,12 +61,24 @@ def test_the_version_changes_with_any_byte(tmp_path: Path) -> None:
         (GOOD.replace("Some text.\n", ""), "empty"),
         (GOOD.replace("---\n## First", "---\nstray\n## First"), "before the first"),
         ("## No front matter\ntext\n", "front matter"),
-        (GOOD.replace("subject: example-subject\n", ""), "subject"),
-        (GOOD.replace("example-subject", "Not A Key"), "subject"),
+        (GOOD.replace("subject: x\n", ""), "subject"),
+        (GOOD.replace("subject: x", "subject: Not A Key"), "subject"),
         (GOOD.replace("aliases: [Example]\n", ""), "aliases"),
         (GOOD.replace("[Example]", "[]"), "aliases"),
         (GOOD.replace("[Example]", "Example"), "aliases"),
         (GOOD.replace("[Example]", "['+++']"), "aliases"),
+        (GOOD.replace("[Example]", "[6061]"), "quote it"),
+        (GOOD.replace("[Example]", "[NO]"), "quote it"),
+        (GOOD.replace("[Example]", "[the]"), "stopword"),
+        (GOOD.replace("[Example]", "[a, An]"), "stopword"),
+        (GOOD.replace("[Example]", "[PLA]"), "family"),
+        (GOOD.replace("[Example]", "[PLA+]"), "family"),
+        (GOOD.replace("[Example]", "['6061']"), "family"),
+        (GOOD.replace("subject: x", "subject: other"), "file name"),
+        (GOOD.replace("subject: x", "subject: x\nsubject: other"), "duplicate"),
+        (GOOD.replace("[Example]", "[Example]\nfamily: maybe"), "family"),
+        (GOOD + "```\n## swallowed\nText.\n", "fence"),
+        (GOOD + "~~~\n## swallowed\n```\nText.\n", "fence"),
         (GOOD.replace("title: Example", "title: [unclosed"), "front matter"),
         (GOOD.replace("2026-11-07", "2026-11-07 10:00:00"), "retrieved"),
         (GOOD.replace("Some text.\n", "Some text.\n<!-- page: 9 -->\n"), "page"),
@@ -78,26 +90,39 @@ def test_a_bad_file_is_reported(tmp_path: Path, text: str, expected: str) -> Non
 
 
 def test_a_unit_carries_its_subject_and_the_corpus_its_aliases(tmp_path: Path) -> None:
-    text = GOOD.replace("[Example]", "[PolyTerra PLA+, 'PLA plus', PETG-HF]")
+    text = GOOD.replace("[Example]", "[PolyTerra PLA+, 'Polymaker PLA plus', PETG-HF]")
     corpus = load(write(tmp_path, text))
     (unit,) = corpus.units.values()
-    assert unit.subject == "example-subject"
-    assert set(corpus.aliases) == {("polyterra", "pla+"), ("pla+",), ("petg", "hf")}
-    assert set(corpus.aliases.values()) == {"example-subject"}
+    assert unit.subject == "x"
+    assert set(corpus.aliases) == {("polyterra", "pla+"), ("polymaker", "pla+"), ("petg", "hf")}
+    assert set(corpus.aliases.values()) == {"x"}
 
 
 def test_an_alias_two_subjects_claim_is_refused(tmp_path: Path) -> None:
-    write(tmp_path, GOOD, "a.md")
-    other = GOOD.replace("example-subject", "other-subject").replace("[Example]", "[PETG, example]")
-    write(tmp_path, other, "b.md")
+    write(tmp_path, GOOD.replace("subject: x", "subject: a"), "a.md")
+    write(tmp_path, GOOD.replace("subject: x", "subject: b"), "b.md")
     with pytest.raises(InvalidCorpus, match="claimed by both"):
         load(tmp_path)
 
 
-def test_two_files_may_share_a_subject_and_its_aliases(tmp_path: Path) -> None:
-    write(tmp_path, GOOD, "a.md")
-    write(tmp_path, GOOD, "b.md")
-    assert len(load(tmp_path).units) == 2
+def test_a_family_name_is_an_alias_only_when_the_file_declares_family(tmp_path: Path) -> None:
+    text = GOOD.replace("[Example]", "[PLA, Generic PLA]")
+    assert "family" in problems(tmp_path, text)
+    declared = text.replace("aliases:", "family: true\naliases:")
+    assert ("pla",) in load(write(tmp_path, declared)).aliases
+
+
+def test_a_branded_alias_that_contains_a_family_name_is_allowed(tmp_path: Path) -> None:
+    text = GOOD.replace("[Example]", "[PolyTerra PLA, PA6-CF, 316L]")
+    assert len(load(write(tmp_path, text)).aliases) == 3
+
+
+def test_a_duplicate_yaml_key_is_refused_wherever_it_sits(tmp_path: Path) -> None:
+    assert "duplicate" in problems(tmp_path, GOOD.replace("title: Example", "title: A\ntitle: B"))
+
+
+def test_a_swallowing_fence_names_the_problem_not_a_missing_heading(tmp_path: Path) -> None:
+    assert "unclosed" in problems(tmp_path, GOOD + "```\n## Later\nText.\n")
 
 
 def test_a_heading_inside_a_code_fence_is_text(tmp_path: Path) -> None:
@@ -138,16 +163,25 @@ def test_the_seeded_corpus_is_valid_and_answers_its_questions() -> None:
     assert [h.pointer.id for h in index.search("water density at 4 degrees")] == [
         "kb:water#pure-water-at-4-degrees-celsius"
     ]
-    assert [h.pointer.id for h in index.search("PLA+ density")] == ["kb:pla-plus#density"]
-    assert [h.pointer.id for h in index.search("PLA density")] == ["kb:pla#density"]
+    assert [h.pointer.id for h in index.search("PolyTerra PLA+ density")] == ["kb:pla-plus#density"]
+    assert [h.pointer.id for h in index.search("PolyTerra PLA density")] == ["kb:pla#density"]
+    for query in ("PLA density", "Polymaker PLA density", "Bambu PLA density", "!PLA density"):
+        assert index.search(query) == (), query
     assert index.search("PETG density") == ()
     assert index.search("M5 clearance hole") == ()
-    for query in ("PLA toughness", "PLA layer adhesion", "ordinary PLA", "PolyTerra density"):
+    for query in ("PLA+ density", "PLA toughness", "PLA layer adhesion", "ordinary PLA"):
         assert index.search(query) == (), query
-    for query in ("PLA\uff0b density", "PLA + density", "PLA plus density", "PLA\u207a density"):
+    for query in ("PolyTerra density", "Polymaker density", "Polymaker PLA+ density"):
+        assert index.search(query) == (), query
+    for query in (
+        "PolyTerra PLA\uff0b density",
+        "PolyTerra PLA + density",
+        "PolyTerra PLA plus density",
+    ):
         assert [h.pointer.id for h in index.search(query)] == ["kb:pla-plus#density"], query
     assert index.search("plus grade density") == ()
-    for query in ("ISO1183 density", "GB/T1033 density", "PLA\u2795 density", "water"):
+    assert index.search("PLA plus density") == ()
+    for query in ("ISO1183 density", "GB/T1033 density", "PolyTerra PLA\u2795 density", "water"):
         assert index.search(query) == (), query
 
 
