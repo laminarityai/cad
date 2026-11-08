@@ -1,5 +1,7 @@
 # An unknown value is researched, not left unknown
 
+Status: Accepted. The operator approved this ADR on 2026-11-08, with researched verdicts labelled and counted apart and no confirmation-page item.
+
 A check that needs a number the tables lack used to report `unknown`. Examples are a Poisson's ratio that no source gives for PLA by name, and the density of a filament with no row. The person then had to find and confirm the number. That is friction, and SPEC calls friction a defect. This ADR records the operator's decision of 2026-11-08: when a value a check reads is unknown, it is researched. That applies to every value, not only material constants. The person sees which values were researched and which come from the reviewed tables, so a researched value does not need their confirmation.
 
 ## The decision
