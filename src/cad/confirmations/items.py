@@ -13,11 +13,20 @@ from cad.projects.model import ProjectId
 
 
 @dataclass(frozen=True, slots=True)
+class Editable:
+    """The row's number can be changed on the page: `row` names it in an Edit."""
+
+    row: str
+    placeholder: str
+
+
+@dataclass(frozen=True, slots=True)
 class Row:
     headline: str
     quote: str
     """The person's own words the row came from."""
     decides: str
+    editable: Editable | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -89,7 +89,7 @@ class BriefView(BaseModel):
 
 def _view(state: BriefState, proposed: ProposalState) -> ProposalView:
     confirmed = state.confirmed
-    in_force = {r.id for r in confirmed.proposal.requirements} if confirmed else set[str]()
+    in_force = {r.id for r in confirmed.requirements} if confirmed else set[str]()
     return ProposalView(
         brief_id=state.brief.id,
         proposal=proposed.proposal.number,
@@ -101,7 +101,7 @@ def _view(state: BriefState, proposed: ProposalState) -> ProposalView:
                 check=deciding_check(r.target.kind),
                 status="confirmed" if r.id in in_force else "proposed",
             )
-            for r in proposed.proposal.requirements
+            for r in proposed.requirements
         ],
     )
 

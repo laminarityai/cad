@@ -91,7 +91,7 @@ def _against(roots: Roots, card: Scorecard, basis: AgainstBrief) -> BasisCheck:
                 ),
             ),
         )
-    shown = Shown(named.proposal.requirements)
+    shown = Shown(named.requirements)
     failures: list[BasisFailure] = []
     in_force = state.confirmed
     if in_force is not None and in_force is not named:

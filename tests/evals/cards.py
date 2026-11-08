@@ -21,7 +21,7 @@ from cad.briefs.store import ConfirmedSet, Draft
 from cad.checks.report import SPECS, CheckSpec
 from cad.checks.result import CheckResult, Measure, StepStored, Verdict
 from cad.confirmations import answers
-from cad.confirmations.answers import ItemAnswer, PageAnswer
+from cad.confirmations.answers import Edit, ItemAnswer, PageAnswer
 from cad.records import signed
 from cad.records.roots import Roots
 from cad.scorecard.model import Basis, NoBrief, Scorecard
@@ -124,12 +124,20 @@ def confirm(roots: Roots, brief_id: str, rows: list[Draft]) -> ConfirmedSet:
     return _confirmed(roots, brief_id)
 
 
-def confirm_on_page(roots: Roots, brief_id: str, rows: list[Draft]) -> ConfirmedSet:
-    """Confirm as the confirmation page does: a PageAnswer in the brief's project."""
+def confirm_on_page(
+    roots: Roots, brief_id: str, rows: list[Draft], changes: Mapping[int, str] | None = None
+) -> ConfirmedSet:
+    """Confirm as the confirmation page does: a PageAnswer in the brief's project. `changes` maps
+    a row's index to the text the person typed over its number."""
     briefs.propose(roots, brief_id, rows)
     state = briefs.read_state(roots, brief_id)
     project = state.brief.project
-    item = ItemAnswer(item=state.proposals[-1].ref, verdict="confirmed")
+    proposed = state.proposals[-1]
+    edits = tuple(
+        Edit(row=proposed.proposal.requirements[index].id, text=text)
+        for index, text in (changes or {}).items()
+    )
+    item = ItemAnswer(item=proposed.ref, verdict="confirmed", edits=edits)
     page = PageAnswer(project=project, answers=(item,), decided_at=datetime.now(UTC))
     assert answers.append_answer(roots.projects, project, page)
     return _confirmed(roots, brief_id)

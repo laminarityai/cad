@@ -37,7 +37,9 @@ NEXT: Final = {
         "ask_to_confirm again."
     ),
     "answered": (
-        "The user confirmed. Build with build_variant and pass the brief_id to score_variant."
+        "The user confirmed, and may have changed numbers on the page. Read what they confirmed "
+        "with list_requirements, build with build_variant, and pass the brief_id to "
+        "score_variant."
     ),
     "nothing_to_confirm": (
         "Nothing in this project waits on the user. Propose requirements with "

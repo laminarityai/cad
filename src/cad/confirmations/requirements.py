@@ -5,19 +5,16 @@ from collections.abc import Sequence
 from typing import Final
 
 from cad.briefs import store
-from cad.briefs.model import Kind, deciding_check, describe
-from cad.briefs.store import Status, TamperedBrief
+from cad.briefs.edits import apply_edits, placeholder
+from cad.briefs.model import Kind, Requirement, deciding_check, describe
+from cad.briefs.store import ProposalState, Status, TamperedBrief
 from cad.confirmations.answers import Edit, ItemKindName, ItemRef
-from cad.confirmations.items import Row, Section
+from cad.confirmations.items import Editable, Row, Section
 from cad.projects.membership import project_briefs
 from cad.projects.model import ProjectId
 from cad.records.roots import Roots
 
 SLOT: Final = re.compile(r"([0-9a-f]{16})/proposal/([1-9][0-9]{0,3})")
-NO_EDITS: Final = (
-    "Editing a requirement on this page is not available yet. "
-    "Decline and say what to change in the note."
-)
 
 
 class Requirements:
@@ -37,19 +34,13 @@ class Requirements:
         return tuple(refs)
 
     def section(self, ref: ItemRef) -> Section:
-        match = SLOT.fullmatch(ref.slot)
-        if match is None:
-            raise TamperedBrief(f"no proposal is stored at {ref.slot!r}")
-        state = store.read_state(self._roots, match.group(1))
-        shown = state.proposal(int(match.group(2)))
-        if shown is None or shown.ref != ref:
-            raise TamperedBrief(f"brief {state.brief.id} changed since the page opened")
-        text = state.brief.text
+        text, shown = self._shown(ref)
         rows = tuple(
             Row(
                 headline=describe(r),
                 quote=text[r.origin.start : r.origin.end],
                 decides=_decides(r.target.kind),
+                editable=_editable(r),
             )
             for r in shown.proposal.requirements
         )
@@ -57,7 +48,24 @@ class Requirements:
         return Section(title=title, context=text, rows=rows)
 
     def edit(self, ref: ItemRef, edits: Sequence[Edit]) -> str | None:
-        return NO_EDITS if edits else None
+        applied = apply_edits(self._shown(ref)[1].proposal.requirements, edits)
+        return applied if isinstance(applied, str) else None
+
+    def _shown(self, ref: ItemRef) -> tuple[str, ProposalState]:
+        """The brief text and the proposal the ref names. Raises when either changed."""
+        match = SLOT.fullmatch(ref.slot)
+        if match is None:
+            raise TamperedBrief(f"no proposal is stored at {ref.slot!r}")
+        state = store.read_state(self._roots, match.group(1))
+        shown = state.proposal(int(match.group(2)))
+        if shown is None or shown.ref != ref:
+            raise TamperedBrief(f"brief {state.brief.id} changed since the page opened")
+        return state.brief.text, shown
+
+
+def _editable(requirement: Requirement) -> Editable | None:
+    shown = placeholder(requirement)
+    return None if shown is None else Editable(row=requirement.id, placeholder=shown)
 
 
 def _decides(kind: Kind) -> str:
