@@ -24,6 +24,7 @@ END_ANGLE_TOL_RAD: Final = 1e-3
 FLUSH_TOL_FRACTION: Final = 1e-4
 LONG_TIE_FRACTION: Final = 0.01
 FAR_FRACTION: Final = 0.005
+OFF_CENTER_FRACTION: Final = 0.01
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,12 +57,15 @@ class Region:
 
 @dataclass(frozen=True, slots=True)
 class FarFrom:
-    """The surface at least (1 - FAR_FRACTION) of the largest distance from `center`."""
-
     center: Point
+    axis: Point
+    """Unit, from the support toward the part's centre of mass."""
+
+    def reach(self, point: Point) -> float:
+        return dot(sub(point, self.center), self.axis)
 
     def cutoff(self, surface: Sequence[Point]) -> float:
-        return (1 - FAR_FRACTION) * max(norm(sub(point, self.center)) for point in surface)
+        return (1 - FAR_FRACTION) * max(self.reach(point) for point in surface)
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,7 +119,13 @@ def resolve(
     load = case["load"]
     match load["kind"]:
         case "far_end":
-            return Resolved(tuple(Candidate(s, FarFrom(s.centroid)) for s in supports), basis)
+            candidates: list[Candidate] = []
+            for support in supports:
+                far = far_from(support, inertia)
+                if isinstance(far, Unresolved):
+                    return far
+                candidates.append(Candidate(support, far))
+            return Resolved(tuple(candidates), basis)
         case "on_holes":
             loaded = load_holes(load, case["support"], faces, inertia)
             if isinstance(loaded, Unresolved):
@@ -123,6 +133,15 @@ def resolve(
             return Resolved(tuple(Candidate(s, loaded) for s in supports), basis)
         case _:
             assert_never(load["kind"])
+
+
+def far_from(support: Region, inertia: Inertia) -> FarFrom | Unresolved:
+    toward = sub(inertia.center, support.centroid)
+    if norm(toward) <= OFF_CENTER_FRACTION * extent(inertia):
+        return Unresolved(
+            "the support sits at the part's centre of mass, so no end of the part is the far one"
+        )
+    return FarFrom(support.centroid, unit(toward))
 
 
 def support_regions(

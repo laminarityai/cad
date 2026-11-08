@@ -50,8 +50,8 @@ def end(x: float, width: float, height: float, outward: float) -> Region:
     return Region((Plane((x, 0.0, 0.0), (outward, 0.0, 0.0)),), (x, width / 2, height / 2))
 
 
-def far_from(support: Region) -> FarFrom:
-    return FarFrom(support.centroid)
+def far_along_x(support: Region) -> FarFrom:
+    return FarFrom(support.centroid, (1.0, 0.0, 0.0))
 
 
 BAR_L, BAR_A, BAR_P = 100.0, 10.0 * 10.0, 1000.0
@@ -94,7 +94,7 @@ CASES: tuple[Case, ...] = (
         largest_extent_mm=BAR_L,
         material=STEEL,
         fixed=end(0.0, 10, 10, -1),
-        loaded=far_from(end(0.0, 10, 10, -1)),
+        loaded=far_along_x(end(0.0, 10, 10, -1)),
         force=(BAR_P, 0.0, 0.0),
         measure="max_displacement",
         expected=BAR_P * BAR_L / (E * BAR_A),
@@ -108,7 +108,7 @@ CASES: tuple[Case, ...] = (
         largest_extent_mm=BEAM_L,
         material=STEEL,
         fixed=end(0.0, BEAM_B, BEAM_H, -1),
-        loaded=far_from(end(0.0, BEAM_B, BEAM_H, -1)),
+        loaded=far_along_x(end(0.0, BEAM_B, BEAM_H, -1)),
         force=(0.0, 0.0, -BEAM_P),
         measure="max_displacement",
         expected=timoshenko_tip(STEEL),
@@ -122,7 +122,7 @@ CASES: tuple[Case, ...] = (
         largest_extent_mm=BEAM_L,
         material=NO_POISSON,
         fixed=end(0.0, BEAM_B, BEAM_H, -1),
-        loaded=far_from(end(0.0, BEAM_B, BEAM_H, -1)),
+        loaded=far_along_x(end(0.0, BEAM_B, BEAM_H, -1)),
         force=(0.0, 0.0, -BEAM_P),
         measure="max_von_mises",
         expected=BEAM_P * BEAM_L * (BEAM_H / 2) / BEAM_I,
@@ -150,7 +150,7 @@ CASES: tuple[Case, ...] = (
         largest_extent_mm=200.0,
         material=NO_POISSON,
         fixed=end(0.0, HOLE_W, HOLE_T, -1),
-        loaded=end(200.0, HOLE_W, HOLE_T, 1),
+        loaded=far_along_x(end(0.0, HOLE_W, HOLE_T, -1)),
         force=(HOLE_P, 0.0, 0.0),
         measure="max_von_mises",
         expected=(2 + (1 - HOLE_D / HOLE_W) ** 3) * HOLE_P / ((HOLE_W - HOLE_D) * HOLE_T),

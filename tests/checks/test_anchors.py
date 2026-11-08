@@ -22,7 +22,7 @@ from cad.checks.container.anchors import (
     Unresolved,
     resolve,
 )
-from cad.checks.container.kernel import ocp_kernel
+from cad.checks.container.kernel import Point, ocp_kernel
 from cad.checks.container.wire import (
     DirectionWire,
     HolesWire,
@@ -105,6 +105,13 @@ def reason(solid: Solid, wanted: LoadCaseWire) -> str:
     return found.reason
 
 
+def held(solid: Solid, support: SupportWire) -> Region:
+    found = anchors.support_regions(support, KERNEL.faces(solid), KERNEL.inertia(solid))
+    assert not isinstance(found, Unresolved), found
+    (region,) = found
+    return region
+
+
 def bores(region: Region | FarFrom) -> list[Bore]:
     assert isinstance(region, Region)
     found = [patch for patch in region.patches if isinstance(patch, Bore)]
@@ -124,14 +131,14 @@ def close(a: Sequence[float], b: Sequence[float], tol: float = TOL) -> bool:
 
 
 def test_two_bolt_holes_are_the_support_bores() -> None:
-    (candidate,) = must(PLATE, case(holes(2))).candidates
-    found = sorted(bores(candidate.support), key=lambda bore: bore_ends(bore))
+    support = held(PLATE, holes(2))
+    found = sorted(bores(support), key=lambda bore: bore_ends(bore))
     assert [bore.radius for bore in found] == pytest.approx([2.75, 2.75])
     assert [bore_ends(bore) for bore in found] == [
         [(10, 10, 0), (10, 10, 5)],
         [(50, 10, 0), (50, 10, 5)],
     ]
-    assert close(candidate.support.centroid, (30, 10, 2.5))
+    assert close(support.centroid, (30, 10, 2.5))
 
 
 @pytest.mark.parametrize(
@@ -149,8 +156,7 @@ def test_a_count_that_does_not_match_fails_closed_and_names_both_counts(
 
 
 def test_a_pin_of_the_bore_radius_is_not_a_hole() -> None:
-    (candidate,) = must(PINNED, case(holes(2))).candidates
-    assert len(bores(candidate.support)) == 2
+    assert len(bores(held(PINNED, holes(2)))) == 2
 
 
 def test_concave_fillets_and_slot_ends_of_the_bore_radius_are_not_holes() -> None:
@@ -158,8 +164,8 @@ def test_concave_fillets_and_slot_ends_of_the_bore_radius_are_not_holes() -> Non
     concave = [f for f in faces if isinstance(f.surface, anchors.Round) and f.surface.concave]
     assert len(concave) >= 2 + 4 + 2
     assert {round(anchors.face_round(f).radius, 6) for f in concave} == {2.75}
-    (candidate,) = must(FILLETED, case(holes(2))).candidates
-    assert sorted(bore_ends(b)[0][:2] for b in bores(candidate.support)) == [(10, 10), (70, 10)]
+    found = bores(held(FILLETED, holes(2)))
+    assert sorted(bore_ends(b)[0][:2] for b in found) == [(10, 10), (70, 10)]
 
 
 def test_a_counterbore_is_one_hole_held_at_its_narrow_bore() -> None:
@@ -185,12 +191,20 @@ def test_a_load_on_holes_takes_the_holes_that_are_not_supports() -> None:
     )
 
 
+def across_holes(solid: Solid) -> tuple[Point, ...]:
+    basis = anchors.direction_basis(
+        ACROSS_HOLES, holes(2), KERNEL.faces(solid), KERNEL.inertia(solid)
+    )
+    assert not isinstance(basis, Unresolved), basis
+    return basis
+
+
 def test_the_hole_axis_is_the_axis_the_support_holes_share() -> None:
-    found = must(PLATE, case(holes(2), far_end(ACROSS_HOLES)))
-    assert len(found.basis) == 2
-    for vector in found.basis:
+    basis = across_holes(PLATE)
+    assert len(basis) == 2
+    for vector in basis:
         assert vector[2] == pytest.approx(0, abs=TOL)
-    assert len(must(FLIPPED, case(holes(2), far_end(ACROSS_HOLES))).basis) == 2
+    assert len(across_holes(FLIPPED)) == 2
     assert reason(CROSSED, case(holes(2), far_end(ACROSS_HOLES))) == (
         "the support holes are not parallel, so they share no hole axis"
     )
@@ -220,14 +234,22 @@ def test_a_part_with_isotropic_inertia_has_no_long_axis() -> None:
     assert len(must(CUBE, case(LARGEST_FLAT)).candidates) == 6
 
 
-def test_the_far_end_is_measured_from_the_supports() -> None:
+def test_the_far_end_is_measured_from_the_supports_toward_the_centre_of_mass() -> None:
     for candidate in must(BAR, case(FLAT_END)).candidates:
         far = candidate.load
         assert isinstance(far, FarFrom)
         assert far.center == pytest.approx(candidate.support.centroid)
         assert far.center[1:] == pytest.approx((5, 3))
+        inward = 1.0 if far.center[0] < 50 else -1.0
+        assert far.axis == pytest.approx((inward, 0, 0))
         corners = [(x, y, z) for x in (0.0, 100.0) for y in (0.0, 10.0) for z in (0.0, 6.0)]
-        assert far.cutoff(corners) == pytest.approx(0.995 * math.hypot(100, 5, 3))
+        assert far.cutoff(corners) == pytest.approx(0.995 * 100)
+
+
+def test_a_support_at_the_centre_of_mass_has_no_far_end() -> None:
+    assert reason(PLATE, case(holes(2))) == (
+        "the support sits at the part's centre of mass, so no end of the part is the far one"
+    )
 
 
 def plane(region: Region) -> Plane:

@@ -205,7 +205,7 @@ class LoadCase(_Frozen):
 | `hole_axis` | the axis direction shared by the selected holes | the holes are not parallel → `unknown` |
 | `LargestFlat` | the planar face(s) of largest area. Region: `Plane(point, normal, tol)`, so faces flush with it come along | none planar → `unknown`. A tie within 1e-6 relative → each candidate is solved and the worst is kept |
 | `FlatEnd` | `LONG` axis from the volume inertia tensor. Candidates: the planar faces whose normal is within 1e-3 rad of ±LONG, at each extreme of the solid's projection on LONG | no such face at either extreme → `unknown`. Both ends qualify → both solved, worst kept |
-| `FarEnd` | c = area-weighted centroid of the support region, R = largest distance from c to a surface node. Region: the boundary triangles whose every node is at distance ≥ (1 − 0.005)·R from c | the region has no triangle → `unknown` |
+| `FarEnd` | c = area-weighted centroid of the support region, a = unit vector from c to the solid's centre of mass, R = largest reach (p − c)·a of a surface node p. Region: the boundary triangles whose every node reaches at least (1 − 0.005)·R. Reach is measured along a, not in a straight line, so a whole flat end square to a is selected, not only its corners (#95) | c is within 1% of the largest extent from the centre of mass (no end is the far one) → `unknown`. The region has no triangle → `unknown` |
 | `OnHoles` | same hole rule as `Holes`, applied to the holes that are not supports | count mismatch → `unknown` |
 | `LONG` | eigenvector of the largest principal extent | the two largest principal moments are within 1% of each other (no unique long axis) → `unknown` |
 
@@ -214,7 +214,7 @@ Why the agent cannot bias this:
 - **Nobody names a face.** The agent writes geometry and words. The person confirms the words. The check resolves anchors.
 - **Unpinned freedom becomes the worst case.** Direction is a subspace, not a vector, so turning the model in its frame changes nothing. Ties between candidates are each solved, so adding a twin face cannot dodge the load.
 - **Gaming a count gives `unknown`, never `pass`.** Adding a third hole makes `Holes(2)` resolve to 3.
-- **`FarEnd` is the longest lever from the supports.** A geometry trick that moves the far end moves the load further out, which is worse for the agent, not better. That is why the rule measures distance from the supports and not along a model axis.
+- **`FarEnd` is the longest lever from the supports.** A geometry trick that moves the far end moves the load further out, which is worse for the agent, not better. That is why the rule measures reach from the supports, toward the centre of mass, and not along a model axis.
 
 **Worst direction, computed exactly.** In linear statics, the stress and displacement at each node depend linearly on the load direction n. Run one unit solve per basis vector of the subspace (k = 1, 2 or 3). At node i, the displacement is u_i(n) = U_i P a and the stress is s_i(n) = S_i P a, where P is the 3×k basis and |a| = 1. The worst values are then:
 
