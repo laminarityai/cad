@@ -116,7 +116,9 @@ def test_a_density_walks_from_the_check_to_the_table_row_and_its_source() -> Non
     assert isinstance(check, CheckStep) and check.check_id == "mass"
     assert isinstance(row, TableStep)
     assert (row.material_key, row.field) == (KEY, "density")
-    assert row.source == table().get_material(KEY).density.source  # pyright: ignore[reportAttributeAccessIssue]
+    cited = table().get_material(KEY).density
+    assert isinstance(cited, Cited)
+    assert row.source == cited.source
 
 
 def test_a_measured_geometry_number_stops_at_the_check_and_its_cited_source() -> None:

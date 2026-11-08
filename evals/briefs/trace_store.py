@@ -16,7 +16,7 @@ from typing import Final
 
 from provenance import CheckStep, TableStep, Traced, Unresolved, trace_card
 from pydantic import ValidationError
-from tracking import describe, outcomes_of, track
+from tracking import RequirementOutcome, describe, outcomes_of, track
 
 from cad.checks.report import SPECS
 from cad.scorecard.model import Scorecard
@@ -42,7 +42,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     table = load_materials()
     broken = 0
     numbers = 0
-    outcomes = []
+    outcomes: list[RequirementOutcome] = []
     for path in paths:
         try:
             card = Scorecard.model_validate_json(path.read_text())
