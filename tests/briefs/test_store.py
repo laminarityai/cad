@@ -8,8 +8,8 @@ from pydantic import TypeAdapter
 
 from cad.briefs import store
 from cad.briefs.model import Answer, BriefId, Confirmed, Decision, Declined, Target
-from cad.briefs.records import BriefStoreUnusable
 from cad.briefs.store import Draft, Status
+from cad.records.signed import StoreUnusable
 
 TEXT = "A wall bracket for a 2 kg shelf, under 150 g, printable in PETG"
 TARGET = TypeAdapter[Target](Target)
@@ -210,5 +210,5 @@ def test_an_unknown_brief_is_refused(tmp_path: Path) -> None:
 def test_an_unusable_key_is_reported_as_the_brief_store_key(tmp_path: Path) -> None:
     brief_id = proposed(tmp_path / "briefs", UNDER_150)
     (tmp_path / "briefs.key").chmod(0o644)
-    with pytest.raises(BriefStoreUnusable, match="brief store's key is unusable"):
+    with pytest.raises(StoreUnusable, match="brief store's key is unusable"):
         store.read_state(tmp_path / "briefs", brief_id)

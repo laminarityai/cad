@@ -1,0 +1,2 @@
+de8a73d2719b96ff8562439c27fd0ac8ac045158a6c7f0cfa45f9581ae5ac700
+{"brief_id":"8482796846afca28","number":1,"requirements":[{"id":"3ac52939a2cdc9c5","brief_id":"8482796846afca28","target":{"kind":"max_mass","mass":{"magnitude":150.0,"unit":"g"}},"origin":{"kind":"brief_text","start":33,"end":44}}],"created_at":"2026-11-08T03:41:01.988130Z"}
