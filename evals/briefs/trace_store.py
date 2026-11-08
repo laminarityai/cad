@@ -1,10 +1,7 @@
 """Trace every number on every scorecard stored in a variant store.
 
-    uv run python evals/briefs/trace_store.py                  # the stores under ~/.cad
-    uv run python evals/briefs/trace_store.py --root DIR       # another variant store
-    uv run python evals/briefs/trace_store.py --briefs-root DIR  # another brief store
-    uv run python evals/briefs/trace_store.py --steps          # print each number's chain
-    uv run python evals/briefs/trace_store.py --require-judged # every card judged a brief
+    uv run python evals/briefs/trace_store.py [--root DIR] [--briefs-root DIR] [--steps]
+        [--require-judged]
 
 Each card is read, bound to its signed build, checked for completeness, its basis is checked
 against the brief store, and every number on it is traced (see `provenance`). The summary counts

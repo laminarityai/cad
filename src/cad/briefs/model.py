@@ -144,16 +144,12 @@ def deciding_check(kind: Kind) -> CheckId | None:
 
 @dataclass(frozen=True, slots=True)
 class Limit:
-    """One measure of the deciding check, held to a quantity the person confirmed."""
-
     measure: str
     comparator: Comparator
     quantity: pint.Quantity
 
 
 def limits(target: ClosedSolid | MaxMass | MinMass | Envelope | Unchecked) -> tuple[Limit, ...]:
-    """What the deciding check's measures are held to. Empty when the check's verdict alone
-    decides (closed_solid) or no check decides (unchecked)."""
     match target:
         case ClosedSolid() | Unchecked():
             return ()
@@ -162,7 +158,6 @@ def limits(target: ClosedSolid | MaxMass | MinMass | Envelope | Unchecked) -> tu
         case MinMass():
             return (Limit("mass", Comparator.AT_LEAST, target.mass),)
         case Envelope():
-            # Edges are stored longest first; sorted_extent names run smallest to largest.
             return tuple(
                 Limit(f"sorted_extent:{name}", Comparator.AT_MOST, edge)
                 for name, edge in zip(("largest", "middle", "smallest"), target.edges, strict=True)

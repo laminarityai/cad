@@ -1,8 +1,5 @@
 """The two SPEC.md tracking numbers: strict pass rate, and the share of requirements that a
 reviewed check covers.
-
-`outcomes_of` is the one place that turns a card's requirement results into
-`RequirementOutcome`s.
 """
 
 from dataclasses import dataclass
@@ -42,8 +39,6 @@ class Tracking:
 
 
 def outcomes_of(card: Scorecard) -> tuple[RequirementOutcome, ...]:
-    """One outcome per requirement judged on the card. Reviewed means a check in the suite
-    decided it, until a check manifest records a second review status."""
     basis = card.basis
     if not isinstance(basis, AgainstBrief):
         return ()

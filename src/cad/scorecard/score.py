@@ -14,8 +14,6 @@ from cad.variants import entry
 SCORECARD: Final = "scorecard.json"
 
 type Assess = Callable[[tuple[CheckResult, ...]], Basis]
-"""What a card is scored against, given its check results. The server passes one built by
-`cad.scorecard.requirements`, which this module never imports, so check versions do not hash it."""
 
 
 def no_brief(results: tuple[CheckResult, ...]) -> Basis:

@@ -38,7 +38,7 @@ from cad.briefs.model import describe, limits
 from cad.checks.report import CheckSpec
 from cad.checks.result import CheckResult, Measure
 from cad.scorecard.model import AgainstBrief, Checked, Scorecard
-from cad.tables.materials import UNITS, Cited, MaterialsTable, Source, UnknownMaterial
+from cad.tables.materials import UNITS, Cited, MaterialsTable, Source, UnknownMaterial, magnitude
 
 REL_TOL = 1e-9
 
@@ -184,9 +184,9 @@ def _place(
 
 def _confirmed(card: Scorecard, index: int, place: int, shown: Shown | None) -> Outcome:
     basis = card.basis
-    entry = basis.requirements[index] if isinstance(basis, AgainstBrief) else None
-    if not isinstance(basis, AgainstBrief) or not isinstance(entry, Checked):
-        return Unresolved("a limit sits outside a checked requirement")
+    assert isinstance(basis, AgainstBrief)
+    entry = basis.requirements[index]
+    assert isinstance(entry, Checked)
     if shown is None:
         return Unresolved(f"the brief store shows no confirmation {basis.decision_sha256[:12]}")
     requirement = next((r for r in shown.requirements if r.id == entry.requirement_id), None)
@@ -208,13 +208,12 @@ def _confirmed(card: Scorecard, index: int, place: int, shown: Shown | None) -> 
 
 
 def _same(held: pint.Quantity, expected: pint.Quantity) -> bool:
-    unit = expected.units
+    unit = str(expected.units)
     try:
-        # Pint's annotations leave conversions partly untyped, as in cad.tables.materials.
-        value = float(held.m_as(unit))  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+        value = magnitude(held, unit)
     except pint.DimensionalityError:
         return False
-    return math.isclose(value, float(expected.m_as(unit)), rel_tol=REL_TOL)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+    return math.isclose(value, magnitude(expected, unit), rel_tol=REL_TOL)
 
 
 def _path(where: Where) -> str:

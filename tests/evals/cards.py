@@ -97,7 +97,6 @@ def drafts(*rows: tuple[Mapping[str, object], str]) -> list[Draft]:
 
 
 def confirm(briefs_root: Path, brief_id: str, rows: list[Draft]) -> ConfirmedSet:
-    """Propose rows and record a person's confirmation the way the page does."""
     briefs.propose(briefs_root, brief_id, rows)
     state = briefs.read_state(briefs_root, brief_id)
     latest = state.proposals[-1]

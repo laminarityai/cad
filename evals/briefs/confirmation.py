@@ -14,28 +14,22 @@ from cad.briefs.model import Requirement
 from cad.briefs.records import BriefStoreUnusable
 from cad.briefs.store import BriefRefused, BriefState, Status
 from cad.scorecard.model import AgainstBrief, AwaitingConfirmation, NoBrief, Scorecard
-from cad.scorecard.requirements import assess_requirements
+from cad.scorecard.requirements import NoDecidingResult, assess_requirements
 from cad.variants import key
 
 
 @dataclass(frozen=True, slots=True)
 class Unconfirmed:
-    """The card names a brief or a decision that the store cannot show as a confirmation."""
-
     reason: str
 
 
 @dataclass(frozen=True, slots=True)
 class Superseded:
-    """A newer confirmation is in force than the one the card was scored against."""
-
     reason: str
 
 
 @dataclass(frozen=True, slots=True)
 class Misjudged:
-    """The card's basis differs from the one re-derived from the confirmed requirements."""
-
     reason: str
 
 
@@ -44,8 +38,6 @@ type BasisFailure = Unconfirmed | Superseded | Misjudged
 
 @dataclass(frozen=True, slots=True)
 class Shown:
-    """The requirements of the decision the card names, as the person confirmed them."""
-
     requirements: tuple[Requirement, ...]
 
 
@@ -110,7 +102,6 @@ def _against(briefs_root: Path, card: Scorecard, basis: AgainstBrief) -> BasisCh
 
 
 def _state(briefs_root: Path, brief_id: str) -> BriefState | Unconfirmed:
-    # Reading a signed record without a key would create one and fail every MAC.
     if not key.key_path(briefs_root).is_file():
         return Unconfirmed(f"the brief store has no key at {key.key_path(briefs_root)}")
     try:
@@ -124,8 +115,8 @@ def _misjudged(card: Scorecard, basis: AgainstBrief, shown: Shown) -> Misjudged 
         derived = assess_requirements(
             basis.brief_id, basis.decision_sha256, shown.requirements, card.results
         )
-    except KeyError as error:
-        return Misjudged(f"cannot judge the confirmed requirements: {error.args[0]}")
+    except NoDecidingResult as error:
+        return Misjudged(f"cannot judge the confirmed requirements: {error}")
     if derived == basis:
         return None
     if len(derived.requirements) != len(basis.requirements):
@@ -134,13 +125,8 @@ def _misjudged(card: Scorecard, basis: AgainstBrief, shown: Shown) -> Misjudged 
             f"and {len(derived.requirements)} were confirmed"
         )
     differs = next(
-        (
-            held.requirement_id
-            for held, again in zip(basis.requirements, derived.requirements, strict=True)
-            if held != again
-        ),
-        None,
+        held.requirement_id
+        for held, again in zip(basis.requirements, derived.requirements, strict=True)
+        if held != again
     )
-    if differs is None:
-        return Misjudged("the card's unverified_requirements are not the unverified entries")
     return Misjudged(f"requirement {differs} is not what its check results give")
