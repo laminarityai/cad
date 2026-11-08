@@ -2,9 +2,10 @@
 
 The maker rule in `cad.knowledge.corpus` reads this list and nothing else does. A branded file's
 alias must carry a word of its maker or product line, and a word on this list does not count:
-"British Steel" lends an alias only "british", so "mild steel" is refused. A word missing from the
-list matters only when a maker or line name contains it; it never lets an alias without a brand
-word through.
+"British Steel" lends an alias only "british", so "mild steel" is refused. An alias of only the
+maker's name and words on this list ("Bambu PLA") names a group and is refused too. A word
+missing from the list never lets an alias without a brand word through. It does let "Bambu CPE"
+through while CPE is unlisted, so review checks that such a name is one product.
 """
 
 from typing import Final

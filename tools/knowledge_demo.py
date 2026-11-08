@@ -12,6 +12,8 @@ QUERIES = (
     "PLA density",
     "Polymaker PLA density",
     "PolyTerra PLA density",
+    "PolyTerra PLA specific gravity",
+    "Polymaker PolyTerra PLA densities",
     "PLA+ density",
     "PolyTerra PLA+ density",
     "!PLA density",

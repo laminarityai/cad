@@ -3,13 +3,14 @@ title: PolyTerra PLA+ technical data sheet V5.1 (Polymaker)
 url: https://cdn.shopify.com/s/files/1/0789/2979/files/PolyTerra_PLA_Plus_EN_V5.1.pdf
 retrieved: 2026-11-07
 license: own-summary
-subject: pla-plus
+subject: polymaker-polyterra-pla-plus
 maker: Polymaker
 line: PolyTerra
 aliases: [PolyTerra PLA+, Polymaker PolyTerra PLA+]
 ---
 ## Density
 <!-- page: 2 -->
+<!-- keys: densities, specific gravity -->
 This is the data sheet for Polymaker PolyTerra PLA+, the toughened grade. The physical
 properties table lists
 "Density ISO1183, GB/T1033 1.24 g/cm3 at 21.5°C".

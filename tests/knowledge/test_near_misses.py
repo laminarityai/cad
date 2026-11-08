@@ -137,13 +137,6 @@ def test_a_name_that_fits_two_subjects_equally_finds_nothing(make_index: MakeInd
     assert index.search("PLA PLA+ density") == ()
 
 
-def test_two_units_of_one_subject_may_answer_together(make_index: MakeIndex) -> None:
-    index = make_index(
-        {"w": "## Fresh density\nText.\n\n## Fresh heat\nText.\n"}, {"w": ["water"]}, family=True
-    )
-    assert ids(index.search("water fresh")) == ["kb:w#fresh-density", "kb:w#fresh-heat"]
-
-
 COMPARED = {
     "pla": "## Density\nPLA density is 1.24, stiffer than nylon and lower than ABS and Petg.\n"
 }
@@ -171,14 +164,14 @@ def test_a_material_a_unit_only_compares_against_is_not_what_it_is_about(
 def test_a_mention_does_not_remove_recall_for_the_mentioned_words(make_index: MakeIndex) -> None:
     index = make_index(
         {
-            "pla": "## HDT, ISO 75 and UV\nPLA softens near its HDT; ABS is higher.\n",
-            "abs": "## HDT, ISO 75 and UV\nABS HDT is higher than PLA's.\n",
+            "pla": "## HDT\nPLA softens near its HDT; ABS is higher.\n",
+            "abs": "## HDT\nABS HDT is higher than PLA's.\n",
         },
         {"pla": ["PLA"], "abs": ["ABS"]},
         family=True,
     )
-    assert ids(index.search("PLA HDT")) == ["kb:pla#hdt-iso-75-and-uv"]
-    assert ids(index.search("ABS UV ISO")) == ["kb:abs#hdt-iso-75-and-uv"]
+    assert ids(index.search("PLA HDT")) == ["kb:pla#hdt"]
+    assert ids(index.search("ABS HDT")) == ["kb:abs#hdt"]
 
 
 @pytest.mark.parametrize("query", ["6061 density", "aluminium 6061 density", "316L density"])

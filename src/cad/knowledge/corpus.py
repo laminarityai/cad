@@ -1,37 +1,56 @@
 """The knowledge corpus: Markdown files kept with the code, one unit per `##` section.
 
-Each file is about one subject, named by its file stem: `pla.md` has `subject: pla`. List the
-names that mean exactly that subject under `aliases`. A search must name one of them, or it finds
-nothing; the section heading then chooses the unit.
+Each file is about one subject, named by its file stem: `polymaker-polyterra-pla.md` has
+`subject: polymaker-polyterra-pla`. List the names that mean exactly that subject under
+`aliases`. A search must name one of them, or it finds nothing; the section's names then choose
+the unit.
 
     ---
     title: PolyTerra PLA+ technical data sheet V5.1 (Polymaker)
     url: https://example.com/page
     retrieved: 2026-11-07
     license: own-summary
-    subject: pla-plus
+    subject: polymaker-polyterra-pla-plus
     maker: Polymaker
     line: PolyTerra       (optional; a trademark product line)
     aliases: [PolyTerra PLA+, Polymaker PolyTerra PLA+]
     ---
     ## Density            -> id kb:<file stem>#density
     <!-- page: 2 -->      (optional; a number or a range)
+    <!-- keys: densities, specific gravity -->   (optional; other names for this section)
     Our summary, with a verbatim quote in "double quotes" wherever a number is cited.
 
 A variant is its own subject, and an alias belongs to one subject only: "PETG" is the alias of the
 plain PETG subject, never of PETG HF. A file is either `family: true`, about a whole family, grade
 or standard (PLA, 6061-T6, ISO 273), or branded. A branded file declares `maker:` and may declare
 `line:`, and every alias must carry a word of one of them that is not a family word from
-`cad.knowledge.families`. So "PLA", "PLA Matte" and "mild steel" are never one vendor's alias,
-because one vendor's density is not the family's, and "British Steel" lends only "british". The
-maker's name alone ("Bambu Lab") is not an alias either, because it names every product the maker
-sells. A branded file without a maker is refused.
+`cad.knowledge.families`. So "PLA" and "mild steel" are never one vendor's alias, because one
+vendor's density is not the family's, and "British Steel" lends only "british". An alias of only
+the maker's name and family words ("Bambu Lab", "Bambu PLA", "Bambu Lab filament") names a group
+of the maker's products and is refused. A branded alias that is a run of words inside another
+subject's alias ("Bambu PLA Basic" inside "Bambu PLA Basic Gradient") names a group that holds
+the other product, so the loader refuses it and names both files, whichever file came first. A
+family alias inside a longer one is the family by declaration, so "PLA" may sit inside
+"PolyTerra PLA".
 
-The loader refuses a file whose subject is not its stem, a duplicate YAML key, an alias that is
-not a quoted string (`[6061]` is an int, `[NO]` a bool), an alias made only of stopwords, an alias
-that two subjects claim, and a fenced code block that is never closed. Files are read as UTF-8,
-with a byte order mark or Windows line endings accepted. A `##` line inside a fenced code block is
-text, not a heading.
+The corpus is reviewed like the tables, in pull requests. The loader catches the mistakes an
+honest author makes and refuses names that become ambiguous across files. It does not check that
+`maker:` or `line:` is true, just as the tables loader does not check that a density is:
+`line: Matte` makes "PLA Matte" one vendor's alias. A false `line:` is a review error. Review
+checklist: a `line:` that is a generic word (Matte, Pro, CF, HF, Basic) is a block.
+
+A section's names are its heading and each comma-separated key in its `keys` comment. Each is
+read like a query: cut into words, with the subject's own aliases and stopwords taken out, so
+"## Pure water" in the water file answers to "pure". A query chooses a unit only when its other
+words equal one of these names. Two sections of one file with an equal name, a key of only
+stopwords or only the subject's name, a second keys comment, and a section with no name left are
+refused.
+
+The loader also refuses a file whose subject is not its stem, a duplicate YAML key, an alias that
+is not a quoted string (`[6061]` is an int, `[NO]` a bool), an alias made only of stopwords, an
+alias that two subjects claim, and a fenced code block that is never closed. Files are read as
+UTF-8, with a byte order mark or Windows line endings accepted. A `##` line inside a fenced code
+block is text, not a heading.
 
 A number in a unit's text is never a value a check reads; checks read the tables by exact key.
 """
@@ -47,6 +66,7 @@ from typing import Any, Final, cast
 import yaml
 
 from cad.knowledge.families import FAMILY_WORDS
+from cad.knowledge.sections import Alias, Name, section_names
 from cad.knowledge.text import STOPWORDS, tokens
 
 CORPUS_PATH: Final = Path(__file__).resolve().parents[3] / "knowledge"
@@ -57,8 +77,6 @@ HEADING: Final = re.compile(r"## +(?P<title>.+?)\s*")
 FENCE: Final = re.compile(r"\s*(```|~~~)")
 FRONT_MATTER: Final = re.compile(r"\A---\n(?P<yaml>.*?)\n---\n", re.DOTALL)
 SUBJECT: Final = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
-
-type Alias = tuple[str, ...]
 
 
 class _UniqueKeyLoader(yaml.SafeLoader):
@@ -93,6 +111,8 @@ class Unit:
     pointer: Pointer
     text: str
     subject: str
+    names: frozenset[Name]
+    """The heading and each declared key (`cad.knowledge.sections`); a query names one."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,6 +129,11 @@ class Source:
     retrieved: date
     subject: str
     aliases: frozenset[Alias]
+    family: bool
+
+
+def _inside(short: Alias, long: Alias) -> bool:
+    return any(long[i : i + len(short)] == short for i in range(len(long) - len(short) + 1))
 
 
 def load(path: Path = CORPUS_PATH) -> Corpus:
@@ -121,6 +146,7 @@ def load(path: Path = CORPUS_PATH) -> Corpus:
     )
     units: dict[str, Unit] = {}
     owners: dict[Alias, str] = {}
+    branded: set[Alias] = set()
     digest = hashlib.sha256()
     for file in files:
         data = file.read_bytes()
@@ -138,12 +164,21 @@ def load(path: Path = CORPUS_PATH) -> Corpus:
             else:
                 units[unit.pointer.id] = unit
         if source:
+            branded.update(() if source.family else source.aliases)
             for alias in source.aliases:
                 if owners.setdefault(alias, source.subject) != source.subject:
                     problems.append(
                         f"{file.name}: alias {' '.join(alias)!r} is claimed by both "
                         f"{owners[alias]!r} and {source.subject!r}"
                     )
+    problems.extend(
+        f"{owners[short]}.md: alias {' '.join(short)!r} is inside {' '.join(long)!r} of "
+        f"{owners[long]}.md, so it names a group, not one product; drop it or make it the "
+        "full product name"
+        for short in sorted(branded)
+        for long in sorted(owners)
+        if owners[short] != owners[long] and _inside(short, long)
+    )
     if problems:
         raise InvalidCorpus("\n".join(problems))
     return Corpus(version=digest.hexdigest(), units=units, aliases=owners)
@@ -167,13 +202,21 @@ def _parse(stem: str, text: str) -> tuple[Source | None, list[Unit], list[str]]:
     if not headings or body[: headings[0].start].strip():
         problems.append("text before the first ## heading")
     units: list[Unit] = []
+    answers: dict[Name, str] = {}
     for heading, following in zip(headings, [*headings[1:], None], strict=False):
         end = following.start if following else len(body)
         unit = _unit(stem, source, heading.title, body[heading.end : end])
-        if isinstance(unit, Unit):
-            units.append(unit)
-        else:
+        if isinstance(unit, str):
             problems.append(unit)
+            continue
+        units.append(unit)
+        for name in sorted(unit.names, key=sorted):
+            other = answers.setdefault(name, unit.pointer.section)
+            if other != unit.pointer.section:
+                problems.append(
+                    f"sections {other!r} and {unit.pointer.section!r} both answer to "
+                    f"{' '.join(sorted(name))!r}; one query must choose one section"
+                )
     return source, units, problems
 
 
@@ -231,7 +274,7 @@ def _source(stem: str, meta: object) -> tuple[Source | None, list[str]]:
         and isinstance(subject, str)
     ):
         return None, problems
-    return Source(title, url, retrieved, subject, aliases), problems
+    return Source(title, url, retrieved, subject, aliases, brand is None), problems
 
 
 @dataclass(frozen=True, slots=True)
@@ -291,10 +334,10 @@ def _aliases(declared: object, brand: _Brand | None) -> tuple[frozenset[Alias], 
                 f"({', '.join(sorted(brand.words))}); name the product as its maker sells it, "
                 "or declare `family: true` when the source covers a whole family"
             )
-        elif brand is not None and set(words) - STOPWORDS <= brand.maker:
+        elif brand is not None and set(words) - STOPWORDS - FAMILY_WORDS <= brand.maker:
             problems.append(
-                f"front matter aliases entry {item!r} is only the maker's name, which names "
-                "every product the maker sells; add the product"
+                f"front matter aliases entry {item!r} is only the maker's name and family words, "
+                "which names a group of the maker's products; add the product"
             )
         else:
             aliases.add(words)
@@ -302,6 +345,10 @@ def _aliases(declared: object, brand: _Brand | None) -> tuple[frozenset[Alias], 
 
 
 def _unit(stem: str, source: Source, section: str, text: str) -> Unit | str:
+    named = section_names(source.aliases, section, text)
+    if isinstance(named, str):
+        return named
+    names, text = named
     page: str | None = None
     pages = list(PAGE.finditer(text))
     if len(pages) > 1:
@@ -326,4 +373,4 @@ def _unit(stem: str, source: Source, section: str, text: str) -> Unit | str:
         section=section,
         retrieved=source.retrieved,
     )
-    return Unit(pointer, text, source.subject)
+    return Unit(pointer, text, source.subject, names)

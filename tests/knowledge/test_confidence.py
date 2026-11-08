@@ -45,12 +45,9 @@ def test_a_query_that_names_no_subject_finds_nothing(make_index: MakeIndex) -> N
     assert make_index(WATER, WATER_ALIASES, family=True).search("fresh density") == ()
 
 
-def test_hits_are_ordered_by_id_and_ignore_case(make_index: MakeIndex) -> None:
+def test_a_heading_matches_whatever_its_case(make_index: MakeIndex) -> None:
     index = make_index(
         {"water": "## Zinc heat capacity\nText.\n\n## Alpha Heat Capacity\nText.\n"}, family=True
     )
-    hits = index.search("WATER heat capacity")
-    assert [h.pointer.id for h in hits] == [
-        "kb:water#alpha-heat-capacity",
-        "kb:water#zinc-heat-capacity",
-    ]
+    hits = index.search("WATER alpha HEAT capacity")
+    assert [h.pointer.id for h in hits] == ["kb:water#alpha-heat-capacity"]
