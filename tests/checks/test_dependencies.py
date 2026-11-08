@@ -66,7 +66,10 @@ def copied_tree(tmp_path: Path) -> Path:
         "cad/sandbox/host.py",
         "cad/sandbox/container.py",
         "cad/tables/materials.py",
-        "cad/checks/container/kernel.py",
+        "cad/checks/container/kernel/__init__.py",
+        "cad/checks/container/kernel/protocol.py",
+        "cad/checks/container/kernel/ocp_handles.py",
+        "cad/checks/container/kernel/ocp_kernel.py",
         "cad/__init__.py",
     ],
 )
