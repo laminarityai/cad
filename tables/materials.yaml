@@ -20,7 +20,15 @@ materials:
         standard: ISO 527-1
         quote: Tensile Yield Strength [MPa] 51 ± 3 59 ± 2 ISO 527-1
     tensile_strength: unknown
-    elastic_modulus: unknown
+    elastic_modulus:
+      value: 2.3 GPa
+      source:
+        url: https://storage.googleapis.com/prusa3d-content-prod-14e8-wordpress-prusament-prod/2024/05/7ca620c4-prusament-pla-plablend.zip
+        title: Technical datasheet, Prusament PLA by Prusa Polymers, version 1.1, last update 27-07-2022 (Prusament PLA/1_PLA_Prusament_TDS_2022_EN.pdf in the zip)
+        page: page 2, Mechanical properties of 3D printed testing specimens, Tensile Modulus, Horizontal column; printed specimens, horizontal (X-Y) direction, 100% rectilinear infill; value is the mean of mean ± spread
+        retrieved: 2026-11-08
+        standard: ISO 527-1
+        quote: Tensile Modulus [GPa] 2.3 ± 0.1 2.4 ± 0.1 ISO 527-1
     poisson_ratio: unknown
 
   - key: prusament-petg
@@ -44,7 +52,15 @@ materials:
         standard: ISO 527-1
         quote: Tensile Yield Strength [MPa] 47 ± 2 50 ± 1 ISO 527-1
     tensile_strength: unknown
-    elastic_modulus: unknown
+    elastic_modulus:
+      value: 1.5 GPa
+      source:
+        url: https://storage.googleapis.com/prusa3d-content-prod-14e8-wordpress-prusament-prod/2023/10/9f8d2165-tds_prusament-petg_n_en.pdf
+        title: Technical datasheet, Prusament PETG by Prusa Polymers, version 1.1, last update 16-02-2022
+        page: page 2, Mechanical properties of 3D printed testing specimens, Tensile Modulus, Horizontal column; printed specimens, horizontal (X-Y) direction; value is the mean of mean ± spread
+        retrieved: 2026-11-08
+        standard: ISO 527-1
+        quote: Tensile Modulus [GPa] 1.5 ± 0.1 1.6 ± 0.1 ISO 527-1
     poisson_ratio: unknown
 
   - key: polymaker-polylite-abs
@@ -68,8 +84,24 @@ materials:
         retrieved: 2026-11-05
         standard: ISO 527, GB/T 1040
         quote: Tensile strength (X-Y) ISO 527, GB/T 1040 33.4 ± 92.7 MPa
-    elastic_modulus: unknown
-    poisson_ratio: unknown
+    elastic_modulus:
+      value: 2246.6 MPa
+      source:
+        url: https://polymaker.com/wp-content/uploads/lana-downloads/TDS_Polymaker_PolyLite-ABS_V5.6_2025-12-30_EN.pdf
+        title: Technical Data Sheet V5.6, PolyLite ABS, Polymaker
+        page: page 1, Mechanical properties, Young's modulus (X-Y), typical value; printed specimens, X-Y direction; value is the mean of mean ± spread
+        retrieved: 2026-11-08
+        standard: ISO 527, GB/T 1040
+        quote: Young’s modulus (X-Y) ... 2246.6 ± 58.2 MPa
+    poisson_ratio:
+      value: '0.35'
+      source:
+        url: https://online.flippingbook.com/view/954192180/629/
+        title: Machinery's Handbook, 31st Edition (Industrial Press, copyright 2020), Part A, book page 566, Stress and Strain in Plastics, Table 1. Poisson's Ratio at 23 °C for Resins and Compounds (FlippingBook copy published by Tampa Brass & Aluminum, viewer page 629)
+        retrieved: 2026-11-08
+        standard: null
+        page: book page 566, Table 1, Poisson's Ratio at 23 °C for Resins and Compounds, row 'ABS, unfilled'; family handbook value for the unfilled resin, specimen basis not stated (not printed specimens)
+        quote: ABS, unfilled 0.35
 
   - key: kaiser-6061-t6
     name: Kaiser Aluminum 6061-T6 sheet, coil and plate
@@ -100,8 +132,24 @@ materials:
         retrieved: 2026-11-05
         standard: null
         quote: T6, T651 45 310 40 276 17 95 30 207 14 97 10.0 68.3 (Tensile Ultimate KSI MPa, Yield KSI MPa)
-    elastic_modulus: unknown
-    poisson_ratio: unknown
+    elastic_modulus:
+      value: 68.3 GPa
+      source:
+        url: https://online.kaiseraluminum.com/depot/PublicProductInformation/Document/1015/Kaiser_Aluminum_6061_Sheet_Coil_and_Plate.pdf
+        title: Sheet Coil & Plate Alloy 6061 Technical Data, Kaiser Aluminum, Rev. 05/06
+        page: page 1, Typical mechanical properties, T6, T651 row, Modulus of Elasticity column (typical; sheet does not split tension and compression)
+        retrieved: 2026-11-08
+        standard: null
+        quote: Modulus of Elasticity KSI MPa KSI MPa % KSI MPa KSI MPa KSI x 10 3 Gpa ... T6, T651 45 310 40 276 17 95 30 207 14 97 10.0 68.3
+    poisson_ratio:
+      value: '0.33'
+      source:
+        url: https://everyspec.com/MIL-HDBK/MIL-HDBK-0001-0099/download.php?spec=MIL_HDBK_5J.139.pdf
+        title: MIL-HDBK-5J, Department of Defense Handbook, Metallic Materials and Elements for Aerospace Vehicle Structures, 31 January 2003
+        page: page 3-264, Table 3.6.2.0(b1), 6061 aluminum alloy sheet, tempers T4, T42 and T6/T62 (one µ value for all columns), row µ; column order E, Ec, G, µ
+        retrieved: 2026-11-08
+        standard: null
+        quote: Design Mechanical and Physical Properties of 6061 Aluminum Alloy Sheet ... T6 and T62b ... µ ............... 9.9 10.1 3.8 0.33
 
   - key: cliffs-304
     name: Cleveland-Cliffs Type 304 stainless steel
@@ -132,8 +180,24 @@ materials:
         retrieved: 2026-11-05
         standard: null
         quote: UTS, ksi. (MPa) 0.2% YS, ksi. (MPa) ... Type 304 95 (655) 42 (290) 55 84
-    elastic_modulus: unknown
-    poisson_ratio: unknown
+    elastic_modulus:
+      value: 193 GPa
+      source:
+        url: https://www.clevelandcliffs.com/_assets/_7ce3a04c09e74bf31ff5f89fc888db25/clevelandcliffs/db/1190/10510/file/CLF_ProductData_304-304LSS_052021.pdf
+        title: 304/304L Stainless Steel Product Data Bulletin, Cleveland-Cliffs, 2021
+        page: page 4, Physical properties, Modulus of Elasticity in tension (sheet also gives 11.2 x 10^3 ksi in torsion, not used); sheet prints 28.0 x 10^3 ksi (193 x 10^3 MPa), value is the MPa figure written in GPa
+        retrieved: 2026-11-08
+        standard: null
+        quote: Modulus of Elasticity, ksi. (MPa) in tension in torsion 28.0 x 103 (193 x 103)
+    poisson_ratio:
+      value: '0.27'
+      source:
+        url: https://everyspec.com/MIL-HDBK/MIL-HDBK-0001-0099/download.php?spec=MIL_HDBK_5J.139.pdf
+        title: MIL-HDBK-5J, Department of Defense Handbook, Metallic Materials and Elements for Aerospace Vehicle Structures, 31 January 2003
+        page: page 2-223, Table 2.7.1.0(b), AISI 301 and related stainless steels, sheet and strip, row µ (0.27 in every condition, annealed through full hard); footnote b says the properties also apply to AISI 304 (AMS 5513 annealed, AMS 5910-5913 1/4H to full hard)
+        retrieved: 2026-11-08
+        standard: null
+        quote: Design Mechanical and Physical Properties of AISI 301and Relateda,b,c Stainless Steels ... µ .............. 29.0 29.0 28.0 28.0 11.2 0.27 ... b Properties also applicable to AISI 304 for the following; AMS 5513 for annealed condition
 
   - key: bambu-pla-basic
     name: Bambu Lab PLA Basic
@@ -156,7 +220,15 @@ materials:
         retrieved: 2026-11-07
         standard: ISO 527, GB/T 1040
         quote: Tensile Strength (X-Y) ISO 527, GB/T 1040 35 ± 4 MPa
-    elastic_modulus: unknown
+    elastic_modulus:
+      value: 2580 MPa
+      source:
+        url: https://store.bblcdn.com/s1/default/58b85d0f3db94878854a28fdb8a0006e/Bambu_PLA_Basic_Technical_Data_Sheet.pdf
+        title: Bambu Filament Technical Data Sheet V3.0, PLA Basic
+        page: page 2, Mechanical Properties, Young's Modulus (X-Y); printed specimens, X-Y (in-plane) direction, 100% infill; value is the mean from the sheet's mean ± spread
+        retrieved: 2026-11-08
+        standard: ISO 527
+        quote: Young's Modulus (X-Y) ISO 527, GB/T 1040 2580 ± 220 MPa
     poisson_ratio: unknown
 
   - key: bambu-petg-basic
@@ -180,7 +252,15 @@ materials:
         retrieved: 2026-11-07
         standard: ISO 527, GB/T 1040
         quote: Tensile Strength (X-Y) ISO 527, GB/T 1040 51 ± 1 MPa
-    elastic_modulus: unknown
+    elastic_modulus:
+      value: 2780 MPa
+      source:
+        url: https://store.bblcdn.com/s1/default/cb94589bf7994fdcbfa833badefae9cd/Bambu_PETG_Basic_Technical_Data_Sheet.pdf
+        title: Bambu Filament Technical Data Sheet V3.0, PETG Basic
+        page: page 2, Mechanical Properties, Young's Modulus (X-Y); printed specimens, X-Y (in-plane) direction, 100% infill; value is the mean from the sheet's mean ± spread
+        retrieved: 2026-11-08
+        standard: ISO 527
+        quote: Young's Modulus (X-Y) ISO 527, GB/T 1040 2780 ± 65 MPa
     poisson_ratio: unknown
 
   - key: bambu-petg-hf
@@ -204,7 +284,15 @@ materials:
         retrieved: 2026-11-07
         standard: ISO 527, GB/T 1040
         quote: Tensile Strength (X-Y) ISO 527, GB/T 1040 34 ± 4 MPa
-    elastic_modulus: unknown
+    elastic_modulus:
+      value: 1810 MPa
+      source:
+        url: https://store.bblcdn.com/3a230e260a3a47c2b0db0156e07eef91.pdf
+        title: Bambu Filament Technical Data Sheet V1.0, PETG HF
+        page: page 2, Mechanical Properties, Young's Modulus (X-Y); printed specimens, X-Y (in-plane) direction, 100% infill; value is the mean from the sheet's mean ± spread
+        retrieved: 2026-11-08
+        standard: ISO 527
+        quote: Young's Modulus (X-Y) ISO 527, GB/T 1040 1810 ± 190 MPa
     poisson_ratio: unknown
 
   - key: bambu-abs
@@ -228,8 +316,24 @@ materials:
         retrieved: 2026-11-07
         standard: ISO 527, GB/T 1040
         quote: Tensile Strength (X-Y) ISO 527, GB/T 1040 33 ± 3 MPa
-    elastic_modulus: unknown
-    poisson_ratio: unknown
+    elastic_modulus:
+      value: 2200 MPa
+      source:
+        url: https://store.bblcdn.com/s7/default/23b4cf2b83d5470bb96d19970b5f3ae8/Bambu_ABS_Technical_Data_Sheet_V3.pdf
+        title: Bambu Filament Technical Data Sheet V3.0, ABS
+        page: page 2, Mechanical Properties, Young's Modulus (X-Y); printed specimens, X-Y (in-plane) direction, 100% infill; value is the mean from the sheet's mean ± spread
+        retrieved: 2026-11-08
+        standard: ISO 527
+        quote: Young's Modulus (X-Y) ISO 527, GB/T 1040 2200 ± 190 MPa
+    poisson_ratio:
+      value: '0.35'
+      source:
+        url: https://online.flippingbook.com/view/954192180/629/
+        title: Machinery's Handbook, 31st Edition (Industrial Press, copyright 2020), Part A, book page 566, Stress and Strain in Plastics, Table 1. Poisson's Ratio at 23 °C for Resins and Compounds (FlippingBook copy published by Tampa Brass & Aluminum, viewer page 629)
+        retrieved: 2026-11-08
+        standard: null
+        page: book page 566, Table 1, Poisson's Ratio at 23 °C for Resins and Compounds, row 'ABS, unfilled'; family handbook value for the unfilled resin, specimen basis not stated (not printed specimens)
+        quote: ABS, unfilled 0.35
 
   - key: bambu-asa
     name: Bambu Lab ASA
@@ -252,7 +356,15 @@ materials:
         retrieved: 2026-11-07
         standard: ISO 527, GB/T 1040
         quote: Tensile Strength (X-Y) ISO 527, GB/T 1040 37 ± 3 MPa
-    elastic_modulus: unknown
+    elastic_modulus:
+      value: 2450 MPa
+      source:
+        url: https://store.bblcdn.com/ad7b08230c164e72856cffbe06bb7dc9.pdf
+        title: Bambu Filament Technical Data Sheet V3.0, ASA
+        page: page 2, Mechanical Properties, Young's Modulus (X-Y); printed specimens, X-Y (in-plane) direction, 100% infill; value is the mean from the sheet's mean ± spread
+        retrieved: 2026-11-08
+        standard: ISO 527
+        quote: Young's Modulus (X-Y) ISO 527, GB/T 1040 2450 ± 270 MPa
     poisson_ratio: unknown
 
   - key: bambu-tpu-95a-hf
@@ -300,7 +412,15 @@ materials:
         retrieved: 2026-11-07
         standard: ISO 527, GB/T 1040
         quote: Tensile strength (X-Y) ISO 527, GB/T 1040 109.3 ± 2.4 MPa
-    elastic_modulus: unknown
+    elastic_modulus:
+      value: 8636.5 MPa
+      source:
+        url: https://fiberon.polymaker.com/wp-content/uploads/TDS_FIBERON-PA6-CF20_V1.1_EN.pdf
+        title: Technical Data Sheet V1.1, Fiberon PA6-CF20, Polymaker
+        page: page 1, Mechanical properties - dry status, Young's modulus (X-Y), typical value; printed specimens, X-Y direction, dry (not water-conditioned), annealed at 100 °C for 16 h; value is the mean of mean ± spread
+        retrieved: 2026-11-08
+        standard: ISO 527, GB/T 1040
+        quote: Young’s modulus (X-Y) ... 8636.5 ± 211.4 MPa
     poisson_ratio: unknown
 
   - key: polymaker-fiberon-pa12-cf10
@@ -324,7 +444,15 @@ materials:
         retrieved: 2026-11-07
         standard: ISO 527, GB/T 1040
         quote: Tensile strength (X-Y) ISO 527, GB/T 1040 77.4 ± 1.1 MPa
-    elastic_modulus: unknown
+    elastic_modulus:
+      value: 3311.2 MPa
+      source:
+        url: https://fiberon.polymaker.com/wp-content/uploads/TDS_FIBERON-PA12-CF10_V1.1_EN.pdf
+        title: Technical Data Sheet V1.1, Fiberon PA12-CF10, Polymaker
+        page: page 1, Mechanical properties - dry status, Young's modulus (X-Y), typical value; printed specimens, X-Y direction, dry (not water-conditioned), annealed at 100 °C for 16 h; value is the mean of mean ± spread
+        retrieved: 2026-11-08
+        standard: ISO 527, GB/T 1040
+        quote: Young’s modulus (X-Y) ... 3311.2 ± 134.9 MPa
     poisson_ratio: unknown
 
   - key: bambu-pc
@@ -348,8 +476,24 @@ materials:
         retrieved: 2026-11-07
         standard: ISO 527, GB/T 1040
         quote: Tensile Strength (X-Y) ISO 527, GB/T 1040 62 ± 2 MPa
-    elastic_modulus: unknown
-    poisson_ratio: unknown
+    elastic_modulus:
+      value: 2110 MPa
+      source:
+        url: https://store.bblcdn.com/a52afdccddfd448583d119587122c8c5.pdf
+        title: Bambu Filament Technical Data Sheet V2.0, PC (linked from the Bambu Lab US store PC product page)
+        page: page 2, Mechanical Properties, Young's Modulus (X-Y); printed specimens, X-Y (in-plane) direction, 100% infill; value is the mean from the sheet's mean ± spread
+        retrieved: 2026-11-08
+        standard: ISO 527
+        quote: Young's Modulus (X-Y) ISO 527, GB/T 1040 2110 ± 40 MPa
+    poisson_ratio:
+      value: '0.37'
+      source:
+        url: https://online.flippingbook.com/view/954192180/629/
+        title: Machinery's Handbook, 31st Edition (Industrial Press, copyright 2020), Part A, book page 566, Stress and Strain in Plastics, Table 1. Poisson's Ratio at 23 °C for Resins and Compounds (FlippingBook copy published by Tampa Brass & Aluminum, viewer page 629)
+        retrieved: 2026-11-08
+        standard: null
+        page: book page 566, Table 1, Poisson's Ratio at 23 °C for Resins and Compounds, row 'Polycarbonate'; family handbook value for the unfilled resin, specimen basis not stated (not printed specimens)
+        quote: Polycarbonate 0.37
 
   - key: polymaker-polymax-pc
     name: Polymaker PolyMax PC
@@ -372,7 +516,15 @@ materials:
         retrieved: 2026-11-07
         standard: ISO 527, GB/T 1040
         quote: Tensile strength (X-Y) ISO 527, GB/T 1040 53.44 ± 0.60 MPa
-    elastic_modulus: unknown
+    elastic_modulus:
+      value: 2435 MPa
+      source:
+        url: https://polymaker.com/wp-content/uploads/TDS_Polymaker_PolyMax-PC_V5.5_2026-01-05_EN.pdf
+        title: Technical Data Sheet V5.5, PolyMax PC, Polymaker (2026-01-05)
+        page: page 1, Mechanical properties, Young's modulus (X-Y), typical value; printed specimens, X-Y direction, 100% infill, not stated as annealed; value is the mean of mean ± spread
+        retrieved: 2026-11-08
+        standard: ISO 527, GB/T 1040
+        quote: Young’s modulus (X-Y) ... 2435 ± 63 MPa
     poisson_ratio: unknown
 
   - key: bambu-pla-cf
@@ -396,7 +548,15 @@ materials:
         retrieved: 2026-11-07
         standard: ISO 527, GB/T 1040
         quote: Tensile Strength (X-Y) ISO 527, GB/T 1040 38 ± 4 MPa
-    elastic_modulus: unknown
+    elastic_modulus:
+      value: 2790 MPa
+      source:
+        url: https://store.bblcdn.com/842f399d4e274507953a5231126ec8c1.pdf
+        title: Bambu Filament Technical Data Sheet V2.0, PLA-CF (linked from the Bambu Lab US store PLA-CF product page)
+        page: page 2, Mechanical Properties, Young's Modulus (X-Y); printed specimens, X-Y (in-plane) direction, 100% infill; value is the mean from the sheet's mean ± spread
+        retrieved: 2026-11-08
+        standard: ISO 527
+        quote: Young's Modulus (X-Y) ISO 527, GB/T 1040 2790 ± 120 MPa
     poisson_ratio: unknown
 
   - key: bambu-petg-cf
@@ -420,7 +580,15 @@ materials:
         retrieved: 2026-11-07
         standard: ISO 527, GB/T 1040
         quote: Tensile Strength (X-Y) ISO 527, GB/T 1040 35 ± 5 MPa
-    elastic_modulus: unknown
+    elastic_modulus:
+      value: 2460 MPa
+      source:
+        url: https://store.bblcdn.com/626e4f424bf345ae965ad0ddfcaf2459.pdf
+        title: Bambu Filament Technical Data Sheet V3.0, PETG-CF (linked from the Bambu Lab US store PETG-CF product page)
+        page: page 2, Mechanical Properties, Young's Modulus (X-Y); printed specimens, X-Y (in-plane) direction, 100% infill; value is the mean from the sheet's mean ± spread
+        retrieved: 2026-11-08
+        standard: ISO 527
+        quote: Young's Modulus (X-Y) ISO 527, GB/T 1040 2460 ± 230 MPa
     poisson_ratio: unknown
 
   - key: formlabs-clear-resin-v5
@@ -444,7 +612,15 @@ materials:
         retrieved: 2026-11-07
         standard: ASTM D638-14
         quote: Ultimate Tensile Strength 60 MPa (8702 psi) 58 MPa (8410 psi) ASTM D638-14
-    elastic_modulus: unknown
+    elastic_modulus:
+      value: 2750 MPa
+      source:
+        url: https://formlabs-media.formlabs.com/filer_public/dd/7f/dd7f3de9-55ae-4c82-ac52-408a4b5df64d/clear_resin_v5_tds___formlabs.pdf
+        title: Clear Resin V5 Technical Data Sheet, Formlabs
+        page: page 2, Tensile Properties (heated post-cure), Tensile Modulus, 15 min post-cure at 60 °C column, the same column as the table's tensile_strength (post-cured, not green); Form 4, 100 µm, washed 5 min in IPA; the 2700 MPa value beside it is the 4 min post-cure at 60 °C column
+        retrieved: 2026-11-08
+        standard: ASTM D638-14
+        quote: Tensile Modulus 2750 MPa (399 ksi) 2700 MPa (392 ksi) ASTM D638-14
     poisson_ratio: unknown
 
   - key: kaiser-7075-t6
@@ -476,8 +652,24 @@ materials:
         retrieved: 2026-11-07
         standard: null
         quote: T6, T651 83 572 73 503 11 150 48 331 23 158 10.3 71.0
-    elastic_modulus: unknown
-    poisson_ratio: unknown
+    elastic_modulus:
+      value: 71.0 GPa
+      source:
+        url: https://online.kaiseraluminum.com/depot/PublicProductInformation/Document/1028/Kaiser_Aluminum_7075_Rod_and_Bar.pdf
+        title: Rod & Bar Alloy 7075 Technical Data, Kaiser Aluminum, KA-RBH-7075-8.10
+        page: page 1, Typical mechanical properties, T6, T651 row, Modulus of Elasticity column (typical; sheet does not split tension and compression)
+        retrieved: 2026-11-08
+        standard: null
+        quote: Modulus of Elasticity KSI MPa KSI MPa % KSI MPa KSI MPa KSI x 10 3 Gpa ... T6, T651 83 572 73 503 11 150 48 331 23 158 10.3 71.0
+    poisson_ratio:
+      value: '0.33'
+      source:
+        url: https://everyspec.com/MIL-HDBK/MIL-HDBK-0001-0099/download.php?spec=MIL_HDBK_5J.139.pdf
+        title: MIL-HDBK-5J, Department of Defense Handbook, Metallic Materials and Elements for Aerospace Vehicle Structures, 31 January 2003
+        page: page 3-380, Table 3.7.6.0(d), 7075 aluminum alloy bar, rod and shapes, rolled, drawn or cold-finished, tempers T6, T651, T62 and T73, T7351 (one µ value for all columns), row µ; column order E, Ec, G, µ
+        retrieved: 2026-11-08
+        standard: null
+        quote: Design Mechanical and Physical Properties of 7075 Aluminum Alloy Bar, Rod, and Shapes ... µ ............... 10.3 10.5 3.9 0.33
 
   - key: cliffs-316
     name: Cleveland-Cliffs Type 316/316L stainless steel
@@ -508,8 +700,24 @@ materials:
         retrieved: 2026-11-07
         standard: null
         quote: UTS, ksi. (MPa) 0.2% YS, ksi. (MPa) Elongation % in 2 in. (50.8 mm) Rockwell Hardness, B 91 (627) 42 (290) 55 79
-    elastic_modulus: unknown
-    poisson_ratio: unknown
+    elastic_modulus:
+      value: 193 GPa
+      source:
+        url: https://www.clevelandcliffs.com/_assets/_464c1f648dd1e0c96c45d68cdce1cf31/clevelandcliffs/db/1190/10513/file/CLF_ProductData_316-316LSS_052021.pdf
+        title: 316/316L Stainless Steel Product Data Bulletin, Cleveland-Cliffs, May 2021
+        page: page 4, Physical properties, Modulus of Elasticity in tension (sheet also gives 11.2 x 10^3 ksi in torsion, not used); sheet prints 28.0 x 10^3 ksi (193 x 10^3 MPa), value is the MPa figure written in GPa
+        retrieved: 2026-11-08
+        standard: null
+        quote: Modulus of Elasticity, ksi. (MPa) in tension in torsion 28.0 x 103 (193 x 103)
+    poisson_ratio:
+      value: '0.27'
+      source:
+        url: https://everyspec.com/MIL-HDBK/MIL-HDBK-0001-0099/download.php?spec=MIL_HDBK_5J.139.pdf
+        title: MIL-HDBK-5J, Department of Defense Handbook, Metallic Materials and Elements for Aerospace Vehicle Structures, 31 January 2003
+        page: page 2-223, Table 2.7.1.0(b), AISI 301 and related stainless steels, sheet and strip, row µ (0.27 in every condition); footnote c says the properties also apply to AISI 316 (AMS 5524 annealed, AMS 5907 1/4H)
+        retrieved: 2026-11-08
+        standard: null
+        quote: Design Mechanical and Physical Properties of AISI 301and Relateda,b,c Stainless Steels ... µ .............. 29.0 29.0 28.0 28.0 11.2 0.27 ... c Properties also applicable to AISI 316 for the following; AMS 5524 for annealed condition and AMS 5907 for 1/4H
 
   - key: cliffs-hot-rolled-cs-type-b
     name: Cleveland-Cliffs hot-rolled Commercial Steel (CS Type B) mild steel sheet
@@ -540,7 +748,15 @@ materials:
         retrieved: 2026-11-07
         standard: null
         quote: Commercial Steel (CS T ype B) May be moderately formed. A specimen out in any direction can be bent flat on itself without cracking. 36 248 51 351 37 B61
-    elastic_modulus: unknown
+    elastic_modulus:
+      value: 200 GPa
+      source:
+        url: https://www.clevelandcliffs.com/_assets/_7ce3a04c09e74bf31ff5f89fc888db25/clevelandcliffs/db/1190/10480/file/CLF_ProductData_HotRolled_062025.pdf
+        title: Hot-Rolled Steels Product Data, Cleveland-Cliffs, June 2025
+        page: page 4, Engineering properties (stated for all hot-rolled steels in the bulletin, not per grade), Young's Modulus of Elasticity at 20 °C; sheet prints 200 x 10^3 MPa, value written in GPa
+        retrieved: 2026-11-08
+        standard: null
+        quote: Young’s Modulus of Elasticity 200 x 103 MPa at 20°C
     poisson_ratio: unknown
 
   - key: wieland-z23-r400
@@ -572,7 +788,15 @@ materials:
         retrieved: 2026-11-07
         standard: EN 12164
         quote: R400 2 25 2 20 400 200
-    elastic_modulus: unknown
+    elastic_modulus:
+      value: 102 GPa
+      source:
+        url: https://www.wieland.com/en/content/download/9839/file/Z23_EX_EN.pdf
+        title: Wieland-Z23 CuZn36Pb3 | Machining brass, BU Extruded Products data sheet, 08.19 (EX.ZMZ.UL/Er)
+        page: page 1, Physical properties, reference values at room temperature (sheet prints "Moduls"; not split by tension and compression, not per temper)
+        retrieved: 2026-11-08
+        standard: null
+        quote: Moduls of elasticity GPa 102
     poisson_ratio: unknown
 
   - key: aurubis-c11000-h02
@@ -588,7 +812,15 @@ materials:
         quote: Density [lb/in³] [g/cm³] Specific heat cap. at 20°C [Btu/lb°F] [kJ/kgK] Electrical cond. [%IACS] [MS/m] Thermal cond. at 20°C [Btu/ft h °F] [W/mK] Mod. of elasticity x1000 ksi [GPa] Coef. of therm exp. at 20°C [10-6/°F] [10-6/K] 1981 1083 0.323 8.9
     yield_strength: unknown
     tensile_strength: unknown
-    elastic_modulus: unknown
+    elastic_modulus:
+      value: 117 GPa
+      source:
+        url: https://aurubis.com/dam/jcr:ec116d17-1541-419a-a897-ad31b4fa6c93/c11000-cu-etp-us.pdf
+        title: Aurubis Technical Datasheet C11000 (Cu-ETP), 18 08 US
+        page: page 1, Physical properties table, Mod. of elasticity column; 17 x 1000 ksi [117 GPa]; one value for the alloy, not per temper or load direction
+        retrieved: 2026-11-08
+        standard: null
+        quote: Mod. of elasticity x1000 ksi [GPa] ... 100 58 226 391 17 117
     poisson_ratio: unknown
 
   - key: plexiglas-gs-0f00
@@ -612,8 +844,24 @@ materials:
         retrieved: 2026-11-07
         standard: ISO 527-2/1B/5
         quote: Tensile strength σM MPa ISO 527-2/1B/5 – 40 °C 110 100 - 23 °C 80 72
-    elastic_modulus: unknown
-    poisson_ratio: unknown
+    elastic_modulus:
+      value: 3300 MPa
+      source:
+        url: https://www.plexiglas.de/files/plexiglas-content/pdf/technische-informationen/211-1-EN-PLEXIGLAS-GS-XT.pdf
+        title: PLEXIGLAS Technical Information, Ref. No. 211-1, 04/25
+        page: page 4, Typical property values (at 23 °C and 50% relative humidity), Modulus of elasticity Et (short-term value), PLEXIGLAS GS column; typical
+        retrieved: 2026-11-08
+        standard: ISO 527-2/1B/1
+        quote: Modulus of elasticity Et (short-term value) 3300 3300 2700; 2200;
+    poisson_ratio:
+      value: '0.37'
+      source:
+        url: https://www.plexiglas.de/files/plexiglas-content/pdf/technische-informationen/211-1-EN-PLEXIGLAS-GS-XT.pdf
+        title: PLEXIGLAS Technical Information, Ref. No. 211-1, 04/25
+        page: page 4, Typical property values, Poisson's ratio μb (dilatation speed of 5% per min; up to 2% dilatation; at 23 °C), PLEXIGLAS GS column; typical
+        retrieved: 2026-11-08
+        standard: ISO 527-1
+        quote: Poisson’s ratio μb ... up to 2% dilatation; at 23 °C) 0.37 0.37 0.41; 0.42. 0.41; 0.43 - ISO 527-1
 
   - key: plexiglas-xt-0a000
     name: PLEXIGLAS XT clear 0A000 extruded acrylic (PMMA) sheet
@@ -636,8 +884,24 @@ materials:
         retrieved: 2026-11-07
         standard: ISO 527-2/1B/5
         quote: Tensile strength σM MPa ISO 527-2/1B/5 – 40 °C 110 100 - 23 °C 80 72
-    elastic_modulus: unknown
-    poisson_ratio: unknown
+    elastic_modulus:
+      value: 3300 MPa
+      source:
+        url: https://www.plexiglas.de/files/plexiglas-content/pdf/technische-informationen/211-1-EN-PLEXIGLAS-GS-XT.pdf
+        title: PLEXIGLAS Technical Information, Ref. No. 211-1, 04/25
+        page: page 4, Typical property values (at 23 °C and 50% relative humidity), Modulus of elasticity Et (short-term value), PLEXIGLAS XT column; typical
+        retrieved: 2026-11-08
+        standard: ISO 527-2/1B/1
+        quote: Modulus of elasticity Et (short-term value) 3300 3300 2700; 2200;
+    poisson_ratio:
+      value: '0.37'
+      source:
+        url: https://www.plexiglas.de/files/plexiglas-content/pdf/technische-informationen/211-1-EN-PLEXIGLAS-GS-XT.pdf
+        title: PLEXIGLAS Technical Information, Ref. No. 211-1, 04/25
+        page: page 4, Typical property values, Poisson's ratio μb (dilatation speed of 5% per min; up to 2% dilatation; at 23 °C), PLEXIGLAS XT column; typical
+        retrieved: 2026-11-08
+        standard: ISO 527-1
+        quote: Poisson’s ratio μb ... up to 2% dilatation; at 23 °C) 0.37 0.37 0.41; 0.42. 0.41; 0.43 - ISO 527-1
 
   - key: mcam-ertacetal-c
     name: Mitsubishi Chemical Advanced Materials Acetron GP / Ertacetal C POM-C (acetal copolymer) stock shapes
@@ -652,7 +916,15 @@ materials:
         quote: Density ISO 1183-1 g/cm³ 1.41
     yield_strength: unknown
     tensile_strength: unknown
-    elastic_modulus: unknown
+    elastic_modulus:
+      value: 3000 MPa
+      source:
+        url: https://www.mcam.com/mam/63654/GEP-Ertacetal™%20C%20POM-C_en_US.pdf
+        title: Acetron GP/Ertacetal C POM-C Copolymer Polyoxymethylene product data sheet, date of issue / revision 30/06/2026
+        page: page 1, Mechanical Properties, Tensile modulus of elasticity, ISO column, indicative value; dry specimens machined from rod or plate, 23 °C, 1 mm/min, type 1B bars (notes 6 and 9); the ASTM column gives 400 ksi (D638), not used
+        retrieved: 2026-11-08
+        standard: ISO 527-1/-2
+        quote: Tensile modulus of elasticity ISO 527-1/-2 (9) MPa 3,000
     poisson_ratio: unknown
 
   - key: plaskolite-tuffak-gp
@@ -684,5 +956,21 @@ materials:
         retrieved: 2026-11-07
         standard: ASTM D 638
         quote: Tensile Strength, Ultimate ASTM D 638 MPa 66
-    elastic_modulus: unknown
-    poisson_ratio: unknown
+    elastic_modulus:
+      value: 2340 MPa
+      source:
+        url: https://plaskolite.com/docs/default-source/pds/pds329_tuf_gp_metric.pdf
+        title: TUFFAK GP Polycarbonate Sheet, Typical Metric ISO Properties, PDS329_TUF_GP_Metric, 012023
+        page: page 1, Typical Metric ISO Properties, Mechanical, Tensile Modulus; typical; specimens from non-textured sheet per footnote, temperature and conditioning not stated
+        retrieved: 2026-11-08
+        standard: ISO 527-2
+        quote: Tensile Modulus ISO 527-2 MPa 2340
+    poisson_ratio:
+      value: '0.38'
+      source:
+        url: https://plaskolite.com/docs/default-source/pds/pds004_tuf_gp.pdf
+        title: TUFFAK GP Polycarbonate Sheet, Typical Properties (US units), PDS004, 122022
+        page: page 1, Typical Properties, Physical, Poisson's Ratio; typical; the metric sheet PDS329 used for the other fields gives no Poisson's ratio, so this is Plaskolite's own US-unit sheet for the same product
+        retrieved: 2026-11-08
+        standard: ASTM E 132
+        quote: Poisson’s Ratio ASTM E 132 – 0.38

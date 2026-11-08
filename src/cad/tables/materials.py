@@ -222,10 +222,10 @@ def _rule_problems(material: Material) -> list[str]:
             f"{material.key}: elastic_modulus {modulus.quantity:g~P} is outside the plausible"
             f" range {low:g} to {high:g} GPa"
         )
-    if isinstance(poisson, Cited) and not 0 <= poisson.magnitude_in("dimensionless") < 0.5:
+    if isinstance(poisson, Cited) and not 0 < poisson.magnitude_in("dimensionless") < 0.5:
         problems.append(
             f"{material.key}: poisson_ratio {poisson.magnitude_in('dimensionless'):g} is not"
-            " at least 0 and below 0.5"
+            " above 0 and below 0.5"
         )
     if (
         isinstance(yield_strength, Cited)
