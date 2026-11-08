@@ -168,8 +168,9 @@ def test_a_cited_modulus_and_poisson_ratio_load_in_their_units(tmp_path: Path) -
     [
         ("5 MPa", "0.3", "elastic_modulus 5 MPa is outside the plausible range 0.01 to 500 GPa"),
         ("600 GPa", "0.3", "elastic_modulus 600 GPa is outside the plausible range"),
-        ("3.5 GPa", "0.5", "poisson_ratio 0.5 is not at least 0 and below 0.5"),
-        ("3.5 GPa", "-0.1", "poisson_ratio -0.1 is not at least 0 and below 0.5"),
+        ("3.5 GPa", "0.5", "poisson_ratio 0.5 is not above 0 and below 0.5"),
+        ("3.5 GPa", "0", "poisson_ratio 0 is not above 0 and below 0.5"),
+        ("3.5 GPa", "-0.1", "poisson_ratio -0.1 is not above 0 and below 0.5"),
         ("3.5 GPa", "0.3 MPa", "poisson_ratio '0.3 MPa': Cannot convert"),
         ("0.5 GPa", "0.3", "yield_strength 51 MPa is not below 0.1 of elastic_modulus 0.5 GPa"),
     ],
