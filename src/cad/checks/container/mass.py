@@ -28,6 +28,7 @@ MEASURES = {
     "density": "kg/mm^3",
     "mass": "kg",
 }
+READS = {"density": "density"}
 REQUIRES: tuple[CheckModule, ...] = (closed_solid, interference)
 
 

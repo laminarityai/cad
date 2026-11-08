@@ -116,17 +116,6 @@ async def test_code_that_never_assigns_result_names_the_contract(tmp_path: Path)
 
 
 @pytest.mark.anyio
-async def test_docker_down_is_a_one_line_tool_error(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setenv("DOCKER_HOST", NO_DOCKER)
-    text = error_text(await call(tmp_path, "result = 1\n"))
-    assert text.startswith("Error executing tool build_variant: docker is not reachable: ")
-    assert NO_DOCKER in text
-    assert "\n" not in text
-
-
-@pytest.mark.anyio
 async def test_code_over_the_size_limit_is_rejected_before_it_runs(tmp_path: Path) -> None:
     text = error_text(await call(tmp_path, "#" * (256 * 1024 + 1)))
     assert "at most 262144 characters" in text

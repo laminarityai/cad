@@ -52,6 +52,7 @@ MEASURES = {
     "over_used_edges": DIMENSIONLESS,
     "valid": DIMENSIONLESS,
 }
+READS: dict[str, str] = {}
 REQUIRES = ()
 
 

@@ -43,7 +43,7 @@ def store(card: Scorecard, root: Path) -> Path:
         temporary.write_text(card.model_dump_json(indent=2) + "\n")
         os.replace(temporary, path)
     except OSError as error:
-        raise SandboxUnavailable.hiding_path(
+        raise SandboxUnavailable.hiding_host(
             f"cannot store the scorecard of variant {card.variant_id}", error, path
         ) from error
     finally:

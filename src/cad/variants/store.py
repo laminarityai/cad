@@ -29,7 +29,9 @@ def build_variant(
             refuse_if_full(root, cap_bytes)
             stored = build_and_store(code, vid, current_image(tag), root, wall_seconds)
     except OSError as error:
-        raise SandboxUnavailable(f"cannot use the variant store at {root}: {error}") from error
+        raise SandboxUnavailable.hiding_host(
+            f"cannot use the variant store for variant {vid}", error, root
+        ) from error
     return BuildResult(variant_id=vid, outcome=stored.outcome, output=stored.output)
 
 

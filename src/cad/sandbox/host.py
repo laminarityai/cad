@@ -83,7 +83,7 @@ def run_checks(
     try:
         job = check_job(held.brep, image_id, request, wall_seconds)
     except OSError as error:
-        raise SandboxUnavailable.hiding_path(
+        raise SandboxUnavailable.hiding_host(
             f"cannot stage the check sources for variant {held.id}", error, stage.STAGE_ROOT
         ) from error
     ran = container.run(job)
@@ -95,7 +95,7 @@ def run_checks(
             else StepStored(sha256=held.attach_step(parsed.step))
         )
     except OSError as error:
-        raise SandboxUnavailable.hiding_path(
+        raise SandboxUnavailable.hiding_host(
             f"cannot store the STEP of variant {held.id}", error, held.directory / entry.STEP
         ) from error
     return CheckRun(
@@ -114,7 +114,7 @@ def materials_table() -> MaterialsTable:
     try:
         return load_materials()
     except (OSError, ValueError, yaml.YAMLError) as error:
-        raise SandboxUnavailable.hiding_path(
+        raise SandboxUnavailable.hiding_host(
             "cannot read the materials table", error, TABLE_PATH
         ) from error
 
