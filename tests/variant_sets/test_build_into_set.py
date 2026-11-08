@@ -137,3 +137,24 @@ async def test_oversized_code_is_refused_before_any_container(
     text = await s.refusal("build_variant", code=PLATE, brief_id=brief_id)
     assert "SetRefused: this code is too large" in text
     assert held(s, brief_id) == []
+
+
+async def test_two_briefs_confirmed_by_one_answer_each_build_into_their_own_set(
+    s: Session,
+) -> None:
+    first = await s.proposed_brief()
+    project_id = (await s.call("list_requirements", brief_id=first))["project_id"]
+    second = await s.proposed_brief(project_id)
+    await s.confirm(first)
+    assert store.confirmed_key(s.roots, first).decision_sha256 == (
+        store.confirmed_key(s.roots, second).decision_sha256
+    )
+    for brief_id in (first, second):
+        built = await s.call("build_variant", code=PLATE, brief_id=brief_id)
+        assert built["variant_set"] == {
+            "kind": "joined",
+            "slot": 1,
+            "limit": MAX_MEMBERS,
+            "already_member": False,
+        }
+        assert [m.built_as for m in held(s, brief_id)] == [built["variant_id"]]

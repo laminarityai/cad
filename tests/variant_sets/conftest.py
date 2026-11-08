@@ -52,8 +52,9 @@ class Session:
     def roots(self) -> Roots:
         return Roots(self.tmp / "briefs", self.tmp / "projects")
 
-    async def proposed_brief(self) -> str:
-        brief_id = (await self.call("create_brief", text=TEXT))["brief_id"]
+    async def proposed_brief(self, project_id: str | None = None) -> str:
+        joined = {} if project_id is None else {"project_id": project_id}
+        brief_id = (await self.call("create_brief", text=TEXT, **joined))["brief_id"]
         await self.call("propose_requirements", brief_id=brief_id, requirements=[UNDER_150])
         return brief_id
 

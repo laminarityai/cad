@@ -135,12 +135,12 @@ def _without_host_paths(key: SetKey, directory: Path) -> Generator[None]:
 
 
 def _directory(root: Path, key: SetKey) -> Path:
-    return root / key.project / "sets" / key.decision_sha256 / "members"
+    return root / key.project / "sets" / key.brief_id / key.decision_sha256 / "members"
 
 
 def _member_slot(key: SetKey) -> Callable[[int], str]:
     return lambda number: (
-        f"{key.project}/sets/{key.decision_sha256}/{key.brief_id}/members/{number}"
+        f"{key.project}/sets/{key.brief_id}/{key.decision_sha256}/members/{number}"
     )
 
 
