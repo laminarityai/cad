@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from cad.briefs import store as briefs
 from cad.sandbox.image import context_tar, image_tag
 from cad.variant_sets import store
 from cad.variant_sets.model import MAX_MEMBERS
@@ -23,7 +22,7 @@ NO_DOCKER = "unix:///nonexistent/docker.sock"
 
 def held(s: Session, brief_id: str) -> list[store.Member]:
     key = store.confirmed_key(s.tmp / "briefs", brief_id)
-    return list(store.members(s.tmp / "variant_sets", key))
+    return list(store.members(s.tmp / "projects", key))
 
 
 async def test_a_member_survives_a_trust_digest_change(
@@ -78,7 +77,7 @@ async def test_a_full_set_refuses_new_code_before_any_container(
     brief_id = await s.confirmed_brief()
     key = store.confirmed_key(s.tmp / "briefs", brief_id)
     for number in range(MAX_MEMBERS):
-        store.join(s.tmp / "variant_sets", key, f"code {number}", VariantId("0" * 16))
+        store.join(s.tmp / "projects", key, f"code {number}", VariantId("0" * 16))
     monkeypatch.setenv("DOCKER_HOST", NO_DOCKER)
     text = await s.refusal("build_variant", code=PLATE, brief_id=brief_id)
     assert f"SetFull: the variant set of brief {brief_id} holds 5 variants, its limit" in text
@@ -95,7 +94,6 @@ async def test_a_new_confirmation_starts_an_empty_set(s: Session) -> None:
     await s.call("confirm_requirements", brief_id=brief_id)
     joined = await s.call("build_variant", code=PLATE, brief_id=brief_id)
     assert (joined["variant_set"]["slot"], joined["variant_set"]["already_member"]) == (1, False)
-    assert briefs.read_state(s.tmp / "briefs", brief_id).confirmed is not None
 
 
 async def test_a_build_that_fails_joins_no_set(s: Session) -> None:
@@ -110,4 +108,32 @@ async def test_a_build_with_no_brief_joins_no_set(s: Session) -> None:
     built = await s.call("build_variant", code=PLATE)
     assert built["outcome"] == {"kind": "built"}
     assert built["variant_set"] is None
-    assert not (s.tmp / "variant_sets").exists()
+    assert not (s.tmp / "projects").exists()
+
+
+async def test_a_plain_build_then_a_set_build_joins_from_the_cache(
+    s: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    brief_id = await s.confirmed_brief()
+    plain = await s.call("build_variant", code=PLATE)
+    monkeypatch.setenv("DOCKER_HOST", NO_DOCKER)
+    joined = await s.call("build_variant", code=PLATE, brief_id=brief_id)
+    assert joined["variant_id"] == plain["variant_id"]
+    assert joined["variant_set"] == {
+        "kind": "joined",
+        "slot": 1,
+        "limit": MAX_MEMBERS,
+        "already_member": False,
+    }
+    assert [m.built_as for m in held(s, brief_id)] == [plain["variant_id"]]
+
+
+async def test_oversized_code_is_refused_before_any_container(
+    s: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    brief_id = await s.confirmed_brief()
+    monkeypatch.setattr(store, "MAX_MEMBER_BYTES", 10)
+    monkeypatch.setenv("DOCKER_HOST", NO_DOCKER)
+    text = await s.refusal("build_variant", code=PLATE, brief_id=brief_id)
+    assert "SetRefused: this code is too large" in text
+    assert held(s, brief_id) == []

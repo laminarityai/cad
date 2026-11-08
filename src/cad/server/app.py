@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from cad.briefs import page
 from cad.briefs import store as briefs
 from cad.briefs.ballot import OS_OPEN, WAIT_SECONDS, Desk, Opener
+from cad.records.roots import PROJECTS_ROOT
 from cad.sandbox import container, host
 from cad.scorecard import requirements, score
 from cad.scorecard.model import Scorecard
@@ -37,8 +38,10 @@ BUILD_VARIANT = (
     "Pass brief_id once the user has confirmed the brief's requirements: a built variant then "
     f"joins the brief's variant set, which holds up to {MAX_MEMBERS} variants for the user to "
     "compare, and variant_set names its slot. Build 3 to 5 different variants. Code already in "
-    "the set keeps its slot. A build for a brief with no confirmed requirements, or for a full "
-    "set, is refused before it starts. Without brief_id the variant joins no set."
+    "the set keeps its slot. A build for a brief with no confirmed requirements, or for new code "
+    "when the set is full, is refused before it starts. If the set fills while a build runs, "
+    "the build finishes and is stored, but the error says it joined no set and names its "
+    "variant id. Without brief_id the variant joins no set."
 )
 RULE = (
     "Only check results decide whether a design is good. In a reply to the user, state a volume, "
@@ -141,7 +144,7 @@ def build_server(
     briefs_root: Path = briefs.BRIEFS_ROOT,
     opener: Opener = OS_OPEN,
     wait_seconds: float = WAIT_SECONDS,
-    sets_root: Path = variant_sets.SETS_ROOT,
+    projects_root: Path = PROJECTS_ROOT,
 ) -> MCPServer:
     desk = Desk(
         briefs_root,
@@ -167,7 +170,7 @@ def build_server(
         with agent_facing():
             if brief_id is not None:
                 return variant_sets.build_into_set(
-                    sets_root, briefs_root, variants_root, brief_id, code
+                    projects_root, briefs_root, variants_root, brief_id, code
                 )
             built = store.build_variant(code, variants_root)
         return SetBuildResult(

@@ -66,7 +66,7 @@ async def s(tmp_path: Path) -> AsyncIterator[Session]:
         tmp_path / "briefs",
         opener=confirm,
         wait_seconds=5,
-        sets_root=tmp_path / "variant_sets",
+        projects_root=tmp_path / "projects",
     )
     async with Client(server) as client:
         yield Session(client, tmp_path)

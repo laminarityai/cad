@@ -9,6 +9,7 @@ from pydantic import ValidationError
 
 from cad.briefs import store as briefs
 from cad.records import signed
+from cad.records.roots import project_store
 from cad.sandbox.outcome import Built
 from cad.variant_sets.model import (
     MAX_MEMBERS,
@@ -27,7 +28,6 @@ from cad.variant_sets.model import (
 from cad.variants import store as variants
 from cad.variants.entry import VariantId
 
-SETS_ROOT: Final = Path.home() / ".cad" / "variant_sets"
 MAX_MEMBER_BYTES: Final = signed.MAX_RECORD_BYTES // 2
 LOG = logging.getLogger(__name__)
 
@@ -40,6 +40,7 @@ def build_into_set(
     sha256 = code_sha256(code)
     if len(held) >= MAX_MEMBERS and all(m.code_sha256 != sha256 for m in held):
         raise _full(key)
+    _record(code, VariantId("0" * 16), key)
     built = variants.build_variant(code, variants_root)
     joined = join(root, key, code, built.variant_id) if built.outcome == Built() else NotJoined()
     return SetBuildResult(
@@ -61,13 +62,7 @@ def confirmed_key(briefs_root: Path, brief_id: str) -> SetKey:
 
 def join(root: Path, key: SetKey, code: str, built_as: VariantId) -> Joined:
     sha256 = code_sha256(code)
-    record = (
-        Member(code=code, code_sha256=sha256, built_as=built_as, joined_at=datetime.now(UTC))
-        .model_dump_json()
-        .encode()
-    )
-    if len(record) > MAX_MEMBER_BYTES:
-        raise SetRefused(f"this code is too large to keep in the variant set of {key.brief_id}")
+    record = _record(code, built_as, key)
     directory = _directory(root, key)
     slot: int | None = None
     full = False
@@ -81,14 +76,27 @@ def join(root: Path, key: SetKey, code: str, built_as: VariantId) -> Joined:
 
     with _without_host_paths(key, directory):
         directory.mkdir(parents=True, exist_ok=True)
-        appended = signed.append(_store(root), directory, _member_slot(key), next_member)
+        appended = signed.append(project_store(root), directory, _member_slot(key), next_member)
     if isinstance(appended, signed.Appended):
         return Joined(slot=appended.number, already_member=False)
     if full:
-        raise _full(key)
+        raise _full(key, built_as)
     if slot is None:
         raise TamperedSet(_report(key, directory))
     return Joined(slot=slot, already_member=True)
+
+
+def _record(code: str, built_as: VariantId, key: SetKey) -> bytes:
+    record = (
+        Member(
+            code=code, code_sha256=code_sha256(code), built_as=built_as, joined_at=datetime.now(UTC)
+        )
+        .model_dump_json()
+        .encode()
+    )
+    if len(record) > MAX_MEMBER_BYTES:
+        raise SetRefused(f"this code is too large to keep in the variant set of {key.brief_id}")
+    return record
 
 
 def members(root: Path, key: SetKey) -> tuple[Member, ...]:
@@ -96,7 +104,7 @@ def members(root: Path, key: SetKey) -> tuple[Member, ...]:
     with _without_host_paths(key, directory):
         if not signed.is_directory(directory):
             return ()
-        records = signed.read_numbered(_store(root), directory, _member_slot(key))
+        records = signed.read_numbered(project_store(root), directory, _member_slot(key))
     if records is None:
         raise TamperedSet(_report(key, directory))
     return _parse(key, directory, records)
@@ -128,22 +136,26 @@ def _without_host_paths(key: SetKey, directory: Path) -> Generator[None]:
 
 
 def _directory(root: Path, key: SetKey) -> Path:
-    return root / key.project / key.brief_id / key.decision_sha256
+    return root / key.project / "sets" / key.decision_sha256 / "members"
 
 
 def _member_slot(key: SetKey) -> Callable[[int], str]:
-    return lambda number: f"{key.project}/{key.brief_id}/{key.decision_sha256}/member/{number}"
+    return lambda number: (
+        f"{key.project}/sets/{key.decision_sha256}/{key.brief_id}/members/{number}"
+    )
 
 
-def _store(root: Path) -> signed.Store:
-    return signed.Store(root, "variant set")
-
-
-def _full(key: SetKey) -> SetFull:
-    return SetFull(
-        f"the variant set of brief {key.brief_id} holds {MAX_MEMBERS} variants, its limit, so "
-        "this code was not built. Score those variants and show them to the user to compare. "
+def _full(key: SetKey, built_as: VariantId | None = None) -> SetFull:
+    advice = (
+        "Score those variants and show them to the user to compare. "
         "Requirements the user confirms later start a new, empty set."
+    )
+    held = f"the variant set of brief {key.brief_id} holds {MAX_MEMBERS} variants, its limit"
+    if built_as is None:
+        return SetFull(f"{held}, so this code was not built. {advice}")
+    return SetFull(
+        f"{held}. The set filled while this code was building: it was built as variant "
+        f"{built_as} and is stored, but it did not join the set. {advice}"
     )
 
 

@@ -19,6 +19,18 @@ def join(root: Path, code: str, key: SetKey = KEY) -> Joined:
     return store.join(root, key, code, VariantId("4" * 16))
 
 
+def members_directory(root: Path, key: SetKey) -> Path:
+    return root / key.project / "sets" / key.decision_sha256 / "members"
+
+
+def test_a_set_lives_in_the_project_store_and_signs_with_the_projects_key(tmp_path: Path) -> None:
+    root = tmp_path / "projects"
+    join(root, "a")
+    assert (members_directory(root, KEY) / "0001.signed").is_file()
+    assert (tmp_path / "projects.key").is_file()
+    assert not (tmp_path / "variant_sets.key").exists()
+
+
 def test_the_same_code_keeps_its_slot(tmp_path: Path) -> None:
     assert join(tmp_path, "a").slot == 1
     assert join(tmp_path, "b").slot == 2
@@ -49,6 +61,16 @@ def test_concurrent_builds_take_one_slot_each(tmp_path: Path) -> None:
     assert all(held[slot - 1] == code for code, slot in zip(codes, slots, strict=True))
 
 
+def test_a_set_that_filled_while_building_names_the_built_variant(tmp_path: Path) -> None:
+    for number in range(MAX_MEMBERS):
+        join(tmp_path, f"code {number}")
+    with pytest.raises(SetFull) as refused:
+        store.join(tmp_path, KEY, "late", VariantId("a" * 16))
+    assert "a" * 16 in str(refused.value)
+    assert "not built" not in str(refused.value)
+    assert "filled while" in str(refused.value)
+
+
 def test_a_set_has_no_members_until_one_joins(tmp_path: Path) -> None:
     assert store.members(tmp_path, KEY) == ()
 
@@ -57,7 +79,7 @@ def test_a_tampered_member_names_the_brief_and_no_host_path(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     join(tmp_path, "a")
-    [member] = (tmp_path / KEY.project / KEY.brief_id / KEY.decision_sha256).iterdir()
+    [member] = members_directory(tmp_path, KEY).iterdir()
     member.write_bytes(member.read_bytes().replace(b'"a"', b'"b"'))
     for attempt in (lambda: store.members(tmp_path, KEY), lambda: join(tmp_path, "c")):
         with pytest.raises(TamperedSet) as refused:
@@ -71,8 +93,9 @@ def test_a_member_copied_into_another_set_is_tampering(tmp_path: Path) -> None:
     other = SetKey(KEY.project, KEY.brief_id, "5" * 64)
     join(tmp_path, "a")
     join(tmp_path, "b", other)
-    source = tmp_path / KEY.project / KEY.brief_id
-    shutil.copy(source / KEY.decision_sha256 / "0001.signed", source / other.decision_sha256)
+    shutil.copy(
+        members_directory(tmp_path, KEY) / "0001.signed", members_directory(tmp_path, other)
+    )
     with pytest.raises(TamperedSet):
         store.members(tmp_path, other)
 
