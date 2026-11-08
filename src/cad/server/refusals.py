@@ -5,6 +5,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 
 from cad.briefs.records import BriefStoreUnusable
 from cad.briefs.store import BriefRefused
+from cad.projects.model import ProjectRefused
 from cad.sandbox.outcome import SandboxUnavailable
 from cad.variants.entry import VariantRefused
 
@@ -13,7 +14,7 @@ from cad.variants.entry import VariantRefused
 def agent_facing() -> Generator[None]:
     try:
         yield
-    except (VariantRefused, BriefRefused) as error:
+    except (VariantRefused, BriefRefused, ProjectRefused) as error:
         raise ToolError(f"{type(error).__name__}: {error}") from error
     except (SandboxUnavailable, BriefStoreUnusable) as error:
         raise ToolError(str(error)) from error

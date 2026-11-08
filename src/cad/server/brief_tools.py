@@ -19,6 +19,7 @@ from cad.briefs.model import (
     describe,
 )
 from cad.briefs.store import BriefState, ProposalState, Status
+from cad.projects.membership import project_for_new_brief
 from cad.server.refusals import agent_facing
 
 PLAN_MODE = (
@@ -30,8 +31,11 @@ PLAN_MODE = (
     "declines, read their note, revise, and propose again."
 )
 CREATE_BRIEF = (
-    "Store the user's brief, their own words verbatim, and return its brief id. Do not "
-    "summarize or rewrite it: the user reads this text when they confirm. " + PLAN_MODE
+    "Store the user's brief, their own words verbatim, and return its brief id and project id. "
+    "Do not summarize or rewrite it: the user reads this text when they confirm. A project "
+    "holds every brief for one job. Omit project_id to start a new project. Pass the "
+    "project_id an earlier create_brief returned to add this brief to that project; a brief "
+    "stays in the project it was created in. " + PLAN_MODE
 )
 PROPOSE_REQUIREMENTS = (
     "Propose the whole set of requirements for a brief. Each has a target and a quote copied "
@@ -65,6 +69,7 @@ class RequirementDraft(BaseModel):
 
 class BriefCreated(BaseModel):
     brief_id: str
+    project_id: str
 
 
 class RequirementRow(BaseModel):
@@ -83,6 +88,7 @@ class ProposalView(BaseModel):
 
 class BriefView(BaseModel):
     brief_id: str
+    project_id: str
     text: str
     proposals: list[ProposalView]
     confirmed_proposal: int | None
@@ -138,9 +144,12 @@ def _view(state: BriefState, proposed: ProposalState) -> ProposalView:
 def brief_tools(root: Path, desk: Desk) -> list[Tool]:
     def create_brief(
         text: Annotated[str, Field(min_length=1, max_length=MAX_BRIEF_CHARS)],
+        project_id: str | None = None,
     ) -> BriefCreated:
         with agent_facing():
-            return BriefCreated(brief_id=store.create_brief(root, text).id)
+            project = project_for_new_brief(root, project_id)
+            brief = store.create_brief(root, text, project)
+        return BriefCreated(brief_id=brief.id, project_id=project)
 
     def propose_requirements(
         brief_id: str,
@@ -170,9 +179,11 @@ def brief_tools(root: Path, desk: Desk) -> list[Tool]:
     def list_requirements(brief_id: str) -> BriefView:
         with agent_facing():
             state = store.read_state(root, brief_id)
+            project = store.project_of(root, brief_id)
         confirmed = state.confirmed
         return BriefView(
             brief_id=state.brief.id,
+            project_id=project,
             text=state.brief.text,
             proposals=[_view(state, p) for p in state.proposals],
             confirmed_proposal=confirmed.proposal.number if confirmed else None,

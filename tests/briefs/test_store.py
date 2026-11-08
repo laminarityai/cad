@@ -10,6 +10,7 @@ from cad.briefs import store
 from cad.briefs.model import Answer, BriefId, Confirmed, Decision, Declined, Target
 from cad.briefs.records import BriefStoreUnusable
 from cad.briefs.store import Draft, Status
+from cad.projects.model import new_project_id
 
 TEXT = "A wall bracket for a 2 kg shelf, under 150 g, printable in PETG"
 TARGET = TypeAdapter[Target](Target)
@@ -40,7 +41,7 @@ def decide(root: Path, brief_id: BriefId, number: int, answer: Answer) -> Decisi
 
 
 def proposed(root: Path, *drafts: Draft) -> BriefId:
-    brief = store.create_brief(root, TEXT)
+    brief = store.create_brief(root, TEXT, new_project_id())
     store.propose(root, brief.id, drafts)
     return brief.id
 
@@ -63,7 +64,7 @@ def test_a_requirement_points_at_the_words_it_quotes(tmp_path: Path) -> None:
 
 
 def test_a_quote_not_in_the_brief_is_refused_naming_its_row(tmp_path: Path) -> None:
-    brief = store.create_brief(tmp_path, TEXT)
+    brief = store.create_brief(tmp_path, TEXT, new_project_id())
     with pytest.raises(store.BadProposal, match=r"requirements\[1\]"):
         store.propose(tmp_path, brief.id, [UNDER_150, Draft(UNDER_150.target, "under 100 g")])
     assert statuses(tmp_path, brief.id) == []

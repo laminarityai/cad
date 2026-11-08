@@ -21,6 +21,7 @@ from trace_store import SPEC_BY_ID, Tally, exit_code, main, tally
 from tracking import NO_REQUIREMENTS, NoRequirements, describe, outcomes_of, track
 
 from cad.briefs import store as briefs
+from cad.projects.model import new_project_id
 from cad.scorecard.model import AwaitingConfirmation
 
 LIGHT = ({"kind": "max_mass", "mass": {"magnitude": 150, "unit": "g"}}, "under 150 g")
@@ -29,7 +30,7 @@ FRIENDLY = ({"kind": "unchecked", "statement": "looks friendly"}, "looks friendl
 
 def scored_against_a_brief(store: Path) -> list[str]:
     briefs_root = store.parent / "briefs"
-    brief_id = briefs.create_brief(briefs_root, BRIEF_TEXT).id
+    brief_id = briefs.create_brief(briefs_root, BRIEF_TEXT, new_project_id()).id
     put(store, judged_card(confirm(briefs_root, brief_id, drafts(LIGHT, FRIENDLY))))
     return ["--root", str(store), "--briefs-root", str(briefs_root)]
 
@@ -114,7 +115,7 @@ def test_a_card_judged_against_a_confirmed_brief_resolves_and_reports_its_requir
 def test_awaiting_and_no_brief_cards_count_apart_and_fail_only_when_judgment_is_required(
     store: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    brief_id = briefs.create_brief(store.parent / "briefs", BRIEF_TEXT).id
+    brief_id = briefs.create_brief(store.parent / "briefs", BRIEF_TEXT, new_project_id()).id
     put(store, genuine_card(basis=AwaitingConfirmation(brief_id=brief_id)))
     arguments = ["--root", str(store), "--briefs-root", str(store.parent / "briefs")]
     assert main(arguments) == 0

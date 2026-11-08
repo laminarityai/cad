@@ -1,17 +1,19 @@
 """The signed brief store, and the only place that derives a status.
 
     <root>/<brief_id>/brief.signed
+    <root>/<brief_id>/project.signed               its project; absent for older briefs
     <root>/<brief_id>/proposals/<n:04d>.signed
     <root>/<brief_id>/decisions/<n:04d>.signed     the person's answer to proposal n
 
 Each `.signed` file is a `records` file whose slot is "<brief_id>/brief",
-"<brief_id>/proposal/<n>" or "<brief_id>/decision/<n>", so a record moved to another slot or
-another brief fails, and a second decision for one proposal loses to the first.
+"<brief_id>/project", "<brief_id>/proposal/<n>" or "<brief_id>/decision/<n>", so a record moved
+to another slot or another brief fails, and a second decision for one proposal loses to the first.
 """
 
 import hashlib
 import json
 import logging
+import os
 import re
 import secrets
 import shutil
@@ -35,10 +37,12 @@ from cad.briefs.model import (
     RequirementId,
     Target,
 )
+from cad.projects.model import Membership, ProjectId, derived_project
 from cad.variants import key
 
 BRIEFS_ROOT: Final = Path.home() / ".cad" / "briefs"
 BRIEF: Final = "brief.signed"
+PROJECT: Final = "project.signed"
 PROPOSALS: Final = "proposals"
 DECISIONS: Final = "decisions"
 ID_PATTERN: Final = re.compile(r"[0-9a-f]{16}")
@@ -139,7 +143,8 @@ def parse_brief_id(raw: str) -> BriefId:
     return BriefId(raw)
 
 
-def create_brief(root: Path, text: str) -> Brief:
+def create_brief(root: Path, text: str, project: ProjectId) -> Brief:
+    """Store the brief and its project in one rename, so a brief is born in one project."""
     brief = Brief(id=BriefId(secrets.token_hex(8)), text=text, created_at=datetime.now(UTC))
     incoming = root / f".incoming-{secrets.token_hex(8)}"
     try:
@@ -148,10 +153,35 @@ def create_brief(root: Path, text: str) -> Brief:
         (incoming / DECISIONS).mkdir()
         record = brief.model_dump_json().encode()
         (incoming / BRIEF).write_bytes(records.signed(root, f"{brief.id}/brief", record))
+        membership = Membership(project_id=project).model_dump_json().encode()
+        (incoming / PROJECT).write_bytes(records.signed(root, f"{brief.id}/project", membership))
         incoming.rename(root / brief.id)
     finally:
         shutil.rmtree(incoming, ignore_errors=True)
     return brief
+
+
+def project_of(root: Path, raw_id: str) -> ProjectId:
+    """The project a brief was born in. A brief stored before projects belongs to pb-<brief_id>."""
+    brief_id = parse_brief_id(raw_id)
+    directory = root / brief_id
+    if not records.is_directory(directory):
+        raise UnknownBrief(f"no brief {brief_id} is stored; store it with create_brief")
+    path = directory / PROJECT
+    if not os.path.lexists(path):
+        return derived_project(brief_id)
+    record = _read_signed(root, f"{brief_id}/project", path)
+    return _parse(root, brief_id, Membership, record).project_id
+
+
+def stored_briefs(root: Path) -> list[BriefId]:
+    if not records.is_directory(root):
+        return []
+    return [
+        BriefId(path.name)
+        for path in root.iterdir()
+        if ID_PATTERN.fullmatch(path.name) and records.is_directory(path)
+    ]
 
 
 def propose(root: Path, raw_id: str, drafts: Sequence[Draft]) -> ProposalState:
