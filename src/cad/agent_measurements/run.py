@@ -45,6 +45,7 @@ UNIT_NAMES: Final[Mapping[str, str]] = {
     "1": "dimensionless",
 }
 TOO_LARGE: Final = "part too large to measure here"
+CUT: Final = "not reported: its output was lost or cut to the last 8 KiB"
 
 
 class OwnMeasurementRequest(BaseModel):
@@ -103,7 +104,7 @@ def measure(
         brep = entry.open_entry(root, variant_id, tag).brep
         if len(brep) > MAX_BREP_BYTES:
             return tuple(_row(one, failed=TOO_LARGE) for one in requested)
-        script = compose(brep, [one.code for one in requested])
+        script = compose(brep, [one.code for one in requested], MAX_VALUES)
         ran = host.build(script, image.current_image(tag), wall_seconds=WALL_SECONDS)
     except (SandboxUnavailable, entry.VariantRefused) as error:
         return tuple(
@@ -121,6 +122,8 @@ class _Slot:
     values: list[Mapping[str, object]] = field(default_factory=list[Mapping[str, object]])
     failed: str | None = None
     done: bool = False
+    sent: int = 0
+    dropped: int = 0
 
 
 def _slots(output: str) -> dict[int, _Slot]:
@@ -140,12 +143,18 @@ def _slots(output: str) -> dict[int, _Slot]:
             continue
         held = slots.setdefault(slot, _Slot())
         if "failed" in fields:
-            held.failed = str(fields["failed"])
+            held.failed = str(fields["failed"])[:300]
         elif fields.get("done") is True:
             held.done = True
+            held.sent, held.dropped = _count(fields, "sent"), _count(fields, "dropped")
         else:
             held.values.append(fields)
     return slots
+
+
+def _count(fields: Mapping[str, object], key: str) -> int:
+    count = fields.get(key)
+    return count if isinstance(count, int) and not isinstance(count, bool) else -1
 
 
 def _unfinished(verdict: host.Artifacts | Failure) -> str:
@@ -157,7 +166,7 @@ def _unfinished(verdict: host.Artifacts | Failure) -> str:
         case BuildFailed(error=error):
             return f"not reported: the measuring run failed: {error[:300]}"
         case NoResult() | host.Artifacts():
-            return "not reported: its output was lost or cut to the last 8 KiB"
+            return CUT
 
 
 def _judged_row(one: OwnMeasurementRequest, slot: _Slot, unfinished: str) -> AgentMeasurement:
@@ -165,16 +174,23 @@ def _judged_row(one: OwnMeasurementRequest, slot: _Slot, unfinished: str) -> Age
         return _row(one, failed=slot.failed)
     if not slot.done:
         return _row(one, failed=unfinished)
+    if len(slot.values) != slot.sent:
+        return _row(one, failed=CUT)
     if not slot.values:
         return _row(one, failed="the code reported no value")
     values: list[AgentValue] = []
-    for raw in slot.values[:MAX_VALUES]:
+    for raw in slot.values:
         parsed = _value(raw)
         if isinstance(parsed, str):
             return _row(one, failed=parsed)
+        if any(kept.name == parsed.name for kept in values):
+            return _row(one, failed=f"value name {parsed.name} was reported twice")
         values.append(parsed)
-    extra = len(slot.values) - MAX_VALUES
-    note = f"{extra} more values were dropped: at most {MAX_VALUES} are kept" if extra > 0 else None
+    note = (
+        f"{slot.dropped} more values were dropped: at most {MAX_VALUES} are kept"
+        if slot.dropped > 0
+        else None
+    )
     return _row(one, values=tuple(values), note=note)
 
 
