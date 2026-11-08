@@ -4,20 +4,17 @@
     <root>/<brief_id>/proposals/<n:04d>.signed
     <root>/<brief_id>/decisions/<n:04d>.signed     the person's answer to proposal n
 
-A `.signed` file is a hex HMAC line, then the JSON record. The MAC covers a slot name such as
-"<brief_id>/decision/3", so a record moved to another slot or another brief fails. Every write is
-create-exclusive through `os.link`, so record and MAC land together and a second decision for one
-proposal loses to the first.
+Each `.signed` file is a `records` file whose slot is "<brief_id>/brief",
+"<brief_id>/proposal/<n>" or "<brief_id>/decision/<n>", so a record moved to another slot or
+another brief fails, and a second decision for one proposal loses to the first.
 """
 
 import hashlib
 import json
 import logging
-import os
 import re
 import secrets
 import shutil
-import stat
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -27,6 +24,7 @@ from typing import Final
 
 from pydantic import BaseModel, ValidationError
 
+from cad.briefs import records
 from cad.briefs.model import (
     Brief,
     BriefId,
@@ -37,7 +35,6 @@ from cad.briefs.model import (
     RequirementId,
     Target,
 )
-from cad.sandbox.outcome import SandboxUnavailable
 from cad.variants import key
 
 BRIEFS_ROOT: Final = Path.home() / ".cad" / "briefs"
@@ -46,9 +43,7 @@ PROPOSALS: Final = "proposals"
 DECISIONS: Final = "decisions"
 ID_PATTERN: Final = re.compile(r"[0-9a-f]{16}")
 SLOT_PATTERN: Final = re.compile(r"(\d{4})\.signed")
-MAX_RECORD_BYTES: Final = 1024 * 1024
 PROPOSE_ATTEMPTS: Final = 8
-UNUSABLE: Final = "the brief store's key is unusable; the operator must fix it"
 LOG = logging.getLogger(__name__)
 
 
@@ -65,10 +60,6 @@ class BadProposal(BriefRefused):
 
 
 class TamperedBrief(BriefRefused):
-    pass
-
-
-class BriefStoreUnusable(Exception):
     pass
 
 
@@ -94,6 +85,10 @@ class ProposalState:
     status: Status
     decision: Decision | None
     decision_sha256: str | None
+
+    @property
+    def requirement_ids(self) -> list[RequirementId]:
+        return [r.id for r in self.proposal.requirements]
 
 
 @dataclass(frozen=True, slots=True)
@@ -145,14 +140,14 @@ def parse_brief_id(raw: str) -> BriefId:
 
 
 def create_brief(root: Path, text: str) -> Brief:
-    brief = Brief(id=BriefId(secrets.token_hex(8)), text=text, created_at=_now())
+    brief = Brief(id=BriefId(secrets.token_hex(8)), text=text, created_at=datetime.now(UTC))
     incoming = root / f".incoming-{secrets.token_hex(8)}"
     try:
         incoming.mkdir(parents=True)
         (incoming / PROPOSALS).mkdir()
         (incoming / DECISIONS).mkdir()
         record = brief.model_dump_json().encode()
-        (incoming / BRIEF).write_bytes(_sign(root, f"{brief.id}/brief", record) + b"\n" + record)
+        (incoming / BRIEF).write_bytes(records.signed(root, f"{brief.id}/brief", record))
         incoming.rename(root / brief.id)
     finally:
         shutil.rmtree(incoming, ignore_errors=True)
@@ -165,15 +160,15 @@ def propose(root: Path, raw_id: str, drafts: Sequence[Draft]) -> ProposalState:
     requirements = _resolve(state.brief, drafts)
     for _ in range(PROPOSE_ATTEMPTS):
         latest = state.latest
-        if (
-            latest is not None
-            and latest.status is Status.PROPOSED
-            and _ids(latest.proposal.requirements) == _ids(requirements)
-        ):
+        ids = [r.id for r in requirements]
+        if latest and latest.status is Status.PROPOSED and latest.requirement_ids == ids:
             return latest
         number = 1 if latest is None else latest.proposal.number + 1
         proposal = Proposal(
-            brief_id=state.brief.id, number=number, requirements=requirements, created_at=_now()
+            brief_id=state.brief.id,
+            number=number,
+            requirements=requirements,
+            created_at=datetime.now(UTC),
         )
         path = root / state.brief.id / PROPOSALS / _slot(number)
         if _publish(root, f"{state.brief.id}/proposal/{number}", path, proposal):
@@ -205,7 +200,7 @@ def read_state(root: Path, raw_id: str) -> BriefState:
     """
     brief_id = parse_brief_id(raw_id)
     directory = root / brief_id
-    if not _is_directory(directory):
+    if not records.is_directory(directory):
         raise UnknownBrief(f"no brief {brief_id} is stored; store it with create_brief")
     brief_record = _read_signed(root, f"{brief_id}/brief", directory / BRIEF)
     brief = _parse(root, brief_id, Brief, brief_record)
@@ -292,51 +287,21 @@ def _resolve(brief: Brief, drafts: Sequence[Draft]) -> tuple[Requirement, ...]:
     return tuple(requirements)
 
 
-def _ids(requirements: Sequence[Requirement]) -> list[RequirementId]:
-    return [r.id for r in requirements]
-
-
 def _belongs(proposal: Proposal, brief: Brief) -> bool:
     return proposal.brief_id == brief.id and all(
         r.brief_id == brief.id and r.origin.end <= len(brief.text) for r in proposal.requirements
     )
 
 
-def _publish(root: Path, slot: str, path: Path, record: BaseModel) -> bool:
-    """Link the signed record into place. False when another writer already holds the slot."""
-    data = record.model_dump_json().encode()
-    signed = _sign(root, slot, data) + b"\n" + data
-    temporary = path.parent.parent / f".pending-{secrets.token_hex(8)}"
-    try:
-        temporary.write_bytes(signed)
-        os.link(temporary, path)
-    except FileExistsError:
-        return False
-    finally:
-        temporary.unlink(missing_ok=True)
-    return True
-
-
-def _sign(root: Path, slot: str, record: bytes) -> bytes:
-    try:
-        return key.sign(root, slot, record)
-    except SandboxUnavailable as error:
-        raise BriefStoreUnusable(UNUSABLE) from error
-
-
 def _read_signed(root: Path, slot: str, path: Path) -> bytes:
-    brief_id = BriefId(slot.partition("/")[0])
-    data = _read_regular(path)
-    mac, newline, record = (data or b"").partition(b"\n")
-    if not newline:
-        raise TamperedBrief(_report(root, brief_id))
-    try:
-        signed = key.verify(root, slot, record, mac)
-    except SandboxUnavailable as error:
-        raise BriefStoreUnusable(UNUSABLE) from error
-    if not signed:
-        raise TamperedBrief(_report(root, brief_id))
+    record = records.read(root, slot, path)
+    if record is None:
+        raise TamperedBrief(_report(root, BriefId(slot.partition("/")[0])))
     return record
+
+
+def _publish(root: Path, slot: str, path: Path, record: BaseModel) -> bool:
+    return records.publish(root, slot, path, record.model_dump_json().encode())
 
 
 def _parse[M: BaseModel](root: Path, brief_id: BriefId, model: type[M], record: bytes) -> M:
@@ -348,7 +313,7 @@ def _parse[M: BaseModel](root: Path, brief_id: BriefId, model: type[M], record: 
 
 def _slots(root: Path, brief_id: BriefId, kind: str) -> dict[int, Path]:
     directory = root / brief_id / kind
-    if not _is_directory(directory):
+    if not records.is_directory(directory):
         raise TamperedBrief(_report(root, brief_id))
     found: dict[int, Path] = {}
     for path in directory.iterdir():
@@ -375,26 +340,3 @@ def _report(root: Path, brief_id: BriefId) -> str:
         f"brief {brief_id} has a record this store did not sign or cannot read; "
         "the operator must delete the brief from the brief store"
     )
-
-
-def _now() -> datetime:
-    return datetime.now(UTC)
-
-
-def _is_directory(path: Path) -> bool:
-    try:
-        return stat.S_ISDIR(path.lstat().st_mode)
-    except OSError:
-        return False
-
-
-def _read_regular(path: Path) -> bytes | None:
-    try:
-        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
-    except OSError:
-        return None
-    with os.fdopen(descriptor, "rb") as file:
-        if not stat.S_ISREG(os.fstat(file.fileno()).st_mode):
-            return None
-        data = file.read(MAX_RECORD_BYTES + 1)
-    return None if len(data) > MAX_RECORD_BYTES else data

@@ -33,7 +33,8 @@ from cad.briefs.model import (
     deciding_check,
     describe,
 )
-from cad.briefs.store import BriefRefused, BriefState, BriefStoreUnusable, ProposalState
+from cad.briefs.records import BriefStoreUnusable
+from cad.briefs.store import BriefRefused, BriefState, ProposalState
 
 TOKEN_PATH: Final = re.compile(r"/confirm/([A-Za-z0-9_-]{1,128})")
 MAX_BODY_BYTES: Final = 8 * 1024

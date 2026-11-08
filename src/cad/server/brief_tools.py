@@ -21,7 +21,8 @@ from cad.briefs.model import (
     deciding_check,
     describe,
 )
-from cad.briefs.store import BriefRefused, BriefState, BriefStoreUnusable, ProposalState, Status
+from cad.briefs.records import BriefStoreUnusable
+from cad.briefs.store import BriefRefused, BriefState, ProposalState, Status
 
 PLAN_MODE = (
     "Plan mode comes first for every brief. Store the user's words with create_brief, unchanged. "
