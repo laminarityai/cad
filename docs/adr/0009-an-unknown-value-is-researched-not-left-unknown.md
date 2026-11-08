@@ -37,10 +37,29 @@ An audit on 2026-11-08 found these places. Issue #113 tracks them.
 
 Unknowns that come from geometry are out of scope. Examples are a load anchor that does not resolve, a part that is not a closed solid, and a mesh that does not converge. These are not missing data. Research cannot fix them, and they stay `unknown`.
 
+## Keeping a researched verdict honest
+
+The agent that is graded chooses the source. It could pick a data sheet with a low density to pass a mass limit, or a high yield strength to pass a safety factor. The quote check proves the number is on the page. It does not prove that it is the right number for this material. This ADR therefore departs from ADR-0008 on purpose, and says so. An agent measurement never decides a requirement. A researched value does feed a verdict, because otherwise FEA would say nothing about most printed parts. Four rules keep that verdict honest without asking the person anything:
+
+- **Labelled.** A verdict that rests on a researched value has the basis `researched`. It names each researched field, its source and the quote. The server tells the agent to report it as "passes on researched data", never as a plain pass.
+- **Counted apart.** The tracer counts researched verdicts on their own line, as ADR-0008 does for agent measurements. Requirement coverage reports team-backed and researched passes separately, so research can never inflate the claim that checks decide.
+- **Bounded.** A researched value must pass the same validation as a git row: a plausible range for its quantity, and yield no higher than tensile strength. It can only fill a gap. It never replaces a value that git cites or that the person confirmed.
+- **Replaceable.** A reviewer who promotes a better value into git, or a person who confirms one, replaces the researched value. The card then moves to the stronger basis.
+
+If evals show the agent choosing sources that flatter its own designs, the next step is to require two sources and keep the more conservative value. That costs the agent more work, and the person nothing.
+
+## Fetching
+
+The server fetches only `https` URLs. It resolves the host itself and refuses private, loopback, link-local and metadata addresses, including after a redirect. It caps the response size and the request time, and it sends no cookies or credentials. A fetch that fails any of these gives no value, and the agent is asked to try another source.
+
+## Tracing
+
+A researched value counts as traced. The scorecard records its URL, the quote and the hash of the fetched source, so SPEC's phase 2 exit, "every number on every scorecard traces to a source", holds without a new exception. The tracer reports it as `researched`, never as `confirmed`.
+
 ## What does not change
 
 - Checks decide, and a requirement's target is still one a person confirmed. Research fills a value that a check reads. It never sets a target and never grades a result.
-- The agent still never decides whether a design is good. It chooses where to look, but the server reads the number from the source.
+- The agent still never decides whether a design is good. It chooses where to look, but the server reads the number from the source, and "Keeping a researched verdict honest" limits what that choice can do.
 - Requirements are still confirmed on the page (ADR-0004).
 
 ## Considered options
