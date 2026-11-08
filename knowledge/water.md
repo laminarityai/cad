@@ -4,7 +4,6 @@ url: https://pubs.usgs.gov/wsp/1473/report.pdf
 retrieved: 2026-11-07
 license: own-summary
 subject: water
-family: true
 aliases: [water, fresh water]
 ---
 ## Density

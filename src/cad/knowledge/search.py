@@ -1,74 +1,104 @@
-"""Keyword search over the knowledge corpus.
+"""Ranked keyword search over the knowledge corpus.
 
-Each file is about one subject. List the names that mean exactly that subject under aliases; a
-branded file's aliases each carry its maker or product line, so "PLA" names only a family file.
-A search must name one alias, or it finds nothing; the section's names then choose the unit.
+A search returns the k units that best match the query's words, best first, and nothing when no
+word matches. It does not decide which unit is about what the user means: the caller reads each
+hit's subject and quote and chooses. A hit is a pointer to a source, page and section, never a
+value for a check.
 
-In full, a search has two steps and no score.
-
-1. Identity. The query is cut into words (`cad.knowledge.text`). A subject is named when one of
-   its aliases is a run of those words. A name inside a longer name is ignored, so "PETG HF"
-   beats "PETG". If the longest names left belong to two subjects, or to none, the search finds
-   nothing. Unit text never takes part: a unit that mentions ABS is not about ABS.
-2. Section. The query's other words, minus stopwords, must equal one of a unit's names: its
-   heading, or a key it declares in a `<!-- keys: ... -->` comment, each read the same way with
-   the subject's own aliases and stopwords taken out. Equal, not contained: "PLA density" is not
-   "Density of PLA-CF", and "PolyLite ASA density" is not "ABS density for comparison". The
-   loader refuses two units of one subject with an equal name, so a search finds at most one
-   unit. The source title, the unit's prose and its quotes never take part: a quote that
-   mentions "mineral", "CF" or "95A" does not make the unit about mineral water, a CF grade or a
-   95A hardness.
-
-A hit is a pointer to a source, page and section, never a value for a check. Its text is cut at
-MAX_TEXT_CHARS. Equality costs recall: a plural, a missing word or a word only the quote has
-gives no hit unless the author declared it as a key, and the agent asks again.
+The score is BM25F over three fields of a unit: a name, its heading (the section title and its
+keys), and its text. A unit's names are its subject and each alias, and it scores with the name
+that fits the query best, so a family file's long chemical name does not dilute its short one.
+A word in the name or the heading counts FIELD_WEIGHTS times a word in the text, so "ABS density"
+ranks the ABS density section above a PLA section whose text mentions ABS. Both sides read words
+through `cad.knowledge.text`, so case, dashes, Unicode forms and the spellings of "PLA+" match.
 """
 
+import math
+from collections import Counter
 from dataclasses import dataclass
 from typing import Final
 
 from cad.knowledge.corpus import Corpus, Pointer, Unit
-from cad.knowledge.sections import Name, section_words
-from cad.knowledge.text import tokens
+from cad.knowledge.text import words
 
 MAX_TEXT_CHARS: Final = 2000
-
-type Span = tuple[int, int]
+CUT_MARK: Final = " […]"
+NAME_WEIGHT: Final = 3.0
+HEADING_WEIGHT: Final = 3.0
+TEXT_WEIGHT: Final = 1.0
+K1: Final = 1.2
+B: Final = 0.75
 
 
 @dataclass(frozen=True, slots=True)
 class Hit:
     pointer: Pointer
+    subject: str
     text: str
+    """The unit's text, cut to at most MAX_TEXT_CHARS and ending in CUT_MARK when cut."""
+
+
+@dataclass(frozen=True, slots=True)
+class _Terms:
+    unit: Unit
+    names: tuple[Counter[str], ...]
+    heading: Counter[str]
+    text: Counter[str]
+
+
+def _terms(unit: Unit) -> _Terms:
+    names = (unit.subject.replace("-", " "), *unit.aliases)
+    return _Terms(
+        unit,
+        tuple(Counter(words(name)) for name in names),
+        Counter(words(" ".join((unit.pointer.section, *unit.keys)))),
+        Counter(words(unit.text)),
+    )
+
+
+def _mean(lengths: list[int]) -> float:
+    return max(1.0, sum(lengths) / max(1, len(lengths)))
+
+
+def _bounded(text: str) -> str:
+    if len(text) <= MAX_TEXT_CHARS:
+        return text
+    return text[: MAX_TEXT_CHARS - len(CUT_MARK)].rstrip() + CUT_MARK
 
 
 class Index:
     def __init__(self, corpus: Corpus) -> None:
-        self._corpus = corpus
-        self._units: dict[tuple[str, Name], Unit] = {
-            (unit.subject, name): unit for unit in corpus.units.values() for name in unit.names
-        }
+        self._terms = [_terms(u) for u in sorted(corpus.units.values(), key=lambda u: u.pointer.id)]
+        self._name_length = _mean([n.total() for t in self._terms for n in t.names])
+        self._heading_length = _mean([t.heading.total() for t in self._terms])
+        self._text_length = _mean([t.text.total() for t in self._terms])
+        found = Counter(
+            word
+            for t in self._terms
+            for word in {*t.heading, *t.text}.union(*(set(n) for n in t.names))
+        )
+        units = len(self._terms)
+        self._idf = {w: math.log(1 + (units - df + 0.5) / (df + 0.5)) for w, df in found.items()}
 
-    def search(self, query: str) -> tuple[Hit, ...]:
-        words = tokens(query)
-        subjects = {subject for subject, _ in self._named(words)}
-        if len(subjects) != 1:
-            return ()
-        unit = self._units.get((subjects.pop(), section_words(words, self._corpus.aliases)))
-        return (Hit(unit.pointer, unit.text[:MAX_TEXT_CHARS]),) if unit else ()
-
-    def _named(self, words: tuple[str, ...]) -> list[tuple[str, Span]]:
-        """Each alias found in the query as (subject, span), minus names inside longer names."""
-        found = [
-            (subject, (start, start + len(alias)))
-            for alias, subject in self._corpus.aliases.items()
-            for start in range(len(words) - len(alias) + 1)
-            if words[start : start + len(alias)] == alias
+    def search(self, query: str, k: int = 5) -> tuple[Hit, ...]:
+        asked = set(words(query)) & self._idf.keys()
+        scored = [
+            (max(self._score(t, name, asked) for name in t.names), t.unit) for t in self._terms
         ]
-        return [
-            (subject, span)
-            for subject, span in found
-            if not any(
-                other != span and other[0] <= span[0] and span[1] <= other[1] for _, other in found
+        best = sorted((pair for pair in scored if pair[0] > 0), key=lambda pair: -pair[0])[:k]
+        return tuple(Hit(unit.pointer, unit.subject, _bounded(unit.text)) for _, unit in best)
+
+    def _score(self, terms: _Terms, name: Counter[str], asked: set[str]) -> float:
+        fields = (
+            (NAME_WEIGHT, name, self._name_length),
+            (HEADING_WEIGHT, terms.heading, self._heading_length),
+            (TEXT_WEIGHT, terms.text, self._text_length),
+        )
+        score = 0.0
+        for word in asked:
+            tf = sum(
+                weight * field[word] / (1 - B + B * field.total() / mean)
+                for weight, field, mean in fields
             )
-        ]
+            score += self._idf[word] * tf / (K1 + tf)
+        return score

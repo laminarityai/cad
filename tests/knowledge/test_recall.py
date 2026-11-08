@@ -1,6 +1,11 @@
-"""Recall and near-misses on a ten-source corpus of the kind the agent will ask about."""
+"""Recall on a ten-source corpus of the kind the agent will ask about, and near misses.
 
-import json
+`recall_corpus/` holds the ten sources. Its keys follow one convention per heading, and none was
+written after reading HELD_OUT. `near_miss_corpus/` adds the family or sibling unit that each
+near-miss query is really about, so the right answer and the near miss compete in one ranking.
+"""
+
+import shutil
 from pathlib import Path
 
 import pytest
@@ -8,97 +13,11 @@ import pytest
 from cad.knowledge.corpus import load
 from cad.knowledge.search import Index
 
-FRONT = (
-    "---\ntitle: {title}\nurl: https://example.com/{stem}\nretrieved: 2026-11-07\n"
-    "license: own-summary\nsubject: {stem}\n{brand}\naliases: {aliases}\n---\n"
-)
+HERE = Path(__file__).parent
+RECALL_CORPUS = HERE / "recall_corpus"
+NEAR_MISS_CORPUS = HERE / "near_miss_corpus"
 
-SOURCES: dict[str, tuple[str, str, list[str], str]] = {
-    "bambu-pla-basic": (
-        "Bambu Lab PLA Basic Technical Data Sheet V3",
-        "maker: Bambu Lab",
-        ["Bambu Lab PLA Basic", "Bambu PLA Basic"],
-        '## Density\nThe table lists "Density 1.26 g/cm³ ISO 1183".\n\n'
-        "## Heat deflection temperature\n"
-        'The sheet lists "Heat Deflection Temperature (HDT, 0.45 MPa) 57 °C".\n',
-    ),
-    "bambu-pla-matte": (
-        "Bambu Lab PLA Matte Technical Data Sheet V3",
-        "maker: Bambu Lab",
-        ["Bambu Lab PLA Matte", "Bambu PLA Matte"],
-        '## Density\nThe table lists "Density 1.32 g/cm³ ISO 1183".\n',
-    ),
-    "bambu-petg-hf": (
-        "Bambu Lab PETG HF Technical Data Sheet V2",
-        "maker: Bambu Lab",
-        ["Bambu Lab PETG HF", "Bambu PETG HF"],
-        '## Density\nPETG HF is a high-flow PETG. The table lists "Density 1.28 g/cm³".\n\n'
-        '## Heat deflection temperature\nThe sheet lists "HDT 0.45 MPa 69 °C".\n',
-    ),
-    "polylite-abs": (
-        "PolyLite ABS technical data sheet V5.2 (Polymaker)",
-        "maker: Polymaker\nline: PolyLite",
-        ["PolyLite ABS", "Polymaker PolyLite ABS"],
-        '## Density\nThe table lists "Density 1.04 g/cm3 at 21.5°C".\n\n'
-        "## Vicat softening temperature\n"
-        'The sheet lists "Vicat softening temperature 103 °C (ASTM D1525)".\n',
-    ),
-    "polylite-asa": (
-        "PolyLite ASA technical data sheet V5.1 (Polymaker)",
-        "maker: Polymaker\nline: PolyLite",
-        ["PolyLite ASA", "Polymaker PolyLite ASA"],
-        '## Weather resistance\nThe sheet says "excellent UV resistance, better than ABS".\n\n'
-        '## Density\nThe table lists "Density 1.07 g/cm3".\n',
-    ),
-    "bambu-pa6-cf": (
-        "Bambu Lab PA6-CF Technical Data Sheet",
-        "maker: Bambu Lab",
-        ["Bambu Lab PA6-CF", "Bambu PA6-CF"],
-        '## Drying\nThe nylon absorbs moisture. The sheet says "Drying settings 80 °C, 8 h".\n\n'
-        '## Density\nThe table lists "Density 1.25 g/cm³".\n',
-    ),
-    "ninjaflex-tpu": (
-        "NinjaFlex TPU 85A technical specifications (NinjaTek)",
-        "maker: NinjaTek\nline: NinjaFlex",
-        ["NinjaFlex TPU", "NinjaFlex"],
-        '## Shore hardness\nThe sheet lists "Shore Hardness 85A".\n\n'
-        '## Density\nThe sheet lists "Specific gravity 1.19".\n',
-    ),
-    "aluminium-6061": (
-        "Aluminum 6061-T6 properties (ASM)",
-        "family: true",
-        ["Aluminum 6061-T6", "6061-T6"],
-        '## Density\nThe page lists "Density 2.70 g/cc".\n\n'
-        '## Yield strength\nThe page lists "Tensile Yield Strength 276 MPa".\n',
-    ),
-    "iso-273-clearance": (
-        "ISO 273 clearance holes for metric bolts",
-        "family: true",
-        ["ISO 273", "M3", "M4", "M5", "M6"],
-        "## Clearance hole sizes\nM3 medium 3.4 mm, M4 medium 4.5 mm, M5 medium 5.5 mm, "
-        "M6 medium 6.6 mm.\n",
-    ),
-    "stainless-316l": (
-        "Stainless steel 316L data sheet (AK Steel)",
-        "maker: AK Steel",
-        ["AK Steel 316L", "AK Steel 316L stainless steel"],
-        '## Density\nThe sheet lists "Density 0.29 lbs/in3 (8.00 g/cm3)".\n',
-    ),
-}
-
-KEYS = {
-    "Density": "densities, specific gravity",
-    "Heat deflection temperature": "HDT, heat deflection",
-    "Vicat softening temperature": "Vicat, Vicat temperature",
-    "Weather resistance": "UV resistance, UV",
-    "Drying": "drying settings, drying temperature, drying time",
-    "Shore hardness": "hardness",
-    "Clearance hole sizes": "clearance, clearance hole, clearance holes, clearance hole size",
-    "Yield strength": "tensile yield strength",
-}
-"""One key convention per heading, the same in every file: what an author declares by habit."""
-
-HITS = [
+AUTHORED = [
     ("Bambu PLA Basic density", "bambu-pla-basic#density"),
     ("Bambu Lab PLA Basic density", "bambu-pla-basic#density"),
     ("density of Bambu PLA Basic", "bambu-pla-basic#density"),
@@ -132,8 +51,6 @@ HITS = [
     ("Bambu PA6-CF drying temperature", "bambu-pa6-cf#drying"),
     ("M5 clearance hole size", "iso-273-clearance#clearance-hole-sizes"),
     ("PolyLite ABS densities", "polylite-abs#density"),
-]
-MISSES = [
     ("Bambu PLA Basic density g/cm3", "bambu-pla-basic#density"),
     ("Bambu PLA Basic density at 23 °C", "bambu-pla-basic#density"),
 ]
@@ -152,83 +69,98 @@ HELD_OUT = [
     ("Bambu PLA Matte density?", "bambu-pla-matte#density"),
 ]
 NEAR_MISSES = [
-    "PLA density",
-    "PLA Basic density",
-    "PLA Basic HDT",
-    "PLA Matte density",
-    "PETG HF density",
-    "PA6-CF density",
-    "PA6-CF drying",
-    "316L density",
-    "316L stainless steel density",
-    "stainless steel 316L density",
-    "TPU shore hardness",
+    ("PLA density", "pla#density", "bambu-pla-basic#density"),
+    ("PLA Basic density", "bambu-pla-basic#density", "bambu-pla-matte#density"),
+    (
+        "PLA Basic HDT",
+        "bambu-pla-basic#heat-deflection-temperature",
+        "pla#heat-deflection-temperature",
+    ),
+    ("PLA Matte density", "bambu-pla-matte#density", "bambu-pla-basic#density"),
+    ("PETG HF density", "bambu-petg-hf#density", "petg#density"),
+    ("PA6-CF density", "bambu-pa6-cf#density", "pa6#density"),
+    ("PA6-CF drying", "bambu-pa6-cf#drying", "pa6#drying"),
+    ("316L density", "stainless-316l#density", "stainless-304#density"),
+    ("316L stainless steel density", "stainless-316l#density", "stainless-304#density"),
+    ("stainless steel 316L density", "stainless-316l#density", "stainless-304#density"),
+    ("TPU shore hardness", "tpu#shore-hardness", "ninjaflex-tpu#shore-hardness"),
+    ("ABS density", "abs#density", "polylite-abs#density"),
+    ("ASA density", "asa#density", "polylite-asa#density"),
+    ("TPU density", "tpu#density", "ninjaflex-tpu#density"),
+    ("PETG density", "petg#density", "bambu-petg-hf#density"),
+    ("PA6 density", "pa6#density", "bambu-pa6-cf#density"),
+    ("PLA Silk density", "bambu-pla-silk#density", "bambu-pla-matte#density"),
+    ("TPU 95A shore hardness", "tpu-95a#shore-hardness", "ninjaflex-tpu#shore-hardness"),
+    ("ABS UV resistance", "abs#weather-resistance", "polylite-asa#weather-resistance"),
+    ("aluminum 7075-T6 density", "aluminium-7075#density", "aluminium-6061#density"),
+    ("304 stainless steel density", "stainless-304#density", "stainless-316l#density"),
+    ("steel density", "steel#density", "stainless-316l#density"),
+]
+"""(query, the unit it is about, the near miss the old design feared)."""
+NO_RIGHT_UNIT = [
     "6061 yield strength",
-    "ABS density",
-    "ASA density",
-    "TPU density",
     "6061 density",
     "Polymaker ABS density",
-    "PETG density",
     "nylon drying",
-    "PA6 density",
-    "PLA Silk density",
     "NinjaFlex 95A shore hardness",
-    "TPU 95A shore hardness",
-    "ABS UV resistance",
     "Bambu density",
-    "aluminum 7075-T6 density",
-    "304 stainless steel density",
-    "steel density",
     "M8 clearance hole",
 ]
+"""Near misses whose subject no unit is about: a temper left out, a group name, a missing size."""
+
+
+def ranked(index: Index, query: str, k: int = 5) -> list[str]:
+    return [hit.pointer.id.removeprefix("kb:") for hit in index.search(query, k)]
+
+
+def recall_at(index: Index, asked: list[tuple[str, str]], k: int) -> int:
+    return sum(1 for query, expected in asked if expected in ranked(index, query, k))
 
 
 @pytest.fixture(scope="module")
-def index(tmp_path_factory: pytest.TempPathFactory) -> Index:
-    directory: Path = tmp_path_factory.mktemp("recall")
-    for stem, (title, brand, aliases, body) in SOURCES.items():
-        front = FRONT.format(title=title, stem=stem, brand=brand, aliases=json.dumps(aliases))
-        for heading, keys in KEYS.items():
-            body = body.replace(f"## {heading}\n", f"## {heading}\n<!-- keys: {keys} -->\n")
-        (directory / f"{stem}.md").write_text(front + body)
+def index() -> Index:
+    return Index(load(RECALL_CORPUS))
+
+
+@pytest.fixture(scope="module")
+def crowded(tmp_path_factory: pytest.TempPathFactory) -> Index:
+    directory = tmp_path_factory.mktemp("crowded")
+    for path in [*RECALL_CORPUS.glob("*.md"), *NEAR_MISS_CORPUS.glob("*.md")]:
+        shutil.copy(path, directory / path.name)
     return Index(load(directory))
 
 
-def answer(index: Index, query: str) -> list[str]:
-    return [hit.pointer.id.removeprefix("kb:") for hit in index.search(query)]
+def test_the_authors_questions_find_their_unit_first(index: Index) -> None:
+    # The exact-identity design found 33/35 and at most one unit, so @1 and @5 were the same.
+    assert recall_at(index, AUTHORED, 1) >= 35
+    assert recall_at(index, AUTHORED, 5) >= 35
 
 
-def test_every_named_question_finds_its_unit_and_only_its_unit(index: Index) -> None:
-    wrong = {q: answer(index, q) for q, expected in HITS if answer(index, q) != [expected]}
-    assert wrong == {}
+def test_held_out_paraphrases_find_their_unit_first(index: Index) -> None:
+    # The exact-identity design found 3/12 here, the clean figure without the leaked keys.
+    assert recall_at(index, HELD_OUT, 1) >= 12
+    assert recall_at(index, HELD_OUT, 5) >= 12
 
 
-def test_a_known_miss_finds_nothing_rather_than_something_else(index: Index) -> None:
-    wrong = {q: answer(index, q) for q, _ in MISSES if answer(index, q) != []}
-    assert wrong == {}
+def test_recall_holds_when_the_near_misses_are_in_the_corpus(crowded: Index) -> None:
+    # "Bambu PLA Basic density at 23 °C" ranks the HDT section first: its quote has "°C".
+    assert recall_at(crowded, AUTHORED, 1) >= 34
+    assert recall_at(crowded, AUTHORED, 5) >= 35
+    assert recall_at(crowded, HELD_OUT, 1) >= 12
 
 
-def recall(index: Index, asked: list[tuple[str, str]]) -> float:
-    return sum(1 for q, expected in asked if answer(index, q) == [expected]) / len(asked)
+@pytest.mark.parametrize(("query", "right", "near"), NEAR_MISSES)
+def test_the_unit_a_query_is_about_outranks_its_near_miss(
+    crowded: Index, query: str, right: str, near: str
+) -> None:
+    hits = ranked(crowded, query)
+    assert hits[0] == right, f"{near} or another unit outranked {right}: {hits}"
 
 
-def test_recall_over_all_the_questions_an_agent_would_ask(index: Index) -> None:
-    assert recall(index, [*HITS, *MISSES]) >= 33 / 35
-
-
-def test_held_out_paraphrases_never_return_a_wrong_unit(index: Index) -> None:
-    wrong = {q: answer(index, q) for q, e in HELD_OUT if answer(index, q) not in ([e], [])}
-    assert wrong == {}
-
-
-def test_held_out_paraphrases_are_not_all_misses(index: Index) -> None:
-    # 3/12 is the clean figure. Four KEYS ("heat deflection", "hardness", "Vicat", "drying time")
-    # were written after reading HELD_OUT and lift it to 7/12, so a floor above 3 would rest on
-    # the leak. The keys stay because an author would write them, but they cannot set the floor.
-    assert recall(index, HELD_OUT) >= 3 / 12
-
-
-@pytest.mark.parametrize("query", NEAR_MISSES)
-def test_a_near_miss_finds_nothing(index: Index, query: str) -> None:
-    assert answer(index, query) == []
+@pytest.mark.parametrize("query", NO_RIGHT_UNIT)
+def test_a_query_no_unit_is_about_still_returns_candidates_with_their_subject(
+    crowded: Index, query: str
+) -> None:
+    hits = crowded.search(query)
+    assert hits
+    assert all(hit.subject for hit in hits)

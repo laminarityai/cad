@@ -13,16 +13,12 @@ url: https://example.com/x
 retrieved: 2026-11-07
 license: own-summary
 subject: x
-maker: Acme
-line: Example
 aliases: [Example]
 ---
 ## First
 <!-- page: 2 -->
 Some text.
 """
-
-BRAND = "maker: Acme\nline: Example"
 
 
 def write(tmp_path: Path, text: str, name: str = "x.md") -> Path:
@@ -67,27 +63,13 @@ def test_the_version_changes_with_any_byte(tmp_path: Path) -> None:
         ("## No front matter\ntext\n", "front matter"),
         (GOOD.replace("subject: x\n", ""), "subject"),
         (GOOD.replace("subject: x", "subject: Not A Key"), "subject"),
-        (GOOD.replace("aliases: [Example]\n", ""), "aliases"),
-        (GOOD.replace("[Example]", "[]"), "aliases"),
         (GOOD.replace("[Example]", "Example"), "aliases"),
-        (GOOD.replace("[Example]", "['+++']"), "aliases"),
         (GOOD.replace("[Example]", "[6061]"), "quote it"),
         (GOOD.replace("[Example]", "[NO]"), "quote it"),
-        (GOOD.replace("[Example]", "[the]"), "stopword"),
-        (GOOD.replace("[Example]", "[a, An]"), "stopword"),
-        (GOOD.replace("[Example]", "[PLA]"), "maker or line"),
-        (GOOD.replace("[Example]", "[PLA+]"), "maker or line"),
-        (GOOD.replace("[Example]", "['6061']"), "maker or line"),
-        (GOOD.replace("[Example]", "[Example, PLA Matte]"), "maker or line"),
-        (GOOD.replace("maker: Acme\n", ""), "maker"),
-        (GOOD.replace("maker: Acme", "maker: 7"), "maker"),
-        (GOOD.replace("line: Example", "line: [x]"), "line"),
-        (GOOD.replace("maker: Acme", "maker: Acme\nfamily: true"), "family file"),
-        (GOOD.replace(BRAND, "maker: The Steel"), "no word of its own"),
-        (GOOD.replace("[Example]", "[Example, Acme]"), "only the maker"),
+        (GOOD.replace("aliases:", "alias:"), "unknown front matter key 'alias'"),
+        (GOOD.replace("subject: x", "subject: x\nmaker: Acme"), "unknown front matter key"),
         (GOOD.replace("subject: x", "subject: other"), "file name"),
         (GOOD.replace("subject: x", "subject: x\nsubject: other"), "duplicate"),
-        (GOOD.replace("[Example]", "[Example]\nfamily: maybe"), "family"),
         (GOOD + "```\n## swallowed\nText.\n", "fence"),
         (GOOD + "~~~\n## swallowed\n```\nText.\n", "fence"),
         (GOOD.replace("title: Example", "title: [unclosed"), "front matter"),
@@ -100,59 +82,16 @@ def test_a_bad_file_is_reported(tmp_path: Path, text: str, expected: str) -> Non
     assert expected in problems(tmp_path, text)
 
 
-def test_a_unit_carries_its_subject_and_the_corpus_its_aliases(tmp_path: Path) -> None:
-    text = GOOD.replace(BRAND, "maker: Polymaker\nline: PolyTerra").replace(
-        "[Example]", "[PolyTerra PLA+, 'Polymaker PolyTerra PLA plus', PolyTerra PETG-HF]"
-    )
-    corpus = load(write(tmp_path, text))
-    (unit,) = corpus.units.values()
+def test_a_unit_carries_its_subject_and_aliases(tmp_path: Path) -> None:
+    text = GOOD.replace("[Example]", "[PolyTerra PLA+, 'Polymaker PolyTerra PLA plus']")
+    (unit,) = load(write(tmp_path, text)).units.values()
     assert unit.subject == "x"
-    assert set(corpus.aliases) == {
-        ("PolyTerra", "pla+"),
-        ("polymaker", "PolyTerra", "pla+"),
-        ("PolyTerra", "petg", "hf"),
-    }
-    assert set(corpus.aliases.values()) == {"x"}
+    assert unit.aliases == ("PolyTerra PLA+", "Polymaker PolyTerra PLA plus")
 
 
-def test_an_alias_two_subjects_claim_is_refused(tmp_path: Path) -> None:
-    write(tmp_path, GOOD.replace("subject: x", "subject: a"), "a.md")
-    write(tmp_path, GOOD.replace("subject: x", "subject: b"), "b.md")
-    with pytest.raises(InvalidCorpus, match="claimed by both"):
-        load(tmp_path)
-
-
-def test_a_generic_name_is_an_alias_only_when_the_file_declares_family(tmp_path: Path) -> None:
-    text = GOOD.replace("[Example]", "[PLA, Generic PLA]")
-    assert "maker or line" in problems(tmp_path, text)
-    declared = text.replace(BRAND, "family: true")
-    assert ("pla",) in load(write(tmp_path, declared)).aliases
-
-
-def test_a_branded_alias_names_its_maker_or_line(tmp_path: Path) -> None:
-    text = GOOD.replace(BRAND, "maker: Polymaker\nline: PolyTerra")
-    loaded = load(
-        write(tmp_path, text.replace("[Example]", "[PolyTerra PLA, Polymaker PolyTerra PLA]"))
-    )
-    assert set(loaded.aliases) == {("PolyTerra", "pla"), ("polymaker", "PolyTerra", "pla")}
-    assert "only the maker" in problems(tmp_path, text.replace("[Example]", "[Polymaker PLA]"))
-    for generic in ("PLA", "the PLA", "PLA filament", "PLA Matte", "PA 6", "nylon 6"):
-        assert "maker or line" in problems(tmp_path, text.replace("[Example]", f"['{generic}']")), (
-            generic
-        )
-
-
-def test_a_family_word_in_the_makers_name_does_not_count(tmp_path: Path) -> None:
-    text = GOOD.replace(BRAND, "maker: British Steel")
-    assert "maker or line" in problems(tmp_path, text.replace("[Example]", "[mild steel]"))
-    loaded = load(write(tmp_path, text.replace("[Example]", "[British Steel S275]")))
-    assert set(loaded.aliases) == {("british", "steel", "S275")}
-    assert "only the maker" in problems(tmp_path, text.replace("[Example]", "[British Steel]"))
-
-
-def test_a_family_word_counts_in_any_case(tmp_path: Path) -> None:
-    text = GOOD.replace(BRAND, "maker: Bambu Lab")
-    assert "only the maker" in problems(tmp_path, text.replace("[Example]", "[Bambu pa6]"))
+def test_aliases_are_optional(tmp_path: Path) -> None:
+    (unit,) = load(write(tmp_path, GOOD.replace("aliases: [Example]\n", ""))).units.values()
+    assert unit.aliases == ()
 
 
 def test_a_duplicate_yaml_key_is_refused_wherever_it_sits(tmp_path: Path) -> None:
@@ -195,41 +134,23 @@ def test_every_problem_is_collected(tmp_path: Path) -> None:
     assert "license" in message
 
 
-def test_the_seeded_corpus_is_valid_and_answers_its_questions() -> None:
+def first(index: Index, query: str) -> str:
+    return index.search(query)[0].pointer.id
+
+
+def test_the_seeded_corpus_is_valid_and_ranks_its_questions() -> None:
     index = Index(load(CORPUS_PATH))
-    assert [h.pointer.id for h in index.search("fresh water density")][:1] == ["kb:water#density"]
-    assert [h.pointer.id for h in index.search("pure water at 4 degrees")] == [
-        "kb:water#pure-water-at-4-degrees-celsius"
-    ]
-    assert index.search("water density at 4 degrees") == ()
-    assert [h.pointer.id for h in index.search("PolyTerra PLA+ density")] == [
-        "kb:polymaker-polyterra-pla-plus#density"
-    ]
-    assert [h.pointer.id for h in index.search("PolyTerra PLA density")] == [
-        "kb:polymaker-polyterra-pla#density"
-    ]
-    for query in ("PLA density", "Polymaker PLA density", "Bambu PLA density", "!PLA density"):
-        assert index.search(query) == (), query
-    assert index.search("PETG density") == ()
+    assert first(index, "fresh water density") == "kb:water#density"
+    assert first(index, "pure water at 4 degrees") == "kb:water#pure-water-at-4-degrees-celsius"
+    for query in ("PolyTerra PLA+ density", "PolyTerra PLA plus density", "polyterra pla+ density"):
+        assert first(index, query) == "kb:polymaker-polyterra-pla-plus#density", query
+    for query in ("PolyTerra PLA density", "Polymaker PolyTerra PLA specific gravity"):
+        assert first(index, query) == "kb:polymaker-polyterra-pla#density", query
+    assert (
+        first(index, "PLA+ toughness")
+        == "kb:polymaker-polyterra-pla-plus#how-it-differs-from-the-plain-grade"
+    )
     assert index.search("M5 clearance hole") == ()
-    for query in ("PLA+ density", "PLA toughness", "PLA layer adhesion", "ordinary PLA"):
-        assert index.search(query) == (), query
-    for query in ("PolyTerra density", "Polymaker density", "Polymaker PLA+ density"):
-        assert index.search(query) == (), query
-    for query in (
-        "PolyTerra PLA\uff0b density",
-        "PolyTerra PLA + density",
-        "PolyTerra PLA plus density",
-    ):
-        assert [h.pointer.id for h in index.search(query)] == [
-            "kb:polymaker-polyterra-pla-plus#density"
-        ], query
-    assert index.search("plus grade density") == ()
-    assert index.search("PLA plus density") == ()
-    for query in ("ISO1183 density", "GB/T1033 density", "PolyTerra PLA\u2795 density", "water"):
-        assert index.search(query) == (), query
-    for query in ("mineral water density", "water mineral density", "dissolved water density"):
-        assert index.search(query) == (), query
 
 
 def test_the_scorer_never_loads_the_knowledge_base() -> None:
