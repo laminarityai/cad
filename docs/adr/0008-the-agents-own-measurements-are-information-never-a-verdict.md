@@ -14,7 +14,7 @@ The tracer counts each agent measurement as `NotVerified`, on its own line, and 
 
 - **Agent-written geometry checks, gated and reviewed.** Rejected on 2026-11-08 after the adversarial review. Gates on reference shapes cannot tell an honest check from one written to flatter the agent's designs. A person who does not read code cannot tell them apart either.
 - **Formulas over trusted measures, reviewed for each project.** Deferred, not rejected. A formula can reach only the measures it may read, and today that is volume alone. Formulas return when a count of unchecked requirements in the eval briefs shows the demand, and the team measures they need exist. A formula may never read an agent measurement.
-- **A team review queue for agent code.** Rejected by the operator. Nothing leaves the user's machine.
+- **A team review queue for agent code.** Rejected by the operator. No agent code is sent to the team for review.
 - **No agent measurement at all.** Rejected. The agent can tell the user something useful about an unchecked requirement, as long as it never reads as checked.
 - **An agent measurement blocks the phase 2 exit.** Rejected. Eval runs would then push the agent never to give the user its own measurement, which is the opposite of what it is for. Counting each one keeps it visible in the numbers.
 
