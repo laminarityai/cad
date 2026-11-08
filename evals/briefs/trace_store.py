@@ -1,13 +1,17 @@
 """Trace every number on every scorecard stored in a variant store.
 
-    uv run python evals/briefs/trace_store.py                  # the store under ~/.cad/variants
-    uv run python evals/briefs/trace_store.py --root DIR       # another store
+    uv run python evals/briefs/trace_store.py                  # the stores under ~/.cad
+    uv run python evals/briefs/trace_store.py --root DIR       # another variant store
+    uv run python evals/briefs/trace_store.py --briefs-root DIR  # another brief store
     uv run python evals/briefs/trace_store.py --steps          # print each number's chain
+    uv run python evals/briefs/trace_store.py --require-judged # every card judged a brief
 
-Each card is read, bound to its signed build, checked for completeness, and every number on it is
-traced (see `provenance`). The summary counts each kind of failure on its own line. Exit code 1
-means at least one card or number failed, or the store holds no card or no number: a pass over
-nothing proves nothing.
+Each card is read, bound to its signed build, checked for completeness, its basis is checked
+against the brief store, and every number on it is traced (see `provenance`). The summary counts
+each kind of failure on its own line, and counts cards judged against a brief apart from cards
+awaiting confirmation and cards with no brief. Exit code 1 means at least one card or number
+failed, or the store holds no card or no number: a pass over nothing proves nothing. With
+`--require-judged`, a card awaiting confirmation or with no brief fails too.
 
 Limit: stored cards are unsigned, so a hand-edited value or verdict is not detected. The product
 ships hosted, so users cannot edit them.
@@ -18,16 +22,19 @@ import sys
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Final
+from typing import Final, assert_never
 
 from binding import Unbound
+from confirmation import Misjudged, Superseded, Unconfirmed
 from provenance import (
     CardFailure,
     CardTrace,
     CheckStep,
+    ConfirmedStep,
     Incomplete,
     Resolved,
     Stale,
+    Step,
     TableStep,
     Traced,
     Unreadable,
@@ -37,6 +44,7 @@ from provenance import (
 from pydantic import ValidationError
 from tracking import RequirementOutcome, describe, outcomes_of, track
 
+from cad.briefs.store import BRIEFS_ROOT
 from cad.checks.report import SPECS
 from cad.scorecard.model import Scorecard
 from cad.scorecard.score import SCORECARD
@@ -52,6 +60,12 @@ class Tally:
     unreadable: int
     unbound: int
     incomplete: int
+    unconfirmed: int
+    misjudged: int
+    superseded: int
+    judged: int
+    awaiting: int
+    no_brief: int
     numbers: int
     resolved: int
     stale: int
@@ -60,11 +74,18 @@ class Tally:
 
 def tally(traces: Sequence[CardTrace]) -> Tally:
     numbers = [one.outcome for trace in traces for one in trace.numbers]
+    bases = [trace.basis for trace in traces]
     return Tally(
         cards=len(traces),
         unreadable=_cards_with(traces, Unreadable),
         unbound=_cards_with(traces, Unbound),
         incomplete=_cards_with(traces, Incomplete),
+        unconfirmed=_cards_with(traces, Unconfirmed),
+        misjudged=_cards_with(traces, Misjudged),
+        superseded=_cards_with(traces, Superseded),
+        judged=bases.count("against_brief"),
+        awaiting=bases.count("awaiting_confirmation"),
+        no_brief=bases.count("no_brief"),
         numbers=len(numbers),
         resolved=sum(isinstance(outcome, Resolved) for outcome in numbers),
         stale=sum(isinstance(outcome, Stale) for outcome in numbers),
@@ -76,10 +97,19 @@ def _cards_with(traces: Sequence[CardTrace], kind: type[CardFailure]) -> int:
     return sum(any(isinstance(failure, kind) for failure in trace.failures) for trace in traces)
 
 
-def exit_code(counts: Tally) -> int:
+def exit_code(counts: Tally, *, require_judged: bool = False) -> int:
     failed = (
-        counts.unreadable + counts.unbound + counts.incomplete + counts.stale + counts.unresolved
+        counts.unreadable
+        + counts.unbound
+        + counts.incomplete
+        + counts.unconfirmed
+        + counts.misjudged
+        + counts.superseded
+        + counts.stale
+        + counts.unresolved
     )
+    if require_judged:
+        failed += counts.awaiting + counts.no_brief
     return 1 if failed or not counts.cards or not counts.numbers else 0
 
 
@@ -88,7 +118,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         prog="trace_store", description="Trace every number on every stored scorecard."
     )
     parser.add_argument("--root", type=Path, default=entry.VARIANTS_ROOT, help="the variant store")
+    parser.add_argument(
+        "--briefs-root", type=Path, default=BRIEFS_ROOT, help="the brief store cards name"
+    )
     parser.add_argument("--steps", action="store_true", help="print the chain of every number")
+    parser.add_argument(
+        "--require-judged",
+        action="store_true",
+        help="fail a card awaiting confirmation or scored with no brief",
+    )
     args = parser.parse_args(argv)
     paths = sorted(
         path
@@ -99,7 +137,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     traces: list[CardTrace] = []
     outcomes: list[RequirementOutcome] = []
     for path in paths:
-        trace, found = _read(path, args.root, table)
+        trace, found = _read(path, args.root, args.briefs_root, table)
         _print(trace, args.steps)
         traces.append(trace)
         outcomes.extend(found)
@@ -111,6 +149,14 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"incomplete: {counts.incomplete}"
     )
     print(
+        f"cards unconfirmed: {counts.unconfirmed}, misjudged: {counts.misjudged}, "
+        f"superseded: {counts.superseded}"
+    )
+    print(
+        f"cards judged: {counts.judged}, awaiting confirmation: {counts.awaiting}, "
+        f"no brief: {counts.no_brief}"
+    )
+    print(
         f"numbers resolved: {counts.resolved}, stale: {counts.stale}, "
         f"unresolved: {counts.unresolved}"
     )
@@ -120,21 +166,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         print(f"no scorecard under {args.root}")
     elif not counts.numbers:
         print("no number on any scorecard")
-    return exit_code(counts)
+    return exit_code(counts, require_judged=args.require_judged)
 
 
 def _read(
-    path: Path, root: Path, table: MaterialsTable
+    path: Path, root: Path, briefs_root: Path, table: MaterialsTable
 ) -> tuple[CardTrace, tuple[RequirementOutcome, ...]]:
     name = path.parent.name
     try:
         card = Scorecard.model_validate_json(path.read_text())
     except (OSError, ValidationError) as error:
         return CardTrace(name, (Unreadable(str(error).splitlines()[0]),), ()), ()
-    trace = trace_card(card, root, table, SPEC_BY_ID)
+    trace = trace_card(card, root, briefs_root, table, SPEC_BY_ID)
     if card.variant_id != name:
         misplaced = Unbound(f"the card names variant {card.variant_id} but is stored under {name}")
-        trace = CardTrace(name, (misplaced, *trace.failures), trace.numbers)
+        trace = CardTrace(name, (misplaced, *trace.failures), trace.numbers, trace.basis)
     return trace, outcomes_of(card)
 
 
@@ -157,10 +203,22 @@ def _line(one: Traced) -> str:
     return f"{head} -> {chain}"
 
 
-def _step(step: CheckStep | TableStep) -> str:
-    if isinstance(step, CheckStep):
-        return f"computed by check {step.check_id} at version {step.version[:12]}"
-    return f"table {step.material_key}.{step.field}, {step.source.title}, {step.source.page}"
+def _step(step: Step) -> str:
+    match step:
+        case CheckStep():
+            return f"computed by check {step.check_id} at version {step.version[:12]}"
+        case TableStep():
+            return (
+                f"table {step.material_key}.{step.field}, {step.source.title}, {step.source.page}"
+            )
+        case ConfirmedStep():
+            return (
+                f"confirmed by a person: brief {step.brief_id}, decision "
+                f"{step.decision_sha256[:12]}, requirement {step.requirement_id} "
+                f"({step.statement})"
+            )
+        case _:
+            assert_never(step)
 
 
 if __name__ == "__main__":

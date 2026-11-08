@@ -1,4 +1,6 @@
 import hashlib
+from collections.abc import Mapping
+from datetime import UTC, datetime
 from functools import cache
 from pathlib import Path
 
@@ -10,11 +12,16 @@ from provenance import (
     Unresolved,
     trace_card,
 )
+from pydantic import TypeAdapter
 from trace_store import SPEC_BY_ID
 
+from cad.briefs import store as briefs
+from cad.briefs.model import BriefId, Confirmed, Decision, Target
+from cad.briefs.store import ConfirmedSet, Draft
 from cad.checks.report import SPECS, CheckSpec
 from cad.checks.result import CheckResult, Measure, StepStored, Verdict
-from cad.scorecard.model import NoBrief, Scorecard
+from cad.scorecard.model import Basis, NoBrief, Scorecard
+from cad.scorecard.requirements import against
 from cad.scorecard.score import SCORECARD
 from cad.tables.materials import UNITS, Cited, MaterialsTable, load_materials
 
@@ -76,8 +83,41 @@ def genuine_card(**changes: object) -> Scorecard:
     return card.model_copy(update=changes)
 
 
-def trace(card: Scorecard, root: Path) -> CardTrace:
-    return trace_card(card, root, table(), SPEC_BY_ID)
+def trace(card: Scorecard, root: Path, briefs_root: Path | None = None) -> CardTrace:
+    shown = root.parent / "briefs" if briefs_root is None else briefs_root
+    return trace_card(card, root, shown, table(), SPEC_BY_ID)
+
+
+BRIEF_TEXT = "A plate under 150 g that fits in 120 x 80 x 40 mm and looks friendly"
+TARGET = TypeAdapter[Target](Target)
+
+
+def drafts(*rows: tuple[Mapping[str, object], str]) -> list[Draft]:
+    return [Draft(target=TARGET.validate_python(raw), quote=quote) for raw, quote in rows]
+
+
+def confirm(briefs_root: Path, brief_id: str, rows: list[Draft]) -> ConfirmedSet:
+    """Propose rows and record a person's confirmation the way the page does."""
+    briefs.propose(briefs_root, brief_id, rows)
+    state = briefs.read_state(briefs_root, brief_id)
+    latest = state.proposals[-1]
+    decision = Decision(
+        proposal=latest.proposal.number,
+        brief_sha256=state.brief_sha256,
+        proposal_sha256=latest.sha256,
+        answer=Confirmed(),
+        decided_at=datetime.now(UTC),
+    )
+    briefs.record_decision(briefs_root, BriefId(brief_id), decision)
+    confirmed = briefs.confirmed_requirements(briefs_root, brief_id)
+    assert confirmed is not None
+    return confirmed
+
+
+def judged_card(confirmed: ConfirmedSet) -> Scorecard:
+    card = genuine_card()
+    basis: Basis = against(confirmed)(card.results)
+    return card.model_copy(update={"basis": basis})
 
 
 def with_result(card: Scorecard, check_id: str, **changes: object) -> Scorecard:

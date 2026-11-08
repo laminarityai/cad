@@ -1,15 +1,15 @@
 """The two SPEC.md tracking numbers: strict pass rate, and the share of requirements that a
 reviewed check covers.
 
-Scorecards carry no requirements yet. When PR 3 adds `Scorecard.requirements`, `outcomes_of` is the
-one place to change: it turns a card's requirement results into `RequirementOutcome`s.
+`outcomes_of` is the one place that turns a card's requirement results into
+`RequirementOutcome`s.
 """
 
 from dataclasses import dataclass
 from typing import Final
 
 from cad.checks.result import Verdict
-from cad.scorecard.model import Scorecard
+from cad.scorecard.model import AgainstBrief, Checked, Scorecard
 
 NO_REQUIREMENTS: Final = "no requirements"
 
@@ -42,9 +42,19 @@ class Tracking:
 
 
 def outcomes_of(card: Scorecard) -> tuple[RequirementOutcome, ...]:
-    # PR 3: read card.requirements, with reviewed set from the deciding check's review status.
-    del card
-    return ()
+    """One outcome per requirement judged on the card. Reviewed means a check in the suite
+    decided it, until a check manifest records a second review status."""
+    basis = card.basis
+    if not isinstance(basis, AgainstBrief):
+        return ()
+    return tuple(
+        RequirementOutcome(
+            one.requirement_id,
+            one.verdict if isinstance(one, Checked) else Verdict.UNKNOWN,
+            reviewed=isinstance(one, Checked),
+        )
+        for one in basis.requirements
+    )
 
 
 def track(outcomes: tuple[RequirementOutcome, ...]) -> Tracking:
