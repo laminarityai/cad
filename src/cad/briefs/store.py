@@ -4,7 +4,7 @@
     <root>/<brief_id>/proposals/<n:04d>.signed
     <root>/<brief_id>/decisions/<n:04d>.signed     the person's answer to proposal n
 
-Each `.signed` file is a `records` file whose slot is "<brief_id>/brief",
+Each `.signed` file is a `cad.records.signed` file whose slot is "<brief_id>/brief",
 "<brief_id>/proposal/<n>" or "<brief_id>/decision/<n>", so a record moved to another slot or
 another brief fails, and a second decision for one proposal loses to the first.
 """
@@ -14,7 +14,6 @@ import json
 import logging
 import re
 import secrets
-import shutil
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -24,7 +23,6 @@ from typing import Final
 
 from pydantic import BaseModel, ValidationError
 
-from cad.briefs import records
 from cad.briefs.model import (
     Brief,
     BriefId,
@@ -35,6 +33,7 @@ from cad.briefs.model import (
     RequirementId,
     Target,
 )
+from cad.records import signed
 from cad.variants import key
 
 BRIEFS_ROOT: Final = Path.home() / ".cad" / "briefs"
@@ -42,8 +41,6 @@ BRIEF: Final = "brief.signed"
 PROPOSALS: Final = "proposals"
 DECISIONS: Final = "decisions"
 ID_PATTERN: Final = re.compile(r"[0-9a-f]{16}")
-SLOT_PATTERN: Final = re.compile(r"(\d{4})\.signed")
-PROPOSE_ATTEMPTS: Final = 8
 LOG = logging.getLogger(__name__)
 
 
@@ -141,40 +138,55 @@ def parse_brief_id(raw: str) -> BriefId:
 
 def create_brief(root: Path, text: str) -> Brief:
     brief = Brief(id=BriefId(secrets.token_hex(8)), text=text, created_at=datetime.now(UTC))
-    incoming = root / f".incoming-{secrets.token_hex(8)}"
-    try:
-        incoming.mkdir(parents=True)
-        (incoming / PROPOSALS).mkdir()
-        (incoming / DECISIONS).mkdir()
-        record = brief.model_dump_json().encode()
-        (incoming / BRIEF).write_bytes(records.signed(root, f"{brief.id}/brief", record))
-        incoming.rename(root / brief.id)
-    finally:
-        shutil.rmtree(incoming, ignore_errors=True)
+    first = (f"{brief.id}/brief", BRIEF, brief.model_dump_json().encode())
+    if not signed.create_entry(_store(root), brief.id, first, (PROPOSALS, DECISIONS)):
+        raise FileExistsError(f"brief {brief.id} already exists")
     return brief
 
 
 def propose(root: Path, raw_id: str, drafts: Sequence[Draft]) -> ProposalState:
     """Store drafts as the next proposal, or return the latest when it is the same undecided set."""
-    state = read_state(root, raw_id)
-    requirements = _resolve(state.brief, drafts)
-    for _ in range(PROPOSE_ATTEMPTS):
-        latest = state.latest
-        ids = [r.id for r in requirements]
+    brief = read_state(root, raw_id).brief
+    requirements = _resolve(brief, drafts)
+    ids = [r.id for r in requirements]
+    unchanged: ProposalState | None = None
+
+    def next_proposal(existing: tuple[bytes, ...]) -> bytes | None:
+        nonlocal unchanged
+        latest = read_state(root, brief.id).latest
         if latest and latest.status is Status.PROPOSED and latest.requirement_ids == ids:
-            return latest
-        number = 1 if latest is None else latest.proposal.number + 1
-        proposal = Proposal(
-            brief_id=state.brief.id,
-            number=number,
-            requirements=requirements,
-            created_at=datetime.now(UTC),
+            unchanged = latest
+            return None
+        unchanged = None
+        return (
+            Proposal(
+                brief_id=brief.id,
+                number=len(existing) + 1,
+                requirements=requirements,
+                created_at=datetime.now(UTC),
+            )
+            .model_dump_json()
+            .encode()
         )
-        path = root / state.brief.id / PROPOSALS / _slot(number)
-        if _publish(root, f"{state.brief.id}/proposal/{number}", path, proposal):
-            return read_state(root, state.brief.id).proposals[number - 1]
-        state = read_state(root, state.brief.id)
-    raise BadProposal(f"brief {state.brief.id} is being proposed to concurrently; try again")
+
+    try:
+        stored = signed.append(
+            _store(root),
+            root / brief.id / PROPOSALS,
+            lambda number: f"{brief.id}/proposal/{number}",
+            next_proposal,
+        )
+    except signed.Contended as error:
+        raise BadProposal(
+            f"brief {brief.id} is being proposed to concurrently; try again"
+        ) from error
+    except signed.Tampered as error:
+        raise TamperedBrief(_report(root, brief.id)) from error
+    if isinstance(stored, signed.Appended):
+        return read_state(root, brief.id).proposals[stored.number - 1]
+    if unchanged is None:
+        raise TamperedBrief(_report(root, brief.id))
+    return unchanged
 
 
 def record_decision(root: Path, brief_id: BriefId, decision: Decision) -> Decision:
@@ -183,7 +195,7 @@ def record_decision(root: Path, brief_id: BriefId, decision: Decision) -> Decisi
     Only cad.briefs.page calls this, after a POST that spent a live ballot.
     """
     number = decision.proposal
-    path = root / brief_id / DECISIONS / _slot(number)
+    path = root / brief_id / DECISIONS / signed.slot_file(number)
     _publish(root, f"{brief_id}/decision/{number}", path, decision)
     stored = read_state(root, brief_id).proposal(number)
     if stored is None or stored.decision is None:
@@ -200,7 +212,7 @@ def read_state(root: Path, raw_id: str) -> BriefState:
     """
     brief_id = parse_brief_id(raw_id)
     directory = root / brief_id
-    if not records.is_directory(directory):
+    if not signed.is_directory(directory):
         raise UnknownBrief(f"no brief {brief_id} is stored; store it with create_brief")
     brief_record = _read_signed(root, f"{brief_id}/brief", directory / BRIEF)
     brief = _parse(root, brief_id, Brief, brief_record)
@@ -294,14 +306,14 @@ def _belongs(proposal: Proposal, brief: Brief) -> bool:
 
 
 def _read_signed(root: Path, slot: str, path: Path) -> bytes:
-    record = records.read(root, slot, path)
+    record = signed.read(_store(root), slot, path)
     if record is None:
         raise TamperedBrief(_report(root, BriefId(slot.partition("/")[0])))
     return record
 
 
 def _publish(root: Path, slot: str, path: Path, record: BaseModel) -> bool:
-    return records.publish(root, slot, path, record.model_dump_json().encode())
+    return signed.publish(_store(root), slot, path, record.model_dump_json().encode())
 
 
 def _parse[M: BaseModel](root: Path, brief_id: BriefId, model: type[M], record: bytes) -> M:
@@ -313,21 +325,21 @@ def _parse[M: BaseModel](root: Path, brief_id: BriefId, model: type[M], record: 
 
 def _slots(root: Path, brief_id: BriefId, kind: str) -> dict[int, Path]:
     directory = root / brief_id / kind
-    if not records.is_directory(directory):
+    if not signed.is_directory(directory):
         raise TamperedBrief(_report(root, brief_id))
     found: dict[int, Path] = {}
     for path in directory.iterdir():
         if path.name.startswith("."):
             continue
-        match = SLOT_PATTERN.fullmatch(path.name)
+        match = signed.SLOT_PATTERN.fullmatch(path.name)
         if match is None:
             raise TamperedBrief(_report(root, brief_id))
         found[int(match.group(1))] = path
     return dict(sorted(found.items()))
 
 
-def _slot(number: int) -> str:
-    return f"{number:04d}.signed"
+def _store(root: Path) -> signed.Store:
+    return signed.Store(root, "brief")
 
 
 def _report(root: Path, brief_id: BriefId) -> str:

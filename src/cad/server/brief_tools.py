@@ -21,8 +21,8 @@ from cad.briefs.model import (
     deciding_check,
     describe,
 )
-from cad.briefs.records import BriefStoreUnusable
 from cad.briefs.store import BriefRefused, BriefState, ProposalState, Status
+from cad.records.signed import StoreUnusable
 
 PLAN_MODE = (
     "Plan mode comes first for every brief. Store the user's words with create_brief, unchanged. "
@@ -144,7 +144,7 @@ def _agent_facing() -> Generator[None]:
         yield
     except BriefRefused as error:
         raise ToolError(f"{type(error).__name__}: {error}") from error
-    except BriefStoreUnusable as error:
+    except StoreUnusable as error:
         raise ToolError(str(error)) from error
 
 

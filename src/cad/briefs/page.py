@@ -33,8 +33,8 @@ from cad.briefs.model import (
     deciding_check,
     describe,
 )
-from cad.briefs.records import BriefStoreUnusable
 from cad.briefs.store import BriefRefused, BriefState, ProposalState
+from cad.records.signed import StoreUnusable
 
 TOKEN_PATH: Final = re.compile(r"/confirm/([A-Za-z0-9_-]{1,128})")
 MAX_BODY_BYTES: Final = 8 * 1024
@@ -95,7 +95,7 @@ class _Handler(BaseHTTPRequestHandler):
             return self._send(403, _plain(FORBIDDEN))
         try:
             state = store.read_state(self._page.desk.root, ballot.brief_id)
-        except (BriefRefused, BriefStoreUnusable):
+        except (BriefRefused, StoreUnusable):
             return self._send(500, _plain("The brief store refused this brief. Tell the agent."))
         proposed = _still_open(state, ballot)
         if proposed is None:
@@ -121,7 +121,7 @@ class _Handler(BaseHTTPRequestHandler):
             return self._send(403, _plain(FORBIDDEN))
         try:
             outcome = _record(self._page.desk, ballot, answer)
-        except (BriefRefused, BriefStoreUnusable):
+        except (BriefRefused, StoreUnusable):
             return self._send(500, _plain("The brief store refused this answer. Tell the agent."))
         if outcome is None:
             return self._send(403, _plain(FORBIDDEN))
