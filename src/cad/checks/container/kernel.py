@@ -45,6 +45,12 @@ class _Analyzer(Protocol):
     def IsValid(self) -> bool: ...
 
 
+class _Box(Protocol):
+    def IsVoid(self) -> bool: ...
+    def IsOpen(self) -> bool: ...
+    def Get(self) -> tuple[float, float, float, float, float, float]: ...
+
+
 class _Boolean(Protocol):
     def IsDone(self) -> bool: ...
     def Shape(self) -> Shape: ...
@@ -98,6 +104,13 @@ class _BRepGProp(Protocol):
     def VolumeProperties_s(shape: Shape, props: _Props) -> object: ...
 
 
+class _BRepBndLib(Protocol):
+    @staticmethod
+    def AddOptimal_s(
+        shape: Shape, box: _Box, use_triangulation: bool, use_shape_tolerance: bool
+    ) -> None: ...
+
+
 class _InterfaceStatic(Protocol):
     @staticmethod
     def SetCVal_s(name: str, value: str) -> bool: ...
@@ -110,6 +123,7 @@ class _Ocp:
     new_explorer: Callable[[Shape, object, object], _Explorer]
     new_ancestor_map: Callable[[], _AncestorMap]
     new_props: Callable[[], _Props]
+    new_box: Callable[[], _Box]
     new_analyzer: Callable[[Shape], _Analyzer]
     new_common: Callable[[Shape, Shape], _Boolean]
     new_writer: Callable[[], _Writer]
@@ -120,6 +134,7 @@ class _Ocp:
     topods: _TopoDS
     topexp: _TopExp
     brep_gprop: _BRepGProp
+    brep_bnd_lib: _BRepBndLib
     interface_static: _InterfaceStatic
     any_shape: object
     solid: object
@@ -149,6 +164,7 @@ def _load_ocp() -> _Ocp:
             _module("TopTools").TopTools_IndexedDataMapOfShapeListOfShape,
         ),
         new_props=cast(Callable[[], _Props], _module("GProp").GProp_GProps),
+        new_box=cast(Callable[[], _Box], _module("Bnd").Bnd_Box),
         new_analyzer=cast(Callable[[Shape], _Analyzer], _module("BRepCheck").BRepCheck_Analyzer),
         new_common=cast(
             Callable[[Shape, Shape], _Boolean], _module("BRepAlgoAPI").BRepAlgoAPI_Common
@@ -161,6 +177,7 @@ def _load_ocp() -> _Ocp:
         topods=cast(_TopoDS, topods.TopoDS),
         topexp=cast(_TopExp, _module("TopExp").TopExp),
         brep_gprop=cast(_BRepGProp, _module("BRepGProp").BRepGProp),
+        brep_bnd_lib=cast(_BRepBndLib, _module("BRepBndLib").BRepBndLib),
         interface_static=cast(_InterfaceStatic, _module("Interface").Interface_Static),
         any_shape=top_abs.TopAbs_SHAPE,
         solid=top_abs.TopAbs_SOLID,
@@ -213,6 +230,13 @@ class Kernel(Protocol):
         ...
 
     def volume_props(self, shape: Shape) -> VolumeProps: ...
+
+    def extents(self, shape: Shape) -> tuple[float, float, float] | None:
+        """Sizes along x, y and z of the axis-aligned bounding box in the shape's own frame, or
+        None when the shape has no bounds or unbounded ones. The box is the tightest the kernel
+        computes (BRepBndLib.AddOptimal_s from geometry, not from the mesh, with no tolerance gap
+        added)."""
+        ...
 
     def common_volume(self, first: Shape, second: Shape) -> float | None: ...
 
@@ -286,6 +310,14 @@ class OcpKernel:
         self._ocp.brep_gprop.VolumeProperties_s(shape, props)
         center = props.CentreOfMass()
         return VolumeProps(props.Mass(), (center.X(), center.Y(), center.Z()))
+
+    def extents(self, shape: Shape) -> tuple[float, float, float] | None:
+        box = self._ocp.new_box()
+        self._ocp.brep_bnd_lib.AddOptimal_s(shape, box, False, False)
+        if box.IsVoid() or box.IsOpen():
+            return None
+        x0, y0, z0, x1, y1, z1 = box.Get()
+        return (x1 - x0, y1 - y0, z1 - z0)
 
     def common_volume(self, first: Shape, second: Shape) -> float | None:
         common = self._ocp.new_common(first, second)

@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from cad.checks.container import closed_solid, interference, mass
+from cad.checks.container import closed_solid, extents, interference, mass
 from cad.checks.container.check import Subject
 from cad.checks.container.kernel import EdgeUses, Shape, StepTooLarge, Unreadable, VolumeProps
 from cad.checks.container.runner import run
@@ -41,6 +41,7 @@ class FakeKernel:
         default_factory=dict[tuple[int, int], float | None]
     )
     outside: int = 0
+    box: tuple[float, float, float] | None = (30.0, 10.0, 20.0)
     invalid_raises: bool = False
     step_raises: bool = False
     step: bytes = b"STEP bytes"
@@ -64,6 +65,9 @@ class FakeKernel:
 
     def volume_props(self, shape: Shape) -> VolumeProps:
         return self.props
+
+    def extents(self, shape: Shape) -> tuple[float, float, float] | None:
+        return self.box
 
     def common_volume(self, first: Shape, second: Shape) -> float | None:
         assert isinstance(first, FakeShape) and isinstance(second, FakeShape)
@@ -239,6 +243,51 @@ def test_mass_of_an_unreadable_brep_is_unknown_never_pass() -> None:
     assert mass.run(unreadable())["verdict"] == "unknown"
 
 
+@pytest.mark.parametrize(
+    "kernel",
+    [
+        pytest.param(FakeKernel(solid_count=0), id="no-solid"),
+        pytest.param(FakeKernel(solid_count=2), id="two-solids"),
+        pytest.param(FakeKernel(valid=False), id="invalid"),
+        pytest.param(FakeKernel(uses=EdgeUses(4, 0)), id="a-loose-face"),
+        pytest.param(FakeKernel(outside=1), id="a-closed-shell-beside-the-solid"),
+    ],
+)
+def test_extents_is_unknown_with_no_number_on_a_shape_closed_solid_does_not_pass(
+    kernel: FakeKernel,
+) -> None:
+    found = extents.run(subject(kernel))
+    assert (found["verdict"], found["measured"]) == ("unknown", [])
+    assert closed_solid.run(subject(kernel))["reason"] in found["reason"]
+
+
+def test_extents_reports_each_axis_and_the_same_sizes_sorted() -> None:
+    found = extents.run(subject(FakeKernel(box=(30.0, 10.0, 20.0))))
+    sizes = {one["name"]: one["magnitude"] for one in found["measured"]}
+    assert found["verdict"] == "pass"
+    assert sizes == {
+        "extent:x": 30.0,
+        "extent:y": 10.0,
+        "extent:z": 20.0,
+        "sorted_extent:smallest": 10.0,
+        "sorted_extent:middle": 20.0,
+        "sorted_extent:largest": 30.0,
+    }
+    assert {one["unit"] for one in found["measured"]} == {"mm"}
+
+
+@pytest.mark.parametrize("box", [None, (1.0, math.inf, 3.0), (math.nan, 1.0, 1.0)])
+def test_extents_cannot_pass_a_shape_with_no_finite_bounding_box(
+    box: tuple[float, float, float] | None,
+) -> None:
+    found = extents.run(subject(FakeKernel(box=box)))
+    assert (found["verdict"], found["measured"]) == ("unknown", [])
+
+
+def test_extents_of_an_unreadable_brep_is_unknown_never_pass() -> None:
+    assert extents.run(unreadable())["verdict"] == "unknown"
+
+
 def by_id(results: list[ResultWire]) -> dict[str, ResultWire]:
     return {result["id"]: result for result in results}
 
@@ -251,6 +300,7 @@ def test_a_check_that_raises_becomes_unknown_and_the_others_still_run() -> None:
         results["closed_solid"]["reason"] == "closed_solid raised RuntimeError: BRepCheck exploded"
     )
     assert (results["interference"]["verdict"], results["mass"]["verdict"]) == ("pass", "unknown")
+    assert results["extents"]["verdict"] == "unknown"
 
 
 def test_the_report_lists_every_check_in_suite_order_with_the_step_of_the_measured_shape() -> None:
@@ -259,16 +309,22 @@ def test_the_report_lists_every_check_in_suite_order_with_the_step_of_the_measur
         "closed_solid",
         "interference",
         "mass",
+        "extents",
     ]
     step = report["step"]
     assert step["kind"] == "written"
     assert base64.b64decode(step["base64"]) == b"STEP bytes"
 
 
-def test_an_unreadable_brep_still_reports_all_three_checks_and_no_step() -> None:
+def test_an_unreadable_brep_still_reports_all_four_checks_and_no_step() -> None:
     report = run({"density": KNOWN}, UNREADABLE_BREP, FakeKernel(), REPORT_CAP)
     verdicts = {result["id"]: result["verdict"] for result in report["results"]}
-    assert verdicts == {"closed_solid": "fail", "interference": "unknown", "mass": "unknown"}
+    assert verdicts == {
+        "closed_solid": "fail",
+        "interference": "unknown",
+        "mass": "unknown",
+        "extents": "unknown",
+    }
     assert report["step"] == {
         "kind": "missing",
         "reason": "no STEP was derived, because the BREP could not be read",

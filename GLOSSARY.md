@@ -21,7 +21,7 @@ A fixed, deterministic test of a variant against a requirement or an engineering
 _Avoid_: Validator, test, verification
 
 **Universal check**:
-A check that applies to every variant whatever it is, such as building as a closed solid, interference, mass, manufacturability, or FEA under stated loads.
+A check that applies to every variant whatever it is, such as building as a closed solid, interference, mass, extents (the bounding box), manufacturability, or FEA under stated loads.
 
 **Domain check**:
 A check that applies only to one kind of design, such as gear tooth strength or bolted joint preload, and comes from an engineering skill.

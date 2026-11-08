@@ -14,7 +14,7 @@ from cad.variants import entry
 PLATE = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
 PLATE_SHELL = PLATE + "from build123d import Shell\nresult = Shell(result.faces()[:-1])\n"
 PLATE_VOLUME_MM3 = 29509.72
-CHECK_IDS = ["closed_solid", "interference", "mass"]
+CHECK_IDS = ["closed_solid", "interference", "mass", "extents"]
 UNBUILT_ID = "0123456789abcdef"
 
 type Build = Callable[[str], str]
@@ -47,7 +47,7 @@ def test_the_plate_scorecard_equals_the_one_stored_beside_the_variant(
     variant_id = built(PLATE)
     card = score.score_variant(variant_id, "prusament-pla", store)
     assert [result.check_id for result in card.results] == CHECK_IDS
-    assert [result.verdict for result in card.results] == [Verdict.PASS] * 3
+    assert [result.verdict for result in card.results] == [Verdict.PASS] * 4
     assert card.results[2].number("volume", "mm^3") == pytest.approx(PLATE_VOLUME_MM3, abs=0.01)
     assert stored(store, variant_id) == card
 
@@ -96,6 +96,7 @@ def test_an_unknown_material_key_is_stored_with_mass_unknown(built: Build, store
         Verdict.PASS,
         Verdict.PASS,
         Verdict.UNKNOWN,
+        Verdict.PASS,
     ]
     assert stored(store, variant_id) == card
 
