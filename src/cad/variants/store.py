@@ -14,6 +14,14 @@ class BuildResult(Build):
     variant_id: entry.VariantId
 
 
+class RebuildFailed(entry.VariantRefused):
+    def __init__(self, old: entry.VariantId, rebuilt: BuildResult) -> None:
+        super().__init__(
+            f"variant {old} was stored by an earlier version of the sandbox, and its stored code "
+            f"did not build again as variant {rebuilt.variant_id}: {rebuilt.model_dump_json()}"
+        )
+
+
 def build_variant(
     code: str,
     root: Path = entry.VARIANTS_ROOT,

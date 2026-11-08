@@ -43,6 +43,11 @@ RULE = (
 SCORE_VARIANT = (
     "Score one built variant with the fixed checks closed_solid, interference, mass and "
     "extents (the axis-aligned bounding box in mm), and store the scorecard beside the variant. "
+    "When an earlier version of the sandbox stored the variant, score_variant rebuilds its "
+    "stored code first and scores the new variant: the scorecard's variant_id is the new id, "
+    "and rebuilt_from is the id you passed. It rebuilds even when the earlier build failed, "
+    "because the new sandbox may build it. A rebuild that does not build is an error that "
+    "gives the build outcome. "
     "Every result has a verdict (pass, fail or unknown), "
     "its measured values, its formula, its sources and its check version. unknown means the "
     "check could not decide, and it is not a pass. "
@@ -62,7 +67,9 @@ SCORE_VARIANT = (
     "Only score_variant writes a stored scorecard, from its own check run, and the server never "
     "reads one back. The file itself is not protected from edits outside the server. "
     "Scoring the same variant and key again gives the same scorecard while the materials table, "
-    "the sandbox image and the confirmed requirements are unchanged. " + RULE
+    "the sandbox image and the confirmed requirements are unchanged. Scoring a rebuilt "
+    "variant by its new id gives the same scorecard with rebuilt_from empty, and that card "
+    "replaces the stored one. " + RULE
 )
 LIST_MATERIALS = (
     "List the material keys that score_variant accepts, each with its name. "

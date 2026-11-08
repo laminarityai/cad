@@ -6,7 +6,7 @@ from pathlib import Path
 from cad.sandbox.host import run_checks
 from cad.sandbox.image import build_image
 from cad.sandbox.outcome import SandboxUnavailable
-from cad.variants.entry import VARIANTS_ROOT, VariantRefused
+from cad.variants.entry import VARIANTS_ROOT, StaleVariant, VariantRefused
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -32,7 +32,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         else:
             print(build_image())
     except VariantRefused as error:
-        print(f"{type(error).__name__}: {error}")
+        kind = StaleVariant if isinstance(error, StaleVariant) else type(error)
+        print(f"{kind.__name__}: {error}")
         return 1
     except SandboxUnavailable as error:
         print(error)
