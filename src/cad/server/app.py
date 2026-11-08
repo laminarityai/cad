@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Annotated, NamedTuple
 
 from mcp.server import MCPServer
-from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.mcpserver.tools import Tool
 from pydantic import BaseModel, Field
 
@@ -12,10 +11,10 @@ from cad.briefs import page
 from cad.briefs import store as briefs
 from cad.briefs.ballot import OS_OPEN, WAIT_SECONDS, Desk, Opener
 from cad.sandbox import container, host
-from cad.sandbox.outcome import SandboxUnavailable
-from cad.scorecard import score
+from cad.scorecard import requirements, score
 from cad.scorecard.model import Scorecard
 from cad.server.brief_tools import PLAN_MODE, brief_tools
+from cad.server.refusals import agent_facing
 from cad.tables.materials import KEY_PATTERN
 from cad.variants import entry, store
 
@@ -47,14 +46,23 @@ SCORE_VARIANT = (
     "Every result has a verdict (pass, fail or unknown), "
     "its measured values, its formula, its sources and its check version. unknown means the "
     "check could not decide, and it is not a pass. "
-    "The scorecard names the table version and the sandbox image digest, and it says that phase 1 "
-    "reads no requirements from the brief. When you report it, give every verdict as the "
-    "scorecard states it, with each check's formula and source, the table version, and that note. "
+    "Pass brief_id when the user has a brief. Once the user has confirmed its requirements, the "
+    "scorecard's basis is against_brief: for each confirmed requirement it names the check that "
+    "decided it, a verdict, and each limit the user confirmed, and unverified_requirements lists "
+    "every requirement that no reviewed check covers. The measured value for a limit is the "
+    "measure of the same name in that check's result. Before the user confirms, the basis is "
+    "awaiting_confirmation and no requirement is judged. Without brief_id the basis is no_brief "
+    "and the scorecard covers no requirement. A limit counts as met up to one part in a billion, "
+    "an allowance for float noise in unit conversion and not an engineering tolerance. envelope "
+    "compares the bounding box of the part as built, never rotated, so it is pass or unknown and "
+    "never fail. When you report the scorecard, give every verdict as it states it, with each "
+    "check's formula and source, the table version and the basis, and say that every "
+    "requirement it did not judge was not checked. "
     "material_key is a key from list_materials. You cannot change a check or the materials table. "
     "Only score_variant writes a stored scorecard, from its own check run, and the server never "
     "reads one back. The file itself is not protected from edits outside the server. "
-    "Scoring the same variant and key again gives the same scorecard while the materials table "
-    "and the sandbox image are unchanged. " + RULE
+    "Scoring the same variant and key again gives the same scorecard while the materials table, "
+    "the sandbox image and the confirmed requirements are unchanged. " + RULE
 )
 LIST_MATERIALS = (
     "List the material keys that score_variant accepts, each with its name. "
@@ -141,24 +149,26 @@ def build_server(
     def build_variant(
         code: Annotated[str, Field(max_length=MAX_CODE_CHARS)],
     ) -> store.BuildResult:
-        try:
+        with agent_facing():
             return store.build_variant(code, variants_root)
-        except SandboxUnavailable as error:
-            raise ToolError(str(error)) from error
 
-    def score_variant(variant_id: str, material_key: MaterialKey) -> Scorecard:
-        try:
-            return score.score_variant(variant_id, material_key, variants_root)
-        except entry.VariantRefused as error:
-            raise ToolError(f"{type(error).__name__}: {error}") from error
-        except SandboxUnavailable as error:
-            raise ToolError(str(error)) from error
+    def score_variant(
+        variant_id: str, material_key: MaterialKey, brief_id: str | None = None
+    ) -> Scorecard:
+        with agent_facing():
+            assess = score.no_brief
+            if brief_id is not None:
+                confirmed = briefs.confirmed_requirements(briefs_root, brief_id)
+                assess = (
+                    requirements.awaiting(brief_id)
+                    if confirmed is None
+                    else requirements.against(confirmed)
+                )
+            return score.score_variant(variant_id, material_key, variants_root, assess)
 
     def list_materials() -> MaterialListings:
-        try:
+        with agent_facing():
             table = host.materials_table()
-        except SandboxUnavailable as error:
-            raise ToolError(str(error)) from error
         return MaterialListings(
             materials=[MaterialListing(key=m.key, name=m.name) for m in table.materials.values()]
         )

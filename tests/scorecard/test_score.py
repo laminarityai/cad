@@ -3,12 +3,23 @@ from collections.abc import Callable
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from cad.checks.report import unknown_for_all
-from cad.checks.result import CheckRun, StepMissing, Verdict
+from cad.checks.result import CheckResult, CheckRun, Comparator, StepMissing, Verdict
 from cad.sandbox.outcome import SandboxUnavailable
 from cad.scorecard import score
-from cad.scorecard.model import NO_REQUIREMENTS_NOTE, Scorecard
+from cad.scorecard.model import (
+    AgainstBrief,
+    AwaitingConfirmation,
+    Basis,
+    Checked,
+    Comparison,
+    NoBrief,
+    Scorecard,
+    Unverified,
+)
+from cad.tables.materials import UNITS
 from cad.variants import entry
 
 PLATE = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
@@ -37,8 +48,32 @@ def offline_run() -> CheckRun:
     )
 
 
-def offline_card() -> Scorecard:
-    return score.scorecard_of(offline_run())
+def offline_card(basis: Basis | None = None) -> Scorecard:
+    return score.scorecard_of(offline_run(), NoBrief() if basis is None else basis)
+
+
+LIGHT = Checked(
+    requirement_id="a" * 16,
+    statement="Mass at most 150 g",
+    check_id="mass",
+    verdict=Verdict.UNKNOWN,
+    reason="r",
+    comparisons=(
+        Comparison(
+            measure="mass",
+            comparator=Comparator.AT_MOST,
+            limit=UNITS.Quantity(150, "g"),
+            verdict=Verdict.UNKNOWN,
+        ),
+    ),
+)
+SHELF = Unverified(requirement_id="b" * 16, statement="holds a shelf")
+AGAINST = AgainstBrief(
+    brief_id="1" * 16,
+    decision_sha256="d" * 64,
+    requirements=(LIGHT, SHELF),
+    unverified_requirements=(SHELF.requirement_id,),
+)
 
 
 def test_the_plate_scorecard_equals_the_one_stored_beside_the_variant(
@@ -63,11 +98,52 @@ def test_the_scorecard_names_the_table_the_image_and_every_check_version(
     assert [result["version"] for result in fields["results"]] == [r.version for r in card.results]
 
 
-def test_the_scorecard_says_it_lists_no_requirements() -> None:
-    card = offline_card()
-    assert card.unverified_requirements == ()
-    assert card.requirements_note == NO_REQUIREMENTS_NOTE
-    assert "says nothing about whether the variant meets the brief" in card.requirements_note
+@pytest.mark.parametrize(
+    "basis", [NoBrief(), AwaitingConfirmation(brief_id="1" * 16), AGAINST], ids=lambda b: b.kind
+)
+def test_a_card_with_each_basis_round_trips_through_its_stored_json(
+    tmp_path: Path, basis: Basis
+) -> None:
+    card = offline_card(basis)
+    (tmp_path / card.variant_id).mkdir()
+    path = score.store(card, tmp_path)
+    assert Scorecard.model_validate_json(path.read_text()) == card
+
+
+@pytest.mark.parametrize(
+    "listed", [(), (LIGHT.requirement_id,), (SHELF.requirement_id, SHELF.requirement_id)]
+)
+def test_unverified_requirements_must_list_exactly_the_unverified_entries(
+    listed: tuple[str, ...],
+) -> None:
+    with pytest.raises(ValidationError, match="unverified_requirements"):
+        AGAINST.model_validate({**AGAINST.model_dump(), "unverified_requirements": listed})
+
+
+def test_a_phase_one_card_with_a_requirements_note_and_no_basis_is_unreadable() -> None:
+    old = offline_card().model_dump(mode="json")
+    del old["basis"]
+    old["unverified_requirements"] = []
+    old["requirements_note"] = "Phase 1 reads no requirements from the brief."
+    with pytest.raises(ValidationError):
+        Scorecard.model_validate(old)
+
+
+def test_scoring_stores_the_basis_the_assessor_gives_for_the_suite_it_ran(
+    built: Build, store: Path
+) -> None:
+    seen: list[tuple[CheckResult, ...]] = []
+
+    def awaiting(results: tuple[CheckResult, ...]) -> Basis:
+        seen.append(results)
+        return AwaitingConfirmation(brief_id="1" * 16)
+
+    variant_id = built(PLATE)
+    card = score.score_variant(variant_id, "prusament-pla", store, awaiting)
+    assert seen == [card.results]
+    assert card.basis == AwaitingConfirmation(brief_id="1" * 16)
+    assert stored(store, variant_id) == card
+    assert score.score_variant(variant_id, "prusament-pla", store).basis == NoBrief()
 
 
 def test_scoring_the_same_variant_twice_gives_equal_scorecards(built: Build, store: Path) -> None:
