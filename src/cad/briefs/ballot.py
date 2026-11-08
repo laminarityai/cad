@@ -61,6 +61,9 @@ def program_opener(program: str) -> Opener:
     return open_page
 
 
+OS_OPEN: Final = program_opener("open")
+
+
 @dataclass(slots=True)
 class Ballot:
     brief_id: BriefId

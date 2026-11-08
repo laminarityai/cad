@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 
 from cad.briefs import page
 from cad.briefs import store as briefs
-from cad.briefs.ballot import WAIT_SECONDS, Desk, Opener, program_opener
+from cad.briefs.ballot import OS_OPEN, WAIT_SECONDS, Desk, Opener
 from cad.sandbox import container, host
 from cad.sandbox.outcome import SandboxUnavailable
 from cad.scorecard import score
@@ -116,7 +116,7 @@ def strict_tool(tool: Tool) -> Tool:
 def build_server(
     variants_root: Path = entry.VARIANTS_ROOT,
     briefs_root: Path = briefs.BRIEFS_ROOT,
-    opener: Opener = program_opener("open"),
+    opener: Opener = OS_OPEN,
     wait_seconds: float = WAIT_SECONDS,
 ) -> MCPServer:
     desk = Desk(
