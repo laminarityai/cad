@@ -46,6 +46,7 @@ def limit_target(**changes: Any) -> dict[str, Any]:
         limit_target(limit={"magnitude": 0, "unit": "cm^3"}),
         limit_target(limit={"magnitude": -1, "unit": "cm^3"}),
         limit_target(limit={"magnitude": "nan", "unit": "cm^3"}),
+        limit_target(limit={"magnitude": 30, "unit": "bogusunit"}),
         limit_target(comparator="about"),
         limit_target(formula="volume * 2"),
     ],

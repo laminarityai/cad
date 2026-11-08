@@ -57,12 +57,16 @@ def _magnitude(quantity: pint.Quantity) -> float:
     return float(quantity.magnitude)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
 
 
+def _parsed(raw: object, handler: ValidatorFunctionWrapHandler) -> pint.Quantity:
+    try:
+        return handler(raw)
+    except pint.PintError as error:
+        raise ValueError(f"not a unit: {error}") from error
+
+
 def _positive(dimension: str) -> Callable[[object, ValidatorFunctionWrapHandler], pint.Quantity]:
     def validate(raw: object, handler: ValidatorFunctionWrapHandler) -> pint.Quantity:
-        try:
-            quantity: pint.Quantity = handler(raw)
-        except pint.PintError as error:
-            raise ValueError(f"not a unit: {error}") from error
+        quantity = _parsed(raw, handler)
         if not quantity.check(dimension):  # pyright: ignore[reportUnknownMemberType]
             raise ValueError(f"expected a {dimension} quantity, got {quantity.units}")
         magnitude = _magnitude(quantity)
@@ -138,7 +142,7 @@ class MeasureLimit(_Frozen):
     check_id: CheckId
     measure: str
     comparator: Comparator
-    limit: Measured
+    limit: Annotated[Measured, WrapValidator(_parsed), WithJsonSchema(QUANTITY_SCHEMA)]
 
     @model_validator(mode="after")
     def _bindable(self) -> "MeasureLimit":
@@ -150,7 +154,9 @@ class MeasureLimit(_Frozen):
             )
         dimension = UNITS.Quantity(1, bound.unit).dimensionality
         if not self.limit.check(dimension):  # pyright: ignore[reportUnknownMemberType]
-            raise ValueError(f"the limit must be in {bound.unit}, not {self.limit.units}")
+            raise ValueError(
+                f"the limit must be in {bound.unit} or a unit of its kind, not {self.limit.units}"
+            )
         magnitude = _magnitude(self.limit)
         if not math.isfinite(magnitude) or magnitude <= 0:
             raise ValueError("the limit must be a finite number above zero")
