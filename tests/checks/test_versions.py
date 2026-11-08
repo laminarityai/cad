@@ -41,13 +41,13 @@ def test_every_check_file_is_named_by_its_id() -> None:
 
 
 def test_the_check_ids_are_the_suite_order() -> None:
-    assert [spec.id for spec in SPECS] == ["closed_solid", "interference", "mass"]
+    assert [spec.id for spec in SPECS] == ["closed_solid", "interference", "mass", "extents"]
 
 
 @pytest.mark.parametrize(
     ("check_file", "changed"),
     [
-        ("closed_solid.py", {"closed_solid", "mass"}),
+        ("closed_solid.py", {"closed_solid", "mass", "extents"}),
         ("interference.py", {"interference", "mass"}),
         ("mass.py", {"mass"}),
     ],
@@ -84,8 +84,8 @@ def test_every_check_a_check_file_imports_feeds_its_version_through_requires() -
         assert imported == {required.ID for required in check.REQUIRES}, check.ID
 
 
-def test_the_three_versions_differ_from_each_other() -> None:
-    assert len({spec.version for spec in SPECS}) == 3
+def test_the_four_versions_differ_from_each_other() -> None:
+    assert len({spec.version for spec in SPECS}) == 4
 
 
 def imports_in(path: Path) -> set[str]:
