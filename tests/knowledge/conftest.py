@@ -1,12 +1,17 @@
+from __future__ import annotations
+
 import json
 from collections.abc import Mapping
 from pathlib import Path
-from typing import Protocol
+from typing import TYPE_CHECKING
 
 import pytest
 
 from cad.knowledge.corpus import Corpus, load
 from cad.knowledge.search import Index
+
+if TYPE_CHECKING:
+    from conftest import MakeCorpus, MakeIndex
 
 FRONT_MATTER = """---
 title: {title}
@@ -19,18 +24,6 @@ aliases: {aliases}
 """
 FIRST_BODY_LINE = 9
 """FRONT_MATTER is eight lines, so a body starts on line 9."""
-
-
-class MakeCorpus(Protocol):
-    def __call__(
-        self, files: Mapping[str, str], aliases: Mapping[str, list[str]] | None = None
-    ) -> Corpus: ...
-
-
-class MakeIndex(Protocol):
-    def __call__(
-        self, files: Mapping[str, str], aliases: Mapping[str, list[str]] | None = None
-    ) -> Index: ...
 
 
 @pytest.fixture

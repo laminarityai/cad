@@ -9,6 +9,7 @@ from urllib.parse import urlencode, urlsplit
 import pytest
 from mcp import Client
 
+from cad.records.roots import Roots
 from cad.server.app import build_server
 
 TEXT = "A plate under 150 g"
@@ -47,15 +48,24 @@ class Session:
         assert result.is_error
         return result.content[0].model_dump()["text"]
 
-    async def proposed_brief(self) -> str:
-        brief_id = (await self.call("create_brief", text=TEXT))["brief_id"]
+    @property
+    def roots(self) -> Roots:
+        return Roots(self.tmp / "briefs", self.tmp / "projects")
+
+    async def proposed_brief(self, project_id: str | None = None) -> str:
+        joined = {} if project_id is None else {"project_id": project_id}
+        brief_id = (await self.call("create_brief", text=TEXT, **joined))["brief_id"]
         await self.call("propose_requirements", brief_id=brief_id, requirements=[UNDER_150])
         return brief_id
 
+    async def confirm(self, brief_id: str) -> None:
+        listed = await self.call("list_requirements", brief_id=brief_id)
+        answer = await self.call("ask_to_confirm", project_id=listed["project_id"])
+        assert answer["status"] == "answered", answer
+
     async def confirmed_brief(self) -> str:
         brief_id = await self.proposed_brief()
-        answer = await self.call("confirm_requirements", brief_id=brief_id)
-        assert answer["answer"]["outcome"] == "confirmed"
+        await self.confirm(brief_id)
         return brief_id
 
 
@@ -63,10 +73,9 @@ class Session:
 async def s(tmp_path: Path) -> AsyncIterator[Session]:
     server = build_server(
         tmp_path / "variants",
-        tmp_path / "briefs",
+        Roots(tmp_path / "briefs", tmp_path / "projects"),
         opener=confirm,
         wait_seconds=5,
-        projects_root=tmp_path / "projects",
     )
     async with Client(server) as client:
         yield Session(client, tmp_path)

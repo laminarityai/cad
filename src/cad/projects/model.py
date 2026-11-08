@@ -18,6 +18,14 @@ class UnknownProject(ProjectRefused):
     pass
 
 
+class TamperedProject(ProjectRefused):
+    pass
+
+
+class ProjectBusy(ProjectRefused):
+    pass
+
+
 def parse_project_id(raw: str) -> ProjectId:
     if PROJECT_ID.fullmatch(raw) is None:
         raise UnknownProject(f"a project id is p- or pb- and 16 lowercase hex digits, not {raw!r}")

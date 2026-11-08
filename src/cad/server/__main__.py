@@ -3,7 +3,7 @@ import logging
 import sys
 from contextlib import suppress
 
-from cad.briefs.ballot import program_opener
+from cad.confirmations.ballot import program_opener
 from cad.sandbox import container
 from cad.sandbox.outcome import SandboxUnavailable
 from cad.server.app import build_server

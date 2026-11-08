@@ -7,14 +7,16 @@ from mcp.server import MCPServer
 from mcp.server.mcpserver.tools import Tool
 from pydantic import BaseModel, Field
 
-from cad.briefs import page
 from cad.briefs import store as briefs
-from cad.briefs.ballot import OS_OPEN, WAIT_SECONDS, Desk, Opener
-from cad.records.roots import PROJECTS_ROOT
+from cad.confirmations import http
+from cad.confirmations.ballot import OS_OPEN, WAIT_SECONDS, Desk, Opener
+from cad.confirmations.registry import kinds
+from cad.records.roots import HOME_ROOTS, Roots
 from cad.sandbox import container, host
 from cad.scorecard import requirements, score
 from cad.scorecard.model import Scorecard
 from cad.server.brief_tools import PLAN_MODE, brief_tools
+from cad.server.confirmation_tools import confirmation_tools
 from cad.server.knowledge_tools import knowledge_tools
 from cad.server.refusals import agent_facing
 from cad.tables.materials import KEY_PATTERN
@@ -142,17 +144,11 @@ def strict_tool(tool: Tool) -> Tool:
 
 def build_server(
     variants_root: Path = entry.VARIANTS_ROOT,
-    briefs_root: Path = briefs.BRIEFS_ROOT,
+    roots: Roots = HOME_ROOTS,
     opener: Opener = OS_OPEN,
     wait_seconds: float = WAIT_SECONDS,
-    projects_root: Path = PROJECTS_ROOT,
 ) -> MCPServer:
-    desk = Desk(
-        briefs_root,
-        opener,
-        serve=page.serve,
-        wait_seconds=wait_seconds,
-    )
+    desk = Desk(roots, kinds(roots), opener, serve=http.serve, wait_seconds=wait_seconds)
 
     async def server_info() -> ServerInfo:
         """Report the git SHA the server runs from, whether the tree is dirty, Python and tools."""
@@ -170,9 +166,7 @@ def build_server(
     ) -> SetBuildResult:
         with agent_facing():
             if brief_id is not None:
-                return variant_sets.build_into_set(
-                    projects_root, briefs_root, variants_root, brief_id, code
-                )
+                return variant_sets.build_into_set(roots, variants_root, brief_id, code)
             built = store.build_variant(code, variants_root)
         return SetBuildResult(
             variant_id=built.variant_id, outcome=built.outcome, output=built.output
@@ -184,7 +178,7 @@ def build_server(
         with agent_facing():
             assess = score.no_brief
             if brief_id is not None:
-                confirmed = briefs.confirmed_requirements(briefs_root, brief_id)
+                confirmed = briefs.confirmed_requirements(roots, brief_id)
                 assess = (
                     requirements.awaiting(brief_id)
                     if confirmed is None
@@ -209,7 +203,8 @@ def build_server(
                 Tool.from_function(build_variant, description=BUILD_VARIANT),
                 Tool.from_function(score_variant, description=SCORE_VARIANT),
                 Tool.from_function(list_materials, description=LIST_MATERIALS),
-                *brief_tools(briefs_root, desk),
+                *brief_tools(roots),
+                *confirmation_tools(roots, desk),
                 *knowledge_tools(),
             )
         ],

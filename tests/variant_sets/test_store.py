@@ -8,7 +8,14 @@ from cad.briefs.model import BriefId
 from cad.checks import report
 from cad.projects.model import ProjectId
 from cad.variant_sets import store
-from cad.variant_sets.model import MAX_MEMBERS, Joined, SetFull, SetKey, TamperedSet
+from cad.variant_sets.model import (
+    MAX_MEMBERS,
+    Joined,
+    SetFull,
+    SetKey,
+    SetRefused,
+    TamperedSet,
+)
 from cad.variants import entry
 from cad.variants.entry import VariantId
 
@@ -20,7 +27,7 @@ def join(root: Path, code: str, key: SetKey = KEY) -> Joined:
 
 
 def members_directory(root: Path, key: SetKey) -> Path:
-    return root / key.project / "sets" / key.decision_sha256 / "members"
+    return root / key.project / "sets" / key.brief_id / key.decision_sha256 / "members"
 
 
 def test_a_set_lives_in_the_project_store_and_signs_with_the_projects_key(tmp_path: Path) -> None:
@@ -75,6 +82,19 @@ def test_a_set_has_no_members_until_one_joins(tmp_path: Path) -> None:
     assert store.members(tmp_path, KEY) == ()
 
 
+def test_a_set_saved_under_the_old_layout_is_refused_by_name(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    old = tmp_path / KEY.project / "sets" / ("7" * 64) / "members"
+    old.mkdir(parents=True)
+    (old / "0001.signed").write_bytes(b"x")
+    with pytest.raises(SetRefused) as refused:
+        store.members(tmp_path, KEY)
+    assert f"{KEY.project}/sets/{'7' * 64}/members" in str(refused.value)
+    assert str(tmp_path) not in str(refused.value)
+    assert str(old) in caplog.text
+
+
 def test_a_tampered_member_names_the_brief_and_no_host_path(
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -89,8 +109,15 @@ def test_a_tampered_member_names_the_brief_and_no_host_path(
     assert str(tmp_path) in caplog.text
 
 
-def test_a_member_copied_into_another_set_is_tampering(tmp_path: Path) -> None:
-    other = SetKey(KEY.project, KEY.brief_id, "5" * 64)
+@pytest.mark.parametrize(
+    "other",
+    [
+        SetKey(KEY.project, KEY.brief_id, "5" * 64),
+        SetKey(KEY.project, BriefId("6" * 16), KEY.decision_sha256),
+    ],
+    ids=["another answer", "another brief"],
+)
+def test_a_member_copied_into_another_set_is_tampering(tmp_path: Path, other: SetKey) -> None:
     join(tmp_path, "a")
     join(tmp_path, "b", other)
     shutil.copy(

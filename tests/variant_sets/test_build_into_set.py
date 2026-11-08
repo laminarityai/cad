@@ -12,7 +12,7 @@ from cad.variants import entry
 from cad.variants.entry import VariantId
 
 if TYPE_CHECKING:
-    from conftest import Session
+    from variant_sets.conftest import Session
 
 pytestmark = pytest.mark.anyio
 
@@ -21,7 +21,7 @@ NO_DOCKER = "unix:///nonexistent/docker.sock"
 
 
 def held(s: Session, brief_id: str) -> list[store.Member]:
-    key = store.confirmed_key(s.tmp / "briefs", brief_id)
+    key = store.confirmed_key(s.roots, brief_id)
     return list(store.members(s.tmp / "projects", key))
 
 
@@ -67,7 +67,7 @@ async def test_a_brief_nobody_confirmed_is_refused_before_any_container(
         f"Error executing tool build_variant: NotConfirmed: brief {brief_id} has no confirmed "
         "requirements"
     )
-    assert "confirm_requirements" in text
+    assert "ask_to_confirm" in text
     assert str(s.tmp) not in text
 
 
@@ -75,7 +75,7 @@ async def test_a_full_set_refuses_new_code_before_any_container(
     s: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     brief_id = await s.confirmed_brief()
-    key = store.confirmed_key(s.tmp / "briefs", brief_id)
+    key = store.confirmed_key(s.roots, brief_id)
     for number in range(MAX_MEMBERS):
         store.join(s.tmp / "projects", key, f"code {number}", VariantId("0" * 16))
     monkeypatch.setenv("DOCKER_HOST", NO_DOCKER)
@@ -91,7 +91,7 @@ async def test_a_new_confirmation_starts_an_empty_set(s: Session) -> None:
         brief_id=brief_id,
         requirements=[{"target": {"kind": "closed_solid"}, "quote": "A plate"}],
     )
-    await s.call("confirm_requirements", brief_id=brief_id)
+    await s.confirm(brief_id)
     joined = await s.call("build_variant", code=PLATE, brief_id=brief_id)
     assert (joined["variant_set"]["slot"], joined["variant_set"]["already_member"]) == (1, False)
 
@@ -137,3 +137,24 @@ async def test_oversized_code_is_refused_before_any_container(
     text = await s.refusal("build_variant", code=PLATE, brief_id=brief_id)
     assert "SetRefused: this code is too large" in text
     assert held(s, brief_id) == []
+
+
+async def test_two_briefs_confirmed_by_one_answer_each_build_into_their_own_set(
+    s: Session,
+) -> None:
+    first = await s.proposed_brief()
+    project_id = (await s.call("list_requirements", brief_id=first))["project_id"]
+    second = await s.proposed_brief(project_id)
+    await s.confirm(first)
+    assert store.confirmed_key(s.roots, first).decision_sha256 == (
+        store.confirmed_key(s.roots, second).decision_sha256
+    )
+    for brief_id in (first, second):
+        built = await s.call("build_variant", code=PLATE, brief_id=brief_id)
+        assert built["variant_set"] == {
+            "kind": "joined",
+            "slot": 1,
+            "limit": MAX_MEMBERS,
+            "already_member": False,
+        }
+        assert [m.built_as for m in held(s, brief_id)] == [built["variant_id"]]

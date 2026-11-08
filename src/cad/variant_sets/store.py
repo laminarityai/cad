@@ -9,7 +9,7 @@ from pydantic import ValidationError
 
 from cad.briefs import store as briefs
 from cad.records import signed
-from cad.records.roots import project_store
+from cad.records.roots import Roots, project_store
 from cad.sandbox.outcome import Built
 from cad.variant_sets.model import (
     MAX_MEMBERS,
@@ -32,10 +32,9 @@ MAX_MEMBER_BYTES: Final = signed.MAX_RECORD_BYTES // 2
 LOG = logging.getLogger(__name__)
 
 
-def build_into_set(
-    root: Path, briefs_root: Path, variants_root: Path, brief_id: str, code: str
-) -> SetBuildResult:
-    key = confirmed_key(briefs_root, brief_id)
+def build_into_set(roots: Roots, variants_root: Path, brief_id: str, code: str) -> SetBuildResult:
+    root = roots.projects
+    key = confirmed_key(roots, brief_id)
     held = members(root, key)
     sha256 = code_sha256(code)
     if len(held) >= MAX_MEMBERS and all(m.code_sha256 != sha256 for m in held):
@@ -48,16 +47,16 @@ def build_into_set(
     )
 
 
-def confirmed_key(briefs_root: Path, brief_id: str) -> SetKey:
-    state = briefs.read_state(briefs_root, brief_id)
+def confirmed_key(roots: Roots, brief_id: str) -> SetKey:
+    state = briefs.read_state(roots, brief_id)
     confirmed = state.confirmed
-    if confirmed is None or confirmed.decision_sha256 is None:
+    if confirmed is None or confirmed.answered is None:
         raise NotConfirmed(
             f"brief {state.brief.id} has no confirmed requirements, so it has no variant set "
-            "yet. Call confirm_requirements, and build with this brief_id once the user "
+            "yet. Call ask_to_confirm with its project, and build with this brief_id once the user "
             "confirms. A build without brief_id joins no set."
         )
-    return SetKey(state.brief.project, state.brief.id, confirmed.decision_sha256)
+    return SetKey(state.brief.project, state.brief.id, confirmed.answered.sha256)
 
 
 def join(root: Path, key: SetKey, code: str, built_as: VariantId) -> Joined:
@@ -102,12 +101,29 @@ def _record(code: str, built_as: VariantId, key: SetKey) -> bytes:
 def members(root: Path, key: SetKey) -> tuple[Member, ...]:
     directory = _directory(root, key)
     with _without_host_paths(key, directory):
+        _refuse_the_old_layout(root, key)
         if not signed.is_directory(directory):
             return ()
         records = signed.read_numbered(project_store(root), directory, _member_slot(key))
     if records is None:
         raise TamperedSet(_report(key, directory))
     return _parse(key, directory, records)
+
+
+def _refuse_the_old_layout(root: Path, key: SetKey) -> None:
+    """Sets from before each brief had its own directory sit at <project>/sets/<decision>/members.
+
+    This version does not read them, so it refuses rather than ignore them without a word.
+    """
+    sets = root / key.project / "sets"
+    old = min(sets.glob("*/members"), default=None) if signed.is_directory(sets) else None
+    if old is None:
+        return
+    LOG.error("%s holds variant sets in a layout this version does not read", old)
+    raise SetRefused(
+        f"the project store holds variant sets in an old layout, at {old.relative_to(root)}, "
+        "which this version does not read; the operator must move or delete that directory"
+    )
 
 
 def _parse(key: SetKey, directory: Path, records: tuple[bytes, ...]) -> tuple[Member, ...]:
@@ -136,12 +152,12 @@ def _without_host_paths(key: SetKey, directory: Path) -> Generator[None]:
 
 
 def _directory(root: Path, key: SetKey) -> Path:
-    return root / key.project / "sets" / key.decision_sha256 / "members"
+    return root / key.project / "sets" / key.brief_id / key.decision_sha256 / "members"
 
 
 def _member_slot(key: SetKey) -> Callable[[int], str]:
     return lambda number: (
-        f"{key.project}/sets/{key.decision_sha256}/{key.brief_id}/members/{number}"
+        f"{key.project}/sets/{key.brief_id}/{key.decision_sha256}/members/{number}"
     )
 
 

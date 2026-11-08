@@ -16,10 +16,14 @@ from pydantic import TypeAdapter
 from trace_store import SPEC_BY_ID
 
 from cad.briefs import store as briefs
-from cad.briefs.model import BriefId, Confirmed, Decision, Target
+from cad.briefs.model import Confirmed, Decision, Target
 from cad.briefs.store import ConfirmedSet, Draft
 from cad.checks.report import SPECS, CheckSpec
 from cad.checks.result import CheckResult, Measure, StepStored, Verdict
+from cad.confirmations import answers
+from cad.confirmations.answers import ItemAnswer, PageAnswer
+from cad.records import signed
+from cad.records.roots import Roots
 from cad.scorecard.model import Basis, NoBrief, Scorecard
 from cad.scorecard.requirements import against
 from cad.scorecard.score import SCORECARD
@@ -83,9 +87,12 @@ def genuine_card(**changes: object) -> Scorecard:
     return card.model_copy(update=changes)
 
 
-def trace(card: Scorecard, root: Path, briefs_root: Path | None = None) -> CardTrace:
-    shown = root.parent / "briefs" if briefs_root is None else briefs_root
-    return trace_card(card, root, shown, table(), SPEC_BY_ID)
+def roots_beside(store: Path) -> Roots:
+    return Roots(store.parent / "briefs", store.parent / "projects")
+
+
+def trace(card: Scorecard, root: Path) -> CardTrace:
+    return trace_card(card, root, roots_beside(root), table(), SPEC_BY_ID)
 
 
 BRIEF_TEXT = "A plate under 150 g that fits in 120 x 80 x 40 mm and looks friendly"
@@ -96,19 +103,38 @@ def drafts(*rows: tuple[Mapping[str, object], str]) -> list[Draft]:
     return [Draft(target=TARGET.validate_python(raw), quote=quote) for raw, quote in rows]
 
 
-def confirm(briefs_root: Path, brief_id: str, rows: list[Draft]) -> ConfirmedSet:
-    briefs.propose(briefs_root, brief_id, rows)
-    state = briefs.read_state(briefs_root, brief_id)
+def confirm(roots: Roots, brief_id: str, rows: list[Draft]) -> ConfirmedSet:
+    briefs.propose(roots, brief_id, rows)
+    state = briefs.read_state(roots, brief_id)
     latest = state.proposals[-1]
+    number = latest.proposal.number
     decision = Decision(
-        proposal=latest.proposal.number,
+        proposal=number,
         brief_sha256=state.brief_sha256,
         proposal_sha256=latest.sha256,
         answer=Confirmed(),
         decided_at=datetime.now(UTC),
     )
-    briefs.record_decision(briefs_root, BriefId(brief_id), decision)
-    confirmed = briefs.confirmed_requirements(briefs_root, brief_id)
+    path = roots.briefs / brief_id / briefs.DECISIONS / signed.slot_file(number)
+    record = decision.model_dump_json().encode()
+    assert signed.publish(
+        signed.Store(roots.briefs, "brief"), f"{brief_id}/decision/{number}", path, record
+    )
+    return _confirmed(roots, brief_id)
+
+
+def confirm_on_page(roots: Roots, brief_id: str, rows: list[Draft]) -> ConfirmedSet:
+    briefs.propose(roots, brief_id, rows)
+    state = briefs.read_state(roots, brief_id)
+    project = state.brief.project
+    item = ItemAnswer(item=state.proposals[-1].ref, verdict="confirmed")
+    page = PageAnswer(project=project, answers=(item,), decided_at=datetime.now(UTC))
+    assert answers.append_answer(roots.projects, project, page)
+    return _confirmed(roots, brief_id)
+
+
+def _confirmed(roots: Roots, brief_id: str) -> ConfirmedSet:
+    confirmed = briefs.confirmed_requirements(roots, brief_id)
     assert confirmed is not None
     return confirmed
 

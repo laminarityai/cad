@@ -1,3 +1,4 @@
+import contextlib
 import errno
 import os
 import re
@@ -65,7 +66,8 @@ def publish(store: Store, slot: str, path: Path, record: bytes) -> bool:
     except FileExistsError:
         return False
     finally:
-        temporary.unlink(missing_ok=True)
+        with contextlib.suppress(OSError):
+            temporary.unlink(missing_ok=True)
     return True
 
 

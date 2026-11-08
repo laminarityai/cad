@@ -1,19 +1,14 @@
-"""Check a stored scorecard's basis against the signed brief store.
-
-A card scored against a brief names a decision. The card holds when that decision is a
-confirmation the store can show, it is still the set in force, and judging the confirmed
-requirements against the card's own results gives the card's basis again. Nothing on the card's
-basis is trusted: it is re-derived.
-"""
+"""Check a stored scorecard's basis against the signed brief store."""
 
 from dataclasses import dataclass
-from pathlib import Path
 
 import pint
 
 from cad.briefs import store
 from cad.briefs.model import Requirement
 from cad.briefs.store import BriefRefused, BriefState, Status
+from cad.projects.model import ProjectRefused
+from cad.records.roots import Roots
 from cad.records.signed import StoreUnusable
 from cad.scorecard.model import AgainstBrief, AwaitingConfirmation, NoBrief, Scorecard
 from cad.scorecard.requirements import NoDecidingResult, assess_requirements
@@ -49,13 +44,13 @@ class BasisCheck:
     failures: tuple[BasisFailure, ...]
 
 
-def check_basis(briefs_root: Path, card: Scorecard) -> BasisCheck:
+def check_basis(roots: Roots, card: Scorecard) -> BasisCheck:
     basis = card.basis
     match basis:
         case NoBrief():
             return BasisCheck(None, ())
         case AwaitingConfirmation():
-            state = _state(briefs_root, basis.brief_id)
+            state = _state(roots, basis.brief_id)
             if isinstance(state, Unconfirmed):
                 return BasisCheck(None, (state,))
             if state.confirmed is not None:
@@ -63,18 +58,20 @@ def check_basis(briefs_root: Path, card: Scorecard) -> BasisCheck:
                 return BasisCheck(None, (Superseded(f"proposal {newer} is confirmed since"),))
             return BasisCheck(None, ())
         case AgainstBrief():
-            return _against(briefs_root, card, basis)
+            return _against(roots, card, basis)
 
 
-def _against(briefs_root: Path, card: Scorecard, basis: AgainstBrief) -> BasisCheck:
-    state = _state(briefs_root, basis.brief_id)
+def _against(roots: Roots, card: Scorecard, basis: AgainstBrief) -> BasisCheck:
+    state = _state(roots, basis.brief_id)
     if isinstance(state, Unconfirmed):
         return BasisCheck(None, (state,))
     named = next(
         (
             one
             for one in state.proposals
-            if one.status is Status.CONFIRMED and one.decision_sha256 == basis.decision_sha256
+            if one.status is Status.CONFIRMED
+            and one.answered is not None
+            and one.answered.sha256 == basis.decision_sha256
         ),
         None,
     )
@@ -90,7 +87,7 @@ def _against(briefs_root: Path, card: Scorecard, basis: AgainstBrief) -> BasisCh
     shown = Shown(named.proposal.requirements)
     failures: list[BasisFailure] = []
     in_force = state.confirmed
-    if in_force is not None and in_force.decision_sha256 != basis.decision_sha256:
+    if in_force is not None and in_force is not named:
         failures.append(
             Superseded(
                 f"scored against proposal {named.proposal.number}, "
@@ -103,12 +100,12 @@ def _against(briefs_root: Path, card: Scorecard, basis: AgainstBrief) -> BasisCh
     return BasisCheck(shown, tuple(failures))
 
 
-def _state(briefs_root: Path, brief_id: str) -> BriefState | Unconfirmed:
-    if not key.key_path(briefs_root).is_file():
-        return Unconfirmed(f"the brief store has no key at {key.key_path(briefs_root)}")
+def _state(roots: Roots, brief_id: str) -> BriefState | Unconfirmed:
+    if not key.key_path(roots.briefs).is_file():
+        return Unconfirmed(f"the brief store has no key at {key.key_path(roots.briefs)}")
     try:
-        return store.read_state(briefs_root, brief_id)
-    except (BriefRefused, StoreUnusable) as error:
+        return store.read_state(roots, brief_id)
+    except (BriefRefused, ProjectRefused, StoreUnusable) as error:
         return Unconfirmed(str(error))
 
 

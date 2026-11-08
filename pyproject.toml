@@ -42,7 +42,7 @@ exclude = [
 ]
 venvPath = "."
 venv = ".venv"
-extraPaths = ["src", "evals/bakeoff", "evals/briefs"]
+extraPaths = ["src", "evals/bakeoff", "evals/briefs", "tests"]
 
 [tool.ruff]
 line-length = 100

@@ -1,18 +1,13 @@
-"""The four brief tools. None of them can write a decision: only the confirmation page can."""
-
-from pathlib import Path
 from typing import Annotated, Literal
 
 from mcp.server.mcpserver.tools import Tool
 from pydantic import BaseModel, ConfigDict, Field
 
 from cad.briefs import store
-from cad.briefs.ballot import Desk
 from cad.briefs.model import (
     MAX_BRIEF_CHARS,
     MAX_REQUIREMENTS,
     MAX_STATEMENT_CHARS,
-    Declined,
     Requirement,
     Target,
     deciding_check,
@@ -21,15 +16,17 @@ from cad.briefs.model import (
 from cad.briefs.store import BriefState, ProposalState, Status
 from cad.projects.membership import project_for_new_brief
 from cad.projects.model import PROJECT_ID, PROJECT_ID_CHARS
+from cad.records.roots import Roots
 from cad.server.refusals import agent_facing
 
 PLAN_MODE = (
     "Plan mode comes first for every brief. Store the user's words with create_brief, unchanged. "
     "Turn them into requirements with propose_requirements, each quoting the words it comes "
-    "from. Then call confirm_requirements: only the user can confirm, on a page that opens on "
-    "their screen, and you cannot answer it. Build no geometry for a brief until "
-    "confirm_requirements or list_requirements says its requirements are confirmed. If the user "
-    "declines, read their note, revise, and propose again."
+    "from. Then call ask_to_confirm with the project_id: only the user can confirm, on one page "
+    "that opens on their screen and lists everything waiting on them in the project, and you "
+    "cannot answer it. Build no geometry for a brief until ask_to_confirm or list_requirements "
+    "says its requirements are confirmed. If the user declines, read their note, revise, and "
+    "propose again."
 )
 CREATE_BRIEF = (
     "Store the user's brief, their own words verbatim, and return its brief id and project id. "
@@ -46,13 +43,6 @@ PROPOSE_REQUIREMENTS = (
     "proposed until the user confirms the set. A new proposal replaces the old one for "
     "confirmation, and what the user already confirmed stays in force until they confirm the "
     "new set. Proposing the same undecided set again changes nothing."
-)
-CONFIRM_REQUIREMENTS = (
-    "Ask the user to confirm the brief's newest proposed requirements on a page that opens in "
-    "their browser. Waits up to about 20 seconds, then returns confirmed, declined with the "
-    "user's note, or pending. pending is not an answer: tell the user the page is waiting for "
-    "them and call again once they say they answered. Calling again opens the same page again; "
-    "it never confirms anything."
 )
 LIST_REQUIREMENTS = (
     "Show a brief's text, every proposal with its status (proposed, confirmed, declined or "
@@ -95,34 +85,6 @@ class BriefView(BaseModel):
     confirmed_proposal: int | None
 
 
-class ConfirmedAnswer(BaseModel):
-    outcome: Literal["confirmed"] = "confirmed"
-    requirements: list[RequirementRow]
-
-
-class DeclinedAnswer(BaseModel):
-    outcome: Literal["declined"] = "declined"
-    note: str
-
-
-class PendingAnswer(BaseModel):
-    outcome: Literal["pending"] = "pending"
-    message: str = (
-        "The confirmation page is open in the user's browser and has no answer yet. Tell the "
-        "user it is waiting for them. Call confirm_requirements again once they say they "
-        "answered, or to open the page again. Build no geometry for this brief until it returns "
-        "confirmed."
-    )
-
-
-class ConfirmResult(BaseModel):
-    brief_id: str
-    proposal: int
-    answer: Annotated[
-        ConfirmedAnswer | DeclinedAnswer | PendingAnswer, Field(discriminator="outcome")
-    ]
-
-
 def _view(state: BriefState, proposed: ProposalState) -> ProposalView:
     confirmed = state.confirmed
     in_force = {r.id for r in confirmed.proposal.requirements} if confirmed else set[str]()
@@ -142,7 +104,7 @@ def _view(state: BriefState, proposed: ProposalState) -> ProposalView:
     )
 
 
-def brief_tools(root: Path, desk: Desk) -> list[Tool]:
+def brief_tools(roots: Roots) -> list[Tool]:
     def create_brief(
         text: Annotated[str, Field(min_length=1, max_length=MAX_BRIEF_CHARS)],
         project_id: Annotated[
@@ -150,8 +112,8 @@ def brief_tools(root: Path, desk: Desk) -> list[Tool]:
         ] = None,
     ) -> BriefCreated:
         with agent_facing():
-            project = project_for_new_brief(root, project_id)
-            brief = store.create_brief(root, text, project)
+            project = project_for_new_brief(roots, project_id)
+            brief = store.create_brief(roots, text, project)
         return BriefCreated(brief_id=brief.id, project_id=project)
 
     def propose_requirements(
@@ -162,26 +124,12 @@ def brief_tools(root: Path, desk: Desk) -> list[Tool]:
     ) -> ProposalView:
         drafts = [store.Draft(target=r.target, quote=r.quote) for r in requirements]
         with agent_facing():
-            proposed = store.propose(root, brief_id, drafts)
-            return _view(store.read_state(root, brief_id), proposed)
-
-    async def confirm_requirements(brief_id: str) -> ConfirmResult:
-        with agent_facing():
-            after = await desk.confirm(brief_id)
-            state = store.read_state(root, brief_id)
-        decision = after.decision
-        answer: ConfirmedAnswer | DeclinedAnswer | PendingAnswer
-        if decision is None:
-            answer = PendingAnswer()
-        elif isinstance(decision.answer, Declined):
-            answer = DeclinedAnswer(note=decision.answer.note)
-        else:
-            answer = ConfirmedAnswer(requirements=_view(state, after).requirements)
-        return ConfirmResult(brief_id=state.brief.id, proposal=after.proposal.number, answer=answer)
+            proposed = store.propose(roots, brief_id, drafts)
+            return _view(store.read_state(roots, brief_id), proposed)
 
     def list_requirements(brief_id: str) -> BriefView:
         with agent_facing():
-            state = store.read_state(root, brief_id)
+            state = store.read_state(roots, brief_id)
         confirmed = state.confirmed
         return BriefView(
             brief_id=state.brief.id,
@@ -194,6 +142,5 @@ def brief_tools(root: Path, desk: Desk) -> list[Tool]:
     return [
         Tool.from_function(create_brief, description=CREATE_BRIEF),
         Tool.from_function(propose_requirements, description=PROPOSE_REQUIREMENTS),
-        Tool.from_function(confirm_requirements, description=CONFIRM_REQUIREMENTS),
         Tool.from_function(list_requirements, description=LIST_REQUIREMENTS),
     ]
