@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 
 import pint
@@ -36,7 +37,11 @@ def refusal(quote: str) -> Refusal:
         ("Density 2.70 Mg/m3", 2700.0),
         ("Density 1,24 g/cm³", 1240.0),
         ("Density 8,030 kg/m3", 8030.0),
-        ("Density 7 850 kg/m3", 7850.0),
+        ("Density 1 240 kg/m3", 1240.0),
+        ("Density 1,240 g/cm3", 1240.0),
+        ("Density 1.240 kg/m3", 1240.0),
+        ("Density 1,240 kg/m3", 1240.0),
+        ("Density 0,915 g/cm3", 915.0),
         ("Density 1.234,5 kg/m3", 1234.5),
         ("Density 1,234.5 kg/m3", 1234.5),
         ("Density 1.24 ± 0.02 g/cm³", 1240.0),
@@ -135,7 +140,6 @@ def test_refuses_a_unit_of_the_wrong_dimension(quote: str) -> None:
         "Density 1.24 kg/m³",
         "Density 499 kg/m3",
         "Density 20001 kg/m3",
-        "Density 1,240 g/cm³",
     ],
 )
 def test_refuses_a_value_outside_the_density_band(quote: str) -> None:
@@ -148,6 +152,164 @@ def test_refuses_a_value_outside_the_density_band(quote: str) -> None:
 @pytest.mark.parametrize("quote", ["Density 500 kg/m3", "Density 20000 kg/m3"])
 def test_accepts_the_edges_of_the_band(quote: str) -> None:
     assert isinstance(one_quantity(quote, "density"), pint.Quantity)
+
+
+ALLOWED_SPELLINGS = [
+    "1.24 g/cm3",
+    "1.24 g/cm\u00b3",
+    "1.24 g/cc",
+    "1.24 g/mL",
+    "1.24 g/ml",
+    "1.24 kg/L",
+    "1.24 kg/l",
+    "1240 kg/m3",
+    "1240 kg/m\u00b3",
+    "1.24 kg/dm3",
+    "1.24 Mg/m3",
+    "1.24 t/m3",
+    "1.24 tonne/m3",
+    "1.24 tonnes/m\u00b3",
+    "0.0448 lb/in3",
+    "77 lb/ft3",
+    "77 lbs/ft\u00b3",
+    "1.24 G/CM3",
+    "1240 KG/M3",
+    "1.24 g / cm3",
+    "1.24 g\u00b7cm\u207b\u00b3",
+    "1.24 g cm-3",
+    "1240 kg\u00b7m\u207b\u00b3",
+    "1240 kg m-3",
+]
+
+
+@pytest.mark.parametrize("amount", ALLOWED_SPELLINGS)
+def test_reads_every_spelling_on_the_density_allowlist(amount: str) -> None:
+    assert 1000.0 <= kg_per_m3(f"Density {amount}") <= 1300.0
+
+
+@pytest.mark.parametrize(
+    "quote",
+    [
+        "Densidad 7,85 gr/cm3",
+        "Density 7.85 gr/cm3",
+        "Density 7.85 ton/m3",
+        "Density 7.85 tons/m3",
+        "Density 1.24 mg/cm3",
+        "Density 1.24 MG/M3",
+        "Density 1.24 oz/in3",
+        "Density 1.24 g/m3",
+        "Density 1.24 lb/gal",
+        "Density 1.24 g/ccm",
+    ],
+)
+def test_refuses_a_unit_that_is_not_on_the_allowlist(quote: str) -> None:
+    result = refusal(quote)
+    assert result.reason is Reason.UNKNOWN_UNIT
+    assert "unit" in result.detail or "unit" in result.needed
+
+
+@pytest.mark.parametrize(
+    "quote",
+    [
+        "Density 1.14 g/cm3; GF30:1.36 g/cm3",
+        "Density 1.14 g/cm3, filled ~1.36 g/cm3",
+        "Density 1.24 g/cm3 vs.:1.45 g/cm3",
+        "Density 1.24 g/cm3 (unfilled) / -1.45 g/cm3",
+        "Density 1.24 g/cm3 \u22481.36 g/cm3",
+        "Density 1.24 g/cm3 \u00b11.36 g/cm3",
+    ],
+)
+def test_does_not_lose_a_number_glued_to_a_prefix(quote: str) -> None:
+    assert refusal(quote).reason is Reason.SEVERAL_QUANTITIES
+
+
+@pytest.mark.parametrize(
+    ("quote", "expected"),
+    [
+        ("Density=1.24 g/cm3", 1240.0),
+        ("Density:1.24g/cm3", 1240.0),
+        ("Density \u22481.24 g/cm3", 1240.0),
+        ("Density ~1.24 g/cm3", 1240.0),
+    ],
+)
+def test_reads_a_number_glued_to_a_prefix(quote: str, expected: float) -> None:
+    assert kg_per_m3(quote) == pytest.approx(expected, rel=1e-6)
+
+
+@pytest.mark.parametrize(
+    "quote", ["Density -1.24 g/cm3", "Density \u22121240 kg/m3", "Density (-7850 kg/m3)"]
+)
+def test_refuses_a_negative_value(quote: str) -> None:
+    result = refusal(quote)
+    assert result.reason is Reason.NEGATIVE
+    assert "negative" in result.detail
+
+
+@pytest.mark.parametrize(
+    "quote",
+    [
+        "Density < 1.30 g/cm3",
+        "Density > 1.20 g/cm3",
+        "Density \u2264 1.30 g/cm3",
+        "Density \u22651.20 g/cm3",
+        "Density max 1.30 g/cm3",
+        "Density min. 1.24 g/cm3",
+        "Density 1.24 g/cm3 max",
+        "Density 1240 kg/m3 min.",
+    ],
+)
+def test_refuses_a_bound_that_is_not_a_value(quote: str) -> None:
+    assert refusal(quote).reason is Reason.BOUND
+
+
+@pytest.mark.parametrize("quote", ["Density note 3 750 kg/m3", "Density 7 850 kg/m3"])
+def test_refuses_a_space_grouping_that_could_be_two_numbers(quote: str) -> None:
+    assert refusal(quote).reason is Reason.AMBIGUOUS_NUMBER
+
+
+@pytest.mark.parametrize(
+    "amount", ["1.24 g/cm3 \u00b12%", "1.24 g/cm3 \u00b1 0.5 %", "1.24 \u00b12% g/cm3"]
+)
+def test_a_percent_tolerance_does_not_reach_the_unit(amount: str) -> None:
+    assert kg_per_m3(f"Density {amount}") == pytest.approx(1240.0)
+
+
+@pytest.mark.parametrize(
+    "quote",
+    [
+        "Density 1.24e3 kg/m3",
+        "Density 1.24E+03 kg/m3",
+        "Density 1.24x10^3 kg/m3",
+        "Density 1.24\u00d710\u00b3 kg/m\u00b3",
+    ],
+)
+def test_refuses_scientific_notation_by_name(quote: str) -> None:
+    result = refusal(quote)
+    assert result.reason is Reason.SCIENTIFIC_NOTATION
+    assert "scientific notation" in result.detail
+
+
+def test_refuses_a_quote_over_500_characters() -> None:
+    result = refusal("Density 1.24 g/cm3 " + "x" * 500)
+    assert result.reason is Reason.TOO_LONG
+    assert "500" in result.needed
+
+
+@pytest.mark.parametrize(
+    "quote",
+    [
+        "1.2 " * 125,
+        "1" + ",111" * 120,
+        "1" + " 111" * 120,
+        "a/b " * 120,
+        "\u00b1 " * 240,
+        "1.2- " * 100,
+    ],
+)
+def test_a_pathological_quote_is_refused_quickly(quote: str) -> None:
+    started = time.perf_counter()
+    assert isinstance(one_quantity(quote[:500], "density"), Refusal)
+    assert time.perf_counter() - started < 1.0
 
 
 def test_every_refusal_says_what_the_person_must_supply() -> None:
