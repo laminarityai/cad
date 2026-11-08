@@ -4,7 +4,7 @@ A check reads its numbers from the parts and materials tables by exact key. A pe
 
 A confirmed value lands in a per-project overlay. Only the confirmation page's request handler writes the answer that confirms the value, and the project store signs that answer with its key, as ADR-0003 and ADR-0004 do for their records. The overlay is derived on read from the signed answers. No tool writes it, and it is never stored as a file that the agent can edit.
 
-The overlay only adds rows. Every overlay key starts with `project-`, and the table loader refuses a row in git whose key has that prefix. So an overlay row can never shadow a git row, including a row that a later commit adds to git. The overlay never fills an `unknown` field of a git row. Overlay rows obey the same validation rules as git rows, such as a plausible density.
+The overlay only adds rows. Every overlay key starts with `project-`, and the table loader refuses a row in git whose key has that prefix. So an overlay row can never shadow a git row, including a row that a later commit adds to git. The overlay never fills an `unknown` field of a git row. ([ADR-0009](0009-an-unknown-value-is-researched-not-left-unknown.md) amends this for researched values: a researched value may fill an `unknown` field of a git row in that project only.) Overlay rows obey the same validation rules as git rows, such as a plausible density.
 
 Checks read through one lookup over the git table plus the project's overlay. `get_material` stays the only lookup, so the checks and the overlay go through one function. If git rows gain `same_as` aliases, the lookup resolves the alias in the git table before it reads the overlay.
 
