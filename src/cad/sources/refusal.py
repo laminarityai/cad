@@ -5,6 +5,7 @@ from enum import StrEnum
 class Reason(StrEnum):
     NO_QUANTITY = "no_quantity"
     SEVERAL_QUANTITIES = "several_quantities"
+    SEVERAL_CONDITIONS = "several_conditions"
     RANGE = "range"
     BOUND = "bound"
     MISSING_UNIT = "missing_unit"

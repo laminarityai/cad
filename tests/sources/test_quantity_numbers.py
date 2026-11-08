@@ -178,7 +178,7 @@ def test_a_standard_followed_by_a_digit_group_is_refused(quote: str) -> None:
 @pytest.mark.parametrize(
     ("quote", "expected"),
     [
-        ("Density ISO 1183, 1240 kg/m3", 1240.0),
+        ("Density ISO 1183, 1.24 g/cm3", 1240.0),
         ("Density (ASTM D792) 1240 kg/m3", 1240.0),
     ],
 )

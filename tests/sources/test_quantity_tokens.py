@@ -78,7 +78,7 @@ WHITESPACE_TOO = ["\u1680", "\u2000", "\u2007", "\u2028", "\u2029", "\u202f", "\
 def test_every_whitespace_character_is_the_same_whitespace(space: str) -> None:
     assert kg_per_m3(f"Density{space}1.24{space}g/cm3") == pytest.approx(1240.0)
     assert refusal(f"Density DIN 1{space}2400 kg/m3").reason is Reason.AMBIGUOUS_NUMBER
-    assert kg_per_m3(f"Density ISO 1183{space}1240 kg/m3") == pytest.approx(1240.0)
+    assert kg_per_m3(f"Density ISO 1183{space}1.24 g/cm3") == pytest.approx(1240.0)
     assert refusal(f"Density 1{space}240 kg/m3").reason is Reason.AMBIGUOUS_NUMBER
 
 
@@ -96,7 +96,7 @@ def test_a_standard_that_runs_into_a_number_is_ambiguous(quote: str) -> None:
         ("Density ISO 1183-1 g/cm³ 1.41", 1410.0),
         ("Density ISO 1183 g/cm³ 1.2", 1200.0),
         ("DIN EN ISO 1183-1 Density 1.24 g/cm3", 1240.0),
-        ("Density ISO 1183, 1240 kg/m3", 1240.0),
+        ("Density ISO 1183, 1.24 g/cm3", 1240.0),
         ("Density (ASTM D792) 1240 kg/m3", 1240.0),
         ("Density value: 1.24 g/cm3; ISO 1183", 1240.0),
         ("Density DIN 53479: 0,915 g/cm3", 915.0),

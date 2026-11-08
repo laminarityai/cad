@@ -4,6 +4,7 @@ The order puts the most useful reason first: a range or a second value says more
 token does. Every check reads only token kinds, texts and whether whitespace separates them.
 """
 
+import re
 from typing import Final
 
 from cad.sources.fields import FieldSpec
@@ -18,6 +19,7 @@ _LIKE_A_DECIMAL_MARK: Final = frozenset(",;:")
 _TOUCHING: Final = _LIKE_A_DECIMAL_MARK | frozenset("()")
 _BENIGN: Final = frozenset({"separator", "label", "standard", "unlisted_standard", "condition"})
 _RANGE_WORDS: Final = frozenset({"to", "bis"})
+_BEFORE_AN_EDITION: Final = frozenset(",:") | DASHES
 
 
 def refuse(
@@ -30,11 +32,13 @@ def refuse(
         _ends(text, found),
         _range(text, found, items, spec),
         _several(text, found, found_values, spec),
+        _conditions(found, spec),
         _negative(found, leftovers, spec),
         _touching(text, found, early=True),
         None if found_values else _unit_text(found, leftovers, spec),
         None if found_values else _missing_unit(found, leftovers),
         _touching(text, found, early=False),
+        _edition_year(found, spec),
         _unrecognised(found, leftovers, spec),
     ):
         if check is not None:
@@ -58,6 +62,13 @@ def _ends(text: str, found: list[Token]) -> Refusal | None:
         if token.kind not in {"unlisted_standard", "condition"}:
             continue
         after = found[index + 1]
+        if token.kind == "unlisted_standard" and after.kind == "unit":
+            digits = re.findall(r"\d+", token.text)[-1]
+            return _unlisted(
+                f"{token.text!r} is not on this reader's list of density test standards, and "
+                f"its last digits {digits!r} sit right before the unit {after.text!r}, so they "
+                "could be the value or part of the standard, such as its edition year"
+            )
         if not after.spaced and after.kind != "separator":
             rest = text[after.start :].split(" ")[0]
             if token.kind == "condition":
@@ -87,6 +98,53 @@ def _unlisted(detail: str) -> Refusal:
         "the value quoted apart from the standard or typed on the page; the standard's exact "
         "spelling can also be added to the list",
     )
+
+
+def _edition_year(found: list[Token], spec: FieldSpec) -> Refusal | None:
+    """A whole number right after a listed standard could be the standard's edition year.
+
+    "ISO 1183 2019 kg/m3" reads as ISO 1183 of 2019 as easily as a density of 2019 kg/m3. Only
+    the grammar decides: a number with a decimal mark cannot be a year, a whole number can.
+    """
+    for index, token in enumerate(found[:-1]):
+        if token.kind != "standard":
+            continue
+        after = index + 2 if found[index + 1].text in _BEFORE_AN_EDITION else index + 1
+        if after < len(found) and found[after].kind == "number" and found[after].text.isdigit():
+            return Refusal(
+                Reason.AMBIGUOUS_NUMBER,
+                f"the number {found[after].text!r} right after the standard {token.text!r} might "
+                f"be part of the standard, such as its edition year, not the {spec.label}",
+                f"the {spec.label} typed on the page; a whole number written right after a "
+                "standard cannot be told apart from the standard's year",
+            )
+    return None
+
+
+def _conditions(found: list[Token], spec: FieldSpec) -> Refusal | None:
+    """Two different temperatures, pressures or humidities leave the value's condition unclear."""
+    seen: dict[str, tuple[Token, str]] = {}
+    for token in found:
+        if token.kind != "condition":
+            continue
+        kind, written = _condition(token.text)
+        first, first_written = seen.setdefault(kind, (token, written))
+        if first_written != written:
+            return Refusal(
+                Reason.SEVERAL_CONDITIONS,
+                f"the quote gives two {kind}s, {first.text!r} and {token.text!r}, so it is "
+                f"unclear which one the {spec.label} applies to",
+                f"a quote with the {spec.label} at one {kind}",
+            )
+    return None
+
+
+def _condition(text: str) -> tuple[str, str]:
+    """What a condition measures, and its value written without "at", spaces or a degree sign."""
+    written = re.sub(r"^(?i:at|@)|[ °]", "", text)
+    if written.endswith("RH"):
+        return "humidity", written
+    return ("temperature" if written[-1] in "CFK" else "pressure"), written
 
 
 def _is_number(found: list[Token], item: Value | int) -> bool:
