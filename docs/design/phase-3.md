@@ -6,9 +6,9 @@ Status: the operator approved this design on 2026-11-07. It is a sketch, and not
 
 1. **The words fix the load case, fixed check code fixes the faces, and any freedom left over goes to the worst case.** A load case is part of a requirement that the person already confirms in one click on the existing page. It names *anchors* (for example "the bores of exactly 2 holes of 5.5 mm" or "the end farthest from the supports"), never a face. The `fea` check turns anchors into mesh regions with rules that do not depend on the model's coordinate frame. Where the words leave a choice open, the check takes the worst case: an unstated direction is solved exactly by superposing 3 unit loads, and tied candidate faces are each solved, with the worst one kept. A count that does not match gives `unknown`. Nobody picks faces, so there is nothing to bias and no extra confirmation step. ADR-0007 records this decision.
 2. **Slow checks are demand-driven background jobs, and the signed result store is the queue.** A job is (variant, the checks it runs, the exact inputs they read). Its key is a hash of those three. Its result is a signed file. Missing result plus no in-flight future means "run it". That makes a crash or restart safe with no queue to persist. `score_variant` keeps its signature. It waits up to 20 s, like `confirm_requirements`, and otherwise returns a card that shows `pending`. You poll by calling it again.
-3. **Two images.** Agent code builds in the unchanged build image, so variant ids stay stable. Every check runs in a new analysis image layered `FROM` the build image's digest, with gmsh, CalculiX and OrcaSlicer added. That image's tag goes into check versions and onto the card, not into variant ids.
+3. **Two images.** Agent code builds in the unchanged build image, so variant ids stay stable. Every check runs in a new analysis image layered `FROM` the build image's digest, with gmsh, CalculiX and PrusaSlicer added (ADR-0005). That image's tag goes into check versions and onto the card, not into variant ids.
 4. **Test mode has no server-side state.** Every check that decides a requirement runs at one fidelity, whatever the mode. Test mode is agent guidance: pick one variant, propose the requirements that make the slow checks run (load, print process), get one confirmation, score, and wait. The server's only part is metering.
-5. **Each engine has one adapter file, and hand calculations are the exit condition.** The adapters are `kernel/` for OCP, `mesher.py` for gmsh, `calculix.py` for CalculiX and `orca.py` for OrcaSlicer. `calculix.py` is our own CalculiX input writer and result reader, not pygccx. The operator decided this on 2026-11-07, and §6 gives the reasons. The FEA math, which is consistent nodal loads and the worst direction from eigenvalues, is pure stdlib and has unit tests. The exit condition is a validation suite of 5 hand-calculation cases with stated tolerances, and `uv run verify` runs it.
+5. **Each engine has one adapter file, and hand calculations are the exit condition.** The adapters are `kernel/` for OCP, `mesher.py` for gmsh, `calculix.py` for CalculiX and `prusa.py` for PrusaSlicer. `calculix.py` is our own CalculiX input writer and result reader, not pygccx. The operator decided this on 2026-11-07, and §6 gives the reasons. The FEA math, which is consistent nodal loads and the worst direction from eigenvalues, is pure stdlib and has unit tests. The exit condition is a validation suite of 5 hand-calculation cases with stated tolerances, and `uv run verify` runs it.
 6. **The material is not always a requirement.** `material_key` stays a scoring argument. When the brief names a material, an optional confirmed `made_of` requirement pins it, and the card says which of the two set the material (§2.2).
 
 ---
@@ -267,7 +267,7 @@ The peak is the maximum over nodes, scaled by |F|. The sign of the load does not
 - `elastic_modulus` (MPa)
 - `poisson_ratio` (dimensionless). Filament datasheets rarely give ν, so the citation may be a handbook for the polymer family, with the page and the quote. That is a real source, not a guess.
 - `filament_cost` (USD/kg), cited to the vendor's store page with its retrieval date.
-- `orca_filament` (a plain string, the name of a filament profile in `tables/orca/filaments/`, not a number).
+- `slicer_filament` (a plain string, the name of a filament profile in `tables/prusa/filaments/`, not a number).
 - `specimen: bulk | printed`. It tags the strength values. A `printed_on` requirement makes `fea` read strength only from a `printed` row, meaning a printed-specimen yield in the weakest build direction. It never reads a molded datasheet value. A process with no printed row makes `safety_factor` unknown. This also closes issue #4.
 
 Validation in `tables/validate.py`:
@@ -277,7 +277,7 @@ Validation in `tables/validate.py`:
 - yield ≤ tensile (existing)
 - yield / E < 0.1
 - 1 ≤ cost ≤ 1000 USD/kg
-- `orca_filament` names an existing file
+- `slicer_filament` names an existing file
 
 `FIELD_UNITS` gains these fields.
 
@@ -291,10 +291,10 @@ processes:
     nozzle_diameter: {value: 0.4 mm, source: {…}}
     max_overhang_angle: {value: 45 deg, source: {…}}        # from vertical, support-free; cited guide
     min_wall: {value: 0.8 mm, source: {…}}                  # 2 x nozzle line width; cited guide
-    orca: {machine: tables/orca/bambu-p1s-0.4/machine.json, process: tables/orca/bambu-p1s-0.4/process.json}
+    slicer: {config: tables/prusa/bambu-p1s-0.4.ini}
 ```
 
-The Orca profiles are flattened JSON, committed, with every `inherits` chain resolved by `tools/flatten_orca_profiles.py` from the pinned OrcaSlicer system presets. A profile that is `unknown` or missing makes `slice` give `unknown`. `table_version` becomes the hash of both YAML files and every referenced profile file, so it still names exactly what was read.
+The PrusaSlicer profiles are flat `.ini` files, committed, each one a full config that `prusa-slicer --load` reads with no inheritance. A profile that is `unknown` or missing makes `slice` give `unknown`. `table_version` becomes the hash of both YAML files and every referenced profile file, so it still names exactly what was read.
 
 **Crossing the wire.** `Input` is one `StrEnum` in `checks/container/inputs.py`, and it is the only list of inputs:
 
@@ -359,9 +359,9 @@ class Subject:
 | `kernel/` (split from kernel.py, which is at 357 of 400 lines) | OCP | existing ops + `faces(shape) -> tuple[FaceInfo, …]` (plane/cylinder/other, area, centroid, normal or axis+radius+angular span+concave), `inertia(shape) -> Inertia`, `triangles(shape, deflection) -> Triangles`, `ray_lengths(shape, origins, dirs) -> tuple[float \| None, …]` |
 | `mesher.py` | gmsh | `tet_mesh(brep: bytes, size_mm: float, node_cap: int) -> TetMesh \| MeshFailed` |
 | `calculix.py` | CalculiX `ccx` | our own .inp writer and .frd reader, which runs `ccx`. `solve(mesh, material, fixed: Region, unit_loads: tuple[NodalLoads, …]) -> tuple[NodalField, …] \| SolveFailed` |
-| `orca.py` | orca-slicer CLI | `slice(stl: bytes, profiles) -> SliceStats \| SliceFailed` (print seconds, filament grams from the G-code header) |
+| `prusa.py` | prusa-slicer CLI | `slice(stl: bytes, profiles) -> SliceStats \| SliceFailed` (print seconds, filament grams from the G-code header) |
 
-A test that extends the existing one for OCP walks the AST of `checks/container/*` and fails when any file outside its adapter names `OCP`, `gmsh`, `ccx` or `orca`.
+A test that extends the existing one for OCP walks the AST of `checks/container/*` and fails when any file outside its adapter names `OCP`, `gmsh`, `ccx` or `prusa-slicer`.
 
 **Versioning.** `check_version` also hashes the analysis image tag. The engines' binaries are not Python sources in the closure, so this is the only honest place to cover them. When the image changes, every check version changes, and the reason is that the image really did change.
 
@@ -369,7 +369,7 @@ A test that extends the existing one for OCP walks the AST of `checks/container/
 
 - **gmsh:** `General.NumThreads=1`, `Mesh.MaxNumThreads3D=1`, `Mesh.Algorithm3D=1` (Delaunay, not HXT), `Mesh.RandomSeed=1`, pinned wheel.
 - **ccx:** `OMP_NUM_THREADS=1`, `CCX_NPROC_EQUATION_SOLVER=1`, SPOOLES direct solver, deb pinned through snapshot.debian.org.
-- **orca:** `--threads` not supported, so `TBB_NUM_THREADS=1` / `OMP_NUM_THREADS=1`, and a determinism test slices twice.
+- **prusa-slicer:** so `TBB_NUM_THREADS=1` / `OMP_NUM_THREADS=1`, and a determinism test slices twice.
 - **Measures:** no rounding. Per-job results are stored and reused (§2.6), so once a job has run, repeating it is a cache read and the bytes are identical by construction.
 - **Architecture:** x86 and arm64 may differ in the last bits. That is fine, because the card records `image_digest`, and the validation tolerances do not depend on those bits.
 
@@ -391,9 +391,9 @@ A test that extends the existing one for OCP walks the AST of `checks/container/
 
 It requires printability because it reads `print_down:*` from `subject.reported`. It runs whenever printability is not `unknown`, so a part with a failing overhang still gets a print time.
 
-- Turns the part to the chosen orientation, writes an STL from `triangles()`, and runs orca.
+- Turns the part to the chosen orientation, writes an STL from `triangles()`, and runs prusa-slicer.
 - **Measures:** `print_time s`, `filament_mass g`, `filament_cost USD`, and the READS echo `filament_cost_per_kg USD/kg`.
-- **Cost is ours:** grams × table price. Orca's own cost setting is never used.
+- **Cost is ours:** grams × table price. The slicer's own cost setting is never used.
 
 `suite.CHECKS = (closed_solid, interference, mass, extents, printability, fea, slice)`. The existing REQUIRES-order rule still holds.
 
@@ -481,9 +481,9 @@ The card is assembled in SPECS order from stored job results. The final card's b
 
 | | Build image (unchanged) | Analysis image (new) |
 |---|---|---|
-| Context | `sandbox/Dockerfile`, `requirements.txt` | `sandbox/analysis/Dockerfile`, `analysis-requirements.txt`, `orca.sha256` |
-| Base | python:3.12-slim pinned | `FROM cad-sandbox@<build image id>` via `ARG BASE` |
-| Adds | build123d, OCP | gmsh wheel (hash-pinned), `calculix-ccx` deb (snapshot-pinned), OrcaSlicer release extracted from its AppImage into /opt/orca (sha256-checked, no FUSE), its system libs |
+| Context | `sandbox/Dockerfile`, `requirements.txt` | `sandbox/analysis/Dockerfile`, pinned Debian packages |
+| Base | python:3.12-slim pinned | `FROM` the build image's content-hashed tag via `ARG BASE` (a local image id cannot be named with `@`) |
+| Adds | build123d, OCP | `python3-gmsh` 4.8.4, `calculix-ccx` 2.20 and `prusa-slicer` 2.5.0, all from snapshot.debian.org at one timestamp with exact versions (ADR-0005) |
 | Tag | `cad-sandbox:<sha(context)>` → **in variant id** | `cad-analysis:<sha(build tag + context)>` → in check versions and on the card, **not** in the variant id |
 | Runs | agent code | every check (quick and background) |
 
@@ -522,15 +522,15 @@ Per-job limits come from `BUDGET`:
 src/cad/loads/model.py                     NEW  LoadCase, Support, Load, Direction (domain, pydantic)
 src/cad/loads/wire.py                      NEW  LoadCase -> LoadCaseWire (host side)
 src/cad/briefs/model.py                    EDIT (after phase 2) 5 kinds, targets, deciding_check, limits, describe
-src/cad/tables/materials.py, validate.py   EDIT E, nu, filament_cost, orca_filament
+src/cad/tables/materials.py, validate.py   EDIT E, nu, filament_cost, slicer_filament
 src/cad/tables/processes.py                NEW  ProcessTable, exact-key get, validation
-tables/processes.yaml, tables/orca/**      NEW
+tables/processes.yaml, tables/prusa/**     NEW
 src/cad/checks/container/inputs.py         NEW  Input, WIRE_UNITS, Inputs accessor (TAKES-guarded)
 src/cad/checks/container/wire.py           EDIT RequestWire v2, LoadCaseWire, SlicerProfilesWire
 src/cad/checks/container/check.py          EDIT Subject(engines, inputs), TAKES, BUDGET, required_pass()
 src/cad/checks/container/runner.py         EDIT run only wire.checks + REQUIRES closure; report targets
 src/cad/checks/container/kernel/           SPLIT kernel.py; adds faces, inertia, triangles, ray_lengths
-src/cad/checks/container/{mesher,calculix,orca}.py   NEW  engine adapters (only names of their engines)
+src/cad/checks/container/{mesher,calculix,prusa}.py   NEW  engine adapters (only names of their engines)
 src/cad/checks/container/{anchors,elastic,thickness}.py NEW pure geometry / linear algebra
 src/cad/checks/container/{printability,fea,slice}.py NEW  check modules
 src/cad/checks/report.py                   EDIT build_request over Input; parse per JobSpec
@@ -539,7 +539,7 @@ src/cad/checks/lanes.py                    NEW  Lanes (sole owner of in-flight f
 src/cad/sandbox/{container,image,host}.py  EDIT per-job memory/tmpfs; two images; host.run_job(JobSpec)
 src/cad/scorecard/{model,score,requirements}.py EDIT PendingCheck, Waiting, pending; settle + assemble
 src/cad/server/app.py                      EDIT descriptions, RULE text, list_processes tool
-sandbox/analysis/                          NEW  Dockerfile, analysis-requirements.txt, orca.sha256
+sandbox/analysis/                          NEW  Dockerfile
 tests/fea/                                 NEW  hand-calc cases
 ```
 
@@ -553,7 +553,7 @@ Can start now without touching phase-2 files:
 2. **Inputs and wire v2.** `Input`, `TAKES`, `Subject.inputs`, migrate `mass`, delete `DensityWire`. Add E/ν to materials.yaml with citations and validation. Proof: cards are byte-identical apart from versions and table_version.
 3. **Analysis image and headless-slicer spike, plus ADR-0005.** This PR adds a second Dockerfile, runs every check in that image, and adds `Job.memory_mb` and `Job.tmpfs_mb`. It changes every variant id once, as §2.8 explains.
    - Proof: a test shows that variant ids do not change when only the analysis context changes, and the card shows the new digest.
-   - Spike exit: the image slices a cube with OrcaSlicer and no display.
+   - Spike exit: the image slices a cube with no display. Result: OrcaSlicer's Linux builds need glibc 2.38 and bookworm has 2.36, so per the stop rule ADR-0005 switched to PrusaSlicer 2.5.0, which slices headless and deterministically. The operator chose PrusaSlicer on 2026-11-08.
    - gmsh on linux aarch64: PyPI has no gmsh wheel for it (§7). This PR finds out how the analysis image gets gmsh on an arm64 host.
    - Stop rule: if OrcaSlicer needs a display, add Xvfb. If it still fails, write an ADR that switches to PrusaSlicer's CLI before any slicing code is written.
 4. **FEA core and validation harness** (`mesher`, `calculix`, `elastic`, `tests/fea`). No check is registered yet. **This PR proves the exit condition** and freezes the mesh constants.
@@ -564,7 +564,7 @@ After phase 2 merges `briefs/` and `brief_tools.py`:
 
 7. **`fea` check** + `min_safety_factor` / `max_deflection` kinds + demand-driven planning + `Waiting`. End-to-end validation case through MCP.
 8. **`printability`** + `processes.yaml` + `printed_on` + the `list_processes` tool (allowlist test updated).
-9. **OrcaSlicer in the analysis image** + `slice` + `max_print_time` / `max_cost` + filament cost data + determinism test.
+9. **PrusaSlicer adapter** (`prusa.py`, renaming the `orca.py` row of the adapter lint) + `slice` + `max_print_time` / `max_cost` + filament cost data + determinism test.
 10. **Test mode guidance** in server instructions and tool descriptions, plus a `/verify` headless `claude -p` run of the hook brief in §1a.
 11. **`made_of`**, the card's `material` field, and the `score_variant` refusal of a `material_key` that differs from a confirmed `made_of` (§2.2).
 
@@ -581,7 +581,7 @@ After phase 2 merges `briefs/` and `brief_tools.py`:
 
 - **The agent tags faces in build code** (named faces `load` / `support`). Rejected. It is a deep interface to the wrong actor: the party being graded chooses where the load goes. It hides nothing and opens the main bias channel.
 - **The person picks faces in a viewer (#79), per variant.** Rejected for v1. It costs one confirmation per variant per load case, which goes against "friction is a defect", and phase 4 owns the viewer. It is a good later override: an explicit region confirmed by a person could become a fourth `Support` kind.
-- **One image with everything.** Rejected. Every engine bump would change every variant id and rebuild every stored entry, and it would add gmsh, ccx and orca to the attack surface agent code runs against.
+- **One image with everything.** Rejected. Every engine bump would change every variant id and rebuild every stored entry, and it would add gmsh, ccx and the slicer to the attack surface agent code runs against.
 - **A persistent job queue (sqlite / jobs table) with a `running` state.** Rejected. It is a second owner of state that can go stale after a crash. Deriving work from missing signed results gives the same behavior with nothing to recover.
 - **New tools `start_analysis` / `get_scorecard`.** Rejected. That would be two ways to get a card. The `confirm_requirements` wait-then-pending precedent already exists.
 - **A server-side Test mode flag that selects higher-fidelity FEA.** Rejected. One requirement would get two verdicts depending on mode, and the scorecard would stop meaning one thing.
@@ -593,9 +593,9 @@ After phase 2 merges `briefs/` and `brief_tools.py`:
 
 ## 7. Open questions and risks
 
-- **gmsh has no PyPI wheel for linux aarch64.** gmsh 4.15.2 ships wheels for macOS x86_64 and arm64, manylinux x86_64 and Windows x86_64. The analysis image on an arm64 host, such as Docker on Apple silicon, then has no gmsh wheel to install. PR 3 investigates.
+- **gmsh is Debian's 4.8.4, from 2021.** PyPI has no linux aarch64 wheel, so ADR-0005 takes gmsh from Debian, the same version on both architectures. PR 4's hand-calc cases will show whether its age matters for our meshes.
 - **The material when the brief names none.** The agent's `material_key` then decides safety factors, and the card says that the agent chose it (§2.2). Is that enough, or should a later PR ask the person before a safety factor rests on a material that the agent chose?
-- **Does OrcaSlicer ship a Linux arm64 build** we can pin, and does its CLI slice headless without Xvfb? If not, is slicing x86-only (hosted) with `slice` reporting `unknown` locally on arm Macs, or do we run it under Rosetta or QEMU?
+- **Revisit OrcaSlicer later.** Its Linux builds need a newer glibc than bookworm. Moving both images to trixie would allow it, at the cost of changing every variant id again and an untested OCP on trixie. PrusaSlicer 2.5.0 is from 2022, and Bambu profiles fit Orca better.
 - **Is a 150k-node cap at 2 GB enough** for real brackets with 2 mm walls, or should `fea` get a 4 GB budget, which would leave room for only one container while it runs?
 - **FDM anisotropy.** Should `yield_strength` for printed materials become min(XY, Z) when the datasheet gives Z, which is more conservative and honest for parts loaded across layers?
 - **Is phase 2 editing `scorecard/model.py`** for candidate values and "waiting on you"? `Waiting` should probably be one concept, covering both "waiting on a check" and "waiting on you".
