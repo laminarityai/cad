@@ -1,0 +1,58 @@
+<!doctype html><meta charset=utf-8><style>
+body{font:14px/1.45 -apple-system,Helvetica,sans-serif;margin:24px;background:#fff;color:#1b1b1b;width:1100px}
+h2{font-size:16px;margin:28px 0 6px} .meta{color:#666;font-size:12px}
+.prompt{background:#eef3ff;border-left:4px solid #3b6fd8;padding:8px 12px;margin:8px 0}
+.call{font-family:Menlo,monospace;font-size:12px;background:#f4f4f4;padding:6px 10px;margin:8px 0 2px}
+table{border-collapse:collapse;font-size:12px;margin:2px 0 10px;width:100%}
+td,th{border:1px solid #ddd;padding:3px 6px;text-align:left;vertical-align:top}
+th{background:#fafafa} .reply{white-space:pre-wrap;border-left:4px solid #2a9d55;padding:8px 12px;background:#f3fbf6}
+</style><h1 style='font-size:18px'>search_knowledge, live Claude Code sessions at 2f9d4b8</h1><h2>claude-knowledge-plus.json</h2>
+<div class=meta>model claude-opus-5-5 · cad connected</div>
+<div class=prompt><b>User:</b> What is the density of Polymaker PolyTerra PLA+? I am printing a bracket in it. Look it up and cite where the number comes from.</div>
+<div class=call>mcp__cad__search_knowledge {&quot;query&quot;: &quot;Polymaker PolyTerra PLA+ density&quot;, &quot;k&quot;: 8}</div>
+<table><tr><th>#</th><th>id</th><th>subject</th><th>page</th><th>quote (first 110 chars)</th></tr><tr><td>1</td><td>kb:polymaker-polyterra-pla-plus#density</td><td>polymaker-polyterra-pla-plus</td><td>2</td><td>This is the data sheet for Polymaker PolyTerra PLA+, the toughened grade. The physical
+properties table lists
+…</td></tr><tr><td>2</td><td>kb:polymaker-polyterra-pla-plus#how-it-differs-from-the-plain-grade</td><td>polymaker-polyterra-pla-plus</td><td>2</td><td>The sheet says &quot;PolyTerra™ PLA+ filament contains organic material than ordinary PLA which brings
+better layer…</td></tr><tr><td>3</td><td>kb:polymaker-polyterra-pla#density</td><td>polymaker-polyterra-pla</td><td>1</td><td>This is the data sheet for Polymaker PolyTerra PLA, the plain grade. The sheet lists the row
+&quot;Density&quot; with th…</td></tr><tr><td>4</td><td>kb:water#density</td><td>water</td><td>244</td><td>Fresh water density is close to 1 gram per millilitre, and it depends on temperature and on what
+is dissolved.…</td></tr><tr><td>5</td><td>kb:water#pure-water-at-4-degrees-celsius</td><td>water</td><td>95</td><td>A litre of water weighs 1 kilogram only near 4 degrees Celsius. The report says &quot;This assumption
+is strictly t…</td></tr></table>
+<div class=call>mcp__cad__list_materials {}</div>
+<div class=meta>{&quot;materials&quot;:[{&quot;key&quot;:&quot;prusament-pla&quot;,&quot;name&quot;:&quot;Prusament PLA&quot;},{&quot;key&quot;:&quot;prusament-petg&quot;,&quot;name&quot;:&quot;Prusament PETG&quot;},{&quot;key&quot;:&quot;polymaker-polylite-abs&quot;,&quot;name&quot;:&quot;Polymaker …</div>
+<div class=reply><b>Agent reply:</b>
+The density of **Polymaker PolyTerra PLA+ is 1.24 g/cm³ at 21.5 °C**, measured to ISO 1183 / GB/T 1033.
+
+**Source:** *PolyTerra PLA+ technical data sheet V5.1* (Polymaker), page 2, physical properties table, &quot;Density ISO1183, GB/T1033 1.24 g/cm3 at 21.5°C&quot;.
+https://cdn.shopify.com/s/files/1/0789/2979/files/PolyTerra_PLA_Plus_EN_V5.1.pdf (retrieved 2026-11-07)
+
+**Don&#x27;t mix it up with plain PolyTerra PLA.** The plain grade has its own data sheet (*PolyTerra PLA TDS V6.0*, page 1), which gives **1.31 g/cm³ at 23 °C**. That&#x27;s about 6% higher. Check which spool you have.
+
+**Mass checks on your bracket:** PolyTerra PLA+ isn&#x27;t in the materials table that the scoring tool uses, so it can&#x27;t calculate the bracket&#x27;s mass in this material. The closest entries are other PLAs, such as `prusament-pla` and `bambu-pla-basic`, but their densities are different. I can also work out the mass by hand from 1.24 g/cm³ once a scorecard gives the volume, but that number would be my own arithmetic, not a check.
+
+The density comes from Polymaker&#x27;s data sheet, and nothing in this toolset has checked it. It&#x27;s a candidate value until you confirm it. A printed part also usually weighs less than its solid volume × density, because of infill and perimeter settings.</div><h2>claude-knowledge-bambu.json</h2>
+<div class=meta>model claude-opus-5-5 · cad connected</div>
+<div class=prompt><b>User:</b> What is the density of Bambu Lab PLA Basic? Look it up in the knowledge base and cite where the number comes from.</div>
+<div class=call>mcp__cad__search_knowledge {&quot;query&quot;: &quot;Bambu Lab PLA Basic density&quot;, &quot;k&quot;: 8}</div>
+<table><tr><th>#</th><th>id</th><th>subject</th><th>page</th><th>quote (first 110 chars)</th></tr><tr><td>1</td><td>kb:polymaker-polyterra-pla#density</td><td>polymaker-polyterra-pla</td><td>1</td><td>This is the data sheet for Polymaker PolyTerra PLA, the plain grade. The sheet lists the row
+&quot;Density&quot; with th…</td></tr><tr><td>2</td><td>kb:polymaker-polyterra-pla-plus#how-it-differs-from-the-plain-grade</td><td>polymaker-polyterra-pla-plus</td><td>2</td><td>The sheet says &quot;PolyTerra™ PLA+ filament contains organic material than ordinary PLA which brings
+better layer…</td></tr><tr><td>3</td><td>kb:water#density</td><td>water</td><td>244</td><td>Fresh water density is close to 1 gram per millilitre, and it depends on temperature and on what
+is dissolved.…</td></tr><tr><td>4</td><td>kb:polymaker-polyterra-pla-plus#density</td><td>polymaker-polyterra-pla-plus</td><td>2</td><td>This is the data sheet for Polymaker PolyTerra PLA+, the toughened grade. The physical
+properties table lists
+…</td></tr><tr><td>5</td><td>kb:water#pure-water-at-4-degrees-celsius</td><td>water</td><td>95</td><td>A litre of water weighs 1 kilogram only near 4 degrees Celsius. The report says &quot;This assumption
+is strictly t…</td></tr></table>
+<div class=call>mcp__cad__search_knowledge {&quot;query&quot;: &quot;Bambu PLA Basic filament technical data sheet&quot;, &quot;k&quot;: 8}</div>
+<table><tr><th>#</th><th>id</th><th>subject</th><th>page</th><th>quote (first 110 chars)</th></tr><tr><td>1</td><td>kb:polymaker-polyterra-pla#density</td><td>polymaker-polyterra-pla</td><td>1</td><td>This is the data sheet for Polymaker PolyTerra PLA, the plain grade. The sheet lists the row
+&quot;Density&quot; with th…</td></tr><tr><td>2</td><td>kb:polymaker-polyterra-pla-plus#how-it-differs-from-the-plain-grade</td><td>polymaker-polyterra-pla-plus</td><td>2</td><td>The sheet says &quot;PolyTerra™ PLA+ filament contains organic material than ordinary PLA which brings
+better layer…</td></tr><tr><td>3</td><td>kb:polymaker-polyterra-pla-plus#density</td><td>polymaker-polyterra-pla-plus</td><td>2</td><td>This is the data sheet for Polymaker PolyTerra PLA+, the toughened grade. The physical
+properties table lists
+…</td></tr></table>
+<div class=reply><b>Agent reply:</b>
+I couldn&#x27;t find the density of Bambu Lab PLA Basic in the knowledge base. Two searches (&quot;Bambu Lab PLA Basic density&quot; and &quot;Bambu PLA Basic filament technical data sheet&quot;) returned no Bambu Lab sources. They only turned up other materials:
+
+- **Polymaker PolyTerra PLA (plain grade):** &quot;1.31g/cm3 at 23°C&quot;. Source: *PolyTerra PLA technical data sheet V6.0* (Polymaker), p. 1, Density section.
+- **Polymaker PolyTerra PLA+ (toughened grade):** &quot;Density ISO1183, GB/T1033 1.24 g/cm3 at 21.5°C&quot;. Source: *PolyTerra PLA+ technical data sheet V5.1* (Polymaker), p. 2.
+- Water references from a USGS report, which don&#x27;t apply here.
+
+Both of these are different products from a different maker, and they differ from each other by about 5%. So neither one is a reliable stand-in for Bambu Lab PLA Basic, and I won&#x27;t give you a number I can&#x27;t cite.
+
+You could get the figure from Bambu Lab&#x27;s own technical data sheet for PLA Basic, on their website or wiki. If you share it, or tell me to go ahead with one of the Polymaker values as a stated approximation, I can use it. If you plan to score a part for mass, I can also check whether the materials table has a key for Bambu PLA Basic. It lists names only, not densities.</div>
