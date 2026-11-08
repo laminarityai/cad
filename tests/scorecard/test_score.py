@@ -5,8 +5,9 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from cad.checks.report import unknown_for_all
+from cad.checks.report import IMAGE_TAG, unknown_for_all
 from cad.checks.result import CheckResult, CheckRun, Comparator, StepMissing, Verdict
+from cad.sandbox.image import BUILD, current_image, image_tag
 from cad.sandbox.outcome import SandboxUnavailable
 from cad.scorecard import score
 from cad.scorecard.model import (
@@ -40,8 +41,8 @@ def offline_run() -> CheckRun:
         variant_id=UNBUILT_ID,
         material_key="prusament-pla",
         table_version="t" * 64,
-        image_tag="cad-sandbox:0",
-        image_digest="sha256:" + "i" * 64,
+        check_image_tag="cad-analysis:0",
+        check_image_digest="sha256:" + "i" * 64,
         brep_sha256="b" * 64,
         step=StepMissing(reason="offline"),
         results=unknown_for_all("offline"),
@@ -87,12 +88,13 @@ def test_the_plate_scorecard_equals_the_one_stored_beside_the_variant(
     assert stored(store, variant_id) == card
 
 
-def test_the_scorecard_names_the_table_the_image_and_every_check_version(
+def test_the_scorecard_names_the_table_the_analysis_image_and_every_check_version(
     built: Build, store: Path
 ) -> None:
     card = score.score_variant(built(PLATE), "prusament-pla", store)
     assert len(card.table_version) == 64
-    assert card.image_digest.startswith("sha256:")
+    assert card.check_image_digest == current_image(IMAGE_TAG)
+    assert card.check_image_digest != current_image(image_tag(BUILD))
     assert all(result.version and result.formula and result.sources for result in card.results)
     fields = json.loads((store / card.variant_id / score.SCORECARD).read_text())
     assert [result["version"] for result in fields["results"]] == [r.version for r in card.results]

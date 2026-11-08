@@ -6,7 +6,7 @@ from unittest.mock import ANY
 import pytest
 
 from cad.sandbox import container, host
-from cad.sandbox.image import context_tar, current_image, image_tag
+from cad.sandbox.image import BUILD, current_image, image_tag
 from cad.sandbox.outcome import BuildFailed, BuildOutcome, Built, Failure, OutOfMemory, TimedOut
 
 FAST_WALL_SECONDS = 2
@@ -14,7 +14,7 @@ FAST_WALL_SECONDS = 2
 
 @pytest.fixture(scope="module")
 def image_id() -> str:
-    return current_image(image_tag(context_tar()))
+    return current_image(image_tag(BUILD))
 
 
 def outcome(

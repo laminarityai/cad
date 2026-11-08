@@ -7,7 +7,7 @@ from typing import Any
 import pytest
 from mcp import Client
 
-from cad.sandbox.image import context_tar, image_tag
+from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.outcome import Built, TimedOut
 from cad.server.app import build_server
 from cad.variants.entry import variant_id
@@ -124,7 +124,7 @@ async def test_code_over_the_size_limit_is_rejected_before_it_runs(tmp_path: Pat
 
 @pytest.mark.anyio
 async def test_a_corrupt_stored_build_is_a_one_line_tool_error(tmp_path: Path) -> None:
-    stored = tmp_path / variant_id("x = 1\n", image_tag(context_tar()))
+    stored = tmp_path / variant_id("x = 1\n", image_tag(BUILD))
     stored.mkdir()
     (stored / "build.json").write_text('{"outcome": {"kind": "built"}, "output": ')
     assert error_text(await call(tmp_path, "x = 1\n")) == (

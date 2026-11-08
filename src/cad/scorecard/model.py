@@ -85,9 +85,9 @@ class Scorecard(BaseModel):
     """All of a variant's check results, each with its formula and source.
 
     `brep_sha256` names the shape the checks measured. `step` names the STEP derived from it, or
-    says why there is none. `table_version` and `image_digest` name the materials table and the
-    sandbox image that the run used. Each result carries its own check version. `basis` says
-    what the card was scored against, and holds the requirements when there are any.
+    says why there is none. `table_version` and `check_image_digest` name the materials table
+    and the analysis image that the checks ran in. Each result carries its own check version.
+    `basis` says what the card was scored against, and holds the requirements when there are any.
     `rebuilt_from` names the variant an earlier sandbox stored, when the checks scored its stored
     code rebuilt as `variant_id`.
     """
@@ -98,7 +98,7 @@ class Scorecard(BaseModel):
     rebuilt_from: str | None = None
     material_key: str
     table_version: str
-    image_digest: str
+    check_image_digest: str
     brep_sha256: str
     step: Step
     results: tuple[CheckResult, ...]

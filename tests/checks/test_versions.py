@@ -13,7 +13,7 @@ import pytest
 from cad.checks.container.check import CheckModule, Subject
 from cad.checks.container.suite import CHECKS
 from cad.checks.container.wire import FindingWire, SourceLiteral
-from cad.checks.report import DEPENDENCIES, SPECS, build_request, specs
+from cad.checks.report import DEPENDENCIES, IMAGE_TAG, SPECS, build_request, specs
 from cad.sandbox import container, stage
 from cad.sandbox.container import run_argv
 from cad.sandbox.host import build_job, check_job
@@ -38,7 +38,7 @@ def edited(sources: Sources, name: str) -> Sources:
 
 
 def versions(sources: Sources) -> dict[str, str]:
-    return {spec.id: spec.version for spec in specs(sources)}
+    return {spec.id: spec.version for spec in specs(sources, IMAGE_TAG)}
 
 
 def test_every_check_file_is_named_by_its_id() -> None:
@@ -59,7 +59,7 @@ class NoSource:
 
 def test_a_check_that_cites_no_source_is_refused() -> None:
     with pytest.raises(ValueError, match="bare cites no source"):
-        specs(SOURCES, (NoSource(),))
+        specs(SOURCES, IMAGE_TAG, (NoSource(),))
 
 
 def test_the_check_ids_are_the_suite_order() -> None:
