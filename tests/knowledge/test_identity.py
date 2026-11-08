@@ -98,3 +98,54 @@ def test_a_hardness_named_only_in_a_quote_is_not_the_one_the_unit_has(
     )
     assert index.search("NinjaFlex 95A shore hardness") == ()
     assert ids(index.search("NinjaFlex shore hardness")) == ["kb:ninjaflex#shore-hardness"]
+
+
+def test_a_false_line_is_a_review_error_the_loader_accepts(make_index: MakeIndex) -> None:
+    index = make_index(
+        {"bambu-pla-matte": DENSITY},
+        {"bambu-pla-matte": ["PLA Matte"]},
+        maker="Bambu",
+        line="Matte",
+    )
+    assert ids(index.search("PLA Matte density")) == ["kb:bambu-pla-matte#density"]
+
+
+@pytest.mark.parametrize(
+    "alias",
+    ["Bambu PLA", "Bambu Lab filament", "Bambu Lab material", "Bambu Lab 3D", "Bambu PLA+"],
+)
+def test_a_maker_with_only_family_words_names_a_group(make_index: MakeIndex, alias: str) -> None:
+    with pytest.raises(InvalidCorpus, match="only the maker"):
+        make_index({"bambu-pla-basic": DENSITY}, {"bambu-pla-basic": [alias]}, maker="Bambu Lab")
+
+
+def test_a_branded_alias_inside_another_subjects_alias_is_refused(make_index: MakeIndex) -> None:
+    make_index({"basic": DENSITY}, {"basic": ["Bambu PLA Basic"]}, maker="Bambu Lab")
+    with pytest.raises(InvalidCorpus) as error:
+        make_index(
+            {"gradient": DENSITY}, {"gradient": ["Bambu PLA Basic Gradient"]}, maker="Bambu Lab"
+        )
+    message = str(error.value)
+    assert "'bambu pla basic'" in message
+    assert "basic.md" in message
+    assert "gradient.md" in message
+
+
+def test_a_family_alias_inside_a_branded_alias_is_the_family(make_index: MakeIndex) -> None:
+    make_index({"petg": DENSITY}, {"petg": ["PETG"]}, family=True)
+    index = make_index(
+        {"polylite-petg": DENSITY},
+        {"polylite-petg": ["PolyLite PETG"]},
+        maker="Polymaker",
+        line="PolyLite",
+    )
+    assert ids(index.search("PETG density")) == ["kb:petg#density"]
+    assert ids(index.search("PolyLite PETG density")) == ["kb:polylite-petg#density"]
+
+
+def test_the_review_probe_bambu_pla_next_to_matte_does_not_load(make_index: MakeIndex) -> None:
+    make_index({"matte": DENSITY}, {"matte": ["Bambu PLA Matte"]}, maker="Bambu Lab")
+    with pytest.raises(InvalidCorpus):
+        make_index(
+            {"basic": DENSITY}, {"basic": ["Bambu PLA Basic", "Bambu PLA"]}, maker="Bambu Lab"
+        )

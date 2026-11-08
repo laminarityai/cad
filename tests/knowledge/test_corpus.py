@@ -102,14 +102,14 @@ def test_a_bad_file_is_reported(tmp_path: Path, text: str, expected: str) -> Non
 
 def test_a_unit_carries_its_subject_and_the_corpus_its_aliases(tmp_path: Path) -> None:
     text = GOOD.replace(BRAND, "maker: Polymaker\nline: PolyTerra").replace(
-        "[Example]", "[PolyTerra PLA+, 'Polymaker PLA plus', PolyTerra PETG-HF]"
+        "[Example]", "[PolyTerra PLA+, 'Polymaker PolyTerra PLA plus', PolyTerra PETG-HF]"
     )
     corpus = load(write(tmp_path, text))
     (unit,) = corpus.units.values()
     assert unit.subject == "x"
     assert set(corpus.aliases) == {
         ("polyterra", "pla+"),
-        ("polymaker", "pla+"),
+        ("polymaker", "polyterra", "pla+"),
         ("polyterra", "petg", "hf"),
     }
     assert set(corpus.aliases.values()) == {"x"}
@@ -131,8 +131,11 @@ def test_a_generic_name_is_an_alias_only_when_the_file_declares_family(tmp_path:
 
 def test_a_branded_alias_names_its_maker_or_line(tmp_path: Path) -> None:
     text = GOOD.replace(BRAND, "maker: Polymaker\nline: PolyTerra")
-    loaded = load(write(tmp_path, text.replace("[Example]", "[PolyTerra PLA, Polymaker PLA]")))
-    assert set(loaded.aliases) == {("polyterra", "pla"), ("polymaker", "pla")}
+    loaded = load(
+        write(tmp_path, text.replace("[Example]", "[PolyTerra PLA, Polymaker PolyTerra PLA]"))
+    )
+    assert set(loaded.aliases) == {("polyterra", "pla"), ("polymaker", "polyterra", "pla")}
+    assert "only the maker" in problems(tmp_path, text.replace("[Example]", "[Polymaker PLA]"))
     for generic in ("PLA", "the PLA", "PLA filament", "PLA Matte", "PA 6", "nylon 6"):
         assert "maker or line" in problems(tmp_path, text.replace("[Example]", f"['{generic}']")), (
             generic
@@ -194,8 +197,12 @@ def test_the_seeded_corpus_is_valid_and_answers_its_questions() -> None:
         "kb:water#pure-water-at-4-degrees-celsius"
     ]
     assert index.search("water density at 4 degrees") == ()
-    assert [h.pointer.id for h in index.search("PolyTerra PLA+ density")] == ["kb:pla-plus#density"]
-    assert [h.pointer.id for h in index.search("PolyTerra PLA density")] == ["kb:pla#density"]
+    assert [h.pointer.id for h in index.search("PolyTerra PLA+ density")] == [
+        "kb:polymaker-polyterra-pla-plus#density"
+    ]
+    assert [h.pointer.id for h in index.search("PolyTerra PLA density")] == [
+        "kb:polymaker-polyterra-pla#density"
+    ]
     for query in ("PLA density", "Polymaker PLA density", "Bambu PLA density", "!PLA density"):
         assert index.search(query) == (), query
     assert index.search("PETG density") == ()
@@ -209,7 +216,9 @@ def test_the_seeded_corpus_is_valid_and_answers_its_questions() -> None:
         "PolyTerra PLA + density",
         "PolyTerra PLA plus density",
     ):
-        assert [h.pointer.id for h in index.search(query)] == ["kb:pla-plus#density"], query
+        assert [h.pointer.id for h in index.search(query)] == [
+            "kb:polymaker-polyterra-pla-plus#density"
+        ], query
     assert index.search("plus grade density") == ()
     assert index.search("PLA plus density") == ()
     for query in ("ISO1183 density", "GB/T1033 density", "PolyTerra PLA\u2795 density", "water"):
