@@ -319,7 +319,7 @@ def test_every_density_quote_in_the_table_parses_to_the_table_value_or_is_refuse
         assert result.canonical == pytest.approx(cited.magnitude_in("kg/m^3"), rel=5e-3), (
             material.key
         )
-    assert parsed >= 6
+    assert parsed >= 18
 
 
 @pytest.mark.parametrize(
@@ -363,9 +363,8 @@ def test_refuses_the_table_quotes_with_detached_units_or_exponents(key: str) -> 
         "polymaker-fiberon-pa12-cf10",
     ],
 )
-def test_refuses_the_table_quotes_with_a_number_right_after_a_standard(key: str) -> None:
+def test_reads_the_table_quotes_with_a_number_right_after_a_listed_standard(key: str) -> None:
     density = load_materials().materials[key].density
     assert isinstance(density, Cited)
-    result = refusal(density.source.quote)
-    assert result.reason is Reason.AMBIGUOUS_NUMBER
-    assert "standard" in result.detail
+    expected = density.magnitude_in("kg/m^3")
+    assert kg_per_m3(density.source.quote) == pytest.approx(expected, rel=5e-3)

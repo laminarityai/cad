@@ -166,8 +166,6 @@ def test_the_band_rejects_a_reading_but_never_chooses_one() -> None:
         "Density DIN 12 4000 kg/m3",
         "Density ASTM D7 9200 kg/m3",
         "Density DIN 7 8500 kg/m3",
-        "Density ISO 1183-1 240 kg/m3",
-        "Density ISO 1183 1240 kg/m3",
         "Density DIN 7 850,5 kg/m3",
     ],
 )
