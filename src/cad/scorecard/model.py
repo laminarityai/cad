@@ -3,6 +3,7 @@ from typing import Annotated, Literal, Self
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from cad.checks.result import CheckResult, Comparator, Measured, Step, Verdict
+from cad.scorecard.waiting import Waiting
 from cad.tables.materials import Source
 
 
@@ -44,7 +45,7 @@ class Unverified(_Frozen):
     statement: str
 
 
-type RequirementResult = Annotated[Checked | Unverified, Field(discriminator="kind")]
+type RequirementResult = Annotated[Checked | Unverified | Waiting, Field(discriminator="kind")]
 
 
 class AgainstBrief(_Frozen):
@@ -91,6 +92,7 @@ class PendingCheck(_Frozen):
     formula: str
     sources: tuple[Source, ...]
     version: str
+    instance: str = Field(default="", exclude_if=lambda instance: not instance)
 
 
 class Scorecard(BaseModel):

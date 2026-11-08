@@ -1,7 +1,7 @@
 from datetime import date
 
 from cad.checks.container import closed_solid
-from cad.checks.container.check import CheckModule, Subject, finding, measure, no_shape
+from cad.checks.container.check import CheckModule, Quick, Subject, finding, measure, no_shape
 from cad.checks.container.inputs import Input
 from cad.checks.container.kernel import Unreadable
 from cad.checks.container.wire import FindingWire, SourceLiteral
@@ -33,6 +33,8 @@ MEASURES = {
 TAKES: frozenset[Input] = frozenset()
 READS: dict[str, Input] = {}
 REQUIRES: tuple[CheckModule, ...] = (closed_solid,)
+BUDGET = Quick()
+ERROR_BOUNDS: dict[str, float] = {}
 SORTED_NAMES = ("smallest", "middle", "largest")
 
 

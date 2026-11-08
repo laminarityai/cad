@@ -75,6 +75,8 @@ def test_every_kind_has_one_deciding_check_or_is_unverified() -> None:
         Kind.ENVELOPE: "extents",
         Kind.UNCHECKED: None,
         Kind.MADE_OF: None,
+        Kind.MIN_SAFETY_FACTOR: "fea",
+        Kind.MAX_DEFLECTION: "fea",
     }
 
 
@@ -132,6 +134,10 @@ def test_each_kind_names_the_measures_it_is_held_to_and_the_confirmed_quantity(
     assert [(one.measure, one.comparator, one.quantity) for one in limits(target(raw))] == expected
 
 
+LOAD: dict[str, Any] = {
+    "support": {"kind": "flat_end"},
+    "load": {"kind": "far_end", "force": grams(10, "N"), "direction": {"kind": "any"}},
+}
 EXAMPLES: dict[Kind, dict[str, Any]] = {
     Kind.CLOSED_SOLID: {"kind": "closed_solid"},
     Kind.MAX_MASS: {"kind": "max_mass", "mass": grams(150)},
@@ -139,6 +145,8 @@ EXAMPLES: dict[Kind, dict[str, Any]] = {
     Kind.ENVELOPE: {"kind": "envelope", "edges": [grams(1, "mm"), grams(2, "mm"), grams(3, "mm")]},
     Kind.UNCHECKED: {"kind": "unchecked", "statement": "holds a shelf"},
     Kind.MADE_OF: {"kind": "made_of", "material": "prusament-pla"},
+    Kind.MIN_SAFETY_FACTOR: {"kind": "min_safety_factor", "load": LOAD, "factor": 2},
+    Kind.MAX_DEFLECTION: {"kind": "max_deflection", "load": LOAD, "deflection": grams(2, "mm")},
 }
 
 

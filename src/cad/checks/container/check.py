@@ -1,18 +1,48 @@
 import math
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
+from cad.checks.container.calculix import Material, NodalField, NodalLoads, SolveFailed
 from cad.checks.container.inputs import Input, Inputs
 from cad.checks.container.kernel import Kernel, Shape, Unreadable
+from cad.checks.container.mesher import MeshFailed, TetMesh
 from cad.checks.container.wire import FindingWire, MeasuredWire, ResultWire, SourceLiteral
 
 DIMENSIONLESS = "dimensionless"
 
 
 @dataclass(frozen=True, slots=True)
+class Quick:
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class Background:
+    wall_seconds: int
+    memory_mb: int
+    tmpfs_mb: int
+
+
+type Budget = Quick | Background
+
+
+class Fem(Protocol):
+    def mesh(self, size_mm: float) -> TetMesh | MeshFailed: ...
+
+    def solve(
+        self,
+        mesh: TetMesh,
+        material: Material,
+        fixed: frozenset[int],
+        unit_loads: Sequence[NodalLoads],
+    ) -> tuple[NodalField, ...] | SolveFailed: ...
+
+
+@dataclass(frozen=True, slots=True)
 class Subject:
     kernel: Kernel
+    fem: Fem
     shape: Shape | Unreadable
     inputs: Inputs
     reported: Mapping[str, ResultWire]
@@ -45,6 +75,12 @@ class CheckModule(Protocol):
     @property
     def REQUIRES(self) -> tuple["CheckModule", ...]: ...
 
+    @property
+    def BUDGET(self) -> Budget: ...
+
+    @property
+    def ERROR_BOUNDS(self) -> Mapping[str, float]: ...
+
     def run(self, subject: Subject) -> FindingWire: ...
 
 
@@ -67,3 +103,17 @@ def finding(
 
 def no_shape(why: Unreadable) -> FindingWire:
     return finding("unknown", f"no shape to measure: {why.reason}")
+
+
+def required_pass(
+    subject: Subject, requires: Sequence["CheckModule"], to: str
+) -> FindingWire | None:
+    for required in requires:
+        found = subject.reported[required.ID]
+        if found["verdict"] != "pass":
+            return finding(
+                "unknown",
+                f"{required.ID} is {found['verdict']}, so there is no one solid to {to}: "
+                f"{found['reason']}",
+            )
+    return None

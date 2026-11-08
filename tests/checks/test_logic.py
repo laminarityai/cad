@@ -4,7 +4,7 @@ import math
 from dataclasses import dataclass
 
 import pytest
-from fakes import KNOWN, REPORT_CAP, UNREADABLE_BREP, FakeKernel, FakeShape, request
+from fakes import KNOWN, REPORT_CAP, UNREADABLE_BREP, FakeKernel, FakeShape, NoFem, request
 
 from cad.checks.container import closed_solid, interference
 from cad.checks.container.check import Subject
@@ -24,11 +24,11 @@ INPUTS = Inputs(frozenset(Input), {Input.DENSITY: KNOWN})
 
 
 def subject(kernel: FakeKernel) -> Subject:
-    return Subject(kernel, FakeShape(), INPUTS, {})
+    return Subject(kernel, NoFem(), FakeShape(), INPUTS, {})
 
 
 def unreadable() -> Subject:
-    return Subject(FakeKernel(), Unreadable("not a BREP"), INPUTS, {})
+    return Subject(FakeKernel(), NoFem(), Unreadable("not a BREP"), INPUTS, {})
 
 
 def checked(

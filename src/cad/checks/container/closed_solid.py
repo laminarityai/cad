@@ -4,7 +4,7 @@ load-bearing.
 
 from datetime import date
 
-from cad.checks.container.check import DIMENSIONLESS, Subject, finding, measure
+from cad.checks.container.check import DIMENSIONLESS, Quick, Subject, finding, measure
 from cad.checks.container.inputs import Input
 from cad.checks.container.kernel import Unreadable
 from cad.checks.container.wire import FindingWire, SourceLiteral
@@ -56,6 +56,8 @@ MEASURES = {
 TAKES: frozenset[Input] = frozenset()
 READS: dict[str, Input] = {}
 REQUIRES = ()
+BUDGET = Quick()
+ERROR_BOUNDS: dict[str, float] = {}
 
 
 def run(subject: Subject) -> FindingWire:

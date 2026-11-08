@@ -121,10 +121,10 @@ def resolve(
         case "far_end":
             candidates: list[Candidate] = []
             for support in supports:
-                far = far_from(support, inertia)
-                if isinstance(far, Unresolved):
-                    return far
-                candidates.append(Candidate(support, far))
+                ends = far_from(support, inertia)
+                if isinstance(ends, Unresolved):
+                    return ends
+                candidates.extend(Candidate(support, far) for far in ends)
             return Resolved(tuple(candidates), basis)
         case "on_holes":
             loaded = load_holes(load, case["support"], faces, inertia)
@@ -135,13 +135,18 @@ def resolve(
             assert_never(load["kind"])
 
 
-def far_from(support: Region, inertia: Inertia) -> FarFrom | Unresolved:
+def far_from(support: Region, inertia: Inertia) -> tuple[FarFrom, ...] | Unresolved:
     toward = sub(inertia.center, support.centroid)
-    if norm(toward) <= OFF_CENTER_FRACTION * extent(inertia):
+    if norm(toward) > OFF_CENTER_FRACTION * extent(inertia):
+        return (FarFrom(support.centroid, unit(toward)),)
+    long = long_axis(inertia)
+    if isinstance(long, Unresolved):
         return Unresolved(
-            "the support sits at the part's centre of mass, so no end of the part is the far one"
+            "the support sits at the part's centre of mass and the part has no unique long "
+            "axis, so no end of the part is the far one"
         )
-    return FarFrom(support.centroid, unit(toward))
+    _, axis = long
+    return (FarFrom(support.centroid, axis), FarFrom(support.centroid, scale(axis, -1)))
 
 
 def support_regions(

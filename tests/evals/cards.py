@@ -18,7 +18,7 @@ from trace_store import SPEC_BY_ID
 from cad.briefs import store as briefs
 from cad.briefs.model import Confirmed, Decision, Target
 from cad.briefs.store import ConfirmedSet, Draft
-from cad.checks.report import SPECS, CheckSpec
+from cad.checks.report import QUICK, CheckSpec
 from cad.checks.result import CheckResult, Measure, StepStored, Verdict
 from cad.confirmations import answers
 from cad.confirmations.answers import Edit, ItemAnswer, PageAnswer
@@ -81,7 +81,7 @@ def genuine_card(**changes: object) -> Scorecard:
         check_image_digest="sha256:" + "i" * 64,
         brep_sha256=BREP_SHA,
         step=StepStored(sha256=STEP_SHA),
-        results=tuple(genuine_result(spec) for spec in SPECS),
+        results=tuple(genuine_result(spec) for spec in QUICK),
         basis=NoBrief(),
     )
     return card.model_copy(update=changes)

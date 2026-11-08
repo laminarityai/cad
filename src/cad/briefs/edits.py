@@ -18,8 +18,10 @@ from cad.briefs.model import (
     ClosedSolid,
     Envelope,
     MadeOf,
+    MaxDeflection,
     MaxMass,
     MinMass,
+    MinSafetyFactor,
     Requirement,
     Unchecked,
     amount,
@@ -85,16 +87,19 @@ class _Shape:
 
 MASS: Final = _Shape("mass", 1, "120 g", "120 g")
 BOX: Final = _Shape("length", 3, "120 x 80 x 40 mm", "40 mm")
+LENGTH: Final = _Shape("length", 1, "2 mm", "2 mm")
 
 
 def placeholder(requirement: Requirement) -> str | None:
     """What the page shows in the row's empty edit field, or None when the row has no number."""
     target = requirement.target
     match target:
-        case ClosedSolid() | Unchecked() | MadeOf():
+        case ClosedSolid() | Unchecked() | MadeOf() | MinSafetyFactor():
             return None
         case MaxMass() | MinMass():
             return amount(target.mass)
+        case MaxDeflection():
+            return amount(target.deflection)
         case Envelope():
             return " x ".join(amount(edge) for edge in target.edges)
         case _:
@@ -125,11 +130,14 @@ def _edited(requirement: Requirement, text: str) -> Requirement | str:
     target = requirement.target
     try:
         match target:
-            case ClosedSolid() | Unchecked() | MadeOf():
+            case ClosedSolid() | Unchecked() | MadeOf() | MinSafetyFactor():
                 return "This row has no number to change."
             case MaxMass() | MinMass():
                 [mass] = _quantities(text, MASS)
                 new = type(target).model_validate({"mass": mass})
+            case MaxDeflection():
+                [deflection] = _quantities(text, LENGTH)
+                new = MaxDeflection(load=target.load, deflection=deflection)
             case Envelope():
                 edges = _quantities(text, BOX)
                 new = Envelope.model_validate({"edges": edges})

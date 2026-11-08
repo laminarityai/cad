@@ -25,8 +25,10 @@ from pydantic import (
 )
 
 from cad.checks.result import Comparator, Measured
+from cad.loads.model import LoadCase
+from cad.loads.words import describe_case
 from cad.projects.model import NEW_PROJECT_ID, NewProjectId, ProjectId, legacy_project
-from cad.tables.materials import KEY_PATTERN
+from cad.tables.materials import KEY_PATTERN, UNITS
 
 BriefId = NewType("BriefId", str)
 RequirementId = NewType("RequirementId", str)
@@ -82,6 +84,8 @@ class Kind(StrEnum):
     ENVELOPE = "envelope"
     UNCHECKED = "unchecked"
     MADE_OF = "made_of"
+    MIN_SAFETY_FACTOR = "min_safety_factor"
+    MAX_DEFLECTION = "max_deflection"
 
 
 class ClosedSolid(_Frozen):
@@ -141,8 +145,33 @@ class MadeOf(_Frozen):
     ]
 
 
+class MinSafetyFactor(_Frozen):
+    """The yield strength over the largest von Mises stress under the load case."""
+
+    kind: Literal[Kind.MIN_SAFETY_FACTOR] = Kind.MIN_SAFETY_FACTOR
+    load: LoadCase
+    factor: Annotated[float, Field(ge=1, allow_inf_nan=False)]
+
+
+class MaxDeflection(_Frozen):
+    """The largest displacement of any point under the load case."""
+
+    kind: Literal[Kind.MAX_DEFLECTION] = Kind.MAX_DEFLECTION
+    load: LoadCase
+    deflection: Length
+
+
+type Loaded = MinSafetyFactor | MaxDeflection
 type Target = Annotated[
-    ClosedSolid | MaxMass | MinMass | Envelope | Unchecked | MadeOf, Field(discriminator="kind")
+    ClosedSolid
+    | MaxMass
+    | MinMass
+    | Envelope
+    | Unchecked
+    | MadeOf
+    | MinSafetyFactor
+    | MaxDeflection,
+    Field(discriminator="kind"),
 ]
 
 
@@ -157,6 +186,8 @@ def deciding_check(kind: Kind) -> CheckId | None:
             return CheckId("extents")
         case Kind.UNCHECKED | Kind.MADE_OF:
             return None
+        case Kind.MIN_SAFETY_FACTOR | Kind.MAX_DEFLECTION:
+            return CheckId("fea")
         case _:
             assert_never(kind)
 
@@ -169,7 +200,7 @@ class Limit:
 
 
 def limits(
-    target: ClosedSolid | MaxMass | MinMass | Envelope | Unchecked | MadeOf,
+    target: ClosedSolid | MaxMass | MinMass | Envelope | Unchecked | MadeOf | Loaded,
 ) -> tuple[Limit, ...]:
     match target:
         case ClosedSolid() | Unchecked() | MadeOf():
@@ -183,6 +214,11 @@ def limits(
                 Limit(f"sorted_extent:{name}", Comparator.AT_MOST, edge)
                 for name, edge in zip(("largest", "middle", "smallest"), target.edges, strict=True)
             )
+        case MinSafetyFactor():
+            factor = UNITS.Quantity(target.factor, "dimensionless")
+            return (Limit("safety_factor", Comparator.AT_LEAST, factor),)
+        case MaxDeflection():
+            return (Limit("max_displacement", Comparator.AT_MOST, target.deflection),)
         case _:
             assert_never(target)
 
@@ -274,5 +310,11 @@ def describe(requirement: Requirement) -> str:
             return target.statement
         case MadeOf():
             return f"Made of {target.material}"
+        case MinSafetyFactor():
+            return f"Safety factor against yield at least {target.factor:g} with " + describe_case(
+                target.load
+            )
+        case MaxDeflection():
+            return f"Deflects at most {amount(target.deflection)} with {describe_case(target.load)}"
         case _:
             assert_never(target)

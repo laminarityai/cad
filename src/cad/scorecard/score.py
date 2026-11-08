@@ -3,6 +3,7 @@ import secrets
 import stat
 from collections.abc import Callable
 from pathlib import Path
+from types import MappingProxyType
 from typing import Final
 
 from cad.checks import jobs
@@ -17,10 +18,13 @@ from cad.variants import store as variants
 
 SCORECARD: Final = "scorecard.json"
 
-type Assess = Callable[[tuple[CheckResult, ...]], Basis]
+type Results = tuple[CheckResult | PendingCheck, ...]
+type Assess = Callable[[Results], Basis]
+
+NO_DEMAND: Final[jobs.Demand] = MappingProxyType({})
 
 
-def no_brief(results: tuple[CheckResult, ...]) -> Basis:
+def no_brief(results: Results) -> Basis:
     del results
     return NoBrief()
 
@@ -31,10 +35,12 @@ def score_variant(
     root: Path = entry.VARIANTS_ROOT,
     assess: Assess = no_brief,
     lanes: Lanes = LANES,
+    demand: jobs.Demand = NO_DEMAND,
 ) -> Scorecard:
     held, rebuilt_from = open_or_rebuild(variant_id, root)
-    request = build_request(material_key, host.materials_table())
-    plan = jobs.plan(root, held, request)
+    table = host.materials_table()
+    request = build_request(material_key, table)
+    plan = jobs.plan(root, held, request, table, demand)
     card = scorecard_of(plan, request, lanes.settle(plan, WAIT_SECONDS), assess, rebuilt_from)
     store(card, root)
     return card
@@ -58,18 +64,23 @@ def scorecard_of(
     assess: Assess,
     rebuilt_from: str | None = None,
 ) -> Scorecard:
-    by_check: dict[str, CheckResult | PendingCheck] = {
-        one.check_id: one for one in settled.quick.results
-    }
+    by_check: dict[str, list[CheckResult | PendingCheck]] = {}
+    for one in settled.quick.results:
+        by_check.setdefault(one.check_id, []).append(one)
     for job, outcome in zip(plan.background, settled.background, strict=True):
         match outcome:
             case Done(result):
-                by_check.update((one.check_id, one) for one in result.results)
+                found: Results = result.results
             case Pending():
-                by_check.update((one.id, _pending(one)) for one in job.checks)
+                found = tuple(_pending(one, job.instance) for one in job.checks)
             case jobs.Refused(reason):
-                by_check.update((one.check_id, one) for one in unknown_for_all(reason, job.checks))
-    results = tuple(by_check[spec.id] for spec in SPECS)
+                found = tuple(
+                    one.model_copy(update={"instance": job.instance})
+                    for one in unknown_for_all(reason, job.checks)
+                )
+        for one in found:
+            by_check.setdefault(one.check_id, []).append(one)
+    results = tuple(one for spec in SPECS for one in by_check.get(spec.id, ()))
     return Scorecard(
         rebuilt_from=rebuilt_from,
         variant_id=plan.quick.variant_id,
@@ -80,13 +91,17 @@ def scorecard_of(
         step=settled.quick.step,
         results=results,
         pending=tuple(one.check_id for one in results if isinstance(one, PendingCheck)),
-        basis=assess(tuple(one for one in results if isinstance(one, CheckResult))),
+        basis=assess(results),
     )
 
 
-def _pending(spec: CheckSpec) -> PendingCheck:
+def _pending(spec: CheckSpec, instance: str) -> PendingCheck:
     return PendingCheck(
-        check_id=spec.id, formula=spec.formula, sources=spec.sources, version=spec.version
+        check_id=spec.id,
+        formula=spec.formula,
+        sources=spec.sources,
+        version=spec.version,
+        instance=instance,
     )
 
 

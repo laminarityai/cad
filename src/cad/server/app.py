@@ -55,15 +55,26 @@ RULE = (
 TEST_MODE = (
     "Test mode is deeper analysis of one variant the user picks, for example when they ask "
     "whether it will hold a load or how long it takes to print. If the user states a load, a "
-    "print process or a print time that no confirmed requirement holds, propose it, as "
-    "unchecked when no check decides it, and have the user confirm before you score. Words "
+    "print process or a print time that no confirmed requirement holds, propose it: a load as "
+    "min_safety_factor or max_deflection, which the fea check decides, and anything else as "
+    "unchecked when no check decides it. Have the user confirm before you score. Words "
     "that are not in the brief go into a new brief in the same project first. Then score only "
-    "that variant, with its brief_id. Report only what the checks returned. Do not estimate a "
-    "strength, a deflection or a print time yourself: say it was not checked."
+    "that variant, with its brief_id. A scorecard with pending checks is not finished: do not "
+    "state a pending check's result, and call score_variant again with the same arguments to "
+    "wait for it. Report only what the checks returned, and for a load, the fea verdict and "
+    "its measures. Do not estimate a strength, a deflection or a print time yourself: when no "
+    "check returned it, say it was not checked."
 )
 SCORE_VARIANT = (
     "Score one built variant with the fixed checks closed_solid, interference, mass and "
     "extents (the axis-aligned bounding box in mm), and store the scorecard beside the variant. "
+    "Each load case of a confirmed min_safety_factor or max_deflection requirement also runs "
+    "the fea check, in the background, once per load case: its result carries the load case "
+    "id as instance. Until it finishes, the card lists it under pending, the result is a "
+    "pending entry with no verdict, and each requirement it decides is waiting. A scorecard "
+    "with pending checks is not finished: do not state a pending check's result, and call "
+    "score_variant again with the same arguments to wait for it. fea states its error: a "
+    "measure within that error of a confirmed limit leaves the requirement unknown. "
     "When an earlier version of the sandbox stored the variant, score_variant rebuilds its "
     "stored code first and scores the new variant: the scorecard's variant_id is the new id, "
     "and rebuilt_from is the id you passed. It rebuilds even when the earlier build failed, "
@@ -188,19 +199,19 @@ def build_server(
         variant_id: str, material_key: MaterialKey, brief_id: str | None = None
     ) -> material.ReportedScorecard:
         with agent_facing():
-            assess = score.no_brief
+            assess, demand = score.no_brief, score.NO_DEMAND
             confirmed = None
             if brief_id is not None:
                 confirmed = briefs.confirmed_requirements(roots, brief_id)
-                assess = (
-                    requirements.awaiting(brief_id)
-                    if confirmed is None
-                    else requirements.against(confirmed)
-                )
+                if confirmed is None:
+                    assess = requirements.awaiting(brief_id)
+                else:
+                    assess, demand = requirements.against(confirmed), requirements.demand(confirmed)
             material.refuse_other_material(confirmed, material_key)
-            card = material.reported(
-                score.score_variant(variant_id, material_key, variants_root, assess), confirmed
+            scored = score.score_variant(
+                variant_id, material_key, variants_root, assess, demand=demand
             )
+            card = material.reported(scored, confirmed)
             score.store(card, variants_root)
         return card
 

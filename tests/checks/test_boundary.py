@@ -4,7 +4,7 @@ from typing import Any
 
 import pytest
 
-from cad.checks.report import SPECS, Request, build_request, parse
+from cad.checks.report import QUICK, SPECS, Request, build_request, parse
 from cad.checks.result import CheckRun, StepMissing, StepStored, Verdict
 from cad.sandbox.container import Attended, ContainerState, Job, Ran, TooMuchOutput
 from cad.tables.materials import Cited, Material, MaterialsTable, Unknown, load_materials
@@ -115,7 +115,7 @@ def test_formula_sources_and_version_come_from_the_staged_checks_not_the_wire(
     for result in report["results"]:
         result.update(version="forged", formula="forged", sources=[{"url": "forged"}])
     parsed = parse(sent(report), request_for_pla, OWN_LIMITS)
-    for result, spec in zip(parsed.results, SPECS, strict=True):
+    for result, spec in zip(parsed.results, QUICK, strict=True):
         assert (result.formula, result.sources[: len(spec.sources)], result.version) == (
             spec.formula,
             spec.sources,
@@ -129,12 +129,12 @@ def test_mass_cites_the_datasheet_of_the_density_it_used(request_for_pla: Reques
     density = load_materials().get_material("prusament-pla").density
     assert isinstance(density, Cited)
     assert mass.sources[-1] == density.source
-    assert len(mass.sources) == len(SPECS[2].sources) + 1
+    assert len(mass.sources) == len(QUICK[2].sources) + 1
 
 
 def test_only_a_check_that_declares_a_read_cites_the_row_it_read(request_for_pla: Request) -> None:
     parsed = parse(sent(good_report()), request_for_pla, OWN_LIMITS)
-    for result, spec in zip(parsed.results, SPECS, strict=True):
+    for result, spec in zip(parsed.results, QUICK, strict=True):
         assert len(result.sources) == len(spec.sources) + (1 if spec.reads else 0)
 
 
@@ -211,7 +211,7 @@ def test_every_misbehavior_gives_four_unknown_results_and_no_step(
     seen: Ran, request_for_pla: Request
 ) -> None:
     parsed = parse(seen, request_for_pla, OWN_LIMITS)
-    assert [result.check_id for result in parsed.results] == [spec.id for spec in SPECS]
+    assert [result.check_id for result in parsed.results] == [spec.id for spec in QUICK]
     assert {result.verdict for result in parsed.results} == {Verdict.UNKNOWN}
     reasons = {result.reason for result in parsed.results}
     assert len(reasons) == 1
@@ -277,7 +277,7 @@ def test_unknown_results_keep_the_formula_sources_and_version_of_a_real_one(
 ) -> None:
     parsed = parse(ran(b"", killed=True), request_for_pla, OWN_LIMITS)
     assert [(r.formula, r.sources, r.version) for r in parsed.results] == [
-        (spec.formula, spec.sources, spec.version) for spec in SPECS
+        (spec.formula, spec.sources, spec.version) for spec in QUICK
     ]
 
 

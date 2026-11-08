@@ -4,11 +4,12 @@ from typing import Any
 import pytest
 from pydantic import TypeAdapter
 
-from cad.briefs.model import BriefId, BriefSpan, Requirement, RequirementId, Target
+from cad.briefs.model import BriefId, BriefSpan, Requirement, RequirementId, Target, describe
 from cad.checks.report import SPECS, unknown_for_all
 from cad.checks.result import CheckResult, Measure, Verdict
 from cad.scorecard import requirements
-from cad.scorecard.model import AgainstBrief, Checked, Unverified
+from cad.scorecard.model import AgainstBrief, Checked, PendingCheck, RequirementResult, Unverified
+from cad.scorecard.waiting import Waiting
 from cad.tables.materials import UNITS
 
 TARGET = TypeAdapter[Target](Target)
@@ -78,7 +79,7 @@ def boxed(smallest: float, middle: float, largest: float) -> tuple[CheckResult, 
     )
 
 
-def checked(judged: Checked | Unverified) -> Checked:
+def checked(judged: RequirementResult) -> Checked:
     assert isinstance(judged, Checked)
     return judged
 
@@ -193,3 +194,87 @@ def test_a_reason_holds_no_digit_so_every_number_on_a_card_is_a_traced_quantity(
     given: Requirement, results: tuple[CheckResult, ...]
 ) -> None:
     assert re.search(r"\d", checked(requirements.judge(given, results)).reason) is None
+
+
+LOAD: dict[str, Any] = {
+    "support": {"kind": "holes", "count": 2, "diameter": quantity(5.5, "mm")},
+    "load": {
+        "kind": "far_end",
+        "force": quantity(49, "N"),
+        "direction": {"kind": "across", "axis": "hole_axis"},
+    },
+}
+FEA = SPEC["fea"]
+
+
+def safety(factor: float) -> Requirement:
+    return requirement({"kind": "min_safety_factor", "load": LOAD, "factor": factor})
+
+
+def deflection(mm: float) -> Requirement:
+    return requirement({"kind": "max_deflection", "load": LOAD, "deflection": quantity(mm, "mm")})
+
+
+def solved(instance: str, factor: float = 3.0, mm: float = 1.0) -> CheckResult:
+    found = result(
+        "fea", Verdict.PASS, safety_factor=(factor, "dimensionless"), max_displacement=(mm, "mm")
+    )
+    return found.model_copy(update={"instance": instance})
+
+
+def test_the_page_says_the_load_case_in_words() -> None:
+    assert describe(safety(2)) == (
+        "Safety factor against yield at least 2 with 49 N at the end farthest from the "
+        "supports, in the worst direction across the hole axis; held by fixing the bores of "
+        "exactly 2 holes of 5.5 mm"
+    )
+    assert describe(deflection(2)).startswith("Deflects at most 2 mm with 49 N at the end")
+
+
+@pytest.mark.parametrize(
+    ("factor", "verdict"),
+    [(2.0, Verdict.PASS), (3.2, Verdict.UNKNOWN), (2.9, Verdict.UNKNOWN), (3.4, Verdict.FAIL)],
+)
+def test_a_safety_factor_within_the_stated_error_of_the_limit_is_unknown(
+    factor: float, verdict: Verdict
+) -> None:
+    given = safety(factor)
+    load_id = requirements.instance(given.target)
+    judged = checked(requirements.judge(given, (*suite(), solved(load_id, factor=3.0))))
+    assert (judged.check_id, judged.verdict) == ("fea", verdict)
+
+
+@pytest.mark.parametrize(
+    ("limit_mm", "verdict"),
+    [(1.06, Verdict.PASS), (1.04, Verdict.UNKNOWN), (0.96, Verdict.UNKNOWN), (0.94, Verdict.FAIL)],
+)
+def test_a_deflection_is_judged_with_the_stated_five_percent(
+    limit_mm: float, verdict: Verdict
+) -> None:
+    given = deflection(limit_mm)
+    load_id = requirements.instance(given.target)
+    judged = checked(requirements.judge(given, (*suite(), solved(load_id, mm=1.0))))
+    assert judged.verdict == verdict
+
+
+def test_a_requirement_reads_only_the_fea_result_for_its_own_load_case() -> None:
+    given = safety(2)
+    load_id = requirements.instance(given.target)
+    results = (*suite(), solved("other", factor=1.0), solved(load_id, factor=3.0))
+    assert checked(requirements.judge(given, results)).verdict == Verdict.PASS
+    with pytest.raises(requirements.NoDecidingResult, match=f"for load case {load_id}"):
+        requirements.judge(given, (*suite(), solved("other")))
+
+
+def test_a_requirement_whose_fea_job_is_still_running_is_waiting() -> None:
+    given = safety(2)
+    pending = PendingCheck(
+        check_id="fea",
+        formula=FEA.formula,
+        sources=FEA.sources,
+        version=FEA.version,
+        instance=requirements.instance(given.target),
+    )
+    assert requirements.judge(given, (*suite(), pending)) == Waiting(
+        requirement_id=given.id, statement=describe(given), check_id="fea"
+    )

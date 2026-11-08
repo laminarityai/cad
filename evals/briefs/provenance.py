@@ -35,6 +35,7 @@ from binding import Unbound, Unlinked, bind, link
 from confirmation import BasisFailure, Shown, check_basis
 
 from cad.briefs.model import describe, limits
+from cad.checks.container.check import Quick
 from cad.checks.report import CheckSpec
 from cad.checks.result import CheckResult, Measure
 from cad.records.roots import Roots
@@ -289,14 +290,16 @@ def _incomplete(
 ) -> Iterator[Incomplete]:
     if not card.results:
         yield Incomplete("the card has no results")
-    seen = Counter(result.check_id for result in card.results)
-    for check_id in specs:
-        if seen[check_id] == 0 and card.results:
+    seen = Counter((result.check_id, result.instance) for result in card.results)
+    ran = {check_id for check_id, _ in seen}
+    for check_id, spec in specs.items():
+        if isinstance(spec.budget, Quick) and check_id not in ran and card.results:
             yield Incomplete(f"no result for the registered check {check_id}")
-    for check_id, count in seen.items():
+    for (check_id, instance), count in seen.items():
         if count > 1:
-            yield Incomplete(f"{count} results for {check_id}")
-        if check_id not in specs:
-            yield Incomplete(f"a result for {check_id}, which is not a registered check")
+            named = f" for load case {instance}" if instance else ""
+            yield Incomplete(f"{count} results for {check_id}{named}")
+    for check_id in sorted(ran - set(specs)):
+        yield Incomplete(f"a result for {check_id}, which is not a registered check")
     if not numbers:
         yield Incomplete("the card holds no number")

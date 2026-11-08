@@ -27,6 +27,7 @@ type ValueWire = ValueKnown | ValueUnknown
 class RequestWire(TypedDict):
     checks: list[str]
     values: dict[str, ValueWire]
+    load_cases: list["LoadCaseWire"]
 
 
 class MeasuredWire(TypedDict):
