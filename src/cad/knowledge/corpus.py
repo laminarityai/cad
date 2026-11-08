@@ -8,15 +8,18 @@ A file starts with front matter that names its source, then sections:
     retrieved: 2026-11-07
     license: own-summary
     codes: [USGS]         (the material, part or standard codes the unit is about)
+    mentions: [ABS]       (optional: codes the text names but the unit is not about)
     ---
     ## Density            -> id kb:<file stem>#density
     <!-- page: 2 -->      (optional; a number or a range)
     Our summary, with a verbatim quote in "double quotes" wherever a number is cited.
 
 A query code (PLA+, M5x0.8) matches a unit only when it is one of the unit's declared codes, so a
-unit that merely mentions PLA is not about PLA. A file whose title or section names a code and
-declares no `codes:` is refused. Files are read as UTF-8, with a byte order mark or Windows line
-endings accepted. A `##` line inside a fenced code block is text, not a heading.
+unit that merely mentions PLA is not about PLA. A code-shaped or all-caps token in a unit's title,
+heading or text must be under `codes:` (the unit is about it) or `mentions:` (the text names it
+only to compare), or the file is refused. A title or heading naming a code that another unit
+declares is refused the same way, in any letter case. Files are read as UTF-8, with a byte order
+mark or Windows line endings accepted. A `##` line inside a fenced code block is text.
 
 A number in a unit's text is never a value a check reads; checks read the tables by exact key.
 """
@@ -61,6 +64,7 @@ class Unit:
     pointer: Pointer
     text: str
     codes: frozenset[str]
+    mentions: frozenset[str]
 
 
 @dataclass(frozen=True, slots=True)
@@ -94,9 +98,22 @@ def load(path: Path = CORPUS_PATH) -> Corpus:
                 problems.append(f"{file.name}: duplicate unit {unit.pointer.id}")
             else:
                 units[unit.pointer.id] = unit
+    problems.extend(_undeclared_known_codes(units))
     if problems:
         raise InvalidCorpus("\n".join(problems))
     return Corpus(version=digest.hexdigest(), units=units)
+
+
+def _undeclared_known_codes(units: Mapping[str, Unit]) -> list[str]:
+    """A title or heading, in any case, that names a code another unit declares must declare it."""
+    known = {code for unit in units.values() for code in unit.codes}
+    return [
+        f"{unit.pointer.id}: the title or heading names the known code {token!r}, "
+        "declare it under codes: or mentions:"
+        for unit in units.values()
+        for token in tokens(f"{unit.pointer.title} {unit.pointer.section}")
+        if token.casefold() in known and token.casefold() not in unit.codes | unit.mentions
+    ]
 
 
 @dataclass(frozen=True, slots=True)
@@ -105,6 +122,7 @@ class Source:
     url: str
     retrieved: date
     codes: frozenset[str]
+    mentions: frozenset[str]
 
 
 def _parse(stem: str, text: str) -> tuple[list[Unit], list[str]]:
@@ -171,25 +189,26 @@ def _source(meta: object) -> tuple[Source | None, list[str]]:
         problems.append("front matter retrieved must be a date such as 2026-11-07")
     if license_ not in LICENSES:
         problems.append(f"front matter license must be one of {sorted(LICENSES)}")
-    codes, code_problems = _codes(fields.get("codes", []))
-    problems.extend(code_problems)
+    codes, code_problems = _codes("codes", fields.get("codes", []))
+    mentions, mention_problems = _codes("mentions", fields.get("mentions", []))
+    problems.extend(code_problems + mention_problems)
     if problems or not (
         isinstance(title, str) and isinstance(url, str) and type(retrieved) is date
     ):
         return None, problems
-    return Source(title, url, retrieved, codes), problems
+    return Source(title, url, retrieved, codes, mentions), problems
 
 
-def _codes(declared: object) -> tuple[frozenset[str], list[str]]:
+def _codes(field: str, declared: object) -> tuple[frozenset[str], list[str]]:
     if not isinstance(declared, list):
-        return frozenset(), ["front matter codes must be a list such as [PLA+]"]
+        return frozenset(), [f"front matter {field} must be a list such as [PLA+]"]
     codes: set[str] = set()
     problems: list[str] = []
     for item in cast(list[object], declared):
         found = tokens(item) if isinstance(item, str) else []
         if len(found) != 1 or normalize(cast(str, item)).strip() != found[0]:
             problems.append(
-                f"front matter codes entry {item!r} must be one token such as PLA+ or M5x0.8"
+                f"front matter {field} entry {item!r} must be one token such as PLA+ or M5x0.8"
             )
         else:
             codes.add(found[0].casefold())
@@ -213,10 +232,10 @@ def _unit(stem: str, source: Source, section: str, text: str) -> Unit | str:
     slug = re.sub(r"[^a-z0-9]+", "-", section.casefold()).strip("-")
     if not slug:
         return f"section {section!r}: the heading has no letters or digits for an id"
-    if not source.codes:
-        named = [t for t in tokens(f"{source.title} {section}") if looks_like_a_code(t)]
-        if named:
-            return f"section {section!r}: names {named[0]!r}, declare it under codes:"
+    allowed = source.codes | source.mentions
+    for token in tokens(f"{source.title} {section} {text}"):
+        if looks_like_a_code(token) and token.casefold() not in allowed:
+            return f"section {section!r}: names {token!r}, declare it under codes: or mentions:"
     pointer = Pointer(
         id=f"kb:{stem}#{slug}",
         title=source.title,
@@ -225,4 +244,4 @@ def _unit(stem: str, source: Source, section: str, text: str) -> Unit | str:
         section=section,
         retrieved=source.retrieved,
     )
-    return Unit(pointer, text, source.codes)
+    return Unit(pointer, text, source.codes, source.mentions)

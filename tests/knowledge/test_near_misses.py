@@ -96,6 +96,7 @@ PLASTICS = {
     ),
 }
 PLASTIC_CODES = {"pla": ["PLA"], "plus": ["PLA+"]}
+PLASTIC_MENTIONS = {"plus": ["PLA"]}
 
 
 @pytest.mark.parametrize(
@@ -109,7 +110,7 @@ PLASTIC_CODES = {"pla": ["PLA"], "plus": ["PLA+"]}
     ],
 )
 def test_every_spelling_of_pla_plus_is_pla_plus(make_index: MakeIndex, query: str) -> None:
-    index = make_index(PLASTICS, PLASTIC_CODES)
+    index = make_index(PLASTICS, PLASTIC_CODES, PLASTIC_MENTIONS)
     assert ids(index.search(query)) == ["kb:plus#density"]
     assert ids(index.search("PLA density")) == ["kb:pla#density"]
 
@@ -133,17 +134,17 @@ def test_a_typographic_dash_in_a_code_is_a_hyphen(make_index: MakeIndex, query: 
 def test_a_code_in_a_units_text_is_not_a_code_it_is_about(
     make_index: MakeIndex, query: str
 ) -> None:
-    assert make_index(PLASTICS, PLASTIC_CODES).search(query) == ()
+    assert make_index(PLASTICS, PLASTIC_CODES, PLASTIC_MENTIONS).search(query) == ()
 
 
 def test_a_query_with_a_code_still_finds_the_unit_about_it(make_index: MakeIndex) -> None:
-    index = make_index(PLASTICS, PLASTIC_CODES)
+    index = make_index(PLASTICS, PLASTIC_CODES, PLASTIC_MENTIONS)
     assert ids(index.search("PLA+ toughness")) == ["kb:plus#toughness"]
     assert ids(index.search("pla+ layer adhesion")) == ["kb:plus#toughness"]
 
 
 def test_a_query_with_no_code_and_two_answers_returns_nothing(make_index: MakeIndex) -> None:
-    index = make_index(PLASTICS, PLASTIC_CODES)
+    index = make_index(PLASTICS, PLASTIC_CODES, PLASTIC_MENTIONS)
     assert index.search("PolyTerra density") == ()
     assert index.search("polyterra data sheet") == ()
 
@@ -153,3 +154,61 @@ def test_a_query_with_no_code_may_hit_several_units_about_one_thing(
 ) -> None:
     index = make_index({"w": "## Density\nFresh water density.\n\n## Heat\nFresh water heat.\n"})
     assert ids(index.search("fresh water")) == ["kb:w#density", "kb:w#heat"]
+
+
+COMPARED = {"pla": "## Density\nPLA density is 1.24, lower than ABS and PETG.\n"}
+
+
+@pytest.mark.parametrize(
+    "query", ["PETG density", "petg density", "ABS density", "abs density", "PETG ABS density"]
+)
+def test_a_material_a_unit_only_compares_against_is_not_what_it_is_about(
+    make_index: MakeIndex, query: str
+) -> None:
+    index = make_index(COMPARED, {"pla": ["PLA"]}, {"pla": ["ABS", "PETG"]})
+    assert index.search(query) == ()
+    assert ids(index.search("PLA density")) == ["kb:pla#density"]
+
+
+def test_variants_that_share_the_queried_code_return_nothing(make_index: MakeIndex) -> None:
+    index = make_index(
+        {
+            "petg": "## Density\nPETG density is 1.27.\n",
+            "petg-hf": "## Density\nPETG HF density is 1.29.\n",
+        },
+        {"petg": ["PETG"], "petg-hf": ["PETG", "HF"]},
+    )
+    assert index.search("PETG density") == ()
+    assert ids(index.search("PETG HF density")) == ["kb:petg-hf#density"]
+    assert ids(index.search("HF density")) == ["kb:petg-hf#density"]
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "PLA\u2795 density",
+        "PLA\u271a density",
+        "PLA\u02d6 density",
+        "PLA\u2214 density",
+        "PLA (+) density",
+        "PLA +/- density",
+        "PLA ++ density",
+    ],
+)
+def test_a_plus_the_normal_form_does_not_recognise_returns_nothing(
+    make_index: MakeIndex, query: str
+) -> None:
+    assert make_index(PLASTICS, PLASTIC_CODES, PLASTIC_MENTIONS).search(query) == ()
+
+
+@pytest.mark.parametrize("hidden", ["\u200b", "\u00ad", "\u2060", "\ufeff", "\u200d"])
+def test_a_format_character_beside_the_plus_is_ignored(make_index: MakeIndex, hidden: str) -> None:
+    index = make_index(PLASTICS, PLASTIC_CODES, PLASTIC_MENTIONS)
+    assert ids(index.search(f"PLA{hidden}+ density")) == ["kb:plus#density"]
+    assert ids(index.search(f"PLA {hidden}+ density")) == ["kb:plus#density"]
+
+
+@pytest.mark.parametrize("query", ["PA12 + density", "PA12 plus density", "pa12+ density"])
+def test_a_plus_spelling_joins_a_code_with_digits(make_index: MakeIndex, query: str) -> None:
+    index = make_index({"u": "## Density\nPA12+ density.\n"}, {"u": ["PA12+"]})
+    assert ids(index.search(query)) == ["kb:u#density"]

@@ -13,6 +13,8 @@ QUERIES = (
     "PLA plus density",
     "PLA toughness",
     "PolyTerra density",
+    "PLA\u2795 density",
+    "ISO1183 density",
     "M5 clearance hole",
     "water viscosity",
     "water",

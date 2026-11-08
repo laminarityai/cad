@@ -81,6 +81,27 @@ def test_a_unit_declares_the_codes_it_is_about(tmp_path: Path) -> None:
     assert unit.codes == frozenset({"pla", "pla+"})
 
 
+def test_a_code_named_in_the_text_must_be_declared_or_mentioned(tmp_path: Path) -> None:
+    named = GOOD.replace("license:", "codes: [PLA]\nlicense:").replace(
+        "Some text.", "PLA is lighter than ABS."
+    )
+    assert "ABS" in problems(tmp_path, named)
+    mentioned = named.replace("license:", "mentions: [ABS]\nlicense:")
+    (unit,) = load(write(tmp_path, mentioned)).units.values()
+    assert unit.codes == frozenset({"pla"})
+    assert unit.mentions == frozenset({"abs"})
+
+
+def test_a_lowercase_title_that_names_a_known_code_must_declare_it(tmp_path: Path) -> None:
+    declared = GOOD.replace("title: Example", "title: Example PLA").replace(
+        "license:", "codes: [PLA]\nlicense:"
+    )
+    write(tmp_path, declared, "a.md")
+    write(tmp_path, GOOD.replace("title: Example", "title: polyterra Pla sheet"), "b.md")
+    with pytest.raises(InvalidCorpus, match="known code"):
+        load(tmp_path)
+
+
 def test_a_heading_inside_a_code_fence_is_text(tmp_path: Path) -> None:
     text = GOOD + "```\n## not a heading\n```\n"
     (unit,) = load(write(tmp_path, text)).units.values()
@@ -125,6 +146,8 @@ def test_the_seeded_corpus_is_valid_and_answers_its_questions() -> None:
     for query in ("PLA\uff0b density", "PLA + density", "PLA plus density", "PLA\u207a density"):
         assert [h.pointer.id for h in index.search(query)] == ["kb:pla-plus#density"], query
     assert index.search("plus grade density") == ()
+    for query in ("ISO1183 density", "GB/T1033 density", "PLA\u2795 density"):
+        assert index.search(query) == (), query
 
 
 def test_the_scorer_never_loads_the_knowledge_base() -> None:
