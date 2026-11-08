@@ -286,3 +286,30 @@ def test_a_stray_condition_next_to_a_value_is_unrecognised_text() -> None:
     result = refusal("Density 1.24 g/cm3 23C")
     assert result.reason is Reason.UNRECOGNISED_TEXT
     assert "23" in result.detail
+
+
+@pytest.mark.parametrize(
+    "quote",
+    [
+        "Density at 23 °C 1.24 g/cm3 at 80 °C",
+        "Density @ 23 °C @ 80 °C 1.24 g/cm3",
+        "Density at 23°C 1.24 g/cm3 at 73 °F",
+        "Density at 1 bar 1.24 g/cm3 at 2 bar",
+    ],
+)
+def test_two_different_conditions_of_one_kind_are_refused(quote: str) -> None:
+    result = refusal(quote)
+    assert result.reason is Reason.SEVERAL_CONDITIONS
+    assert "which" in result.detail
+
+
+@pytest.mark.parametrize(
+    "quote",
+    [
+        "Density at 23 °C, 50 % RH 1.24 g/cm3",
+        "Density at 23 °C 1.24 g/cm3 @23°C",
+        "Density at 23 °C, at 1 bar 1.24 g/cm3",
+    ],
+)
+def test_conditions_that_do_not_conflict_still_read(quote: str) -> None:
+    assert kg_per_m3(quote) == pytest.approx(1240.0)
