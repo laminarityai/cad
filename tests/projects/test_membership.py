@@ -37,7 +37,7 @@ def test_a_crash_before_the_rename_leaves_nothing_the_project_counts(tmp_path: P
     assert project_briefs(tmp_path, project) == (first,)
 
 
-def test_a_brief_stored_before_projects_belongs_to_its_own_derived_project(
+def test_a_brief_stored_before_projects_belongs_to_its_own_legacy_project(
     tmp_path: Path,
 ) -> None:
     legacy, _ = created(tmp_path)

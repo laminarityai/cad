@@ -37,7 +37,7 @@ from cad.briefs.model import (
     RequirementId,
     Target,
 )
-from cad.projects.model import Membership, ProjectId, derived_project
+from cad.projects.model import Membership, ProjectId, legacy_project
 from cad.variants import key
 
 BRIEFS_ROOT: Final = Path.home() / ".cad" / "briefs"
@@ -144,7 +144,6 @@ def parse_brief_id(raw: str) -> BriefId:
 
 
 def create_brief(root: Path, text: str, project: ProjectId) -> Brief:
-    """Store the brief and its project in one rename, so a brief is born in one project."""
     brief = Brief(id=BriefId(secrets.token_hex(8)), text=text, created_at=datetime.now(UTC))
     incoming = root / f".incoming-{secrets.token_hex(8)}"
     try:
@@ -162,14 +161,13 @@ def create_brief(root: Path, text: str, project: ProjectId) -> Brief:
 
 
 def project_of(root: Path, raw_id: str) -> ProjectId:
-    """The project a brief was born in. A brief stored before projects belongs to pb-<brief_id>."""
     brief_id = parse_brief_id(raw_id)
     directory = root / brief_id
     if not records.is_directory(directory):
         raise UnknownBrief(f"no brief {brief_id} is stored; store it with create_brief")
     path = directory / PROJECT
     if not os.path.lexists(path):
-        return derived_project(brief_id)
+        return legacy_project(brief_id)
     record = _read_signed(root, f"{brief_id}/project", path)
     return _parse(root, brief_id, Membership, record).project_id
 
