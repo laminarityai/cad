@@ -8,9 +8,9 @@ from typing import TYPE_CHECKING
 import pytest
 
 from cad.confirmations import answers, page
-from cad.records import signed
 from cad.confirmations.answers import PageAnswer
 from cad.projects.model import ProjectBusy, ProjectId
+from cad.records import signed
 
 if TYPE_CHECKING:
     from conftest import Session
