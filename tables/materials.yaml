@@ -124,3 +124,511 @@ materials:
         retrieved: 2026-11-05
         standard: null
         quote: UTS, ksi. (MPa) 0.2% YS, ksi. (MPa) ... Type 304 95 (655) 42 (290) 55 84
+
+  - key: bambu-pla-basic
+    name: Bambu Lab PLA Basic
+    density:
+      value: 1.24 g/cm^3
+      source:
+        url: https://store.bblcdn.com/s1/default/58b85d0f3db94878854a28fdb8a0006e/Bambu_PLA_Basic_Technical_Data_Sheet.pdf
+        title: Bambu Filament Technical Data Sheet V3.0, PLA Basic
+        page: page 2, Properties, Physical Properties (typical values), filament material
+        retrieved: 2026-11-07
+        standard: ISO 1183
+        quote: Density ISO 1183 1.24 g/cm³
+    yield_strength: unknown
+    tensile_strength:
+      value: 35 MPa
+      source:
+        url: https://store.bblcdn.com/s1/default/58b85d0f3db94878854a28fdb8a0006e/Bambu_PLA_Basic_Technical_Data_Sheet.pdf
+        title: Bambu Filament Technical Data Sheet V3.0, PLA Basic
+        page: page 2, Properties, Mechanical Properties (typical values), Tensile Strength (X-Y); specimen printed 100% infill, X-Y (in-plane) direction, value is the mean from the sheet’s mean ± spread; 220 °C nozzle, 200 mm/s, annealed and dried at 55 °C for 8 h
+        retrieved: 2026-11-07
+        standard: ISO 527, GB/T 1040
+        quote: Tensile Strength (X-Y) ISO 527, GB/T 1040 35 ± 4 MPa
+
+  - key: bambu-petg-basic
+    name: Bambu Lab PETG Basic
+    density:
+      value: 1.25 g/cm^3
+      source:
+        url: https://store.bblcdn.com/s1/default/cb94589bf7994fdcbfa833badefae9cd/Bambu_PETG_Basic_Technical_Data_Sheet.pdf
+        title: Bambu Filament Technical Data Sheet V3.0, PETG Basic
+        page: page 2, Properties, Physical Properties (typical values), filament material
+        retrieved: 2026-11-07
+        standard: ISO 1183
+        quote: Density ISO 1183 1.25 g/cm³
+    yield_strength: unknown
+    tensile_strength:
+      value: 51 MPa
+      source:
+        url: https://store.bblcdn.com/s1/default/cb94589bf7994fdcbfa833badefae9cd/Bambu_PETG_Basic_Technical_Data_Sheet.pdf
+        title: Bambu Filament Technical Data Sheet V3.0, PETG Basic
+        page: page 2, Properties, Mechanical Properties (typical values), Tensile Strength (X-Y); specimen printed 100% infill, X-Y (in-plane) direction, value is the mean from the sheet’s mean ± spread; X1-Carbon, 255 °C nozzle, 150 mm/s, not annealed per the sheet's note
+        retrieved: 2026-11-07
+        standard: ISO 527, GB/T 1040
+        quote: Tensile Strength (X-Y) ISO 527, GB/T 1040 51 ± 1 MPa
+
+  - key: bambu-petg-hf
+    name: Bambu Lab PETG HF
+    density:
+      value: 1.28 g/cm^3
+      source:
+        url: https://store.bblcdn.com/3a230e260a3a47c2b0db0156e07eef91.pdf
+        title: Bambu Filament Technical Data Sheet V1.0, PETG HF
+        page: page 2, Properties, Physical Properties (typical values), filament material
+        retrieved: 2026-11-07
+        standard: ISO 1183
+        quote: Density ISO 1183 1.28 g/cm³
+    yield_strength: unknown
+    tensile_strength:
+      value: 34 MPa
+      source:
+        url: https://store.bblcdn.com/3a230e260a3a47c2b0db0156e07eef91.pdf
+        title: Bambu Filament Technical Data Sheet V1.0, PETG HF
+        page: page 2, Properties, Mechanical Properties (typical values), Tensile Strength (X-Y); specimen printed 100% infill, X-Y (in-plane) direction, value is the mean from the sheet’s mean ± spread; 255 °C nozzle, 200 mm/s, annealed and dried at 75 °C for 8 h
+        retrieved: 2026-11-07
+        standard: ISO 527, GB/T 1040
+        quote: Tensile Strength (X-Y) ISO 527, GB/T 1040 34 ± 4 MPa
+
+  - key: bambu-abs
+    name: Bambu Lab ABS
+    density:
+      value: 1.05 g/cm^3
+      source:
+        url: https://store.bblcdn.com/s7/default/23b4cf2b83d5470bb96d19970b5f3ae8/Bambu_ABS_Technical_Data_Sheet_V3.pdf
+        title: Bambu Filament Technical Data Sheet V3.0, ABS
+        page: page 2, Properties, Physical Properties (typical values), filament material
+        retrieved: 2026-11-07
+        standard: ISO 1183
+        quote: Density ISO 1183 1.05 g/cm³
+    yield_strength: unknown
+    tensile_strength:
+      value: 33 MPa
+      source:
+        url: https://store.bblcdn.com/s7/default/23b4cf2b83d5470bb96d19970b5f3ae8/Bambu_ABS_Technical_Data_Sheet_V3.pdf
+        title: Bambu Filament Technical Data Sheet V3.0, ABS
+        page: page 2, Properties, Mechanical Properties (typical values), Tensile Strength (X-Y); specimen printed 100% infill, X-Y (in-plane) direction, value is the mean from the sheet’s mean ± spread; 260 °C nozzle, 200 mm/s, annealed and dried at 80 °C for 12 h
+        retrieved: 2026-11-07
+        standard: ISO 527, GB/T 1040
+        quote: Tensile Strength (X-Y) ISO 527, GB/T 1040 33 ± 3 MPa
+
+  - key: bambu-asa
+    name: Bambu Lab ASA
+    density:
+      value: 1.05 g/cm^3
+      source:
+        url: https://store.bblcdn.com/ad7b08230c164e72856cffbe06bb7dc9.pdf
+        title: Bambu Filament Technical Data Sheet V3.0, ASA
+        page: page 2, Properties, Physical Properties (typical values), filament material
+        retrieved: 2026-11-07
+        standard: ISO 1183
+        quote: Density ISO 1183 1.05 g/cm³
+    yield_strength: unknown
+    tensile_strength:
+      value: 37 MPa
+      source:
+        url: https://store.bblcdn.com/ad7b08230c164e72856cffbe06bb7dc9.pdf
+        title: Bambu Filament Technical Data Sheet V3.0, ASA
+        page: page 2, Properties, Mechanical Properties (typical values), Tensile Strength (X-Y); specimen printed 100% infill, X-Y (in-plane) direction, value is the mean from the sheet’s mean ± spread; 260 °C nozzle, 200 mm/s, annealed and dried at 80 °C for 12 h
+        retrieved: 2026-11-07
+        standard: ISO 527, GB/T 1040
+        quote: Tensile Strength (X-Y) ISO 527, GB/T 1040 37 ± 3 MPa
+
+  - key: bambu-tpu-95a-hf
+    name: Bambu Lab TPU 95A HF
+    density:
+      value: 1.22 g/cm^3
+      source:
+        url: https://store.bblcdn.com/58df32731eab4c90a7dac9b12e13ba88.pdf
+        title: Bambu Filament Technical Data Sheet V1.0, TPU 95A HF
+        page: page 2, Properties, Physical Properties (typical values), filament material
+        retrieved: 2026-11-07
+        standard: ISO 1183
+        quote: Density ISO 1183 1.22 g/cm³
+    yield_strength: unknown
+    tensile_strength:
+      value: 27.3 MPa
+      source:
+        url: https://store.bblcdn.com/58df32731eab4c90a7dac9b12e13ba88.pdf
+        title: Bambu Filament Technical Data Sheet V1.0, TPU 95A HF
+        page: page 2, Properties, Mechanical Properties (typical values), Tensile Strength (X-Y); specimen printed 100% infill, X-Y (in-plane) direction, value is the mean from the sheet’s mean ± spread; 230 °C nozzle, 140 mm/s, annealed and dried at 70 °C for 12 h
+        retrieved: 2026-11-07
+        standard: ISO 527, GB/T 1040
+        quote: Tensile Strength (X-Y) ISO 527, GB/T 1040 27.3 ± 0.8 MPa
+
+  - key: polymaker-fiberon-pa6-cf20
+    name: Polymaker Fiberon PA6-CF20
+    density:
+      value: 1.17 g/cm^3
+      source:
+        url: https://fiberon.polymaker.com/wp-content/uploads/TDS_FIBERON-PA6-CF20_V1.1_EN.pdf
+        title: Technical Data Sheet V1.1, Fiberon PA6-CF20, Polymaker
+        page: page 1, Physical properties, typical value
+        retrieved: 2026-11-07
+        standard: ISO 1183, GB/T 1033
+        quote: Density ISO1183, GB/T1033 1.17 g/cm3 at 23°C
+    yield_strength: unknown
+    tensile_strength:
+      value: 109.3 MPa
+      source:
+        url: https://fiberon.polymaker.com/wp-content/uploads/TDS_FIBERON-PA6-CF20_V1.1_EN.pdf
+        title: Technical Data Sheet V1.1, Fiberon PA6-CF20, Polymaker
+        page: page 1, Mechanical properties - dry status, typical value; printed specimens, X-Y direction, dry (not water-conditioned), annealed at 100 °C for 16 h
+        retrieved: 2026-11-07
+        standard: ISO 527, GB/T 1040
+        quote: Tensile strength (X-Y) ISO 527, GB/T 1040 109.3 ± 2.4 MPa
+
+  - key: polymaker-fiberon-pa12-cf10
+    name: Polymaker Fiberon PA12-CF10
+    density:
+      value: 1.06 g/cm^3
+      source:
+        url: https://fiberon.polymaker.com/wp-content/uploads/TDS_FIBERON-PA12-CF10_V1.1_EN.pdf
+        title: Technical Data Sheet V1.1, Fiberon PA12-CF10, Polymaker
+        page: page 1, Physical properties, typical value
+        retrieved: 2026-11-07
+        standard: ISO 1183, GB/T 1033
+        quote: Density ISO1183, GB/T1033 1.06 g/cm3 at 23°C
+    yield_strength: unknown
+    tensile_strength:
+      value: 77.4 MPa
+      source:
+        url: https://fiberon.polymaker.com/wp-content/uploads/TDS_FIBERON-PA12-CF10_V1.1_EN.pdf
+        title: Technical Data Sheet V1.1, Fiberon PA12-CF10, Polymaker
+        page: page 1, Mechanical properties - dry status, typical value; printed specimens, X-Y direction, dry (not water-conditioned), annealed at 100 °C for 16 h
+        retrieved: 2026-11-07
+        standard: ISO 527, GB/T 1040
+        quote: Tensile strength (X-Y) ISO 527, GB/T 1040 77.4 ± 1.1 MPa
+
+  - key: bambu-pc
+    name: Bambu Lab PC
+    density:
+      value: 1.20 g/cm^3
+      source:
+        url: https://store.bblcdn.com/a52afdccddfd448583d119587122c8c5.pdf
+        title: Bambu Filament Technical Data Sheet V2.0, PC (linked from the Bambu Lab US store PC product page)
+        page: page 2, Properties, Physical Properties, typical value
+        retrieved: 2026-11-07
+        standard: ISO 1183
+        quote: Density ISO 1183 1.20 g/cm³
+    yield_strength: unknown
+    tensile_strength:
+      value: 62 MPa
+      source:
+        url: https://store.bblcdn.com/a52afdccddfd448583d119587122c8c5.pdf
+        title: Bambu Filament Technical Data Sheet V2.0, PC (linked from the Bambu Lab US store PC product page)
+        page: page 2, Mechanical Properties (Dry state), typical value; printed specimens, X-Y direction, 100% infill, annealed and dried at 80 °C for 12 h before testing (page 3)
+        retrieved: 2026-11-07
+        standard: ISO 527, GB/T 1040
+        quote: Tensile Strength (X-Y) ISO 527, GB/T 1040 62 ± 2 MPa
+
+  - key: polymaker-polymax-pc
+    name: Polymaker PolyMax PC
+    density:
+      value: 1.19 g/cm^3
+      source:
+        url: https://polymaker.com/wp-content/uploads/TDS_Polymaker_PolyMax-PC_V5.5_2026-01-05_EN.pdf
+        title: Technical Data Sheet V5.5, PolyMax PC, Polymaker (2026-01-05)
+        page: page 1, Physical properties, typical value
+        retrieved: 2026-11-07
+        standard: ISO 1183, GB/T 1033
+        quote: Density ISO1183, GB/T 1033 3 1.19 g/cm at 23°C
+    yield_strength: unknown
+    tensile_strength:
+      value: 53.44 MPa
+      source:
+        url: https://polymaker.com/wp-content/uploads/TDS_Polymaker_PolyMax-PC_V5.5_2026-01-05_EN.pdf
+        title: Technical Data Sheet V5.5, PolyMax PC, Polymaker (2026-01-05)
+        page: page 1, Mechanical properties, typical value; printed specimens, X-Y direction, 100% infill, not stated as annealed
+        retrieved: 2026-11-07
+        standard: ISO 527, GB/T 1040
+        quote: Tensile strength (X-Y) ISO 527, GB/T 1040 53.44 ± 0.60 MPa
+
+  - key: bambu-pla-cf
+    name: Bambu Lab PLA-CF
+    density:
+      value: 1.22 g/cm^3
+      source:
+        url: https://store.bblcdn.com/842f399d4e274507953a5231126ec8c1.pdf
+        title: Bambu Filament Technical Data Sheet V2.0, PLA-CF (linked from the Bambu Lab US store PLA-CF product page)
+        page: page 2, Properties, Physical Properties, typical value
+        retrieved: 2026-11-07
+        standard: ISO 1183
+        quote: Density ISO 1183 1.22 g/cm³
+    yield_strength: unknown
+    tensile_strength:
+      value: 38 MPa
+      source:
+        url: https://store.bblcdn.com/842f399d4e274507953a5231126ec8c1.pdf
+        title: Bambu Filament Technical Data Sheet V2.0, PLA-CF (linked from the Bambu Lab US store PLA-CF product page)
+        page: page 2, Mechanical Properties, typical value; printed specimens, X-Y direction, 100% infill, annealed and dried at 55 °C for 8 h before testing (page 3)
+        retrieved: 2026-11-07
+        standard: ISO 527, GB/T 1040
+        quote: Tensile Strength (X-Y) ISO 527, GB/T 1040 38 ± 4 MPa
+
+  - key: bambu-petg-cf
+    name: Bambu Lab PETG-CF
+    density:
+      value: 1.25 g/cm^3
+      source:
+        url: https://store.bblcdn.com/626e4f424bf345ae965ad0ddfcaf2459.pdf
+        title: Bambu Filament Technical Data Sheet V3.0, PETG-CF (linked from the Bambu Lab US store PETG-CF product page)
+        page: page 2, Properties, Physical Properties, typical value
+        retrieved: 2026-11-07
+        standard: ISO 1183
+        quote: Density ISO 1183 1.25 g/cm³
+    yield_strength: unknown
+    tensile_strength:
+      value: 35 MPa
+      source:
+        url: https://store.bblcdn.com/626e4f424bf345ae965ad0ddfcaf2459.pdf
+        title: Bambu Filament Technical Data Sheet V3.0, PETG-CF (linked from the Bambu Lab US store PETG-CF product page)
+        page: page 2, Mechanical Properties, typical value; printed specimens, X-Y direction, 100% infill, annealed and dried at 65 °C for 8 h before testing (page 3)
+        retrieved: 2026-11-07
+        standard: ISO 527, GB/T 1040
+        quote: Tensile Strength (X-Y) ISO 527, GB/T 1040 35 ± 5 MPa
+
+  - key: formlabs-clear-resin-v5
+    name: Formlabs Clear Resin V5
+    density:
+      value: 1.21 g/cm^3
+      source:
+        url: https://formlabs-media.formlabs.com/filer_public/dd/7f/dd7f3de9-55ae-4c82-ac52-408a4b5df64d/clear_resin_v5_tds___formlabs.pdf
+        title: Clear Resin V5 Technical Data Sheet, Formlabs
+        page: page 4, General Properties; same value in both post-cured columns (5 min post-cure and 15 min post-cure at 60 °C, Cure V1); no green value given
+        retrieved: 2026-11-07
+        standard: ASTM D792
+        quote: Density 1.21 g/cm3 (0.0437 lb/in3) 1.21 g/cm3 (0.0437 lb/in3) ASTM D792
+    yield_strength: unknown
+    tensile_strength:
+      value: 60 MPa
+      source:
+        url: https://formlabs-media.formlabs.com/filer_public/dd/7f/dd7f3de9-55ae-4c82-ac52-408a4b5df64d/clear_resin_v5_tds___formlabs.pdf
+        title: Clear Resin V5 Technical Data Sheet, Formlabs
+        page: page 2, Tensile Properties (heated post-cure), Ultimate Tensile Strength, 15 min post-cure at 60 °C column (post-cured, not green); Form 4, 100 µm, washed 5 min in IPA; the 58 MPa value beside it is the 4 min post-cure at 60 °C column
+        retrieved: 2026-11-07
+        standard: ASTM D638-14
+        quote: Ultimate Tensile Strength 60 MPa (8702 psi) 58 MPa (8410 psi) ASTM D638-14
+
+  - key: kaiser-7075-t6
+    name: Kaiser Aluminum 7075-T6 rod and bar
+    density:
+      value: 2.80 Mg/m^3
+      source:
+        url: https://online.kaiseraluminum.com/depot/PublicProductInformation/Document/1028/Kaiser_Aluminum_7075_Rod_and_Bar.pdf
+        title: Rod & Bar Alloy 7075 Technical Data, Kaiser Aluminum, KA-RBH-7075-8.10
+        page: page 2, Typical physical properties (nominal density, all tempers)
+        retrieved: 2026-11-07
+        standard: null
+        quote: Nominal Density (68 ºF / 20 ºC) 0.101 lbs./in.3 2.80 Mg/m3
+    yield_strength:
+      value: 503 MPa
+      source:
+        url: https://online.kaiseraluminum.com/depot/PublicProductInformation/Document/1028/Kaiser_Aluminum_7075_Rod_and_Bar.pdf
+        title: Rod & Bar Alloy 7075 Technical Data, Kaiser Aluminum, KA-RBH-7075-8.10
+        page: page 1, Typical mechanical properties, T6, T651 row, .500 in. dia. specimen (typical, columns Tensile Ultimate KSI MPa then Yield KSI MPa)
+        retrieved: 2026-11-07
+        standard: null
+        quote: T6, T651 83 572 73 503 11 150 48 331 23 158 10.3 71.0
+    tensile_strength:
+      value: 572 MPa
+      source:
+        url: https://online.kaiseraluminum.com/depot/PublicProductInformation/Document/1028/Kaiser_Aluminum_7075_Rod_and_Bar.pdf
+        title: Rod & Bar Alloy 7075 Technical Data, Kaiser Aluminum, KA-RBH-7075-8.10
+        page: page 1, Typical mechanical properties, T6, T651 row, .500 in. dia. specimen (typical, columns Tensile Ultimate KSI MPa then Yield KSI MPa)
+        retrieved: 2026-11-07
+        standard: null
+        quote: T6, T651 83 572 73 503 11 150 48 331 23 158 10.3 71.0
+
+  - key: cliffs-316
+    name: Cleveland-Cliffs Type 316/316L stainless steel
+    density:
+      value: 0.29 lb/in^3
+      source:
+        url: https://www.clevelandcliffs.com/_assets/_464c1f648dd1e0c96c45d68cdce1cf31/clevelandcliffs/db/1190/10513/file/CLF_ProductData_316-316LSS_052021.pdf
+        title: 316/316L Stainless Steel Product Data Bulletin, Cleveland-Cliffs, May 2021
+        page: page 4, Physical properties
+        retrieved: 2026-11-07
+        standard: null
+        quote: Density, lbs/in.3 (g/cm3) 0.29 (8.03)
+    yield_strength:
+      value: 42 ksi
+      source:
+        url: https://www.clevelandcliffs.com/_assets/_464c1f648dd1e0c96c45d68cdce1cf31/clevelandcliffs/db/1190/10513/file/CLF_ProductData_316-316LSS_052021.pdf
+        title: 316/316L Stainless Steel Product Data Bulletin, Cleveland-Cliffs, May 2021
+        page: page 3, Table 1 Typical room temperature mechanical properties, single row for Types 316/316L (typical; mill sheet and strip 0.01-0.1874 in., temper not printed in the table)
+        retrieved: 2026-11-07
+        standard: null
+        quote: UTS, ksi. (MPa) 0.2% YS, ksi. (MPa) Elongation % in 2 in. (50.8 mm) Rockwell Hardness, B 91 (627) 42 (290) 55 79
+    tensile_strength:
+      value: 91 ksi
+      source:
+        url: https://www.clevelandcliffs.com/_assets/_464c1f648dd1e0c96c45d68cdce1cf31/clevelandcliffs/db/1190/10513/file/CLF_ProductData_316-316LSS_052021.pdf
+        title: 316/316L Stainless Steel Product Data Bulletin, Cleveland-Cliffs, May 2021
+        page: page 3, Table 1 Typical room temperature mechanical properties, single row for Types 316/316L (typical; mill sheet and strip 0.01-0.1874 in., temper not printed in the table)
+        retrieved: 2026-11-07
+        standard: null
+        quote: UTS, ksi. (MPa) 0.2% YS, ksi. (MPa) Elongation % in 2 in. (50.8 mm) Rockwell Hardness, B 91 (627) 42 (290) 55 79
+
+  - key: cliffs-hot-rolled-cs-type-b
+    name: Cleveland-Cliffs hot-rolled Commercial Steel (CS Type B) mild steel sheet
+    density:
+      value: 7.87 g/cm^3
+      source:
+        url: https://www.clevelandcliffs.com/_assets/_7ce3a04c09e74bf31ff5f89fc888db25/clevelandcliffs/db/1190/10480/file/CLF_ProductData_HotRolled_062025.pdf
+        title: Hot-Rolled Steels Product Data, Cleveland-Cliffs, June 2025
+        page: page 4, Engineering properties (stated for all hot-rolled steels in the bulletin)
+        retrieved: 2026-11-07
+        standard: null
+        quote: Density 7.87 g/cm3 at 20°C
+    yield_strength:
+      value: 36 ksi
+      source:
+        url: https://www.clevelandcliffs.com/_assets/_7ce3a04c09e74bf31ff5f89fc888db25/clevelandcliffs/db/1190/10480/file/CLF_ProductData_HotRolled_062025.pdf
+        title: Hot-Rolled Steels Product Data, Cleveland-Cliffs, June 2025
+        page: page 4, Table 1 Typical mechanical properties, standard grades, Commercial Steel (CS Type B) row (typical, ASTM A1011 hot-rolled sheet 0.071-0.75 in.)
+        retrieved: 2026-11-07
+        standard: null
+        quote: Commercial Steel (CS T ype B) May be moderately formed. A specimen out in any direction can be bent flat on itself without cracking. 36 248 51 351 37 B61
+    tensile_strength:
+      value: 51 ksi
+      source:
+        url: https://www.clevelandcliffs.com/_assets/_7ce3a04c09e74bf31ff5f89fc888db25/clevelandcliffs/db/1190/10480/file/CLF_ProductData_HotRolled_062025.pdf
+        title: Hot-Rolled Steels Product Data, Cleveland-Cliffs, June 2025
+        page: page 4, Table 1 Typical mechanical properties, standard grades, Commercial Steel (CS Type B) row (typical, ASTM A1011 hot-rolled sheet 0.071-0.75 in.)
+        retrieved: 2026-11-07
+        standard: null
+        quote: Commercial Steel (CS T ype B) May be moderately formed. A specimen out in any direction can be bent flat on itself without cracking. 36 248 51 351 37 B61
+
+  - key: wieland-z23-r400
+    name: Wieland-Z23 free-machining brass (CuZn36Pb3, UNS C36000), temper R400 round rod
+    density:
+      value: 8.5 g/cm^3
+      source:
+        url: https://www.wieland.com/en/content/download/9839/file/Z23_EX_EN.pdf
+        title: Wieland-Z23 CuZn36Pb3 | Machining brass, BU Extruded Products data sheet, 08.19 (EX.ZMZ.UL/Er)
+        page: page 1, Physical properties (reference values at room temperature)
+        retrieved: 2026-11-07
+        standard: null
+        quote: Density g/cm3 8.5
+    yield_strength:
+      value: 200 MPa
+      source:
+        url: https://www.wieland.com/en/content/download/9839/file/Z23_EX_EN.pdf
+        title: Wieland-Z23 CuZn36Pb3 | Machining brass, BU Extruded Products data sheet, 08.19 (EX.ZMZ.UL/Er)
+        page: page 2, Mechanical properties according to EN, Round rods/polygonal rods acc. to EN 12164, temper R400, diameter 2-25 mm; Yield strength Rp0.2 minimum (sheet gives no typical value)
+        retrieved: 2026-11-07
+        standard: EN 12164
+        quote: R400 2 25 2 20 400 200
+    tensile_strength:
+      value: 400 MPa
+      source:
+        url: https://www.wieland.com/en/content/download/9839/file/Z23_EX_EN.pdf
+        title: Wieland-Z23 CuZn36Pb3 | Machining brass, BU Extruded Products data sheet, 08.19 (EX.ZMZ.UL/Er)
+        page: page 2, Mechanical properties according to EN, Round rods/polygonal rods acc. to EN 12164, temper R400, diameter 2-25 mm; Tensile strength Rm minimum (sheet gives no typical value)
+        retrieved: 2026-11-07
+        standard: EN 12164
+        quote: R400 2 25 2 20 400 200
+
+  - key: aurubis-c11000-h02
+    name: Aurubis C11000 (Cu-ETP) copper, temper H02 (1/2 hard) strip
+    density:
+      value: 8.9 g/cm^3
+      source:
+        url: https://aurubis.com/dam/jcr:ec116d17-1541-419a-a897-ad31b4fa6c93/c11000-cu-etp-us.pdf
+        title: Aurubis Technical Datasheet C11000 (Cu-ETP), 18 08 US
+        page: page 1, Physical properties table (density column, g/cm3 row)
+        retrieved: 2026-11-07
+        standard: null
+        quote: Density [lb/in³] [g/cm³] Specific heat cap. at 20°C [Btu/lb°F] [kJ/kgK] Electrical cond. [%IACS] [MS/m] Thermal cond. at 20°C [Btu/ft h °F] [W/mK] Mod. of elasticity x1000 ksi [GPa] Coef. of therm exp. at 20°C [10-6/°F] [10-6/K] 1981 1083 0.323 8.9
+    yield_strength: unknown
+    tensile_strength: unknown
+
+  - key: plexiglas-gs-0f00
+    name: PLEXIGLAS GS clear 0F00 cast acrylic (PMMA) sheet
+    density:
+      value: 1.19 g/cm^3
+      source:
+        url: https://www.plexiglas.de/files/plexiglas-content/pdf/technische-informationen/211-1-EN-PLEXIGLAS-GS-XT.pdf
+        title: PLEXIGLAS Technical Information, Ref. No. 211-1, 04/25
+        page: page 4, Typical property values (at 23 °C and 50% relative humidity), Mechanical properties, PLEXIGLAS GS column
+        retrieved: 2026-11-07
+        standard: ISO 1183
+        quote: Density ρ 1.19 1.19 1.19 g/cm³ ISO 1183
+    yield_strength: unknown
+    tensile_strength:
+      value: 80 MPa
+      source:
+        url: https://www.plexiglas.de/files/plexiglas-content/pdf/technische-informationen/211-1-EN-PLEXIGLAS-GS-XT.pdf
+        title: PLEXIGLAS Technical Information, Ref. No. 211-1, 04/25
+        page: page 4, Typical property values, Tensile strength σM, PLEXIGLAS GS column, 23 °C row (50% relative humidity), typical
+        retrieved: 2026-11-07
+        standard: ISO 527-2/1B/5
+        quote: Tensile strength σM MPa ISO 527-2/1B/5 – 40 °C 110 100 - 23 °C 80 72
+
+  - key: plexiglas-xt-0a000
+    name: PLEXIGLAS XT clear 0A000 extruded acrylic (PMMA) sheet
+    density:
+      value: 1.19 g/cm^3
+      source:
+        url: https://www.plexiglas.de/files/plexiglas-content/pdf/technische-informationen/211-1-EN-PLEXIGLAS-GS-XT.pdf
+        title: PLEXIGLAS Technical Information, Ref. No. 211-1, 04/25
+        page: page 4, Typical property values (at 23 °C and 50% relative humidity), Mechanical properties, PLEXIGLAS XT column
+        retrieved: 2026-11-07
+        standard: ISO 1183
+        quote: Density ρ 1.19 1.19 1.19 g/cm³ ISO 1183
+    yield_strength: unknown
+    tensile_strength:
+      value: 72 MPa
+      source:
+        url: https://www.plexiglas.de/files/plexiglas-content/pdf/technische-informationen/211-1-EN-PLEXIGLAS-GS-XT.pdf
+        title: PLEXIGLAS Technical Information, Ref. No. 211-1, 04/25
+        page: page 4, Typical property values, Tensile strength σM, PLEXIGLAS XT column, 23 °C row (50% relative humidity), typical
+        retrieved: 2026-11-07
+        standard: ISO 527-2/1B/5
+        quote: Tensile strength σM MPa ISO 527-2/1B/5 – 40 °C 110 100 - 23 °C 80 72
+
+  - key: mcam-ertacetal-c
+    name: Mitsubishi Chemical Advanced Materials Acetron GP / Ertacetal C POM-C (acetal copolymer) stock shapes
+    density:
+      value: 1.41 g/cm^3
+      source:
+        url: https://www.mcam.com/mam/63654/GEP-Ertacetal™%20C%20POM-C_en_US.pdf
+        title: Acetron GP/Ertacetal C POM-C Copolymer Polyoxymethylene product data sheet, date of issue / revision 30/06/2026
+        page: page 1, property table, ISO column, indicative value, dry material
+        retrieved: 2026-11-07
+        standard: ISO 1183-1
+        quote: Density ISO 1183-1 g/cm³ 1.41
+    yield_strength: unknown
+    tensile_strength: unknown
+
+  - key: plaskolite-tuffak-gp
+    name: Plaskolite TUFFAK GP polycarbonate sheet
+    density:
+      value: 1.2 g/cm^3
+      source:
+        url: https://plaskolite.com/docs/default-source/pds/pds329_tuf_gp_metric.pdf
+        title: TUFFAK GP Polycarbonate Sheet, Typical Metric ISO Properties, PDS329_TUF_GP_Metric, 012023
+        page: page 1, Typical Metric ISO Properties, Physical; typical value for the sheet
+        retrieved: 2026-11-07
+        standard: ISO 1183
+        quote: Density ISO 1183 g/cm³ 1.2
+    yield_strength:
+      value: 62 MPa
+      source:
+        url: https://plaskolite.com/docs/default-source/pds/pds329_tuf_gp_metric.pdf
+        title: TUFFAK GP Polycarbonate Sheet, Typical Metric ISO Properties, PDS329_TUF_GP_Metric, 012023
+        page: page 1, Typical Metric ISO Properties, Mechanical; typical; specimens from non-textured sheet per footnote, temperature and conditioning not stated
+        retrieved: 2026-11-07
+        standard: ISO 527-2
+        quote: Tensile Strength, Yield ISO 527-2 MPa 62
+    tensile_strength:
+      value: 66 MPa
+      source:
+        url: https://plaskolite.com/docs/default-source/pds/pds329_tuf_gp_metric.pdf
+        title: TUFFAK GP Polycarbonate Sheet, Typical Metric ISO Properties, PDS329_TUF_GP_Metric, 012023
+        page: page 1, Typical Metric ISO Properties, Mechanical; typical; specimens from non-textured sheet per footnote, temperature and conditioning not stated
+        retrieved: 2026-11-07
+        standard: ASTM D 638
+        quote: Tensile Strength, Ultimate ASTM D 638 MPa 66

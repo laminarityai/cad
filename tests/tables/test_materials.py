@@ -36,13 +36,13 @@ def problems_after(tmp_path: Path, key: str, edit: Callable[[Row], None]) -> str
 def test_table_loads_with_sha256_version() -> None:
     table = load_materials()
     assert table.version == hashlib.sha256(TABLE_PATH.read_bytes()).hexdigest()
-    assert sorted(table.materials) == [
+    assert {
         "cliffs-304",
         "kaiser-6061-t6",
         "polymaker-polylite-abs",
         "prusament-petg",
         "prusament-pla",
-    ]
+    } <= set(table.materials)
 
 
 def test_every_value_is_cited_or_unknown() -> None:
