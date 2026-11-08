@@ -37,15 +37,15 @@ def test_build_image_is_a_no_op_when_the_image_is_current(
     assert capsys.readouterr().out == f"sandbox image {image_tag(context_tar())} is current\n"
 
 
-def test_build_image_names_the_cause_in_one_line_when_docker_is_down(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+def test_build_image_says_docker_is_down_and_logs_the_cause(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     monkeypatch.setenv("DOCKER_HOST", "unix:///nonexistent/docker.sock")
     assert cli.main(["build-image"]) == 1
-    out = capsys.readouterr().out
-    assert out.startswith("docker is not reachable: ")
-    assert "unix:///nonexistent/docker.sock" in out
-    assert out.count("\n") == 1
+    assert capsys.readouterr().out == "docker is not reachable\n"
+    assert "unix:///nonexistent/docker.sock" in caplog.text
 
 
 def test_build_image_says_so_when_docker_is_not_installed(
