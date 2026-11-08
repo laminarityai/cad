@@ -37,8 +37,6 @@ GLUED_SEPARATORS = [
     "Density 1;24 g/cm3",
     "Density 1:24 g/cm3",
     "Density (2400 kg/m3)",
-    "Density ISO 1183,1240 kg/m3",
-    "Density ISO 1183:1 1.24 g/cm3",
     "Density:1.24g/cm3",
 ]
 

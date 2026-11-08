@@ -1,8 +1,8 @@
 """Split a quote into tokens from a closed set of classes. Every character lands in a token.
 
     standard  = a spelling from the table in `standards`, ending at a space, the end of the
-                quote, or a separator with no digit right after it
-    unlisted_standard = ISO, ASTM, DIN, or GB/T and a number, when no listed spelling fits
+                quote, or a separator
+    unlisted_standard = ISO, ASTM, DIN, GB/T or JIS and a number, when no listed spelling fits
     condition = "at" or "@" and a temperature or a pressure, or "% RH"
     unit      = a mass over a volume, such as g/cm3, kg/m^3 or lbs./in.3
     number    = digits with "." or "," marks, or digit groups split by single spaces
@@ -66,13 +66,14 @@ _SPELLINGS: Final = sorted(
 _SOURCES: Final[tuple[tuple[Kind, str, int], ...]] = (
     (
         "standard",
-        "(?:" + "|".join(map(re.escape, _SPELLINGS)) + r")(?=$| |[,;:()=\[\]](?!\d))",
+        "(?:" + "|".join(map(re.escape, _SPELLINGS)) + r")(?=$| |[,;:()=\[\]])",
         re.ASCII,
     ),
     (
         "unlisted_standard",
-        r"(?:ISO ?\d{3,5}(?:-\d{1,2})?(?::\d{4})?|ASTM ?[A-Z]\d+(?:-\d{1,2})?"
-        r"|DIN(?: ?EN)?(?: ?ISO)? ?\d+(?:-\d{1,2})?|GB/T ?\d+(?:-\d{1,2})?)",
+        r"(?:ISO ?\d{3,5}(?:-\d{1,2})?(?::\d{4})?|ASTM ?[A-Z] ?\d+(?:-\d{1,2})?"
+        r"|DIN(?: ?EN)?(?: ?ISO)? ?\d+(?:-\d{1,2})?|GB/T ?\d+(?:-\d{1,2})?"
+        r"|JIS ?[A-Z] ?\d+(?:-\d{1,2})?(?::\d{4})?)",
         re.ASCII,
     ),
     (

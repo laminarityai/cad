@@ -182,6 +182,8 @@ def test_digits_glued_to_a_standard_before_the_unit_are_named(quote: str) -> Non
         ("ISO 1183 ; - 2019 kg/m3", "2019"),
         ("ASTM D792 -13 1.24 g/cm3", "13"),
         ("JIS K 7112-1:2023,5 kg/m3", "5"),
+        ("Density ISO 1183,1240 kg/m3", "1240"),
+        ("Density ISO 1183:1 1.24 g/cm3", "1"),
     ],
 )
 def test_a_whole_number_reached_from_a_standard_through_separators_is_refused(
