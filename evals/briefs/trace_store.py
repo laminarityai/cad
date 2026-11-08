@@ -45,7 +45,7 @@ from tracking import RequirementOutcome, describe, outcomes_of, track
 
 from cad.checks.report import SPECS
 from cad.records.roots import HOME_ROOTS, Roots
-from cad.scorecard.model import Scorecard
+from cad.scorecard import material
 from cad.scorecard.score import SCORECARD
 from cad.tables.materials import MaterialsTable, load_materials
 from cad.variants import entry
@@ -186,7 +186,7 @@ def _read(
 ) -> tuple[CardTrace, tuple[RequirementOutcome, ...]]:
     name = path.parent.name
     try:
-        card = Scorecard.model_validate_json(path.read_text())
+        card = material.STORED.validate_json(path.read_text())
     except (OSError, ValidationError, pint.UndefinedUnitError, ZeroDivisionError) as error:
         return CardTrace(name, (Unreadable(str(error).splitlines()[0]),), ()), ()
     trace = trace_card(card, root, roots, table, SPEC_BY_ID)

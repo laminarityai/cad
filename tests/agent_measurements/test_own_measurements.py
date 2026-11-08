@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 import pytest
+import trace_store
 
 from cad.scorecard.model import AGENT_MEASUREMENT
 
@@ -129,3 +130,29 @@ async def test_a_measurement_without_a_brief_is_refused(s: Session, person: Pers
         own_measurements=[own(r2, HOLE)],
     )
     assert "MeasurementRefused" in text
+
+
+async def test_the_tracer_reads_a_card_the_server_stored_and_counts_its_measurement(
+    s: Session, person: Person, capsys: pytest.CaptureFixture[str]
+) -> None:
+    brief_id, r2, variant_id = await confirmed(s, person)
+    await s.call(
+        "score_variant",
+        variant_id=variant_id,
+        material_key="prusament-pla",
+        brief_id=brief_id,
+        own_measurements=[own(r2, HOLE)],
+    )
+    root = s.roots.briefs.parent
+    trace = [
+        "--root",
+        str(root / "variants"),
+        "--briefs-root",
+        str(s.roots.briefs),
+        "--projects-root",
+        str(s.roots.projects),
+    ]
+    assert trace_store.main(trace) == 0
+    printed = capsys.readouterr().out
+    assert "cards unreadable: 0" in printed
+    assert "agent measurements: 1, not verified" in printed

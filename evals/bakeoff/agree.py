@@ -30,8 +30,7 @@ from inputs import Attempt, as_result_contract, brief_prompt, read_session, stor
 from cad.checks.container.extents import SORTED_NAMES
 from cad.checks.result import CheckResult, StepStored, Verdict
 from cad.sandbox.outcome import Built
-from cad.scorecard import score
-from cad.scorecard.model import Scorecard
+from cad.scorecard import material, score
 from cad.variants import entry, store
 
 HERE: Final = Path(__file__).resolve().parent
@@ -163,7 +162,7 @@ def card_side(directory: Path) -> CardSide:
     path = directory / score.SCORECARD
     if not path.is_file():
         return CardSide(UNSCORED, None, None)
-    card = Scorecard.model_validate_json(path.read_text())
+    card = material.STORED.validate_json(path.read_text())
     verdict = next(r for r in card.finished if r.check_id == "closed_solid").verdict
     if card.brep_sha256 != sha256_of(directory / entry.BREP):
         raise EvidenceError("result.brep is not the BREP the scorecard measured")
