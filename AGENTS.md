@@ -9,7 +9,7 @@
 ## Rules that protect the core claim
 
 - The agent never decides whether a design is good. Checks do. Code that lets the agent change a check, its inputs, or a table it reads is a bug.
-- Numbers a check reads come from the parts and materials tables by exact key, never from vector search or model output. A requirement verdict compares a check's measure with a target a person confirmed.
+- Numbers a check reads come from the parts and materials tables by exact key, never from vector search or model output. When a value is unknown, it is researched ([ADR-0009](docs/adr/0009-an-unknown-value-is-researched-not-left-unknown.md)). The agent supplies a source and a quote, the server fetches the source and reads the number from the quote, and the scorecard labels the value as researched. A requirement verdict compares a check's measure with a target a person confirmed.
 - Agent-written Python runs only inside the sandbox.
 
 ## Conventions
