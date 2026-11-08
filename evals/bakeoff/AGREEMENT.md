@@ -13,8 +13,9 @@ The rule is `agree_rule` in `evals/bakeoff/agree.py`, fixed before any run.
 
 ## What each side measures
 
-- The scorecard side is `closed_solid`, the `mass` volume, and the sorted extents of the stored `result.brep`. The scorecard has no extents field, because phase 1 has no bounding-box check. `agree.py` measures the BREP that the scorecard's `brep_sha256` names, and it refuses a row when that hash, or the stored `step` hash, does not match the stored file.
-- The `grade.py` side is its category, volume and extents for the stored `result.step`.
+- The scorecard side is `closed_solid`, the `mass` volume, and the sorted extents from the `sorted_extent:*` measures of the `extents` check. `agree.py` does not measure the BREP itself. It refuses a row when the scorecard's `brep_sha256`, or its `step` hash, does not match the stored file, and it takes no extents from a scorecard whose `extents` check is not `pass`.
+- `extents` builds its box with `BRepBndLib.AddOptimal_s(shape, box, False, False)`, from the geometry and with no tolerance gap, which is the call `grade.py` makes. The default `BRepBndLib.Add_s` adds 1e-7 mm to each side, which is far below the 0.002 mm tolerance, but `AddOptimal_s` is used so the two sides measure the same box.
+- The `grade.py` side is its category, volume and extents for the stored `result.step`. `extents` measures the BREP and `grade.py` the STEP derived from it, so a row also shows that the STEP export keeps the box.
 
 ## Reproduce
 
@@ -30,9 +31,9 @@ A replay rewrites the final `export_step(shape, "out.step")` line of each stored
 
 ## Result
 
-Live, run 1 and run 2: 10/10 agree both times. Run 1 cost 0.401 USD.
+Live, run 1 and run 2: 10/10 agree both times. Run 1 cost 0.401 USD. Run 3, with the scorecard side reading the `extents` check instead of measuring the BREP itself: 10/10 agree, 0.384 USD.
 
-Replay: 59/60 agree. The replay result is 59/60, with one accepted exception.
+Replay: 59/60 agree, again after the `extents` change. The replay result is 59/60, with one accepted exception.
 
 ### Accepted exception: `sonnet/shaft_collar/0`
 

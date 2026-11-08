@@ -24,7 +24,7 @@ This directory is the maintained source for verifying what an MCP client sees fr
 
 - [Server info](./server-info.md) covers the `server_info` tool through a scripted call and through Claude Code, plus the error results for bad calls.
 - [Build variant](./build-variant.md) covers the `build_variant` tool: each outcome kind, the stored variant, Docker down, and the `sandbox image` verify step.
-- [Run checks](./run-checks.md) covers `cad-sandbox run-checks`, the command under `score_variant`: the three geometric checks on a built variant, the material key, the derived `result.step`, and the refusal of stale variants.
+- [Run checks](./run-checks.md) covers `cad-sandbox run-checks`, the command under `score_variant`: the four geometric checks on a built variant, the material key, the derived `result.step`, and the refusal of stale variants.
 - [Score variant](./score-variant.md) covers the `score_variant` and `list_materials` tools: the scorecard a client gets, the stored `scorecard.json`, the refusals, and the tool allowlist.
 - [Briefs](./briefs.md) covers `create_brief`, `propose_requirements`, `confirm_requirements` and `list_requirements`: the confirmation page, the scripted person, and the refusals when the agent tries to confirm.
 - [Agree](./agree.md) covers `evals/bakeoff/agree.py`: scorecards against the bake-off grader, for 10 live Claude Code sessions and for the 60 stored attempts replayed with no model.

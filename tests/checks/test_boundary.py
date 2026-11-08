@@ -54,6 +54,15 @@ def good_report() -> dict[str, Any]:
                 ],
                 "reason": "1000 mm^3",
             },
+            {
+                "id": "extents",
+                "verdict": "pass",
+                "measured": [
+                    measured("extent:x", 10.0, "mm"),
+                    measured("sorted_extent:smallest", 10.0, "mm"),
+                ],
+                "reason": "10 mm",
+            },
         ],
         "step": {"kind": "written", "base64": b64encode(STEP).decode()},
     }
@@ -85,12 +94,13 @@ def request_for_pla() -> Request:
     return build_request("prusament-pla", load_materials())
 
 
-def test_a_good_report_becomes_three_results_with_pint_quantities(request_for_pla: Request) -> None:
+def test_a_good_report_becomes_four_results_with_pint_quantities(request_for_pla: Request) -> None:
     parsed = parse(sent(good_report()), request_for_pla, WALL)
     assert [(result.check_id, result.verdict) for result in parsed.results] == [
         ("closed_solid", Verdict.PASS),
         ("interference", Verdict.PASS),
         ("mass", Verdict.PASS),
+        ("extents", Verdict.PASS),
     ]
     assert parsed.step == STEP
     mass = parsed.results[2]
@@ -155,7 +165,7 @@ MISBEHAVIORS = {
     "ids-out-of-order": sent({**good_report(), "results": good_report()["results"][::-1]}),
     "a-missing-id": sent({**good_report(), "results": good_report()["results"][:2]}),
     "a-duplicated-id": sent(
-        {**good_report(), "results": [good_report()["results"][0]] * 3},
+        {**good_report(), "results": [good_report()["results"][0]] * 4},
     ),
     "verdict-ok": sent(with_result(0, verdict="ok")),
     "undeclared-measure": sent(with_result(0, measured=[measured("flux", 1, DIMENSIONLESS)])),
@@ -170,7 +180,7 @@ MISBEHAVIORS = {
 
 
 @pytest.mark.parametrize("seen", MISBEHAVIORS.values(), ids=MISBEHAVIORS.keys())
-def test_every_misbehavior_gives_three_unknown_results_and_no_step(
+def test_every_misbehavior_gives_four_unknown_results_and_no_step(
     seen: Ran, request_for_pla: Request
 ) -> None:
     parsed = parse(seen, request_for_pla, WALL)
@@ -218,7 +228,7 @@ def test_a_step_the_container_left_out_keeps_the_verdicts_and_says_why(
         request_for_pla,
         WALL,
     )
-    assert [result.verdict for result in parsed.results] == [Verdict.PASS] * 3
+    assert [result.verdict for result in parsed.results] == [Verdict.PASS] * 4
     assert parsed.step == StepMissing(reason=reason)
 
 

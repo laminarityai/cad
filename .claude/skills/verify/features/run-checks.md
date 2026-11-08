@@ -1,19 +1,21 @@
 # Run checks
 
-`uv run cad-sandbox run-checks <variant_id> <material_key>` runs three checks on a built variant in a second sandbox container and prints a `CheckRun` as JSON. The checks are `closed_solid`, `interference` and `mass`. The container has the limits of a build and reads only the variant's BREP, on stdin. The MCP tool `score_variant` calls the same function and stores a scorecard (see [Score variant](./score-variant.md)). A live lane for the checks alone drives this command after `cad-call build_variant`.
+`uv run cad-sandbox run-checks <variant_id> <material_key>` runs four checks on a built variant in a second sandbox container and prints a `CheckRun` as JSON. The checks are `closed_solid`, `interference`, `mass` and `extents`. The container has the limits of a build and reads only the variant's BREP, on stdin. The MCP tool `score_variant` calls the same function and stores a scorecard (see [Score variant](./score-variant.md)). A live lane for the checks alone drives this command after `cad-call build_variant`.
 
 ## Sub-features
 
-- `checks-pass` returns `pass` for all three checks on the plate reference variant, each with a formula and sources, and a plate volume of 29509.72 mm^3.
+- `checks-pass` returns `pass` for all four checks on the plate reference variant, each with a formula and sources, a plate volume of 29509.72 mm^3 and sorted extents of 6 x 50 x 100 mm.
 - `checks-closed-solid-fail` returns `fail` for a shell with no solid and for a solid with a loose face, and names what is wrong.
 - `checks-interference-fail` returns `fail` for two overlapping boxes and reports the overlap volume.
 - `checks-mass` multiplies the volume by the density of the material key. The key must match a key of `tables/materials.yaml` exactly.
-- `checks-unknown-key` returns `unknown` for `mass` with a key that is not in the table, and the other two checks still run.
+- `checks-unknown-key` returns `unknown` for `mass` with a key that is not in the table, and the other three checks still run.
 - `checks-mass-needs-a-solid` returns `unknown` for `mass`, with no measured value, when `closed_solid` or `interference` does not pass. Its reason names that check and quotes its reason.
+- `checks-extents` measures the axis-aligned bounding box of the stored BREP in mm: `extent:x`, `extent:y` and `extent:z`, and the same three as `sorted_extent:smallest`, `sorted_extent:middle` and `sorted_extent:largest`. It uses `BRepBndLib.AddOptimal_s` with no triangulation and no shape tolerance, so a 10 x 20 x 30 mm box reads exactly 10, 20 and 30. A part rotated 45 degrees about z reads wider than itself, because the box follows the axes, not the part.
+- `checks-extents-needs-a-solid` returns `unknown` for `extents`, with no measured value, when `closed_solid` does not pass. A loose face or a second body would otherwise stretch the box past the part.
 - `checks-step` writes `result.step` beside the BREP at the first run, from the shape the checks measured.
 - `checks-deterministic` prints byte-identical output for two runs of one variant.
-- `checks-version` changes the version of a check whose own file changed, and of each check that runs it. `mass` runs `closed_solid` and `interference`, so an edit to either file also changes the `mass` version. An edit to any other file that scoring imports, such as `src/cad/checks/report.py`, changes all three versions.
-- `checks-garbage-brep` returns `fail` for `closed_solid` and `unknown` for the other two when the BREP is not a BREP, and the next run still works.
+- `checks-version` changes the version of a check whose own file changed, and of each check that runs it. `mass` runs `closed_solid` and `interference`, and `extents` runs `closed_solid`, so an edit to `closed_solid.py` also changes the `mass` and `extents` versions. An edit to any other file that scoring imports, such as `src/cad/checks/report.py`, changes all four versions.
+- `checks-garbage-brep` returns `fail` for `closed_solid` and `unknown` for the other three when the BREP is not a BREP, and the next run still works.
 - `checks-refused` exits 1 with one line for an unknown, stale, or unbuilt variant, and starts no container.
 
 ## How to get to it (user POV)
@@ -35,14 +37,14 @@ uv run cad-call build_variant "$(jq -Rs '{code: .}' < tests/sandbox/parts/plate.
 ID=$(jq -r .structuredContent.variant_id "$EVIDENCE/build-plate.json")
 ```
 
-- **Pass.** Run `uv run cad-sandbox run-checks "$ID" prusament-pla > "$EVIDENCE/checks-plate.json"; echo $?`. Exit code `0`. `results` has `closed_solid`, `interference` and `mass`, each with `verdict` `pass`, a non-empty `formula` and a non-empty `sources` list. `mass` has a `volume` measure of 29509.72 mm^3 within 0.01 and lists the density datasheet as its last source. `step` is `{"kind": "stored", "sha256": <hash>}`, and `~/.cad/variants/$ID/result.step` exists.
-- **Closed solid fails.** Build the plate code with `from build123d import Shell` and `result = Shell(result.faces()[:-1])` appended, then run. `closed_solid` is `fail`, its reason starts `found 0 solids` and `solids` is 0. `mass` is `unknown` with an empty `measured` list, and its reason starts `closed_solid is fail`. The exit code is still `0`, because the run completed.
+- **Pass.** Run `uv run cad-sandbox run-checks "$ID" prusament-pla > "$EVIDENCE/checks-plate.json"; echo $?`. Exit code `0`. `results` has `closed_solid`, `interference`, `mass` and `extents`, each with `verdict` `pass`, a non-empty `formula` and a non-empty `sources` list. `mass` has a `volume` measure of 29509.72 mm^3 within 0.01 and lists the density datasheet as its last source. `extents` has `extent:x`, `extent:y` and `extent:z` of 100, 50 and 6 mm within 0.002 (the plate lies flat with its long side on x) and sorted extents of 6, 50 and 100 mm. `step` is `{"kind": "stored", "sha256": <hash>}`, and `~/.cad/variants/$ID/result.step` exists.
+- **Closed solid fails.** Build the plate code with `from build123d import Shell` and `result = Shell(result.faces()[:-1])` appended, then run. `closed_solid` is `fail`, its reason starts `found 0 solids` and `solids` is 0. `mass` and `extents` are `unknown` with an empty `measured` list, and their reasons start `closed_solid is fail`. The exit code is still `0`, because the run completed.
 - **Interference fails.** Build `from build123d import *` and `result = Compound([Box(10, 10, 10), Pos(5, 5, 5) * Box(10, 10, 10)])`, then run. `interference` is `fail` with `common_volume:0-1` of 125 mm^3. `mass` is `unknown` with an empty `measured` list, because `closed_solid` fails on 2 solids.
 - **Mass ratio.** Run `prusament-pla` and then `kaiser-6061-t6` on one id. Both `volume` measures match, and the ratio of the two `mass` measures equals the ratio of the two densities in `tables/materials.yaml` to four digits.
-- **Unknown key.** Run with `unobtainium`. `mass` is `unknown`, its reason names the key, `volume` is still measured, and the other two are `pass`. A key with a trailing space or capitals gives the same.
+- **Unknown key.** Run with `unobtainium`. `mass` is `unknown`, its reason names the key, `volume` is still measured, and the other three are `pass`. A key with a trailing space or capitals gives the same.
 - **Deterministic.** Run the plate twice into two files and run `cmp` on them. Then `cmp` the `result.step` hash in both. Both pairs are identical.
-- **Version.** Note each `version` in the output. Append a comment to `src/cad/checks/container/closed_solid.py`, then run again from a new process. The `closed_solid` and `mass` versions changed and the `interference` version did not. Revert the edit. This re-keys no variant, because the file is outside `src/cad/sandbox/` and `src/cad/variants/`.
-- **Garbage BREP.** Build a variant whose code writes a built report with random bytes as `brep` to fd 3 (`os.write(3, ...)`, then `os._exit(0)`), then run it twice. `closed_solid` is `fail` with a reason that starts `the BREP could not be read`, the other two are `unknown`, `step` is `{"kind": "missing"}` with a `reason` that says the BREP could not be read, and no `result.step` exists. The second run answers the same.
+- **Version.** Note each `version` in the output. Append a comment to `src/cad/checks/container/closed_solid.py`, then run again from a new process. The `closed_solid`, `mass` and `extents` versions changed and the `interference` version did not. Revert the edit. This re-keys no variant, because the file is outside `src/cad/sandbox/` and `src/cad/variants/`.
+- **Garbage BREP.** Build a variant whose code writes a built report with random bytes as `brep` to fd 3 (`os.write(3, ...)`, then `os._exit(0)`), then run it twice. `closed_solid` is `fail` with a reason that starts `the BREP could not be read`, the other three are `unknown`, `step` is `{"kind": "missing"}` with a `reason` that says the BREP could not be read, and no `result.step` exists. The second run answers the same.
 - **Refusals.** Run `uv run cad-sandbox run-checks fe250eb62250be75 prusament-pla; echo $?` on an id from before this change. The output is one line, `StaleVariant: variant fe250eb62250be75 was not stored by this version of the sandbox; build its code again`, and the exit code is `1`. An id that is not 16 lowercase hex digits prints an `UnknownVariant` line, and an id whose build failed prints a `NotBuilt` line. No container starts for any of them.
 - **Test suite.** Run `uv run pytest tests/checks -q`. It needs Docker for the mutant, reference part, forgery and CLI tests.
 
@@ -58,7 +60,7 @@ The check sources are staged in `~/.cad/stage/<16 hex digits>/`, read-only, one 
 
 ## Gotchas
 
-- Exit code `0` means the run completed, not that the design is good. Read the three verdicts.
+- Exit code `0` means the run completed, not that the design is good. Read the four verdicts.
 - `unknown` is not `pass`. A timeout, a crash, a malformed report or a missing density gives `unknown` with the cause in `reason`, and no STEP is stored.
 - `result.step` appears at the first run, not at the build.
 - A material key is matched exactly. There is no trimming, case folding or search.

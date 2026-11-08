@@ -50,7 +50,7 @@ def test_every_check_passes_and_the_volume_matches_grade_py(
     built = built_parts[part]
     assert built.outcome == Built(), built.output
     run = run_checks(built.variant_id, "prusament-pla", store)
-    assert [result.verdict for result in run.results] == [Verdict.PASS] * 3, [
+    assert [result.verdict for result in run.results] == [Verdict.PASS] * 4, [
         result.reason for result in run.results
     ]
     for result in run.results:

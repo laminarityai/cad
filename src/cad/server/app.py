@@ -42,8 +42,9 @@ RULE = (
     "For anything no check measured, say that it was not checked."
 )
 SCORE_VARIANT = (
-    "Score one built variant with the fixed checks closed_solid, interference and mass, and "
-    "store the scorecard beside the variant. Every result has a verdict (pass, fail or unknown), "
+    "Score one built variant with the fixed checks closed_solid, interference, mass and "
+    "extents (the axis-aligned bounding box in mm), and store the scorecard beside the variant. "
+    "Every result has a verdict (pass, fail or unknown), "
     "its measured values, its formula, its sources and its check version. unknown means the "
     "check could not decide, and it is not a pass. "
     "The scorecard names the table version and the sandbox image digest, and it says that phase 1 "

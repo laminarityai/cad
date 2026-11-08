@@ -106,7 +106,8 @@ def test_a_forged_brep_is_checked_and_no_step_is_invented_from_it(
     closed = run.result("closed_solid")
     assert closed.verdict == Verdict.FAIL
     assert closed.reason.startswith("the BREP could not be read")
-    assert [run.result(id).verdict for id in ("interference", "mass")] == [Verdict.UNKNOWN] * 2
+    unmeasured = [run.result(id).verdict for id in ("interference", "mass", "extents")]
+    assert unmeasured == [Verdict.UNKNOWN] * 3
     assert run.step == StepMissing(reason="no STEP was derived, because the BREP could not be read")
     assert "result.step" not in stored_files(tmp_path, built.variant_id)
     again = run_checks(built.variant_id, "prusament-pla", tmp_path)

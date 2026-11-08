@@ -74,7 +74,12 @@ async def test_build_then_score_returns_the_scorecard_it_stored(tmp_path: Path) 
     assert not scored.is_error, text_of(scored)
     assert scored.structured_content is not None
     verdicts = {r["check_id"]: r["verdict"] for r in scored.structured_content["results"]}
-    assert verdicts == {"closed_solid": "pass", "interference": "pass", "mass": "pass"}
+    assert verdicts == {
+        "closed_solid": "pass",
+        "interference": "pass",
+        "mass": "pass",
+        "extents": "pass",
+    }
     stored = json.loads((tmp_path / variant_id / score.SCORECARD).read_text())
     assert stored == scored.structured_content
 
@@ -144,7 +149,12 @@ async def test_a_well_formed_key_missing_from_the_table_scores_with_mass_unknown
     assert not scored.is_error, text_of(scored)
     assert scored.structured_content is not None
     verdicts = {r["check_id"]: r["verdict"] for r in scored.structured_content["results"]}
-    assert verdicts == {"closed_solid": "pass", "interference": "pass", "mass": "unknown"}
+    assert verdicts == {
+        "closed_solid": "pass",
+        "interference": "pass",
+        "mass": "unknown",
+        "extents": "pass",
+    }
 
 
 async def test_the_score_variant_description_claims_no_more_than_the_server_does() -> None:
