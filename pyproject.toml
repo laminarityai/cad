@@ -55,4 +55,4 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --import-mode=importlib"
-pythonpath = ["evals/bakeoff", "evals/briefs", "tests/evals", "tests/checks"]
+pythonpath = ["evals/bakeoff", "evals/briefs", "tests/evals", "tests/checks", "tests/fea"]
