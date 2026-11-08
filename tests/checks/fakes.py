@@ -1,7 +1,15 @@
 from dataclasses import dataclass, field
 
 from cad.checks.container.inputs import Input
-from cad.checks.container.kernel import EdgeUses, Shape, StepTooLarge, Unreadable, VolumeProps
+from cad.checks.container.kernel import (
+    EdgeUses,
+    FaceInfo,
+    Inertia,
+    Shape,
+    StepTooLarge,
+    Unreadable,
+    VolumeProps,
+)
 from cad.checks.container.suite import CHECKS
 from cad.checks.container.wire import RequestWire, ValueKnown, ValueWire
 
@@ -55,6 +63,12 @@ class FakeKernel:
 
     def extents(self, shape: Shape) -> tuple[float, float, float] | None:
         return self.box
+
+    def faces(self, shape: Shape) -> tuple[FaceInfo, ...]:
+        raise NotImplementedError("no check reads faces yet")
+
+    def inertia(self, shape: Shape) -> Inertia:
+        raise NotImplementedError("no check reads inertia yet")
 
     def common_volume(self, first: Shape, second: Shape) -> float | None:
         assert isinstance(first, FakeShape) and isinstance(second, FakeShape)

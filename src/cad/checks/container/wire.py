@@ -62,3 +62,60 @@ class CheckedReport(TypedDict):
     kind: Literal["checked"]
     results: list[ResultWire]
     step: StepWire
+
+
+class HolesWire(TypedDict):
+    kind: Literal["holes"]
+    count: int
+    diameter_mm: float | None
+
+
+class LargestFlatWire(TypedDict):
+    kind: Literal["largest_flat"]
+
+
+class FlatEndWire(TypedDict):
+    kind: Literal["flat_end"]
+
+
+type SupportWire = HolesWire | LargestFlatWire | FlatEndWire
+type AxisWire = Literal["long", "hole_axis"]
+
+
+class AlongWire(TypedDict):
+    kind: Literal["along"]
+    axis: AxisWire
+
+
+class AcrossWire(TypedDict):
+    kind: Literal["across"]
+    axis: AxisWire
+
+
+class AnyWayWire(TypedDict):
+    kind: Literal["any"]
+
+
+type DirectionWire = AlongWire | AcrossWire | AnyWayWire
+
+
+class FarEndWire(TypedDict):
+    kind: Literal["far_end"]
+    force_n: float
+    direction: DirectionWire
+
+
+class OnHolesWire(TypedDict):
+    kind: Literal["on_holes"]
+    count: int
+    diameter_mm: float | None
+    force_n: float
+    direction: DirectionWire
+
+
+type LoadWire = FarEndWire | OnHolesWire
+
+
+class LoadCaseWire(TypedDict):
+    support: SupportWire
+    load: LoadWire

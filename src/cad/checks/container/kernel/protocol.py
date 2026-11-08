@@ -1,6 +1,8 @@
 from dataclasses import dataclass
 from typing import NamedTuple, Protocol
 
+from cad.checks.container.vectors import Point
+
 
 class Shape(Protocol):
     def IsNull(self) -> bool: ...
@@ -24,6 +26,55 @@ class EdgeUses(NamedTuple):
 class VolumeProps(NamedTuple):
     volume: float  # signed by orientation
     center: tuple[float, float, float]
+
+
+@dataclass(frozen=True, slots=True)
+class Flat:
+    normal: Point
+    """Unit, pointing out of the material."""
+
+
+@dataclass(frozen=True, slots=True)
+class Round:
+    """A face on a circular cylinder: the points origin + v * axis at `radius` from the axis, for
+    v from v0 to v1, over `span` radians around it."""
+
+    origin: Point
+    axis: Point
+    radius: float
+    v0: float
+    v1: float
+    span: float
+    concave: bool
+    """The face's outward normal points at the axis, so the material is outside, as in a bore."""
+
+
+@dataclass(frozen=True, slots=True)
+class Curved:
+    pass
+
+
+type Surface = Flat | Round | Curved
+
+
+@dataclass(frozen=True, slots=True)
+class FaceInfo:
+    surface: Surface
+    area: float
+    centroid: Point
+
+
+@dataclass(frozen=True, slots=True)
+class Inertia:
+    """`axes` are the solid's unit principal axes through its centroid, right-handed, and
+    `moments` its principal moments of inertia about them at unit density. `spans` holds the
+    lowest and highest projection of the solid on each axis, measured from the centroid."""
+
+    volume: float
+    center: Point
+    axes: tuple[Point, Point, Point]
+    moments: tuple[float, float, float]
+    spans: tuple[tuple[float, float], tuple[float, float], tuple[float, float]]
 
 
 class Kernel(Protocol):
@@ -53,6 +104,12 @@ class Kernel(Protocol):
         computes (BRepBndLib.AddOptimal_s from geometry, not from the mesh, with no tolerance gap
         added)."""
         ...
+
+    def faces(self, shape: Shape) -> tuple[FaceInfo, ...]:
+        """Each face once, in the kernel's explorer order."""
+        ...
+
+    def inertia(self, shape: Shape) -> Inertia: ...
 
     def common_volume(self, first: Shape, second: Shape) -> float | None: ...
 

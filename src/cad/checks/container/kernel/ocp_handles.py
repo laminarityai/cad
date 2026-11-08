@@ -7,15 +7,49 @@ from typing import Protocol, cast
 from cad.checks.container.kernel.protocol import Shape
 
 
-class _Point(Protocol):
+class Xyz(Protocol):
     def X(self) -> float: ...
     def Y(self) -> float: ...
     def Z(self) -> float: ...
 
 
+class _Principal(Protocol):
+    def Moments(self) -> tuple[float, float, float]: ...
+    def FirstAxisOfInertia(self) -> Xyz: ...
+    def SecondAxisOfInertia(self) -> Xyz: ...
+
+
 class _Props(Protocol):
     def Mass(self) -> float: ...
-    def CentreOfMass(self) -> _Point: ...
+    def CentreOfMass(self) -> Xyz: ...
+    def PrincipalProperties(self) -> _Principal: ...
+
+
+class _Axis(Protocol):
+    def Location(self) -> Xyz: ...
+    def Direction(self) -> Xyz: ...
+
+
+class _Cylinder(Protocol):
+    def Position(self) -> _Axis: ...
+    def Radius(self) -> float: ...
+
+
+class _Adaptor(Protocol):
+    def GetType(self) -> object: ...
+    def Cylinder(self) -> _Cylinder: ...
+
+
+class _FaceProps(Protocol):
+    def Normal(self, u: float, v: float, point: Xyz, normal: Xyz) -> None: ...
+
+
+class _Trsf(Protocol):
+    def SetTransformation(self, to: object) -> None: ...
+
+
+class Movable(Protocol):
+    def Moved(self, location: object) -> Shape: ...
 
 
 class _Explorer(Protocol):
@@ -76,6 +110,9 @@ class _BRepTools(Protocol):
     @staticmethod
     def Read_s(shape: Shape, path: str, builder: object) -> bool: ...
 
+    @staticmethod
+    def UVBounds_s(face: Shape) -> tuple[float, float, float, float]: ...
+
 
 class _TopoDS(Protocol):
     @staticmethod
@@ -83,6 +120,9 @@ class _TopoDS(Protocol):
 
     @staticmethod
     def Solid_s(shape: Shape) -> Shape: ...
+
+    @staticmethod
+    def Face_s(shape: Shape) -> Shape: ...
 
 
 class _TopExp(Protocol):
@@ -95,6 +135,9 @@ class _TopExp(Protocol):
 class _BRepGProp(Protocol):
     @staticmethod
     def VolumeProperties_s(shape: Shape, props: _Props) -> object: ...
+
+    @staticmethod
+    def SurfaceProperties_s(shape: Shape, props: _Props) -> object: ...
 
 
 class _BRepBndLib(Protocol):
@@ -122,6 +165,14 @@ class Ocp:
     new_writer: Callable[[], _Writer]
     new_header: Callable[[_Model], _Header]
     new_hstring: Callable[[str], object]
+    new_adaptor: Callable[[Shape], _Adaptor]
+    new_face_props: Callable[[Shape], _FaceProps]
+    new_point: Callable[[float, float, float], Xyz]
+    new_vector: Callable[[float, float, float], Xyz]
+    new_direction: Callable[[float, float, float], object]
+    new_frame: Callable[[Xyz, object, object], object]
+    new_trsf: Callable[[], _Trsf]
+    new_location: Callable[[_Trsf], object]
     brep_tool: _BRepTool
     brep_tools: _BRepTools
     topods: _TopoDS
@@ -129,6 +180,8 @@ class Ocp:
     brep_gprop: _BRepGProp
     brep_bnd_lib: _BRepBndLib
     interface_static: _InterfaceStatic
+    plane: object
+    cylinder: object
     any_shape: object
     solid: object
     shell: object
@@ -145,6 +198,7 @@ def _module(name: str) -> ModuleType:
 
 def load_ocp() -> Ocp:
     topods, brep, top_abs = _module("TopoDS"), _module("BRep"), _module("TopAbs")
+    gp, geom_abs = _module("gp"), _module("GeomAbs")
     step_control, header = _module("STEPControl"), _module("APIHeaderSection")
     return Ocp(
         new_shape=cast(Callable[[], Shape], topods.TopoDS_Shape),
@@ -165,6 +219,14 @@ def load_ocp() -> Ocp:
         new_writer=cast(Callable[[], _Writer], step_control.STEPControl_Writer),
         new_header=cast(Callable[[_Model], _Header], header.APIHeaderSection_MakeHeader),
         new_hstring=cast(Callable[[str], object], _module("TCollection").TCollection_HAsciiString),
+        new_adaptor=cast(Callable[[Shape], _Adaptor], _module("BRepAdaptor").BRepAdaptor_Surface),
+        new_face_props=cast(Callable[[Shape], _FaceProps], _module("BRepGProp").BRepGProp_Face),
+        new_point=cast(Callable[[float, float, float], Xyz], gp.gp_Pnt),
+        new_vector=cast(Callable[[float, float, float], Xyz], gp.gp_Vec),
+        new_direction=cast(Callable[[float, float, float], object], gp.gp_Dir),
+        new_frame=cast(Callable[[Xyz, object, object], object], gp.gp_Ax3),
+        new_trsf=cast(Callable[[], _Trsf], gp.gp_Trsf),
+        new_location=cast(Callable[[_Trsf], object], _module("TopLoc").TopLoc_Location),
         brep_tool=cast(_BRepTool, brep.BRep_Tool),
         brep_tools=cast(_BRepTools, _module("BRepTools").BRepTools),
         topods=cast(_TopoDS, topods.TopoDS),
@@ -172,6 +234,8 @@ def load_ocp() -> Ocp:
         brep_gprop=cast(_BRepGProp, _module("BRepGProp").BRepGProp),
         brep_bnd_lib=cast(_BRepBndLib, _module("BRepBndLib").BRepBndLib),
         interface_static=cast(_InterfaceStatic, _module("Interface").Interface_Static),
+        plane=geom_abs.GeomAbs_Plane,
+        cylinder=geom_abs.GeomAbs_Cylinder,
         any_shape=top_abs.TopAbs_SHAPE,
         solid=top_abs.TopAbs_SOLID,
         shell=top_abs.TopAbs_SHELL,
