@@ -46,8 +46,9 @@ def build_job(code: str, image_id: str, wall_seconds: int) -> Job:
 
 
 def build(code: str, image_id: str, *, wall_seconds: int = container.WALL_SECONDS) -> Run:
-    ran = container.run(build_job(code, image_id, wall_seconds))
-    return Run(classify(ran.attended, ran.state, wall_seconds), ran.attended.output)
+    job = build_job(code, image_id, wall_seconds)
+    ran = container.run(job)
+    return Run(classify(ran.attended, ran.state, job), ran.attended.output)
 
 
 def check_job(brep: bytes, image_id: str, request: Request, wall_seconds: int) -> Job:
@@ -86,7 +87,7 @@ def run_checks(
             f"cannot stage the check sources for variant {held.id}", error, stage.STAGE_ROOT
         ) from error
     ran = container.run(job)
-    parsed = parse(ran, request, wall_seconds)
+    parsed = parse(ran, request, job)
     try:
         step = (
             parsed.step
@@ -106,6 +107,7 @@ def run_checks(
         brep_sha256=held.brep_sha256,
         step=step,
         results=parsed.results,
+        timed_out=parsed.timed_out,
     )
 
 
@@ -118,22 +120,22 @@ def materials_table() -> MaterialsTable:
         ) from error
 
 
-def classify(seen: Attended, state: ContainerState, wall_seconds: int) -> Artifacts | Failure:
+def classify(seen: Attended, state: ContainerState, job: Job) -> Artifacts | Failure:
     """Only the host's own kill means TimedOut. Exit codes 137 and 152 can come from the variant
     signalling itself or its `timeout` parent, and RLIMIT_CPU allows CPUS times the wall clock, so
     it cannot fire before the host's deadline.
     """
     if seen.killed_at_deadline:
-        return TimedOut(limit_seconds=wall_seconds)
+        return TimedOut(limit_seconds=job.wall_seconds)
     if isinstance(seen.report, TooMuchOutput):
         if state.OOMKilled:
-            return OutOfMemory(limit_mb=container.MEMORY_MB)
+            return OutOfMemory(limit_mb=job.memory_mb)
         return died(f"the build sent more than {container.REPORT_CAP // 2**20} MiB of output")
     claimed = reported(seen.report) if state.ExitCode == 0 and seen.report else None
     if claimed is not None:
         return claimed
     if state.OOMKilled:
-        return OutOfMemory(limit_mb=container.MEMORY_MB)
+        return OutOfMemory(limit_mb=job.memory_mb)
     if state.ExitCode == 0 and seen.report:
         return died("the build sent a malformed result")
     return died(f"the build process exited with code {state.ExitCode} before it sent a result")

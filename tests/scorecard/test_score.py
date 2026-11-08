@@ -6,7 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from cad.checks.report import IMAGE_TAG, unknown_for_all
-from cad.checks.result import CheckResult, CheckRun, Comparator, StepMissing, Verdict
+from cad.checks.result import CheckResult, Comparator, StepMissing, Verdict
 from cad.sandbox.image import BUILD, current_image, image_tag
 from cad.sandbox.outcome import SandboxUnavailable
 from cad.scorecard import score
@@ -36,21 +36,17 @@ def stored(store: Path, variant_id: str) -> Scorecard:
     return Scorecard.model_validate_json((store / variant_id / score.SCORECARD).read_text())
 
 
-def offline_run() -> CheckRun:
-    return CheckRun(
+def offline_card(basis: Basis | None = None) -> Scorecard:
+    return Scorecard(
         variant_id=UNBUILT_ID,
         material_key="prusament-pla",
         table_version="t" * 64,
-        check_image_tag="cad-analysis:0",
         check_image_digest="sha256:" + "i" * 64,
         brep_sha256="b" * 64,
         step=StepMissing(reason="offline"),
         results=unknown_for_all("offline"),
+        basis=NoBrief() if basis is None else basis,
     )
-
-
-def offline_card(basis: Basis | None = None) -> Scorecard:
-    return score.scorecard_of(offline_run(), NoBrief() if basis is None else basis)
 
 
 LIGHT = Checked(
@@ -82,9 +78,9 @@ def test_the_plate_scorecard_equals_the_one_stored_beside_the_variant(
 ) -> None:
     variant_id = built(PLATE)
     card = score.score_variant(variant_id, "prusament-pla", store)
-    assert [result.check_id for result in card.results] == CHECK_IDS
-    assert [result.verdict for result in card.results] == [Verdict.PASS] * 4
-    assert card.results[2].number("volume", "mm^3") == pytest.approx(PLATE_VOLUME_MM3, abs=0.01)
+    assert [result.check_id for result in card.finished] == CHECK_IDS
+    assert [result.verdict for result in card.finished] == [Verdict.PASS] * 4
+    assert card.finished[2].number("volume", "mm^3") == pytest.approx(PLATE_VOLUME_MM3, abs=0.01)
     assert stored(store, variant_id) == card
 
 
@@ -95,9 +91,9 @@ def test_the_scorecard_names_the_table_the_analysis_image_and_every_check_versio
     assert len(card.table_version) == 64
     assert card.check_image_digest == current_image(IMAGE_TAG)
     assert card.check_image_digest != current_image(image_tag(BUILD))
-    assert all(result.version and result.formula and result.sources for result in card.results)
+    assert all(result.version and result.formula and result.sources for result in card.finished)
     fields = json.loads((store / card.variant_id / score.SCORECARD).read_text())
-    assert [result["version"] for result in fields["results"]] == [r.version for r in card.results]
+    assert [result["version"] for result in fields["results"]] == [r.version for r in card.finished]
 
 
 @pytest.mark.parametrize(
@@ -142,7 +138,7 @@ def test_scoring_stores_the_basis_the_assessor_gives_for_the_suite_it_ran(
 
     variant_id = built(PLATE)
     card = score.score_variant(variant_id, "prusament-pla", store, awaiting)
-    assert seen == [card.results]
+    assert seen == [card.finished]
     assert card.basis == AwaitingConfirmation(brief_id="1" * 16)
     assert stored(store, variant_id) == card
     assert score.score_variant(variant_id, "prusament-pla", store).basis == NoBrief()
@@ -162,15 +158,15 @@ def test_the_plate_shell_mutant_is_stored_with_closed_solid_failed(
     variant_id = built(PLATE_SHELL)
     score.score_variant(variant_id, "prusament-pla", store)
     card = stored(store, variant_id)
-    assert card.results[0].verdict == Verdict.FAIL
-    assert card.results[2].verdict == Verdict.UNKNOWN
-    assert card.results[2].measured == ()
+    assert card.finished[0].verdict == Verdict.FAIL
+    assert card.finished[2].verdict == Verdict.UNKNOWN
+    assert card.finished[2].measured == ()
 
 
 def test_an_unknown_material_key_is_stored_with_mass_unknown(built: Build, store: Path) -> None:
     variant_id = built(PLATE)
     card = score.score_variant(variant_id, "unobtainium", store)
-    assert [result.verdict for result in card.results] == [
+    assert [result.verdict for result in card.finished] == [
         Verdict.PASS,
         Verdict.PASS,
         Verdict.UNKNOWN,

@@ -3,6 +3,7 @@ from typing import Annotated, Literal, Self
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from cad.checks.result import CheckResult, Comparator, Measured, Step, Verdict
+from cad.tables.materials import Source
 
 
 class _Frozen(BaseModel):
@@ -81,6 +82,17 @@ class AwaitingConfirmation(_Frozen):
 type Basis = Annotated[NoBrief | AwaitingConfirmation | AgainstBrief, Field(discriminator="kind")]
 
 
+class PendingCheck(_Frozen):
+    """A check whose background job has not finished. It has no verdict and no number yet: score
+    the variant again to see its result."""
+
+    kind: Literal["pending"] = "pending"
+    check_id: str
+    formula: str
+    sources: tuple[Source, ...]
+    version: str
+
+
 class Scorecard(BaseModel):
     """All of a variant's check results, each with its formula and source.
 
@@ -88,6 +100,7 @@ class Scorecard(BaseModel):
     says why there is none. `table_version` and `check_image_digest` name the materials table
     and the analysis image that the checks ran in. Each result carries its own check version.
     `basis` says what the card was scored against, and holds the requirements when there are any.
+    `pending` names the checks whose results are not in yet.
     `rebuilt_from` names the variant an earlier sandbox stored, when the checks scored its stored
     code rebuilt as `variant_id`.
     """
@@ -101,5 +114,17 @@ class Scorecard(BaseModel):
     check_image_digest: str
     brep_sha256: str
     step: Step
-    results: tuple[CheckResult, ...]
+    results: tuple[CheckResult | PendingCheck, ...]
+    pending: tuple[str, ...] = ()
     basis: Basis
+
+    @property
+    def finished(self) -> tuple[CheckResult, ...]:
+        return tuple(one for one in self.results if isinstance(one, CheckResult))
+
+    @model_validator(mode="after")
+    def _lists_the_pending_checks(self) -> Self:
+        ids = tuple(one.check_id for one in self.results if isinstance(one, PendingCheck))
+        if ids != self.pending:
+            raise ValueError("pending must list the PendingCheck results")
+        return self

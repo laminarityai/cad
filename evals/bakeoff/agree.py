@@ -164,15 +164,15 @@ def card_side(directory: Path) -> CardSide:
     if not path.is_file():
         return CardSide(UNSCORED, None, None)
     card = Scorecard.model_validate_json(path.read_text())
-    verdict = next(r for r in card.results if r.check_id == "closed_solid").verdict
+    verdict = next(r for r in card.finished if r.check_id == "closed_solid").verdict
     if card.brep_sha256 != sha256_of(directory / entry.BREP):
         raise EvidenceError("result.brep is not the BREP the scorecard measured")
     if isinstance(card.step, StepStored) and card.step.sha256 != sha256_of(directory / entry.STEP):
         raise EvidenceError("result.step is not the STEP the scorecard names")
     if verdict != Verdict.PASS:
         return CardSide(verdict.value, None, None)
-    mass = next(r for r in card.results if r.check_id == "mass")
-    extents = next(r for r in card.results if r.check_id == "extents")
+    mass = next(r for r in card.finished if r.check_id == "mass")
+    extents = next(r for r in card.finished if r.check_id == "extents")
     return CardSide(verdict.value, mass.number("volume", "mm^3"), sorted_extents(extents))
 
 

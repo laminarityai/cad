@@ -6,11 +6,11 @@ import pytest
 
 from cad.checks.report import SPECS, Request, build_request, parse
 from cad.checks.result import CheckRun, StepMissing, StepStored, Verdict
-from cad.sandbox.container import Attended, ContainerState, Ran, TooMuchOutput
+from cad.sandbox.container import Attended, ContainerState, Job, Ran, TooMuchOutput
 from cad.tables.materials import Cited, Material, MaterialsTable, Unknown, load_materials
 
 STEP = b"ISO-10303-21; fake STEP"
-WALL = 60
+OWN_LIMITS = Job("check", "sha256:analysis", (), b"", wall_seconds=60, memory_mb=1536)
 DIMENSIONLESS = "dimensionless"
 
 
@@ -95,7 +95,7 @@ def request_for_pla() -> Request:
 
 
 def test_a_good_report_becomes_four_results_with_pint_quantities(request_for_pla: Request) -> None:
-    parsed = parse(sent(good_report()), request_for_pla, WALL)
+    parsed = parse(sent(good_report()), request_for_pla, OWN_LIMITS)
     assert [(result.check_id, result.verdict) for result in parsed.results] == [
         ("closed_solid", Verdict.PASS),
         ("interference", Verdict.PASS),
@@ -114,7 +114,7 @@ def test_formula_sources_and_version_come_from_the_staged_checks_not_the_wire(
     report = good_report()
     for result in report["results"]:
         result.update(version="forged", formula="forged", sources=[{"url": "forged"}])
-    parsed = parse(sent(report), request_for_pla, WALL)
+    parsed = parse(sent(report), request_for_pla, OWN_LIMITS)
     for result, spec in zip(parsed.results, SPECS, strict=True):
         assert (result.formula, result.sources[: len(spec.sources)], result.version) == (
             spec.formula,
@@ -125,7 +125,7 @@ def test_formula_sources_and_version_come_from_the_staged_checks_not_the_wire(
 
 
 def test_mass_cites_the_datasheet_of_the_density_it_used(request_for_pla: Request) -> None:
-    mass = parse(sent(good_report()), request_for_pla, WALL).results[2]
+    mass = parse(sent(good_report()), request_for_pla, OWN_LIMITS).results[2]
     density = load_materials().get_material("prusament-pla").density
     assert isinstance(density, Cited)
     assert mass.sources[-1] == density.source
@@ -133,7 +133,7 @@ def test_mass_cites_the_datasheet_of_the_density_it_used(request_for_pla: Reques
 
 
 def test_only_a_check_that_declares_a_read_cites_the_row_it_read(request_for_pla: Request) -> None:
-    parsed = parse(sent(good_report()), request_for_pla, WALL)
+    parsed = parse(sent(good_report()), request_for_pla, OWN_LIMITS)
     for result, spec in zip(parsed.results, SPECS, strict=True):
         assert len(result.sources) == len(spec.sources) + (1 if spec.reads else 0)
 
@@ -146,20 +146,20 @@ def test_every_declared_read_names_a_declared_measure() -> None:
 def test_a_read_that_differs_from_what_the_host_sent_is_refused(request_for_pla: Request) -> None:
     edited = [measured("density", 2.0e-6, "kg/mm^3")]
     seen = sent(with_result(2, measured=edited))
-    parsed = parse(seen, request_for_pla, WALL)
+    parsed = parse(seen, request_for_pla, OWN_LIMITS)
     assert {result.verdict for result in parsed.results} == {Verdict.UNKNOWN}
     assert "mass: density" in parsed.results[0].reason
 
 
 def test_a_read_when_the_host_sent_none_is_refused() -> None:
     request = build_request("unobtainium", load_materials())
-    parsed = parse(sent(good_report()), request, WALL)
+    parsed = parse(sent(good_report()), request, OWN_LIMITS)
     assert {result.verdict for result in parsed.results} == {Verdict.UNKNOWN}
     assert "mass: density" in parsed.results[0].reason
 
 
 def test_a_check_run_serializes_and_reads_back_equal(request_for_pla: Request) -> None:
-    parsed = parse(sent(good_report()), request_for_pla, WALL)
+    parsed = parse(sent(good_report()), request_for_pla, OWN_LIMITS)
     run = CheckRun(
         variant_id="0123456789abcdef",
         material_key="prusament-pla",
@@ -169,6 +169,7 @@ def test_a_check_run_serializes_and_reads_back_equal(request_for_pla: Request) -
         brep_sha256="a" * 64,
         step=StepStored(sha256="b" * 64),
         results=parsed.results,
+        timed_out=parsed.timed_out,
     )
     text = run.model_dump_json()
     assert json.loads(text)["results"][2]["measured"][0] == {
@@ -209,7 +210,7 @@ MISBEHAVIORS = {
 def test_every_misbehavior_gives_four_unknown_results_and_no_step(
     seen: Ran, request_for_pla: Request
 ) -> None:
-    parsed = parse(seen, request_for_pla, WALL)
+    parsed = parse(seen, request_for_pla, OWN_LIMITS)
     assert [result.check_id for result in parsed.results] == [spec.id for spec in SPECS]
     assert {result.verdict for result in parsed.results} == {Verdict.UNKNOWN}
     reasons = {result.reason for result in parsed.results}
@@ -223,7 +224,7 @@ def test_every_misbehavior_gives_four_unknown_results_and_no_step(
     ("seen", "reason"),
     [
         pytest.param(ran(b"", killed=True), "ran past 60 s and was killed", id="timeout"),
-        pytest.param(ran(b"", oom=True, exit_code=137), "ran out of memory (2048 MB)", id="oom"),
+        pytest.param(ran(b"", oom=True, exit_code=137), "ran out of memory (1536 MB)", id="oom"),
         pytest.param(
             ran(b"", exit_code=139), "exited with code 139 before it sent a report", id="exit"
         ),
@@ -242,7 +243,20 @@ def test_every_misbehavior_gives_four_unknown_results_and_no_step(
     ],
 )
 def test_the_reason_names_the_cause(seen: Ran, reason: str, request_for_pla: Request) -> None:
-    assert reason in parse(seen, request_for_pla, WALL).results[0].reason
+    assert reason in parse(seen, request_for_pla, OWN_LIMITS).results[0].reason
+
+
+def test_only_a_run_past_the_wall_time_is_marked_timed_out(request_for_pla: Request) -> None:
+    timed_out = {
+        name: parse(seen, request_for_pla, OWN_LIMITS).timed_out
+        for name, seen in [
+            ("timeout", ran(b"", killed=True)),
+            ("oom", ran(b"", oom=True, exit_code=137)),
+            ("exit", ran(b"", exit_code=139)),
+            ("good", sent(good_report())),
+        ]
+    }
+    assert timed_out == {"timeout": True, "oom": False, "exit": False, "good": False}
 
 
 def test_a_step_the_container_left_out_keeps_the_verdicts_and_says_why(
@@ -252,7 +266,7 @@ def test_a_step_the_container_left_out_keeps_the_verdicts_and_says_why(
     parsed = parse(
         sent({**good_report(), "step": {"kind": "missing", "reason": reason}}),
         request_for_pla,
-        WALL,
+        OWN_LIMITS,
     )
     assert [result.verdict for result in parsed.results] == [Verdict.PASS] * 4
     assert parsed.step == StepMissing(reason=reason)
@@ -261,7 +275,7 @@ def test_a_step_the_container_left_out_keeps_the_verdicts_and_says_why(
 def test_unknown_results_keep_the_formula_sources_and_version_of_a_real_one(
     request_for_pla: Request,
 ) -> None:
-    parsed = parse(ran(b"", killed=True), request_for_pla, WALL)
+    parsed = parse(ran(b"", killed=True), request_for_pla, OWN_LIMITS)
     assert [(r.formula, r.sources, r.version) for r in parsed.results] == [
         (spec.formula, spec.sources, spec.version) for spec in SPECS
     ]

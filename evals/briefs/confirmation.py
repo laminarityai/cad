@@ -112,7 +112,7 @@ def _state(roots: Roots, brief_id: str) -> BriefState | Unconfirmed:
 def _misjudged(card: Scorecard, basis: AgainstBrief, shown: Shown) -> Misjudged | None:
     try:
         derived = assess_requirements(
-            basis.brief_id, basis.decision_sha256, shown.requirements, card.results
+            basis.brief_id, basis.decision_sha256, shown.requirements, card.finished
         )
     except (NoDecidingResult, pint.DimensionalityError) as error:
         return Misjudged(f"cannot judge the confirmed requirements: {error}")
