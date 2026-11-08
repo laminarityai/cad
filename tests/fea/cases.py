@@ -2,9 +2,9 @@ import math
 from dataclasses import dataclass
 from typing import Literal
 
+from cad.checks.container.anchors import Bore, FarFrom, Plane, Region
 from cad.checks.container.calculix import Material
-from cad.checks.container.elastic import Cylinder, Patch, Plane, Region
-from cad.checks.container.mesher import Point
+from cad.checks.container.vectors import Point
 
 type Measure = Literal["max_displacement", "max_von_mises"]
 
@@ -12,9 +12,18 @@ E = 200_000.0
 STEEL = Material(E, 0.3)
 NO_POISSON = Material(E, 0.0)
 SHEAR_COEFFICIENT = 5 / 6
-X = (1.0, 0.0, 0.0)
 Z = (0.0, 0.0, 1.0)
 ORIGIN = (0.0, 0.0, 0.0)
+
+
+@dataclass(frozen=True, slots=True)
+class Disc:
+    """The disc of `radius` around `center` on the plane through it with this normal. No anchor
+    makes one, but the clamped plate's hand calculation loads a central patch."""
+
+    center: Point
+    normal: Point
+    radius: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,7 +34,7 @@ class Case:
     largest_extent_mm: float
     material: Material
     fixed: Region
-    loaded: Region
+    loaded: Region | FarFrom | Disc
     force: Point
     measure: Measure
     expected: float
@@ -40,8 +49,12 @@ def box(length: float, width: float, height: float) -> str:
     )
 
 
-def end(x: float) -> Plane:
-    return Plane((x, 0.0, 0.0), X)
+def end(x: float, width: float, height: float, outward: float) -> Region:
+    return Region((Plane((x, 0.0, 0.0), (outward, 0.0, 0.0)),), (x, width / 2, height / 2))
+
+
+def far_from(support: Region) -> FarFrom:
+    return FarFrom(support.centroid)
 
 
 BAR_L, BAR_A, BAR_P = 100.0, 10.0 * 10.0, 1000.0
@@ -83,8 +96,8 @@ CASES: tuple[Case, ...] = (
         thinnest_wall_mm=10.0,
         largest_extent_mm=BAR_L,
         material=STEEL,
-        fixed=end(0.0),
-        loaded=end(BAR_L),
+        fixed=end(0.0, 10, 10, -1),
+        loaded=far_from(end(0.0, 10, 10, -1)),
         force=(BAR_P, 0.0, 0.0),
         measure="max_displacement",
         expected=BAR_P * BAR_L / (E * BAR_A),
@@ -97,8 +110,8 @@ CASES: tuple[Case, ...] = (
         thinnest_wall_mm=BEAM_H,
         largest_extent_mm=BEAM_L,
         material=STEEL,
-        fixed=end(0.0),
-        loaded=end(BEAM_L),
+        fixed=end(0.0, BEAM_B, BEAM_H, -1),
+        loaded=far_from(end(0.0, BEAM_B, BEAM_H, -1)),
         force=(0.0, 0.0, -BEAM_P),
         measure="max_displacement",
         expected=timoshenko_tip(STEEL),
@@ -111,8 +124,8 @@ CASES: tuple[Case, ...] = (
         thinnest_wall_mm=BEAM_H,
         largest_extent_mm=BEAM_L,
         material=NO_POISSON,
-        fixed=end(0.0),
-        loaded=end(BEAM_L),
+        fixed=end(0.0, BEAM_B, BEAM_H, -1),
+        loaded=far_from(end(0.0, BEAM_B, BEAM_H, -1)),
         force=(0.0, 0.0, -BEAM_P),
         measure="max_von_mises",
         expected=BEAM_P * BEAM_L * (BEAM_H / 2) / BEAM_I,
@@ -125,8 +138,8 @@ CASES: tuple[Case, ...] = (
         thinnest_wall_mm=PLATE_T,
         largest_extent_mm=2 * PLATE_A,
         material=STEEL,
-        fixed=Cylinder(ORIGIN, Z, PLATE_A),
-        loaded=Patch((0.0, 0.0, PLATE_T), Z, PATCH_R),
+        fixed=Region((Bore(ORIGIN, Z, PLATE_A, 0.0, PLATE_T),), (0.0, 0.0, PLATE_T / 2)),
+        loaded=Disc((0.0, 0.0, PLATE_T), Z, PATCH_R),
         force=(0.0, 0.0, -PLATE_P),
         measure="max_displacement",
         expected=PLATE_P * PLATE_A**2 / (16 * math.pi * PLATE_D),
@@ -139,8 +152,8 @@ CASES: tuple[Case, ...] = (
         thinnest_wall_mm=HOLE_T,
         largest_extent_mm=200.0,
         material=NO_POISSON,
-        fixed=end(0.0),
-        loaded=end(200.0),
+        fixed=end(0.0, HOLE_W, HOLE_T, -1),
+        loaded=end(200.0, HOLE_W, HOLE_T, 1),
         force=(HOLE_P, 0.0, 0.0),
         measure="max_von_mises",
         expected=(2 + (1 - HOLE_D / HOLE_W) ** 3) * HOLE_P / ((HOLE_W - HOLE_D) * HOLE_T),

@@ -3,11 +3,8 @@ import random
 
 import pytest
 
+from cad.checks.container.anchors import Bore, FarFrom, Patch, Plane, Region, Unresolved
 from cad.checks.container.elastic import (
-    Cylinder,
-    Patch,
-    Plane,
-    Region,
     Stress,
     contains,
     largest_eigenvalue,
@@ -17,7 +14,8 @@ from cad.checks.container.elastic import (
     worst_displacement,
     worst_von_mises,
 )
-from cad.checks.container.mesher import Point, TetMesh
+from cad.checks.container.mesher import TetMesh
+from cad.checks.container.vectors import Point
 
 NODES = 20
 SAMPLES = 20_000
@@ -111,12 +109,23 @@ SQUARE = TetMesh(
     tets=(),
     faces=((0, 1, 2, 4, 5, 6), (0, 2, 3, 6, 7, 8), (0, 3, 9, 8, 11, 10)),
 )  # fmt: skip
-FLOOR = Plane((5.0, 5.0, 0.0), (0.0, 0.0, -3.0))
+FLOOR = Region((Plane((5.0, 5.0, 0.0), (0.0, 0.0, -1.0)),), (1.0, 1.0, 0.0))
+WALL = Plane((0.0, 0.0, 0.0), (-1.0, 0.0, 0.0))
 
 
-def test_a_region_takes_only_the_triangles_with_every_node_inside() -> None:
+def test_a_region_takes_only_the_triangles_with_every_node_on_one_patch() -> None:
     assert region_faces(SQUARE, FLOOR, 1e-6) == SQUARE.faces[:2]
-    assert region_faces(SQUARE, Plane((0.0, 0.0, 0.0), (1.0, 0.0, 0.0)), 1e-6) == SQUARE.faces[2:]
+    assert region_faces(SQUARE, Region((WALL,), (0.0, 1.0, 1.0)), 1e-6) == SQUARE.faces[2:]
+
+
+def test_far_from_takes_the_triangles_wholly_past_the_cutoff() -> None:
+    assert region_faces(SQUARE, FarFrom((1.0, 1.0, 50.0)), 1e-6) == SQUARE.faces[:2]
+
+
+def test_an_anchor_no_whole_triangle_lies_on_is_unresolved() -> None:
+    assert isinstance(region_faces(SQUARE, FarFrom((0.0, 0.0, 0.0)), 1e-6), Unresolved)
+    off = Region((Plane((0.0, 0.0, 9.0), (0.0, 0.0, 1.0)),), (0.0, 0.0, 9.0))
+    assert isinstance(region_faces(SQUARE, off, 1e-6), Unresolved)
 
 
 def test_spread_puts_the_whole_force_on_the_midside_nodes_by_area() -> None:
@@ -128,14 +137,14 @@ def test_spread_puts_the_whole_force_on_the_midside_nodes_by_area() -> None:
 
 
 @pytest.mark.parametrize(
-    ("region", "point", "inside"),
+    ("patch", "point", "inside"),
     [
-        (Cylinder((0.0, 0.0, 0.0), (0.0, 0.0, 2.0), 5.0), (3.0, 4.0, 7.0), True),
-        (Cylinder((0.0, 0.0, 0.0), (0.0, 0.0, 2.0), 5.0), (3.0, 4.1, 7.0), False),
-        (Patch((0.0, 0.0, 1.0), (0.0, 0.0, 1.0), 1.0), (0.6, 0.8, 1.0), True),
-        (Patch((0.0, 0.0, 1.0), (0.0, 0.0, 1.0), 1.0), (0.7, 0.8, 1.0), False),
-        (Patch((0.0, 0.0, 1.0), (0.0, 0.0, 1.0), 1.0), (0.0, 0.0, 1.1), False),
+        (Bore((0.0, 0.0, 0.0), (0.0, 0.0, 1.0), 5.0, 0.0, 8.0), (3.0, 4.0, 7.0), True),
+        (Bore((0.0, 0.0, 0.0), (0.0, 0.0, 1.0), 5.0, 0.0, 8.0), (3.0, 4.1, 7.0), False),
+        (Bore((0.0, 0.0, 0.0), (0.0, 0.0, 1.0), 5.0, 0.0, 6.0), (3.0, 4.0, 7.0), False),
+        (WALL, (0.0, 7.0, -3.0), True),
+        (WALL, (0.1, 7.0, -3.0), False),
     ],
 )
-def test_contains(region: Region, point: Point, inside: bool) -> None:
-    assert contains(region, point, 1e-6) is inside
+def test_contains(patch: Patch, point: Point, inside: bool) -> None:
+    assert contains(patch, point, 1e-6) is inside

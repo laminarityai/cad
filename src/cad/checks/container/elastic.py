@@ -1,70 +1,24 @@
 import math
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
 
-from cad.checks.container.mesher import Point, TetMesh
+from cad.checks.container.anchors import Bore, FarFrom, Patch, Plane, Region, Unresolved
+from cad.checks.container.mesher import TetMesh
+from cad.checks.container.vectors import Point, cross, dot, norm, sub
 
 type Stress = tuple[float, float, float, float, float, float]
 """xx, yy, zz, xy, yz, zx, as CalculiX orders them."""
 type Matrix = tuple[tuple[float, ...], ...]
+type Face = tuple[int, ...]
 
 
-@dataclass(frozen=True, slots=True)
-class Plane:
-    point: Point
-    normal: Point
-
-
-@dataclass(frozen=True, slots=True)
-class Cylinder:
-    origin: Point
-    axis: Point
-    radius: float
-
-
-@dataclass(frozen=True, slots=True)
-class Patch:
-    """The disk of `radius` around `center` on the plane through it with this normal."""
-
-    center: Point
-    normal: Point
-    radius: float
-
-
-type Region = Plane | Cylinder | Patch
-
-
-def sub(a: Point, b: Point) -> Point:
-    return (a[0] - b[0], a[1] - b[1], a[2] - b[2])
-
-
-def dot(a: Point, b: Point) -> float:
-    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
-
-
-def cross(a: Point, b: Point) -> Point:
-    return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
-
-
-def norm(a: Point) -> float:
-    return math.sqrt(dot(a, a))
-
-
-def unit(a: Point) -> Point:
-    length = norm(a)
-    return (a[0] / length, a[1] / length, a[2] / length)
-
-
-def contains(region: Region, point: Point, tol: float) -> bool:
-    match region:
+def contains(patch: Patch, point: Point, tol: float) -> bool:
+    match patch:
         case Plane(origin, normal):
-            return abs(dot(sub(point, origin), unit(normal))) <= tol
-        case Cylinder(origin, axis, radius):
-            return abs(norm(cross(sub(point, origin), unit(axis))) - radius) <= tol
-        case Patch(center, normal, radius):
-            offset = sub(point, center)
-            height = dot(offset, unit(normal))
-            return abs(height) <= tol and dot(offset, offset) - height**2 <= (radius + tol) ** 2
+            return abs(dot(sub(point, origin), normal)) <= tol
+        case Bore(origin, axis, radius, t0, t1):
+            offset = sub(point, origin)
+            along = dot(offset, axis)
+            return abs(norm(cross(offset, axis)) - radius) <= tol and t0 - tol <= along <= t1 + tol
 
 
 def extent(mesh: TetMesh) -> float:
@@ -74,23 +28,41 @@ def extent(mesh: TetMesh) -> float:
     )
 
 
-def region_faces(mesh: TetMesh, region: Region, tol: float) -> tuple[tuple[int, ...], ...]:
-    """The boundary triangles whose 6 nodes all lie in the region."""
-    return tuple(
-        face for face in mesh.faces if all(contains(region, mesh.nodes[i], tol) for i in face)
-    )
+def region_faces(
+    mesh: TetMesh, anchor: Region | FarFrom, tol: float
+) -> tuple[Face, ...] | Unresolved:
+    """The boundary triangles whose 6 nodes all lie in one of the region's patches, or all lie at
+    least the far cutoff from the center."""
+    match anchor:
+        case Region(patches):
+            faces = tuple(
+                face
+                for face in mesh.faces
+                if any(all(contains(p, mesh.nodes[i], tol) for i in face) for p in patches)
+            )
+        case FarFrom(center):
+            surface = [mesh.nodes[i] for i in face_nodes(mesh.faces)]
+            cutoff = anchor.cutoff(surface) - tol
+            faces = tuple(
+                face
+                for face in mesh.faces
+                if all(norm(sub(mesh.nodes[i], center)) >= cutoff for i in face)
+            )
+    if not faces:
+        return Unresolved("no mesh triangle lies wholly on the anchored surface")
+    return faces
 
 
-def face_nodes(faces: Sequence[tuple[int, ...]]) -> frozenset[int]:
+def face_nodes(faces: Sequence[Face]) -> frozenset[int]:
     return frozenset(i for face in faces for i in face)
 
 
-def area(mesh: TetMesh, face: tuple[int, ...]) -> float:
+def area(mesh: TetMesh, face: Face) -> float:
     a, b, c = (mesh.nodes[i] for i in face[:3])
     return norm(cross(sub(b, a), sub(c, a))) / 2
 
 
-def spread(mesh: TetMesh, faces: Sequence[tuple[int, ...]], force: Point) -> dict[int, Point]:
+def spread(mesh: TetMesh, faces: Sequence[Face], force: Point) -> dict[int, Point]:
     """Consistent nodal loads of `force` spread as a uniform traction over the faces: on a 6-node
     triangle a uniform traction puts nothing on the corners and a third of the triangle's share
     on each midside node."""

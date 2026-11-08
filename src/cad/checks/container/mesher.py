@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, Protocol, cast
 
-type Point = tuple[float, float, float]
+from cad.checks.container.vectors import Point
 
 WALL_ELEMENTS: Final = 1.0
 MIN_SIZE_MM: Final = 0.2

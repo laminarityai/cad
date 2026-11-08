@@ -7,7 +7,8 @@ from pathlib import Path
 from typing import Final
 
 from cad.checks.container.elastic import Stress
-from cad.checks.container.mesher import Point, TetMesh
+from cad.checks.container.mesher import TetMesh
+from cad.checks.container.vectors import Point
 
 type NodalLoads = Mapping[int, Point]
 """Force in N on each loaded node, by node index."""
