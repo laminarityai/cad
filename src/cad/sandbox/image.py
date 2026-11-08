@@ -4,7 +4,7 @@ import subprocess
 import tarfile
 from pathlib import Path
 
-from cad.sandbox.container import docker, first_line
+from cad.sandbox.container import docker
 from cad.sandbox.outcome import SandboxUnavailable
 
 SANDBOX_DIR = Path(__file__).resolve().parents[3] / "sandbox"
@@ -35,7 +35,7 @@ def image_tag(context: bytes) -> str:
 def find_image(tag: str) -> str | None:
     done = docker("images", "--quiet", "--no-trunc", tag)
     if done.returncode != 0:
-        raise SandboxUnavailable(f"docker is not reachable: {first_line(done.stderr)}")
+        raise SandboxUnavailable.hiding_host("docker is not reachable", done.stderr)
     return next(iter(done.stdout.split()), None)
 
 

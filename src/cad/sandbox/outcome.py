@@ -58,6 +58,8 @@ class Build(BaseModel):
 
 class SandboxUnavailable(Exception):
     @classmethod
-    def hiding_path(cls, message: str, error: Exception, path: Path) -> Self:
-        LOG.error("%s (%s): %s", message, path, error)
+    def hiding_host(cls, message: str, error: Exception | str, path: Path | None = None) -> Self:
+        LOG.error("%s%s: %s", message, "" if path is None else f" ({path})", error)
+        if isinstance(error, str):
+            return cls(message)
         return cls(f"{message}: {type(error).__name__}")
