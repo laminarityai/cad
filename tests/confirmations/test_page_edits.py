@@ -1,16 +1,19 @@
 from __future__ import annotations
 
 import html
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
 
 from cad.briefs import store
 from cad.briefs.model import describe
-from cad.confirmations import answers
-from cad.confirmations.answers import Edit
+from cad.confirmations import answers, page
+from cad.confirmations.answers import Edit, PageAnswer
 from cad.confirmations.page import DECLINE_EDITS
 from cad.projects.model import ProjectId
+from cad.records.roots import Roots
+from cad.records.signed import StoreUnusable
 
 if TYPE_CHECKING:
     from conftest import Session
@@ -112,3 +115,65 @@ async def test_an_edit_counts_on_a_confirmed_item_beside_a_declined_one(s: Sessi
     assert confirmed is not None
     assert [describe(r) for r in confirmed.requirements] == ["Mass at most 100 g"]
     assert store.confirmed_requirements(s.roots, second.brief_id) is None
+
+
+async def test_a_single_item_page_takes_an_edit_with_no_decline_box(s: Session) -> None:
+    brief = await s.proposed(s.rows.under_150)
+    [light] = row_ids(s, brief.brief_id)
+    await s.ask(brief)
+    shown = s.get(s.person.url)[1]
+    assert (f'name="edit-0-{light}"' in shown, 'name="decline-' in shown) == (True, False)
+    edit = {f"edit-0-{light}": "120 g"}
+    assert s.post(s.person.url, "confirm", fields={**edit, "decline-0": "decline"})[0] == 400
+    assert s.post(s.person.url, "confirm", fields=edit)[0] == 200
+    confirmed = store.confirmed_requirements(s.roots, brief.brief_id)
+    assert confirmed is not None
+    assert [describe(r) for r in confirmed.requirements] == ["Mass at most 120 g"]
+
+
+async def test_a_resent_edit_counts_after_a_failed_post(
+    s: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    brief = await s.proposed(s.rows.under_150)
+    [light] = row_ids(s, brief.brief_id)
+    await s.ask(brief)
+    real = page.append_answer
+    calls: list[PageAnswer] = []
+
+    def once_broken(projects: Path, project: ProjectId, answer: PageAnswer) -> bool:
+        calls.append(answer)
+        if len(calls) == 1:
+            raise RuntimeError("an unexpected failure")
+        return real(projects, project, answer)
+
+    monkeypatch.setattr(page, "append_answer", once_broken)
+    edit = {f"edit-0-{light}": "120 g"}
+    assert s.post(s.person.url, "confirm", fields=edit)[0] == 500
+    assert f'name="edit-0-{light}" placeholder="150 g"' in s.get(s.person.url)[1]
+    assert s.post(s.person.url, "confirm", fields=edit)[0] == 200
+    confirmed = store.confirmed_requirements(s.roots, brief.brief_id)
+    assert confirmed is not None
+    assert [describe(r) for r in confirmed.requirements] == ["Mass at most 120 g"]
+
+
+async def test_a_store_failure_while_reading_an_edit_leaves_the_page_open(
+    s: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    brief = await s.proposed(s.rows.under_150)
+    [light] = row_ids(s, brief.brief_id)
+    await s.ask(brief)
+    real = store.read_state
+    calls: list[str] = []
+
+    def once_unusable(roots: Roots, raw_id: str) -> store.BriefState:
+        calls.append(raw_id)
+        if len(calls) == 1:
+            raise StoreUnusable("the brief store cannot be read")
+        return real(roots, raw_id)
+
+    monkeypatch.setattr(store, "read_state", once_unusable)
+    edit = {f"edit-0-{light}": "120 g"}
+    first = s.post(s.person.url, "confirm", fields=edit)
+    assert (first[0], "nothing was recorded. Try again" in first[1]) == (500, True)
+    assert s.post(s.person.url, "confirm", fields=edit)[0] == 200
+

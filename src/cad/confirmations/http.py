@@ -116,7 +116,10 @@ class _Handler(BaseHTTPRequestHandler):
         form = page.parse_form(body, len(ballot.items))
         if content_type != "application/x-www-form-urlencoded" or form is None:
             return self._send(400, plain(NOT_A_FORM))
-        refusal = page.refused_edits(self._desk.kinds, ballot.items, form)
+        try:
+            refusal = page.refused_edits(self._desk.kinds, ballot.items, form)
+        except STORE_FAILURES:
+            return self._send(500, plain(REFUSED))
         if refusal is not None:
             return self._send(400, plain(refusal))
         if self._desk.spend(token) is not ballot:
