@@ -13,8 +13,7 @@ from cad.confirmations.ballot import OS_OPEN, WAIT_SECONDS, Desk, Opener
 from cad.confirmations.registry import kinds
 from cad.records.roots import HOME_ROOTS, Roots
 from cad.sandbox import container, host
-from cad.scorecard import requirements, score
-from cad.scorecard.model import Scorecard
+from cad.scorecard import material, requirements, score
 from cad.server.brief_tools import PLAN_MODE, brief_tools
 from cad.server.confirmation_tools import confirmation_tools
 from cad.server.knowledge_tools import knowledge_tools
@@ -85,7 +84,11 @@ SCORE_VARIANT = (
     "never fail. When you report the scorecard, give every verdict as it states it, with each "
     "check's formula and source, the table version and the basis, and say that every "
     "requirement it did not judge was not checked. "
-    "material_key is a key from list_materials. You cannot change a check or the materials table. "
+    "material_key is a key from list_materials. When the user confirmed a made_of requirement "
+    "for the brief, pass that key: any other material_key is refused and nothing is scored. "
+    "The card's material says which key was used and what set it, the confirmed requirement or "
+    "your argument. When your argument set it, say so wherever a result rests on the material. "
+    "You cannot change a check or the materials table. "
     "Only score_variant writes a stored scorecard, from its own check run, and the server never "
     "reads one back. The file itself is not protected from edits outside the server. "
     "Scoring the same variant and key again gives the same scorecard while the materials table, "
@@ -183,9 +186,10 @@ def build_server(
 
     def score_variant(
         variant_id: str, material_key: MaterialKey, brief_id: str | None = None
-    ) -> Scorecard:
+    ) -> material.ReportedScorecard:
         with agent_facing():
             assess = score.no_brief
+            confirmed = None
             if brief_id is not None:
                 confirmed = briefs.confirmed_requirements(roots, brief_id)
                 assess = (
@@ -193,7 +197,12 @@ def build_server(
                     if confirmed is None
                     else requirements.against(confirmed)
                 )
-            return score.score_variant(variant_id, material_key, variants_root, assess)
+            material.refuse_other_material(confirmed, material_key)
+            card = material.reported(
+                score.score_variant(variant_id, material_key, variants_root, assess), confirmed
+            )
+            score.store(card, variants_root)
+        return card
 
     def list_materials() -> MaterialListings:
         with agent_facing():
