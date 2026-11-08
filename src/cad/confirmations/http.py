@@ -1,8 +1,10 @@
 """The local transport for the confirmation page.
 
     GET  /confirm/<token>   200 the page, 403, or 409 the project changed since it opened
-    POST /confirm/<token>   form body answer=confirm|decline&note=<text>[&edit-<i>-<row>=<text>]
-                            200 recorded, 403, 409 already answered or changed, 400, 413
+    POST /confirm/<token>   form body answer=confirm|decline&note=<text>[&decline-<i>=decline]
+                            [&edit-<i>-<row>=<text>]
+                            200 recorded, 403, 409 already answered or changed, 400, 413,
+                            500 the store refused, and the page stays open for a retry
 
 Request logging is off, because the token is in the request line.
 """
@@ -29,7 +31,9 @@ CHANGED: Final = (
     "The agent added or changed something since this page opened. Nothing was recorded. "
     "Ask the agent to open the page again."
 )
-REFUSED: Final = "The store refused this page. Tell the agent."
+REFUSED: Final = (
+    "The store refused this page, and nothing was recorded. Try again, or tell the agent."
+)
 NOT_A_FORM: Final = "The answer was not sent as a form."
 # The page posts to itself. A no-referrer policy would make browsers send `Origin: null` on that
 # POST, so same-origin keeps the Origin check usable while sending no referrer anywhere else.
@@ -120,16 +124,13 @@ class _Handler(BaseHTTPRequestHandler):
                 self._desk.roots, self._desk.kinds, ballot, form, datetime.now(UTC)
             )
         except STORE_FAILURES:
+            self._desk.give_back(ballot)
             return self._send(500, plain(REFUSED))
-        finally:
-            ballot.answered.set()
+        ballot.answered.set()
         match outcome:
-            case Recorded(verdict="confirmed"):
-                said = "Recorded: you confirmed everything on this page. Return to the chat."
-                self._send(200, plain(said))
-            case Recorded():
-                said = "Recorded: you declined everything on this page. Return to the chat."
-                self._send(200, plain(said))
+            case Recorded(confirmed=confirmed, declined=declined):
+                said = f"Recorded: you confirmed {confirmed} and declined {declined} on this page."
+                self._send(200, plain(f"{said} Return to the chat."))
             case AlreadyAnswered():
                 self._send(409, plain("This page was already answered."))
             case Changed():

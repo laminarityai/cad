@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from cad.briefs import store
+from cad.briefs.model import describe
 from cad.confirmations import answers
 from cad.confirmations.answers import Edit
 from cad.confirmations.page import DECLINE_EDITS
@@ -94,3 +95,20 @@ async def test_a_number_the_page_cannot_read_is_refused_and_the_page_stays_open(
     assert s.post(url, "confirm", fields={f"edit-0-{light}": "120 g"})[0] == 200
     confirmed = store.confirmed_requirements(s.roots, brief.brief_id)
     assert confirmed is not None and len(confirmed.requirements) == 1
+
+
+async def test_an_edit_counts_on_a_confirmed_item_beside_a_declined_one(s: Session) -> None:
+    first = await s.proposed(s.rows.under_150)
+    second = await s.proposed(s.rows.envelope, project_id=first.project_id)
+    [light], [box] = row_ids(s, first.brief_id), row_ids(s, second.brief_id)
+    await s.ask(first)
+    url = s.person.url
+    on_declined = {f"edit-1-{box}": "200 x 100 x 50 mm", "decline-1": "decline"}
+    status, body = s.post(url, "confirm", fields=on_declined)
+    assert (status, html.escape(DECLINE_EDITS) in body) == (400, True)
+    mixed = {f"edit-0-{light}": "100 g", "decline-1": "decline"}
+    assert s.post(url, "confirm", "box is wrong", fields=mixed)[0] == 200
+    confirmed = store.confirmed_requirements(s.roots, first.brief_id)
+    assert confirmed is not None
+    assert [describe(r) for r in confirmed.requirements] == ["Mass at most 100 g"]
+    assert store.confirmed_requirements(s.roots, second.brief_id) is None

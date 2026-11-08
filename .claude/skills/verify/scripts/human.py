@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """The scripted person for verify runs: `cad-server --opener <this file>` runs it with the page URL.
 
-Usage: human.py <url>. Environment: CAD_HUMAN_LOG (required, a path for JSON lines),
-CAD_HUMAN_DELAY (seconds before answering, default 1), CAD_HUMAN_ANSWER (confirm or decline,
-default confirm), CAD_HUMAN_EDIT (optional, "<shown>=<typed>": type <typed> into the field whose
-placeholder is <shown>, such as "150 g=120 g"). It logs the HTTP status of a GET with the token stripped, a GET with a wrong
-token, a GET with the token and each section of that page with its brief and quotes, the answer
-POST and a replayed POST, then the spent token as {"spent_token": ...}, so a run can grep the
-agent's transcript for it.
+Usage: human.py <url>. Environment: CAD_HUMAN_LOG (required, a path for JSON lines), CAD_HUMAN_DELAY
+(seconds before answering, default 1), CAD_HUMAN_ANSWER (confirm or decline, default confirm),
+CAD_HUMAN_EDIT (optional, "<shown>=<typed>": type <typed> into the field whose placeholder is
+<shown>, such as "150 g=120 g"). It logs the HTTP status of a GET with the token stripped, a GET
+with a wrong token, a GET with the token and each section of that page with its brief and quotes,
+the answer POST and a replayed POST, then the spent token as {"spent_token": ...}, so a run can grep
+the agent's transcript for it.
 The server does not wait for it, so it records its own failures in the log.
 """
 

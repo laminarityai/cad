@@ -22,9 +22,10 @@ from cad.records.roots import Roots
 
 EDIT: Final = re.compile(r"edit-(0|[1-9][0-9]{0,3})-([0-9a-f]{16})")
 DECLINE_EDITS: Final = (
-    "You changed a number and declined. A change is kept only when you confirm. "
-    "Go back and confirm, or clear the change and decline."
+    "You changed a number on an item you declined. A change is kept only when you confirm "
+    "that item. Go back and confirm it, or clear the change."
 )
+DECLINE: Final = re.compile(r"decline-(0|[1-9][0-9]{0,3})")
 STYLE: Final = (
     "body{font:16px/1.5 system-ui,sans-serif;max-width:46rem;margin:2rem auto;padding:0 1rem;"
     "color:#1d1d1f;background:#fafafa}"
@@ -37,7 +38,7 @@ STYLE: Final = (
     ".change input{font-size:1rem;margin-left:.5rem;padding:.25rem .5rem;width:14rem}"
     "button{font-size:1rem;margin:.5rem .5rem 0 0;padding:.5rem 1.25rem;border-radius:6px;"
     "border:1px solid #888;background:#fff}button[value=confirm]{background:#1d6f42;color:#fff;"
-    "border-color:#1d6f42}"
+    "border-color:#1d6f42}.decline{margin:-.75rem 0 1.25rem 1.25rem}"
 )
 
 
@@ -46,11 +47,13 @@ class Form:
     answer: Literal["confirm", "decline"]
     note: str
     edits: Mapping[int, tuple[Edit, ...]]
+    declined: frozenset[int]
 
 
 @dataclass(frozen=True, slots=True)
 class Recorded:
-    verdict: Literal["confirmed", "declined"]
+    confirmed: int
+    declined: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -73,7 +76,8 @@ def parse_form(body: bytes, size: int) -> Form | None:
     if len(answers) != 1 or len(notes) != 1 or len(notes[0]) > MAX_NOTE_CHARS:
         return None
     answer = answers[0]
-    if answer != "confirm" and answer != "decline":
+    declined = _declined(fields, size)
+    if (answer != "confirm" and answer != "decline") or declined is None:
         return None
     edits: dict[int, list[Edit]] = {}
     for name, values in fields.items():
@@ -85,11 +89,31 @@ def parse_form(body: bytes, size: int) -> Form | None:
             return None
         if values[0]:
             edits.setdefault(index, []).append(Edit(row=match.group(2), text=values[0]))
-    return Form(answer, notes[0], {index: tuple(found) for index, found in edits.items()})
+    edited = {index: tuple(found) for index, found in edits.items()}
+    return Form(answer, notes[0], edited, declined)
+
+
+def _declined(fields: dict[str, list[str]], size: int) -> frozenset[int] | None:
+    """Pop each `decline-<index>=decline` field: the items declined while the rest are confirmed."""
+    found: set[int] = set()
+    for name in list(fields):
+        match = DECLINE.fullmatch(name)
+        if match is None:
+            continue
+        index = int(match.group(1))
+        if fields.pop(name) != ["decline"] or index >= size:
+            return None
+        found.add(index)
+    return frozenset(found)
+
+
+def _verdict_of(form: Form, index: int) -> Literal["confirmed", "declined"]:
+    declined = form.answer == "decline" or index in form.declined
+    return "declined" if declined else "confirmed"
 
 
 def refused_edits(kinds: Kinds, items: Sequence[ItemRef], form: Form) -> str | None:
-    if form.answer == "decline" and form.edits:
+    if any(_verdict_of(form, index) == "declined" for index in form.edits):
         return DECLINE_EDITS
     for index, edits in sorted(form.edits.items()):
         ref = items[index]
@@ -114,13 +138,10 @@ def answer_page(
         return AlreadyAnswered()
     if pending(kinds, ballot.project) != ballot.items:
         return Changed()
-    verdict: Literal["confirmed", "declined"] = (
-        "confirmed" if form.answer == "confirm" else "declined"
-    )
     answer = PageAnswer(
         project=ballot.project,
         answers=tuple(
-            ItemAnswer(item=ref, verdict=verdict, edits=form.edits.get(index, ()))
+            ItemAnswer(item=ref, verdict=_verdict_of(form, index), edits=form.edits.get(index, ()))
             for index, ref in enumerate(ballot.items)
         ),
         note=form.note,
@@ -128,27 +149,40 @@ def answer_page(
     )
     if not append_answer(roots.projects, ballot.project, answer):
         return AlreadyAnswered()
-    return Recorded(verdict)
+    verdicts = [item.verdict for item in answer.answers]
+    return Recorded(verdicts.count("confirmed"), verdicts.count("declined"))
 
 
 def render(sections: Sequence[Section], action: str) -> bytes:
-    items = "".join(_section(index, section) for index, section in enumerate(sections))
+    each = len(sections) > 1
+    items = "".join(
+        _section(index, section) + (_decline_control(index) if each else "")
+        for index, section in enumerate(sections)
+    )
     count = "this item" if len(sections) == 1 else f"all {len(sections)} items"
+    pick = " Tick Decline on any item that is wrong, and Confirm answers the rest." if each else ""
     return (
         "<!doctype html><html lang=en><head><meta charset=utf-8>"
         "<title>Confirm what the agent proposed</title>"
         f"<style>{STYLE}</style></head><body>"
         "<h1>Confirm what the agent proposed</h1>"
         f'<p class="lead">One click answers {count} on this page. If a number is wrong, type '
-        "the right one beside it, then confirm. Checks will read these numbers.</p>"
-        f'<form method="post" action="{html.escape(action)}">'
+        f"the right one beside it. Checks will read these numbers.{pick}</p>"
         f"{items}"
+        f'<form id="page" method="post" action="{html.escape(action)}">'
         '<label for="note">Note to the agent, if you decline</label>'
         f'<textarea id="note" name="note" maxlength="{MAX_NOTE_CHARS}"></textarea>'
-        '<button name="answer" value="confirm">Confirm all</button>'
+        '<button name="answer" value="confirm">Confirm</button>'
         '<button name="answer" value="decline">Decline all</button>'
         "</form></body></html>"
     ).encode()
+
+
+def _decline_control(index: int) -> str:
+    return (
+        f'<p class="decline"><label><input type="checkbox" form="page" name="decline-{index}" '
+        'value="decline"> Decline this item</label></p>'
+    )
 
 
 def plain(message: str) -> bytes:
@@ -181,5 +215,5 @@ def _change(index: int, editable: Editable | None) -> str:
         '<br><label class="change">Change to'
         f'<input name="edit-{index}-{html.escape(editable.row)}" '
         f'placeholder="{html.escape(editable.placeholder)}" maxlength="{MAX_EDIT_CHARS}" '
-        'autocomplete="off"></label>'
+        'form="page" autocomplete="off"></label>'
     )
