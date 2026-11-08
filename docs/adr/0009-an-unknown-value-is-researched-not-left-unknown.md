@@ -4,7 +4,11 @@ A check that needs a number the tables lack used to report `unknown`. Examples a
 
 ## The decision
 
-When a check would read an unknown value, the agent researches it. That covers a field marked `unknown` in a git row, and a key with no row at all. The agent hands the server a source URL and a quote copied from that source. It never hands over the number itself.
+Nothing is refused, and nothing is marked unknown, only because a table lacks it. That covers a field marked `unknown` in a git row, a material, part or profile with no row at all, and a key that matches no row.
+
+The server asks for research through MCP. When a tool hits a missing value, it returns a research request instead of refusing the call. The same applies when a check result is incomplete because of one. The tool's reply lists each missing item with a plain instruction to the agent, such as "research poisson_ratio for bambu-pla-basic: find a source and quote the words that state it". It also lists the key and field the answer fills. The server instructions tell the agent to answer every research request before it reports results, and to call the same tool again afterwards. The work that does not depend on the value still runs, and the card shows the affected results as waiting on research.
+
+The agent answers each request with one tool call. That call gives the key, the field, a source URL and a quote copied from the source. It never gives the number itself. A material or part with no row gets a new row in the project overlay, built from researched fields. Its key is the agent's name for it, prefixed `project-` as ADR-0006 requires.
 
 The server opens the URL itself and checks that the quote appears in the source word for word. It then reads the quantity out of the quote with the quote reader that confirmations already use (SPEC, PDF extraction). A quote the server cannot find gives no value, and neither does a number the reader cannot parse. The field then stays `unknown`, and the agent may try another source. The agent never types a number that a check reads.
 
@@ -15,6 +19,23 @@ A researched value lands in the project's overlay (ADR-0006) as a signed record 
 Checks still read through the one `get_material` lookup. The lookup returns each value with its provenance, which is `cited` (git), `confirmed` (the person, ADR-0006) or `researched`. Every check result that reads a researched value says so: it names the field and the source and quotes the source's words. So does every requirement verdict that rests on such a result. The table version records the overlay as ADR-0006 describes, so the tracer can rebuild the exact table that was used.
 
 A researched value never enters `tables/` in git by itself. Moving one into git is a reviewed change, like any other row.
+
+A researched value that fails the table's validation rules goes back to the agent with its problems, as a new research request. That covers values like an implausible density or a yield above tensile. It never makes the table or a tool fail. One bad answer must not take down the tools that read the table.
+
+## Where this applies
+
+An audit on 2026-11-08 found these places. Issue #113 tracks them.
+
+- **Refusals.** A `made_of` material that is not in the table rejects the whole `propose_requirements` call. It becomes a research request for a new row. Phase 3's planned refusals become research requests too: a `printed_on` process with no row, and a cost in a currency other than USD. When `max_print_time` or `max_cost` comes with no process, the server asks the agent to research and propose one.
+- **Unknown results.** Each of these leaves a check result unknown today, and each becomes a research request:
+  - a `score_variant` key with no row;
+  - a field marked `unknown` that `mass` or `fea` reads (density, E, ν, yield);
+  - a missing printed-specimen yield;
+  - phase 3's process fields, slicer profiles and filament prices.
+- **Instructions.** These tell the agent to stop or to say "not checked" when data is missing: the server instructions, `score_variant`, `list_materials`, `propose_requirements` and `search_knowledge`. They now tell the agent to research the value. The ban on the agent's own arithmetic stays.
+- **Quote reader.** It reads only density today. It gains E, ν, yield, tensile strength and price.
+
+Unknowns that come from geometry are out of scope. Examples are a load anchor that does not resolve, a part that is not a closed solid, and a mesh that does not converge. These are not missing data. Research cannot fix them, and they stay `unknown`.
 
 ## What does not change
 
@@ -27,7 +48,8 @@ A researched value never enters `tables/` in git by itself. Moving one into git 
 - **Leave it unknown until a reviewed source names the exact material.** This was the old rule. Rejected because FEA said nothing about most printed parts, since no data sheet gives ν for PLA or PETG. Most of the time, the person's only next step was to go and find the number themselves.
 - **Ask the person to confirm each value the agent found.** Rejected for values. It costs one confirmation for each number, while research that is labelled and traceable shows the person the same facts at no cost. Confirmation stays for requirements.
 - **Let the agent pass the number with a citation.** Rejected. Model output would then reach a check. Making the server read the number from a quote it fetched itself keeps the number path mechanical.
-- **Have the server run its own web search.** Not chosen for now. It needs a search API and a ranking rule, and the agent already has search tools. The server's job is to verify, not to find.
+- **Have the server run its own web search.** Not chosen for now. It needs a search API and a ranking rule, and the agent already has search tools. Asking the agent through the tool reply is the simplest path, and the server's job is to verify, not to find.
+- **Refuse a key that is not in the table, and let the agent pick another.** Rejected. That pushes the agent toward whatever happens to be in the table rather than what the person asked for.
 
 ## Consequences
 
