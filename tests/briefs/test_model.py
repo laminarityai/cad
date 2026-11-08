@@ -74,6 +74,7 @@ def test_every_kind_has_one_deciding_check_or_is_unverified() -> None:
         Kind.MIN_MASS: "mass",
         Kind.ENVELOPE: "extents",
         Kind.UNCHECKED: None,
+        Kind.MADE_OF: None,
     }
 
 
@@ -88,6 +89,7 @@ def test_every_kind_has_one_deciding_check_or_is_unverified() -> None:
             "Fits inside a box of 120 mm x 80 mm x 40 mm",
         ),
         ({"kind": "unchecked", "statement": "holds a 2 kg shelf"}, "holds a 2 kg shelf"),
+        ({"kind": "made_of", "material": "bambu-pla-basic"}, "Made of bambu-pla-basic"),
     ],
 )
 def test_a_requirement_reads_in_plain_words(raw: dict[str, Any], words: str) -> None:
@@ -136,6 +138,7 @@ EXAMPLES: dict[Kind, dict[str, Any]] = {
     Kind.MIN_MASS: {"kind": "min_mass", "mass": grams(10)},
     Kind.ENVELOPE: {"kind": "envelope", "edges": [grams(1, "mm"), grams(2, "mm"), grams(3, "mm")]},
     Kind.UNCHECKED: {"kind": "unchecked", "statement": "holds a shelf"},
+    Kind.MADE_OF: {"kind": "made_of", "material": "prusament-pla"},
 }
 
 
@@ -153,3 +156,9 @@ def test_every_deciding_check_and_every_limit_names_a_registered_check_and_its_m
             base, _, part = one.measure.partition(":")
             assert base in measures[check_id], f"{check_id} declares no measure {base!r}"
             assert not part or part in extents.SORTED_NAMES, f"{one.measure} is never measured"
+
+
+@pytest.mark.parametrize("key", ["Bambu PLA Basic", "bambu_pla", "", "-pla", "pla-"])
+def test_a_made_of_key_must_have_the_shape_of_a_table_key(key: str) -> None:
+    with pytest.raises(ValidationError):
+        target({"kind": "made_of", "material": key})

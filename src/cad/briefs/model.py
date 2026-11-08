@@ -26,6 +26,7 @@ from pydantic import (
 
 from cad.checks.result import Comparator, Measured
 from cad.projects.model import NEW_PROJECT_ID, NewProjectId, ProjectId, legacy_project
+from cad.tables.materials import KEY_PATTERN
 
 BriefId = NewType("BriefId", str)
 RequirementId = NewType("RequirementId", str)
@@ -34,6 +35,7 @@ MAX_BRIEF_CHARS: Final = 64 * 1024
 MAX_REQUIREMENTS: Final = 64
 MAX_STATEMENT_CHARS: Final = 500
 MAX_NOTE_CHARS: Final = 2000
+MAX_MATERIAL_KEY_CHARS: Final = 64
 QUANTITY_SCHEMA: Final[dict[str, Any]] = {
     "type": "object",
     "properties": {"magnitude": {"type": "number"}, "unit": {"type": "string"}},
@@ -79,6 +81,7 @@ class Kind(StrEnum):
     MIN_MASS = "min_mass"
     ENVELOPE = "envelope"
     UNCHECKED = "unchecked"
+    MADE_OF = "made_of"
 
 
 class ClosedSolid(_Frozen):
@@ -125,8 +128,21 @@ class Unchecked(_Frozen):
     statement: Annotated[str, Field(min_length=1, max_length=MAX_STATEMENT_CHARS)]
 
 
+class MadeOf(_Frozen):
+    """The brief names the material. A confirmed one pins the `material_key` that scoring accepts.
+
+    The key is an exact key of the materials table: propose_requirements refuses a proposal whose
+    key is not in it.
+    """
+
+    kind: Literal[Kind.MADE_OF] = Kind.MADE_OF
+    material: Annotated[
+        str, Field(pattern=f"^{KEY_PATTERN.pattern}$", max_length=MAX_MATERIAL_KEY_CHARS)
+    ]
+
+
 type Target = Annotated[
-    ClosedSolid | MaxMass | MinMass | Envelope | Unchecked, Field(discriminator="kind")
+    ClosedSolid | MaxMass | MinMass | Envelope | Unchecked | MadeOf, Field(discriminator="kind")
 ]
 
 
@@ -139,7 +155,7 @@ def deciding_check(kind: Kind) -> CheckId | None:
             return CheckId("mass")
         case Kind.ENVELOPE:
             return CheckId("extents")
-        case Kind.UNCHECKED:
+        case Kind.UNCHECKED | Kind.MADE_OF:
             return None
         case _:
             assert_never(kind)
@@ -152,9 +168,11 @@ class Limit:
     quantity: pint.Quantity
 
 
-def limits(target: ClosedSolid | MaxMass | MinMass | Envelope | Unchecked) -> tuple[Limit, ...]:
+def limits(
+    target: ClosedSolid | MaxMass | MinMass | Envelope | Unchecked | MadeOf,
+) -> tuple[Limit, ...]:
     match target:
-        case ClosedSolid() | Unchecked():
+        case ClosedSolid() | Unchecked() | MadeOf():
             return ()
         case MaxMass():
             return (Limit("mass", Comparator.AT_MOST, target.mass),)
@@ -254,5 +272,7 @@ def describe(requirement: Requirement) -> str:
             return "Fits inside a box of " + " x ".join(amount(edge) for edge in target.edges)
         case Unchecked():
             return target.statement
+        case MadeOf():
+            return f"Made of {target.material}"
         case _:
             assert_never(target)

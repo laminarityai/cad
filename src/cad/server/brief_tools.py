@@ -3,7 +3,7 @@ from typing import Annotated, Literal
 from mcp.server.mcpserver.tools import Tool
 from pydantic import BaseModel, ConfigDict, Field
 
-from cad.briefs import store
+from cad.briefs import made_of, store
 from cad.briefs.edits import placeholder
 from cad.briefs.model import (
     MAX_BRIEF_CHARS,
@@ -18,6 +18,7 @@ from cad.briefs.store import BriefState, ProposalState, Status
 from cad.projects.membership import project_for_new_brief
 from cad.projects.model import PROJECT_ID, PROJECT_ID_CHARS
 from cad.records.roots import Roots
+from cad.sandbox import host
 from cad.server.refusals import agent_facing
 
 PLAN_MODE = (
@@ -39,7 +40,9 @@ CREATE_BRIEF = (
 PROPOSE_REQUIREMENTS = (
     "Propose the whole set of requirements for a brief. Each has a target and a quote copied "
     "exactly from the brief. The target kind is closed_solid; max_mass or min_mass with a mass "
-    "such as {magnitude: 150, unit: g}; envelope with three edge lengths; or unchecked with a "
+    "such as {magnitude: 150, unit: g}; envelope with three edge lengths; made_of with a "
+    "material, only when the brief names one, quoting its words and copying the key exactly from "
+    "list_materials (never guess a near match; at most one per brief); or unchecked with a "
     "statement, for anything no check decides. Proposing never confirms: every new row is "
     "proposed until the user confirms the set. A new proposal replaces the old one for "
     "confirmation, and what the user already confirmed stays in force until they confirm the "
@@ -141,6 +144,7 @@ def brief_tools(roots: Roots) -> list[Tool]:
     ) -> ProposalView:
         drafts = [store.Draft(target=r.target, quote=r.quote) for r in requirements]
         with agent_facing():
+            made_of.check_proposed(drafts, host.materials_table().materials)
             proposed = store.propose(roots, brief_id, drafts)
             return _view(store.read_state(roots, brief_id), proposed)
 

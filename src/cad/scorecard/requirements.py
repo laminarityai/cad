@@ -8,7 +8,15 @@ again to re-derive a stored card.
 from collections.abc import Sequence
 from typing import Final
 
-from cad.briefs.model import Envelope, Limit, Requirement, deciding_check, describe, limits
+from cad.briefs.model import (
+    Envelope,
+    Limit,
+    MadeOf,
+    Requirement,
+    deciding_check,
+    describe,
+    limits,
+)
 from cad.briefs.store import ConfirmedSet
 from cad.checks.result import CheckResult, Comparator, Measured, Verdict
 from cad.scorecard.model import (
@@ -62,7 +70,11 @@ def assess_requirements(
     confirmed: Sequence[Requirement],
     results: Sequence[CheckResult],
 ) -> AgainstBrief:
-    judged = tuple(judge(requirement, results) for requirement in confirmed)
+    judged = tuple(
+        judge(requirement, results)
+        for requirement in confirmed
+        if not isinstance(requirement.target, MadeOf)
+    )
     return AgainstBrief(
         brief_id=brief_id,
         decision_sha256=decision_sha256,
