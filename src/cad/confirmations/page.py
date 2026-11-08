@@ -87,7 +87,7 @@ def parse_form(body: bytes, size: int) -> Form | None:
         index = int(match.group(1))
         if index >= size:
             return None
-        if values[0]:
+        if values[0].strip():
             edits.setdefault(index, []).append(Edit(row=match.group(2), text=values[0]))
     edited = {index: tuple(found) for index, found in edits.items()}
     return Form(answer, notes[0], edited, declined)

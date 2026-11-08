@@ -151,7 +151,7 @@ class _Unreadable(Exception):
 
 
 def _quantities(text: str, shape: _Shape) -> list[pint.Quantity]:
-    """`shape.count` amounts split by "x". A bare number takes the unit written after the last."""
+    """`shape.count` amounts split by "x". A bare number takes the only unit written."""
     parts = EDGES.split(text) if shape.count > 1 else [text]
     matches = [AMOUNT.fullmatch(part) for part in parts]
     if any(NOT_PLAIN_DIGITS.search(part) for part in parts):
@@ -166,6 +166,9 @@ def _quantities(text: str, shape: _Shape) -> list[pint.Quantity]:
     last_unit = found[-1][1]
     if last_unit is None:
         raise _Unreadable(f"Say the unit too, such as {shape.example}.")
+    written = {UNIT_NAMES.get(unit.lower(), (None, unit))[1] for _, unit in found if unit}
+    if len(written) > 1 and any(unit is None for _, unit in found):
+        raise _Unreadable("Give each length its own unit, such as 20 cm x 100 mm x 5 cm.")
     return [_quantity(number, unit or last_unit, shape) for number, unit in found]
 
 

@@ -94,6 +94,11 @@ def test_every_text_the_page_accepted_still_reads_the_same(
         (BOX, "200 x 100 x 50", "Say the unit too, such as 120 x 80 x 40 mm."),
         (
             BOX,
+            "200 mm x 100 x 50 cm",
+            "Give each length its own unit, such as 20 cm x 100 mm x 5 cm.",
+        ),
+        (
+            BOX,
             "1 x 1 x 1 lightyear",
             '"lightyear" is not a unit this page reads. Use mm, cm, m or in.',
         ),

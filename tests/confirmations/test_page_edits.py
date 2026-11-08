@@ -236,3 +236,13 @@ async def test_a_change_past_the_sixth_digit_is_refused_and_one_within_it_shows(
     listed = await s.call("list_requirements", brief_id=brief.brief_id)
     [edited] = listed["proposals"][0]["requirements"]
     assert edited["edited_by_user"] == {"proposed": "150 g", "confirmed": "150.001 g"}
+
+
+async def test_a_field_of_only_spaces_is_no_edit(s: Session) -> None:
+    brief = await s.proposed(s.rows.under_150)
+    [light] = row_ids(s, brief.brief_id)
+    await s.ask(brief)
+    status, _ = s.post(s.person.url, "confirm", fields={f"edit-0-{light}": "   "})
+    assert status == 200
+    [(_, answered)] = answers.read_ledger(s.roots.projects, ProjectId(brief.project_id)).answers
+    assert answered.answers[0].edits == ()
