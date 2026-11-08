@@ -17,7 +17,7 @@ from cad.confirmations.answers import (
     read_ledger,
 )
 from cad.confirmations.ballot import Ballot
-from cad.confirmations.items import Editable, Kinds, Section, pending
+from cad.confirmations.items import Changes, Editable, Kinds, Refused, Section, pending
 from cad.records.roots import Roots
 
 EDIT: Final = re.compile(r"edit-(0|[1-9][0-9]{0,3})-([0-9a-f]{16})")
@@ -117,15 +117,23 @@ def _verdict_of(form: Form, index: int) -> Literal["confirmed", "declined"]:
     return "declined" if declined else "confirmed"
 
 
-def refused_edits(kinds: Kinds, items: Sequence[ItemRef], form: Form) -> str | None:
+def read_edits(kinds: Kinds, items: Sequence[ItemRef], form: Form) -> Refused | Changes:
+    """What the form's edits change, or why the page refuses them. A long page names the item."""
     if any(_verdict_of(form, index) == "declined" for index in form.edits):
-        return DECLINE_EDITS
+        return Refused(DECLINE_EDITS)
+    changes: list[str] = []
     for index, edits in sorted(form.edits.items()):
         ref = items[index]
-        message = kinds[ref.kind].edit(ref, edits)
-        if message is not None:
-            return message
-    return None
+        read = kinds[ref.kind].edit(ref, edits)
+        where = f"{_label(index)}. " if len(items) > 1 else ""
+        if isinstance(read, Refused):
+            return Refused(where + read.message)
+        changes.extend(where + change for change in read)
+    return tuple(changes)
+
+
+def _label(index: int) -> str:
+    return f"Item {index + 1}"
 
 
 def view(kinds: Kinds, ballot: Ballot) -> bytes | Changed:
@@ -161,7 +169,8 @@ def answer_page(
 def render(sections: Sequence[Section], action: str) -> bytes:
     each = _declinable(len(sections))
     items = "".join(
-        _section(index, section) + (_decline_control(index) if each else "")
+        _section(f"{_label(index)}. " if each else "", index, section)
+        + (_decline_control(index) if each else "")
         for index, section in enumerate(sections)
     )
     count = "this item" if len(sections) == 1 else f"all {len(sections)} items"
@@ -190,14 +199,15 @@ def _decline_control(index: int) -> str:
     )
 
 
-def plain(message: str) -> bytes:
+def plain(message: str, *more: str) -> bytes:
+    paragraphs = "".join(f"<p>{html.escape(one)}</p>" for one in (message, *more))
     return (
         "<!doctype html><html lang=en><head><meta charset=utf-8><title>Confirmation</title>"
-        f"<style>{STYLE}</style></head><body><p>{html.escape(message)}</p></body></html>"
+        f"<style>{STYLE}</style></head><body>{paragraphs}</body></html>"
     ).encode()
 
 
-def _section(index: int, section: Section) -> str:
+def _section(label: str, index: int, section: Section) -> str:
     rows = "".join(
         f"<li><strong>{html.escape(row.headline)}</strong><br>"
         f'From your words: <q class="origin">{html.escape(row.quote)}</q><br>'
@@ -206,7 +216,7 @@ def _section(index: int, section: Section) -> str:
         for row in section.rows
     )
     return (
-        f'<section class="item"><h2>{html.escape(section.title)}</h2>'
+        f'<section class="item"><h2>{html.escape(label + section.title)}</h2>'
         f'<blockquote class="brief">{html.escape(section.context)}</blockquote>'
         f"<ol>{rows}</ol></section>"
     )

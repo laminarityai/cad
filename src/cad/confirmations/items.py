@@ -15,6 +15,17 @@ class Editable:
 
 
 @dataclass(frozen=True, slots=True)
+class Refused:
+    """Edits the page will not record, with what the person should type instead."""
+
+    message: str
+
+
+type Changes = tuple[str, ...]
+"""One plain sentence for each number the edits change, for the page that says what it recorded."""
+
+
+@dataclass(frozen=True, slots=True)
 class Row:
     headline: str
     quote: str
@@ -37,7 +48,7 @@ class ItemKind(Protocol):
 
     def section(self, ref: ItemRef) -> Section: ...
 
-    def edit(self, ref: ItemRef, edits: Sequence[Edit]) -> str | None: ...
+    def edit(self, ref: ItemRef, edits: Sequence[Edit]) -> Refused | Changes: ...
 
 
 type Kinds = Mapping[ItemKindName, ItemKind]

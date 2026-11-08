@@ -1,3 +1,6 @@
+import subprocess
+import sys
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -37,18 +40,35 @@ def changed(target: dict[str, Any], text: str) -> str:
     return applied if isinstance(applied, str) else describe(applied[0])
 
 
-@pytest.mark.parametrize(
-    ("target", "text", "words"),
-    [
-        (LIGHT, "120 g", "Mass at most 120 g"),
-        (LIGHT, " 0.2kg ", "Mass at most 0.2 kg"),
-        (HEAVY, "25 g", "Mass at least 25 g"),
-        (BOX, "200 x 100 x 50 mm", "Fits inside a box of 200 mm x 100 mm x 50 mm"),
-        (BOX, "50 \u00d7 200 \u00d7 100 mm", "Fits inside a box of 200 mm x 100 mm x 50 mm"),
-        (BOX, "20 cm x 100 mm x 5cm", "Fits inside a box of 20 cm x 100 mm x 5 cm"),
-    ],
-)
-def test_a_typed_number_becomes_the_requirement(
+# Every text the page has accepted. A stored answer keeps the person's text and the store reads
+# it again on every read, so a text that stopped reading the same would make an old confirmed
+# brief read as tampered. Add to this list; never remove from it or change a line.
+ACCEPTED = [
+    (LIGHT, "120 g", "Mass at most 120 g"),
+    (LIGHT, " 0.2kg ", "Mass at most 0.2 kg"),
+    (LIGHT, "100 g", "Mass at most 100 g"),
+    (LIGHT, "150 g", "Mass at most 150 g"),
+    (HEAVY, "25 g", "Mass at least 25 g"),
+    (BOX, "200 x 100 x 50 mm", "Fits inside a box of 200 mm x 100 mm x 50 mm"),
+    (BOX, "50 \u00d7 200 \u00d7 100 mm", "Fits inside a box of 200 mm x 100 mm x 50 mm"),
+    (BOX, "20 cm x 100 mm x 5cm", "Fits inside a box of 20 cm x 100 mm x 5 cm"),
+    (LIGHT, "120 G", "Mass at most 120 g"),
+    (LIGHT, "1.5 KG", "Mass at most 1.5 kg"),
+    (LIGHT, "2 lb", "Mass at most 2 lb"),
+    (LIGHT, "3 lbs", "Mass at most 3 lb"),
+    (LIGHT, "8 oz", "Mass at most 8 oz"),
+    (LIGHT, "120 grams", "Mass at most 120 g"),
+    (LIGHT, "150.001 g", "Mass at most 150.001 g"),
+    (LIGHT, ".5 kg", "Mass at most 0.5 kg"),
+    (BOX, "120 X 80 X 40 MM", "Fits inside a box of 120 mm x 80 mm x 40 mm"),
+    (BOX, "1 x 0.5 x 0.25 m", "Fits inside a box of 1 m x 0.5 m x 0.25 m"),
+    (BOX, "6 x 4 x 2 in", "Fits inside a box of 6 in x 4 in x 2 in"),
+    (BOX, "6 x 4 x 2 inches", "Fits inside a box of 6 in x 4 in x 2 in"),
+]
+
+
+@pytest.mark.parametrize(("target", "text", "words"), ACCEPTED)
+def test_every_text_the_page_accepted_still_reads_the_same(
     target: dict[str, Any], text: str, words: str
 ) -> None:
     assert changed(target, text) == words
@@ -57,14 +77,28 @@ def test_a_typed_number_becomes_the_requirement(
 @pytest.mark.parametrize(
     ("target", "text", "refusal"),
     [
-        (LIGHT, "120", "say the unit too"),
-        (LIGHT, "under 100 g", "write an amount with its unit"),
-        (LIGHT, "120 mm", "expected a [mass] quantity"),
-        (LIGHT, "0 g", "above zero"),
-        (LIGHT, "120 blorps", "not a unit this page knows"),
-        (BOX, "200 x 100 mm", "write three lengths"),
-        (BOX, "200 x 100 x 50", "say the unit too"),
-        (SOLID, "yes", "this row has no number to change"),
+        (LIGHT, "120", "Say the unit too, such as 120 g."),
+        (LIGHT, "under 100 g", "Write a number and a unit, such as 120 g."),
+        (LIGHT, "120 mm", "mm is a length, not a mass. Write a mass, such as 120 g."),
+        (LIGHT, "0 g", "Write a number above zero."),
+        (LIGHT, "120 blorps", '"blorps" is not a unit this page reads. Use g, kg, lb or oz.'),
+        (LIGHT, "120 gr", '"gr" is not a unit this page reads. Use g, kg, lb or oz.'),
+        (LIGHT, "120 Gg", '"Gg" is not a unit this page reads.'),
+        (LIGHT, "120 planck_mass", "Write a number and a unit, such as 120 g."),
+        (LIGHT, "120 kg*percent", "Write a number and a unit, such as 120 g."),
+        (LIGHT, "120 count*g", "Write a number and a unit, such as 120 g."),
+        (LIGHT, "1e3 g", "Write the number with digits and a decimal point only, such as 1200 g."),
+        (LIGHT, "1,200 g", "Write the number with digits and a decimal point only"),
+        (LIGHT, "150.0000001 g", "Use at most 6 digits"),
+        (BOX, "200 x 100 mm", "Write three lengths and a unit, such as 120 x 80 x 40 mm."),
+        (BOX, "200 x 100 x 50", "Say the unit too, such as 120 x 80 x 40 mm."),
+        (
+            BOX,
+            "1 x 1 x 1 lightyear",
+            '"lightyear" is not a unit this page reads. Use mm, cm, m or in.',
+        ),
+        (BOX, "1 x 1 x 1 g", "g is a mass, not a length. Write a length, such as 40 mm."),
+        (SOLID, "yes", "This row has no number to change."),
     ],
 )
 def test_a_number_that_cannot_be_read_is_refused_naming_the_row(
@@ -73,6 +107,29 @@ def test_a_number_that_cannot_be_read_is_refused_naming_the_row(
     message = changed(target, text)
     assert message.startswith(describe(requirement(target)) + ": ")
     assert refusal in message
+    assert "[" not in message and "gauss" not in message and "molar" not in message
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["120 g's", '120 g"', "120 g (", "120 g/0", "120 g**0", "120 g-))", "120 g^2"],
+)
+def test_unit_arithmetic_is_refused_before_pint_reads_it(text: str) -> None:
+    message = changed(LIGHT, text)
+    assert message == "Mass at most 150 g: Write a number and a unit, such as 120 g."
+
+
+def test_a_huge_exponent_is_refused_in_bounded_time() -> None:
+    code = "from test_edits import LIGHT, changed;print(changed(LIGHT, '120 g**9**9**9'))"
+    done = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=Path(__file__).parent,
+        capture_output=True,
+        text=True,
+        timeout=20,
+        check=True,
+    )
+    assert "Write a number and a unit" in done.stdout
 
 
 def test_an_edit_keeps_the_kind_and_span_and_gets_the_id_of_what_it_now_says() -> None:

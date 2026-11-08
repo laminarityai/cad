@@ -7,7 +7,7 @@ from cad.briefs.edits import apply_edits, placeholder
 from cad.briefs.model import Kind, Requirement, deciding_check, describe
 from cad.briefs.store import ProposalState, Status, TamperedBrief
 from cad.confirmations.answers import Edit, ItemKindName, ItemRef
-from cad.confirmations.items import Editable, Row, Section
+from cad.confirmations.items import Changes, Editable, Refused, Row, Section
 from cad.projects.membership import project_briefs
 from cad.projects.model import ProjectId
 from cad.records.roots import Roots
@@ -45,9 +45,16 @@ class Requirements:
         title = f"Requirements for your brief (proposal {shown.proposal.number})"
         return Section(title=title, context=text, rows=rows)
 
-    def edit(self, ref: ItemRef, edits: Sequence[Edit]) -> str | None:
-        applied = apply_edits(self._shown(ref)[1].proposal.requirements, edits)
-        return applied if isinstance(applied, str) else None
+    def edit(self, ref: ItemRef, edits: Sequence[Edit]) -> Refused | Changes:
+        proposed = self._shown(ref)[1].proposal.requirements
+        applied = apply_edits(proposed, edits)
+        if isinstance(applied, str):
+            return Refused(applied)
+        return tuple(
+            f"{describe(new)} (you changed it from {placeholder(old)})."
+            for old, new in zip(proposed, applied, strict=True)
+            if new.id != old.id
+        )
 
     def _shown(self, ref: ItemRef) -> tuple[str, ProposalState]:
         """The brief text and the proposal the ref names. Raises when either changed."""

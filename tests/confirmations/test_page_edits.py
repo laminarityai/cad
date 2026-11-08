@@ -187,3 +187,52 @@ async def test_list_requirements_says_the_user_changed_the_number(s: Session) ->
     edited, untouched = listed["proposals"][0]["requirements"]
     assert edited["edited_by_user"] == {"proposed": "150 g", "confirmed": "120 g"}
     assert untouched["edited_by_user"] is None
+
+
+async def test_text_pint_would_choke_on_is_refused_and_the_page_stays_open(s: Session) -> None:
+    brief = await s.proposed(s.rows.under_150)
+    [light] = row_ids(s, brief.brief_id)
+    await s.ask(brief)
+    texts = ("120 g's", '120 g"', "120 g (", "120 g/0", "120 g**0", "120 g-))")
+    refused = [s.post(s.person.url, "confirm", fields={f"edit-0-{light}": t}) for t in texts]
+    assert [status for status, _ in refused] == [400] * len(texts)
+    assert all(html.escape("Mass at most 150 g: Write a number") in body for _, body in refused)
+    assert answers.read_ledger(s.roots.projects, ProjectId(brief.project_id)).answers == ()
+    assert s.post(s.person.url, "confirm", fields={f"edit-0-{light}": "120 g"})[0] == 200
+
+
+async def test_the_recorded_page_says_what_the_person_changed(s: Session) -> None:
+    brief = await s.proposed(s.rows.under_150, s.rows.envelope)
+    light, box = row_ids(s, brief.brief_id)
+    await s.ask(brief)
+    edits = {f"edit-0-{light}": "120 G", f"edit-0-{box}": "120 x 80 x 40 mm"}
+    status, body = s.post(s.person.url, "confirm", fields=edits)
+    assert status == 200
+    assert "Mass at most 120 g (you changed it from 150 g)." in body
+    assert "Fits inside a box" not in body
+
+
+async def test_a_refusal_on_a_page_of_two_briefs_names_the_item(s: Session) -> None:
+    first = await s.proposed(s.rows.under_150)
+    second = await s.proposed(s.rows.under_150, project_id=first.project_id)
+    [light] = row_ids(s, second.brief_id)
+    await s.ask(first)
+    shown = s.get(s.person.url)[1]
+    assert "<h2>Item 1. Requirements" in shown and "<h2>Item 2. Requirements" in shown
+    status, body = s.post(s.person.url, "confirm", fields={f"edit-1-{light}": "120 mm"})
+    assert status == 400
+    assert html.escape("Item 2. Mass at most 150 g: mm is a length, not a mass.") in body
+
+
+async def test_a_change_past_the_sixth_digit_is_refused_and_one_within_it_shows(
+    s: Session,
+) -> None:
+    brief = await s.proposed(s.rows.under_150)
+    [light] = row_ids(s, brief.brief_id)
+    await s.ask(brief)
+    tiny = s.post(s.person.url, "confirm", fields={f"edit-0-{light}": "150.0000001 g"})
+    assert (tiny[0], "Use at most 6 digits" in tiny[1]) == (400, True)
+    assert s.post(s.person.url, "confirm", fields={f"edit-0-{light}": "150.001 g"})[0] == 200
+    listed = await s.call("list_requirements", brief_id=brief.brief_id)
+    [edited] = listed["proposals"][0]["requirements"]
+    assert edited["edited_by_user"] == {"proposed": "150 g", "confirmed": "150.001 g"}
