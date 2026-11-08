@@ -303,6 +303,25 @@ def test_a_check_that_raises_becomes_unknown_and_the_others_still_run() -> None:
     assert results["extents"]["verdict"] == "unknown"
 
 
+@dataclass(slots=True)
+class ValidityRaisesOnceKernel(FakeKernel):
+    raised: bool = False
+
+    def is_valid(self, shape: Shape) -> bool:
+        if not self.raised:
+            self.raised = True
+            raise RuntimeError("BRepCheck exploded")
+        return self.valid
+
+
+def test_a_check_that_requires_closed_solid_reads_its_reported_verdict_not_a_rerun() -> None:
+    report = run({"density": KNOWN}, b"brep", ValidityRaisesOnceKernel(), REPORT_CAP)
+    results = by_id(report["results"])
+    assert results["closed_solid"]["verdict"] == "unknown"
+    for check_id in ("mass", "extents"):
+        assert (results[check_id]["verdict"], results[check_id]["measured"]) == ("unknown", [])
+
+
 def test_the_report_lists_every_check_in_suite_order_with_the_step_of_the_measured_shape() -> None:
     report = run({"density": KNOWN}, b"brep", FakeKernel(), REPORT_CAP)
     assert [result["id"] for result in report["results"]] == [
