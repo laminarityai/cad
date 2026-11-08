@@ -90,7 +90,7 @@ A number the agent takes from any source, such as a PDF, a web page or your brie
 The MCP server is the product ([ADR-0002](docs/adr/0002-mcp-server-is-the-product.md)). Every capability is an MCP tool: making variants, running checks, reading tables and the knowledge base, and exporting to Onshape. Our web app's agent is the first client and uses the same interface as Claude Code or any other MCP client. Because checks run on the server, any agent that connects can do the engineering but cannot grade its own work.
 
 - **Sandbox.** Every variant is Python written by an AI. The server runs it in a locked-down container with no network access and with time and memory limits. This is a security requirement from the first release.
-- **Hosted, with accounts.** The first version is hosted only. The web app and MCP clients both sign in, and accounts carry usage limits because FEA and slicing cost compute.
+- **Hosted, with accounts.** The first version is hosted only. The web app and MCP clients both sign in, and accounts carry usage limits because FEA and slicing cost compute. Accounts and usage limits ship in phase 3.
 - **Modes travel as guidance.** Outside clients get the tools and the same checks. They also get the modes and stopping rules as guidance, but only our own agent enforces them.
 - **Sliders skip the model.** A slider change calls the tool server directly and rebuilds without calling the LLM.
 - **Long jobs stream.** FEA and slicing take seconds to minutes, so they run as background jobs and the scorecard fills in as results arrive.
@@ -108,7 +108,7 @@ Python on the backend, because the CAD kernel, FEA and slicer wrappers all have 
 | FEA | [gmsh](https://gmsh.info) + CalculiX via [pygccx](https://github.com/calculix/pygccx) (install from git) | CalculiX is a mature solver that engineers recognize; pygccx covers static, buckling and frequency analysis on solids | torch-fem, which [Physics-in-the-Loop](https://arxiv.org/html/2605.19717) used |
 | Print cost and time | OrcaSlicer CLI ([orca-mcp](https://pypi.org/project/orca-mcp/) wraps it) | A real slice gives print time, filament weight and cost | Volume times density as a fast first pass |
 | Knowledge store | Source files in git, found by keyword search (phase 2) | The files are reviewed in git like the tables, and the knowledge base never supplies a number a check reads | Postgres + [pgvector](https://github.com/pgvector/pgvector) + Postgres full-text search, fused with reciprocal rank fusion, later; LanceDB |
-| PDF extraction | [Docling](https://github.com/docling-project/docling) (MIT) | Keeps layout and table structure; output becomes candidate values | MinerU, if table errors show up in testing |
+| PDF extraction | None in phase 2. The agent quotes the source text, the server reads one quantity out of each quote, and you confirm it | The agent never types a number a check reads; the server reads it from the words you confirm | [Docling](https://github.com/docling-project/docling) (MIT) later, which keeps layout and table structure; MinerU, if table errors show up in testing |
 | Agent tools | Our own MCP server (official Python MCP SDK) | [build123d-mcp](https://pypi.org/project/build123d-mcp/0.3.70/) reports render-and-measure feedback lifting GPT-5.5 from 0.360 to 0.457 on CADGenBench | Fork build123d-mcp or [mcp-build123d](https://jsr.io/@casys/mcp-build123d) as a starting point |
 | LLM | Model-agnostic through MCP | Our bake-off ran Claude Sonnet and Opus at about $0.01 per generated part | Route cheap edits to a small model later |
 | Viewer | three-cad-viewer (the viewer inside [OCP CAD Viewer](https://pypi.org/project/ocp-vscode/4.1.0/)) | Built for build123d B-rep: picking, measuring, part tree | [OCP.wasm](https://github.com/Yeicor/OCP.wasm) (active as of Sep 2026) for in-browser build123d later |
@@ -124,7 +124,7 @@ The first version is built in five phases, in this order. Each phase ends when i
    - Exit: Claude Code, connected to the server, produces scorecards for the 10 bake-off parts that agree with the bake-off grader, and the sandbox blocks network access and enforces its limits.
 2. **Briefs, requirements and scorecards.** Plan mode, 3 to 5 variants, scorecards that list unverified requirements, sources and candidate values, the knowledge base, agent-written checks with per-project review, and context parts with the fit check.
    - Exit: on the private brief set, across at least five domains, every number on every scorecard traces to a confirmed source.
-3. **Physics and manufacturing.** FEA under stated loads, printability checks, slicer cost and print time, and Test mode.
+3. **Physics and manufacturing.** FEA under stated loads, printability checks, slicer cost and print time, Test mode, and accounts with usage limits.
    - Exit: FEA results land within a stated error of hand calculations on beam and plate cases with known answers.
 4. **Web app.** Chat, 3D viewer, scorecards, sliders, the mode switcher, and Auto mode with its stopping rules.
    - Exit: a slider change rebuilds in under 1 second, and Auto mode stops correctly on a brief whose requirements conflict.
@@ -152,7 +152,7 @@ The canonical private brief set is the 20 per-brief files in `~/cad-evals/briefs
 - **Licensed standards.** ASME, ISO, AGMA and DIN documents are paid. We implement formulas and cite the clause, and never ship a standard's text or tables. DIN also forbids AI use of its documents, which matters when users upload standard PDFs.
 - **Silent edit damage.** About 64% of edits that look successful break unrelated features ([BenchCAD](https://arxiv.org/html/2605.10865v1)), so regression checks run on every commit.
 - **Running AI-written code.** Every variant is code an AI wrote, and outside MCP clients can send code too. The sandbox ships in phase 1.
-- **Compute cost.** Any MCP client can trigger FEA and slicing on our servers, so accounts and usage limits ship with the server.
+- **Compute cost.** Any MCP client can trigger FEA and slicing on our servers, so accounts and usage limits ship in phase 3, the phase that adds FEA and slicing.
 - **Auto mode has no hard stop.** If the stuck detection has a bug, Auto mode can loop and spend without limit. Watch run lengths and costs from the first Auto run.
 - **Speed.** FEA and slicing take seconds to minutes. The scorecard fills in as results arrive while the viewer stays live.
 - **Onshape API limits.** Onshape tracks API usage per user or company. Check the published limits before relying on live sync.
