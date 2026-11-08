@@ -20,6 +20,11 @@ from cad.sources.fields import FieldSpec
 from cad.sources.refusal import Reason, Refusal
 from cad.tables.materials import UNITS
 
+
+def _ascii(pattern: str) -> re.Pattern[str]:
+    return re.compile(pattern, re.ASCII)
+
+
 _MASS_NAMES: Final = {"g": "g", "kg": "kg", "t": "t", "tonne": "t", "tonnes": "t"}
 _MASS_UNITS: Final = {"g": "g", "kg": "kg", "Mg": "Mg", "t": "metric_ton", "lb": "lb"}
 _VOLUME_UNITS: Final = {
@@ -40,36 +45,37 @@ _UNIT_NAMED = (
     r"(?![A-Za-z0-9^/-])"
 )
 _UNIT_PLAIN = re.sub(r"\(\?P<\w+>", "(?:", _UNIT_NAMED)
-_UNIT = re.compile(_UNIT_NAMED)
+_UNIT = _ascii(_UNIT_NAMED)
 
 _NUM = r"(?:\d{1,3}(?:[ \u00a0\u202f]\d{3})+(?!\d)(?:[.,]\d+)?|\d+(?:[.,]\d+)*)"
 _TOL = r"(?:±|\+/-|\+-)"
 _SEPARATORS = r",;:()=\[\]"
 
-_SUFFIX = re.compile(
+_SUFFIX = _ascii(
     rf"(?P<n>{_NUM})\s*(?:(?P<u1>{_UNIT_PLAIN})(?:\s*{_TOL}\s*{_NUM}\s*(?:(?P<u2>{_UNIT_PLAIN})|%)?)?"
     rf"|{_TOL}\s*{_NUM}\s*%?\s*(?P<u3>{_UNIT_PLAIN}))"
 )
-_PREFIX = re.compile(
+_PREFIX = _ascii(
     rf"(?:\[(?P<bu>{_UNIT_PLAIN})\]|(?P<pu>{_UNIT_PLAIN}))\s*(?P<n>{_NUM})(?:\s*{_TOL}\s*{_NUM}\s*%?)?"
 )
-_STANDARD = re.compile(
+_STANDARD = _ascii(
     r"(?<![A-Za-z0-9.,])(?:ISO\s*\d{3,5}(?:-\d+)?(?::\d{4})?|ASTM\s*[A-Z]\d+(?:-\d+)?"
-    r"|DIN(?:\s*EN)?(?:\s*ISO)?\s*\d+(?:-\d+)?|GB/T\s*\d+(?:-\d+)?)(?![\d.,]\d|\d|[A-Za-z])"
+    r"|DIN(?:\s*EN)?(?:\s*ISO)?\s*\d+(?:-\d+)?|GB/T\s*\d+(?:-\d+)?)"
+    r"(?![\d.,]\d|\d|[A-Za-z]|[ \u00a0\u202f]\d{3}(?!\d))"
 )
-_CONDITION = re.compile(
+_CONDITION = _ascii(
     rf"(?<![A-Za-z])(?i:at|@)\s*{_NUM}\s*(?:(?:[°º]\s?)?[CF]|K|bar|atm|kPa|MPa|Pa|psi)(?![A-Za-z])"
     rf"|(?<![A-Za-z]){_NUM}\s*%\s*RH(?![A-Za-z])"
 )
-_LABEL = re.compile(
+_LABEL = _ascii(
     r"(?<![A-Za-z])(?i:mass\s+density|density|typical|nominal|value|densidad|dichte|densité)"
     r"(?![A-Za-z])|\u03c1"
 )
-_SEPARATOR = re.compile(rf"[{_SEPARATORS}]")
-_NUMBER = re.compile(_NUM)
-_WORD_AFTER_NUMBER = re.compile(rf"\s*(?P<unit>[A-Za-z][^\s{_SEPARATORS}]*)")
-_RUN = re.compile(rf"[^\s{_SEPARATORS}]+")
-_SPACE_GROUPS = re.compile(r"(\d{1,3}(?:[ \u00a0\u202f]\d{3})+)(?:[.,](\d+))?")
+_SEPARATOR = _ascii(rf"[{_SEPARATORS}]")
+_NUMBER = _ascii(_NUM)
+_WORD_AFTER_NUMBER = _ascii(rf"\s*(?P<unit>[A-Za-z][^\s{_SEPARATORS}]*)")
+_RUN = _ascii(rf"[^\s{_SEPARATORS}]+")
+_SPACE_GROUPS = _ascii(r"(\d{1,3}(?:[ \u00a0\u202f]\d{3})+)(?:[.,](\d+))?")
 
 
 @dataclass(frozen=True, slots=True)
@@ -147,7 +153,7 @@ def _value(found: re.Match[str], spec: FieldSpec) -> Value | Refusal:
 
 
 def _leftover_at(text: str, position: int) -> tuple[Leftover, int]:
-    if text[position].isdigit():
+    if text[position] in "0123456789":
         number = _NUMBER.match(text, position)
         assert number is not None
         word = _WORD_AFTER_NUMBER.match(text, number.end())
@@ -217,7 +223,7 @@ def _readings(token: str) -> tuple[float, ...]:
         groups = re.split(r"[ \u00a0\u202f]", grouped[1])
         whole = float("".join(groups))
         if grouped[2]:
-            return (float(f"{whole:.0f}.{grouped[2]}"),)
+            return (float(f"{whole:.0f}.{grouped[2]}"), float(f"{groups[-1]}.{grouped[2]}"))
         return (whole, float(groups[-1]))
     parts = re.split(r"[.,]", token)
     if len(parts) == 1:

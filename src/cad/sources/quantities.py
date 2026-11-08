@@ -11,16 +11,21 @@ from cad.tables.materials import UNITS, magnitude
 
 __all__ = ["Field", "Reason", "Refusal", "one_quantity"]
 
-_SCIENTIFIC: Final = re.compile(r"\d(?:[eE][+-]?\d|\s*[x\u00d7*·]\s*10)")
-_BOUND: Final = re.compile(
+
+def _ascii(pattern: str) -> re.Pattern[str]:
+    return re.compile(pattern, re.ASCII)
+
+
+_SCIENTIFIC: Final = _ascii(r"\d(?:[eE][+-]?\d|\s*[x\u00d7*·]\s*10)")
+_BOUND: Final = _ascii(
     r"[<>≤≥≦≧⩽⩾]|&[lg]t;"
     r"|(?<![A-Za-z])(?i:max|maximum|min|minimum|up\s+to|less\s+than|more\s+than|greater\s+than"
     r"|or\s+less|or\s+more|at\s+most|at\s+least)(?![A-Za-z])"
 )
-_NUMBER: Final = r"\d+(?:[.,]\d+)*"
-_RANGE: Final = re.compile(
-    rf"(?<![\w.,/^]){_NUMBER}\s*(?:\S{{1,12}}\s*)?(?:[-\u2013—~]|\bto\b)\s*{_NUMBER}"
-)
+_CUBED: Final = _ascii(r"(?<![A-Za-z])((?i:cm|dm|m|in|ft)\.?)(\u207b?)\u00b3")
+_GLUED_HIGH: Final = _ascii(r"[-\u2013\u2014~]\d+(?:[.,]\d+)*")
+_SEPARATORS: Final = frozenset({"-", "\u2013", "\u2014", "~", "to"})
+_KEEP_COMPATIBILITY: Final = "\u33a4\u33a5"
 
 
 def one_quantity(quote: str, field: Field) -> pint.Quantity | Refusal:
@@ -39,8 +44,18 @@ def one_quantity(quote: str, field: Field) -> pint.Quantity | Refusal:
             f"the quote has {len(quote)} characters",
             f"a quote of at most {MAX_QUOTE_LENGTH} characters around the one {spec.label} value",
         )
-    text = unicodedata.normalize("NFKC", quote)
-    text = re.sub(r"[​-‍﻿]", "", text).replace("\u2212", "-")
+    if _SCIENTIFIC.search(quote):
+        return _scientific(spec)
+    folded = _CUBED.sub(lambda m: m[1] + ("-3" if m[2] else "^3"), quote)
+    digit = next((c for c in folded if _is_foreign_digit(c)), None)
+    if digit is not None:
+        return Refusal(
+            Reason.UNRECOGNISED_TEXT,
+            f"the quote has the superscript, subscript or non-ASCII digit {digit!r}",
+            f"a quote that writes the {spec.label} with plain digits 0 to 9",
+        )
+    text = unicodedata.normalize("NFKC", folded)
+    text = re.sub("[\u200b-\u200d\ufeff]", "", text).replace("\u2212", "-")
     early = _early_refusal(text, spec)
     if early is not None:
         return early
@@ -54,13 +69,27 @@ def one_quantity(quote: str, field: Field) -> pint.Quantity | Refusal:
     return _refusal(scanned, values, leftovers, spec)
 
 
+def _scientific(spec: FieldSpec) -> Refusal:
+    return Refusal(
+        Reason.SCIENTIFIC_NOTATION,
+        "the quote uses scientific notation",
+        f"a quote that writes the {spec.label} in plain digits, such as 1240 kg/m3",
+    )
+
+
+def _is_foreign_digit(char: str) -> bool:
+    if char.isascii() or char in _KEEP_COMPATIBILITY:
+        return False
+    return (
+        unicodedata.category(char) == "Nd"
+        or "\u2070" <= char <= "\u209f"
+        or re.search("[0-9]", unicodedata.normalize("NFKC", char)) is not None
+    )
+
+
 def _early_refusal(text: str, spec: FieldSpec) -> Refusal | None:
     if _SCIENTIFIC.search(text):
-        return Refusal(
-            Reason.SCIENTIFIC_NOTATION,
-            "the quote uses scientific notation",
-            f"a quote that writes the {spec.label} in plain digits, such as 1240 kg/m3",
-        )
+        return _scientific(spec)
     if _BOUND.search(text):
         return Refusal(
             Reason.BOUND,
@@ -73,12 +102,11 @@ def _early_refusal(text: str, spec: FieldSpec) -> Refusal | None:
 def _refusal(
     tokens: list[Value | Leftover], values: list[Value], leftovers: list[Leftover], spec: FieldSpec
 ) -> Refusal:
-    shown = " ".join(t.shown for t in tokens)
-    ranged = _RANGE.search(shown)
+    ranged = _range(tokens)
     if ranged is not None:
         return Refusal(
             Reason.RANGE,
-            f"{ranged[0]!r} is a range",
+            f"{ranged!r} is a range",
             f"one value for {spec.label}: choose the figure to use and quote it with its unit",
         )
     if len(values) > 1:
@@ -88,14 +116,14 @@ def _refusal(
             f"a quote with only one {spec.label} value and its unit",
         )
     for item in leftovers:
-        if re.match(r"-\d", item.text):
+        if re.fullmatch(r"-\d+(?:[.,]\d+)*", item.text):
             return Refusal(
                 Reason.NEGATIVE,
                 f"{item.text!r} is a negative value",
                 f"a quote with the {spec.label}, which cannot be negative",
             )
     for item in leftovers:
-        if item.kind == "unit_text":
+        if item.kind == "unit_text" and not values:
             return unlisted_unit(item.unit_text, spec)
     numbers = [item.text for item in leftovers if item.kind == "number"]
     if numbers and not values:
@@ -115,6 +143,27 @@ def _refusal(
         "no number in the quote",
         f"a quote that contains the {spec.label} and its unit",
     )
+
+
+def _is_number(token: Value | Leftover) -> bool:
+    return isinstance(token, Value) or token.kind in {"number", "unit_text"}
+
+
+def _range(tokens: list[Value | Leftover]) -> str | None:
+    for index, low in enumerate(tokens[:-1]):
+        if not _is_number(low):
+            continue
+        follower = tokens[index + 1]
+        if isinstance(low, Leftover) and low.unit_text.lower() == "to" and _is_number(follower):
+            return f"{low.shown} {follower.shown}"
+        if not isinstance(follower, Leftover) or follower.kind != "other":
+            continue
+        if _GLUED_HIGH.fullmatch(follower.text):
+            return f"{low.shown} {follower.text}"
+        later = tokens[index + 2 : index + 3]
+        if follower.text.lower() in _SEPARATORS and later and _is_number(later[0]):
+            return f"{low.shown} {follower.text} {later[0].shown}"
+    return None
 
 
 def _within_band(found: Value, spec: FieldSpec) -> pint.Quantity | Refusal:
