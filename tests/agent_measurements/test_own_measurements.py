@@ -40,7 +40,11 @@ async def confirmed(s: Session, person: Person) -> tuple[str, str, str]:
         "answered"
     )
     listed = await s.call("list_requirements", brief_id=brief_id)
-    unchecked = next(r["id"] for r in listed["requirements"] if r["target"]["kind"] == "unchecked")
+    unchecked = next(
+        r["requirement"]["id"]
+        for r in listed["proposals"][0]["requirements"]
+        if r["requirement"]["target"]["kind"] == "unchecked"
+    )
     variant_id = (await s.call("build_variant", code=HOLED_PLATE, brief_id=brief_id))["variant_id"]
     return brief_id, unchecked, variant_id
 
@@ -100,7 +104,11 @@ async def test_a_measurement_of_a_checked_requirement_is_refused(
 ) -> None:
     brief_id, _, variant_id = await confirmed(s, person)
     listed = await s.call("list_requirements", brief_id=brief_id)
-    checked = next(r["id"] for r in listed["requirements"] if r["target"]["kind"] == "max_mass")
+    checked = next(
+        r["requirement"]["id"]
+        for r in listed["proposals"][0]["requirements"]
+        if r["requirement"]["target"]["kind"] == "max_mass"
+    )
     text = await s.text(
         "score_variant",
         variant_id=variant_id,

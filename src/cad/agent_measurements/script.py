@@ -14,7 +14,7 @@ MARK: Final = "@@cad-measure "
 PREAMBLE: Final = """
 import base64 as _base64, json as _json
 from build123d import *
-_NAMES = {_k: _v for _k, _v in dict(globals()).items() if not _k.startswith("_")}
+_NAMES = {{_k: _v for _k, _v in dict(globals()).items() if not _k.startswith("_")}}
 with open("/tmp/part.brep", "wb") as _file:
     _file.write(_base64.b64decode({brep!r}))
 _PART = import_brep("/tmp/part.brep")
