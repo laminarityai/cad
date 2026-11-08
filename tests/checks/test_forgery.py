@@ -13,7 +13,7 @@ from cad.checks.result import CheckRun, StepMissing, StepStored, Verdict
 from cad.sandbox import container
 from cad.sandbox.container import Job, ReadOnlyMount
 from cad.sandbox.host import run_checks
-from cad.sandbox.image import context_tar, current_image, image_tag
+from cad.sandbox.image import ANALYSIS, current_image, image_tag
 from cad.sandbox.outcome import Built
 from cad.variants.entry import StaleVariant
 from cad.variants.store import build_variant
@@ -71,7 +71,7 @@ def read_step_back(step: Path, workdir: Path) -> dict[str, object]:
     shared.chmod(0o755)
     shutil.copy(step, shared / "result.step")
     (shared / "result.step").chmod(0o644)
-    image = current_image(image_tag(context_tar()))
+    image = current_image(image_tag(ANALYSIS))
     job = Job(
         "check", image, ("python", "-I", "-c", STEP_PROBE), b"", (ReadOnlyMount(shared, "/entry"),)
     )

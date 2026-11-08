@@ -25,7 +25,7 @@ The `build_variant` tool runs agent-written build123d code in a sandbox containe
 Preconditions:
 
 - Docker Desktop runs. `docker version` prints a `Server` section.
-- `uv run cad-sandbox build-image` prints `sandbox image cad-sandbox:<12 hex digits> is current` or `built sandbox image ...` and exits 0.
+- `uv run cad-sandbox build-image` prints `sandbox image cad-sandbox:<12 hex digits> is current` or `built sandbox image ...`, then the same for `cad-analysis:<12 hex digits>`, and exits 0.
 
 Variants live in `~/.cad/variants/<variant_id>/`, which holds `code.py` and `build.json`, plus `result.brep` when the outcome is `built`. `build.json` also holds the sha256 of `result.brep`. A timed-out build is never stored.
 
@@ -54,5 +54,5 @@ docker ps -a --filter label=cad.sandbox
 - The same code returns its stored outcome, so to measure a real build, change a comment in the code each time.
 - With Docker down, a call for code that is already stored still succeeds, because the variant id needs no Docker.
 - The MCP stdio client passes the server only `HOME`, `LOGNAME`, `PATH`, `SHELL`, `TERM` and `USER`. `DOCKER_HOST` set on `cad-call` never reaches the server, so the build uses the default Docker. `tests/sandbox/test_build.py` covers an unreachable daemon in-process.
-- Editing `sandbox/Dockerfile` or `sandbox/requirements.txt` changes the image tag. The tool then answers ``sandbox image cad-sandbox:<tag> is missing; run `uv run cad-sandbox build-image` ``. Editing `src/cad/sandbox/runner.py` needs no rebuild, because the host sends the runner with each build.
+- Editing `sandbox/Dockerfile` or `sandbox/requirements.txt` changes the image tag. The tool then answers ``sandbox image cad-sandbox:<tag> is missing; run `uv run cad-sandbox build-image` ``. Editing `sandbox/analysis/Dockerfile` changes only the `cad-analysis` tag, so check versions change and variant ids do not. Editing `src/cad/sandbox/runner.py` needs no rebuild, because the host sends the runner with each build.
 - The variant id hashes the image tag, every `*.py` in `src/cad/sandbox/` and `src/cad/variants/`, and the code. Editing any of those files gives the same code a new id, so a variant built before the edit is built again, and `run-checks` refuses its old id.

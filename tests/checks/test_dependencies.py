@@ -54,6 +54,7 @@ def run_python(program: str, *args: str) -> str:
 def copied_tree(tmp_path: Path) -> Path:
     root = tmp_path / "src"
     shutil.copytree(SRC / "cad", root / "cad", ignore=shutil.ignore_patterns("__pycache__"))
+    shutil.copytree(SRC.parent / "sandbox", tmp_path / "sandbox")
     return root
 
 

@@ -20,6 +20,7 @@ from cad.checks.container.wire import (
 from cad.checks.result import CheckResult, Measure, StepMissing, Verdict
 from cad.sandbox import container
 from cad.sandbox.container import Ran, TooMuchOutput
+from cad.sandbox.image import ANALYSIS, image_tag
 from cad.sandbox.stage import CONTAINER_ENTRY, PACKAGE_PATH, Sources, read_sources
 from cad.tables.materials import UNITS, Cited, Material, MaterialsTable, Source, UnknownMaterial
 
@@ -41,10 +42,10 @@ class CheckSpec:
     version: str
 
 
-def check_version(check: CheckModule, sources: Sources) -> str:
+def check_version(check: CheckModule, sources: Sources, analysis_tag: str) -> str:
     checks = {_path(module.ID) for module in CHECKS}
     shared = (path for path in sorted(sources.files) if path not in checks)
-    digest = hashlib.sha256()
+    digest = hashlib.sha256(f"{analysis_tag}\0".encode())
     for path in (*_run_by(check), *shared):
         digest.update(f"{path}\0".encode())
         digest.update(hashlib.sha256(sources.files[path]).digest())
@@ -57,7 +58,9 @@ def _run_by(check: CheckModule) -> tuple[str, ...]:
     return (_path(check.ID), *(path for required in check.REQUIRES for path in _run_by(required)))
 
 
-def specs(sources: Sources, checks: Sequence[CheckModule] = CHECKS) -> tuple[CheckSpec, ...]:
+def specs(
+    sources: Sources, analysis_tag: str, checks: Sequence[CheckModule] = CHECKS
+) -> tuple[CheckSpec, ...]:
     for module in checks:
         if not module.SOURCES:
             raise ValueError(f"check {module.ID} cites no source")
@@ -73,7 +76,7 @@ def specs(sources: Sources, checks: Sequence[CheckModule] = CHECKS) -> tuple[Che
             measures=module.MEASURES,
             takes=module.TAKES,
             reads=module.READS,
-            version=check_version(module, sources),
+            version=check_version(module, sources, analysis_tag),
         )
         for module in checks
     )
@@ -95,7 +98,8 @@ def _source(literal: SourceLiteral) -> Source:
 
 
 DEPENDENCIES: Final = read_sources(CONTAINER_ENTRY, SCORER)
-SPECS: Final = specs(DEPENDENCIES)
+IMAGE_TAG: Final = image_tag(ANALYSIS)
+SPECS: Final = specs(DEPENDENCIES, IMAGE_TAG)
 
 
 @dataclass(frozen=True, slots=True)

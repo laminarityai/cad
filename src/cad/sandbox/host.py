@@ -7,11 +7,10 @@ from typing import Annotated
 import yaml
 from pydantic import Field, TypeAdapter, ValidationError
 
-from cad.checks.report import Request, build_request, parse
+from cad.checks.report import IMAGE_TAG, Request, build_request, parse
 from cad.checks.result import CheckRun, StepMissing, StepStored
-from cad.sandbox import container, stage
+from cad.sandbox import container, image, stage
 from cad.sandbox.container import Attended, ContainerState, Job, TooMuchOutput
-from cad.sandbox.image import context_tar, current_image, image_tag
 from cad.sandbox.outcome import (
     BuildFailed,
     Failure,
@@ -77,10 +76,9 @@ def run_checks(
     never `pass`. A STEP too large for the report is left out, and the results stand. A material
     key that is not in the table makes `mass` `unknown`.
     """
-    tag = image_tag(context_tar())
-    held = entry.open_entry(root, variant_id, tag)
+    held = entry.open_entry(root, variant_id, image.image_tag(image.BUILD))
     request = build_request(material_key, materials_table())
-    image_id = current_image(tag)
+    image_id = image.current_image(IMAGE_TAG)
     try:
         job = check_job(held.brep, image_id, request, wall_seconds)
     except OSError as error:
@@ -103,8 +101,8 @@ def run_checks(
         variant_id=held.id,
         material_key=material_key,
         table_version=request.table_version,
-        image_tag=tag,
-        image_digest=image_id,
+        check_image_tag=IMAGE_TAG,
+        check_image_digest=image_id,
         brep_sha256=held.brep_sha256,
         step=step,
         results=parsed.results,

@@ -21,7 +21,7 @@ type Build = Callable[[str], str]
 
 @pytest.fixture
 def check_images(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    real = image.current_image(image.image_tag(image.context_tar()))
+    real = image.current_image(image.image_tag(image.ANALYSIS))
     real_run = container.run
     started: list[str] = []
 
@@ -57,7 +57,7 @@ def test_a_moving_tag_gives_a_stored_scorecard_naming_the_image_the_checks_ran_i
     variant_id = built(PLATE + f"# moved tag {moved}\n")
     lookups_see_other(monkeypatch, moved)
     card = score.score_variant(variant_id, "prusament-pla", store)
-    assert check_images == [card.image_digest]
+    assert check_images == [card.check_image_digest]
     directory = store / variant_id
     assert Scorecard.model_validate_json((directory / score.SCORECARD).read_text()) == card
     step = (directory / entry.STEP).read_bytes()

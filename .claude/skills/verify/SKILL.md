@@ -17,14 +17,14 @@ export EVIDENCE=$(mktemp -d)
 
 ## Launch
 
-There is no long-running process to start. Each drive starts its own server and stops it when the call ends. `build_variant` runs each build in a Docker container, and `cad-sandbox run-checks` runs the checks in a second one, so Docker Desktop must run, and the sandbox image must exist.
+There is no long-running process to start. Each drive starts its own server and stops it when the call ends. `build_variant` runs each build in a Docker container, and `cad-sandbox run-checks` runs the checks in a second one, so Docker Desktop must run, and both sandbox images must exist: builds run in `cad-sandbox` and checks run in `cad-analysis`.
 
 ```
 uv sync --frozen
 uv run cad-sandbox build-image
 ```
 
-The second command prints `sandbox image cad-sandbox:<tag> is current` when the image exists, and builds it otherwise, which takes minutes the first time. With Docker down it prints one line that names the cause and exits 1.
+The second command prints one line per image, `sandbox image cad-sandbox:<tag> is current` and then `sandbox image cad-analysis:<tag> is current`, when the images exist, and builds each missing one otherwise, which takes minutes the first time. With Docker down it prints one line that names the cause and exits 1.
 
 Ready means `uv run cad-call server_info '{}'` exits 0 (see Doctor).
 

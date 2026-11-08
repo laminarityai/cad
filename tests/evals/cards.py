@@ -74,7 +74,7 @@ def genuine_card(**changes: object) -> Scorecard:
         variant_id=VARIANT_ID,
         material_key=KEY,
         table_version=table().version,
-        image_digest="sha256:" + "i" * 64,
+        check_image_digest="sha256:" + "i" * 64,
         brep_sha256=BREP_SHA,
         step=StepStored(sha256=STEP_SHA),
         results=tuple(genuine_result(spec) for spec in SPECS),
