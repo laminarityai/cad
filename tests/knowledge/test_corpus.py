@@ -150,6 +150,11 @@ def test_a_family_word_in_the_makers_name_does_not_count(tmp_path: Path) -> None
     assert "only the maker" in problems(tmp_path, text.replace("[Example]", "[British Steel]"))
 
 
+def test_a_family_word_counts_in_any_case(tmp_path: Path) -> None:
+    text = GOOD.replace(BRAND, "maker: Bambu Lab")
+    assert "only the maker" in problems(tmp_path, text.replace("[Example]", "[Bambu pa6]"))
+
+
 def test_a_duplicate_yaml_key_is_refused_wherever_it_sits(tmp_path: Path) -> None:
     assert "duplicate" in problems(tmp_path, GOOD.replace("title: Example", "title: A\ntitle: B"))
 

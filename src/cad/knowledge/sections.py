@@ -13,6 +13,7 @@ from typing import Final
 from cad.knowledge.text import STOPWORDS, tokens
 
 KEYS: Final = re.compile(r"<!--\s*keys:\s*(?P<keys>[^>]*?)\s*-->")
+KEYS_LIKE: Final = re.compile(r"<!--\s*keys", re.IGNORECASE)
 
 type Alias = tuple[str, ...]
 type Name = frozenset[str]
@@ -31,10 +32,16 @@ def section_words(words: tuple[str, ...], aliases: Iterable[Alias]) -> Name:
 
 
 def section_names(
-    aliases: frozenset[Alias], section: str, text: str
+    aliases: frozenset[Alias], section: str, text: str, visible: str
 ) -> tuple[frozenset[Name], str] | str:
-    """The section's names and its text without the keys comment, or the problem."""
-    found = list(KEYS.finditer(text))
+    """The section's names and its text without the keys comment, or the problem.
+
+    `visible` is `text` with its code blocks blanked, offsets kept: a keys comment inside a code
+    block is text, and a comment that starts like one but is malformed is refused.
+    """
+    found = list(KEYS.finditer(visible))
+    if len(KEYS_LIKE.findall(visible)) != len(found):
+        return f"section {section!r}: a keys comment must read `<!-- keys: name, other name -->`"
     if len(found) > 1:
         return f"section {section!r}: more than one keys comment"
     names = {section_words(tokens(section), aliases)}

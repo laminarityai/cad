@@ -51,7 +51,7 @@ def test_a_heading_in_any_other_form_is_refused_with_its_line(
     make_index: MakeIndex, heading: str
 ) -> None:
     with pytest.raises(InvalidCorpus) as error:
-        load(make_index, f"{heading}\n\"Melting point 160 C\".\n")
+        load(make_index, f'{heading}\n"Melting point 160 C".\n')
     assert f"pla.md: line {FIRST_BODY_LINE + 3}:" in str(error.value)
     assert "heading" in str(error.value)
 
@@ -132,5 +132,7 @@ def test_a_malformed_keys_comment_is_refused(make_index: MakeIndex, comment: str
 
 
 def test_a_keys_comment_without_spaces_is_well_formed(make_index: MakeIndex) -> None:
-    index = make_index({"pla": "## Density\n<!--keys:sg-->\nText.\n"}, {"pla": ["PLA"]}, family=True)
+    index = make_index(
+        {"pla": "## Density\n<!--keys:sg-->\nText.\n"}, {"pla": ["PLA"]}, family=True
+    )
     assert ids(index.search("PLA sg")) == ["kb:pla#density"]

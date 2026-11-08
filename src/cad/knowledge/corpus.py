@@ -49,8 +49,9 @@ refused.
 The loader also refuses a file whose subject is not its stem, a duplicate YAML key, an alias that
 is not a quoted string (`[6061]` is an int, `[NO]` a bool), an alias made only of stopwords, an
 alias that two subjects claim, and a fenced code block that is never closed. Files are read as
-UTF-8, with a byte order mark or Windows line endings accepted. A `##` line inside a fenced code
-block is text, not a heading.
+UTF-8, with a byte order mark or Windows line endings accepted. A section starts only where a
+reviewer sees a `## Title` heading in the rendered file (`cad.knowledge.markdown`); any other
+heading form is refused with its line. A keys or page comment inside a code block is text.
 
 A number in a unit's text is never a value a check reads; checks read the tables by exact key.
 """
@@ -66,6 +67,7 @@ from typing import Any, Final, cast
 import yaml
 
 from cad.knowledge.families import FAMILY_WORDS
+from cad.knowledge.markdown import scan
 from cad.knowledge.sections import Alias, Name, section_names
 from cad.knowledge.text import STOPWORDS, tokens
 
@@ -73,8 +75,6 @@ CORPUS_PATH: Final = Path(__file__).resolve().parents[3] / "knowledge"
 LICENSES: Final = frozenset({"own-summary", "apache-2.0", "cc-by-4.0", "mit"})
 PAGE: Final = re.compile(r"<!--\s*page:\s*(?P<page>[^>]*?)\s*-->")
 PAGE_VALUE: Final = re.compile(r"\d+(-\d+)?")
-HEADING: Final = re.compile(r"## +(?P<title>.+?)\s*")
-FENCE: Final = re.compile(r"\s*(```|~~~)")
 FRONT_MATTER: Final = re.compile(r"\A---\n(?P<yaml>.*?)\n---\n", re.DOTALL)
 SUBJECT: Final = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 
@@ -196,16 +196,16 @@ def _parse(stem: str, text: str) -> tuple[Source | None, list[Unit], list[str]]:
     if source is None:
         return None, [], problems
     body = text[match.end() :]
-    headings, unclosed = _headings(body)
-    if unclosed:
-        problems.append("unclosed code fence swallows the headings after it")
+    scanned = scan(body, first_line=text[: match.end()].count("\n") + 1)
+    problems.extend(scanned.problems)
+    headings = scanned.headings
     if not headings or body[: headings[0].start].strip():
         problems.append("text before the first ## heading")
     units: list[Unit] = []
     answers: dict[Name, str] = {}
     for heading, following in zip(headings, [*headings[1:], None], strict=False):
-        end = following.start if following else len(body)
-        unit = _unit(stem, source, heading.title, body[heading.end : end])
+        span = slice(heading.end, following.start if following else len(body))
+        unit = _unit(stem, source, heading.title, body[span], scanned.visible[span])
         if isinstance(unit, str):
             problems.append(unit)
             continue
@@ -218,29 +218,6 @@ def _parse(stem: str, text: str) -> tuple[Source | None, list[Unit], list[str]]:
                     f"{' '.join(sorted(name))!r}; one query must choose one section"
                 )
     return source, units, problems
-
-
-@dataclass(frozen=True, slots=True)
-class _Heading:
-    title: str
-    start: int
-    end: int
-
-
-def _headings(body: str) -> tuple[list[_Heading], bool]:
-    """Each `##` heading outside a fenced code block, and whether a fence is left open."""
-    found: list[_Heading] = []
-    fence: str | None = None
-    offset = 0
-    for line in body.splitlines(keepends=True):
-        stripped = line.rstrip("\n")
-        marker = FENCE.match(stripped)
-        if marker:
-            fence = None if fence == marker[1] else (fence or marker[1])
-        elif fence is None and (heading := HEADING.fullmatch(stripped)):
-            found.append(_Heading(heading["title"], offset, offset + len(line)))
-        offset += len(line)
-    return found, fence is not None
 
 
 def _source(stem: str, meta: object) -> tuple[Source | None, list[str]]:
@@ -307,7 +284,7 @@ def _brand(fields: dict[str, object]) -> tuple[_Brand | None, list[str]]:
     words = {
         word
         for word in tokens(f"{maker} {line or ''}")
-        if word[0].isalnum() and word not in FAMILY_WORDS and word not in STOPWORDS
+        if word[0].isalnum() and word.casefold() not in FAMILY_WORDS and word not in STOPWORDS
     }
     if not words:
         return None, [f"front matter maker {maker!r} has no word of its own, only family words"]
@@ -334,7 +311,11 @@ def _aliases(declared: object, brand: _Brand | None) -> tuple[frozenset[Alias], 
                 f"({', '.join(sorted(brand.words))}); name the product as its maker sells it, "
                 "or declare `family: true` when the source covers a whole family"
             )
-        elif brand is not None and set(words) - STOPWORDS - FAMILY_WORDS <= brand.maker:
+        elif (
+            brand is not None
+            and {w for w in words if w not in STOPWORDS and w.casefold() not in FAMILY_WORDS}
+            <= brand.maker
+        ):
             problems.append(
                 f"front matter aliases entry {item!r} is only the maker's name and family words, "
                 "which names a group of the maker's products; add the product"
@@ -344,13 +325,10 @@ def _aliases(declared: object, brand: _Brand | None) -> tuple[frozenset[Alias], 
     return frozenset(aliases), problems
 
 
-def _unit(stem: str, source: Source, section: str, text: str) -> Unit | str:
-    named = section_names(source.aliases, section, text)
-    if isinstance(named, str):
-        return named
-    names, text = named
+def _unit(stem: str, source: Source, section: str, text: str, visible: str) -> Unit | str:
+    """`visible` is `text` with code blocks blanked, so a comment inside one is not read."""
     page: str | None = None
-    pages = list(PAGE.finditer(text))
+    pages = list(PAGE.finditer(visible))
     if len(pages) > 1:
         return f"section {section!r}: more than one page comment"
     if pages:
@@ -359,6 +337,11 @@ def _unit(stem: str, source: Source, section: str, text: str) -> Unit | str:
         if not PAGE_VALUE.fullmatch(page):
             return f"section {section!r}: page {page!r} is not a number or range"
         text = text[: found.start()] + text[found.end() :]
+        visible = visible[: found.start()] + visible[found.end() :]
+    named = section_names(source.aliases, section, text, visible)
+    if isinstance(named, str):
+        return named
+    names, text = named
     text = text.strip()
     if not text:
         return f"section {section!r} is empty"
