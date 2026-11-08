@@ -1,0 +1,24 @@
+from dataclasses import dataclass
+from enum import StrEnum
+
+
+class Reason(StrEnum):
+    NO_QUANTITY = "no_quantity"
+    SEVERAL_QUANTITIES = "several_quantities"
+    RANGE = "range"
+    BOUND = "bound"
+    MISSING_UNIT = "missing_unit"
+    UNKNOWN_UNIT = "unknown_unit"
+    WRONG_DIMENSION = "wrong_dimension"
+    OUT_OF_BAND = "out_of_band"
+    NEGATIVE = "negative_value"
+    SCIENTIFIC_NOTATION = "scientific_notation"
+    AMBIGUOUS_NUMBER = "ambiguous_number"
+    TOO_LONG = "too_long"
+
+
+@dataclass(frozen=True, slots=True)
+class Refusal:
+    reason: Reason
+    detail: str
+    needed: str
