@@ -3,6 +3,7 @@ title: Study and Interpretation of the Chemical Characteristics of Natural Water
 url: https://pubs.usgs.gov/wsp/1473/report.pdf
 retrieved: 2026-11-07
 license: own-summary
+codes: [USGS]
 ---
 ## Density
 <!-- page: 244 -->

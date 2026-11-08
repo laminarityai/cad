@@ -1,28 +1,39 @@
-from collections.abc import Callable, Mapping
+import json
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Protocol
 
 import pytest
 
 from cad.knowledge.corpus import load
 from cad.knowledge.search import Index
 
-type MakeIndex = Callable[[Mapping[str, str]], Index]
+
+class MakeIndex(Protocol):
+    def __call__(
+        self, files: Mapping[str, str], codes: Mapping[str, list[str]] | None = None
+    ) -> Index: ...
+
 
 FRONT_MATTER = """---
 title: {title}
 url: https://example.com/{stem}
 retrieved: 2026-11-07
 license: own-summary
+codes: {codes}
 ---
 """
 
 
 @pytest.fixture
 def make_index(tmp_path: Path) -> MakeIndex:
-    def build(files: Mapping[str, str]) -> Index:
+    def build(files: Mapping[str, str], codes: Mapping[str, list[str]] | None = None) -> Index:
         for stem, body in files.items():
             title = stem.replace("-", " ")
-            (tmp_path / f"{stem}.md").write_text(FRONT_MATTER.format(title=title, stem=stem) + body)
+            front = FRONT_MATTER.format(
+                title=title, stem=stem, codes=json.dumps((codes or {}).get(stem, []))
+            )
+            (tmp_path / f"{stem}.md").write_text(front + body)
         return Index(load(tmp_path))
 
     return build

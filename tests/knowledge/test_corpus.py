@@ -59,10 +59,52 @@ def test_the_version_changes_with_any_byte(tmp_path: Path) -> None:
         (GOOD.replace("Some text.\n", ""), "empty"),
         (GOOD.replace("---\n## First", "---\nstray\n## First"), "before the first"),
         ("## No front matter\ntext\n", "front matter"),
+        (GOOD.replace("title: Example", "title: Example PLA data"), "codes"),
+        (GOOD.replace("## First", "## M5x0.8 pitch"), "codes"),
+        (GOOD.replace("license:", "codes: PLA\nlicense:"), "codes"),
+        (GOOD.replace("license:", "codes: [PLA data]\nlicense:"), "codes"),
+        (GOOD.replace("title: Example", "title: [unclosed"), "front matter"),
+        (GOOD.replace("2026-11-07", "2026-11-07 10:00:00"), "retrieved"),
+        (GOOD.replace("Some text.\n", "Some text.\n<!-- page: 9 -->\n"), "page"),
+        (GOOD + "## +++\nText.\n", "heading"),
     ],
 )
 def test_a_bad_file_is_reported(tmp_path: Path, text: str, expected: str) -> None:
     assert expected in problems(tmp_path, text)
+
+
+def test_a_unit_declares_the_codes_it_is_about(tmp_path: Path) -> None:
+    text = GOOD.replace("title: Example", "title: Example PLA data").replace(
+        "license:", "codes: [PLA, 'PLA plus']\nlicense:"
+    )
+    (unit,) = load(write(tmp_path, text)).units.values()
+    assert unit.codes == frozenset({"pla", "pla+"})
+
+
+def test_a_heading_inside_a_code_fence_is_text(tmp_path: Path) -> None:
+    text = GOOD + "```\n## not a heading\n```\n"
+    (unit,) = load(write(tmp_path, text)).units.values()
+    assert "## not a heading" in unit.text
+
+
+def test_a_byte_order_mark_and_windows_line_endings_are_accepted(tmp_path: Path) -> None:
+    (tmp_path / "x.md").write_bytes(b"\xef\xbb\xbf" + GOOD.replace("\n", "\r\n").encode())
+    (unit,) = load(tmp_path).units.values()
+    assert (unit.pointer.id, unit.pointer.page, unit.text) == ("kb:x#first", "2", "Some text.")
+
+
+def test_a_file_that_is_not_utf8_is_reported(tmp_path: Path) -> None:
+    (tmp_path / "x.md").write_bytes(GOOD.encode() + b"caf\xe9\n")
+    with pytest.raises(InvalidCorpus, match="UTF-8"):
+        load(tmp_path)
+
+
+def test_a_file_in_a_subdirectory_is_reported_not_skipped(tmp_path: Path) -> None:
+    write(tmp_path, GOOD)
+    (tmp_path / "sub").mkdir()
+    (tmp_path / "sub" / "y.md").write_text(GOOD)
+    with pytest.raises(InvalidCorpus, match="subdirector"):
+        load(tmp_path)
 
 
 def test_every_problem_is_collected(tmp_path: Path) -> None:
@@ -78,6 +120,11 @@ def test_the_seeded_corpus_is_valid_and_answers_its_questions() -> None:
     assert [h.pointer.id for h in index.search("PLA density")] == ["kb:pla#density"]
     assert index.search("PETG density") == ()
     assert index.search("M5 clearance hole") == ()
+    for query in ("PLA toughness", "PLA layer adhesion", "ordinary PLA", "PolyTerra density"):
+        assert index.search(query) == (), query
+    for query in ("PLA\uff0b density", "PLA + density", "PLA plus density", "PLA\u207a density"):
+        assert [h.pointer.id for h in index.search(query)] == ["kb:pla-plus#density"], query
+    assert index.search("plus grade density") == ()
 
 
 def test_the_scorer_never_loads_the_knowledge_base() -> None:

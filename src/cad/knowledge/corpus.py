@@ -7,10 +7,16 @@ A file starts with front matter that names its source, then sections:
     url: https://example.com/page
     retrieved: 2026-11-07
     license: own-summary
+    codes: [USGS]         (the material, part or standard codes the unit is about)
     ---
     ## Density            -> id kb:<file stem>#density
     <!-- page: 2 -->      (optional; a number or a range)
     Our summary, with a verbatim quote in "double quotes" wherever a number is cited.
+
+A query code (PLA+, M5x0.8) matches a unit only when it is one of the unit's declared codes, so a
+unit that merely mentions PLA is not about PLA. A file whose title or section names a code and
+declares no `codes:` is refused. Files are read as UTF-8, with a byte order mark or Windows line
+endings accepted. A `##` line inside a fenced code block is text, not a heading.
 
 A number in a unit's text is never a value a check reads; checks read the tables by exact key.
 """
@@ -25,11 +31,14 @@ from typing import Final, cast
 
 import yaml
 
+from cad.knowledge.text import looks_like_a_code, normalize, tokens
+
 CORPUS_PATH: Final = Path(__file__).resolve().parents[3] / "knowledge"
 LICENSES: Final = frozenset({"own-summary", "apache-2.0", "cc-by-4.0", "mit"})
 PAGE: Final = re.compile(r"<!--\s*page:\s*(?P<page>[^>]*?)\s*-->")
 PAGE_VALUE: Final = re.compile(r"\d+(-\d+)?")
-HEADING: Final = re.compile(r"^## +(?P<title>.+?)\s*$", re.MULTILINE)
+HEADING: Final = re.compile(r"## +(?P<title>.+?)\s*")
+FENCE: Final = re.compile(r"\s*(```|~~~)")
 FRONT_MATTER: Final = re.compile(r"\A---\n(?P<yaml>.*?)\n---\n", re.DOTALL)
 
 
@@ -51,6 +60,7 @@ class Pointer:
 class Unit:
     pointer: Pointer
     text: str
+    codes: frozenset[str]
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,12 +73,21 @@ def load(path: Path = CORPUS_PATH) -> Corpus:
     """Read every `*.md` file, collect every problem, and raise InvalidCorpus listing them all."""
     files = sorted(path.glob("*.md"))
     problems: list[str] = [] if files else [f"{path.name}: no Markdown files"]
+    problems.extend(
+        f"{nested.relative_to(path)}: files in subdirectories are not read, move it up"
+        for nested in sorted(path.glob("*/**/*.md"))
+    )
     units: dict[str, Unit] = {}
     digest = hashlib.sha256()
     for file in files:
         data = file.read_bytes()
         digest.update(file.name.encode() + b"\0" + data + b"\0")
-        found, errors = _parse(file.stem, data.decode())
+        try:
+            text = data.decode("utf-8-sig").replace("\r\n", "\n")
+        except UnicodeDecodeError as error:
+            problems.append(f"{file.name}: not UTF-8 ({error.reason} at byte {error.start})")
+            continue
+        found, errors = _parse(file.stem, text)
         problems.extend(f"{file.name}: {error}" for error in errors)
         for unit in found:
             if unit.pointer.id in units:
@@ -85,28 +104,55 @@ class Source:
     title: str
     url: str
     retrieved: date
+    codes: frozenset[str]
 
 
 def _parse(stem: str, text: str) -> tuple[list[Unit], list[str]]:
     match = FRONT_MATTER.match(text)
     if match is None:
         return [], ["no front matter"]
-    source, problems = _source(yaml.safe_load(match["yaml"]))
+    try:
+        meta: object = yaml.safe_load(match["yaml"])
+    except yaml.YAMLError as error:
+        return [], [f"front matter is not valid YAML: {str(error).splitlines()[0]}"]
+    source, problems = _source(meta)
     if source is None:
         return [], problems
     body = text[match.end() :]
-    headings = list(HEADING.finditer(body))
-    if not headings or body[: headings[0].start()].strip():
+    headings = _headings(body)
+    if not headings or body[: headings[0].start].strip():
         problems.append("text before the first ## heading")
     units: list[Unit] = []
     for heading, following in zip(headings, [*headings[1:], None], strict=False):
-        end = following.start() if following else len(body)
-        unit = _unit(stem, source, heading["title"], body[heading.end() : end])
+        end = following.start if following else len(body)
+        unit = _unit(stem, source, heading.title, body[heading.end : end])
         if isinstance(unit, Unit):
             units.append(unit)
         else:
             problems.append(unit)
     return units, problems
+
+
+@dataclass(frozen=True, slots=True)
+class _Heading:
+    title: str
+    start: int
+    end: int
+
+
+def _headings(body: str) -> list[_Heading]:
+    """Each `##` heading that is outside a fenced code block."""
+    found: list[_Heading] = []
+    fenced = False
+    offset = 0
+    for line in body.splitlines(keepends=True):
+        stripped = line.rstrip("\n")
+        if FENCE.match(stripped):
+            fenced = not fenced
+        elif not fenced and (heading := HEADING.fullmatch(stripped)):
+            found.append(_Heading(heading["title"], offset, offset + len(line)))
+        offset += len(line)
+    return found
 
 
 def _source(meta: object) -> tuple[Source | None, list[str]]:
@@ -121,21 +167,42 @@ def _source(meta: object) -> tuple[Source | None, list[str]]:
         problems.append("front matter needs a title")
     if not isinstance(url, str) or not url.startswith("https://"):
         problems.append("front matter needs an https:// url")
-    if not isinstance(retrieved, date):
+    if type(retrieved) is not date:
         problems.append("front matter retrieved must be a date such as 2026-11-07")
     if license_ not in LICENSES:
         problems.append(f"front matter license must be one of {sorted(LICENSES)}")
+    codes, code_problems = _codes(fields.get("codes", []))
+    problems.extend(code_problems)
     if problems or not (
-        isinstance(title, str) and isinstance(url, str) and isinstance(retrieved, date)
+        isinstance(title, str) and isinstance(url, str) and type(retrieved) is date
     ):
         return None, problems
-    return Source(title, url, retrieved), problems
+    return Source(title, url, retrieved, codes), problems
+
+
+def _codes(declared: object) -> tuple[frozenset[str], list[str]]:
+    if not isinstance(declared, list):
+        return frozenset(), ["front matter codes must be a list such as [PLA+]"]
+    codes: set[str] = set()
+    problems: list[str] = []
+    for item in cast(list[object], declared):
+        found = tokens(item) if isinstance(item, str) else []
+        if len(found) != 1 or normalize(cast(str, item)).strip() != found[0]:
+            problems.append(
+                f"front matter codes entry {item!r} must be one token such as PLA+ or M5x0.8"
+            )
+        else:
+            codes.add(found[0].casefold())
+    return frozenset(codes), problems
 
 
 def _unit(stem: str, source: Source, section: str, text: str) -> Unit | str:
     page: str | None = None
-    found = PAGE.search(text)
-    if found:
+    pages = list(PAGE.finditer(text))
+    if len(pages) > 1:
+        return f"section {section!r}: more than one page comment"
+    if pages:
+        found = pages[0]
         page = str(found["page"])
         if not PAGE_VALUE.fullmatch(page):
             return f"section {section!r}: page {page!r} is not a number or range"
@@ -144,6 +211,12 @@ def _unit(stem: str, source: Source, section: str, text: str) -> Unit | str:
     if not text:
         return f"section {section!r} is empty"
     slug = re.sub(r"[^a-z0-9]+", "-", section.casefold()).strip("-")
+    if not slug:
+        return f"section {section!r}: the heading has no letters or digits for an id"
+    if not source.codes:
+        named = [t for t in tokens(f"{source.title} {section}") if looks_like_a_code(t)]
+        if named:
+            return f"section {section!r}: names {named[0]!r}, declare it under codes:"
     pointer = Pointer(
         id=f"kb:{stem}#{slug}",
         title=source.title,
@@ -152,4 +225,4 @@ def _unit(stem: str, source: Source, section: str, text: str) -> Unit | str:
         section=section,
         retrieved=source.retrieved,
     )
-    return Unit(pointer, text)
+    return Unit(pointer, text, source.codes)
