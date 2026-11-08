@@ -31,4 +31,4 @@ A test runs each engine in a check container: gmsh meshes a box, `ccx` solves a 
 
 This change edits `src/cad/sandbox/`, which `TRUST_DIGEST` covers, so every variant id changes once. A stored variant is rebuilt from its signed code the next time it is scored, as the ADR-0003 amendment describes. Later changes to `sandbox/analysis/` change only check versions.
 
-SPEC's stack table names OrcaSlicer, and the slice check is not written yet. If the operator keeps OrcaSlicer, the trixie option above is the way to it, and it should be decided before the slice check is written. The analysis image is about 0.8 GB larger than the build image.
+SPEC's stack table names OrcaSlicer, and the slice check is not written yet. If PrusaSlicer stays, the slice PR names its adapter `prusa.py` and renames the `orca.py` row of the engine-adapter table in `tests/checks/test_versions.py`. If the operator keeps OrcaSlicer, the trixie option above is the way to it, and it should be decided before the slice check is written. The analysis image is about 0.8 GB larger than the build image.
