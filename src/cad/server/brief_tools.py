@@ -1,6 +1,6 @@
 """The four brief tools. None of them can write a decision: only the confirmation page can."""
 
-from collections.abc import Iterator
+from collections.abc import Generator
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Annotated, Literal
@@ -139,7 +139,7 @@ def _view(state: BriefState, proposed: ProposalState) -> ProposalView:
 
 
 @contextmanager
-def _agent_facing() -> Iterator[None]:
+def _agent_facing() -> Generator[None]:
     try:
         yield
     except BriefRefused as error:

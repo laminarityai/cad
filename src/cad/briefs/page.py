@@ -19,7 +19,7 @@ import sys
 import threading
 from datetime import UTC, datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from typing import Final
+from typing import Final, cast
 from urllib.parse import parse_qs
 
 from cad.briefs import store
@@ -82,17 +82,19 @@ def serve(desk: Desk) -> int:
 
 
 class _Handler(BaseHTTPRequestHandler):
-    server: _Server
+    @property
+    def _page(self) -> _Server:
+        return cast(_Server, self.server)
 
     def log_message(self, format: str, *args: object) -> None:
         return
 
     def do_GET(self) -> None:
-        ballot = self.server.desk.find(self._token() or "") if self._host_ok() else None
+        ballot = self._page.desk.find(self._token() or "") if self._host_ok() else None
         if ballot is None:
             return self._send(403, _plain(FORBIDDEN))
         try:
-            state = store.read_state(self.server.desk.root, ballot.brief_id)
+            state = store.read_state(self._page.desk.root, ballot.brief_id)
         except (BriefRefused, BriefStoreUnusable):
             return self._send(500, _plain("The brief store refused this brief. Tell the agent."))
         proposed = _still_open(state, ballot)
@@ -101,7 +103,7 @@ class _Handler(BaseHTTPRequestHandler):
         self._send(200, render(state, proposed, ballot))
 
     def do_POST(self) -> None:
-        origin = f"http://127.0.0.1:{self.server.port}"
+        origin = f"http://127.0.0.1:{self._page.port}"
         token = self._token()
         if not self._host_ok() or self.headers.get("Origin") != origin or token is None:
             return self._send(403, _plain(FORBIDDEN))
@@ -114,11 +116,11 @@ class _Handler(BaseHTTPRequestHandler):
         answer = _answer(self.rfile.read(int(length)))
         if content_type != "application/x-www-form-urlencoded" or answer is None:
             return self._send(400, _plain("The answer was not sent as a form."))
-        ballot = self.server.desk.spend(token)
+        ballot = self._page.desk.spend(token)
         if ballot is None:
             return self._send(403, _plain(FORBIDDEN))
         try:
-            outcome = _record(self.server.desk, ballot, answer)
+            outcome = _record(self._page.desk, ballot, answer)
         except (BriefRefused, BriefStoreUnusable):
             return self._send(500, _plain("The brief store refused this answer. Tell the agent."))
         if outcome is None:
@@ -130,7 +132,7 @@ class _Handler(BaseHTTPRequestHandler):
         self._send(200, _plain(f"Recorded: you {said} the requirements. Return to the chat."))
 
     def _host_ok(self) -> bool:
-        return self.headers.get("Host") == f"127.0.0.1:{self.server.port}"
+        return self.headers.get("Host") == f"127.0.0.1:{self._page.port}"
 
     def _token(self) -> str | None:
         match = TOKEN_PATH.fullmatch(self.path)
