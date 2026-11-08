@@ -16,6 +16,7 @@ from cad.sandbox.outcome import SandboxUnavailable
 from cad.scorecard import score
 from cad.scorecard.model import Scorecard
 from cad.server.brief_tools import PLAN_MODE, brief_tools
+from cad.server.knowledge_tools import knowledge_tools
 from cad.tables.materials import KEY_PATTERN
 from cad.variants import entry, store
 
@@ -174,6 +175,7 @@ def build_server(
                 Tool.from_function(score_variant, description=SCORE_VARIANT),
                 Tool.from_function(list_materials, description=LIST_MATERIALS),
                 *brief_tools(briefs_root, desk),
+                *knowledge_tools(),
             )
         ],
     )
