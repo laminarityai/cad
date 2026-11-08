@@ -25,7 +25,7 @@ One numbered set of requirements that the agent proposed for a brief. The user c
 _Avoid_: Draft, revision
 
 **Confirmation page**:
-A local web page, opened by the server, where the user confirms or declines a proposal. The agent never sees its address.
+One local web page per project, opened by the server, that lists everything waiting on the user in that project. One click confirms or declines all of it. The agent never sees its address.
 _Avoid_: Elicitation, approval form
 
 **Variant**:
