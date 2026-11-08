@@ -42,7 +42,7 @@ exclude = [
 ]
 venvPath = "."
 venv = ".venv"
-extraPaths = ["src", "evals/bakeoff"]
+extraPaths = ["src", "evals/bakeoff", "evals/briefs"]
 
 [tool.ruff]
 line-length = 100
@@ -55,4 +55,4 @@ select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-ra --import-mode=importlib"
-pythonpath = ["evals/bakeoff"]
+pythonpath = ["evals/bakeoff", "evals/briefs"]
