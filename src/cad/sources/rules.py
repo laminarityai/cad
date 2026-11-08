@@ -209,10 +209,10 @@ def _touching(text: str, found: list[Token], *, early: bool) -> Refusal | None:
                 f"{shown!r} ends in a decimal point with no digits after it",
                 "the number written in full, such as 1240 or 1240.5",
             )
-        for neighbour in () if early else (before, after):
-            if neighbour is not None and neighbour.kind in {"other", "mark"}:
-                if neighbour.text not in DASHES:
-                    return _stray(neighbour.text, shown)
+        strays = [] if early else [n for n in (before, after) if n is not None]
+        for neighbour in strays:
+            if neighbour.kind in {"other", "mark"} and neighbour.text not in DASHES:
+                return _stray(neighbour.text, shown)
     return None
 
 

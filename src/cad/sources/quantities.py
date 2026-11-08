@@ -30,7 +30,7 @@ def _ascii(pattern: str) -> re.Pattern[str]:
 
 
 _SCIENTIFIC: Final = _ascii(
-    r"\d(?:[eE][+-]?\d|\s*[x×*]\s*10|\s*·\s*10\s*(?:\^|\*\*|[²³¹⁰-⁻]))"
+    r"\d(?:[eE][+-]?\d|\s*[x\u00d7*]\s*10|\s*·\s*10\s*(?:\^|\*\*|[²³¹⁰-⁻]))"
 )
 _BOUND: Final = _ascii(
     r"[<>≤≥≦≧⩽⩾]|&[lg]t;"
@@ -39,7 +39,7 @@ _BOUND: Final = _ascii(
 )
 _CUBED: Final = _ascii(r"(?<![A-Za-z])((?i:cm|dm|m|in|ft)\.?)(⁻?)³")
 _KEEP_COMPATIBILITY: Final = "㎤㎥"
-_APOSTROPHE_GROUPS: Final = _ascii(r"\d+(?:['’ʼ′]\d+)+(?:[.,]\d+)?")
+_APOSTROPHE_GROUPS: Final = _ascii(r"\d+(?:['\u2019\u02bc\u2032]\d+)+(?:[.,]\d+)?")
 
 
 def one_quantity(quote: str, field: Field) -> Quantity | Refusal:

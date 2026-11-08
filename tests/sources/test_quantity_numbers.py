@@ -184,9 +184,7 @@ def test_a_standard_followed_by_a_digit_group_is_refused(quote: str) -> None:
         ("Density (ASTM D792) 1240 kg/m3", 1240.0),
     ],
 )
-def test_a_standard_followed_by_punctuation_still_reads(
-    quote: str, expected: float
-) -> None:
+def test_a_standard_followed_by_punctuation_still_reads(quote: str, expected: float) -> None:
     assert kg_per_m3(quote) == pytest.approx(expected)
 
 

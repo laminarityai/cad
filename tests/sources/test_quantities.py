@@ -5,6 +5,7 @@ import pytest
 from cad.sources.quantities import Quantity, Reason, Refusal, one_quantity
 from cad.tables.materials import Cited, load_materials
 
+
 def kg_per_m3(quote: str) -> float:
     result = one_quantity(quote, "density")
     assert isinstance(result, Quantity), result

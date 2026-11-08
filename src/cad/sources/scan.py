@@ -20,7 +20,7 @@ from cad.sources.units import Unit, dimension
 
 _MASS_NAMES: Final = {"g": "g", "kg": "kg", "t": "t", "tonne": "t", "tonnes": "t"}
 _UNIT: Final = re.compile(UNIT_PATTERN, re.ASCII)
-DASHES: Final = frozenset("-‐‑‒–—―")
+DASHES: Final = frozenset("-\u2010\u2011\u2012\u2013\u2014\u2015")
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,9 +103,7 @@ def _value_at(found: list[Token], index: int, spec: FieldSpec) -> Value | Refusa
             percent, last = True, last + 1
         elif unit_may_repeat and kind(last + 1) == "unit":
             repeated_at = last = last + 1
-    return _build(
-        found, spec, index, number_at, unit_at, tolerance_at, percent, repeated_at, last
-    )
+    return _build(found, spec, index, number_at, unit_at, tolerance_at, percent, repeated_at, last)
 
 
 def _build(

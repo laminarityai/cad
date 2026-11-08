@@ -55,37 +55,37 @@ UNIT_PATTERN: Final = (
 )
 _UNNAMED_UNIT = re.sub(r"\(\?P<\w+>", "(?:", UNIT_PATTERN)
 
+_SOURCES: Final[tuple[tuple[Kind, str, int], ...]] = (
+    (
+        "standard",
+        r"(?:ISO ?\d{3,5}(?:-\d{1,2})?(?::\d{4})?|ASTM ?[A-Z]\d+(?:-\d{1,2})?"
+        r"|DIN(?: ?EN)?(?: ?ISO)? ?\d+(?:-\d{1,2})?|GB/T ?\d+(?:-\d{1,2})?)",
+        re.ASCII,
+    ),
+    (
+        "condition",
+        rf"(?<![A-Za-z])(?i:at|@) ?(?:-?{_PLAIN_NUMBER} ?(?:° ?)?[CF]"
+        rf"|{_PLAIN_NUMBER} ?(?:K|bar|atm|kPa|MPa|Pa|psi))(?![A-Za-z])"
+        rf"|{_PLAIN_NUMBER} ?% ?RH(?![A-Za-z])",
+        re.ASCII,
+    ),
+    ("unit", _UNNAMED_UNIT, re.ASCII),
+    ("number", rf"\d{{1,3}}(?: \d{{3}})+(?!\d)(?:[.,]\d+)?|{_PLAIN_NUMBER}", re.ASCII),
+    ("tolerance", r"±|\+/-|\+-", re.ASCII),
+    ("percent", r"%", re.ASCII),
+    (
+        "label",
+        r"(?<![A-Za-z])(?i:mass density|density|typical|nominal|value|densidad|dichte"
+        r"|densité)(?![A-Za-z])|\u03c1",
+        re.ASCII,
+    ),
+    ("separator", r"[,;:()=\[\]]", re.ASCII),
+    ("mark", r"\.{2,}|[-\u2010-―~/]", re.ASCII),
+    ("word", r"[^\W\d_][^ ,;:()=\[\]]*", 0),
+    ("other", r".", re.DOTALL),
+)
 _CLASSES: Final[tuple[tuple[Kind, re.Pattern[str]], ...]] = tuple(
-    (kind, re.compile(pattern, flags))
-    for kind, pattern, flags in (
-        (
-            "standard",
-            r"(?:ISO ?\d{3,5}(?:-\d{1,2})?(?::\d{4})?|ASTM ?[A-Z]\d+(?:-\d{1,2})?"
-            r"|DIN(?: ?EN)?(?: ?ISO)? ?\d+(?:-\d{1,2})?|GB/T ?\d+(?:-\d{1,2})?)",
-            re.ASCII,
-        ),
-        (
-            "condition",
-            rf"(?<![A-Za-z])(?i:at|@) ?(?:-?{_PLAIN_NUMBER} ?(?:° ?)?[CF]"
-            rf"|{_PLAIN_NUMBER} ?(?:K|bar|atm|kPa|MPa|Pa|psi))(?![A-Za-z])"
-            rf"|{_PLAIN_NUMBER} ?% ?RH(?![A-Za-z])",
-            re.ASCII,
-        ),
-        ("unit", _UNNAMED_UNIT, re.ASCII),
-        ("number", rf"\d{{1,3}}(?: \d{{3}})+(?!\d)(?:[.,]\d+)?|{_PLAIN_NUMBER}", re.ASCII),
-        ("tolerance", r"±|\+/-|\+-", re.ASCII),
-        ("percent", r"%", re.ASCII),
-        (
-            "label",
-            r"(?<![A-Za-z])(?i:mass density|density|typical|nominal|value|densidad|dichte"
-            r"|densité)(?![A-Za-z])|ρ",
-            re.ASCII,
-        ),
-        ("separator", r"[,;:()=\[\]]", re.ASCII),
-        ("mark", r"\.{2,}|[-‐-―~/]", re.ASCII),
-        ("word", r"[^\W\d_][^ ,;:()=\[\]]*", 0),
-        ("other", r".", re.DOTALL),
-    )
+    (kind, re.compile(pattern, flags)) for kind, pattern, flags in _SOURCES
 )
 
 
@@ -95,7 +95,7 @@ def is_whitespace(char: str) -> bool:
 
 def fold(text: str) -> str:
     """NFKC, then every whitespace or control character run becomes one space."""
-    normal = unicodedata.normalize("NFKC", text).replace("−", "-")
+    normal = unicodedata.normalize("NFKC", text).replace("\u2212", "-")
     folded: list[str] = []
     for char in normal:
         if not is_whitespace(char):

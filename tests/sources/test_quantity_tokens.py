@@ -31,7 +31,7 @@ GLUED_SEPARATORS = [
     "Density ;9 g/cm3",
     "Density\n,9 g/cm3",
     "Density ﹐9 g/cm3",
-    "Density ，9 g/cm3",
+    "Density \uff0c9 g/cm3",
     "Density 9, g/cm3",
     "Density 1240, kg/m3",
     "Density 1;24 g/cm3",
@@ -75,11 +75,11 @@ def test_a_standard_followed_by_any_number_is_ambiguous(quote: str) -> None:
     assert "standard" in result.detail or "touches" in result.detail
 
 
-WHITESPACE = [" ", "\t", "\n", "\x0b", "\x0c", "\r", "\x1c", "\x1f", "\x85", "\xa0", " "]
-WHITESPACE += [" ", " ", " ", " ", " ", " ", "　"]
+WHITESPACE = [" ", "\t", "\n", "\x0b", "\x0c", "\r", "\x1c", "\x1f", "\x85", "\xa0"]
+WHITESPACE_TOO = ["\u1680", "\u2000", "\u2007", "\u2028", "\u2029", "\u202f", "\u205f"]
 
 
-@pytest.mark.parametrize("space", WHITESPACE)
+@pytest.mark.parametrize("space", [*WHITESPACE, *WHITESPACE_TOO, "\u3000"])
 def test_every_whitespace_character_is_the_same_whitespace(space: str) -> None:
     assert kg_per_m3(f"Density{space}1.24{space}g/cm3") == pytest.approx(1240.0)
     assert refusal(f"Density DIN 1{space}2400 kg/m3").reason is Reason.AMBIGUOUS_NUMBER
@@ -139,8 +139,8 @@ def test_a_number_with_one_reading_still_reads(quote: str, expected: float) -> N
         "Density 1.20...1.25 g/cm3",
         "Density 1.20…1.25 g/cm3",
         "Density 1.20-1.25g/cm3",
-        "Density 1.20‐1.25 g/cm3",
-        "Density 1.20‒1.25 g/cm3",
+        "Density 1.20\u20101.25 g/cm3",
+        "Density 1.20\u20121.25 g/cm3",
         "Density 1.20 bis 1.25 g/cm3",
     ],
 )
@@ -196,5 +196,7 @@ def test_the_scorer_and_the_checks_never_load_the_reader() -> None:
         "import sys, cad.scorecard.score, cad.checks.container.runner; "
         "print([n for n in sys.modules if n.startswith('cad.sources')])"
     )
-    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, check=True
+    )
     assert result.stdout.strip() == "[]"
