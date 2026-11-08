@@ -4,7 +4,7 @@
     POST /confirm/<token>   form body answer=confirm|decline&note=<text>[&decline-<i>=decline]
                             [&edit-<i>-<row>=<text>]
                             200 recorded, 403, 409 already answered or changed, 400, 413,
-                            500 the store refused, and the page stays open for a retry
+                            500 nothing was recorded, and the page stays open for a retry
 
 Request logging is off, because the token is in the request line.
 """
@@ -32,7 +32,7 @@ CHANGED: Final = (
     "Ask the agent to open the page again."
 )
 REFUSED: Final = (
-    "The store refused this page, and nothing was recorded. Try again, or tell the agent."
+    "The answer did not go through, and nothing was recorded. Try again, or tell the agent."
 )
 NOT_A_FORM: Final = "The answer was not sent as a form."
 # The page posts to itself. A no-referrer policy would make browsers send `Origin: null` on that
@@ -123,7 +123,10 @@ class _Handler(BaseHTTPRequestHandler):
             outcome = page.answer_page(
                 self._desk.roots, self._desk.kinds, ballot, form, datetime.now(UTC)
             )
-        except STORE_FAILURES:
+        except Exception as error:
+            # Nothing in answer_page raises once the answer is linked into place, so a ballot
+            # given back here never had its answer recorded.
+            LOG.error("the confirmation page could not record an answer: %r", error)
             self._desk.give_back(ballot)
             return self._send(500, plain(REFUSED))
         ballot.answered.set()
