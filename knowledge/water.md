@@ -1,20 +1,18 @@
 ---
-title: Water Density | U.S. Geological Survey
-url: https://www.usgs.gov/water-science-school/science/water-density
+title: Study and Interpretation of the Chemical Characteristics of Natural Water (Hem, USGS Water-Supply Paper 1473)
+url: https://pubs.usgs.gov/wsp/1473/report.pdf
 retrieved: 2026-11-07
 license: own-summary
 ---
 ## Density
-Fresh water is close to 1 gram per cubic centimetre, and the value moves with temperature and
-with dissolved substances. The source says "The density of water is roughly 1 gram per milliliter
-but, this changes with temperature or if there are substances dissolved in it." It also gives
-"A common unit of measurement for water's density is gram per milliliter (1 g/ml) or 1 gram per
-cubic centimeter (1 g/cm3)."
+<!-- page: 244 -->
+Fresh water density is close to 1 gram per millilitre, and it depends on temperature and on what
+is dissolved. The report says "The density is usually determined to three decimal places, and the
+temperature at which it was made (usually 20°C) is given." It also says "The density of a water is
+a significant physical property that affects its behavior in natural systems".
 
-## Exact value at 4 degrees Celsius
-The source says "the exact density of water is not really 1 g/ml, but rather a bit less (very,
-very little less), at 0.9998395 g/ml at 4.0° Celsius (39.2° Fahrenheit)."
-
-## Ice
-The source says "The density of ice is about 90 percent that of water, but that can vary because
-ice can contain air."
+## Pure water at 4 degrees Celsius
+<!-- page: 95 -->
+A litre of water weighs 1 kilogram only near 4 degrees Celsius. The report says "This assumption
+is strictly true only for pure water at 3.89° C." It adds "The presence of dissolved mineral matter
+tends to increase the density, and at higher temperatures the density decreases."
