@@ -177,3 +177,13 @@ async def test_a_store_failure_while_reading_an_edit_leaves_the_page_open(
     assert (first[0], "nothing was recorded. Try again" in first[1]) == (500, True)
     assert s.post(s.person.url, "confirm", fields=edit)[0] == 200
 
+
+async def test_list_requirements_says_the_user_changed_the_number(s: Session) -> None:
+    brief = await s.proposed(s.rows.under_150, s.rows.shelf)
+    [light, _] = row_ids(s, brief.brief_id)
+    await s.ask(brief)
+    assert s.post(s.person.url, "confirm", fields={f"edit-0-{light}": "120 g"})[0] == 200
+    listed = await s.call("list_requirements", brief_id=brief.brief_id)
+    edited, untouched = listed["proposals"][0]["requirements"]
+    assert edited["edited_by_user"] == {"proposed": "150 g", "confirmed": "120 g"}
+    assert untouched["edited_by_user"] is None
