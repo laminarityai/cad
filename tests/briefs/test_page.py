@@ -14,6 +14,7 @@ from cad.briefs import page, store
 from cad.briefs.ballot import Desk, PageUrl
 from cad.briefs.model import Decision, Declined, Target
 from cad.projects.model import new_project_id
+from cad.records.roots import Roots
 
 if TYPE_CHECKING:
     from conftest import Person, Session
@@ -37,7 +38,7 @@ async def test_a_confirm_on_the_page_confirms_the_set_for_tools_and_checks(
     assert listed["confirmed_proposal"] == 1
     assert listed["proposals"][0]["status"] == "confirmed"
     assert {r["status"] for r in listed["proposals"][0]["requirements"]} == {"confirmed"}
-    checked = store.confirmed_requirements(s.root, brief_id)
+    checked = store.confirmed_requirements(s.roots, brief_id)
     assert checked is not None
     assert [r.id for r in checked.requirements] == [
         r["requirement"]["id"] for r in confirmed["answer"]["requirements"]
@@ -167,7 +168,7 @@ async def test_a_newer_proposal_retires_the_old_page(s: Session) -> None:
 async def test_an_answer_another_process_recorded_first_wins(s: Session) -> None:
     brief_id = await s.proposed(s.rows.under_150)
     await s.call("confirm_requirements", brief_id=brief_id)
-    state = store.read_state(s.root, brief_id)
+    state = store.read_state(s.roots, brief_id)
     elsewhere = Decision(
         proposal=1,
         brief_sha256=state.brief_sha256,
@@ -175,7 +176,7 @@ async def test_an_answer_another_process_recorded_first_wins(s: Session) -> None
         answer=Declined(note="elsewhere"),
         decided_at=state.brief.created_at,
     )
-    store.record_decision(s.root, state.brief.id, elsewhere)
+    page.record_decision(s.roots, state.brief.id, elsewhere)
     conflict = s.post(s.person.url, "confirm")[0]
     answered = await s.call("confirm_requirements", brief_id=brief_id)
     assert conflict == 409
@@ -185,7 +186,7 @@ async def test_an_answer_another_process_recorded_first_wins(s: Session) -> None
 async def test_an_expired_ballot_is_refused_and_replaced(s: Session, tmp_path: Path) -> None:
     now = [0.0]
     urls: list[PageUrl] = []
-    root = tmp_path / "expiring"
+    root = Roots(tmp_path / "expiring", tmp_path / "projects")
     brief = store.create_brief(root, s.rows.text, new_project_id())
     target = TypeAdapter[Target](Target).validate_python(s.rows.under_150["target"])
     store.propose(root, brief.id, [store.Draft(target=target, quote="under 150 g")])

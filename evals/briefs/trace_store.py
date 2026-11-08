@@ -1,13 +1,13 @@
 """Trace every number on every scorecard stored in a variant store.
 
-    uv run python evals/briefs/trace_store.py [--root DIR] [--briefs-root DIR] [--steps]
-        [--require-judged]
+    uv run python evals/briefs/trace_store.py [--root DIR] [--briefs-root DIR]
+        [--projects-root DIR] [--steps] [--require-judged]
 
 Each card is read, bound to its signed build, checked for completeness, its basis is checked
-against the brief store, and every number on it is traced (see `provenance`). The summary counts
-each kind of failure on its own line, and counts cards judged against a brief apart from cards
-awaiting confirmation and cards with no brief. Exit code 1 means at least one card or number
-failed, or the store holds no card or no number: a pass over nothing proves nothing. With
+against the brief and project stores, and every number on it is traced (see `provenance`). The
+summary counts each kind of failure on its own line, and counts cards judged against a brief apart
+from cards awaiting confirmation and cards with no brief. Exit code 1 means at least one card or
+number failed, or the store holds no card or no number: a pass over nothing proves nothing. With
 `--require-judged`, a card awaiting confirmation or with no brief fails too.
 
 Limit: stored cards are unsigned, so a hand-edited value or verdict is not detected. The product
@@ -42,8 +42,8 @@ from provenance import (
 from pydantic import ValidationError
 from tracking import RequirementOutcome, describe, outcomes_of, track
 
-from cad.briefs.store import BRIEFS_ROOT
 from cad.checks.report import SPECS
+from cad.records.roots import HOME_ROOTS, Roots
 from cad.scorecard.model import Scorecard
 from cad.scorecard.score import SCORECARD
 from cad.tables.materials import MaterialsTable, load_materials
@@ -120,7 +120,13 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     parser.add_argument("--root", type=Path, default=entry.VARIANTS_ROOT, help="the variant store")
     parser.add_argument(
-        "--briefs-root", type=Path, default=BRIEFS_ROOT, help="the brief store cards name"
+        "--briefs-root", type=Path, default=HOME_ROOTS.briefs, help="the brief store cards name"
+    )
+    parser.add_argument(
+        "--projects-root",
+        type=Path,
+        default=HOME_ROOTS.projects,
+        help="the project store that holds the person's answers",
     )
     parser.add_argument("--steps", action="store_true", help="print the chain of every number")
     parser.add_argument(
@@ -135,10 +141,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         if entry.ID_PATTERN.fullmatch(path.parent.name)
     )
     table = load_materials()
+    roots = Roots(briefs=args.briefs_root, projects=args.projects_root)
     traces: list[CardTrace] = []
     outcomes: list[RequirementOutcome] = []
     for path in paths:
-        trace, found = _read(path, args.root, args.briefs_root, table)
+        trace, found = _read(path, args.root, roots, table)
         _print(trace, args.steps)
         traces.append(trace)
         outcomes.extend(found)
@@ -171,14 +178,14 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 
 def _read(
-    path: Path, root: Path, briefs_root: Path, table: MaterialsTable
+    path: Path, root: Path, roots: Roots, table: MaterialsTable
 ) -> tuple[CardTrace, tuple[RequirementOutcome, ...]]:
     name = path.parent.name
     try:
         card = Scorecard.model_validate_json(path.read_text())
     except (OSError, ValidationError, pint.UndefinedUnitError, ZeroDivisionError) as error:
         return CardTrace(name, (Unreadable(str(error).splitlines()[0]),), ()), ()
-    trace = trace_card(card, root, briefs_root, table, SPEC_BY_ID)
+    trace = trace_card(card, root, roots, table, SPEC_BY_ID)
     if card.variant_id != name:
         misplaced = Unbound(f"the card names variant {card.variant_id} but is stored under {name}")
         trace = CardTrace(name, (misplaced, *trace.failures), trace.numbers, trace.basis)
@@ -214,7 +221,7 @@ def _step(step: Step) -> str:
             )
         case ConfirmedStep():
             return (
-                f"confirmed by a person: brief {step.brief_id}, decision "
+                f"confirmed by a person: brief {step.brief_id}, answer "
                 f"{step.decision_sha256[:12]}, requirement {step.requirement_id} "
                 f"({step.statement})"
             )

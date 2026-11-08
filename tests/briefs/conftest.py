@@ -12,6 +12,7 @@ from urllib.parse import urlencode, urlsplit
 import pytest
 from mcp import Client
 
+from cad.records.roots import Roots
 from cad.server.app import build_server
 
 TEXT = "A wall bracket for a 2 kg shelf, under 150 g, fits in 120 x 80 x 40 mm, printable in PETG"
@@ -101,7 +102,7 @@ class Session:
 
     client: Client
     person: Person
-    root: Path
+    roots: Roots
     rows: Rows = field(default_factory=Rows)
     get = staticmethod(get)
     post = staticmethod(post)
@@ -132,7 +133,7 @@ def person() -> Person:
 
 @pytest.fixture
 async def s(tmp_path: Path, person: Person) -> AsyncIterator[Session]:
-    root = tmp_path / "briefs"
-    server = build_server(tmp_path / "variants", root, opener=person, wait_seconds=0.3)
+    roots = Roots(tmp_path / "briefs", tmp_path / "projects")
+    server = build_server(tmp_path / "variants", roots, opener=person, wait_seconds=0.3)
     async with Client(server) as client:
-        yield Session(client, person, root)
+        yield Session(client, person, roots)

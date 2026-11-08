@@ -45,7 +45,7 @@ async def proposed(s: Session) -> str:
 
 
 def card_path(s: Session, variant_id: str) -> Path:
-    return s.root.parent / "variants" / variant_id / score.SCORECARD
+    return s.roots.briefs.parent / "variants" / variant_id / score.SCORECARD
 
 
 async def test_a_score_with_no_brief_says_so_and_judges_nothing(s: Session) -> None:
@@ -113,7 +113,7 @@ async def test_a_brief_the_store_cannot_show_is_refused_before_any_check_runs(
 
 async def test_a_tampered_brief_is_refused_before_any_check_runs(s: Session) -> None:
     brief_id = await proposed(s)
-    (s.root / brief_id / "decisions" / "0001.signed").write_text('{"verdict":"confirmed"}')
+    (s.roots.briefs / brief_id / "decisions" / "0001.signed").write_text('{"verdict":"confirmed"}')
     variant_id = await plate(s)
     text = await s.text(
         "score_variant", variant_id=variant_id, material_key="prusament-pla", brief_id=brief_id

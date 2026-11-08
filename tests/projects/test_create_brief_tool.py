@@ -6,13 +6,18 @@ from mcp import Client
 
 from cad.projects.membership import project_briefs
 from cad.projects.model import ProjectId
+from cad.records.roots import Roots
 from cad.server.app import build_server
 
 pytestmark = pytest.mark.anyio
 
 
+def roots(tmp_path: Path) -> Roots:
+    return Roots(tmp_path / "briefs", tmp_path / "projects")
+
+
 async def test_a_second_brief_joins_the_project_the_first_one_started(tmp_path: Path) -> None:
-    async with Client(build_server(briefs_root=tmp_path)) as client:
+    async with Client(build_server(roots=roots(tmp_path))) as client:
         first: Any = await client.call_tool("create_brief", {"text": "a hook"})
         project = first.structured_content["project_id"]
         second: Any = await client.call_tool(
@@ -26,7 +31,7 @@ async def test_a_second_brief_joins_the_project_the_first_one_started(tmp_path: 
         )
     assert second.structured_content["project_id"] == project
     assert listed.structured_content["project_id"] == project
-    assert project_briefs(tmp_path, ProjectId(project)) == (
+    assert project_briefs(roots(tmp_path), ProjectId(project)) == (
         first.structured_content["brief_id"],
         second.structured_content["brief_id"],
     )
@@ -45,10 +50,10 @@ async def test_a_second_brief_joins_the_project_the_first_one_started(tmp_path: 
 async def test_create_brief_refuses_a_project_it_cannot_join(
     tmp_path: Path, project_id: str, refusal: str
 ) -> None:
-    async with Client(build_server(briefs_root=tmp_path)) as client:
+    async with Client(build_server(roots=roots(tmp_path))) as client:
         result: Any = await client.call_tool(
             "create_brief", {"text": "a hook", "project_id": project_id}
         )
     assert result.is_error
     assert refusal in result.content[0].text
-    assert list(tmp_path.iterdir()) == []
+    assert not (tmp_path / "briefs").exists()

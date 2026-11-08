@@ -1,4 +1,4 @@
-"""The local confirmation page, and the only caller of store.record_decision.
+"""The local confirmation page, and the only writer of a decision.
 
 One listener per server process on 127.0.0.1 and a free port, started on the first ballot.
 
@@ -27,6 +27,7 @@ from cad.briefs.ballot import Ballot, Desk
 from cad.briefs.model import (
     MAX_NOTE_CHARS,
     Answer,
+    BriefId,
     Confirmed,
     Decision,
     Declined,
@@ -34,6 +35,8 @@ from cad.briefs.model import (
     describe,
 )
 from cad.briefs.store import BriefRefused, BriefState, ProposalState
+from cad.records import signed
+from cad.records.roots import Roots
 from cad.records.signed import StoreUnusable
 
 TOKEN_PATH: Final = re.compile(r"/confirm/([A-Za-z0-9_-]{1,128})")
@@ -94,7 +97,7 @@ class _Handler(BaseHTTPRequestHandler):
         if ballot is None:
             return self._send(403, _plain(FORBIDDEN))
         try:
-            state = store.read_state(self._page.desk.root, ballot.brief_id)
+            state = store.read_state(self._page.desk.roots, ballot.brief_id)
         except (BriefRefused, StoreUnusable):
             return self._send(500, _plain("The brief store refused this brief. Tell the agent."))
         proposed = _still_open(state, ballot)
@@ -151,7 +154,7 @@ class _Handler(BaseHTTPRequestHandler):
 def _still_open(state: BriefState, ballot: Ballot) -> ProposalState | None:
     """The ballot's proposal, unless a newer one retired it or it is already decided."""
     latest = state.latest
-    if latest is None or latest.proposal.number != ballot.proposal or latest.decision is not None:
+    if latest is None or latest.proposal.number != ballot.proposal or latest.answered is not None:
         return None
     return latest
 
@@ -178,7 +181,7 @@ def _answer(body: bytes) -> Answer | None:
 
 def _record(desk: Desk, ballot: Ballot, answer: Answer) -> Answer | None:
     """Write the decision; the stored answer, or None when the ballot is no longer open."""
-    state = store.read_state(desk.root, ballot.brief_id)
+    state = store.read_state(desk.roots, ballot.brief_id)
     proposed = state.latest
     if proposed is None or proposed.proposal.number != ballot.proposal:
         return None
@@ -189,7 +192,21 @@ def _record(desk: Desk, ballot: Ballot, answer: Answer) -> Answer | None:
         answer=answer,
         decided_at=datetime.now(UTC),
     )
-    return store.record_decision(desk.root, ballot.brief_id, decision).answer
+    return record_decision(desk.roots, ballot.brief_id, decision)
+
+
+def record_decision(roots: Roots, brief_id: BriefId, decision: Decision) -> Answer:
+    """Store the person's answer for a proposal; if one is already stored, return that one."""
+    number = decision.proposal
+    path = roots.briefs / brief_id / store.DECISIONS / signed.slot_file(number)
+    record = decision.model_dump_json().encode()
+    signed.publish(
+        signed.Store(roots.briefs, "brief"), f"{brief_id}/decision/{number}", path, record
+    )
+    stored = store.read_state(roots, brief_id).proposal(number)
+    if stored is None or stored.answered is None:
+        raise store.TamperedBrief(f"brief {brief_id}: decision {number} did not persist")
+    return stored.answered.answer
 
 
 def render(state: BriefState, proposed: ProposalState, ballot: Ballot) -> bytes:

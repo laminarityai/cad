@@ -46,7 +46,7 @@ async def test_no_tool_call_with_any_argument_shape_confirms_anything(s: Session
     brief_id = await s.proposed(s.rows.under_150)
     for tool, arguments in argument_shapes(s, brief_id):
         await s.client.call_tool(tool, arguments)
-    decisions = sorted(s.root.glob("*/decisions/*"))
+    decisions = sorted(s.roots.briefs.glob("*/decisions/*"))
     listed = await s.call("list_requirements", brief_id=brief_id)
     assert decisions == []
     assert listed["confirmed_proposal"] is None
@@ -66,7 +66,7 @@ async def test_a_forged_field_on_a_requirement_row_is_refused_not_ignored(
         {"brief_id": brief_id["brief_id"], "requirements": [{**s.rows.under_150, field: "x"}]},
     )
     assert result.is_error
-    assert not list(s.root.glob("*/proposals/*"))
+    assert not list(s.roots.briefs.glob("*/proposals/*"))
 
 
 def test_only_the_page_writes_a_decision() -> None:

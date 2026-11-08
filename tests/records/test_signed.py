@@ -8,6 +8,7 @@ import pytest
 from cad.briefs import store
 from cad.checks import report
 from cad.records import signed
+from cad.records.roots import Roots
 from cad.records.signed import Appended, Full, Store
 from cad.variants import entry
 
@@ -39,9 +40,10 @@ def things(tmp_path: Path) -> Store:
 def test_a_brief_signed_by_the_old_code_still_verifies(tmp_path: Path) -> None:
     root = legacy_copy(tmp_path)
     [brief_id] = [path.name for path in root.iterdir()]
-    state = store.read_state(root, brief_id)
+    roots = Roots(root, tmp_path / "projects")
+    state = store.read_state(roots, brief_id)
     assert [p.status for p in state.proposals] == [store.Status.CONFIRMED]
-    confirmed = store.confirmed_requirements(root, brief_id)
+    confirmed = store.confirmed_requirements(roots, brief_id)
     assert confirmed is not None
     assert [r.origin.end - r.origin.start for r in confirmed.requirements] == [len("under 150 g")]
 

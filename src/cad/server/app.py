@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from cad.briefs import page
 from cad.briefs import store as briefs
 from cad.briefs.ballot import OS_OPEN, WAIT_SECONDS, Desk, Opener
+from cad.records.roots import HOME_ROOTS, Roots
 from cad.sandbox import container, host
 from cad.scorecard import requirements, score
 from cad.scorecard.model import Scorecard
@@ -131,12 +132,12 @@ def strict_tool(tool: Tool) -> Tool:
 
 def build_server(
     variants_root: Path = entry.VARIANTS_ROOT,
-    briefs_root: Path = briefs.BRIEFS_ROOT,
+    roots: Roots = HOME_ROOTS,
     opener: Opener = OS_OPEN,
     wait_seconds: float = WAIT_SECONDS,
 ) -> MCPServer:
     desk = Desk(
-        briefs_root,
+        roots,
         opener,
         serve=page.serve,
         wait_seconds=wait_seconds,
@@ -165,7 +166,7 @@ def build_server(
         with agent_facing():
             assess = score.no_brief
             if brief_id is not None:
-                confirmed = briefs.confirmed_requirements(briefs_root, brief_id)
+                confirmed = briefs.confirmed_requirements(roots, brief_id)
                 assess = (
                     requirements.awaiting(brief_id)
                     if confirmed is None
@@ -190,7 +191,7 @@ def build_server(
                 Tool.from_function(build_variant, description=BUILD_VARIANT),
                 Tool.from_function(score_variant, description=SCORE_VARIANT),
                 Tool.from_function(list_materials, description=LIST_MATERIALS),
-                *brief_tools(briefs_root, desk),
+                *brief_tools(roots, desk),
             )
         ],
     )

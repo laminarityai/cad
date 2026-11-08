@@ -1,6 +1,5 @@
 """The four brief tools. None of them can write a decision: only the confirmation page can."""
 
-from pathlib import Path
 from typing import Annotated, Literal
 
 from mcp.server.mcpserver.tools import Tool
@@ -21,6 +20,7 @@ from cad.briefs.model import (
 from cad.briefs.store import BriefState, ProposalState, Status
 from cad.projects.membership import project_for_new_brief
 from cad.projects.model import PROJECT_ID, PROJECT_ID_CHARS
+from cad.records.roots import Roots
 from cad.server.refusals import agent_facing
 
 PLAN_MODE = (
@@ -142,7 +142,7 @@ def _view(state: BriefState, proposed: ProposalState) -> ProposalView:
     )
 
 
-def brief_tools(root: Path, desk: Desk) -> list[Tool]:
+def brief_tools(roots: Roots, desk: Desk) -> list[Tool]:
     def create_brief(
         text: Annotated[str, Field(min_length=1, max_length=MAX_BRIEF_CHARS)],
         project_id: Annotated[
@@ -150,8 +150,8 @@ def brief_tools(root: Path, desk: Desk) -> list[Tool]:
         ] = None,
     ) -> BriefCreated:
         with agent_facing():
-            project = project_for_new_brief(root, project_id)
-            brief = store.create_brief(root, text, project)
+            project = project_for_new_brief(roots, project_id)
+            brief = store.create_brief(roots, text, project)
         return BriefCreated(brief_id=brief.id, project_id=project)
 
     def propose_requirements(
@@ -162,26 +162,26 @@ def brief_tools(root: Path, desk: Desk) -> list[Tool]:
     ) -> ProposalView:
         drafts = [store.Draft(target=r.target, quote=r.quote) for r in requirements]
         with agent_facing():
-            proposed = store.propose(root, brief_id, drafts)
-            return _view(store.read_state(root, brief_id), proposed)
+            proposed = store.propose(roots, brief_id, drafts)
+            return _view(store.read_state(roots, brief_id), proposed)
 
     async def confirm_requirements(brief_id: str) -> ConfirmResult:
         with agent_facing():
             after = await desk.confirm(brief_id)
-            state = store.read_state(root, brief_id)
-        decision = after.decision
+            state = store.read_state(roots, brief_id)
+        answered = after.answered
         answer: ConfirmedAnswer | DeclinedAnswer | PendingAnswer
-        if decision is None:
+        if answered is None:
             answer = PendingAnswer()
-        elif isinstance(decision.answer, Declined):
-            answer = DeclinedAnswer(note=decision.answer.note)
+        elif isinstance(answered.answer, Declined):
+            answer = DeclinedAnswer(note=answered.answer.note)
         else:
             answer = ConfirmedAnswer(requirements=_view(state, after).requirements)
         return ConfirmResult(brief_id=state.brief.id, proposal=after.proposal.number, answer=answer)
 
     def list_requirements(brief_id: str) -> BriefView:
         with agent_facing():
-            state = store.read_state(root, brief_id)
+            state = store.read_state(roots, brief_id)
         confirmed = state.confirmed
         return BriefView(
             brief_id=state.brief.id,

@@ -9,13 +9,14 @@ from cards import (
     STEP,
     UNITS,
     VARIANT_ID,
-    confirm,
+    confirm_on_page,
     drafts,
     genuine_card,
     judged_card,
     lines,
     put,
     result_of,
+    roots_beside,
     trace,
     with_result,
 )
@@ -30,7 +31,7 @@ from cad.briefs import store as briefs
 from cad.checks.result import Measure
 from cad.projects.model import new_project_id
 from cad.sandbox.outcome import Build, Built
-from cad.scorecard.model import AwaitingConfirmation
+from cad.scorecard.model import AwaitingConfirmation, Scorecard
 from cad.scorecard.score import SCORECARD
 from cad.variants import entry
 
@@ -38,11 +39,27 @@ LIGHT = ({"kind": "max_mass", "mass": {"magnitude": 150, "unit": "g"}}, "under 1
 FRIENDLY = ({"kind": "unchecked", "statement": "looks friendly"}, "looks friendly")
 
 
+def arguments_for(store: Path) -> list[str]:
+    roots = roots_beside(store)
+    return [
+        "--root",
+        str(store),
+        "--briefs-root",
+        str(roots.briefs),
+        "--projects-root",
+        str(roots.projects),
+    ]
+
+
+def judged_against_a_brief(store: Path) -> Scorecard:
+    roots = roots_beside(store)
+    brief_id = briefs.create_brief(roots, BRIEF_TEXT, new_project_id()).id
+    return judged_card(confirm_on_page(roots, brief_id, drafts(LIGHT, FRIENDLY)))
+
+
 def scored_against_a_brief(store: Path) -> list[str]:
-    briefs_root = store.parent / "briefs"
-    brief_id = briefs.create_brief(briefs_root, BRIEF_TEXT, new_project_id()).id
-    put(store, judged_card(confirm(briefs_root, brief_id, drafts(LIGHT, FRIENDLY))))
-    return ["--root", str(store), "--briefs-root", str(briefs_root)]
+    put(store, judged_against_a_brief(store))
+    return arguments_for(store)
 
 
 def test_the_command_passes_on_a_store_of_genuine_scorecards(
@@ -125,9 +142,9 @@ def test_a_card_judged_against_a_confirmed_brief_resolves_and_reports_its_requir
 def test_awaiting_and_no_brief_cards_count_apart_and_fail_only_when_judgment_is_required(
     store: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    brief_id = briefs.create_brief(store.parent / "briefs", BRIEF_TEXT, new_project_id()).id
+    brief_id = briefs.create_brief(roots_beside(store), BRIEF_TEXT, new_project_id()).id
     put(store, genuine_card(basis=AwaitingConfirmation(brief_id=brief_id)))
-    arguments = ["--root", str(store), "--briefs-root", str(store.parent / "briefs")]
+    arguments = arguments_for(store)
     assert main(arguments) == 0
     assert "cards judged: 0, awaiting confirmation: 1, no brief: 0" in lines(capsys)
     assert main([*arguments, "--require-judged"]) == 1
@@ -142,9 +159,7 @@ OTHER_VARIANT = "fedcba9876543210"
 def test_a_card_whose_deciding_measure_has_the_wrong_dimension_is_misjudged_and_the_run_goes_on(
     store: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    briefs_root = store.parent / "briefs"
-    brief_id = briefs.create_brief(briefs_root, BRIEF_TEXT, new_project_id()).id
-    good = judged_card(confirm(briefs_root, brief_id, drafts(LIGHT, FRIENDLY)))
+    good = judged_against_a_brief(store)
     wrong = tuple(
         Measure(name=one.name, value=UNITS.Quantity(1.0, "mm")) if one.name == "mass" else one
         for one in result_of(good, "mass").measured
@@ -156,7 +171,7 @@ def test_a_card_whose_deciding_measure_has_the_wrong_dimension_is_misjudged_and_
     )
     (store / OTHER_VARIANT / entry.STEP).write_bytes(STEP)
     (store / OTHER_VARIANT / SCORECARD).write_text(other.model_dump_json(indent=2) + "\n")
-    assert main(["--root", str(store), "--briefs-root", str(briefs_root)]) == 1
+    assert main(arguments_for(store)) == 1
     out = lines(capsys)
     assert f"FAIL {VARIANT_ID}" in out
     assert "MISJUDGED" in out
@@ -169,9 +184,7 @@ def test_a_card_whose_deciding_measure_has_the_wrong_dimension_is_misjudged_and_
 def test_a_card_with_an_unparseable_unit_is_unreadable_and_the_run_goes_on(
     store: Path, capsys: pytest.CaptureFixture[str], where: str, unit: str
 ) -> None:
-    briefs_root = store.parent / "briefs"
-    brief_id = briefs.create_brief(briefs_root, BRIEF_TEXT, new_project_id()).id
-    good = judged_card(confirm(briefs_root, brief_id, drafts(LIGHT, FRIENDLY)))
+    good = judged_against_a_brief(store)
     data = json.loads(good.model_dump_json())
     if where == "measure":
         mass = next(one for one in data["results"] if one["check_id"] == "mass")
@@ -185,7 +198,7 @@ def test_a_card_with_an_unparseable_unit_is_unreadable_and_the_run_goes_on(
     )
     (store / OTHER_VARIANT / entry.STEP).write_bytes(STEP)
     (store / OTHER_VARIANT / SCORECARD).write_text(other.model_dump_json(indent=2) + "\n")
-    assert main(["--root", str(store), "--briefs-root", str(briefs_root)]) == 1
+    assert main(arguments_for(store)) == 1
     out = lines(capsys)
     assert f"FAIL {VARIANT_ID}" in out
     assert "UNREADABLE" in out

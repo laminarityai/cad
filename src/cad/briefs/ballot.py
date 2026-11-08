@@ -24,7 +24,6 @@ import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import Final, Literal, NewType
 
 import anyio.to_thread
@@ -32,6 +31,7 @@ import anyio.to_thread
 from cad.briefs import store
 from cad.briefs.model import BriefId
 from cad.briefs.store import BriefRefused, ProposalState
+from cad.records.roots import Roots
 
 WAIT_SECONDS: Final = 20.0
 BALLOT_TTL_SECONDS: Final = 30 * 60.0
@@ -82,14 +82,14 @@ class Desk:
 
     def __init__(
         self,
-        root: Path,
+        roots: Roots,
         opener: Opener,
         serve: Serve,
         wait_seconds: float = WAIT_SECONDS,
         ttl_seconds: float = BALLOT_TTL_SECONDS,
         clock: Callable[[], float] = time.monotonic,
     ) -> None:
-        self.root = root
+        self.roots = roots
         self._opener = opener
         self._serve = serve
         self._wait_seconds = wait_seconds
@@ -101,21 +101,21 @@ class Desk:
 
     async def confirm(self, raw_id: str) -> ProposalState:
         """Ask the person about the newest proposal. Its state after the wait: decided or not."""
-        state = store.read_state(self.root, raw_id)
+        state = store.read_state(self.roots, raw_id)
         latest = state.latest
         if latest is None:
             raise BriefRefused(
                 f"brief {state.brief.id} has no proposed requirements; "
                 "call propose_requirements first"
             )
-        if latest.decision is not None:
+        if latest.answered is not None:
             return latest
         ballot, url = self._open(state.brief.id, latest.proposal.number)
         self._opener(url)
         await anyio.to_thread.run_sync(
             ballot.answered.wait, self._wait_seconds, abandon_on_cancel=True
         )
-        after = store.read_state(self.root, state.brief.id).proposal(ballot.proposal)
+        after = store.read_state(self.roots, state.brief.id).proposal(ballot.proposal)
         if after is None:
             raise store.TamperedBrief(f"brief {state.brief.id} lost proposal {ballot.proposal}")
         return after
