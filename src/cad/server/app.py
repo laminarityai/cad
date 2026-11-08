@@ -43,6 +43,10 @@ RULE = (
 SCORE_VARIANT = (
     "Score one built variant with the fixed checks closed_solid, interference, mass and "
     "extents (the axis-aligned bounding box in mm), and store the scorecard beside the variant. "
+    "When an earlier version of the sandbox stored the variant, score_variant rebuilds its "
+    "stored code first and scores the new variant: the scorecard's variant_id is the new id, "
+    "and rebuilt_from is the id you passed. A rebuild that does not build is an error that "
+    "gives the build outcome. "
     "Every result has a verdict (pass, fail or unknown), "
     "its measured values, its formula, its sources and its check version. unknown means the "
     "check could not decide, and it is not a pass. "

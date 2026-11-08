@@ -44,6 +44,13 @@ class StaleVariant(VariantRefused):
     pass
 
 
+class OutdatedVariant(StaleVariant):
+    def __init__(self, vid: VariantId, code: str) -> None:
+        super().__init__(f"variant {vid} was stored by an earlier version of the sandbox")
+        self.id = vid
+        self.code = code
+
+
 class NotBuilt(VariantRefused):
     pass
 
@@ -77,6 +84,7 @@ def encode_code(code: str) -> bytes:
 
 class Manifest(Build):
     brep_sha256: str | None
+    code_sha256: str | None = None
 
     @model_validator(mode="after")
     def _hash_iff_built(self) -> Self:
@@ -106,13 +114,15 @@ def save(root: Path, vid: VariantId, code: str, build: Build, brep: bytes | None
     incoming = root / f".incoming-{secrets.token_hex(8)}"
     try:
         incoming.mkdir(parents=True)
-        (incoming / CODE).write_bytes(encode_code(code))
+        code_bytes = encode_code(code)
+        (incoming / CODE).write_bytes(code_bytes)
         if brep is not None:
             (incoming / BREP).write_bytes(brep)
         manifest = Manifest(
             outcome=build.outcome,
             output=build.output,
             brep_sha256=None if brep is None else hashlib.sha256(brep).hexdigest(),
+            code_sha256=hashlib.sha256(code_bytes).hexdigest(),
         )
         record = manifest.model_dump_json().encode()
         (incoming / MANIFEST).write_bytes(record)
@@ -145,11 +155,10 @@ def open_entry(root: Path, raw_id: str, image_tag: str) -> Entry:
     directory = root / vid
     if not _is_directory(directory):
         raise UnknownVariant(f"no variant {vid} is stored; build its code with build_variant")
-    if _stored_id(directory / CODE, image_tag) != vid:
-        raise StaleVariant(
-            f"variant {vid} was not stored by this version of the sandbox; build its code again"
-        )
+    code = _read_regular(directory / CODE)
     manifest = _signed_manifest(root, vid)
+    if _stored_id(code, image_tag) != vid:
+        raise _outdated_or_refused(vid, code, manifest)
     if manifest is None:
         raise StaleVariant(f"{_report_unsigned(root, vid)}, then build its code again")
     if not isinstance(manifest.outcome, Built):
@@ -164,14 +173,33 @@ def open_entry(root: Path, raw_id: str, image_tag: str) -> Entry:
     return Entry(vid, directory, brep, brep_sha256)
 
 
-def _stored_id(path: Path, image_tag: str) -> VariantId | None:
-    code = _read_regular(path)
+def _stored_id(code: bytes | None, image_tag: str) -> VariantId | None:
     if code is None:
         return None
     try:
         return variant_id(code.decode("utf-8", "surrogatepass"), image_tag)
     except UnicodeDecodeError:  # `encode_code` never writes such bytes, so the entry was edited
         return None
+
+
+def _outdated_or_refused(
+    vid: VariantId, code: bytes | None, manifest: Manifest | None
+) -> StaleVariant:
+    if manifest is None:
+        return StaleVariant(
+            f"variant {vid} was not stored by this version of the sandbox; build its code again"
+        )
+    if manifest.code_sha256 is None:
+        return StaleVariant(
+            f"variant {vid} was stored before the server could rebuild variants; "
+            "build its code again"
+        )
+    if code is None or hashlib.sha256(code).hexdigest() != manifest.code_sha256:
+        return StaleVariant(
+            f"variant {vid} has a code.py that was altered after it was stored; "
+            "build its code again"
+        )
+    return OutdatedVariant(vid, code.decode("utf-8", "surrogatepass"))
 
 
 def _signed_manifest(root: Path, vid: VariantId) -> Manifest | None:

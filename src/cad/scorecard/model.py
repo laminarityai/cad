@@ -88,11 +88,14 @@ class Scorecard(BaseModel):
     says why there is none. `table_version` and `image_digest` name the materials table and the
     sandbox image that the run used. Each result carries its own check version. `basis` says
     what the card was scored against, and holds the requirements when there are any.
+    `rebuilt_from` names the variant an earlier sandbox stored, when the checks scored its stored
+    code rebuilt as `variant_id`.
     """
 
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     variant_id: str
+    rebuilt_from: str | None = None
     material_key: str
     table_version: str
     image_digest: str

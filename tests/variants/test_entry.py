@@ -6,9 +6,10 @@ from pathlib import Path
 import pytest
 
 from cad.sandbox.outcome import Build, Built, NoResult, SandboxUnavailable
-from cad.variants import entry
+from cad.variants import entry, key
 from cad.variants.entry import (
     NotBuilt,
+    OutdatedVariant,
     StaleVariant,
     UnknownVariant,
     VariantId,
@@ -202,3 +203,39 @@ def test_other_files_in_a_trusted_directory_do_not_re_key_variants(tmp_path: Pat
     (tmp_path / "trusted" / "__pycache__" / "a.cpython-312.pyc").write_bytes(b"\0")
     (tmp_path / "trusted" / "notes.txt").write_text("x\n")
     assert entry.trust_digest((tmp_path / "trusted",)) == before
+
+
+OLD_TAG = "cad-sandbox:before-a-deploy"
+
+
+def stored_by_an_older_sandbox(root: Path) -> VariantId:
+    vid = variant_id(CODE, OLD_TAG)
+    save(root, vid, CODE, BUILT, BREP)
+    return vid
+
+
+def test_an_entry_stored_by_an_older_sandbox_hands_back_its_stored_code(tmp_path: Path) -> None:
+    vid = stored_by_an_older_sandbox(tmp_path)
+    with pytest.raises(OutdatedVariant) as raised:
+        open_entry(tmp_path, vid, TAG)
+    assert (raised.value.id, raised.value.code) == (vid, CODE)
+
+
+def test_an_older_entry_whose_code_was_edited_is_refused_and_not_rebuilt(tmp_path: Path) -> None:
+    vid = stored_by_an_older_sandbox(tmp_path)
+    (tmp_path / vid / "code.py").write_text("result = Box(9, 9, 9)\n")
+    with pytest.raises(
+        StaleVariant, match=f"variant {vid} has a code.py that was altered"
+    ) as raised:
+        open_entry(tmp_path, vid, TAG)
+    assert not isinstance(raised.value, OutdatedVariant)
+
+
+def test_an_older_entry_stored_before_rebuilds_is_refused_and_not_rebuilt(tmp_path: Path) -> None:
+    vid = stored_by_an_older_sandbox(tmp_path)
+    record = json.dumps({"outcome": {"kind": "built"}, "output": "", "brep_sha256": "0" * 64})
+    (tmp_path / vid / "build.json").write_text(record)
+    (tmp_path / vid / "build.mac").write_bytes(key.sign(tmp_path, vid, record.encode()))
+    with pytest.raises(StaleVariant, match=f"variant {vid} was stored before") as raised:
+        open_entry(tmp_path, vid, TAG)
+    assert not isinstance(raised.value, OutdatedVariant)
