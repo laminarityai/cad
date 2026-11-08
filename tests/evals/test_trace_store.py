@@ -1,3 +1,4 @@
+import json
 from dataclasses import replace
 from pathlib import Path
 
@@ -160,6 +161,35 @@ def test_a_card_whose_deciding_measure_has_the_wrong_dimension_is_misjudged_and_
     assert "MISJUDGED" in out
     assert f"ok   {OTHER_VARIANT}" in out
     assert "cards unconfirmed: 0, misjudged: 1, superseded: 0" in out
+
+
+@pytest.mark.parametrize("unit", ["nonsense_unit", "g/0"])
+@pytest.mark.parametrize("where", ["measure", "limit"])
+def test_a_card_with_an_unparseable_unit_is_unreadable_and_the_run_goes_on(
+    store: Path, capsys: pytest.CaptureFixture[str], where: str, unit: str
+) -> None:
+    briefs_root = store.parent / "briefs"
+    brief_id = briefs.create_brief(briefs_root, BRIEF_TEXT).id
+    good = judged_card(confirm(briefs_root, brief_id, drafts(LIGHT, FRIENDLY)))
+    data = json.loads(good.model_dump_json())
+    if where == "measure":
+        mass = next(one for one in data["results"] if one["check_id"] == "mass")
+        next(one for one in mass["measured"] if one["name"] == "mass")["value"]["unit"] = unit
+    else:
+        data["basis"]["requirements"][0]["comparisons"][0]["limit"]["unit"] = unit
+    put(store, json.dumps(data))
+    other = good.model_copy(update={"variant_id": OTHER_VARIANT})
+    entry.save(
+        store, entry.VariantId(OTHER_VARIANT), "x = 1\n", Build(outcome=Built(), output=""), BREP
+    )
+    (store / OTHER_VARIANT / entry.STEP).write_bytes(STEP)
+    (store / OTHER_VARIANT / SCORECARD).write_text(other.model_dump_json(indent=2) + "\n")
+    assert main(["--root", str(store), "--briefs-root", str(briefs_root)]) == 1
+    out = lines(capsys)
+    assert f"FAIL {VARIANT_ID}" in out
+    assert "UNREADABLE" in out
+    assert f"ok   {OTHER_VARIANT}" in out
+    assert "cards unreadable: 1" in out
 
 
 COUNTS = Tally(
