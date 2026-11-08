@@ -3,10 +3,12 @@ import json
 import os
 import resource
 import sys
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from typing import cast
 
-from cad.checks.container.check import Subject, finding
+from cad.checks.container.calculix import Material, NodalField, NodalLoads, SolveFailed, solve
+from cad.checks.container.check import Fem, Subject, finding
 from cad.checks.container.inputs import Inputs
 from cad.checks.container.kernel import (
     Kernel,
@@ -16,6 +18,7 @@ from cad.checks.container.kernel import (
     first_line,
     ocp_kernel,
 )
+from cad.checks.container.mesher import MeshFailed, TetMesh, tet_mesh
 from cad.checks.container.suite import with_requirements
 from cad.checks.container.wire import (
     CheckedReport,
@@ -44,13 +47,33 @@ def main() -> None:
     os._exit(0)
 
 
-def run(request: RequestWire, brep: bytes, kernel: Kernel, report_cap: int) -> CheckedReport:
+@dataclass(frozen=True, slots=True)
+class BrepFem:
+    brep: bytes
+
+    def mesh(self, size_mm: float) -> TetMesh | MeshFailed:
+        return tet_mesh(self.brep, size_mm)
+
+    def solve(
+        self,
+        mesh: TetMesh,
+        material: Material,
+        fixed: frozenset[int],
+        unit_loads: Sequence[NodalLoads],
+    ) -> tuple[NodalField, ...] | SolveFailed:
+        return solve(mesh, material, fixed, unit_loads)
+
+
+def run(
+    request: RequestWire, brep: bytes, kernel: Kernel, report_cap: int, fem: Fem | None = None
+) -> CheckedReport:
     shape = kernel.read_brep(brep)
+    engines = BrepFem(brep) if fem is None else fem
     results: list[ResultWire] = []
     for check in with_requirements(request["checks"]):
         reported = {result["id"]: result for result in results}
-        inputs = Inputs(check.TAKES, request["values"])
-        subject = Subject(kernel, shape, inputs, reported)
+        inputs = Inputs(check.TAKES, request["values"], tuple(request["load_cases"]))
+        subject = Subject(kernel, engines, shape, inputs, reported)
         results.append(_run_check(check.ID, check.run, subject))
     room = _step_room(results, report_cap)
     return {"kind": "checked", "results": results, "step": _step(kernel, shape, room)}

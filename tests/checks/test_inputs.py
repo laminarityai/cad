@@ -4,7 +4,7 @@ from fakes import REPORT_CAP, FakeKernel, request
 from cad.checks.container import mass
 from cad.checks.container.inputs import WIRE_UNITS, Input, Inputs, Undeclared
 from cad.checks.container.runner import run
-from cad.checks.report import DEPENDENCIES, IMAGE_TAG, SPECS, build_request, specs
+from cad.checks.report import DEPENDENCIES, IMAGE_TAG, QUICK, build_request, specs
 from cad.tables.materials import FIELD_UNITS, UNITS, load_materials
 
 
@@ -53,5 +53,5 @@ def test_a_check_that_echoes_an_input_it_does_not_take_is_refused(
 
 def test_the_host_sends_only_the_values_the_checks_take() -> None:
     wire = build_request("prusament-pla", load_materials()).wire
-    assert wire["checks"] == [spec.id for spec in SPECS]
-    assert set(wire["values"]) == set().union(*(spec.takes for spec in SPECS)) == {Input.DENSITY}
+    assert wire["checks"] == [spec.id for spec in QUICK]
+    assert set(wire["values"]) == set().union(*(spec.takes for spec in QUICK)) == {Input.DENSITY}

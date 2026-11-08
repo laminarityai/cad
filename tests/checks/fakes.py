@@ -1,5 +1,8 @@
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 
+from cad.checks.container.calculix import Material, NodalField, NodalLoads, SolveFailed
+from cad.checks.container.check import Quick
 from cad.checks.container.inputs import Input
 from cad.checks.container.kernel import (
     EdgeUses,
@@ -10,6 +13,7 @@ from cad.checks.container.kernel import (
     Unreadable,
     VolumeProps,
 )
+from cad.checks.container.mesher import MeshFailed, TetMesh
 from cad.checks.container.suite import CHECKS
 from cad.checks.container.wire import RequestWire, ValueKnown, ValueWire
 
@@ -24,6 +28,20 @@ class FakeShape:
 
     def IsNull(self) -> bool:
         return False
+
+
+class NoFem:
+    def mesh(self, size_mm: float) -> TetMesh | MeshFailed:
+        raise NotImplementedError("this test meshes nothing")
+
+    def solve(
+        self,
+        mesh: TetMesh,
+        material: Material,
+        fixed: frozenset[int],
+        unit_loads: Sequence[NodalLoads],
+    ) -> tuple[NodalField, ...] | SolveFailed:
+        raise NotImplementedError("this test solves nothing")
 
 
 @dataclass(slots=True)
@@ -81,5 +99,6 @@ class FakeKernel:
 
 
 def request(density: ValueWire = KNOWN, checks: tuple[str, ...] | None = None) -> RequestWire:
-    ids = [check.ID for check in CHECKS] if checks is None else list(checks)
-    return {"checks": ids, "values": {Input.DENSITY: density}}
+    quick = [check.ID for check in CHECKS if isinstance(check.BUDGET, Quick)]
+    ids = quick if checks is None else list(checks)
+    return {"checks": ids, "values": {Input.DENSITY: density}, "load_cases": []}

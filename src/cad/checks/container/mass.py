@@ -2,7 +2,15 @@ import math
 from datetime import date
 
 from cad.checks.container import closed_solid, interference
-from cad.checks.container.check import CheckModule, Subject, finding, measure, no_shape
+from cad.checks.container.check import (
+    CheckModule,
+    Quick,
+    Subject,
+    finding,
+    measure,
+    no_shape,
+    required_pass,
+)
 from cad.checks.container.inputs import Input
 from cad.checks.container.kernel import Unreadable
 from cad.checks.container.wire import FindingWire, SourceLiteral
@@ -32,20 +40,17 @@ MEASURES = {
 TAKES = frozenset({Input.DENSITY})
 READS = {"density": Input.DENSITY}
 REQUIRES: tuple[CheckModule, ...] = (closed_solid, interference)
+BUDGET = Quick()
+ERROR_BOUNDS: dict[str, float] = {}
 
 
 def run(subject: Subject) -> FindingWire:
     shape = subject.shape
     if isinstance(shape, Unreadable):
         return no_shape(shape)
-    for required in REQUIRES:
-        found = subject.reported[required.ID]
-        if found["verdict"] != "pass":
-            return finding(
-                "unknown",
-                f"{required.ID} is {found['verdict']}, so there is no one solid to "
-                f"weigh: {found['reason']}",
-            )
+    unmet = required_pass(subject, REQUIRES, "weigh")
+    if unmet is not None:
+        return unmet
     props = subject.kernel.volume_props(shape)
     if not math.isfinite(props.volume):
         return finding("fail", "the volume is not a finite number")

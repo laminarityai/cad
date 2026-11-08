@@ -8,17 +8,8 @@ from pathlib import Path
 from typing import Final
 
 from cad.checks import job_store
-from cad.checks.jobs import (
-    Background,
-    JobResult,
-    JobSpec,
-    Meter,
-    Plan,
-    Quick,
-    Refused,
-    Unmetered,
-    run_quick,
-)
+from cad.checks.container.check import Background, Quick
+from cad.checks.jobs import JobResult, JobSpec, Meter, Plan, Refused, Unmetered, run_job
 from cad.sandbox.outcome import SandboxUnavailable
 
 WAIT_SECONDS: Final = 20
@@ -150,4 +141,4 @@ def _land(flight: Done | Refused | Future[JobResult], deadline: float) -> Outcom
         return Refused(str(error))
 
 
-LANES: Final = Lanes(run_quick)
+LANES: Final = Lanes(run_job)

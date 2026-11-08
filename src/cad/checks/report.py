@@ -7,11 +7,12 @@ from typing import Final
 
 from pydantic import TypeAdapter, ValidationError
 
-from cad.checks.container.check import CheckModule
+from cad.checks.container.check import Budget, CheckModule, Quick
 from cad.checks.container.inputs import WIRE_UNITS, Input
-from cad.checks.container.suite import CHECKS
+from cad.checks.container.suite import CHECKS, with_requirements
 from cad.checks.container.wire import (
     CheckedReport,
+    LoadCaseWire,
     RequestWire,
     ResultWire,
     SourceLiteral,
@@ -39,6 +40,8 @@ class CheckSpec:
     measures: Mapping[str, str]
     takes: frozenset[Input]
     reads: Mapping[str, Input]
+    budget: Budget
+    error_bounds: Mapping[str, float]
     version: str
 
 
@@ -76,6 +79,8 @@ def specs(
             measures=module.MEASURES,
             takes=module.TAKES,
             reads=module.READS,
+            budget=module.BUDGET,
+            error_bounds=module.ERROR_BOUNDS,
             version=check_version(module, sources, analysis_tag),
         )
         for module in checks
@@ -100,6 +105,12 @@ def _source(literal: SourceLiteral) -> Source:
 DEPENDENCIES: Final = read_sources(CONTAINER_ENTRY, SCORER)
 IMAGE_TAG: Final = image_tag(ANALYSIS)
 SPECS: Final = specs(DEPENDENCIES, IMAGE_TAG)
+QUICK: Final = tuple(spec for spec in SPECS if isinstance(spec.budget, Quick))
+
+
+def closure(check_ids: Sequence[str]) -> tuple[CheckSpec, ...]:
+    wanted = {check.ID for check in with_requirements(check_ids)}
+    return tuple(spec for spec in SPECS if spec.id in wanted)
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,18 +127,25 @@ class Request:
     table_version: str
 
 
-def build_request(material_key: str, table: MaterialsTable) -> Request:
-    taken = sorted(set[Input]().union(*(spec.takes for spec in SPECS)))
+def build_request(
+    material_key: str,
+    table: MaterialsTable,
+    checks: Sequence[CheckSpec] = QUICK,
+    load_cases: Sequence[LoadCaseWire] = (),
+) -> Request:
+    ids = [spec.id for spec in checks]
+    taken = sorted(set[Input]().union(*(spec.takes for spec in closure(ids))))
     try:
         material = table.get_material(material_key)
     except UnknownMaterial as error:
         missing: ValueWire = {"kind": "unknown", "reason": str(error)}
-        return Request(_wire(dict.fromkeys(taken, missing)), material_key, {}, table.version)
+        wire = _wire(ids, dict.fromkeys(taken, missing), load_cases)
+        return Request(wire, material_key, {}, table.version)
     reads = {wanted: read for wanted in taken if (read := _read(material, wanted)) is not None}
     values: dict[str, ValueWire] = {
         wanted: _value(material, wanted, reads.get(wanted)) for wanted in taken
     }
-    return Request(_wire(values), material_key, reads, table.version)
+    return Request(_wire(ids, values, load_cases), material_key, reads, table.version)
 
 
 def _read(material: Material, wanted: Input) -> TableRead | None:
@@ -144,8 +162,10 @@ def _value(material: Material, wanted: Input, read: TableRead | None) -> ValueWi
     return {"kind": "known", "magnitude": read.magnitude}
 
 
-def _wire(values: dict[str, ValueWire]) -> RequestWire:
-    return {"checks": [spec.id for spec in SPECS], "values": values}
+def _wire(
+    ids: list[str], values: dict[str, ValueWire], load_cases: Sequence[LoadCaseWire]
+) -> RequestWire:
+    return {"checks": ids, "values": values, "load_cases": list(load_cases)}
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,37 +176,45 @@ class Parsed:
 
 
 def parse(ran: Ran, request: Request, job: Job) -> Parsed:
+    expected = closure(request.wire["checks"])
     seen, state = ran.attended, ran.state
     if seen.killed_at_deadline:
         reason = f"the check container ran past {job.wall_seconds} s and was killed"
-        return Parsed(unknown_for_all(reason), StepMissing(reason=reason), timed_out=True)
+        return Parsed(unknown_for_all(reason, expected), StepMissing(reason=reason), timed_out=True)
     if state.OOMKilled and (isinstance(seen.report, TooMuchOutput) or state.ExitCode != 0):
-        return _refused(f"the check container ran out of memory ({job.memory_mb} MB)")
+        return _refused(f"the check container ran out of memory ({job.memory_mb} MB)", expected)
     if isinstance(seen.report, TooMuchOutput):
-        return _refused(f"the check container sent more than {container.REPORT_CAP // 2**20} MiB")
+        cap = container.REPORT_CAP // 2**20
+        return _refused(f"the check container sent more than {cap} MiB", expected)
     if state.ExitCode != 0:
         code = state.ExitCode
-        return _refused(f"the check container exited with code {code} before it sent a report")
+        return _refused(
+            f"the check container exited with code {code} before it sent a report", expected
+        )
     if not seen.report:
-        return _refused("the check container sent no report")
+        return _refused("the check container sent no report", expected)
     try:
         report = REPORT.validate_json(seen.report, strict=True)
     except ValidationError as error:
         first = error.errors()[0]
         where = ".".join(str(part) for part in first["loc"])
-        return _refused(f"the check container sent a malformed report: {where}: {first['msg']}")
-    return _accepted(report, request)
+        return _refused(
+            f"the check container sent a malformed report: {where}: {first['msg']}", expected
+        )
+    return _accepted(report, request, expected)
 
 
-def _accepted(report: CheckedReport, request: Request) -> Parsed:
+def _accepted(report: CheckedReport, request: Request, expected: Sequence[CheckSpec]) -> Parsed:
     wire_ids = [result["id"] for result in report["results"]]
-    if wire_ids != [spec.id for spec in SPECS]:
-        return _refused(f"the check container reported {wire_ids}, not the checks it was given")
+    if wire_ids != [spec.id for spec in expected]:
+        return _refused(
+            f"the check container reported {wire_ids}, not the checks it was given", expected
+        )
     results: list[CheckResult] = []
-    for spec, wire in zip(SPECS, report["results"], strict=True):
+    for spec, wire in zip(expected, report["results"], strict=True):
         problem = _problem(spec, wire, request)
         if problem is not None:
-            return _refused(f"{spec.id}: {problem}")
+            return _refused(f"{spec.id}: {problem}", expected)
         results.append(_result(spec, wire, request))
     step = report["step"]
     if step["kind"] == "missing":
@@ -194,7 +222,7 @@ def _accepted(report: CheckedReport, request: Request) -> Parsed:
     try:
         return Parsed(tuple(results), b64decode(step["base64"], validate=True))
     except ValueError:
-        return _refused("the check container sent a STEP that is not base64")
+        return _refused("the check container sent a STEP that is not base64", expected)
 
 
 def _problem(spec: CheckSpec, wire: ResultWire, request: Request) -> str | None:
@@ -243,11 +271,11 @@ def _one_line(text: str) -> str:
     return " ".join(text.split())[:REASON_CAP]
 
 
-def _refused(reason: str) -> Parsed:
-    return Parsed(unknown_for_all(reason), StepMissing(reason=reason))
+def _refused(reason: str, expected: Sequence[CheckSpec]) -> Parsed:
+    return Parsed(unknown_for_all(reason, expected), StepMissing(reason=reason))
 
 
-def unknown_for_all(reason: str, checks: Sequence[CheckSpec] = SPECS) -> tuple[CheckResult, ...]:
+def unknown_for_all(reason: str, checks: Sequence[CheckSpec] = QUICK) -> tuple[CheckResult, ...]:
     return tuple(
         CheckResult(
             check_id=spec.id,

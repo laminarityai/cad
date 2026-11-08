@@ -63,6 +63,7 @@ class CheckResult(_Frozen):
     reason: str
     sources: tuple[Source, ...]
     version: str
+    instance: str = Field(default="", exclude_if=lambda instance: not instance)
 
     def value(self, name: str) -> pint.Quantity:
         for measure in self.measured:

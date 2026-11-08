@@ -6,7 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from cad.checks.report import IMAGE_TAG, unknown_for_all
-from cad.checks.result import CheckResult, Comparator, StepMissing, Verdict
+from cad.checks.result import Comparator, StepMissing, Verdict
 from cad.sandbox.image import BUILD, current_image, image_tag
 from cad.sandbox.outcome import SandboxUnavailable
 from cad.scorecard import score
@@ -130,15 +130,15 @@ def test_a_phase_one_card_with_a_requirements_note_and_no_basis_is_unreadable() 
 def test_scoring_stores_the_basis_the_assessor_gives_for_the_suite_it_ran(
     built: Build, store: Path
 ) -> None:
-    seen: list[tuple[CheckResult, ...]] = []
+    seen: list[score.Results] = []
 
-    def awaiting(results: tuple[CheckResult, ...]) -> Basis:
+    def awaiting(results: score.Results) -> Basis:
         seen.append(results)
         return AwaitingConfirmation(brief_id="1" * 16)
 
     variant_id = built(PLATE)
     card = score.score_variant(variant_id, "prusament-pla", store, awaiting)
-    assert seen == [card.finished]
+    assert seen == [card.results]
     assert card.basis == AwaitingConfirmation(brief_id="1" * 16)
     assert stored(store, variant_id) == card
     assert score.score_variant(variant_id, "prusament-pla", store).basis == NoBrief()

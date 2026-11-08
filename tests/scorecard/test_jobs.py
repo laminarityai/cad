@@ -4,9 +4,11 @@ from pathlib import Path
 import pytest
 
 from cad.checks import job_store, jobs
-from cad.checks.jobs import Background, JobResult, JobSpec, Plan, Quick, Refused
+from cad.checks.container.check import Quick
+from cad.checks.container.wire import LoadCaseWire
+from cad.checks.jobs import JobResult, Plan, Refused
 from cad.checks.lanes import Done, Pending, Settled
-from cad.checks.report import SPECS, build_request, unknown_for_all
+from cad.checks.report import QUICK, SPECS, build_request, unknown_for_all
 from cad.checks.result import CheckResult, StepMissing, Verdict
 from cad.sandbox import container
 from cad.sandbox.container import Job, Ran
@@ -17,8 +19,11 @@ from cad.variants.entry import Entry, VariantId
 
 PLATE = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
 PLATE_SHELL = PLATE + "from build123d import Shell\nresult = Shell(result.faces()[:-1])\n"
-MASS = SPECS[2]
-FEA = Background(wall_seconds=600, memory_mb=2048, tmpfs_mb=768)
+FEA = SPECS[4]
+CASE: LoadCaseWire = {
+    "support": {"kind": "flat_end"},
+    "load": {"kind": "far_end", "force_n": 10.0, "direction": {"kind": "any"}},
+}
 
 type Build = Callable[[str], str]
 
@@ -74,10 +79,9 @@ def test_a_tampered_job_result_is_run_again_and_never_trusted(
 
 
 def background_plan(root: Path) -> Plan:
-    request = build_request("prusament-pla", load_materials())
-    quick = JobSpec(root, "0123456789abcdef", "b" * 64, SPECS, Quick(), request)
-    fea = JobSpec(root, quick.variant_id, "b" * 64, (MASS,), FEA, request)
-    return Plan(quick=quick, background=(fea,))
+    held = Entry(VariantId("0123456789abcdef"), root, b"brep", "b" * 64)
+    table = load_materials()
+    return jobs.plan(root, held, build_request("prusament-pla", table), table, {"c1": CASE})
 
 
 def quick_result() -> JobResult:
@@ -91,8 +95,8 @@ def quick_result() -> JobResult:
 def assembled(root: Path, outcome: Done | Pending | Refused) -> tuple[Scorecard, list[str]]:
     seen: list[str] = []
 
-    def assess(results: tuple[CheckResult, ...]) -> Basis:
-        seen.extend(one.check_id for one in results)
+    def assess(results: score.Results) -> Basis:
+        seen.extend(one.check_id for one in results if isinstance(one, CheckResult))
         return NoBrief()
 
     plan = background_plan(root)
@@ -103,19 +107,24 @@ def assembled(root: Path, outcome: Done | Pending | Refused) -> tuple[Scorecard,
 def test_a_pending_background_check_holds_its_place_and_no_verdict(tmp_path: Path) -> None:
     card, assessed = assembled(tmp_path, Pending())
     assert [one.check_id for one in card.results] == [spec.id for spec in SPECS]
-    assert card.results[2] == PendingCheck(
-        check_id="mass", formula=MASS.formula, sources=MASS.sources, version=MASS.version
+    assert card.results[4] == PendingCheck(
+        check_id="fea",
+        formula=FEA.formula,
+        sources=FEA.sources,
+        version=FEA.version,
+        instance="c1",
     )
-    assert card.pending == ("mass",)
-    assert assessed == ["closed_solid", "interference", "extents"]
+    assert card.pending == ("fea",)
+    assert assessed == ["closed_solid", "interference", "mass", "extents"]
     assert Scorecard.model_validate_json(card.model_dump_json()) == card
 
 
 def test_a_refused_background_check_is_unknown_with_the_reason(tmp_path: Path) -> None:
     card, _ = assembled(tmp_path, Refused("the account has no analysis time left"))
     assert card.pending == ()
-    assert card.finished[2].verdict == Verdict.UNKNOWN
-    assert card.finished[2].reason == "the account has no analysis time left"
+    assert card.finished[4].verdict == Verdict.UNKNOWN
+    assert card.finished[4].reason == "the account has no analysis time left"
+    assert card.finished[4].instance == "c1"
 
 
 def test_a_card_must_list_exactly_its_pending_checks(tmp_path: Path) -> None:
@@ -124,8 +133,36 @@ def test_a_card_must_list_exactly_its_pending_checks(tmp_path: Path) -> None:
         Scorecard.model_validate({**card.model_dump(), "pending": []})
 
 
-def test_today_one_quick_job_runs_every_check(tmp_path: Path) -> None:
+def test_with_no_demand_one_quick_job_runs_the_quick_checks(tmp_path: Path) -> None:
     held = Entry(VariantId("0123456789abcdef"), tmp_path, b"brep", "b" * 64)
-    request = build_request("prusament-pla", load_materials())
-    plan = jobs.plan(tmp_path, held, request)
-    assert (plan.quick.checks, plan.quick.budget, plan.background) == (SPECS, Quick(), ())
+    table = load_materials()
+    plan = jobs.plan(tmp_path, held, build_request("prusament-pla", table), table, {})
+    assert (plan.quick.checks, plan.quick.budget, plan.background) == (QUICK, Quick(), ())
+    assert "fea" not in [spec.id for spec in QUICK]
+
+
+def test_each_demanded_load_case_is_one_fea_job_sent_only_what_fea_takes(tmp_path: Path) -> None:
+    plan = background_plan(tmp_path)
+    (job,) = plan.background
+    assert (job.checks, job.budget, job.instance) == ((FEA,), FEA.budget, "c1")
+    assert job.request.wire["checks"] == ["fea"]
+    assert job.request.wire["load_cases"] == [CASE]
+    assert set(job.request.wire["values"]) == set(FEA.takes)
+    assert plan.quick.request.wire["load_cases"] == []
+    assert job.key != plan.quick.key
+
+
+def test_a_finished_fea_job_fills_its_place_with_its_instance(tmp_path: Path) -> None:
+    (solved,) = unknown_for_all("solved", (FEA,))
+    done = Done(
+        JobResult(
+            check_image_digest="sha256:" + "i" * 64,
+            step=StepMissing(reason=jobs.NO_STEP),
+            results=(solved.model_copy(update={"instance": "c1"}),),
+        )
+    )
+    card, _ = assembled(tmp_path, done)
+    assert card.pending == ()
+    assert (card.finished[4].check_id, card.finished[4].instance) == ("fea", "c1")
+    assert '"instance": "c1"' in card.model_dump_json(indent=1)
+    assert '"instance"' not in card.finished[0].model_dump_json()

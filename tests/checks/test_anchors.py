@@ -246,9 +246,22 @@ def test_the_far_end_is_measured_from_the_supports_toward_the_centre_of_mass() -
         assert far.cutoff(corners) == pytest.approx(0.995 * 100)
 
 
-def test_a_support_at_the_centre_of_mass_has_no_far_end() -> None:
-    assert reason(PLATE, case(holes(2))) == (
-        "the support sits at the part's centre of mass, so no end of the part is the far one"
+def test_a_support_at_the_centre_of_mass_loads_each_end_of_the_long_axis() -> None:
+    corners = [(x, y, z) for x in (0.0, 60.0) for y in (0.0, 20.0) for z in (0.0, 5.0)]
+    fars = [candidate.load for candidate in must(PLATE, case(holes(2))).candidates]
+    assert all(isinstance(far, FarFrom) for far in fars)
+    axes = sorted(far.axis for far in fars if isinstance(far, FarFrom))
+    assert axes == [pytest.approx((-1, 0, 0)), pytest.approx((1, 0, 0))]
+    assert all(
+        far.cutoff(corners) == pytest.approx(0.995 * 30) for far in fars if isinstance(far, FarFrom)
+    )
+
+
+def test_a_support_at_the_centre_of_a_part_with_no_long_axis_has_no_far_end() -> None:
+    square = cut(box(40, 40, 5), *(through_hole(5.5, x, y) for x in (10, 30) for y in (10, 30)))
+    assert reason(square, case(holes(4))) == (
+        "the support sits at the part's centre of mass and the part has no unique long axis, "
+        "so no end of the part is the far one"
     )
 
 
