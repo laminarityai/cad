@@ -14,6 +14,7 @@ ALLOWED_ARGUMENTS = {
     "propose_requirements": {"brief_id", "requirements"},
     "confirm_requirements": {"brief_id"},
     "list_requirements": {"brief_id"},
+    "search_knowledge": {"query", "k"},
 }
 
 
