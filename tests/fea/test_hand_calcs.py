@@ -1,0 +1,97 @@
+import json
+from collections.abc import Mapping
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+from typing import Final
+
+import pytest
+from cases import BY_NAME, CASES, Case
+
+from cad.checks.container.mesher import MESH_CHANGE_LIMIT
+from cad.checks.report import IMAGE_TAG
+from cad.sandbox import container
+from cad.sandbox.container import Job, ReadOnlyMount
+from cad.sandbox.host import Artifacts, build
+from cad.sandbox.image import BUILD, current_image, image_tag
+from cad.sandbox.stage import TARGET, check_mount, read_sources
+
+HARNESS: Final = "/opt/fea"
+PROGRAM: Final = (
+    f"import sys; sys.path[:0] = [{TARGET!r}, {HARNESS!r}]; from driver import main; main()"
+)
+CORE: Final = read_sources("cad.checks.container.calculix")
+DETERMINISM_CASE: Final = "cantilever tip"
+
+
+def brep_of(case: Case) -> bytes:
+    built = build(case.code, current_image(image_tag(BUILD)))
+    assert isinstance(built.verdict, Artifacts), built.output
+    return built.verdict.brep
+
+
+def solve(case: Case, brep: bytes) -> bytes:
+    job = Job(
+        "check",
+        current_image(IMAGE_TAG),
+        ("python", "-I", "-c", PROGRAM, case.name),
+        brep,
+        (check_mount(CORE), ReadOnlyMount(Path(__file__).parent, HARNESS)),
+        wall_seconds=600,
+        memory_mb=2048,
+        tmpfs_mb=768,
+    )
+    ran = container.run(job)
+    assert ran.state.ExitCode == 0, ran.attended.output
+    assert isinstance(ran.attended.report, bytes), ran.attended.output
+    return ran.attended.report
+
+
+@pytest.fixture(scope="module")
+def breps() -> Mapping[str, bytes]:
+    with ThreadPoolExecutor(2) as pool:
+        return dict(zip(BY_NAME, pool.map(brep_of, CASES), strict=True))
+
+
+@pytest.fixture(scope="module")
+def reports(breps: Mapping[str, bytes]) -> Mapping[str, bytes]:
+    with ThreadPoolExecutor(2) as pool:
+        solved = pool.map(solve, CASES, (breps[case.name] for case in CASES))
+        return dict(zip(BY_NAME, solved, strict=True))
+
+
+def mesh(report: bytes, which: str) -> dict[str, float]:
+    found = json.loads(report)[which]
+    assert "failed" not in found, found["failed"]
+    return found
+
+
+@pytest.mark.parametrize("name", list(BY_NAME))
+def test_the_fine_mesh_matches_the_hand_calculation(
+    name: str, reports: Mapping[str, bytes]
+) -> None:
+    case = BY_NAME[name]
+    fine = mesh(reports[name], "fine")
+    measured = fine[case.measure]
+    error = (measured - case.expected) / case.expected
+    print(
+        f"\n{name:<24} {case.measure:<16} expected {case.expected:.6g}  measured {measured:.6g}"
+        f"  error {error:+.2%}  tolerance {case.tolerance:.0%}  nodes {fine['nodes']:.0f}"
+        f"  ({case.reference})"
+    )
+    assert abs(error) <= case.tolerance
+
+
+@pytest.mark.parametrize("name", list(BY_NAME))
+def test_the_coarse_and_fine_mesh_agree_within_the_fea_gate(
+    name: str, reports: Mapping[str, bytes]
+) -> None:
+    coarse = mesh(reports[name], "coarse")["max_displacement"]
+    fine = mesh(reports[name], "fine")["max_displacement"]
+    assert abs(fine - coarse) / fine <= MESH_CHANGE_LIMIT
+
+
+def test_solving_the_same_case_twice_gives_the_same_bytes(
+    breps: Mapping[str, bytes], reports: Mapping[str, bytes]
+) -> None:
+    case = BY_NAME[DETERMINISM_CASE]
+    assert solve(case, breps[case.name]) == reports[case.name]

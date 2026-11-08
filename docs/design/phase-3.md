@@ -234,7 +234,7 @@ The peak is the maximum over nodes, scaled by |F|. The sign of the load does not
 - The largest displacement is above 5% of the largest extent, which is outside small-displacement theory.
 - No yield strength. Then only `safety_factor` is dropped, and displacement still reports.
 
-**Mesh rule** (constants in `fea.py`, so the check version covers them): t5 is the 5th-percentile wall thickness from `thickness.py`, which is shared with printability. The coarse mesh uses h = clamp(t5/2, 0.2 mm, extent_max/20) and the fine mesh uses h/1.5. Both are second-order tetrahedra (C3D10), with `MeshSizeFromCurvature=12`. The validation suite tunes these constants once, and after that they are frozen.
+**Mesh rule** (constants in `mesher.py`, which `fea.py` imports, so the check version covers them): t5 is the 5th-percentile wall thickness from `thickness.py`, which is shared with printability. The coarse mesh uses h = clamp(t5, 0.2 mm, extent_max/20) and the fine mesh uses h/1.5. Both are second-order tetrahedra (C3D10), with `MeshSizeFromCurvature=24`. The validation suite tuned these constants once (PR 4), and they are now frozen in `mesher.py`: t5/2 put the clamped plate over the node cap, and 12 elements per circle left the hole's peak stress noisy to 2.8%.
 
 ### 2.2 New requirement kinds (`briefs/model.py`, after phase 2 lands)
 
@@ -368,7 +368,7 @@ A test that extends the existing one for OCP walks the AST of `checks/container/
 **Determinism.** A scorecard must serialize to the same bytes when scored twice on one image and one architecture.
 
 - **gmsh:** `General.NumThreads=1`, `Mesh.MaxNumThreads3D=1`, `Mesh.Algorithm3D=1` (Delaunay, not HXT), `Mesh.RandomSeed=1`, pinned wheel.
-- **ccx:** `OMP_NUM_THREADS=1`, `CCX_NPROC_EQUATION_SOLVER=1`, SPOOLES direct solver, deb pinned through snapshot.debian.org.
+- **ccx:** `OMP_NUM_THREADS=1`, `CCX_NPROC_EQUATION_SOLVER=1`, the iterative Cholesky solver (SPOOLES peaked at 2.7 GB on a 130k-node mesh, over the 2 GB budget; this one took 0.6 GB), deb pinned through snapshot.debian.org.
 - **prusa-slicer:** so `TBB_NUM_THREADS=1` / `OMP_NUM_THREADS=1`, and a determinism test slices twice.
 - **Measures:** no rounding. Per-job results are stored and reused (§2.6), so once a job has run, repeating it is a cache read and the bytes are identical by construction.
 - **Architecture:** x86 and arm64 may differ in the last bits. That is fine, because the card records `image_digest`, and the validation tolerances do not depend on those bits.
@@ -593,10 +593,10 @@ After phase 2 merges `briefs/` and `brief_tools.py`:
 
 ## 7. Open questions and risks
 
-- **gmsh is Debian's 4.8.4, from 2021.** PyPI has no linux aarch64 wheel, so ADR-0005 takes gmsh from Debian, the same version on both architectures. PR 4's hand-calc cases will show whether its age matters for our meshes.
+- **gmsh is Debian's 4.8.4, from 2021.** PyPI has no linux aarch64 wheel, so ADR-0005 takes gmsh from Debian, the same version on both architectures. PR 4's hand-calc cases all pass on it, within 2.1% of hand calculations.
 - **The material when the brief names none.** The agent's `material_key` then decides safety factors, and the card says that the agent chose it (§2.2). Is that enough, or should a later PR ask the person before a safety factor rests on a material that the agent chose?
 - **Revisit OrcaSlicer later.** Its Linux builds need a newer glibc than bookworm. Moving both images to trixie would allow it, at the cost of changing every variant id again and an untested OCP on trixie. PrusaSlicer 2.5.0 is from 2022, and Bambu profiles fit Orca better.
-- **Is a 150k-node cap at 2 GB enough** for real brackets with 2 mm walls, or should `fea` get a 4 GB budget, which would leave room for only one container while it runs?
+- **Is a 150k-node cap at 2 GB enough** (PR 4 measured 0.6 GB for the solver at 130k nodes with iterative Cholesky) for real brackets with 2 mm walls, or should `fea` get a 4 GB budget, which would leave room for only one container while it runs?
 - **FDM anisotropy.** Should `yield_strength` for printed materials become min(XY, Z) when the datasheet gives Z, which is more conservative and honest for parts loaded across layers?
 - **Is phase 2 editing `scorecard/model.py`** for candidate values and "waiting on you"? `Waiting` should probably be one concept, covering both "waiting on a check" and "waiting on you".
 - **Is a 1 mm² overhang allowance and "no supports" the right default meaning of printable,** or should `printed_on` carry `supports: allowed`?
