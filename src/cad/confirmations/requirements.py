@@ -3,8 +3,9 @@ from collections.abc import Sequence
 from typing import Final
 
 from cad.briefs import store
+from cad.briefs.bindable import BINDABLE
 from cad.briefs.edits import apply_edits, placeholder
-from cad.briefs.model import Kind, Requirement, deciding_check, describe
+from cad.briefs.model import MadeOf, MeasureLimit, Requirement, Target, deciding_check, describe
 from cad.briefs.store import ProposalState, Status, TamperedBrief
 from cad.confirmations.answers import Edit, ItemKindName, ItemRef
 from cad.confirmations.items import Changes, Editable, Refused, Row, Section
@@ -37,7 +38,7 @@ class Requirements:
             Row(
                 headline=describe(r),
                 quote=text[r.origin.start : r.origin.end],
-                decides=_decides(r.target.kind),
+                decides=_decides(r.target),
                 editable=_editable(r),
             )
             for r in shown.proposal.requirements
@@ -73,8 +74,13 @@ def _editable(requirement: Requirement) -> Editable | None:
     return None if shown is None else Editable(row=requirement.id, placeholder=shown)
 
 
-def _decides(kind: Kind) -> str:
-    if kind is Kind.MADE_OF:
+def _decides(target: Target) -> str:
+    if isinstance(target, MadeOf):
         return "Fixes the material that scoring uses"
-    check = deciding_check(kind)
-    return f"Decided by the {check} check" if check else "No reviewed check: unverified"
+    check = deciding_check(target)
+    if check is None:
+        return "No reviewed check: unverified"
+    if isinstance(target, MeasureLimit):
+        words = BINDABLE[(target.check_id, target.measure)].words
+        return f"Decided by the {check} check, which measures {words}"
+    return f"Decided by the {check} check"

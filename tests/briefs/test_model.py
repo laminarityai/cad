@@ -68,11 +68,13 @@ def test_an_envelope_is_one_target_whatever_order_its_edges_come_in() -> None:
 
 
 def test_every_kind_has_one_deciding_check_or_is_unverified() -> None:
-    assert {kind: deciding_check(kind) for kind in Kind} == {
+    assert set(EXAMPLES) == set(Kind)
+    assert {kind: deciding_check(target(raw)) for kind, raw in EXAMPLES.items()} == {
         Kind.CLOSED_SOLID: "closed_solid",
         Kind.MAX_MASS: "mass",
         Kind.MIN_MASS: "mass",
         Kind.ENVELOPE: "extents",
+        Kind.MEASURE_LIMIT: "mass",
         Kind.UNCHECKED: None,
         Kind.MADE_OF: None,
         Kind.MIN_SAFETY_FACTOR: "fea",
@@ -143,6 +145,13 @@ EXAMPLES: dict[Kind, dict[str, Any]] = {
     Kind.MAX_MASS: {"kind": "max_mass", "mass": grams(150)},
     Kind.MIN_MASS: {"kind": "min_mass", "mass": grams(10)},
     Kind.ENVELOPE: {"kind": "envelope", "edges": [grams(1, "mm"), grams(2, "mm"), grams(3, "mm")]},
+    Kind.MEASURE_LIMIT: {
+        "kind": "measure_limit",
+        "check_id": "mass",
+        "measure": "volume",
+        "comparator": "at_most",
+        "limit": grams(30, "cm^3"),
+    },
     Kind.UNCHECKED: {"kind": "unchecked", "statement": "holds a shelf"},
     Kind.MADE_OF: {"kind": "made_of", "material": "prusament-pla"},
     Kind.MIN_SAFETY_FACTOR: {"kind": "min_safety_factor", "load": LOAD, "factor": 2},
@@ -154,7 +163,7 @@ def test_every_deciding_check_and_every_limit_names_a_registered_check_and_its_m
     measures = {spec.id: spec.measures for spec in SPECS}
     assert set(EXAMPLES) == set(Kind)
     for kind, raw in EXAMPLES.items():
-        check_id = deciding_check(kind)
+        check_id = deciding_check(target(raw))
         held: tuple[Limit, ...] = limits(target(raw))
         if check_id is None:
             assert held == ()

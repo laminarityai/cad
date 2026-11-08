@@ -20,6 +20,7 @@ from cad.briefs.model import (
     MadeOf,
     MaxDeflection,
     MaxMass,
+    MeasureLimit,
     MinMass,
     MinSafetyFactor,
     Requirement,
@@ -94,7 +95,7 @@ def placeholder(requirement: Requirement) -> str | None:
     """What the page shows in the row's empty edit field, or None when the row has no number."""
     target = requirement.target
     match target:
-        case ClosedSolid() | Unchecked() | MadeOf() | MinSafetyFactor():
+        case ClosedSolid() | MeasureLimit() | Unchecked() | MadeOf() | MinSafetyFactor():
             return None
         case MaxMass() | MinMass():
             return amount(target.mass)
@@ -130,7 +131,7 @@ def _edited(requirement: Requirement, text: str) -> Requirement | str:
     target = requirement.target
     try:
         match target:
-            case ClosedSolid() | Unchecked() | MadeOf() | MinSafetyFactor():
+            case ClosedSolid() | MeasureLimit() | Unchecked() | MadeOf() | MinSafetyFactor():
                 return "This row has no number to change."
             case MaxMass() | MinMass():
                 [mass] = _quantities(text, MASS)
