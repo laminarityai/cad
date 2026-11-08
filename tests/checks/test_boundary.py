@@ -7,7 +7,7 @@ import pytest
 from cad.checks.report import QUICK, SPECS, Request, build_request, parse
 from cad.checks.result import CheckRun, StepMissing, StepStored, Verdict
 from cad.sandbox.container import Attended, ContainerState, Job, Ran, TooMuchOutput
-from cad.tables.materials import Cited, Material, MaterialsTable, Unknown, load_materials
+from cad.tables.materials import Known, Material, MaterialsTable, Unknown, load_materials
 
 STEP = b"ISO-10303-21; fake STEP"
 OWN_LIMITS = Job("check", "sha256:analysis", (), b"", wall_seconds=60, memory_mb=1536)
@@ -127,7 +127,7 @@ def test_formula_sources_and_version_come_from_the_staged_checks_not_the_wire(
 def test_mass_cites_the_datasheet_of_the_density_it_used(request_for_pla: Request) -> None:
     mass = parse(sent(good_report()), request_for_pla, OWN_LIMITS).results[2]
     density = load_materials().get_material("prusament-pla").density
-    assert isinstance(density, Cited)
+    assert isinstance(density, Known)
     assert mass.sources[-1] == density.source
     assert len(mass.sources) == len(QUICK[2].sources) + 1
 
@@ -294,7 +294,7 @@ def test_a_cited_density_reaches_the_container_in_kg_per_mm3() -> None:
     density = build_request("prusament-pla", load_materials()).wire["values"]["density"]
     assert density["kind"] == "known"
     cited = load_materials().get_material("prusament-pla").density
-    assert isinstance(cited, Cited)
+    assert isinstance(cited, Known)
     assert density["magnitude"] == pytest.approx(cited.magnitude_in("kg/m^3") / 1e9)
 
 

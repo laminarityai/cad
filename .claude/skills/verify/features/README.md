@@ -30,3 +30,4 @@ This directory is the maintained source for verifying what an MCP client sees fr
 - [Knowledge](./knowledge.md) covers `search_knowledge`: ranked sections of the cited sources in `knowledge/`, and a live agent choosing between a hit and its near miss.
 - [Agree](./agree.md) covers `evals/bakeoff/agree.py`: scorecards against the bake-off grader, for 10 live Claude Code sessions and for the 60 stored attempts replayed with no model.
 - [Test mode](./test-mode.md) covers the Test mode guidance: a live agent scores only the variant the user picked, proposes a load the user adds, and reports what no check measured as not checked.
+- [Research](./research.md) covers `submit_research` and the research requests on a scorecard: a missing material value asked for, answered from a quote on a real page, and the rescored card labelled researched.

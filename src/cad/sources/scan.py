@@ -13,10 +13,10 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import Final
 
-from cad.sources.fields import FieldSpec
+from cad.sources.fields import UNITLESS, FieldSpec
 from cad.sources.refusal import Reason, Refusal
 from cad.sources.tokens import UNIT_PATTERN, Token
-from cad.sources.units import Unit, dimension
+from cad.sources.units import PRESSURE_UNITS, Unit, dimension
 
 _MASS_NAMES: Final = {"g": "g", "kg": "kg", "t": "t", "tonne": "t", "tonnes": "t"}
 _UNIT: Final = re.compile(UNIT_PATTERN, re.ASCII)
@@ -73,6 +73,8 @@ def _value_at(found: list[Token], index: int, spec: FieldSpec) -> Value | Refusa
     def text(at: int) -> str:
         return found[at].text if at < len(found) else ""
 
+    if spec.unitless and kind(index) == "number":
+        return _unitless_value(found, index, spec)
     if kind(index) == "number":
         if kind(index + 1) == "tolerance" and kind(index + 2) == "number":
             percent = kind(index + 3) == "percent"
@@ -106,6 +108,23 @@ def _value_at(found: list[Token], index: int, spec: FieldSpec) -> Value | Refusa
     return _build(found, spec, index, number_at, unit_at, tolerance_at, percent, repeated_at, last)
 
 
+def _unitless_value(found: list[Token], index: int, spec: FieldSpec) -> Value | Refusal | None:
+    def kind(at: int) -> str:
+        return found[at].kind if at < len(found) else ""
+
+    if is_negative(found, index):
+        return None
+    last, tolerance, percent = index, None, False
+    if kind(index + 1) == "tolerance" and kind(index + 2) == "number":
+        last, tolerance = index + 2, read_number(found[index + 2].text)
+        if kind(last + 1) == "percent":
+            last, percent = last + 1, True
+    for at in (index + 1, last + 1):
+        if kind(at) == "unit":
+            return unlisted_unit(found[at].text, spec)
+    return Value(read_number(found[index].text), UNITLESS, index, last, tolerance, percent)
+
+
 def _build(
     found: list[Token],
     spec: FieldSpec,
@@ -132,8 +151,13 @@ def _build(
 
 
 def _unit(text: str, spec: FieldSpec) -> Unit | Refusal:
+    if text in PRESSURE_UNITS:
+        listed = spec.units.get(text)
+        return unlisted_unit(text, spec) if listed is None else listed
     found = _UNIT.fullmatch(text)
     assert found is not None
+    if not spec.per_volume:
+        return unlisted_unit(text, spec)
     mass = found["mass"]
     letters = re.match(r"[a-z]+", (found["volume"] or found["negative"]).lower())
     assert letters is not None
@@ -153,13 +177,13 @@ def _unit(text: str, spec: FieldSpec) -> Unit | Refusal:
             "the quote with the unit written as kg/m3 or g/cm3, or the unit typed on the page",
         )
     key = "Mg" if name == "mg" else "lb" if name in {"lb", "lbs"} else _MASS_NAMES[name]
-    listed = spec.units.get((key, volume))
+    listed = spec.units.get(f"{key}/{volume}")
     return unlisted_unit(text, spec) if listed is None else listed
 
 
 def unlisted_unit(text: str, spec: FieldSpec) -> Refusal:
     known = dimension(text)
-    needed = f"the unit of the {spec.label} on the page, written as g/cm3 or kg/m3"
+    needed = f"the unit of the {spec.label} on the page, written as {spec.unit_hint}"
     if known is not None:
         return Refusal(
             Reason.WRONG_DIMENSION, f"{text!r} measures {known}, not {spec.label}", needed

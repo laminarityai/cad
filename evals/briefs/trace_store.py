@@ -25,11 +25,13 @@ import pint
 from binding import Unbound, Unlinked
 from confirmation import Misjudged, Superseded, Unconfirmed
 from provenance import (
+    BoundStep,
     CardFailure,
     CardTrace,
     CheckStep,
     ConfirmedStep,
     Incomplete,
+    ResearchedStep,
     Resolved,
     Stale,
     Step,
@@ -42,9 +44,13 @@ from provenance import (
 from pydantic import ValidationError
 from tracking import RequirementOutcome, describe, outcomes_of, track
 
+from cad.briefs import store as briefs
+from cad.briefs.store import BriefRefused
 from cad.checks.report import SPECS
 from cad.records.roots import HOME_ROOTS, Roots
-from cad.scorecard.model import Scorecard
+from cad.research.overlay import project_table
+from cad.scorecard.material import STORED
+from cad.scorecard.model import AgainstBrief, AwaitingConfirmation, Scorecard
 from cad.scorecard.score import SCORECARD
 from cad.tables.materials import MaterialsTable, load_materials
 from cad.variants import entry
@@ -182,14 +188,25 @@ def _read(
 ) -> tuple[CardTrace, tuple[RequirementOutcome, ...]]:
     name = path.parent.name
     try:
-        card = Scorecard.model_validate_json(path.read_text())
+        card = STORED.validate_json(path.read_text())
     except (OSError, ValidationError, pint.UndefinedUnitError, ZeroDivisionError) as error:
         return CardTrace(name, (Unreadable(str(error).splitlines()[0]),), ()), ()
-    trace = trace_card(card, root, roots, table, SPEC_BY_ID)
+    trace = trace_card(card, root, roots, _table_for(card, roots, table), SPEC_BY_ID)
     if card.variant_id != name:
         misplaced = Unbound(f"the card names variant {card.variant_id} but is stored under {name}")
         trace = CardTrace(name, (misplaced, *trace.failures), trace.numbers, trace.basis)
     return trace, outcomes_of(card)
+
+
+def _table_for(card: Scorecard, roots: Roots, git: MaterialsTable) -> MaterialsTable:
+    """The table the card was scored against: the git table with its brief's project research."""
+    if not isinstance(card.basis, AgainstBrief | AwaitingConfirmation):
+        return git
+    try:
+        project = briefs.read_brief(roots, card.basis.brief_id).project
+    except BriefRefused:
+        return git
+    return project_table(git, roots.projects, project).table
 
 
 def _print(trace: CardTrace, steps: bool) -> None:
@@ -219,6 +236,13 @@ def _step(step: Step) -> str:
             return (
                 f"table {step.material_key}.{step.field}, {step.source.title}, {step.source.page}"
             )
+        case ResearchedStep():
+            return (
+                f"researched {step.material_key}.{step.field}, record {step.record}, "
+                f"{step.source.url}: {step.source.quote!r}"
+            )
+        case BoundStep():
+            return f"the {step.bound} bound the server accepts for a researched {step.field}"
         case ConfirmedStep():
             return (
                 f"confirmed by a person: brief {step.brief_id}, answer "

@@ -36,6 +36,23 @@ def density_unit(mass: str, volume: str) -> Unit:
     return Unit(f"{mass_symbol}/{volume_symbol}", kilograms / cubic_metres)
 
 
+_MPA: Final = {
+    "Pa": Decimal("0.000001"),
+    "kPa": Decimal("0.001"),
+    "MPa": Decimal(1),
+    "Mpa": Decimal(1),
+    "MPA": Decimal(1),
+    "GPa": Decimal(1000),
+    "Gpa": Decimal(1000),
+    "GPA": Decimal(1000),
+    "psi": Decimal("0.006894757"),
+    "ksi": Decimal("6.894757"),
+    "N/mm2": Decimal(1),
+    "N/mm^2": Decimal(1),
+}
+PRESSURE_UNITS: Final = {spelling: Unit(spelling, factor) for spelling, factor in _MPA.items()}
+
+
 _MASSES: Final = ("g", "kg", "mg", "lb", "lbs", "t", "oz")
 _LENGTHS: Final = ("mm", "cm", "dm", "m", "in", "ft", "um", "μm")
 _PRESSURES: Final = ("pa", "kpa", "mpa", "gpa", "psi", "ksi", "bar")

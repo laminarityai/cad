@@ -19,6 +19,8 @@ class Reason(StrEnum):
     TRAILING_DECIMAL = "trailing_decimal"
     TOO_LONG = "too_long"
     UNRECOGNISED_TEXT = "unrecognised_text"
+    OTHER_QUANTITY = "other_quantity"
+    NO_LABEL = "no_label"
 
 
 @dataclass(frozen=True, slots=True)

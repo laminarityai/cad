@@ -18,6 +18,7 @@ from cad.server.brief_tools import PLAN_MODE, brief_tools
 from cad.server.confirmation_tools import confirmation_tools
 from cad.server.knowledge_tools import knowledge_tools
 from cad.server.refusals import agent_facing
+from cad.server.research_tools import brief_table, research_tools, with_research
 from cad.tables.materials import KEY_PATTERN
 from cad.variant_sets import store as variant_sets
 from cad.variant_sets.model import MAX_MEMBERS, SetBuildResult
@@ -52,6 +53,13 @@ RULE = (
     "yourself are not checks: do not report them as measurements or as confirming the scorecard. "
     "For anything no check measured, say that it was not checked."
 )
+RESEARCH = (
+    "A material value the table lacks is researched, not left unknown. When a scorecard's "
+    "research lists a request, answer each one with submit_research: a public page and a "
+    "quote from it, never a number of your own. Then score again. A result labelled "
+    "researched rests on a value the server read from that quote: report a pass on it as "
+    '"passes on researched data" and name the source. When a page is refused, try another.'
+)
 TEST_MODE = (
     "Test mode is deeper analysis of one variant the user picks, for example when they ask "
     "whether it will hold a load or how long it takes to print. If the user states a load, a "
@@ -63,7 +71,8 @@ TEST_MODE = (
     "state a pending check's result, and call score_variant again with the same arguments to "
     "wait for it. Report only what the checks returned, and for a load, the fea verdict and "
     "its measures. Do not estimate a strength, a deflection or a print time yourself: when no "
-    "check returned it, say it was not checked."
+    "check returned it, say it was not checked. When fea is unknown because the table lacks a "
+    "material value, answer the card's research requests and score again before you report."
 )
 SCORE_VARIANT = (
     "Score one built variant with the fixed checks closed_solid, interference, mass and "
@@ -83,6 +92,12 @@ SCORE_VARIANT = (
     "Every result has a verdict (pass, fail or unknown), "
     "its measured values, its formula, its sources and its check version. unknown means the "
     "check could not decide, and it is not a pass. "
+    "Each result's reads say, for each material value the check takes, whether the table "
+    "cites it, the project researched it (with the url and quote), or the table lacks it. "
+    "When a check read a missing material value, the card's research holds a request for it: "
+    "answer it with submit_research and score again. A result or requirement whose basis is "
+    'researched rests on a researched value: report its pass as "passes on researched data", '
+    "naming the field, url and quote. Missing geometry is never researched. "
     "Pass brief_id when the user has a brief. Once the user has confirmed its requirements, the "
     "scorecard's basis is against_brief: for each confirmed requirement it names the check that "
     "decided it, a verdict, and each limit the user confirmed, and unverified_requirements lists "
@@ -109,8 +124,8 @@ SCORE_VARIANT = (
 )
 LIST_MATERIALS = (
     "List the material keys that score_variant accepts, each with its name. "
-    "The checks look the density up by exact key. No value is returned, so there is nothing "
-    "to copy."
+    "The checks look each value up by exact key. No value is returned, so there is nothing "
+    "to copy. A value the table lacks comes back on the scorecard as a research request."
 )
 
 
@@ -208,10 +223,11 @@ def build_server(
                 else:
                     assess, demand = requirements.against(confirmed), requirements.demand(confirmed)
             material.refuse_other_material(confirmed, material_key)
+            table = brief_table(roots, brief_id)
             scored = score.score_variant(
-                variant_id, material_key, variants_root, assess, demand=demand
+                variant_id, material_key, variants_root, assess, demand=demand, table=table.table
             )
-            card = material.reported(scored, confirmed)
+            card = with_research(material.reported(scored, confirmed), table, brief_id)
             score.store(card, variants_root)
         return card
 
@@ -224,7 +240,7 @@ def build_server(
 
     server = MCPServer(
         "cad",
-        instructions=" ".join((RULE, PLAN_MODE, TEST_MODE)),
+        instructions=" ".join((RULE, PLAN_MODE, TEST_MODE, RESEARCH)),
         tools=[
             strict_tool(tool)
             for tool in (
@@ -235,6 +251,7 @@ def build_server(
                 *brief_tools(roots),
                 *confirmation_tools(roots, desk),
                 *knowledge_tools(),
+                *research_tools(roots),
             )
         ],
     )

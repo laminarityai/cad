@@ -2,7 +2,15 @@ from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from cad.checks.result import CheckResult, Comparator, Measured, Step, Verdict
+from cad.checks.result import (
+    CheckResult,
+    Comparator,
+    Measured,
+    Read,
+    ReadResearched,
+    Step,
+    Verdict,
+)
 from cad.scorecard.waiting import Waiting
 from cad.tables.materials import Source
 
@@ -26,7 +34,11 @@ class Comparison(_Frozen):
 
 class Checked(_Frozen):
     """A requirement that a check in the suite decides. It is unknown when that check could not
-    measure, and it is still covered."""
+    measure, and it is still covered.
+
+    `basis` is `researched` when the deciding result read a researched value, and `researched`
+    names each one with its source and quote (ADR-0009). Report such a pass as "passes on
+    researched data", never as a plain pass."""
 
     kind: Literal["checked"] = "checked"
     requirement_id: str
@@ -35,6 +47,14 @@ class Checked(_Frozen):
     verdict: Verdict
     reason: str
     comparisons: tuple[Comparison, ...]
+    basis: Literal["checks", "researched"] = "checks"
+    researched: tuple[ReadResearched, ...] = Field(default=(), exclude_if=lambda one: not one)
+
+    @model_validator(mode="after")
+    def _basis_names_the_research(self) -> Self:
+        if (self.basis == "researched") != bool(self.researched):
+            raise ValueError("basis is researched exactly when researched names a value")
+        return self
 
 
 class Unverified(_Frozen):
@@ -93,6 +113,7 @@ class PendingCheck(_Frozen):
     sources: tuple[Source, ...]
     version: str
     instance: str = Field(default="", exclude_if=lambda instance: not instance)
+    reads: tuple[Read, ...] = Field(default=(), exclude_if=lambda reads: not reads)
 
 
 class Scorecard(BaseModel):

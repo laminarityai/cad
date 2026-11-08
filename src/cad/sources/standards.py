@@ -1,6 +1,4 @@
-"""The density test standards the reader knows, as exact spellings.
-
-A quote often puts the value right after the standard, as in "ISO 1183 1.24 g/cm3". From its
+"""A quote often puts the value right after the standard, as in "ISO 1183 1.24 g/cm3". From its
 shape alone, "DIN 1 2400" could be DIN 1 then 2400 or DIN 12 then 400, so the reader cannot tell
 where a standard ends. A spelling listed here ends exactly where it ends, so a number with a
 decimal mark after it reads. A whole number after it, past any separators, is refused, because
@@ -40,4 +38,8 @@ STANDARDS: Final[dict[str, tuple[str, ...]]] = {
     "GB/T 1033.1": ("GB/T 1033.1", "GB/T1033.1", "GB/T 1033.1-2008"),
     "JIS K 7112": ("JIS K 7112", "JIS K7112", "JIS K 7112:1999"),
     "JIS K 7112-1": ("JIS K 7112-1", "JIS K 7112-1:2023"),
+    "ISO 527": ("ISO 527", "ISO527"),
+    "ISO 527-1": ("ISO 527-1", "ISO527-1", "ISO 527-1:2019"),
+    "ISO 527-2": ("ISO 527-2", "ISO527-2", "ISO 527-2:2012"),
+    "ASTM D638": ("ASTM D638", "ASTM D 638", "ASTM D638-14", "ASTM D 638-14"),
 }

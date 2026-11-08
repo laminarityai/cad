@@ -23,7 +23,7 @@ from cad.briefs.model import (
 from cad.briefs.store import ConfirmedSet
 from cad.checks.jobs import Demand
 from cad.checks.report import SPECS
-from cad.checks.result import CheckResult, Comparator, Measured, Verdict
+from cad.checks.result import CheckResult, Comparator, Measured, ReadResearched, Verdict
 from cad.scorecard.model import (
     AgainstBrief,
     AwaitingConfirmation,
@@ -123,6 +123,7 @@ def judge(
         for limit in limits(requirement.target)
     )
     verdict = _fold(result, comparisons)
+    researched = tuple(read for read in result.reads if isinstance(read, ReadResearched))
     return Checked(
         requirement_id=requirement.id,
         statement=statement,
@@ -130,6 +131,8 @@ def judge(
         verdict=verdict,
         reason=_reason(result, comparisons, verdict, missed),
         comparisons=comparisons,
+        basis="researched" if researched else "checks",
+        researched=researched,
     )
 
 

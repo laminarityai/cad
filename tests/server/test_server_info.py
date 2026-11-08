@@ -46,6 +46,7 @@ async def test_server_info_names_the_head_sha_python_and_tools() -> None:
             "score_variant",
             "search_knowledge",
             "server_info",
+            "submit_research",
         ],
     }
 

@@ -9,13 +9,15 @@ from cad.checks.container.wire import LoadCaseWire
 from cad.checks.jobs import JobResult, Plan, Refused
 from cad.checks.lanes import Done, Pending, Settled
 from cad.checks.report import QUICK, SPECS, build_request, unknown_for_all
-from cad.checks.result import CheckResult, StepMissing, Verdict
+from cad.checks.result import CheckResult, ReadCited, ReadMissing, StepMissing, Verdict
 from cad.sandbox import container
 from cad.sandbox.container import Job, Ran
 from cad.scorecard import score
 from cad.scorecard.model import Basis, NoBrief, PendingCheck, Scorecard
 from cad.tables.materials import load_materials
 from cad.variants.entry import Entry, VariantId
+
+POISSON_UNKNOWN = "the materials table has no poisson_ratio for prusament-pla: it says unknown"
 
 PLATE = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
 PLATE_SHELL = PLATE + "from build123d import Shell\nresult = Shell(result.faces()[:-1])\n"
@@ -113,6 +115,11 @@ def test_a_pending_background_check_holds_its_place_and_no_verdict(tmp_path: Pat
         sources=FEA.sources,
         version=FEA.version,
         instance="c1",
+        reads=(
+            ReadCited(field="elastic_modulus"),
+            ReadMissing(field="poisson_ratio", reason=POISSON_UNKNOWN),
+            ReadCited(field="yield_strength"),
+        ),
     )
     assert card.pending == ("fea",)
     assert assessed == ["closed_solid", "interference", "mass", "extents"]

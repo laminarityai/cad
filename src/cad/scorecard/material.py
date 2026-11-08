@@ -2,10 +2,11 @@
 
 from typing import Annotated, Final, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from cad.briefs.model import MadeOf, Requirement, describe
 from cad.briefs.store import BriefRefused, ConfirmedSet
+from cad.research.requests import ResearchRequest
 from cad.scorecard.model import Scorecard
 
 AGENT_CHOSE: Final = (
@@ -44,15 +45,20 @@ class MaterialUse(_Frozen):
 
 
 class ReportedScorecard(Scorecard):
-    """A scorecard as the server returns it: the card and what set its material."""
+    """A scorecard as the server returns it: the card, what set its material, and a research
+    request for each material value a check needed that the table lacks."""
 
     material: MaterialUse
+    research: tuple[ResearchRequest, ...] = Field(default=(), exclude_if=lambda one: not one)
 
     @model_validator(mode="after")
     def _names_the_scored_material(self) -> Self:
         if self.material.key != self.material_key:
             raise ValueError("material.key must be the key the card was scored with")
         return self
+
+
+STORED: Final = TypeAdapter[ReportedScorecard | Scorecard](ReportedScorecard | Scorecard)
 
 
 def pinned_by(confirmed: ConfirmedSet | None) -> Requirement | None:

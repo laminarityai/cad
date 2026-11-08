@@ -15,6 +15,7 @@ ALLOWED_ARGUMENTS = {
     "ask_to_confirm": {"project_id"},
     "list_requirements": {"brief_id"},
     "search_knowledge": {"query", "k"},
+    "submit_research": {"brief_id", "key", "field", "url", "quote"},
 }
 
 

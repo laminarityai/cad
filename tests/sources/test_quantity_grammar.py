@@ -267,10 +267,10 @@ def test_a_header_dump_is_not_called_a_range() -> None:
 
 
 def test_the_aurubis_quote_reports_a_missing_unit() -> None:
-    from cad.tables.materials import Cited, load_materials
+    from cad.tables.materials import Known, load_materials
 
     density = load_materials().materials["aurubis-c11000-h02"].density
-    assert isinstance(density, Cited)
+    assert isinstance(density, Known)
     result = refusal(density.source.quote)
     assert result.reason is Reason.MISSING_UNIT
     assert "choose the figure" not in result.needed

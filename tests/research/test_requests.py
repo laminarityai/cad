@@ -1,0 +1,105 @@
+from datetime import date
+
+from cad.checks.report import DEPENDENCIES, SPECS, build_request, reads_of
+from cad.checks.result import ReadCited, ReadMissing, ReadResearched, Verdict
+from cad.projects.model import ProjectId
+from cad.research.ledger import Ledger, ResearchedRecord
+from cad.research.overlay import overlay
+from cad.research.requests import requests_on
+from cad.scorecard import requirements
+from cad.scorecard.model import Checked, PendingCheck
+from cad.tables.materials import MaterialsTable, load_materials
+from tests.scorecard.test_requirements import max_mass, result
+
+GIT = load_materials()
+FEA = next(spec for spec in SPECS if spec.id == "fea")
+MASS = next(spec for spec in SPECS if spec.id == "mass")
+URL = "https://example.org/pla"
+QUOTE = "Poisson's ratio 0.36"
+
+
+def researched(key: str = "prusament-pla") -> MaterialsTable:
+    record = ResearchedRecord(
+        project="p-1",
+        key=key,
+        field="poisson_ratio",
+        magnitude=0.36,
+        unit="dimensionless",
+        url=URL,
+        title="PLA",
+        quote=QUOTE,
+        retrieved=date(2026, 11, 8),
+        sha256="ab" * 32,
+    )
+    return overlay(GIT, ProjectId("p-1"), Ledger((record,))).table
+
+
+def pending(table: MaterialsTable, key: str = "prusament-pla") -> PendingCheck:
+    reads = reads_of(FEA, build_request(key, table, (FEA,)))
+    return PendingCheck(
+        check_id="fea", formula=FEA.formula, sources=FEA.sources, version=FEA.version, reads=reads
+    )
+
+
+def test_a_missing_material_value_on_a_pending_fea_asks_for_research() -> None:
+    card = pending(GIT)
+    assert card.reads[1] == ReadMissing(
+        field="poisson_ratio",
+        reason="the materials table has no poisson_ratio for prusament-pla: it says unknown",
+    )
+    [request] = requests_on([card], "prusament-pla", GIT, "b-1")
+    assert (request.brief_id, request.key, request.field) == (
+        "b-1",
+        "prusament-pla",
+        "poisson_ratio",
+    )
+    assert (request.unit, request.low, request.high) == ("dimensionless", 0.0, 0.5)
+    assert "submit_research" in request.instruction
+    assert "Never type the number" in request.instruction
+
+
+def test_a_researched_value_is_read_with_its_source_and_asks_for_nothing() -> None:
+    table = researched()
+    card = pending(table)
+    assert card.reads == (
+        ReadCited(field="elastic_modulus"),
+        ReadResearched(field="poisson_ratio", url=URL, quote=QUOTE, sha256="ab" * 32),
+        ReadCited(field="yield_strength"),
+    )
+    assert requests_on([card], "prusament-pla", table, "b-1") == ()
+
+
+def test_without_a_brief_the_request_says_to_score_with_one() -> None:
+    [request] = requests_on([pending(GIT)], "prusament-pla", GIT, None)
+    assert request.brief_id is None
+    assert request.instruction.startswith("Score the variant again with a brief_id first")
+
+
+def test_a_key_with_no_row_asks_for_nothing() -> None:
+    assert requests_on([pending(GIT, "unobtainium")], "unobtainium", GIT, "b-1") == ()
+
+
+def test_a_requirement_decided_on_a_researched_value_says_so_and_names_it() -> None:
+    read = ReadResearched(field="density", url=URL, quote="Density 1.24 g/cm3", sha256="cd" * 32)
+    weighed = result("mass", Verdict.PASS, volume=(1.0, "mm^3"), mass=(0.1, "kg"))
+    weighed = weighed.model_copy(update={"reads": (read,)})
+    judged = requirements.judge(max_mass(150), [weighed])
+    assert isinstance(judged, Checked)
+    assert (judged.verdict, judged.basis, judged.researched) == (
+        Verdict.PASS,
+        "researched",
+        (read,),
+    )
+
+
+def test_a_requirement_on_cited_values_has_the_checks_basis() -> None:
+    weighed = result("mass", Verdict.PASS, volume=(1.0, "mm^3"), mass=(0.1, "kg"))
+    weighed = weighed.model_copy(update={"reads": (ReadCited(field="density"),)})
+    judged = requirements.judge(max_mass(150), [weighed])
+    assert isinstance(judged, Checked)
+    assert (judged.basis, judged.researched) == ("checks", ())
+
+
+def test_the_research_code_stays_out_of_every_check_version() -> None:
+    assert not [path for path in DEPENDENCIES.files if path.startswith("cad/research/")]
+    assert MASS.version

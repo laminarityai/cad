@@ -8,8 +8,8 @@ import yaml
 
 from cad.tables.materials import (
     TABLE_PATH,
-    Cited,
     InvalidTable,
+    Known,
     Unknown,
     UnknownMaterial,
     load_materials,
@@ -47,7 +47,7 @@ def test_table_loads_with_sha256_version() -> None:
 
 def test_every_value_is_cited_or_unknown() -> None:
     material = load_materials().get_material("prusament-pla")
-    assert isinstance(material.density, Cited)
+    assert isinstance(material.density, Known)
     assert material.density.magnitude_in("kg/m^3") == pytest.approx(1240)
     assert material.density.source.standard == "ISO 1183"
     assert material.tensile_strength == Unknown()
@@ -157,8 +157,8 @@ def elastic(modulus: str, poisson: str) -> Callable[[Row], None]:
 def test_a_cited_modulus_and_poisson_ratio_load_in_their_units(tmp_path: Path) -> None:
     path = write_edited_table(tmp_path, "prusament-pla", elastic("3.5 GPa", "0.36"))
     material = load_materials(path).get_material("prusament-pla")
-    assert isinstance(material.elastic_modulus, Cited)
-    assert isinstance(material.poisson_ratio, Cited)
+    assert isinstance(material.elastic_modulus, Known)
+    assert isinstance(material.poisson_ratio, Known)
     assert material.elastic_modulus.magnitude_in("MPa") == pytest.approx(3500)
     assert material.poisson_ratio.magnitude_in("dimensionless") == pytest.approx(0.36)
 

@@ -39,8 +39,19 @@ from cad.checks.container.check import Quick
 from cad.checks.report import CheckSpec
 from cad.checks.result import CheckResult, Measure
 from cad.records.roots import Roots
+from cad.scorecard.material import ReportedScorecard
 from cad.scorecard.model import AgainstBrief, Checked, Scorecard
-from cad.tables.materials import UNITS, Cited, MaterialsTable, Source, UnknownMaterial, magnitude
+from cad.sources.fields import SPECS as FIELD_SPECS
+from cad.sources.fields import Field
+from cad.tables.materials import (
+    UNITS,
+    FromResearch,
+    Known,
+    MaterialsTable,
+    Source,
+    UnknownMaterial,
+    magnitude,
+)
 
 REL_TOL = 1e-9
 
@@ -61,6 +72,17 @@ class TableStep:
 
 
 @dataclass(frozen=True, slots=True)
+class ResearchedStep:
+    """A value the server read from a quote on a page it fetched, signed in the project's
+    research ledger as record `record`."""
+
+    material_key: str
+    field: str
+    source: Source
+    record: int
+
+
+@dataclass(frozen=True, slots=True)
 class ConfirmedStep:
     """A limit a person confirmed on the page, in the decision the card names."""
 
@@ -70,7 +92,15 @@ class ConfirmedStep:
     statement: str
 
 
-type Step = CheckStep | TableStep | ConfirmedStep
+@dataclass(frozen=True, slots=True)
+class BoundStep:
+    """A bound of a research request: the server accepts a researched `field` only in it."""
+
+    field: str
+    bound: Literal["low", "high"]
+
+
+type Step = CheckStep | TableStep | ResearchedStep | ConfirmedStep | BoundStep
 
 
 @dataclass(frozen=True, slots=True)
@@ -180,6 +210,11 @@ def _place(
             measure = result.measured[place]
             outcome = _trace(card, result, measure, table, specs)
             return Traced(f"{result.check_id}.{measure.name}", found.value, outcome)
+        case ("research", int() as index, "low" | "high" as bound) if isinstance(
+            card, ReportedScorecard
+        ):
+            field = card.research[index].field
+            return Traced(path, found.value, _bound(field, bound, found.value))
         case ("basis", "requirements", int() as index, "comparisons", int() as place, "limit"):
             return Traced(path, found.value, _confirmed(card, index, place, shown))
         case _:
@@ -210,6 +245,12 @@ def _confirmed(card: Scorecard, index: int, place: int, shown: Shown | None) -> 
         basis.brief_id, basis.decision_sha256, requirement.id, describe(requirement)
     )
     return Resolved((step,))
+
+
+def _bound(field: Field, bound: Literal["low", "high"], value: str) -> Outcome:
+    if f"{getattr(FIELD_SPECS[field], bound):g}" != value:
+        return Unresolved(f"{value} is not the {bound} bound the server sets for {field}")
+    return Resolved((BoundStep(field, bound),))
 
 
 def _same(held: pint.Quantity, expected: pint.Quantity) -> bool:
@@ -249,7 +290,7 @@ def _trace(
     field = spec.reads.get(base)
     if field is not None:
         read = _table_step(card, result, measure, field, unit, table)
-        if not isinstance(read, TableStep):
+        if not isinstance(read, TableStep | ResearchedStep):
             return read
         steps.append(read)
     return Resolved(tuple(steps))
@@ -262,7 +303,7 @@ def _table_step(
     field: str,
     unit: str,
     table: MaterialsTable,
-) -> TableStep | Stale | Unresolved:
+) -> TableStep | ResearchedStep | Stale | Unresolved:
     if card.table_version != table.version:
         return Stale(
             f"scored against materials table {card.table_version[:12]}, "
@@ -273,7 +314,7 @@ def _table_step(
     except UnknownMaterial:
         return Unresolved(f"the materials table has no row {card.material_key!r}")
     cited = material.value(field)
-    if not isinstance(cited, Cited):
+    if not isinstance(cited, Known):
         return Unresolved(f"{card.material_key} has no cited {field}: the table says unknown")
     if not math.isclose(measure.value.m_as(unit), cited.magnitude_in(unit), rel_tol=REL_TOL):  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
         return Unresolved(
@@ -282,6 +323,8 @@ def _table_step(
         )
     if cited.source not in result.sources:
         return Unresolved(f"the {result.check_id} result does not carry the {field} source")
+    if isinstance(cited.basis, FromResearch):
+        return ResearchedStep(card.material_key, field, cited.source, cited.basis.record)
     return TableStep(card.material_key, field, cited.source)
 
 

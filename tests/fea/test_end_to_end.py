@@ -14,7 +14,7 @@ from cad.sandbox import host
 from cad.sandbox.outcome import Built
 from cad.scorecard import requirements, score
 from cad.scorecard.model import AgainstBrief, Basis, Checked, Scorecard
-from cad.tables.materials import UNITS, Cited, MaterialsTable, load_materials, magnitude
+from cad.tables.materials import UNITS, Known, MaterialsTable, load_materials, magnitude
 from cad.variants.store import build_variant
 
 KEY = "prusament-pla"
@@ -32,12 +32,12 @@ TARGET = TypeAdapter[Target](Target)
 def table_with_steel_stiffness() -> MaterialsTable:
     table = load_materials()
     row = table.get_material(KEY)
-    assert isinstance(row.density, Cited)
+    assert isinstance(row.density, Known)
     source = row.density.source
     stiff = dataclasses.replace(
         row,
-        elastic_modulus=Cited(UNITS.Quantity(STEEL.elastic_modulus, "MPa"), source),
-        poisson_ratio=Cited(UNITS.Quantity(STEEL.poisson_ratio, "dimensionless"), source),
+        elastic_modulus=Known(UNITS.Quantity(STEEL.elastic_modulus, "MPa"), source),
+        poisson_ratio=Known(UNITS.Quantity(STEEL.poisson_ratio, "dimensionless"), source),
     )
     return dataclasses.replace(table, materials={**table.materials, KEY: stiff})
 
