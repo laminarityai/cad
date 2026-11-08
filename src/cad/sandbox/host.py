@@ -107,6 +107,7 @@ def run_checks(
         brep_sha256=held.brep_sha256,
         step=step,
         results=parsed.results,
+        timed_out=parsed.timed_out,
     )
 
 

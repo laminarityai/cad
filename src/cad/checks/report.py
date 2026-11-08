@@ -152,12 +152,14 @@ def _wire(values: dict[str, ValueWire]) -> RequestWire:
 class Parsed:
     results: tuple[CheckResult, ...]
     step: bytes | StepMissing
+    timed_out: bool = False
 
 
 def parse(ran: Ran, request: Request, job: Job) -> Parsed:
     seen, state = ran.attended, ran.state
     if seen.killed_at_deadline:
-        return _refused(f"the check container ran past {job.wall_seconds} s and was killed")
+        reason = f"the check container ran past {job.wall_seconds} s and was killed"
+        return Parsed(unknown_for_all(reason), StepMissing(reason=reason), timed_out=True)
     if state.OOMKilled and (isinstance(seen.report, TooMuchOutput) or state.ExitCode != 0):
         return _refused(f"the check container ran out of memory ({job.memory_mb} MB)")
     if isinstance(seen.report, TooMuchOutput):

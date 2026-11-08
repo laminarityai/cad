@@ -102,6 +102,7 @@ class CheckRun(_Frozen):
     brep_sha256: str
     step: Step
     results: tuple[CheckResult, ...]
+    timed_out: bool
 
     def result(self, check_id: str) -> CheckResult:
         for result in self.results:

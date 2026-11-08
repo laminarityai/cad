@@ -122,14 +122,21 @@ class Lanes:
         self._queue.put((job, future))
         with self._lock:
             if self._worker is None:
-                self._worker = threading.Thread(
-                    target=self._drain, name="cad-background", daemon=True
-                )
-                self._worker.start()
+                self._start_worker()
+
+    def _start_worker(self) -> None:
+        self._worker = threading.Thread(target=self._drain, name="cad-background", daemon=True)
+        self._worker.start()
 
     def _drain(self) -> None:
-        while True:
-            self._fly(*self._queue.get())
+        try:
+            while True:
+                self._fly(*self._queue.get())
+        finally:
+            with self._lock:
+                self._worker = None
+                if not self._queue.empty():
+                    self._start_worker()
 
 
 def _land(flight: Done | Refused | Future[JobResult], deadline: float) -> Outcome:

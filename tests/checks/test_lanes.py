@@ -47,7 +47,8 @@ def ran(spec: JobSpec, time: int = 1) -> JobResult:
 @dataclass
 class Lane:
     gate: threading.Event = field(default_factory=opened)
-    error: Exception | None = None
+    error: BaseException | None = None
+    timeouts: int = 0
 
 
 @dataclass
@@ -61,7 +62,13 @@ class GatedRunner:
         lane = self.quick if isinstance(spec.budget, Quick) else self.background
         assert lane.gate.wait(LONG), "the test never opened the gate"
         if lane.error is not None:
-            raise lane.error
+            error, lane.error = lane.error, None if isinstance(lane.error, Stop) else lane.error
+            raise error
+        if lane.timeouts:
+            lane.timeouts -= 1
+            return measured("the check container ran past 60 s").model_copy(
+                update={"timed_out": True}
+            )
         return ran(spec, self.runs.count(spec.key))
 
 
@@ -209,6 +216,36 @@ def test_a_quick_job_that_fails_raises_stores_nothing_and_runs_again(
             lanes.settle(quick_only(tmp_path), 0)
     assert len(runner.runs) == 2
     assert job_store.read(job(tmp_path)) is None
+
+
+def test_a_timed_out_run_is_returned_unstored_and_the_next_call_runs_again(
+    tmp_path: Path, runner: GatedRunner
+) -> None:
+    runner.quick.timeouts = 1
+    lanes = Lanes(runner)
+    first = lanes.settle(quick_only(tmp_path), 0).quick
+    assert first.timed_out
+    assert job_store.read(job(tmp_path)) is None
+    second = lanes.settle(quick_only(tmp_path), 0).quick
+    assert second == ran(job(tmp_path), 2) == job_store.read(job(tmp_path))
+    assert Lanes(runner).settle(quick_only(tmp_path), 0).quick == second
+    assert len(runner.runs) == 2
+
+
+class Stop(BaseException):
+    pass
+
+
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")
+def test_a_worker_killed_by_a_base_exception_is_replaced(
+    tmp_path: Path, runner: GatedRunner
+) -> None:
+    runner.background.error = Stop()
+    lanes = Lanes(runner)
+    with pytest.raises(Stop):
+        lanes.settle(with_fea(tmp_path), LONG)
+    settled = lanes.settle(with_fea(tmp_path), LONG)
+    assert settled.background == (Done(ran(job(tmp_path, FEA), 2)),)
 
 
 class Closed:

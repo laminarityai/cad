@@ -169,6 +169,7 @@ def test_a_check_run_serializes_and_reads_back_equal(request_for_pla: Request) -
         brep_sha256="a" * 64,
         step=StepStored(sha256="b" * 64),
         results=parsed.results,
+        timed_out=parsed.timed_out,
     )
     text = run.model_dump_json()
     assert json.loads(text)["results"][2]["measured"][0] == {
@@ -243,6 +244,19 @@ def test_every_misbehavior_gives_four_unknown_results_and_no_step(
 )
 def test_the_reason_names_the_cause(seen: Ran, reason: str, request_for_pla: Request) -> None:
     assert reason in parse(seen, request_for_pla, OWN_LIMITS).results[0].reason
+
+
+def test_only_a_run_past_the_wall_time_is_marked_timed_out(request_for_pla: Request) -> None:
+    timed_out = {
+        name: parse(seen, request_for_pla, OWN_LIMITS).timed_out
+        for name, seen in [
+            ("timeout", ran(b"", killed=True)),
+            ("oom", ran(b"", oom=True, exit_code=137)),
+            ("exit", ran(b"", exit_code=139)),
+            ("good", sent(good_report())),
+        ]
+    }
+    assert timed_out == {"timeout": True, "oom": False, "exit": False, "good": False}
 
 
 def test_a_step_the_container_left_out_keeps_the_verdicts_and_says_why(

@@ -29,6 +29,8 @@ def read(job: JobSpec) -> JobResult | None:
 
 
 def write(job: JobSpec, result: JobResult) -> None:
+    if result.timed_out:
+        return
     record = result.model_dump_json().encode()
     data = key.sign(job.root, _slot(job), record) + b"\n" + record
     _replace(job, result_path(job), data, "result")

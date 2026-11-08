@@ -67,6 +67,7 @@ class JobResult(BaseModel):
     check_image_digest: str
     step: Step
     results: tuple[CheckResult, ...]
+    timed_out: bool = False
 
 
 def plan(root: Path, held: Entry, request: Request) -> Plan:
@@ -80,7 +81,12 @@ def run_quick(spec: JobSpec) -> JobResult:
         raise SandboxUnavailable(
             "the materials table changed while the checks ran; score the variant again"
         )
-    return JobResult(check_image_digest=run.check_image_digest, step=run.step, results=run.results)
+    return JobResult(
+        check_image_digest=run.check_image_digest,
+        step=run.step,
+        results=run.results,
+        timed_out=run.timed_out,
+    )
 
 
 @dataclass(frozen=True, slots=True)
