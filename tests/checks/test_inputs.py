@@ -4,7 +4,7 @@ from fakes import REPORT_CAP, FakeKernel, request
 from cad.checks.container import mass
 from cad.checks.container.inputs import WIRE_UNITS, Input, Inputs, Undeclared
 from cad.checks.container.runner import run
-from cad.checks.report import DEPENDENCIES, SPECS, build_request, specs
+from cad.checks.report import DEPENDENCIES, IMAGE_TAG, SPECS, build_request, specs
 from cad.tables.materials import FIELD_UNITS, UNITS, load_materials
 
 
@@ -48,7 +48,7 @@ def test_a_check_that_echoes_an_input_it_does_not_take_is_refused(
 ) -> None:
     monkeypatch.setattr(mass, "TAKES", frozenset[Input]())
     with pytest.raises(ValueError, match="mass reads an input it does not take"):
-        specs(DEPENDENCIES)
+        specs(DEPENDENCIES, IMAGE_TAG)
 
 
 def test_the_host_sends_only_the_values_the_checks_take() -> None:
