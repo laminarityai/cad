@@ -31,14 +31,19 @@ def type_errors_in(project: Path) -> set[str]:
     return errors
 
 
+def make_project(path: Path) -> Path:
+    path.mkdir(parents=True, exist_ok=True)
+    (path / "pyproject.toml").write_text((ROOT / "pyproject.toml").read_text())
+    (path / ".claude").mkdir()
+    config = ".claude/pyrightconfig.json"
+    (path / config).write_text((ROOT / config).read_text())
+    (path / ".venv").symlink_to(ROOT / ".venv")
+    return path
+
+
 @pytest.fixture
 def project(tmp_path: Path) -> Path:
-    (tmp_path / "pyproject.toml").write_text((ROOT / "pyproject.toml").read_text())
-    (tmp_path / ".claude").mkdir()
-    config = ".claude/pyrightconfig.json"
-    (tmp_path / config).write_text((ROOT / config).read_text())
-    (tmp_path / ".venv").symlink_to(ROOT / ".venv")
-    return tmp_path
+    return make_project(tmp_path)
 
 
 @pytest.mark.parametrize(
@@ -75,3 +80,12 @@ def test_type_errors_are_ignored_in_excluded_directories(project: Path, relative
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(TYPE_ERROR)
     assert type_errors_in(project) == set()
+
+
+def test_type_errors_fail_in_a_worktree_nested_under_another_checkout(tmp_path: Path) -> None:
+    outer = make_project(tmp_path / "repo")
+    worktree = make_project(outer / ".claude" / "worktrees" / "agent")
+    path = worktree / "src" / "cad" / "app.py"
+    path.parent.mkdir(parents=True)
+    path.write_text(TYPE_ERROR)
+    assert type_errors_in(worktree) == {"src/cad/app.py"}

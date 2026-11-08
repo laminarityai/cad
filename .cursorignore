@@ -1,0 +1,4 @@
+# Cursor indexes and snapshots what is not listed here.
+# Agent worktrees and virtualenvs are large and change often.
+.claude/worktrees/
+.venv/
