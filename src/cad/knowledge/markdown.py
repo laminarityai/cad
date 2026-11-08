@@ -19,8 +19,9 @@ from typing import Final
 
 HEADING: Final = re.compile(r"## +(?P<title>\S.*?)[ \t]*")
 CLOSING_HASHES: Final = re.compile(r"(?:^|[ \t])#+$")
-CONTAINERS: Final = re.compile(r"(?:[ \t]*(?:>|[-+*](?=[ \t])|\d{1,9}[.)](?=[ \t])))*")
-ATX: Final = re.compile(r" {0,3}#{1,6}(?:[ \t]|$)")
+CONTAINERS: Final = r"(?:[ \t]*(?:>|[-+*](?=[ \t])|\d{1,9}[.)](?=[ \t])))*"
+ATX: Final = re.compile(CONTAINERS + r" {0,3}#{1,6}(?:[ \t]|$)")
+"""An ATX heading of any level, also inside a quote or a list item."""
 SETEXT: Final = re.compile(r" {0,3}(?:=+|-+)[ \t]*")
 FENCE: Final = re.compile(r" {0,3}(?P<fence>`{3,}|~{3,})(?P<info>.*)")
 
@@ -73,7 +74,7 @@ def scan(body: str, first_line: int) -> Body:
         heading = HEADING.fullmatch(text)
         if heading and not CLOSING_HASHES.search(heading["title"]):
             headings.append(Heading(heading["title"], offset, offset + len(line)))
-        elif heading or ATX.match(text, CONTAINERS.match(text).end()):
+        elif heading or ATX.match(text):
             problems.append(
                 f"line {number}: {text.strip()!r} renders as a heading; a unit heading is "
                 "`## Title` at the start of a line, with no closing #"
