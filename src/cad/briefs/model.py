@@ -22,8 +22,10 @@ from pydantic import (
     WithJsonSchema,
     WrapValidator,
     field_validator,
+    model_validator,
 )
 
+from cad.briefs.bindable import BINDABLE
 from cad.checks.result import Comparator, Measured
 from cad.loads.model import LoadCase
 from cad.loads.words import describe_case
@@ -55,12 +57,16 @@ def _magnitude(quantity: pint.Quantity) -> float:
     return float(quantity.magnitude)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
 
 
+def _parsed(raw: object, handler: ValidatorFunctionWrapHandler) -> pint.Quantity:
+    try:
+        return handler(raw)
+    except pint.PintError as error:
+        raise ValueError(f"not a unit: {error}") from error
+
+
 def _positive(dimension: str) -> Callable[[object, ValidatorFunctionWrapHandler], pint.Quantity]:
     def validate(raw: object, handler: ValidatorFunctionWrapHandler) -> pint.Quantity:
-        try:
-            quantity: pint.Quantity = handler(raw)
-        except pint.PintError as error:
-            raise ValueError(f"not a unit: {error}") from error
+        quantity = _parsed(raw, handler)
         if not quantity.check(dimension):  # pyright: ignore[reportUnknownMemberType]
             raise ValueError(f"expected a {dimension} quantity, got {quantity.units}")
         magnitude = _magnitude(quantity)
@@ -82,6 +88,7 @@ class Kind(StrEnum):
     MAX_MASS = "max_mass"
     MIN_MASS = "min_mass"
     ENVELOPE = "envelope"
+    MEASURE_LIMIT = "measure_limit"
     UNCHECKED = "unchecked"
     MADE_OF = "made_of"
     MIN_SAFETY_FACTOR = "min_safety_factor"
@@ -123,6 +130,37 @@ class Envelope(_Frozen):
     ) -> tuple[pint.Quantity, pint.Quantity, pint.Quantity]:
         longest, middle, shortest = sorted(edges, key=_millimetres, reverse=True)
         return longest, middle, shortest
+
+
+class MeasureLimit(_Frozen):
+    """One team measure held to a limit the person confirms, such as the volume at most 30 cm^3.
+
+    Only a measure in BINDABLE can be named, and the limit must be in that measure's dimension.
+    """
+
+    kind: Literal[Kind.MEASURE_LIMIT] = Kind.MEASURE_LIMIT
+    check_id: CheckId
+    measure: str
+    comparator: Comparator
+    limit: Annotated[Measured, WrapValidator(_parsed), WithJsonSchema(QUANTITY_SCHEMA)]
+
+    @model_validator(mode="after")
+    def _bindable(self) -> "MeasureLimit":
+        bound = BINDABLE.get((self.check_id, self.measure))
+        if bound is None:
+            offered = ", ".join(f"{check}:{name}" for check, name in BINDABLE)
+            raise ValueError(
+                f"no limit can bind to {self.check_id}:{self.measure}; the measures are {offered}"
+            )
+        dimension = UNITS.Quantity(1, bound.unit).dimensionality
+        if not self.limit.check(dimension):  # pyright: ignore[reportUnknownMemberType]
+            raise ValueError(
+                f"the limit must be in {bound.unit} or a unit of its kind, not {self.limit.units}"
+            )
+        magnitude = _magnitude(self.limit)
+        if not math.isfinite(magnitude) or magnitude <= 0:
+            raise ValueError("the limit must be a finite number above zero")
+        return self
 
 
 class Unchecked(_Frozen):
@@ -167,6 +205,7 @@ type Target = Annotated[
     | MaxMass
     | MinMass
     | Envelope
+    | MeasureLimit
     | Unchecked
     | MadeOf
     | MinSafetyFactor
@@ -175,21 +214,23 @@ type Target = Annotated[
 ]
 
 
-def deciding_check(kind: Kind) -> CheckId | None:
-    """The one table from requirement kind to the check that decides it. None is unverified."""
-    match kind:
-        case Kind.CLOSED_SOLID:
+def deciding_check(target: Target) -> CheckId | None:
+    """The one table from a requirement to the check that decides it. None is unverified."""
+    match target:
+        case ClosedSolid():
             return CheckId("closed_solid")
-        case Kind.MAX_MASS | Kind.MIN_MASS:
+        case MaxMass() | MinMass():
             return CheckId("mass")
-        case Kind.ENVELOPE:
+        case Envelope():
             return CheckId("extents")
-        case Kind.UNCHECKED | Kind.MADE_OF:
+        case MeasureLimit():
+            return target.check_id
+        case Unchecked() | MadeOf():
             return None
-        case Kind.MIN_SAFETY_FACTOR | Kind.MAX_DEFLECTION:
+        case MinSafetyFactor() | MaxDeflection():
             return CheckId("fea")
         case _:
-            assert_never(kind)
+            assert_never(target)
 
 
 @dataclass(frozen=True, slots=True)
@@ -199,9 +240,7 @@ class Limit:
     quantity: pint.Quantity
 
 
-def limits(
-    target: ClosedSolid | MaxMass | MinMass | Envelope | Unchecked | MadeOf | Loaded,
-) -> tuple[Limit, ...]:
+def limits(target: Target) -> tuple[Limit, ...]:
     match target:
         case ClosedSolid() | Unchecked() | MadeOf():
             return ()
@@ -219,6 +258,8 @@ def limits(
             return (Limit("safety_factor", Comparator.AT_LEAST, factor),)
         case MaxDeflection():
             return (Limit("max_displacement", Comparator.AT_MOST, target.deflection),)
+        case MeasureLimit():
+            return (Limit(target.measure, target.comparator, target.limit),)
         case _:
             assert_never(target)
 
@@ -294,6 +335,12 @@ def amount(quantity: pint.Quantity) -> str:
     return f"{_magnitude(quantity):g} {quantity.units:~P}"
 
 
+def measure_limit_words(target: MeasureLimit) -> str:
+    words = BINDABLE[(target.check_id, target.measure)].words
+    bound = "at most" if target.comparator is Comparator.AT_MOST else "at least"
+    return f"{words[0].upper()}{words[1:]} is {bound} {amount(target.limit)}"
+
+
 def describe(requirement: Requirement) -> str:
     """The plain words the page shows a person and the tools show the agent."""
     target = requirement.target
@@ -306,6 +353,8 @@ def describe(requirement: Requirement) -> str:
             return f"Mass at least {amount(target.mass)}"
         case Envelope():
             return "Fits inside a box of " + " x ".join(amount(edge) for edge in target.edges)
+        case MeasureLimit():
+            return measure_limit_words(target)
         case Unchecked():
             return target.statement
         case MadeOf():

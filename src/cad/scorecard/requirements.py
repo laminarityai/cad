@@ -110,7 +110,7 @@ def judge(
     requirement: Requirement, results: Sequence[CheckResult | PendingCheck]
 ) -> RequirementResult:
     statement = describe(requirement)
-    check_id = deciding_check(requirement.target.kind)
+    check_id = deciding_check(requirement.target)
     if check_id is None:
         return Unverified(requirement_id=requirement.id, statement=statement)
     result = _result_of(results, check_id, instance(requirement.target))

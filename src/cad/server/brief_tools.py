@@ -40,7 +40,10 @@ CREATE_BRIEF = (
 PROPOSE_REQUIREMENTS = (
     "Propose the whole set of requirements for a brief. Each has a target and a quote copied "
     "exactly from the brief. The target kind is closed_solid; max_mass or min_mass with a mass "
-    "such as {magnitude: 150, unit: g}; envelope with three edge lengths; made_of with a "
+    "such as {magnitude: 150, unit: g}; envelope with three edge lengths; measure_limit, which "
+    "holds one team check's measure to a limit the user confirms, with check_id, measure, a "
+    "comparator (at_most or at_least) and a limit such as {magnitude: 30, unit: cm^3}, and "
+    "today the only measure is check_id mass, measure volume, which takes a volume; made_of with a "
     "material, only when the brief names one, quoting its words and copying the key exactly from "
     "list_materials (never guess a near match; at most one per brief); min_safety_factor (a "
     "factor, against yield) or max_deflection (a length), each with a load; or unchecked with a "
@@ -114,7 +117,7 @@ def _view(state: BriefState, proposed: ProposalState) -> ProposalView:
             RequirementRow(
                 requirement=r,
                 plain=describe(r),
-                check=deciding_check(r.target.kind),
+                check=deciding_check(r.target),
                 status="confirmed" if r.id in in_force else "proposed",
                 edited_by_user=_user_edit(was, r),
             )
