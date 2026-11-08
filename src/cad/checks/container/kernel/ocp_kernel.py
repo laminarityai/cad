@@ -1,16 +1,25 @@
 import tempfile
 from pathlib import Path
+from typing import cast
 
-from cad.checks.container.kernel.ocp_handles import load_ocp
+from cad.checks.container.kernel.ocp_handles import Movable, Ocp, Xyz, load_ocp
 from cad.checks.container.kernel.protocol import (
+    Curved,
     EdgeUses,
+    FaceInfo,
+    Flat,
+    Inertia,
     Kernel,
+    Point,
+    Round,
     Shape,
     StepTooLarge,
+    Surface,
     Unreadable,
     VolumeProps,
     first_line,
 )
+from cad.checks.container.vectors import cross, unit
 
 STEP_TIME_STAMP = "2000-01-01T00:00:00"
 STEP_SCHEMA = "AP214IS"
@@ -90,6 +99,37 @@ class OcpKernel:
         x0, y0, z0, x1, y1, z1 = box.Get()
         return (x1 - x0, y1 - y0, z1 - z0)
 
+    def faces(self, shape: Shape) -> tuple[FaceInfo, ...]:
+        ocp = self._ocp
+        found = self._explore(shape, ocp.face, ocp.any_shape)
+        return tuple(_face_info(ocp, ocp.topods.Face_s(face)) for face in found)
+
+    def inertia(self, shape: Shape) -> Inertia:
+        ocp = self._ocp
+        props = ocp.new_props()
+        ocp.brep_gprop.VolumeProperties_s(shape, props)
+        center = _coords(props.CentreOfMass())
+        principal = props.PrincipalProperties()
+        first = _coords(principal.FirstAxisOfInertia())
+        second = _coords(principal.SecondAxisOfInertia())
+        axes = (first, second, cross(first, second))
+        frame = ocp.new_frame(
+            ocp.new_point(*center), ocp.new_direction(*axes[2]), ocp.new_direction(*axes[0])
+        )
+        trsf = ocp.new_trsf()
+        trsf.SetTransformation(frame)
+        local = cast(Movable, shape).Moved(ocp.new_location(trsf))
+        box = ocp.new_box()
+        ocp.brep_bnd_lib.AddOptimal_s(local, box, useTriangulation=False, useShapeTolerance=False)
+        x0, y0, z0, x1, y1, z1 = box.Get()
+        return Inertia(
+            volume=props.Mass(),
+            center=center,
+            axes=axes,
+            moments=principal.Moments(),
+            spans=((x0, x1), (y0, y1), (z0, z1)),
+        )
+
     def common_volume(self, first: Shape, second: Shape) -> float | None:
         common = self._ocp.new_common(first, second)
         return self.volume_props(common.Shape()).volume if common.IsDone() else None
@@ -116,6 +156,37 @@ class OcpKernel:
                 raise RuntimeError("STEPControl_Writer could not write the shape")
             size = path.stat().st_size
             return StepTooLarge(size) if size > cap else path.read_bytes()
+
+
+def _coords(point: Xyz) -> Point:
+    return (point.X(), point.Y(), point.Z())
+
+
+def _face_info(ocp: Ocp, face: Shape) -> FaceInfo:
+    props = ocp.new_props()
+    ocp.brep_gprop.SurfaceProperties_s(face, props)
+    return FaceInfo(_surface(ocp, face), props.Mass(), _coords(props.CentreOfMass()))
+
+
+def _surface(ocp: Ocp, face: Shape) -> Surface:
+    u0, u1, v0, v1 = ocp.brep_tools.UVBounds_s(face)
+    point, normal = ocp.new_point(0, 0, 0), ocp.new_vector(0, 0, 0)
+    ocp.new_face_props(face).Normal((u0 + u1) / 2, (v0 + v1) / 2, point, normal)
+    outward = unit(_coords(normal))
+    adaptor = ocp.new_adaptor(face)
+    kind = adaptor.GetType()
+    if kind == ocp.plane:
+        return Flat(outward)
+    if kind != ocp.cylinder:
+        return Curved()
+    cylinder = adaptor.Cylinder()
+    origin = _coords(cylinder.Position().Location())
+    axis = _coords(cylinder.Position().Direction())
+    v = (v0 + v1) / 2
+    on_axis = (origin[0] + v * axis[0], origin[1] + v * axis[1], origin[2] + v * axis[2])
+    radial = tuple(p - a for p, a in zip(_coords(point), on_axis, strict=True))
+    concave = sum(n * r for n, r in zip(outward, radial, strict=True)) < 0
+    return Round(origin, axis, cylinder.Radius(), v0, v1, u1 - u0, concave)
 
 
 def ocp_kernel() -> Kernel:
