@@ -14,7 +14,9 @@ class Step:
 
 
 STEPS: tuple[Step, ...] = (
-    Step("basedpyright", (PYTHON, "-m", "basedpyright")),
+    # -p names the config: searching upward from a worktree under .claude/ finds
+    # .claude/pyrightconfig.json first, which checks only the skills.
+    Step("basedpyright", (PYTHON, "-m", "basedpyright", "-p", "pyproject.toml")),
     Step("basedpyright skills", (PYTHON, "-m", "basedpyright", "-p", ".claude/pyrightconfig.json")),
     Step("ruff check", (PYTHON, "-m", "ruff", "check")),
     Step("ruff format", (PYTHON, "-m", "ruff", "format", "--check")),

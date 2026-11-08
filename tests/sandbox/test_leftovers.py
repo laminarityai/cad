@@ -125,6 +125,27 @@ def test_owner_labels_that_are_not_a_pid_keep_the_container_and_spare_the_rest(
         container.docker("rm", "--force", *kept, orphan)
 
 
+def test_a_non_ascii_owner_label_does_not_stop_server_start_under_an_ascii_locale(
+    image_id: str,
+) -> None:
+    kept = start(image_id, "\u00b2", "true")
+    ascii_locale = {**os.environ, "LC_ALL": "C", "PYTHONUTF8": "0", "PYTHONCOERCECLOCALE": "0"}
+    try:
+        wait_until_exited(kept)
+        started = subprocess.run(
+            (sys.executable, "-m", "cad.server"),
+            env=ascii_locale,
+            stdin=subprocess.DEVNULL,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert started.returncode == 0, started.stderr
+        assert status(kept) == "exited"
+    finally:
+        container.docker("rm", "--force", kept)
+
+
 def test_a_server_killed_mid_build_leaves_no_container_after_the_next_start(
     image_id: str, tmp_path: Path
 ) -> None:
