@@ -1,12 +1,15 @@
 import json
+import os
+import pwd
+import sys
 import threading
 import time
 import urllib.error
 import urllib.request
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlencode, urlsplit
 
 import pytest
@@ -152,3 +155,57 @@ async def s(tmp_path: Path, person: Person) -> AsyncIterator[Session]:
     server = build_server(tmp_path / "variants", roots, opener=person, wait_seconds=0.3)
     async with Client(server) as client:
         yield Session(client, person, roots)
+
+
+# The operator's ~/.cad holds their real briefs, answers and keys. A test that falls back to a
+# default root (HOME_ROOTS, VARIANTS_ROOT) would write there, so every write under it fails the
+# test. The sandbox stage is the one shared directory tests may write.
+GUARDED_HOMES = tuple({Path(pwd.getpwuid(os.getuid()).pw_dir), Path.home()})
+GUARDED = tuple(str(home / ".cad") for home in GUARDED_HOMES)
+ALLOWED = tuple(f"{cad}{os.sep}stage" for cad in GUARDED)
+WRITE_FLAGS = os.O_WRONLY | os.O_RDWR | os.O_CREAT | os.O_APPEND | os.O_TRUNC
+WRITE_EVENTS = frozenset(
+    {"os.mkdir", "os.rename", "os.remove", "os.rmdir", "os.link", "os.symlink", "os.chmod"}
+    | {"os.truncate", "os.utime", "shutil.rmtree"}
+)
+home_writes: list[str] = []
+
+
+def _guarded(target: object) -> str | None:
+    if not isinstance(target, str | bytes | os.PathLike):
+        return None
+    path = os.path.abspath(os.fsdecode(cast("str | bytes | os.PathLike[str]", target)))
+    inside = any(path.startswith(cad + os.sep) for cad in GUARDED)
+    allowed = any(path == stage or path.startswith(stage + os.sep) for stage in ALLOWED)
+    return path if inside and not allowed else None
+
+
+def _refuse_home_writes(event: str, arguments: tuple[object, ...]) -> None:
+    if event == "open":
+        mode, flags = arguments[1], arguments[2]
+        writes = (isinstance(mode, str) and mode.strip("rbt") != "") or (
+            isinstance(flags, int) and flags & WRITE_FLAGS
+        )
+        targets = arguments[:1] if writes else ()
+    elif event in WRITE_EVENTS:
+        targets = (
+            arguments[:2] if event in ("os.rename", "os.link", "os.symlink") else arguments[:1]
+        )
+    else:
+        return
+    for target in targets:
+        path = _guarded(target)
+        if path is not None:
+            home_writes.append(f"{event} {path}")
+            raise PermissionError(f"a test wrote to the operator's {path}; give it tmp_path roots")
+
+
+sys.addaudithook(_refuse_home_writes)
+
+
+@pytest.fixture(name="home_writes", autouse=True)
+def no_write_reaches_the_operators_home() -> Iterator[list[str]]:
+    yield home_writes
+    written, home_writes[:] = list(home_writes), []
+    if written:
+        pytest.fail(f"this test wrote to the operator's ~/.cad: {written}")
