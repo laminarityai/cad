@@ -50,6 +50,10 @@ A check that applies only to one kind of design, such as gear tooth strength or 
 A check the agent drafted for a requirement no existing check covers. Its results count as unverified until the user reviews it for their project, and it joins an engineering skill only after the team reviews it.
 _Avoid_: Generated check, custom check
 
+**Agent measurement**:
+A number that the agent's own measuring code reported for a requirement no check covers. The code runs only in the sandbox. The scorecard lists the number apart from the check results, labelled "agent's own measurement, not verified". It never passes or fails anything, no check or formula reads it, and its requirement stays unverified (ADR-0008).
+_Avoid_: Agent check, own check, self-check
+
 **Candidate value**:
 A number extracted from a source that no person has confirmed yet. Checks never read candidate values.
 _Avoid_: Extracted value, parsed value
