@@ -1,7 +1,7 @@
 import hashlib
 import math
 from base64 import b64decode
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Final
 
@@ -29,6 +29,7 @@ class CheckSpec:
     formula: str
     sources: tuple[Source, ...]
     measures: Mapping[str, str]
+    reads: Mapping[str, str]
     version: str
 
 
@@ -48,16 +49,22 @@ def _run_by(check: CheckModule) -> tuple[str, ...]:
     return (_path(check.ID), *(path for required in check.REQUIRES for path in _run_by(required)))
 
 
-def specs(sources: Sources) -> tuple[CheckSpec, ...]:
+def specs(sources: Sources, checks: Sequence[CheckModule] = CHECKS) -> tuple[CheckSpec, ...]:
+    for module in checks:
+        if not module.SOURCES:
+            raise ValueError(f"check {module.ID} cites no source")
+        if not set(module.READS) <= set(module.MEASURES):
+            raise ValueError(f"check {module.ID} reads a measure it does not declare")
     return tuple(
         CheckSpec(
             id=module.ID,
             formula=module.FORMULA,
             sources=tuple(_source(literal) for literal in module.SOURCES),
             measures=module.MEASURES,
+            reads=module.READS,
             version=check_version(module, sources),
         )
-        for module in CHECKS
+        for module in checks
     )
 
 
@@ -81,10 +88,18 @@ SPECS: Final = specs(DEPENDENCIES)
 
 
 @dataclass(frozen=True, slots=True)
+class TableRead:
+    """One number the host sends from a materials table row, in the unit its measure declares."""
+
+    magnitude: float
+    source: Source
+
+
+@dataclass(frozen=True, slots=True)
 class Request:
     wire: RequestWire
     material_key: str
-    density_source: Source | None
+    reads: Mapping[str, TableRead]
     table_version: str
 
 
@@ -100,12 +115,13 @@ def build_request(material_key: str, table: MaterialsTable) -> Request:
     wire: RequestWire = {
         "density": {"kind": "known", "kg_per_mm3": density.magnitude_in("kg/mm^3")}
     }
-    return Request(wire, material_key, density.source, table.version)
+    sent = TableRead(density.magnitude_in("kg/mm^3"), density.source)
+    return Request(wire, material_key, {"density": sent}, table.version)
 
 
 def _unknown_density(material_key: str, table: MaterialsTable, reason: str) -> Request:
     return Request(
-        {"density": {"kind": "unknown", "reason": reason}}, material_key, None, table.version
+        {"density": {"kind": "unknown", "reason": reason}}, material_key, {}, table.version
     )
 
 
@@ -143,7 +159,7 @@ def _accepted(report: CheckedReport, request: Request) -> Parsed:
         return _refused(f"the check container reported {wire_ids}, not the checks it was given")
     results: list[CheckResult] = []
     for spec, wire in zip(SPECS, report["results"], strict=True):
-        problem = _problem(spec, wire)
+        problem = _problem(spec, wire, request)
         if problem is not None:
             return _refused(f"{spec.id}: {problem}")
         results.append(_result(spec, wire, request))
@@ -156,7 +172,7 @@ def _accepted(report: CheckedReport, request: Request) -> Parsed:
         return _refused("the check container sent a STEP that is not base64")
 
 
-def _problem(spec: CheckSpec, wire: ResultWire) -> str | None:
+def _problem(spec: CheckSpec, wire: ResultWire, request: Request) -> str | None:
     for measured in wire["measured"]:
         name = measured["name"].split(":", 1)[0]
         if name not in spec.measures:
@@ -165,11 +181,25 @@ def _problem(spec: CheckSpec, wire: ResultWire) -> str | None:
             return f"{measured['name']} is in {measured['unit']!r}, not {spec.measures[name]!r}"
         if not math.isfinite(measured["magnitude"]):
             return f"{measured['name']} is not a finite number"
+        field = spec.reads.get(name)
+        if field is not None:
+            sent = request.reads.get(field)
+            if sent is None:
+                return f"{measured['name']} reads {field}, which the host sent no value for"
+            if not math.isclose(measured["magnitude"], sent.magnitude, rel_tol=1e-9):
+                return (
+                    f"{measured['name']} is {measured['magnitude']:g}, "
+                    f"but the host sent {sent.magnitude:g}"
+                )
     return None
 
 
 def _result(spec: CheckSpec, wire: ResultWire, request: Request) -> CheckResult:
-    datasheet = (request.density_source,) if spec.id == "mass" and request.density_source else ()
+    rows = tuple(
+        request.reads[field].source
+        for field in dict.fromkeys(spec.reads.values())
+        if field in request.reads
+    )
     return CheckResult(
         check_id=spec.id,
         verdict=Verdict(wire["verdict"]),
@@ -179,7 +209,7 @@ def _result(spec: CheckSpec, wire: ResultWire, request: Request) -> CheckResult:
         ),
         formula=spec.formula,
         reason=_one_line(wire["reason"]),
-        sources=(*spec.sources, *datasheet),
+        sources=(*spec.sources, *rows),
         version=spec.version,
     )
 

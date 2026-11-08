@@ -29,6 +29,7 @@ MEASURES = {
     "extent": "mm",
     "sorted_extent": "mm",
 }
+READS: dict[str, str] = {}
 REQUIRES: tuple[CheckModule, ...] = (closed_solid,)
 SORTED_NAMES = ("smallest", "middle", "largest")
 

@@ -35,6 +35,12 @@ class CheckModule(Protocol):
         ...
 
     @property
+    def READS(self) -> Mapping[str, str]:
+        """measure name -> materials table field. The measure is a number the host sent from that
+        table row, so the host holds it to the value it sent and cites the row."""
+        ...
+
+    @property
     def REQUIRES(self) -> tuple["CheckModule", ...]:
         """Checks this one runs first and needs to pass. Their files feed this check's version."""
         ...

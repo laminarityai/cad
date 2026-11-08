@@ -2,12 +2,16 @@ import ast
 import os
 import stat
 import sys
+from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path
+from types import MappingProxyType
 
 import pytest
 
+from cad.checks.container.check import CheckModule, Subject
 from cad.checks.container.suite import CHECKS
+from cad.checks.container.wire import FindingWire, SourceLiteral
 from cad.checks.report import DEPENDENCIES, SPECS, build_request, specs
 from cad.sandbox import container, stage
 from cad.sandbox.container import run_argv
@@ -38,6 +42,23 @@ def versions(sources: Sources) -> dict[str, str]:
 
 def test_every_check_file_is_named_by_its_id() -> None:
     assert {f"{PACKAGE_PATH}/{check.ID}.py" for check in CHECKS} <= set(SOURCES.files)
+
+
+class NoSource:
+    ID = "bare"
+    FORMULA = "none"
+    SOURCES: tuple[SourceLiteral, ...] = ()
+    MEASURES: Mapping[str, str] = MappingProxyType({"x": "mm"})
+    READS: Mapping[str, str] = MappingProxyType({})
+    REQUIRES: tuple[CheckModule, ...] = ()
+
+    def run(self, subject: Subject) -> FindingWire:
+        raise NotImplementedError
+
+
+def test_a_check_that_cites_no_source_is_refused() -> None:
+    with pytest.raises(ValueError, match="bare cites no source"):
+        specs(SOURCES, (NoSource(),))
 
 
 def test_the_check_ids_are_the_suite_order() -> None:
