@@ -31,9 +31,9 @@ A replay rewrites the final `export_step(shape, "out.step")` line of each stored
 
 ## Result
 
-Live, run 1 and run 2: 10/10 agree both times. Run 1 cost 0.401 USD.
+Live, run 1 and run 2: 10/10 agree both times. Run 1 cost 0.401 USD. Run 3, with the scorecard side reading the `extents` check instead of measuring the BREP itself: 10/10 agree, 0.384 USD.
 
-Replay: 59/60 agree. The replay result is 59/60, with one accepted exception.
+Replay: 59/60 agree, again after the `extents` change. The replay result is 59/60, with one accepted exception.
 
 ### Accepted exception: `sonnet/shaft_collar/0`
 
