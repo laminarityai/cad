@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, assert_never
 
-from binding import Unbound
+from binding import Unbound, Unlinked
 from confirmation import Misjudged, Superseded, Unconfirmed
 from provenance import (
     CardFailure,
@@ -56,6 +56,7 @@ class Tally:
     cards: int
     unreadable: int
     unbound: int
+    unlinked: int
     incomplete: int
     unconfirmed: int
     misjudged: int
@@ -76,6 +77,7 @@ def tally(traces: Sequence[CardTrace]) -> Tally:
         cards=len(traces),
         unreadable=_cards_with(traces, Unreadable),
         unbound=_cards_with(traces, Unbound),
+        unlinked=_cards_with(traces, Unlinked),
         incomplete=_cards_with(traces, Incomplete),
         unconfirmed=_cards_with(traces, Unconfirmed),
         misjudged=_cards_with(traces, Misjudged),
@@ -98,6 +100,7 @@ def exit_code(counts: Tally, *, require_judged: bool = False) -> int:
     failed = (
         counts.unreadable
         + counts.unbound
+        + counts.unlinked
         + counts.incomplete
         + counts.unconfirmed
         + counts.misjudged
@@ -143,7 +146,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(f"cards: {counts.cards}, numbers: {counts.numbers}")
     print(
         f"cards unreadable: {counts.unreadable}, unbound: {counts.unbound}, "
-        f"incomplete: {counts.incomplete}"
+        f"incomplete: {counts.incomplete}, unlinked: {counts.unlinked}"
     )
     print(
         f"cards unconfirmed: {counts.unconfirmed}, misjudged: {counts.misjudged}, "

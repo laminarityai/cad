@@ -100,8 +100,11 @@ async def test_scoring_a_variant_an_older_sandbox_stored_names_the_rebuild_and_i
     assert scored.structured_content is not None
     assert built.structured_content is not None
     assert scored.structured_content["rebuilt_from"] == old
-    assert scored.structured_content["variant_id"] == built.structured_content["variant_id"]
-    assert "rebuilds" in await listed_description("score_variant")
+    new = built.structured_content["variant_id"]
+    assert scored.structured_content["variant_id"] == new
+    assert json.loads((tmp_path / new / score.SCORECARD).read_text()) == scored.structured_content
+    assert (tmp_path / old / entry.CODE).read_text() == PLATE
+    assert not (tmp_path / old / score.SCORECARD).exists()
 
 
 async def test_a_failed_rebuild_is_an_error_naming_both_ids_and_no_host_path(

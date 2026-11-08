@@ -12,7 +12,8 @@ is either
 Any other number is unresolved: no rule places it. A number of a check scored at an older version,
 or against an older table, is stale: score the variant again.
 
-A card as a whole fails when it is bound to no signed build (`binding.bind`), is incomplete (no
+A card as a whole fails when it is bound to no signed build (`binding.bind`), names a
+`rebuilt_from` whose signed record pins other code (`binding.link`), is incomplete (no
 results, a registered check missing or repeated, an unregistered check, or no number at all), or
 fails `confirmation.check_basis`: its brief or decision cannot be shown, a newer confirmation is in
 force, or its requirement verdicts differ from the ones its own results give.
@@ -31,7 +32,7 @@ from pathlib import Path
 from typing import Literal, cast
 
 import pint
-from binding import Unbound, bind
+from binding import Unbound, Unlinked, bind, link
 from confirmation import BasisFailure, Shown, check_basis
 
 from cad.briefs.model import describe, limits
@@ -106,7 +107,7 @@ class Incomplete:
     reason: str
 
 
-type CardFailure = Unreadable | Unbound | Incomplete | BasisFailure
+type CardFailure = Unreadable | Unbound | Unlinked | Incomplete | BasisFailure
 type BasisKind = Literal["no_brief", "awaiting_confirmation", "against_brief"]
 
 
@@ -136,8 +137,10 @@ def trace_card(
         _place(card, found, table, specs, basis.shown) for found in numbers_in(card.model_dump())
     )
     bound = bind(root, card)
+    linked = link(root, card)
     failures = (
         *(() if bound is None else (bound,)),
+        *(() if linked is None else (linked,)),
         *_incomplete(card, numbers, specs),
         *basis.failures,
     )

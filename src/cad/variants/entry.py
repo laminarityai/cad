@@ -46,7 +46,10 @@ class StaleVariant(VariantRefused):
 
 class OutdatedVariant(StaleVariant):
     def __init__(self, vid: VariantId, code: str) -> None:
-        super().__init__(f"variant {vid} was stored by an earlier version of the sandbox")
+        super().__init__(
+            f"variant {vid} was stored by an earlier version of the sandbox; build its code "
+            "again, or score it with score_variant to rebuild it"
+        )
         self.id = vid
         self.code = code
 

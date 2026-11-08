@@ -4,7 +4,7 @@ import pytest
 
 from cad.sandbox import container
 from cad.sandbox.container import Job, Ran
-from cad.sandbox.outcome import Build, Built
+from cad.sandbox.outcome import Build, Built, NoResult
 from cad.scorecard import score
 from cad.scorecard.model import Scorecard
 from cad.variants import entry
@@ -57,6 +57,17 @@ def test_scoring_the_older_variant_again_reuses_the_rebuild(
     again = score.score_variant(old, "prusament-pla", tmp_path)
     assert jobs == ["check"]
     assert (again.variant_id, again.rebuilt_from) == (first.variant_id, old)
+
+
+def test_an_older_variant_whose_build_failed_is_rebuilt_and_scored(
+    tmp_path: Path, jobs: list[str]
+) -> None:
+    old = entry.variant_id(PLATE, OLD_TAG)
+    failed = Build(outcome=NoResult(reason="the older sandbox found no result"), output="")
+    entry.save(tmp_path, old, PLATE, failed, None)
+    card = score.score_variant(old, "prusament-pla", tmp_path)
+    assert jobs == ["build", "check"]
+    assert (card.variant_id, card.rebuilt_from) == (build_variant(PLATE, tmp_path).variant_id, old)
 
 
 def test_an_older_variant_whose_code_was_altered_is_refused_and_starts_no_container(

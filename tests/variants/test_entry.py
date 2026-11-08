@@ -221,6 +221,46 @@ def test_an_entry_stored_by_an_older_sandbox_hands_back_its_stored_code(tmp_path
     assert (raised.value.id, raised.value.code) == (vid, CODE)
 
 
+def test_an_older_entry_whose_build_failed_hands_back_its_stored_code(tmp_path: Path) -> None:
+    vid = variant_id(CODE, OLD_TAG)
+    save(tmp_path, vid, CODE, Build(outcome=NoResult(reason="r"), output=""), None)
+    with pytest.raises(OutdatedVariant) as raised:
+        open_entry(tmp_path, vid, TAG)
+    assert raised.value.code == CODE
+
+
+def test_an_older_entry_with_a_record_copied_from_another_entry_is_refused(
+    tmp_path: Path,
+) -> None:
+    vid = stored_by_an_older_sandbox(tmp_path)
+    other = variant_id("result = Box(2, 2, 2)\n", OLD_TAG)
+    save(tmp_path, other, "result = Box(2, 2, 2)\n", BUILT, BREP)
+    for name in ("code.py", "build.json", "build.mac"):
+        shutil.copyfile(tmp_path / other / name, tmp_path / vid / name)
+    with pytest.raises(StaleVariant, match=f"variant {vid} was not stored by this") as raised:
+        open_entry(tmp_path, vid, TAG)
+    assert not isinstance(raised.value, OutdatedVariant)
+
+
+@pytest.mark.parametrize("name", ["code.py", "build.json", "build.mac"])
+def test_an_older_entry_with_a_linked_file_is_refused(tmp_path: Path, name: str) -> None:
+    vid = stored_by_an_older_sandbox(tmp_path)
+    target = tmp_path / f"elsewhere-{name}"
+    (tmp_path / vid / name).rename(target)
+    (tmp_path / vid / name).symlink_to(target)
+    with pytest.raises(StaleVariant, match=vid) as raised:
+        open_entry(tmp_path, vid, TAG)
+    assert not isinstance(raised.value, OutdatedVariant)
+
+
+def test_an_older_entry_with_no_build_mac_is_refused(tmp_path: Path) -> None:
+    vid = stored_by_an_older_sandbox(tmp_path)
+    (tmp_path / vid / "build.mac").unlink()
+    with pytest.raises(StaleVariant, match=f"variant {vid} was not stored by this") as raised:
+        open_entry(tmp_path, vid, TAG)
+    assert not isinstance(raised.value, OutdatedVariant)
+
+
 def test_an_older_entry_whose_code_was_edited_is_refused_and_not_rebuilt(tmp_path: Path) -> None:
     vid = stored_by_an_older_sandbox(tmp_path)
     (tmp_path / vid / "code.py").write_text("result = Box(9, 9, 9)\n")
