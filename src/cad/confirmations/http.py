@@ -52,6 +52,8 @@ LOG = logging.getLogger(__name__)
 
 class _Server(ThreadingHTTPServer):
     daemon_threads = True
+    # The stdlib backlog of 5 makes Linux reset connections when a burst of requests arrives.
+    request_queue_size = 64
 
     def __init__(self, desk: Desk) -> None:
         self.desk = desk
