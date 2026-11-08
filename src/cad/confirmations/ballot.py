@@ -106,6 +106,12 @@ class Desk:
                 ballot.state = "spent"
             return ballot
 
+    def give_back(self, ballot: Ballot) -> None:
+        """Reopen a ballot whose answer the store refused, so the person can send it again."""
+        with self._lock:
+            if ballot.state == "spent":
+                ballot.state = "open"
+
     def retire(self, ballot: Ballot) -> None:
         with self._lock:
             if ballot.state == "open":
