@@ -162,3 +162,76 @@ def test_digits_glued_to_a_standard_before_the_unit_are_named(quote: str) -> Non
     assert result.reason is Reason.AMBIGUOUS_NUMBER
     assert "'1240'" in result.detail
     assert "edition year" in result.detail
+
+
+@pytest.mark.parametrize(
+    ("quote", "number"),
+    [
+        ("ASTM D4892, 2014 kg/m3", "2014"),
+        ("ASTM D792-08: 2008 kg/m3", "2008"),
+        ("ISO 1183:2004, 2004 kg/m3", "2004"),
+        ("DIN 1, 2400 kg/m3", "2400"),
+        ("ASTM D7; 9200 kg/m3", "9200"),
+        ("ISO 1183; 2019 kg/m3", "2019"),
+        ("ISO 1183 = 2019 kg/m3", "2019"),
+        ("ISO 1183 , : 2019 kg/m3", "2019"),
+        ("ISO 1183 :: 2019 kg/m3", "2019"),
+        ("ISO 1183 ,, 2019 kg/m3", "2019"),
+        ("ISO 1183 (2019) kg/m3", "2019"),
+        ("ISO 1183 [ 2019 kg/m3", "2019"),
+        ("ISO 1183 ; - 2019 kg/m3", "2019"),
+        ("ASTM D792 -13 1.24 g/cm3", "13"),
+        ("JIS K 7112-1:2023,5 kg/m3", "5"),
+    ],
+)
+def test_a_whole_number_reached_from_a_standard_through_separators_is_refused(
+    quote: str, number: str
+) -> None:
+    result = refusal(quote)
+    assert result.reason is Reason.AMBIGUOUS_NUMBER
+    assert repr(number) in result.detail
+    assert "standard" in result.detail
+
+
+@pytest.mark.parametrize(
+    ("quote", "standard"),
+    [
+        ("ASTM D4892, 2014 kg/m3", "ASTM D4892"),
+        ("DIN 1, 2400 kg/m3", "DIN 1"),
+        ("ASTM D7; 9200 kg/m3", "ASTM D7"),
+        ("DIN 1 : 2400.5 kg/m3", "DIN 1"),
+        ("ASTM D 4892 1.24 g/cm3", "ASTM D 4892"),
+    ],
+)
+def test_an_unlisted_standard_followed_through_separators_by_a_number_is_refused_by_name(
+    quote: str, standard: str
+) -> None:
+    result = refusal(quote)
+    assert result.reason is Reason.AMBIGUOUS_NUMBER
+    assert repr(standard) in result.detail
+    assert "list of density test standards" in result.detail
+
+
+@pytest.mark.parametrize(
+    "quote",
+    [
+        "ISO 1183 Density 2019 kg/m3",
+        "ISO 1183 at 23 °C 2019 kg/m3",
+        "ISO 1183 kg/m3 2019",
+        "Density (ISO 1183) 2019 kg/m3",
+        "Density [ISO 1183] 2019 kg/m3",
+        "ISO 1183, 2019.0 kg/m3",
+    ],
+)
+def test_a_label_condition_unit_or_closing_bracket_ends_the_standard(quote: str) -> None:
+    assert kg_per_m3(quote) == pytest.approx(2019.0)
+
+
+def test_a_standard_glued_to_a_decimal_number_says_where_it_is_unclear() -> None:
+    result = refusal("JIS K 7112-1.24 g/cm3")
+    assert result.reason is Reason.AMBIGUOUS_NUMBER
+    assert "standard" in result.detail
+
+
+def test_astm_d_792_with_a_space_and_an_edition_is_listed() -> None:
+    assert kg_per_m3("ASTM D 792-13 1.24 g/cm3") == pytest.approx(1240.0)

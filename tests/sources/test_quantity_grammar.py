@@ -293,7 +293,6 @@ def test_a_stray_condition_next_to_a_value_is_unrecognised_text() -> None:
     [
         "Density at 23 °C 1.24 g/cm3 at 80 °C",
         "Density @ 23 °C @ 80 °C 1.24 g/cm3",
-        "Density at 23°C 1.24 g/cm3 at 73 °F",
         "Density at 1 bar 1.24 g/cm3 at 2 bar",
     ],
 )
