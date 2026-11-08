@@ -5,10 +5,12 @@ from typing import Any
 import pytest
 from mcp import Client
 
+from cad.sandbox.outcome import Build, Built
 from cad.scorecard import score
 from cad.server.app import RULE, build_server
 from cad.server.brief_tools import PLAN_MODE
 from cad.tables.materials import load_materials
+from cad.variants import entry
 
 pytestmark = pytest.mark.anyio
 
@@ -82,6 +84,43 @@ async def test_build_then_score_returns_the_scorecard_it_stored(tmp_path: Path) 
     }
     stored = json.loads((tmp_path / variant_id / score.SCORECARD).read_text())
     assert stored == scored.structured_content
+
+
+async def test_scoring_a_variant_an_older_sandbox_stored_names_the_rebuild_and_its_source(
+    tmp_path: Path,
+) -> None:
+    old = entry.variant_id(PLATE, "cad-sandbox:before-a-deploy")
+    entry.save(tmp_path, old, PLATE, Build(outcome=Built(), output=""), b"an older shape")
+    async with Client(build_server(tmp_path)) as client:
+        scored = await client.call_tool(
+            "score_variant", {"variant_id": old, "material_key": "prusament-pla"}
+        )
+        built = await client.call_tool("build_variant", {"code": PLATE})
+    assert not scored.is_error, text_of(scored)
+    assert scored.structured_content is not None
+    assert built.structured_content is not None
+    assert scored.structured_content["rebuilt_from"] == old
+    new = built.structured_content["variant_id"]
+    assert scored.structured_content["variant_id"] == new
+    assert json.loads((tmp_path / new / score.SCORECARD).read_text()) == scored.structured_content
+    assert (tmp_path / old / entry.CODE).read_text() == PLATE
+    assert not (tmp_path / old / score.SCORECARD).exists()
+
+
+async def test_a_failed_rebuild_is_an_error_naming_both_ids_and_no_host_path(
+    tmp_path: Path,
+) -> None:
+    code = "raise ValueError('a part this sandbox cannot build')\n"
+    old = entry.variant_id(code, "cad-sandbox:before-a-deploy")
+    entry.save(tmp_path, old, code, Build(outcome=Built(), output=""), b"an older shape")
+    async with Client(build_server(tmp_path)) as client:
+        scored = await client.call_tool(
+            "score_variant", {"variant_id": old, "material_key": "prusament-pla"}
+        )
+    assert scored.is_error
+    assert f"RebuildFailed: variant {old}" in text_of(scored)
+    assert "build_failed" in text_of(scored)
+    assert str(tmp_path) not in text_of(scored)
 
 
 async def test_score_variant_rejects_an_argument_it_does_not_declare(tmp_path: Path) -> None:
@@ -161,7 +200,13 @@ async def test_the_score_variant_description_claims_no_more_than_the_server_does
     description = await listed_description("score_variant")
     assert "or a stored scorecard" not in description
     assert "the server never reads one back" in description
-    assert "while the materials table and the sandbox image are unchanged" in description
+    assert (
+        "while the materials table, the sandbox image and the confirmed requirements are unchanged"
+        in description
+    )
+    assert all(
+        kind in description for kind in ("no_brief", "awaiting_confirmation", "against_brief")
+    )
 
 
 async def test_an_unreadable_materials_table_lists_nothing_and_shows_no_host_path(

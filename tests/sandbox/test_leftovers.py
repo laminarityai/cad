@@ -12,7 +12,7 @@ from typing import NamedTuple
 import pytest
 
 from cad.sandbox import container
-from cad.sandbox.image import context_tar, current_image, image_tag
+from cad.sandbox.image import BUILD, current_image, image_tag
 
 WAIT_SECONDS = 90
 POLL_SECONDS = 0.25
@@ -25,7 +25,7 @@ class Process(NamedTuple):
 
 @pytest.fixture(scope="module")
 def image_id() -> str:
-    return current_image(image_tag(context_tar()))
+    return current_image(image_tag(BUILD))
 
 
 def wait_for[T](probe: Callable[[], T | None]) -> T:

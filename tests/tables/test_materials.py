@@ -143,3 +143,38 @@ def test_rejects_key_with_trailing_space(tmp_path: Path) -> None:
         row["key"] = "prusament-pla "
 
     assert "'prusament-pla ': key must be" in problems_after(tmp_path, "prusament-pla", edit)
+
+
+def elastic(modulus: str, poisson: str) -> Callable[[Row], None]:
+    def edit(row: Row) -> None:
+        source = row["density"]["source"]
+        row["elastic_modulus"] = {"value": modulus, "source": source}
+        row["poisson_ratio"] = {"value": poisson, "source": source}
+
+    return edit
+
+
+def test_a_cited_modulus_and_poisson_ratio_load_in_their_units(tmp_path: Path) -> None:
+    path = write_edited_table(tmp_path, "prusament-pla", elastic("3.5 GPa", "0.36"))
+    material = load_materials(path).get_material("prusament-pla")
+    assert isinstance(material.elastic_modulus, Cited)
+    assert isinstance(material.poisson_ratio, Cited)
+    assert material.elastic_modulus.magnitude_in("MPa") == pytest.approx(3500)
+    assert material.poisson_ratio.magnitude_in("dimensionless") == pytest.approx(0.36)
+
+
+@pytest.mark.parametrize(
+    ("modulus", "poisson", "problem"),
+    [
+        ("5 MPa", "0.3", "elastic_modulus 5 MPa is outside the plausible range 0.01 to 500 GPa"),
+        ("600 GPa", "0.3", "elastic_modulus 600 GPa is outside the plausible range"),
+        ("3.5 GPa", "0.5", "poisson_ratio 0.5 is not at least 0 and below 0.5"),
+        ("3.5 GPa", "-0.1", "poisson_ratio -0.1 is not at least 0 and below 0.5"),
+        ("3.5 GPa", "0.3 MPa", "poisson_ratio '0.3 MPa': Cannot convert"),
+        ("0.5 GPa", "0.3", "yield_strength 51 MPa is not below 0.1 of elastic_modulus 0.5 GPa"),
+    ],
+)
+def test_rejects_an_implausible_elastic_constant(
+    tmp_path: Path, modulus: str, poisson: str, problem: str
+) -> None:
+    assert problem in problems_after(tmp_path, "prusament-pla", elastic(modulus, poisson))

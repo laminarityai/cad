@@ -6,6 +6,7 @@ exist, so there is no stored "confirmed" for anyone to edit.
 
 import math
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from typing import Annotated, Any, Final, Literal, NewType, assert_never
@@ -21,7 +22,8 @@ from pydantic import (
     field_validator,
 )
 
-from cad.checks.result import Measured
+from cad.checks.result import Comparator, Measured
+from cad.projects.model import NEW_PROJECT_ID, NewProjectId, ProjectId, legacy_project
 
 BriefId = NewType("BriefId", str)
 RequirementId = NewType("RequirementId", str)
@@ -67,11 +69,6 @@ type Mass = Annotated[Measured, WrapValidator(_positive("[mass]")), WithJsonSche
 type Length = Annotated[
     Measured, WrapValidator(_positive("[length]")), WithJsonSchema(QUANTITY_SCHEMA)
 ]
-
-
-class Comparator(StrEnum):
-    AT_MOST = "at_most"
-    AT_LEAST = "at_least"
 
 
 class Kind(StrEnum):
@@ -146,14 +143,26 @@ def deciding_check(kind: Kind) -> CheckId | None:
             assert_never(kind)
 
 
-def comparator(target: ClosedSolid | MaxMass | MinMass | Envelope | Unchecked) -> Comparator | None:
+@dataclass(frozen=True, slots=True)
+class Limit:
+    measure: str
+    comparator: Comparator
+    quantity: pint.Quantity
+
+
+def limits(target: ClosedSolid | MaxMass | MinMass | Envelope | Unchecked) -> tuple[Limit, ...]:
     match target:
-        case MaxMass() | Envelope():
-            return Comparator.AT_MOST
-        case MinMass():
-            return Comparator.AT_LEAST
         case ClosedSolid() | Unchecked():
-            return None
+            return ()
+        case MaxMass():
+            return (Limit("mass", Comparator.AT_MOST, target.mass),)
+        case MinMass():
+            return (Limit("mass", Comparator.AT_LEAST, target.mass),)
+        case Envelope():
+            return tuple(
+                Limit(f"sorted_extent:{name}", Comparator.AT_MOST, edge)
+                for name, edge in zip(("largest", "middle", "smallest"), target.edges, strict=True)
+            )
         case _:
             assert_never(target)
 
@@ -170,6 +179,12 @@ class Brief(_Frozen):
     id: BriefId
     text: Annotated[str, Field(min_length=1, max_length=MAX_BRIEF_CHARS)]
     created_at: datetime
+    project_id: Annotated[NewProjectId, Field(pattern=NEW_PROJECT_ID.pattern)] | None = None
+
+    @property
+    def project(self) -> ProjectId:
+        """A brief stored before projects has no project_id and is alone in pb-<brief_id>."""
+        return legacy_project(self.id) if self.project_id is None else self.project_id
 
 
 class Requirement(_Frozen):

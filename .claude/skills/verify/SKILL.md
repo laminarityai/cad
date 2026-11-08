@@ -17,14 +17,14 @@ export EVIDENCE=$(mktemp -d)
 
 ## Launch
 
-There is no long-running process to start. Each drive starts its own server and stops it when the call ends. `build_variant` runs each build in a Docker container, and `cad-sandbox run-checks` runs the checks in a second one, so Docker Desktop must run, and the sandbox image must exist.
+There is no long-running process to start. Each drive starts its own server and stops it when the call ends. `build_variant` runs each build in a Docker container, and `cad-sandbox run-checks` runs the checks in a second one, so Docker Desktop must run, and both sandbox images must exist: builds run in `cad-sandbox` and checks run in `cad-analysis`.
 
 ```
 uv sync --frozen
 uv run cad-sandbox build-image
 ```
 
-The second command prints `sandbox image cad-sandbox:<tag> is current` when the image exists, and builds it otherwise, which takes minutes the first time. With Docker down it prints one line that names the cause and exits 1.
+The second command prints one line per image, `sandbox image cad-sandbox:<tag> is current` and then `sandbox image cad-analysis:<tag> is current`, when the images exist, and builds each missing one otherwise, which takes minutes the first time. With Docker down it prints one line that names the cause and exits 1.
 
 Ready means `uv run cad-call server_info '{}'` exits 0 (see Doctor).
 
@@ -48,7 +48,7 @@ Scripted call, one tool per run. Output is the MCP result as JSON, exit code 1 w
 uv run cad-call <tool> '<json args>'
 ```
 
-Tools today: `server_info` (no arguments), `build_variant` (`code`, the build123d Python source), `score_variant` (`variant_id`, `material_key`), `list_materials` (no arguments), `create_brief` (`text`), `propose_requirements` (`brief_id`, `requirements`), `confirm_requirements` (`brief_id`) and `list_requirements` (`brief_id`). Never run `confirm_requirements` through `cad-call` with valid arguments: it runs `open` on the confirmation page and opens a browser on the operator's screen. Drive it through `claude_session.py --opener`, as [Briefs](features/briefs.md) says. A tool rejects any argument it does not declare. An unknown tool name returns an error result naming the tool. Arguments that are not a JSON object exit 2 with a usage error, and a tool error exits 1.
+Tools today: `server_info` (no arguments), `build_variant` (`code`, the build123d Python source, and an optional `brief_id`), `score_variant` (`variant_id`, `material_key`, and an optional `brief_id`), `list_materials` (no arguments), `create_brief` (`text`, and an optional `project_id`), `propose_requirements` (`brief_id`, `requirements`), `ask_to_confirm` (`project_id`) and `list_requirements` (`brief_id`). Never run `ask_to_confirm` through `cad-call` with a project that has a proposed requirement: it runs `open` on the confirmation page and opens a browser on the operator's screen. Drive it through `claude_session.py --opener`, as [Briefs](features/briefs.md) says. A tool rejects any argument it does not declare. An unknown tool name returns an error result naming the tool. Arguments that are not a JSON object exit 2 with a usage error, and a tool error exits 1.
 
 Claude Code session. This runs `claude -p` with `--strict-mcp-config --tools "" --allowedTools 'mcp__cad__*' --setting-sources project --disable-slash-commands --output-format json --verbose`. `--tools ""` removes every built-in tool, so only the cad tools exist. `--allowedTools` alone only approves the cad tools, and the built-in read-only tools such as Bash `git grep` still run. The script saves the event transcript, and fails unless the `system/init` event lists `cad` as `connected` with no `mcp_server_errors`. It also fails when the init event's `tools` list names a tool outside cad, or when the transcript has a tool call outside cad. The first check asserts what the model could reach. The second asserts what it called. Claude Code skips a broken `.mcp.json` entry and still exits 0, so never run `claude -p` against the server without that check. `--verbose` is what puts the init event in the JSON output.
 

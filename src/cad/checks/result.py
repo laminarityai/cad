@@ -14,6 +14,11 @@ class Verdict(StrEnum):
     UNKNOWN = "unknown"
 
 
+class Comparator(StrEnum):
+    AT_MOST = "at_most"
+    AT_LEAST = "at_least"
+
+
 class QuantityJson(TypedDict):
     magnitude: float
     unit: str
@@ -86,14 +91,14 @@ type Step = Annotated[StepStored | StepMissing, Field(discriminator="kind")]
 class CheckRun(_Frozen):
     """One `run_checks` call. Holds the hashes that make "checks measured what the user gets"
     auditable: `step` is the STEP derived from the BREP whose hash is `brep_sha256`, or why there is
-    none, and `image_digest` is the image the check container ran, whatever `image_tag` points to
-    later."""
+    none, and `check_image_digest` is the analysis image the check container ran, whatever
+    `check_image_tag` points to later."""
 
     variant_id: str
     material_key: str
     table_version: str
-    image_tag: str
-    image_digest: str
+    check_image_tag: str
+    check_image_digest: str
     brep_sha256: str
     step: Step
     results: tuple[CheckResult, ...]

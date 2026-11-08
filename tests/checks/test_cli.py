@@ -5,7 +5,7 @@ import pytest
 from cad.checks.result import CheckRun, Verdict
 from cad.sandbox import __main__ as cli
 from cad.sandbox import stage
-from cad.sandbox.image import context_tar, image_tag
+from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.outcome import Build, Built, NoResult
 from cad.variants import entry
 from cad.variants.store import build_variant
@@ -47,6 +47,18 @@ def test_a_stale_variant_is_one_line_and_exit_one(
     )
 
 
+def test_a_variant_an_older_sandbox_stored_is_stale_and_names_both_next_steps(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    old = entry.variant_id("result = 1\n", "cad-sandbox:before-a-deploy")
+    entry.save(tmp_path, old, "result = 1\n", Build(outcome=Built(), output=""), b"x")
+    assert cli.main(["run-checks", old, "prusament-pla", "--root", str(tmp_path)]) == 1
+    assert capsys.readouterr().out == (
+        f"StaleVariant: variant {old} was stored by an earlier version of the sandbox; "
+        "build its code again, or score it with score_variant to rebuild it\n"
+    )
+
+
 def test_an_unknown_id_is_one_line_and_exit_one(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -60,7 +72,7 @@ def test_a_variant_that_did_not_build_is_not_checked(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     code = "x = 1\n"
-    vid = entry.variant_id(code, image_tag(context_tar()))
+    vid = entry.variant_id(code, image_tag(BUILD))
     entry.save(tmp_path, vid, code, Build(outcome=NoResult(reason="r"), output=""), None)
     assert cli.main(["run-checks", vid, "prusament-pla", "--root", str(tmp_path)]) == 1
     assert capsys.readouterr().out.startswith(f"NotBuilt: variant {vid} has no shape")
@@ -70,7 +82,7 @@ def test_a_stage_root_that_cannot_be_written_is_one_line_and_exit_one(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     code = "x = 1\n"
-    vid = entry.variant_id(code, image_tag(context_tar()))
+    vid = entry.variant_id(code, image_tag(BUILD))
     entry.save(tmp_path, vid, code, Build(outcome=Built(), output=""), b"BREP")
     locked = tmp_path / "locked"
     locked.mkdir(mode=0o555)

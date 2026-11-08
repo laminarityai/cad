@@ -2,8 +2,7 @@ import os
 from pathlib import Path
 from typing import Final
 
-from cad.sandbox import container, host
-from cad.sandbox.image import context_tar, current_image, image_tag
+from cad.sandbox import container, host, image
 from cad.sandbox.outcome import Build, Built, SandboxUnavailable, TimedOut
 from cad.variants import entry
 
@@ -14,6 +13,14 @@ class BuildResult(Build):
     variant_id: entry.VariantId
 
 
+class RebuildFailed(entry.VariantRefused):
+    def __init__(self, old: entry.VariantId, rebuilt: BuildResult) -> None:
+        super().__init__(
+            f"variant {old} was stored by an earlier version of the sandbox, and its stored code "
+            f"did not build again as variant {rebuilt.variant_id}: {rebuilt.model_dump_json()}"
+        )
+
+
 def build_variant(
     code: str,
     root: Path = entry.VARIANTS_ROOT,
@@ -21,13 +28,13 @@ def build_variant(
     wall_seconds: int = container.WALL_SECONDS,
     cap_bytes: int = CAP_BYTES,
 ) -> BuildResult:
-    tag = image_tag(context_tar())
+    tag = image.image_tag(image.BUILD)
     vid = entry.variant_id(code, tag)
     try:
         stored = entry.read_manifest(root, vid)
         if stored is None:
             refuse_if_full(root, cap_bytes)
-            stored = build_and_store(code, vid, current_image(tag), root, wall_seconds)
+            stored = build_and_store(code, vid, image.current_image(tag), root, wall_seconds)
     except OSError as error:
         raise SandboxUnavailable.hiding_host(
             f"cannot use the variant store for variant {vid}", error, root

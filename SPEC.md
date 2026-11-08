@@ -1,6 +1,6 @@
 # CAD harness product spec
 
-Nov 5, 2026 · @Kevin · revised after a grilling session, and on Nov 7 to make friction a defect; terms follow [GLOSSARY.md](GLOSSARY.md)
+Nov 5, 2026 · @Kevin · revised after a grilling session, and on Nov 7 to make friction a defect and to record phase 2 decisions; terms follow [GLOSSARY.md](GLOSSARY.md)
 
 ## Summary
 
@@ -35,11 +35,13 @@ The full user research is in the report *AI CAD harness user needs*. The knowled
 
 Attachments are context, not input to convert. The agent reads them for intent and dimensions, and every dimension it takes from an image becomes a requirement you confirm, with the others, before any variant is built.
 
+Existing CAD parts can be context too. A context part is a part that the new part must fit with, such as the housing or rail it mounts to. You attach one to the project, or an earlier variant becomes one. You confirm each context part before a check measures against it. Reading a part directly from Onshape or Fusion through their MCP servers is a later goal, tracked in [#60](https://github.com/laminarityai/cad/issues/60).
+
 ## Asking you
 
 Friction is a defect. The one step the agent cannot take for you is confirming what it proposed, because then it would be grading its own work. So confirmations stay, and each one costs you as little as possible.
 
-- **One page, one click.** Everything waiting on you appears on one confirmation page: requirements, dimensions read from images, values taken from documents, and sources the agent found. Each item shows the agent's proposal and the words it came from. Confirming the whole page is one click, and editing an item is optional.
+- **One page, one click.** Everything waiting on you appears on one confirmation page: requirements, dimensions read from images, values taken from documents, context parts, and sources the agent found. Each item shows the agent's proposal and the words it came from. Confirming the whole page is one click, and editing an item is optional.
 - **Only what a check reads.** The agent asks you to confirm a number only when a check will use it. What it reads for context and intent needs no confirmation.
 - **Nothing waits that doesn't have to.** Work that doesn't depend on a pending answer goes ahead. If your material is not in our table, the variants are still built and the geometry checks still run. Mass shows as waiting on you, and it fills in when you confirm a density, without a rebuild.
 - **Any cited source.** A value can come from a datasheet, a handbook, a supplier's page, a standard's clause, or your own words in the brief. The citation says where the number came from. Your confirmation says that it is the number you mean.
@@ -62,6 +64,7 @@ You switch modes in the chat, the way you switch modes in Claude Code.
 A check is a fixed, deterministic piece of code that measures a variant and returns pass or fail with its formula and source. The agent cannot edit checks or their inputs. Its only move is to change the design and run the checks again.
 
 - **Universal checks** run on every variant: builds as one closed solid, no interference, mass and center of mass from the materials table, manufacturability (wall thickness, overhangs), and FEA under the loads you state.
+- **The fit check** measures each variant against the confirmed context parts of its project. It reports the volume where they overlap and the minimum clearance between them. Our team writes and reviews it, as it does the universal checks, and it ships in phase 2.
 - **Domain checks** come from engineering skills, such as gear tooth strength or bolted joint preload. The first version ships none. The first skill goes to whichever domain people design in most.
 - **Agent-written checks** cover requirements no existing check handles, such as a snap-fit. Their results show as unreviewed. You can review one for your own project, and its results then show as user-reviewed. Only our team can add a check to an engineering skill that every user gets. Before a person reviews it, an agent-written check must pass automatic gates: consistent units, deterministic output, and at least one worked example from its cited source.
 - **Unverified requirements** are listed on every scorecard. If nothing reviewed checks a requirement, the scorecard says so.
@@ -73,7 +76,7 @@ The first version does not design freeform or loft-heavy shapes reliably, and th
 Knowledge lives in five places. Numbers a check uses never come from vector search, because retrieval returns near misses and a check that reads a near-miss yield strength is worse than no check.
 
 1. **Engineering skills.** A bundle for one kind of design: its domain checks, the rules for which check applies to which requirement, its templates, its sources, and worked examples that test each check. Checks are executed, never read into the agent's context. A change to a check's code reverts it to unreviewed.
-2. **Knowledge base.** Standards summaries, design guides, datasheets and the agent's own research, each stored as a source with its page and section. Keyword and vector search run together. The knowledge base supplies reasons and pointers, never a number a check reads. When it finds nothing confident, the requirement shows as unverified.
+2. **Knowledge base.** Standards summaries, design guides, datasheets and the agent's own research, each stored as a source with its page and section. In phase 2 the knowledge base is source files in git, found by keyword search, with no database and no vector search. The knowledge base supplies reasons and pointers, never a number a check reads. Search returns the closest few sections, and the agent decides whether one fits. A requirement stays unverified until a check measures it against a target a person confirmed.
 3. **Parts and materials tables.** YAML and CSV files in git, validated in CI (units, yield strength no higher than tensile strength, plausible density) and read by exact key. Every value cites its source. Every scorecard records the table version it used. Missing data is "unknown," never a guess.
 4. **build123d know-how.** API notes, worked examples and common error fixes, kept small and found by keyword.
 5. **Design library, later.** Past variants with their scorecards. Each records the check and table versions that scored it, so an old pass is not reused after a check changes.
@@ -87,7 +90,7 @@ A number the agent takes from any source, such as a PDF, a web page or your brie
 The MCP server is the product ([ADR-0002](docs/adr/0002-mcp-server-is-the-product.md)). Every capability is an MCP tool: making variants, running checks, reading tables and the knowledge base, and exporting to Onshape. Our web app's agent is the first client and uses the same interface as Claude Code or any other MCP client. Because checks run on the server, any agent that connects can do the engineering but cannot grade its own work.
 
 - **Sandbox.** Every variant is Python written by an AI. The server runs it in a locked-down container with no network access and with time and memory limits. This is a security requirement from the first release.
-- **Hosted, with accounts.** The first version is hosted only. The web app and MCP clients both sign in, and accounts carry usage limits because FEA and slicing cost compute.
+- **Hosted, with accounts.** The first version is hosted only. The web app and MCP clients both sign in, and accounts carry usage limits because FEA and slicing cost compute. Accounts and usage limits ship in phase 3.
 - **Modes travel as guidance.** Outside clients get the tools and the same checks. They also get the modes and stopping rules as guidance, but only our own agent enforces them.
 - **Sliders skip the model.** A slider change calls the tool server directly and rebuilds without calling the LLM.
 - **Long jobs stream.** FEA and slicing take seconds to minutes, so they run as background jobs and the scorecard fills in as results arrive.
@@ -102,10 +105,10 @@ Python on the backend, because the CAD kernel, FEA and slicer wrappers all have 
 | Standard parts | [bd_warehouse](https://pypi.org/project/bd-warehouse/) 0.4 (Apache-2.0 tables for fasteners, bearings, o-rings, keys), [py_gearworks](https://pypi.org/project/py-gearworks/0.0.24/) (gear geometry) | Generators draw parts from standard tables, so the model never draws threads or gear teeth | Vendor STEP files the user attaches |
 | Engineering calcs | Our own tested Python module + Pint for units | Each calc returns its formula and source, so the scorecard can show its work. Few open libraries exist; shaft, bearing, bolt and belt calcs must be written in-house | [python-gearbox](https://github.com/efirvida/python-gearbox) for gear rating once a gear skill exists (install from a pinned commit) |
 | Materials | Our own YAML table in git, every value cited from manufacturer data sheets | One validated table prevents mass and strength errors | FreeCAD material cards (CC-BY) as a starting point, checked by hand |
-| FEA | [gmsh](https://gmsh.info) + CalculiX via [pygccx](https://github.com/calculix/pygccx) (install from git) | CalculiX is a mature solver that engineers recognize; pygccx covers static, buckling and frequency analysis on solids | torch-fem, which [Physics-in-the-Loop](https://arxiv.org/html/2605.19717) used |
-| Print cost and time | OrcaSlicer CLI ([orca-mcp](https://pypi.org/project/orca-mcp/) wraps it) | A real slice gives print time, filament weight and cost | Volume times density as a fast first pass |
-| Knowledge store | Postgres + [pgvector](https://github.com/pgvector/pgvector) + Postgres full-text search, fused with reciprocal rank fusion | One database holds briefs, requirements, sources and scorecards with real foreign keys | LanceDB |
-| PDF extraction | [Docling](https://github.com/docling-project/docling) (MIT) | Keeps layout and table structure; output becomes candidate values | MinerU, if table errors show up in testing |
+| FEA | [gmsh](https://gmsh.info) + CalculiX, with our own input writer and result reader | CalculiX is a mature solver that engineers recognize; the writer and reader are about 150 lines we review, for the static analysis phase 3 needs ([phase 3 design](docs/design/phase-3.md)) | [pygccx](https://github.com/calculix/pygccx), not used: one maintainer, no commit since February 2025, GPL-3.0; torch-fem, which [Physics-in-the-Loop](https://arxiv.org/html/2605.19717) used |
+| Print cost and time | PrusaSlicer CLI, from Debian, in the analysis image ([ADR-0005](docs/adr/0005-checks-run-in-an-analysis-image.md)) | A real slice gives print time, filament weight and cost. It slices headless and gives the same G-code twice | OrcaSlicer later: its Linux builds need a newer glibc than our Debian base. Volume times density as a fast first pass |
+| Knowledge store | Source files in git, found by keyword search (phase 2) | The files are reviewed in git like the tables, and the knowledge base never supplies a number a check reads | Postgres + [pgvector](https://github.com/pgvector/pgvector) + Postgres full-text search, fused with reciprocal rank fusion, later; LanceDB |
+| PDF extraction | None in phase 2. The agent quotes the source text, the server reads one quantity out of each quote, and you confirm it | The agent never types a number a check reads; the server reads it from the words you confirm | [Docling](https://github.com/docling-project/docling) (MIT) later, which keeps layout and table structure; MinerU, if table errors show up in testing |
 | Agent tools | Our own MCP server (official Python MCP SDK) | [build123d-mcp](https://pypi.org/project/build123d-mcp/0.3.70/) reports render-and-measure feedback lifting GPT-5.5 from 0.360 to 0.457 on CADGenBench | Fork build123d-mcp or [mcp-build123d](https://jsr.io/@casys/mcp-build123d) as a starting point |
 | LLM | Model-agnostic through MCP | Our bake-off ran Claude Sonnet and Opus at about $0.01 per generated part | Route cheap edits to a small model later |
 | Viewer | three-cad-viewer (the viewer inside [OCP CAD Viewer](https://pypi.org/project/ocp-vscode/4.1.0/)) | Built for build123d B-rep: picking, measuring, part tree | [OCP.wasm](https://github.com/Yeicor/OCP.wasm) (active as of Sep 2026) for in-browser build123d later |
@@ -119,9 +122,9 @@ The first version is built in five phases, in this order. Each phase ends when i
 
 1. **Server and universal checks.** Project setup ([AGENTS.md](AGENTS.md)), an MCP server that runs build123d code in the sandbox, the geometric universal checks, and the first materials table.
    - Exit: Claude Code, connected to the server, produces scorecards for the 10 bake-off parts that agree with the bake-off grader, and the sandbox blocks network access and enforces its limits.
-2. **Briefs, requirements and scorecards.** Plan mode, 3 to 5 variants, scorecards that list unverified requirements, sources and candidate values, the knowledge base, and agent-written checks with per-project review.
-   - Exit: on a private set of briefs from at least five domains, every number on every scorecard traces to a confirmed source.
-3. **Physics and manufacturing.** FEA under stated loads, printability checks, slicer cost and print time, and Test mode.
+2. **Briefs, requirements and scorecards.** Plan mode, 3 to 5 variants, scorecards that list unverified requirements, sources and candidate values, the knowledge base, agent-written checks with per-project review, and context parts with the fit check.
+   - Exit: on the private brief set, across at least five domains, every number on every scorecard traces to a confirmed source.
+3. **Physics and manufacturing.** FEA under stated loads, printability checks, slicer cost and print time, Test mode, and accounts with usage limits.
    - Exit: FEA results land within a stated error of hand calculations on beam and plate cases with known answers.
 4. **Web app.** Chat, 3D viewer, scorecards, sliders, the mode switcher, and Auto mode with its stopping rules.
    - Exit: a slider change rebuilds in under 1 second, and Auto mode stops correctly on a brief whose requirements conflict.
@@ -129,6 +132,8 @@ The first version is built in five phases, in this order. Each phase ends when i
    - Exit: someone who doesn't use CAD designs and prints a working part from a brief, and an engineer reads its scorecard and agrees with it.
 
 Track progress with three numbers on a private set of briefs that spans at least five domains. The first is the strict pass rate, graded by executable checks, not "valid STL" rates. The second is the share of requirements covered by reviewed checks, which shows whether the "checks decide" claim holds as the agent takes on new domains. The third is friction: how many times you are asked to confirm something, and how many minutes pass, from brief to first scorecard. A change that raises friction needs a stated reason. Report public benchmarks such as Text2CAD-Bench and BenchCAD-Edit alongside.
+
+The canonical private brief set is the 20 per-brief files in `~/cad-evals/briefs/`, across 7 domains. It stays outside the repo, so a session under test cannot read it. The older `briefs.yaml` is retired.
 
 ## Out of scope for the first version
 
@@ -147,7 +152,7 @@ Track progress with three numbers on a private set of briefs that spans at least
 - **Licensed standards.** ASME, ISO, AGMA and DIN documents are paid. We implement formulas and cite the clause, and never ship a standard's text or tables. DIN also forbids AI use of its documents, which matters when users upload standard PDFs.
 - **Silent edit damage.** About 64% of edits that look successful break unrelated features ([BenchCAD](https://arxiv.org/html/2605.10865v1)), so regression checks run on every commit.
 - **Running AI-written code.** Every variant is code an AI wrote, and outside MCP clients can send code too. The sandbox ships in phase 1.
-- **Compute cost.** Any MCP client can trigger FEA and slicing on our servers, so accounts and usage limits ship with the server.
+- **Compute cost.** Any MCP client can trigger FEA and slicing on our servers, so accounts and usage limits ship in phase 3, the phase that adds FEA and slicing.
 - **Auto mode has no hard stop.** If the stuck detection has a bug, Auto mode can loop and spend without limit. Watch run lengths and costs from the first Auto run.
 - **Speed.** FEA and slicing take seconds to minutes. The scorecard fills in as results arrive while the viewer stays live.
 - **Onshape API limits.** Onshape tracks API usage per user or company. Check the published limits before relying on live sync.

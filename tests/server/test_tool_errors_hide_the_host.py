@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 from mcp import Client
 
-from cad.sandbox.image import context_tar, image_tag
+from cad.sandbox.image import BUILD, image_tag
 from cad.server.app import build_server
 from cad.variants import entry, store
 
@@ -80,7 +80,7 @@ async def test_an_unusable_store_names_the_variant_and_the_kind_and_no_host_path
     root = locked / "variants"
     text = await call("build_variant", root, "", "locked store")
     locked.chmod(0o755)
-    vid = entry.variant_id(f"{PLATE}# locked store\n", image_tag(context_tar()))
+    vid = entry.variant_id(f"{PLATE}# locked store\n", image_tag(BUILD))
     assert text == (
         f"Error executing tool build_variant: cannot use the variant store for variant {vid}: "
         "PermissionError"

@@ -3,6 +3,7 @@ from datetime import date
 
 from cad.checks.container import closed_solid, interference
 from cad.checks.container.check import CheckModule, Subject, finding, measure, no_shape
+from cad.checks.container.inputs import Input
 from cad.checks.container.kernel import Unreadable
 from cad.checks.container.wire import FindingWire, SourceLiteral
 
@@ -28,7 +29,8 @@ MEASURES = {
     "density": "kg/mm^3",
     "mass": "kg",
 }
-READS = {"density": "density"}
+TAKES = frozenset({Input.DENSITY})
+READS = {"density": Input.DENSITY}
 REQUIRES: tuple[CheckModule, ...] = (closed_solid, interference)
 
 
@@ -58,10 +60,10 @@ def run(subject: Subject) -> FindingWire:
         return finding(
             "fail", f"the volume is {props.volume:g} mm^3; it must be above 0", *measured
         )
-    density = subject.density
+    density = subject.inputs.value(Input.DENSITY)
     if density["kind"] == "unknown":
         return finding("unknown", density["reason"], *measured)
-    kg_per_mm3 = density["kg_per_mm3"]
+    kg_per_mm3 = density["magnitude"]
     return finding(
         "pass",
         f"{props.volume:g} mm^3 at {kg_per_mm3:g} kg/mm^3",

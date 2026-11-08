@@ -3,14 +3,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
+from cad.checks.container.inputs import Input, Inputs
 from cad.checks.container.kernel import Kernel, Shape, Unreadable
-from cad.checks.container.wire import (
-    DensityWire,
-    FindingWire,
-    MeasuredWire,
-    ResultWire,
-    SourceLiteral,
-)
+from cad.checks.container.wire import FindingWire, MeasuredWire, ResultWire, SourceLiteral
 
 DIMENSIONLESS = "dimensionless"
 
@@ -19,7 +14,7 @@ DIMENSIONLESS = "dimensionless"
 class Subject:
     kernel: Kernel
     shape: Shape | Unreadable
-    density: DensityWire
+    inputs: Inputs
     reported: Mapping[str, ResultWire]
 
 
@@ -42,10 +37,10 @@ class CheckModule(Protocol):
         ...
 
     @property
-    def READS(self) -> Mapping[str, str]:
-        """measure name -> materials table field. The measure is a number the host sent from that
-        table row, so the host holds it to the value it sent and cites the row."""
-        ...
+    def TAKES(self) -> frozenset[Input]: ...
+
+    @property
+    def READS(self) -> Mapping[str, Input]: ...
 
     @property
     def REQUIRES(self) -> tuple["CheckModule", ...]: ...

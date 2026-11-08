@@ -54,6 +54,7 @@ def run_python(program: str, *args: str) -> str:
 def copied_tree(tmp_path: Path) -> Path:
     root = tmp_path / "src"
     shutil.copytree(SRC / "cad", root / "cad", ignore=shutil.ignore_patterns("__pycache__"))
+    shutil.copytree(SRC.parent / "sandbox", tmp_path / "sandbox")
     return root
 
 
@@ -66,7 +67,10 @@ def copied_tree(tmp_path: Path) -> Path:
         "cad/sandbox/host.py",
         "cad/sandbox/container.py",
         "cad/tables/materials.py",
-        "cad/checks/container/kernel.py",
+        "cad/checks/container/kernel/__init__.py",
+        "cad/checks/container/kernel/protocol.py",
+        "cad/checks/container/kernel/ocp_handles.py",
+        "cad/checks/container/kernel/ocp_kernel.py",
         "cad/__init__.py",
     ],
 )
@@ -84,6 +88,12 @@ def test_editing_code_a_scorecard_depends_on_changes_every_check_version(
 def test_every_module_scoring_loads_feeds_the_check_versions() -> None:
     loaded = {Path(path).relative_to(SRC).as_posix() for path in json.loads(run_python(LOADED))}
     assert loaded - set(report.DEPENDENCIES.files) == set()
+
+
+@pytest.mark.parametrize("outside", ["cad/briefs/", "cad/scorecard/requirements.py"])
+def test_judging_requirements_is_outside_what_check_versions_hash(outside: str) -> None:
+    inside = [path for path in report.DEPENDENCIES.files if path.startswith(outside)]
+    assert inside == []
 
 
 def test_every_library_scoring_loads_feeds_the_check_versions() -> None:

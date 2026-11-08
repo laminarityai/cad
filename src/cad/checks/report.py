@@ -8,13 +8,21 @@ from typing import Final
 from pydantic import TypeAdapter, ValidationError
 
 from cad.checks.container.check import CheckModule
+from cad.checks.container.inputs import WIRE_UNITS, Input
 from cad.checks.container.suite import CHECKS
-from cad.checks.container.wire import CheckedReport, RequestWire, ResultWire, SourceLiteral
+from cad.checks.container.wire import (
+    CheckedReport,
+    RequestWire,
+    ResultWire,
+    SourceLiteral,
+    ValueWire,
+)
 from cad.checks.result import CheckResult, Measure, StepMissing, Verdict
 from cad.sandbox import container
 from cad.sandbox.container import Ran, TooMuchOutput
+from cad.sandbox.image import ANALYSIS, image_tag
 from cad.sandbox.stage import CONTAINER_ENTRY, PACKAGE_PATH, Sources, read_sources
-from cad.tables.materials import UNITS, Cited, MaterialsTable, Source, UnknownMaterial
+from cad.tables.materials import UNITS, Cited, Material, MaterialsTable, Source, UnknownMaterial
 
 REASON_CAP = 1024
 SCORER: Final = "cad.scorecard.score"
@@ -29,14 +37,15 @@ class CheckSpec:
     formula: str
     sources: tuple[Source, ...]
     measures: Mapping[str, str]
-    reads: Mapping[str, str]
+    takes: frozenset[Input]
+    reads: Mapping[str, Input]
     version: str
 
 
-def check_version(check: CheckModule, sources: Sources) -> str:
+def check_version(check: CheckModule, sources: Sources, analysis_tag: str) -> str:
     checks = {_path(module.ID) for module in CHECKS}
     shared = (path for path in sorted(sources.files) if path not in checks)
-    digest = hashlib.sha256()
+    digest = hashlib.sha256(f"{analysis_tag}\0".encode())
     for path in (*_run_by(check), *shared):
         digest.update(f"{path}\0".encode())
         digest.update(hashlib.sha256(sources.files[path]).digest())
@@ -49,20 +58,25 @@ def _run_by(check: CheckModule) -> tuple[str, ...]:
     return (_path(check.ID), *(path for required in check.REQUIRES for path in _run_by(required)))
 
 
-def specs(sources: Sources, checks: Sequence[CheckModule] = CHECKS) -> tuple[CheckSpec, ...]:
+def specs(
+    sources: Sources, analysis_tag: str, checks: Sequence[CheckModule] = CHECKS
+) -> tuple[CheckSpec, ...]:
     for module in checks:
         if not module.SOURCES:
             raise ValueError(f"check {module.ID} cites no source")
         if not set(module.READS) <= set(module.MEASURES):
             raise ValueError(f"check {module.ID} reads a measure it does not declare")
+        if not set(module.READS.values()) <= module.TAKES:
+            raise ValueError(f"check {module.ID} reads an input it does not take")
     return tuple(
         CheckSpec(
             id=module.ID,
             formula=module.FORMULA,
             sources=tuple(_source(literal) for literal in module.SOURCES),
             measures=module.MEASURES,
+            takes=module.TAKES,
             reads=module.READS,
-            version=check_version(module, sources),
+            version=check_version(module, sources, analysis_tag),
         )
         for module in checks
     )
@@ -84,13 +98,12 @@ def _source(literal: SourceLiteral) -> Source:
 
 
 DEPENDENCIES: Final = read_sources(CONTAINER_ENTRY, SCORER)
-SPECS: Final = specs(DEPENDENCIES)
+IMAGE_TAG: Final = image_tag(ANALYSIS)
+SPECS: Final = specs(DEPENDENCIES, IMAGE_TAG)
 
 
 @dataclass(frozen=True, slots=True)
 class TableRead:
-    """One number the host sends from a materials table row, in the unit its measure declares."""
-
     magnitude: float
     source: Source
 
@@ -99,30 +112,40 @@ class TableRead:
 class Request:
     wire: RequestWire
     material_key: str
-    reads: Mapping[str, TableRead]
+    reads: Mapping[Input, TableRead]
     table_version: str
 
 
 def build_request(material_key: str, table: MaterialsTable) -> Request:
+    taken = sorted(set[Input]().union(*(spec.takes for spec in SPECS)))
     try:
         material = table.get_material(material_key)
     except UnknownMaterial as error:
-        return _unknown_density(material_key, table, str(error))
-    density = material.density
-    if not isinstance(density, Cited):
-        reason = f"the materials table has no density for {material_key}: it says unknown"
-        return _unknown_density(material_key, table, reason)
-    wire: RequestWire = {
-        "density": {"kind": "known", "kg_per_mm3": density.magnitude_in("kg/mm^3")}
+        missing: ValueWire = {"kind": "unknown", "reason": str(error)}
+        return Request(_wire(dict.fromkeys(taken, missing)), material_key, {}, table.version)
+    reads = {wanted: read for wanted in taken if (read := _read(material, wanted)) is not None}
+    values: dict[str, ValueWire] = {
+        wanted: _value(material, wanted, reads.get(wanted)) for wanted in taken
     }
-    sent = TableRead(density.magnitude_in("kg/mm^3"), density.source)
-    return Request(wire, material_key, {"density": sent}, table.version)
+    return Request(_wire(values), material_key, reads, table.version)
 
 
-def _unknown_density(material_key: str, table: MaterialsTable, reason: str) -> Request:
-    return Request(
-        {"density": {"kind": "unknown", "reason": reason}}, material_key, {}, table.version
-    )
+def _read(material: Material, wanted: Input) -> TableRead | None:
+    cited = material.value(wanted)
+    if not isinstance(cited, Cited):
+        return None
+    return TableRead(cited.magnitude_in(WIRE_UNITS[wanted]), cited.source)
+
+
+def _value(material: Material, wanted: Input, read: TableRead | None) -> ValueWire:
+    if read is None:
+        reason = f"the materials table has no {wanted} for {material.key}: it says unknown"
+        return {"kind": "unknown", "reason": reason}
+    return {"kind": "known", "magnitude": read.magnitude}
+
+
+def _wire(values: dict[str, ValueWire]) -> RequestWire:
+    return {"checks": [spec.id for spec in SPECS], "values": values}
 
 
 @dataclass(frozen=True, slots=True)
@@ -181,11 +204,11 @@ def _problem(spec: CheckSpec, wire: ResultWire, request: Request) -> str | None:
             return f"{measured['name']} is in {measured['unit']!r}, not {spec.measures[name]!r}"
         if not math.isfinite(measured["magnitude"]):
             return f"{measured['name']} is not a finite number"
-        field = spec.reads.get(name)
-        if field is not None:
-            sent = request.reads.get(field)
+        read = spec.reads.get(name)
+        if read is not None:
+            sent = request.reads.get(read)
             if sent is None:
-                return f"{measured['name']} reads {field}, which the host sent no value for"
+                return f"{measured['name']} reads {read}, which the host sent no value for"
             if not math.isclose(measured["magnitude"], sent.magnitude, rel_tol=1e-9):
                 return (
                     f"{measured['name']} is {measured['magnitude']:g}, "
@@ -196,9 +219,9 @@ def _problem(spec: CheckSpec, wire: ResultWire, request: Request) -> str | None:
 
 def _result(spec: CheckSpec, wire: ResultWire, request: Request) -> CheckResult:
     rows = tuple(
-        request.reads[field].source
-        for field in dict.fromkeys(spec.reads.values())
-        if field in request.reads
+        request.reads[read].source
+        for read in dict.fromkeys(spec.reads.values())
+        if read in request.reads
     )
     return CheckResult(
         check_id=spec.id,

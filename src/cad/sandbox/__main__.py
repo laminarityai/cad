@@ -4,17 +4,19 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from cad.sandbox.host import run_checks
-from cad.sandbox.image import build_image
+from cad.sandbox.image import build_images
 from cad.sandbox.outcome import SandboxUnavailable
-from cad.variants.entry import VARIANTS_ROOT, VariantRefused
+from cad.variants.entry import VARIANTS_ROOT, StaleVariant, VariantRefused
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        prog="cad-sandbox", description="Manage the sandbox image and check stored variants."
+        prog="cad-sandbox", description="Manage the sandbox images and check stored variants."
     )
     commands = parser.add_subparsers(dest="command", required=True)
-    commands.add_parser("build-image", help="build the sandbox image unless the current one exists")
+    commands.add_parser(
+        "build-image", help="build the build and analysis images unless the current ones exist"
+    )
     checks = commands.add_parser(
         "run-checks",
         help="run the checks on a built variant and print the result",
@@ -30,9 +32,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             run = run_checks(str(args.variant_id), str(args.material_key), Path(str(args.root)))
             print(run.model_dump_json(indent=2))
         else:
-            print(build_image())
+            print(build_images())
     except VariantRefused as error:
-        print(f"{type(error).__name__}: {error}")
+        kind = StaleVariant if isinstance(error, StaleVariant) else type(error)
+        print(f"{kind.__name__}: {error}")
         return 1
     except SandboxUnavailable as error:
         print(error)

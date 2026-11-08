@@ -7,6 +7,7 @@ from collections.abc import Callable
 from typing import cast
 
 from cad.checks.container.check import Subject, finding
+from cad.checks.container.inputs import Inputs
 from cad.checks.container.kernel import (
     Kernel,
     Shape,
@@ -15,7 +16,7 @@ from cad.checks.container.kernel import (
     first_line,
     ocp_kernel,
 )
-from cad.checks.container.suite import CHECKS
+from cad.checks.container.suite import with_requirements
 from cad.checks.container.wire import (
     CheckedReport,
     FindingWire,
@@ -46,9 +47,10 @@ def main() -> None:
 def run(request: RequestWire, brep: bytes, kernel: Kernel, report_cap: int) -> CheckedReport:
     shape = kernel.read_brep(brep)
     results: list[ResultWire] = []
-    for check in CHECKS:
+    for check in with_requirements(request["checks"]):
         reported = {result["id"]: result for result in results}
-        subject = Subject(kernel, shape, request["density"], reported)
+        inputs = Inputs(check.TAKES, request["values"])
+        subject = Subject(kernel, shape, inputs, reported)
         results.append(_run_check(check.ID, check.run, subject))
     room = _step_room(results, report_cap)
     return {"kind": "checked", "results": results, "step": _step(kernel, shape, room)}

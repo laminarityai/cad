@@ -1,4 +1,6 @@
 import hashlib
+from collections.abc import Mapping
+from datetime import UTC, datetime
 from functools import cache
 from pathlib import Path
 
@@ -10,11 +12,20 @@ from provenance import (
     Unresolved,
     trace_card,
 )
+from pydantic import TypeAdapter
 from trace_store import SPEC_BY_ID
 
+from cad.briefs import store as briefs
+from cad.briefs.model import Confirmed, Decision, Target
+from cad.briefs.store import ConfirmedSet, Draft
 from cad.checks.report import SPECS, CheckSpec
 from cad.checks.result import CheckResult, Measure, StepStored, Verdict
-from cad.scorecard.model import Scorecard
+from cad.confirmations import answers
+from cad.confirmations.answers import ItemAnswer, PageAnswer
+from cad.records import signed
+from cad.records.roots import Roots
+from cad.scorecard.model import Basis, NoBrief, Scorecard
+from cad.scorecard.requirements import against
 from cad.scorecard.score import SCORECARD
 from cad.tables.materials import UNITS, Cited, MaterialsTable, load_materials
 
@@ -67,16 +78,71 @@ def genuine_card(**changes: object) -> Scorecard:
         variant_id=VARIANT_ID,
         material_key=KEY,
         table_version=table().version,
-        image_digest="sha256:" + "i" * 64,
+        check_image_digest="sha256:" + "i" * 64,
         brep_sha256=BREP_SHA,
         step=StepStored(sha256=STEP_SHA),
         results=tuple(genuine_result(spec) for spec in SPECS),
+        basis=NoBrief(),
     )
     return card.model_copy(update=changes)
 
 
+def roots_beside(store: Path) -> Roots:
+    return Roots(store.parent / "briefs", store.parent / "projects")
+
+
 def trace(card: Scorecard, root: Path) -> CardTrace:
-    return trace_card(card, root, table(), SPEC_BY_ID)
+    return trace_card(card, root, roots_beside(root), table(), SPEC_BY_ID)
+
+
+BRIEF_TEXT = "A plate under 150 g that fits in 120 x 80 x 40 mm and looks friendly"
+TARGET = TypeAdapter[Target](Target)
+
+
+def drafts(*rows: tuple[Mapping[str, object], str]) -> list[Draft]:
+    return [Draft(target=TARGET.validate_python(raw), quote=quote) for raw, quote in rows]
+
+
+def confirm(roots: Roots, brief_id: str, rows: list[Draft]) -> ConfirmedSet:
+    briefs.propose(roots, brief_id, rows)
+    state = briefs.read_state(roots, brief_id)
+    latest = state.proposals[-1]
+    number = latest.proposal.number
+    decision = Decision(
+        proposal=number,
+        brief_sha256=state.brief_sha256,
+        proposal_sha256=latest.sha256,
+        answer=Confirmed(),
+        decided_at=datetime.now(UTC),
+    )
+    path = roots.briefs / brief_id / briefs.DECISIONS / signed.slot_file(number)
+    record = decision.model_dump_json().encode()
+    assert signed.publish(
+        signed.Store(roots.briefs, "brief"), f"{brief_id}/decision/{number}", path, record
+    )
+    return _confirmed(roots, brief_id)
+
+
+def confirm_on_page(roots: Roots, brief_id: str, rows: list[Draft]) -> ConfirmedSet:
+    briefs.propose(roots, brief_id, rows)
+    state = briefs.read_state(roots, brief_id)
+    project = state.brief.project
+    item = ItemAnswer(item=state.proposals[-1].ref, verdict="confirmed")
+    page = PageAnswer(project=project, answers=(item,), decided_at=datetime.now(UTC))
+    assert answers.append_answer(roots.projects, project, page)
+    return _confirmed(roots, brief_id)
+
+
+def _confirmed(roots: Roots, brief_id: str) -> ConfirmedSet:
+    confirmed = briefs.confirmed_requirements(roots, brief_id)
+    assert confirmed is not None
+    return confirmed
+
+
+def judged_card(confirmed: ConfirmedSet) -> Scorecard:
+    card = genuine_card()
+    basis: Basis = against(confirmed)(card.results)
+    return card.model_copy(update={"basis": basis})
 
 
 def with_result(card: Scorecard, check_id: str, **changes: object) -> Scorecard:

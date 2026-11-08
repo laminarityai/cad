@@ -20,6 +20,8 @@ materials:
         standard: ISO 527-1
         quote: Tensile Yield Strength [MPa] 51 ± 3 59 ± 2 ISO 527-1
     tensile_strength: unknown
+    elastic_modulus: unknown
+    poisson_ratio: unknown
 
   - key: prusament-petg
     name: Prusament PETG
@@ -42,6 +44,8 @@ materials:
         standard: ISO 527-1
         quote: Tensile Yield Strength [MPa] 47 ± 2 50 ± 1 ISO 527-1
     tensile_strength: unknown
+    elastic_modulus: unknown
+    poisson_ratio: unknown
 
   - key: polymaker-polylite-abs
     name: Polymaker PolyLite ABS
@@ -64,6 +68,8 @@ materials:
         retrieved: 2026-11-05
         standard: ISO 527, GB/T 1040
         quote: Tensile strength (X-Y) ISO 527, GB/T 1040 33.4 ± 92.7 MPa
+    elastic_modulus: unknown
+    poisson_ratio: unknown
 
   - key: kaiser-6061-t6
     name: Kaiser Aluminum 6061-T6 sheet, coil and plate
@@ -94,6 +100,8 @@ materials:
         retrieved: 2026-11-05
         standard: null
         quote: T6, T651 45 310 40 276 17 95 30 207 14 97 10.0 68.3 (Tensile Ultimate KSI MPa, Yield KSI MPa)
+    elastic_modulus: unknown
+    poisson_ratio: unknown
 
   - key: cliffs-304
     name: Cleveland-Cliffs Type 304 stainless steel
@@ -124,6 +132,8 @@ materials:
         retrieved: 2026-11-05
         standard: null
         quote: UTS, ksi. (MPa) 0.2% YS, ksi. (MPa) ... Type 304 95 (655) 42 (290) 55 84
+    elastic_modulus: unknown
+    poisson_ratio: unknown
 
   - key: bambu-pla-basic
     name: Bambu Lab PLA Basic
@@ -146,6 +156,8 @@ materials:
         retrieved: 2026-11-07
         standard: ISO 527, GB/T 1040
         quote: Tensile Strength (X-Y) ISO 527, GB/T 1040 35 ± 4 MPa
+    elastic_modulus: unknown
+    poisson_ratio: unknown
 
   - key: bambu-petg-basic
     name: Bambu Lab PETG Basic
@@ -168,6 +180,8 @@ materials:
         retrieved: 2026-11-07
         standard: ISO 527, GB/T 1040
         quote: Tensile Strength (X-Y) ISO 527, GB/T 1040 51 ± 1 MPa
+    elastic_modulus: unknown
+    poisson_ratio: unknown
 
   - key: bambu-petg-hf
     name: Bambu Lab PETG HF
@@ -190,6 +204,8 @@ materials:
         retrieved: 2026-11-07
         standard: ISO 527, GB/T 1040
         quote: Tensile Strength (X-Y) ISO 527, GB/T 1040 34 ± 4 MPa
+    elastic_modulus: unknown
+    poisson_ratio: unknown
 
   - key: bambu-abs
     name: Bambu Lab ABS
@@ -212,6 +228,8 @@ materials:
         retrieved: 2026-11-07
         standard: ISO 527, GB/T 1040
         quote: Tensile Strength (X-Y) ISO 527, GB/T 1040 33 ± 3 MPa
+    elastic_modulus: unknown
+    poisson_ratio: unknown
 
   - key: bambu-asa
     name: Bambu Lab ASA
@@ -234,6 +252,8 @@ materials:
         retrieved: 2026-11-07
         standard: ISO 527, GB/T 1040
         quote: Tensile Strength (X-Y) ISO 527, GB/T 1040 37 ± 3 MPa
+    elastic_modulus: unknown
+    poisson_ratio: unknown
 
   - key: bambu-tpu-95a-hf
     name: Bambu Lab TPU 95A HF
@@ -256,6 +276,8 @@ materials:
         retrieved: 2026-11-07
         standard: ISO 527, GB/T 1040
         quote: Tensile Strength (X-Y) ISO 527, GB/T 1040 27.3 ± 0.8 MPa
+    elastic_modulus: unknown
+    poisson_ratio: unknown
 
   - key: polymaker-fiberon-pa6-cf20
     name: Polymaker Fiberon PA6-CF20
@@ -278,6 +300,8 @@ materials:
         retrieved: 2026-11-07
         standard: ISO 527, GB/T 1040
         quote: Tensile strength (X-Y) ISO 527, GB/T 1040 109.3 ± 2.4 MPa
+    elastic_modulus: unknown
+    poisson_ratio: unknown
 
   - key: polymaker-fiberon-pa12-cf10
     name: Polymaker Fiberon PA12-CF10
@@ -300,6 +324,8 @@ materials:
         retrieved: 2026-11-07
         standard: ISO 527, GB/T 1040
         quote: Tensile strength (X-Y) ISO 527, GB/T 1040 77.4 ± 1.1 MPa
+    elastic_modulus: unknown
+    poisson_ratio: unknown
 
   - key: bambu-pc
     name: Bambu Lab PC
@@ -322,6 +348,8 @@ materials:
         retrieved: 2026-11-07
         standard: ISO 527, GB/T 1040
         quote: Tensile Strength (X-Y) ISO 527, GB/T 1040 62 ± 2 MPa
+    elastic_modulus: unknown
+    poisson_ratio: unknown
 
   - key: polymaker-polymax-pc
     name: Polymaker PolyMax PC
@@ -344,6 +372,8 @@ materials:
         retrieved: 2026-11-07
         standard: ISO 527, GB/T 1040
         quote: Tensile strength (X-Y) ISO 527, GB/T 1040 53.44 ± 0.60 MPa
+    elastic_modulus: unknown
+    poisson_ratio: unknown
 
   - key: bambu-pla-cf
     name: Bambu Lab PLA-CF
@@ -366,6 +396,8 @@ materials:
         retrieved: 2026-11-07
         standard: ISO 527, GB/T 1040
         quote: Tensile Strength (X-Y) ISO 527, GB/T 1040 38 ± 4 MPa
+    elastic_modulus: unknown
+    poisson_ratio: unknown
 
   - key: bambu-petg-cf
     name: Bambu Lab PETG-CF
@@ -388,6 +420,8 @@ materials:
         retrieved: 2026-11-07
         standard: ISO 527, GB/T 1040
         quote: Tensile Strength (X-Y) ISO 527, GB/T 1040 35 ± 5 MPa
+    elastic_modulus: unknown
+    poisson_ratio: unknown
 
   - key: formlabs-clear-resin-v5
     name: Formlabs Clear Resin V5
@@ -410,6 +444,8 @@ materials:
         retrieved: 2026-11-07
         standard: ASTM D638-14
         quote: Ultimate Tensile Strength 60 MPa (8702 psi) 58 MPa (8410 psi) ASTM D638-14
+    elastic_modulus: unknown
+    poisson_ratio: unknown
 
   - key: kaiser-7075-t6
     name: Kaiser Aluminum 7075-T6 rod and bar
@@ -440,6 +476,8 @@ materials:
         retrieved: 2026-11-07
         standard: null
         quote: T6, T651 83 572 73 503 11 150 48 331 23 158 10.3 71.0
+    elastic_modulus: unknown
+    poisson_ratio: unknown
 
   - key: cliffs-316
     name: Cleveland-Cliffs Type 316/316L stainless steel
@@ -470,6 +508,8 @@ materials:
         retrieved: 2026-11-07
         standard: null
         quote: UTS, ksi. (MPa) 0.2% YS, ksi. (MPa) Elongation % in 2 in. (50.8 mm) Rockwell Hardness, B 91 (627) 42 (290) 55 79
+    elastic_modulus: unknown
+    poisson_ratio: unknown
 
   - key: cliffs-hot-rolled-cs-type-b
     name: Cleveland-Cliffs hot-rolled Commercial Steel (CS Type B) mild steel sheet
@@ -500,6 +540,8 @@ materials:
         retrieved: 2026-11-07
         standard: null
         quote: Commercial Steel (CS T ype B) May be moderately formed. A specimen out in any direction can be bent flat on itself without cracking. 36 248 51 351 37 B61
+    elastic_modulus: unknown
+    poisson_ratio: unknown
 
   - key: wieland-z23-r400
     name: Wieland-Z23 free-machining brass (CuZn36Pb3, UNS C36000), temper R400 round rod
@@ -530,6 +572,8 @@ materials:
         retrieved: 2026-11-07
         standard: EN 12164
         quote: R400 2 25 2 20 400 200
+    elastic_modulus: unknown
+    poisson_ratio: unknown
 
   - key: aurubis-c11000-h02
     name: Aurubis C11000 (Cu-ETP) copper, temper H02 (1/2 hard) strip
@@ -544,6 +588,8 @@ materials:
         quote: Density [lb/in³] [g/cm³] Specific heat cap. at 20°C [Btu/lb°F] [kJ/kgK] Electrical cond. [%IACS] [MS/m] Thermal cond. at 20°C [Btu/ft h °F] [W/mK] Mod. of elasticity x1000 ksi [GPa] Coef. of therm exp. at 20°C [10-6/°F] [10-6/K] 1981 1083 0.323 8.9
     yield_strength: unknown
     tensile_strength: unknown
+    elastic_modulus: unknown
+    poisson_ratio: unknown
 
   - key: plexiglas-gs-0f00
     name: PLEXIGLAS GS clear 0F00 cast acrylic (PMMA) sheet
@@ -566,6 +612,8 @@ materials:
         retrieved: 2026-11-07
         standard: ISO 527-2/1B/5
         quote: Tensile strength σM MPa ISO 527-2/1B/5 – 40 °C 110 100 - 23 °C 80 72
+    elastic_modulus: unknown
+    poisson_ratio: unknown
 
   - key: plexiglas-xt-0a000
     name: PLEXIGLAS XT clear 0A000 extruded acrylic (PMMA) sheet
@@ -588,6 +636,8 @@ materials:
         retrieved: 2026-11-07
         standard: ISO 527-2/1B/5
         quote: Tensile strength σM MPa ISO 527-2/1B/5 – 40 °C 110 100 - 23 °C 80 72
+    elastic_modulus: unknown
+    poisson_ratio: unknown
 
   - key: mcam-ertacetal-c
     name: Mitsubishi Chemical Advanced Materials Acetron GP / Ertacetal C POM-C (acetal copolymer) stock shapes
@@ -602,6 +652,8 @@ materials:
         quote: Density ISO 1183-1 g/cm³ 1.41
     yield_strength: unknown
     tensile_strength: unknown
+    elastic_modulus: unknown
+    poisson_ratio: unknown
 
   - key: plaskolite-tuffak-gp
     name: Plaskolite TUFFAK GP polycarbonate sheet
@@ -632,3 +684,5 @@ materials:
         retrieved: 2026-11-07
         standard: ASTM D 638
         quote: Tensile Strength, Ultimate ASTM D 638 MPa 66
+    elastic_modulus: unknown
+    poisson_ratio: unknown

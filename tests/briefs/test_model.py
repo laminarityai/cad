@@ -6,16 +6,20 @@ from pydantic import TypeAdapter, ValidationError
 from cad.briefs.model import (
     BriefId,
     BriefSpan,
-    Comparator,
     Envelope,
     Kind,
+    Limit,
     Requirement,
     RequirementId,
     Target,
-    comparator,
     deciding_check,
     describe,
+    limits,
 )
+from cad.checks.container import extents
+from cad.checks.report import SPECS
+from cad.checks.result import Comparator
+from cad.tables.materials import UNITS
 
 TARGET = TypeAdapter[Target](Target)
 
@@ -74,32 +78,78 @@ def test_every_kind_has_one_deciding_check_or_is_unverified() -> None:
 
 
 @pytest.mark.parametrize(
-    ("raw", "expected", "words"),
+    ("raw", "words"),
     [
-        ({"kind": "closed_solid"}, None, "The part is one closed solid"),
-        ({"kind": "max_mass", "mass": grams(150)}, Comparator.AT_MOST, "Mass at most 150 g"),
-        (
-            {"kind": "min_mass", "mass": grams(0.2, "kg")},
-            Comparator.AT_LEAST,
-            "Mass at least 0.2 kg",
-        ),
+        ({"kind": "closed_solid"}, "The part is one closed solid"),
+        ({"kind": "max_mass", "mass": grams(150)}, "Mass at most 150 g"),
+        ({"kind": "min_mass", "mass": grams(0.2, "kg")}, "Mass at least 0.2 kg"),
         (
             {"kind": "envelope", "edges": [grams(40, "mm"), grams(120, "mm"), grams(80, "mm")]},
-            Comparator.AT_MOST,
             "Fits inside a box of 120 mm x 80 mm x 40 mm",
         ),
-        ({"kind": "unchecked", "statement": "holds a 2 kg shelf"}, None, "holds a 2 kg shelf"),
+        ({"kind": "unchecked", "statement": "holds a 2 kg shelf"}, "holds a 2 kg shelf"),
     ],
 )
-def test_a_requirement_reads_in_plain_words_with_the_comparator_its_kind_fixes(
-    raw: dict[str, Any], expected: Comparator | None, words: str
-) -> None:
-    parsed = target(raw)
+def test_a_requirement_reads_in_plain_words(raw: dict[str, Any], words: str) -> None:
     requirement = Requirement(
         id=RequirementId("0" * 16),
         brief_id=BriefId("1" * 16),
-        target=parsed,
+        target=target(raw),
         origin=BriefSpan(start=0, end=1),
     )
-    assert comparator(parsed) == expected
     assert describe(requirement) == words
+
+
+def q(magnitude: float, unit: str) -> object:
+    return UNITS.Quantity(magnitude, unit)
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ({"kind": "closed_solid"}, []),
+        ({"kind": "unchecked", "statement": "holds a shelf"}, []),
+        ({"kind": "max_mass", "mass": grams(150)}, [("mass", Comparator.AT_MOST, q(150, "g"))]),
+        (
+            {"kind": "min_mass", "mass": grams(0.2, "kg")},
+            [("mass", Comparator.AT_LEAST, q(0.2, "kg"))],
+        ),
+        (
+            {"kind": "envelope", "edges": [grams(4, "cm"), grams(120, "mm"), grams(80, "mm")]},
+            [
+                ("sorted_extent:largest", Comparator.AT_MOST, q(120, "mm")),
+                ("sorted_extent:middle", Comparator.AT_MOST, q(80, "mm")),
+                ("sorted_extent:smallest", Comparator.AT_MOST, q(4, "cm")),
+            ],
+        ),
+    ],
+)
+def test_each_kind_names_the_measures_it_is_held_to_and_the_confirmed_quantity(
+    raw: dict[str, Any], expected: list[tuple[str, Comparator, object]]
+) -> None:
+    assert [(one.measure, one.comparator, one.quantity) for one in limits(target(raw))] == expected
+
+
+EXAMPLES: dict[Kind, dict[str, Any]] = {
+    Kind.CLOSED_SOLID: {"kind": "closed_solid"},
+    Kind.MAX_MASS: {"kind": "max_mass", "mass": grams(150)},
+    Kind.MIN_MASS: {"kind": "min_mass", "mass": grams(10)},
+    Kind.ENVELOPE: {"kind": "envelope", "edges": [grams(1, "mm"), grams(2, "mm"), grams(3, "mm")]},
+    Kind.UNCHECKED: {"kind": "unchecked", "statement": "holds a shelf"},
+}
+
+
+def test_every_deciding_check_and_every_limit_names_a_registered_check_and_its_measure() -> None:
+    measures = {spec.id: spec.measures for spec in SPECS}
+    assert set(EXAMPLES) == set(Kind)
+    for kind, raw in EXAMPLES.items():
+        check_id = deciding_check(kind)
+        held: tuple[Limit, ...] = limits(target(raw))
+        if check_id is None:
+            assert held == ()
+            continue
+        assert check_id in measures, f"{kind} is decided by {check_id}, which is not registered"
+        for one in held:
+            base, _, part = one.measure.partition(":")
+            assert base in measures[check_id], f"{check_id} declares no measure {base!r}"
+            assert not part or part in extents.SORTED_NAMES, f"{one.measure} is never measured"
