@@ -1,6 +1,18 @@
+"""The grammar a quote must fit. Every token must be accounted for, or the quote is refused.
+
+    quote     = (value | label | standard | condition | separator)*
+    value     = number [± tolerance] unit | unit number [± tolerance]
+    unit      = one of the field's listed units
+    label     = density, typical, nominal, value, and the word for density in a few languages
+    standard  = ISO, ASTM, DIN, or GB/T followed by its number
+    condition = "at" or "@" and a temperature or a pressure, or "% RH"
+
+Anything else is left over, and the caller refuses the quote because of it.
+"""
+
 import re
 from dataclasses import dataclass
-from typing import Final
+from typing import Final, Literal
 
 import pint
 
@@ -22,145 +34,140 @@ _VOLUME_UNITS: Final = {
 }
 
 _LENGTH = r"(?:cm|dm|m|in|ft)"
-_UNIT = re.compile(
-    r"(?<![A-Za-z])(?P<mass>kg|mg|g|t|tonnes?|lbs?\.?)"
-    rf"(?:\s*/\s*(?P<volume>{_LENGTH}\.?\^?3|cc|ml|l)|[·*]?\s*(?P<negative>{_LENGTH})\s*-\s*3)"
-    r"(?![A-Za-z0-9^])",
-    re.IGNORECASE,
+_UNIT_NAMED = (
+    r"(?<![A-Za-z])(?i:(?P<mass>kg|mg|g|t|tonnes?|lbs?\.?)"
+    rf"(?:\s*/\s*(?P<volume>{_LENGTH}\.?\^?3|cc|ml|l)|[·* ]?(?P<negative>{_LENGTH})-3))"
+    r"(?![A-Za-z0-9^/-])"
 )
-_NUMBER = re.compile(r"\d[\d.,]*\d|\d")
-_GROUP = re.compile(r"[ \u00a0\u202f](\d{3})(?![\d]|[.,]\d)")
-_LETTERS = re.compile(r"[a-z]+")
-_WORD = re.compile(r"[^\s\d\[\]()]+")
-_RUN = re.compile(r"[^\s\[\]()]+")
-_NOT_UNITS: Final = frozenset({"at", "a", "as", "to", "or", "by", "is", "of", "per", "no"})
+_UNIT_PLAIN = re.sub(r"\(\?P<\w+>", "(?:", _UNIT_NAMED)
+_UNIT = re.compile(_UNIT_NAMED)
 
-BOUND_WORDS: Final = frozenset({"<", ">", "≤", "≥", "max", "min", "maximum", "minimum"})
+_NUM = r"(?:\d{1,3}(?:[ \u00a0\u202f]\d{3})+(?!\d)(?:[.,]\d+)?|\d+(?:[.,]\d+)*)"
+_TOL = r"(?:±|\+/-|\+-)"
+_SEPARATORS = r",;:()=\[\]"
+
+_SUFFIX = re.compile(
+    rf"(?P<n>{_NUM})\s*(?:(?P<u1>{_UNIT_PLAIN})(?:\s*{_TOL}\s*{_NUM}\s*(?:(?P<u2>{_UNIT_PLAIN})|%)?)?"
+    rf"|{_TOL}\s*{_NUM}\s*%?\s*(?P<u3>{_UNIT_PLAIN}))"
+)
+_PREFIX = re.compile(
+    rf"(?:\[(?P<bu>{_UNIT_PLAIN})\]|(?P<pu>{_UNIT_PLAIN}))\s*(?P<n>{_NUM})(?:\s*{_TOL}\s*{_NUM}\s*%?)?"
+)
+_STANDARD = re.compile(
+    r"(?<![A-Za-z0-9.,])(?:ISO\s*\d{3,5}(?:-\d+)?(?::\d{4})?|ASTM\s*[A-Z]\d+(?:-\d+)?"
+    r"|DIN(?:\s*EN)?(?:\s*ISO)?\s*\d+(?:-\d+)?|GB/T\s*\d+(?:-\d+)?)(?![\d.,]\d|\d|[A-Za-z])"
+)
+_CONDITION = re.compile(
+    rf"(?<![A-Za-z])(?i:at|@)\s*{_NUM}\s*(?:(?:[°º]\s?)?[CF]|K|bar|atm|kPa|MPa|Pa|psi)(?![A-Za-z])"
+    rf"|(?<![A-Za-z]){_NUM}\s*%\s*RH(?![A-Za-z])"
+)
+_LABEL = re.compile(
+    r"(?<![A-Za-z])(?i:mass\s+density|density|typical|nominal|value|densidad|dichte|densité)"
+    r"(?![A-Za-z])|\u03c1"
+)
+_SEPARATOR = re.compile(rf"[{_SEPARATORS}]")
+_NUMBER = re.compile(_NUM)
+_WORD_AFTER_NUMBER = re.compile(rf"\s*(?P<unit>[A-Za-z][^\s{_SEPARATORS}]*)")
+_RUN = re.compile(rf"[^\s{_SEPARATORS}]+")
+_SPACE_GROUPS = re.compile(r"(\d{1,3}(?:[ \u00a0\u202f]\d{3})+)(?:[.,](\d+))?")
 
 
 @dataclass(frozen=True, slots=True)
-class Number:
-    start: int
-    end: int
-    values: tuple[float, ...]
-
-
-@dataclass(frozen=True, slots=True)
-class Unit:
-    start: int
-    end: int
+class Value:
+    readings: tuple[float, ...]
     unit: pint.Unit
-    fits: bool
-    bracketed: bool
+    shown: str
 
 
 @dataclass(frozen=True, slots=True)
-class Word:
-    start: int
-    end: int
+class Leftover:
+    kind: Literal["number", "unit_text", "other"]
     text: str
+    unit_text: str = ""
+
+    @property
+    def shown(self) -> str:
+        return f"{self.text} {self.unit_text}".strip()
 
 
-type Item = Number | Unit | Word
-
-
-def scan(text: str, spec: FieldSpec) -> list[Item] | Refusal:
-    items: list[Item] = []
+def scan(text: str, spec: FieldSpec) -> list[Value | Leftover] | Refusal:
+    tokens: list[Value | Leftover] = []
     position = 0
     while position < len(text):
-        char = text[position]
-        if char.isspace() or char in "()]":
+        if text[position].isspace():
             position += 1
             continue
-        step = _next_item(text, position, items, spec)
-        if isinstance(step, Refusal):
-            return step
-        item, position = step
-        if item is not None:
-            items.append(item)
-    return items
+        found = _value_at(text, position, spec)
+        if isinstance(found, Refusal):
+            return found
+        if found is not None:
+            value, position = found
+            if value is not None:
+                tokens.append(value)
+            continue
+        leftover, position = _leftover_at(text, position)
+        tokens.append(leftover)
+    return tokens
 
 
-def _next_item(
-    text: str, position: int, items: list[Item], spec: FieldSpec
-) -> tuple[Item | None, int] | Refusal:
-    char = text[position]
-    if char == "[":
-        close = text.find("]", position)
-        inner = text[position + 1 : close] if close > position else ""
-        listed = _UNIT.fullmatch(inner) if inner and not inner.isspace() else None
-        if listed is None:
-            return None, position + 1
-        unit = _listed_unit(listed, spec)
-        if isinstance(unit, Refusal):
-            return unit
-        return Unit(position, close + 1, unit, True, True), close + 1
-    if char.isdigit():
-        return _number(text, position)
-    listed = _UNIT.match(text, position)
-    if listed is not None:
-        unit = _listed_unit(listed, spec)
-        if isinstance(unit, Refusal):
-            return unit
-        return Unit(position, listed.end(), unit, True, False), listed.end()
-    after_number = (
-        bool(items) and isinstance(items[-1], Number) and not text[items[-1].end : position].strip()
-    )
-    if after_number:
-        other = _other_unit(text, position, spec)
-        if other is not None:
-            return other
-    word = _WORD.match(text, position)
-    assert word is not None
-    return Word(position, word.end(), word[0]), word.end()
+def _value_at(
+    text: str, position: int, spec: FieldSpec
+) -> tuple[Value | None, int] | Refusal | None:
+    for accounted in (_STANDARD, _CONDITION):
+        found = accounted.match(text, position)
+        if found is not None:
+            return None, found.end()
+    for pattern in (_SUFFIX, _PREFIX):
+        found = pattern.match(text, position)
+        if found is not None:
+            value = _value(found, spec)
+            return (value, found.end()) if isinstance(value, Value) else value
+    for accounted in (_LABEL, _SEPARATOR):
+        found = accounted.match(text, position)
+        if found is not None:
+            return None, found.end()
+    return None
 
 
-def _number(text: str, position: int) -> tuple[Number, int] | Refusal:
-    token = _NUMBER.match(text, position)
-    assert token is not None
-    end = token.end()
-    grouped: list[float] | None = None
-    if re.fullmatch(r"\d{1,3}", token[0]):
-        digits = token[0]
-        while (group := _GROUP.match(text, end)) is not None:
-            digits += group[1]
-            end = group.end()
-            grouped = [float(digits), float(group[1])]
-    values = tuple(grouped) if grouped else _readings(token[0])
-    if not values:
-        return Refusal(
-            Reason.AMBIGUOUS_NUMBER,
-            f"{token[0]!r} cannot be read as one number",
-            "the number written with one decimal point and no grouping",
-        )
-    return Number(position, end, values), end
+def _value(found: re.Match[str], spec: FieldSpec) -> Value | Refusal:
+    groups = found.groupdict()
+    unit_text = groups.get("u1") or groups.get("u3") or groups.get("bu") or groups.get("pu") or ""
+    unit = _unit(unit_text, spec)
+    if isinstance(unit, Refusal):
+        return unit
+    if groups.get("u2"):
+        tolerance = _unit(groups["u2"], spec)
+        if isinstance(tolerance, Refusal) or tolerance != unit:
+            return Refusal(
+                Reason.UNRECOGNISED_TEXT,
+                f"the tolerance in {found[0]!r} has a different unit from the value",
+                f"a quote whose tolerance is unitless or in the unit of the {spec.label}",
+            )
+    return Value(_readings(groups["n"]), unit, found[0].strip())
 
 
-def _readings(token: str) -> tuple[float, ...]:
-    dots, commas = token.count("."), token.count(",")
-    if dots and commas:
-        decimal = "." if token.rfind(".") > token.rfind(",") else ","
-        thousands = "," if decimal == "." else "."
-        whole, _, fraction = token.rpartition(decimal)
-        if not re.fullmatch(rf"\d{{1,3}}(?:\{thousands}\d{{3}})*", whole):
-            return ()
-        return (float(whole.replace(thousands, "") + "." + fraction),)
-    separator = "." if dots else ","
-    parts = token.split(separator)
-    if len(parts) > 2:
-        grouped = len(parts[0]) <= 3 and all(len(part) == 3 for part in parts[1:])
-        return (float("".join(parts)),) if grouped and parts[0][0] != "0" else ()
-    if len(parts) == 2:
-        decimal = float(f"{parts[0]}.{parts[1]}")
-        if len(parts[1]) == 3 and 1 <= len(parts[0]) <= 3 and parts[0][0] != "0":
-            return (float("".join(parts)), decimal)
-        return (decimal,)
-    return (float(token),)
+def _leftover_at(text: str, position: int) -> tuple[Leftover, int]:
+    if text[position].isdigit():
+        number = _NUMBER.match(text, position)
+        assert number is not None
+        word = _WORD_AFTER_NUMBER.match(text, number.end())
+        if word is not None and not _is_accounted_word(text, word.start("unit")):
+            return Leftover("unit_text", number[0], word["unit"]), word.end()
+        return Leftover("number", number[0]), number.end()
+    run = _RUN.match(text, position)
+    assert run is not None
+    return Leftover("other", run[0]), run.end()
 
 
-def _listed_unit(found: re.Match[str], spec: FieldSpec) -> pint.Unit | Refusal:
+def _is_accounted_word(text: str, position: int) -> bool:
+    return any(p.match(text, position) for p in (_STANDARD, _CONDITION, _LABEL, _UNIT))
+
+
+def _unit(text: str, spec: FieldSpec) -> pint.Unit | Refusal:
+    found = _UNIT.fullmatch(text)
+    assert found is not None
     mass = found["mass"]
-    letters = _LETTERS.match((found["volume"] or found["negative"]).lower())
+    letters = re.match(r"[a-z]+", (found["volume"] or found["negative"]).lower())
     assert letters is not None
     volume = letters[0]
     name = mass.rstrip(".").lower()
@@ -171,51 +178,62 @@ def _listed_unit(found: re.Match[str], spec: FieldSpec) -> pint.Unit | Refusal:
     if key is None:
         return Refusal(
             Reason.UNKNOWN_UNIT,
-            f"{found[0]!r} could be milligrams or megagrams, so the unit is not read",
+            f"{text!r} could be milligrams or megagrams, so the unit is not read",
             "the quote with the unit written as kg/m3 or g/cm3, or the unit typed on the page",
         )
     if (key, volume) not in spec.units:
-        return Refusal(
-            Reason.UNKNOWN_UNIT,
-            f"{found[0]!r} is not a {spec.label} unit this reader knows",
-            f"the unit of the {spec.label} on the page, written as g/cm3 or kg/m3",
-        )
+        return unlisted_unit(text, spec)
     return UNITS.Unit(f"{_MASS_UNITS[key]}/{_VOLUME_UNITS[volume]}")
 
 
-def _other_unit(text: str, position: int, spec: FieldSpec) -> tuple[Unit, int] | Refusal | None:
-    run = _RUN.match(text, position)
-    assert run is not None
-    word = run[0]
-    if word.lower().rstrip(".,") in _NOT_UNITS | BOUND_WORDS:
-        return None
-    unit = _pint_unit(word)
-    if unit is None:
-        if word[0].isascii() and word[0].isalpha() and "/" in word:
-            return _unknown(word, spec)
-        return None
-    if unit.is_compatible_with(spec.canonical_unit):
-        return _unknown(word, spec)
-    return Unit(position, run.end(), unit, False, False), run.end()
-
-
-def _unknown(word: str, spec: FieldSpec) -> Refusal:
+def unlisted_unit(text: str, spec: FieldSpec) -> Refusal:
+    known = _pint_unit(text)
+    needed = f"the unit of the {spec.label} on the page, written as g/cm3 or kg/m3"
+    if known is not None and not known.is_compatible_with(spec.canonical_unit):
+        return Refusal(
+            Reason.WRONG_DIMENSION,
+            f"{text!r} measures {known.dimensionality}, not {spec.label}",
+            needed,
+        )
     return Refusal(
-        Reason.UNKNOWN_UNIT,
-        f"{word!r} is not a {spec.label} unit this reader knows",
-        f"the unit of the {spec.label} on the page, written as g/cm3 or kg/m3",
+        Reason.UNKNOWN_UNIT, f"{text!r} is not a {spec.label} unit this reader knows", needed
     )
 
 
-def _pint_unit(token: str) -> pint.Unit | None:
-    text = token.strip("[],;:")
-    for old, new in (("°C", "degC"), ("ºC", "degC"), ("°F", "degF"), ("ºF", "degF")):
-        text = text.replace(old, new)
-    text = re.sub(r"\blbs?\b", "lb", text)
-    text = re.sub(r"\.(?=[/\d])", "", text).rstrip(".")
-    text = re.sub(r"([A-Za-z])(\d+)(?!\d)", r"\1^\2", text)
+def _pint_unit(text: str) -> pint.Unit | None:
+    cleaned = re.sub(r"\blbs?\b", "lb", text.strip(".,"))
+    cleaned = re.sub(r"\.(?=[/\d])", "", cleaned)
+    cleaned = re.sub(r"([A-Za-z])(\d+)(?!\d)", r"\1^\2", cleaned)
     try:
-        unit = UNITS.Unit(text)
+        unit = UNITS.Unit(cleaned)
     except Exception:  # pint raises many unrelated types on arbitrary datasheet text
         return None
-    return None if not text or unit.dimensionless else unit
+    return None if unit.dimensionless else unit
+
+
+def _readings(token: str) -> tuple[float, ...]:
+    grouped = _SPACE_GROUPS.fullmatch(token)
+    if grouped is not None:
+        groups = re.split(r"[ \u00a0\u202f]", grouped[1])
+        whole = float("".join(groups))
+        if grouped[2]:
+            return (float(f"{whole:.0f}.{grouped[2]}"),)
+        return (whole, float(groups[-1]))
+    parts = re.split(r"[.,]", token)
+    if len(parts) == 1:
+        return (float(token),)
+    separators = set(re.findall(r"[.,]", token))
+    if len(separators) == 2:
+        decimal = "." if token.rfind(".") > token.rfind(",") else ","
+        whole_text, _, fraction = token.rpartition(decimal)
+        whole_parts = re.split(r"[.,]", whole_text)
+        if len(whole_parts[0]) > 3 or any(len(p) != 3 for p in whole_parts[1:]):
+            return ()
+        return (float("".join(whole_parts) + "." + fraction),)
+    if len(parts) > 2:
+        grouped_digits = len(parts[0]) <= 3 and all(len(p) == 3 for p in parts[1:])
+        return (float("".join(parts)),) if grouped_digits and parts[0][0] != "0" else ()
+    decimal_reading = float(f"{parts[0]}.{parts[1]}")
+    if len(parts[1]) == 3 and 1 <= len(parts[0]) <= 3 and parts[0][0] != "0":
+        return (float("".join(parts)), decimal_reading)
+    return (decimal_reading,)
