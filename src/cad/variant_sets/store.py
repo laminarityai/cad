@@ -101,12 +101,29 @@ def _record(code: str, built_as: VariantId, key: SetKey) -> bytes:
 def members(root: Path, key: SetKey) -> tuple[Member, ...]:
     directory = _directory(root, key)
     with _without_host_paths(key, directory):
+        _refuse_the_old_layout(root, key)
         if not signed.is_directory(directory):
             return ()
         records = signed.read_numbered(project_store(root), directory, _member_slot(key))
     if records is None:
         raise TamperedSet(_report(key, directory))
     return _parse(key, directory, records)
+
+
+def _refuse_the_old_layout(root: Path, key: SetKey) -> None:
+    """Sets from before each brief had its own directory sit at <project>/sets/<decision>/members.
+
+    This version does not read them, so it refuses rather than ignore them without a word.
+    """
+    sets = root / key.project / "sets"
+    old = min(sets.glob("*/members"), default=None) if signed.is_directory(sets) else None
+    if old is None:
+        return
+    LOG.error("%s holds variant sets in a layout this version does not read", old)
+    raise SetRefused(
+        f"the project store holds variant sets in an old layout, at {old.relative_to(root)}, "
+        "which this version does not read; the operator must move or delete that directory"
+    )
 
 
 def _parse(key: SetKey, directory: Path, records: tuple[bytes, ...]) -> tuple[Member, ...]:

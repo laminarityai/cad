@@ -8,7 +8,14 @@ from cad.briefs.model import BriefId
 from cad.checks import report
 from cad.projects.model import ProjectId
 from cad.variant_sets import store
-from cad.variant_sets.model import MAX_MEMBERS, Joined, SetFull, SetKey, TamperedSet
+from cad.variant_sets.model import (
+    MAX_MEMBERS,
+    Joined,
+    SetFull,
+    SetKey,
+    SetRefused,
+    TamperedSet,
+)
 from cad.variants import entry
 from cad.variants.entry import VariantId
 
@@ -73,6 +80,19 @@ def test_a_set_that_filled_while_building_names_the_built_variant(tmp_path: Path
 
 def test_a_set_has_no_members_until_one_joins(tmp_path: Path) -> None:
     assert store.members(tmp_path, KEY) == ()
+
+
+def test_a_set_saved_under_the_old_layout_is_refused_by_name(
+    tmp_path: Path, caplog: pytest.LogCaptureFixture
+) -> None:
+    old = tmp_path / KEY.project / "sets" / ("7" * 64) / "members"
+    old.mkdir(parents=True)
+    (old / "0001.signed").write_bytes(b"x")
+    with pytest.raises(SetRefused) as refused:
+        store.members(tmp_path, KEY)
+    assert f"{KEY.project}/sets/{'7' * 64}/members" in str(refused.value)
+    assert str(tmp_path) not in str(refused.value)
+    assert str(old) in caplog.text
 
 
 def test_a_tampered_member_names_the_brief_and_no_host_path(
