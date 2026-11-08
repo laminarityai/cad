@@ -9,11 +9,11 @@ What the user asks for, in their own words, together with any images, drawings o
 _Avoid_: Spec, prompt, request
 
 **Project**:
-Everything gathered for one job: one or more briefs, their sources, and the context parts a new part must fit. A brief is created in one project and never moves to another. Variant sets, confirmed table values and the user's reviews of agent-written checks belong to the project.
+Everything gathered for one job: one or more briefs, their sources, and the context parts a new part must fit. A brief is created in one project and never moves to another. Confirmed table values and the user's reviews of agent-written checks belong to the project.
 _Avoid_: Workspace, job, design
 
 **Context part**:
-An existing CAD part that belongs to a project and describes the system a new part must fit into, such as a rail it clips onto. It is not a variant: no one designs it here, and checks only measure against it.
+An existing CAD part, uploaded or read from a CAD tool, that a person confirmed into a project, such as a rail a new part clips onto. Checks measure new parts against it, and an edit may produce a new part from it.
 _Avoid_: Assembly, reference model, fixture
 
 **Requirement**:

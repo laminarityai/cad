@@ -32,3 +32,23 @@ async def test_a_second_brief_joins_the_project_the_first_one_started(tmp_path: 
     )
     assert unknown.is_error
     assert "UnknownProject: no project p-0000000000000000 is stored" in unknown.content[0].text
+
+
+@pytest.mark.parametrize(
+    ("project_id", "refusal"),
+    [
+        ("pb-" + "0" * 16, "UnknownProject: project pb-0000000000000000 holds only the brief"),
+        ("../briefs", "String should match pattern"),
+        ("p-" + "0" * 400, "String should have at most 19 characters"),
+    ],
+)
+async def test_create_brief_refuses_a_project_it_cannot_join(
+    tmp_path: Path, project_id: str, refusal: str
+) -> None:
+    async with Client(build_server(briefs_root=tmp_path)) as client:
+        result: Any = await client.call_tool(
+            "create_brief", {"text": "a hook", "project_id": project_id}
+        )
+    assert result.is_error
+    assert refusal in result.content[0].text
+    assert list(tmp_path.iterdir()) == []

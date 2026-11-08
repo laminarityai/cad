@@ -20,6 +20,7 @@ from cad.briefs.model import (
 )
 from cad.briefs.store import BriefState, ProposalState, Status
 from cad.projects.membership import project_for_new_brief
+from cad.projects.model import PROJECT_ID, PROJECT_ID_CHARS
 from cad.server.refusals import agent_facing
 
 PLAN_MODE = (
@@ -144,7 +145,9 @@ def _view(state: BriefState, proposed: ProposalState) -> ProposalView:
 def brief_tools(root: Path, desk: Desk) -> list[Tool]:
     def create_brief(
         text: Annotated[str, Field(min_length=1, max_length=MAX_BRIEF_CHARS)],
-        project_id: str | None = None,
+        project_id: Annotated[
+            str | None, Field(max_length=PROJECT_ID_CHARS, pattern=PROJECT_ID.pattern)
+        ] = None,
     ) -> BriefCreated:
         with agent_facing():
             project = project_for_new_brief(root, project_id)
@@ -179,11 +182,10 @@ def brief_tools(root: Path, desk: Desk) -> list[Tool]:
     def list_requirements(brief_id: str) -> BriefView:
         with agent_facing():
             state = store.read_state(root, brief_id)
-            project = store.project_of(root, brief_id)
         confirmed = state.confirmed
         return BriefView(
             brief_id=state.brief.id,
-            project_id=project,
+            project_id=state.brief.project,
             text=state.brief.text,
             proposals=[_view(state, p) for p in state.proposals],
             confirmed_proposal=confirmed.proposal.number if confirmed else None,

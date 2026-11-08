@@ -23,6 +23,7 @@ from pydantic import (
 )
 
 from cad.checks.result import Comparator, Measured
+from cad.projects.model import NEW_PROJECT_ID, NewProjectId, ProjectId, legacy_project
 
 BriefId = NewType("BriefId", str)
 RequirementId = NewType("RequirementId", str)
@@ -178,6 +179,12 @@ class Brief(_Frozen):
     id: BriefId
     text: Annotated[str, Field(min_length=1, max_length=MAX_BRIEF_CHARS)]
     created_at: datetime
+    project_id: Annotated[NewProjectId, Field(pattern=NEW_PROJECT_ID.pattern)] | None = None
+
+    @property
+    def project(self) -> ProjectId:
+        """A brief stored before projects has no project_id and is alone in pb-<brief_id>."""
+        return legacy_project(self.id) if self.project_id is None else self.project_id
 
 
 class Requirement(_Frozen):

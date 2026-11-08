@@ -9,10 +9,12 @@ basis is trusted: it is re-derived.
 from dataclasses import dataclass
 from pathlib import Path
 
+import pint
+
 from cad.briefs import store
 from cad.briefs.model import Requirement
-from cad.briefs.records import BriefStoreUnusable
 from cad.briefs.store import BriefRefused, BriefState, Status
+from cad.records.signed import StoreUnusable
 from cad.scorecard.model import AgainstBrief, AwaitingConfirmation, NoBrief, Scorecard
 from cad.scorecard.requirements import NoDecidingResult, assess_requirements
 from cad.variants import key
@@ -106,7 +108,7 @@ def _state(briefs_root: Path, brief_id: str) -> BriefState | Unconfirmed:
         return Unconfirmed(f"the brief store has no key at {key.key_path(briefs_root)}")
     try:
         return store.read_state(briefs_root, brief_id)
-    except (BriefRefused, BriefStoreUnusable) as error:
+    except (BriefRefused, StoreUnusable) as error:
         return Unconfirmed(str(error))
 
 
@@ -115,7 +117,7 @@ def _misjudged(card: Scorecard, basis: AgainstBrief, shown: Shown) -> Misjudged 
         derived = assess_requirements(
             basis.brief_id, basis.decision_sha256, shown.requirements, card.results
         )
-    except NoDecidingResult as error:
+    except (NoDecidingResult, pint.DimensionalityError) as error:
         return Misjudged(f"cannot judge the confirmed requirements: {error}")
     if derived == basis:
         return None
