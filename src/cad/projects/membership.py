@@ -16,8 +16,6 @@ LOG = logging.getLogger(__name__)
 
 
 def project_briefs(roots: Roots, project: ProjectId) -> tuple[BriefId, ...]:
-    """The project's briefs, oldest first. Only each brief record is read, so a proposal or an
-    answer that fails its signature never hides a brief from its project."""
     members: list[Brief] = []
     for brief_id in store.stored_briefs(roots):
         try:

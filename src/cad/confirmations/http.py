@@ -1,15 +1,10 @@
-"""The local transport for the confirmation page, and the only caller of page.answer_page.
-
-One listener per server process on 127.0.0.1 and a free port, started on the first ballot.
+"""The local transport for the confirmation page.
 
     GET  /confirm/<token>   200 the page, 403, or 409 the project changed since it opened
     POST /confirm/<token>   form body answer=confirm|decline&note=<text>[&edit-<i>-<row>=<text>]
                             200 recorded, 403, 409 already answered or changed, 400, 413
 
-Every auth failure (no token, a wrong, spent or expired one, a retired ballot, a wrong Host or
-Origin) gets the same 403 and body. An answer is only ever a POST, so a link preview or prefetch
-that fetches the URL cannot answer. Request logging is off, because the token is in the request
-line.
+Request logging is off, because the token is in the request line.
 """
 
 import logging
@@ -67,7 +62,6 @@ class _Server(ThreadingHTTPServer):
 
 
 def serve(desk: Desk) -> int:
-    """Start the listener for this desk on a daemon thread and return its port."""
     server = _Server(desk)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     return server.port

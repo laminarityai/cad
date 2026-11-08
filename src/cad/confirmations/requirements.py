@@ -1,5 +1,3 @@
-"""Proposed requirements as an item on the confirmation page: each brief's newest proposal."""
-
 import re
 from collections.abc import Sequence
 from typing import Final

@@ -1,10 +1,3 @@
-"""The confirmation page without its transport: parse a form, render, and record one answer.
-
-The page shows exactly the ballot's snapshot and the POST answers exactly that snapshot. The
-form never names an item: it refers to one by its index in the snapshot, so a forged slot cannot
-be sent. This module is the only writer of a PageAnswer.
-"""
-
 import html
 import re
 from collections.abc import Mapping, Sequence
@@ -48,7 +41,6 @@ class Form:
     answer: Literal["confirm", "decline"]
     note: str
     edits: Mapping[int, tuple[Edit, ...]]
-    """Snapshot index to that item's edits. A blank edit field is no edit."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,12 +55,10 @@ class AlreadyAnswered:
 
 @dataclass(frozen=True, slots=True)
 class Changed:
-    """Something was added to the project, or replaced, since the page opened."""
+    pass
 
 
 def parse_form(body: bytes, size: int) -> Form | None:
-    """The form, or None for anything but one answer, at most one note, and edits to items
-    0 to size - 1."""
     try:
         fields = parse_qs(body.decode(), keep_blank_values=True, strict_parsing=True)
     except (UnicodeDecodeError, ValueError):
@@ -94,7 +84,6 @@ def parse_form(body: bytes, size: int) -> Form | None:
 
 
 def refused_edits(kinds: Kinds, items: Sequence[ItemRef], form: Form) -> str | None:
-    """The first message a kind gives refusing its item's edits, or None."""
     for index, edits in sorted(form.edits.items()):
         ref = items[index]
         message = kinds[ref.kind].edit(ref, edits)
@@ -104,7 +93,6 @@ def refused_edits(kinds: Kinds, items: Sequence[ItemRef], form: Form) -> str | N
 
 
 def view(kinds: Kinds, ballot: Ballot) -> bytes | Changed:
-    """The page for the ballot's snapshot, or Changed when the snapshot is no longer what waits."""
     if pending(kinds, ballot.project) != ballot.items:
         return Changed()
     sections = [kinds[ref.kind].section(ref) for ref in ballot.items]
@@ -114,8 +102,6 @@ def view(kinds: Kinds, ballot: Ballot) -> bytes | Changed:
 def answer_page(
     roots: Roots, kinds: Kinds, ballot: Ballot, form: Form, now: datetime
 ) -> Recorded | AlreadyAnswered | Changed:
-    """Write one PageAnswer for every item of the snapshot, unless any is already answered or
-    the project changed since the page opened."""
     ledger = read_ledger(roots.projects, ballot.project)
     if any(ledger.of(ref) is not None for ref in ballot.items):
         return AlreadyAnswered()
@@ -139,7 +125,6 @@ def answer_page(
 
 
 def render(sections: Sequence[Section], action: str) -> bytes:
-    """The page. Everything shown comes from the stores, never from tool arguments."""
     items = "".join(_section(section) for section in sections)
     count = "this item" if len(sections) == 1 else f"all {len(sections)} items"
     return (

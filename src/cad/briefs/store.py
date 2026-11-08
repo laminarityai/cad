@@ -1,15 +1,3 @@
-"""The signed brief store, and the only place that derives a proposal's status.
-
-    <briefs>/<brief_id>/brief.signed
-    <briefs>/<brief_id>/proposals/<n:04d>.signed
-    <briefs>/<brief_id>/decisions/<n:04d>.signed   legacy answers to proposal n, read only
-
-Each `.signed` file is a `cad.records.signed` file whose slot is "<brief_id>/brief",
-"<brief_id>/proposal/<n>" or "<brief_id>/decision/<n>", so a record moved to another slot or
-another brief fails. The person now answers on the project's confirmation page
-(`cad.confirmations.answers`); a legacy decision for a proposal wins over any page answer.
-"""
-
 import hashlib
 import json
 import logging
@@ -85,7 +73,6 @@ class Draft:
 class Answered:
     answer: Answer
     sha256: str
-    """Of the signed record that answered: a legacy decision or a PageAnswer."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,10 +120,7 @@ _SEAL: Final = _Seal()
 
 @dataclass(frozen=True, slots=True)
 class ConfirmedSet:
-    """Requirements a person confirmed. Only `confirmed_requirements` can make one.
-
-    `decision_sha256` names the record that confirmed them: a legacy decision or a PageAnswer.
-    """
+    """Requirements a person confirmed. Only `confirmed_requirements` can make one."""
 
     brief_id: BriefId
     proposal: int
@@ -150,7 +134,6 @@ class ConfirmedSet:
 
 
 def proposal_ref(proposal: Proposal, sha256: str) -> ItemRef:
-    """How the confirmation page names a proposal."""
     slot = f"{proposal.brief_id}/proposal/{proposal.number}"
     return ItemRef(kind="requirements", slot=slot, sha256=sha256)
 
@@ -231,18 +214,10 @@ def propose(roots: Roots, raw_id: str, drafts: Sequence[Draft]) -> ProposalState
 
 
 def read_brief(roots: Roots, raw_id: str) -> Brief:
-    """The brief record alone, verified. Its proposals and answers are not read."""
     return _read_brief(roots.briefs, parse_brief_id(raw_id))[0]
 
 
 def read_state(roots: Roots, raw_id: str) -> BriefState:
-    """Read and verify every record of a brief and derive each proposal's status.
-
-    An answered proposal is confirmed or declined: by its legacy decision when one is stored,
-    otherwise by the first page answer of the brief's project that lists it. An unanswered one
-    is proposed when it is the newest and superseded otherwise. A brief record that fails its
-    MAC, its parse or its binding raises TamperedBrief; a failing answer raises TamperedProject.
-    """
     root = roots.briefs
     brief, brief_sha256 = _read_brief(root, parse_brief_id(raw_id))
     proposals = _slots(root, brief.id, PROPOSALS)
