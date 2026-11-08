@@ -67,6 +67,7 @@ A check is a fixed, deterministic piece of code that measures a variant and retu
 - **The fit check** measures each variant against the confirmed context parts of its project. It reports the volume where they overlap and the minimum clearance between them. Our team writes and reviews it, as it does the universal checks, and it ships in phase 2.
 - **Domain checks** come from engineering skills, such as gear tooth strength or bolted joint preload. The first version ships none. The first skill goes to whichever domain people design in most.
 - **Agent-written checks** cover requirements no existing check handles, such as a snap-fit. Their results show as unreviewed. You can review one for your own project, and its results then show as user-reviewed. Only our team can add a check to an engineering skill that every user gets. Before a person reviews it, an agent-written check must pass automatic gates: consistent units, deterministic output, and at least one worked example from its cited source.
+  - The first version has no agent-written checks ([ADR-0008](docs/adr/0008-the-agents-own-measurements-are-information-never-a-verdict.md)). The agent may report its own measurement for a requirement no check covers. The scorecard shows it as information only, labelled not verified, and it never passes or fails anything.
 - **Unverified requirements** are listed on every scorecard. If nothing reviewed checks a requirement, the scorecard says so.
 
 The first version does not design freeform or loft-heavy shapes reliably, and the agent says so. It offers the closest prismatic version if one exists and marks the shape requirement unverified.
@@ -123,7 +124,7 @@ The first version is built in five phases, in this order. Each phase ends when i
 1. **Server and universal checks.** Project setup ([AGENTS.md](AGENTS.md)), an MCP server that runs build123d code in the sandbox, the geometric universal checks, and the first materials table.
    - Exit: Claude Code, connected to the server, produces scorecards for the 10 bake-off parts that agree with the bake-off grader, and the sandbox blocks network access and enforces its limits.
 2. **Briefs, requirements and scorecards.** Plan mode, 3 to 5 variants, scorecards that list unverified requirements, sources and candidate values, the knowledge base, agent-written checks with per-project review, and context parts with the fit check.
-   - Exit: on the private brief set, across at least five domains, every number on every scorecard traces to a confirmed source.
+   - Exit: on the private brief set, across at least five domains, every number on every scorecard traces to a confirmed source. The one exception is an agent's own measurement, which is counted as not verified.
 3. **Physics and manufacturing.** FEA under stated loads, printability checks, slicer cost and print time, Test mode, and accounts with usage limits.
    - Exit: FEA results land within a stated error of hand calculations on beam and plate cases with known answers.
 4. **Web app.** Chat, 3D viewer, scorecards, sliders, the mode switcher, and Auto mode with its stopping rules.
