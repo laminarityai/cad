@@ -6,15 +6,17 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Protocol, cast
 from urllib.parse import urlencode, urlsplit
 
 import pytest
 from mcp import Client
 
+from cad.knowledge.corpus import Corpus
+from cad.knowledge.search import Index
 from cad.records.roots import Roots
 from cad.server.app import build_server
 
@@ -226,3 +228,15 @@ def no_write_reaches_the_operators_home() -> Iterator[list[str]]:
         written, home_writes[:] = list(home_writes), []
     if written:
         pytest.fail(f"this test wrote to the operator's ~/.cad: {written}")
+
+
+class MakeCorpus(Protocol):
+    def __call__(
+        self, files: Mapping[str, str], aliases: Mapping[str, list[str]] | None = None
+    ) -> Corpus: ...
+
+
+class MakeIndex(Protocol):
+    def __call__(
+        self, files: Mapping[str, str], aliases: Mapping[str, list[str]] | None = None
+    ) -> Index: ...
