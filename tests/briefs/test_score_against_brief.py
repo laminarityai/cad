@@ -38,10 +38,10 @@ async def plate(s: Session) -> str:
     return (await s.call("build_variant", code=PLATE))["variant_id"]
 
 
-async def proposed(s: Session) -> str:
-    brief_id = (await s.call("create_brief", text=PLATE_TEXT))["brief_id"]
-    await s.call("propose_requirements", brief_id=brief_id, requirements=ROWS)
-    return brief_id
+async def proposed(s: Session) -> tuple[str, str]:
+    created = await s.call("create_brief", text=PLATE_TEXT)
+    await s.call("propose_requirements", brief_id=created["brief_id"], requirements=ROWS)
+    return created["brief_id"], created["project_id"]
 
 
 def card_path(s: Session, variant_id: str) -> Path:
@@ -54,7 +54,7 @@ async def test_a_score_with_no_brief_says_so_and_judges_nothing(s: Session) -> N
 
 
 async def test_a_brief_nobody_confirmed_runs_every_check_and_judges_nothing(s: Session) -> None:
-    brief_id = await proposed(s)
+    brief_id, _ = await proposed(s)
     card = await s.call(
         "score_variant", variant_id=await plate(s), material_key="prusament-pla", brief_id=brief_id
     )
@@ -66,10 +66,8 @@ async def test_a_confirmed_brief_is_judged_requirement_by_requirement(
     s: Session, person: Person
 ) -> None:
     person.answer = "confirm"
-    brief_id = await proposed(s)
-    assert (await s.call("confirm_requirements", brief_id=brief_id))["answer"]["outcome"] == (
-        "confirmed"
-    )
+    brief_id, project_id = await proposed(s)
+    assert (await s.call("ask_to_confirm", project_id=project_id))["status"] == "answered"
     variant_id = await plate(s)
     card = await s.call(
         "score_variant", variant_id=variant_id, material_key="prusament-pla", brief_id=brief_id
@@ -112,7 +110,7 @@ async def test_a_brief_the_store_cannot_show_is_refused_before_any_check_runs(
 
 
 async def test_a_tampered_brief_is_refused_before_any_check_runs(s: Session) -> None:
-    brief_id = await proposed(s)
+    brief_id, _ = await proposed(s)
     (s.roots.briefs / brief_id / "decisions" / "0001.signed").write_text('{"verdict":"confirmed"}')
     variant_id = await plate(s)
     text = await s.text(

@@ -7,14 +7,16 @@ from mcp.server import MCPServer
 from mcp.server.mcpserver.tools import Tool
 from pydantic import BaseModel, Field
 
-from cad.briefs import page
 from cad.briefs import store as briefs
-from cad.briefs.ballot import OS_OPEN, WAIT_SECONDS, Desk, Opener
+from cad.confirmations import http
+from cad.confirmations.ballot import OS_OPEN, WAIT_SECONDS, Desk, Opener
+from cad.confirmations.registry import kinds
 from cad.records.roots import HOME_ROOTS, Roots
 from cad.sandbox import container, host
 from cad.scorecard import requirements, score
 from cad.scorecard.model import Scorecard
 from cad.server.brief_tools import PLAN_MODE, brief_tools
+from cad.server.confirmation_tools import confirmation_tools
 from cad.server.refusals import agent_facing
 from cad.tables.materials import KEY_PATTERN
 from cad.variants import entry, store
@@ -136,12 +138,7 @@ def build_server(
     opener: Opener = OS_OPEN,
     wait_seconds: float = WAIT_SECONDS,
 ) -> MCPServer:
-    desk = Desk(
-        roots,
-        opener,
-        serve=page.serve,
-        wait_seconds=wait_seconds,
-    )
+    desk = Desk(roots, kinds(roots), opener, serve=http.serve, wait_seconds=wait_seconds)
 
     async def server_info() -> ServerInfo:
         """Report the git SHA the server runs from, whether the tree is dirty, Python and tools."""
@@ -191,7 +188,8 @@ def build_server(
                 Tool.from_function(build_variant, description=BUILD_VARIANT),
                 Tool.from_function(score_variant, description=SCORE_VARIANT),
                 Tool.from_function(list_materials, description=LIST_MATERIALS),
-                *brief_tools(roots, desk),
+                *brief_tools(roots),
+                *confirmation_tools(roots, desk),
             )
         ],
     )

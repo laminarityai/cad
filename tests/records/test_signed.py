@@ -44,7 +44,9 @@ def test_a_brief_signed_by_the_old_code_still_verifies(tmp_path: Path) -> None:
     state = store.read_state(roots, brief_id)
     assert [p.status for p in state.proposals] == [store.Status.CONFIRMED]
     confirmed = store.confirmed_requirements(roots, brief_id)
+    decision = (root / brief_id / store.DECISIONS / "0001.signed").read_bytes()
     assert confirmed is not None
+    assert confirmed.decision_sha256 == hashlib.sha256(decision.partition(b"\n")[2]).hexdigest()
     assert [r.origin.end - r.origin.start for r in confirmed.requirements] == [len("under 150 g")]
 
 

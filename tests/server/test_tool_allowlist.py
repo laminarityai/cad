@@ -12,7 +12,7 @@ ALLOWED_ARGUMENTS = {
     "list_materials": set[str](),
     "create_brief": {"text", "project_id"},
     "propose_requirements": {"brief_id", "requirements"},
-    "confirm_requirements": {"brief_id"},
+    "ask_to_confirm": {"project_id"},
     "list_requirements": {"brief_id"},
 }
 

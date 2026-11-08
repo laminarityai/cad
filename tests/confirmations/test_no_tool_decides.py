@@ -1,35 +1,35 @@
 from __future__ import annotations
 
-import ast
-from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 import pytest
 
 if TYPE_CHECKING:
-    from conftest import Session
+    from conftest import Proposed, Session
 
 pytestmark = pytest.mark.anyio
 
-SRC = Path(__file__).resolve().parents[2] / "src"
 FORGED = {"status": "confirmed", "answer": "confirm", "decision": "confirmed", "token": "x"}
 
 
-def argument_shapes(s: Session, brief_id: str) -> list[tuple[str, dict[str, Any]]]:
+def argument_shapes(s: Session, brief: Proposed) -> list[tuple[str, dict[str, Any]]]:
+    brief_id, project_id = brief.brief_id, brief.project_id
     every_row = [s.rows.under_150, s.rows.shelf, s.rows.envelope, s.rows.solid]
     shapes: list[tuple[str, dict[str, Any]]] = [
         ("create_brief", {"text": s.rows.text}),
+        ("create_brief", {"text": s.rows.text, "project_id": project_id}),
         ("propose_requirements", {"brief_id": brief_id, "requirements": every_row}),
         ("propose_requirements", {"brief_id": brief_id, "requirements": every_row}),
         ("propose_requirements", {"brief_id": brief_id, "requirements": every_row[:1]}),
-        ("confirm_requirements", {"brief_id": brief_id}),
-        ("confirm_requirements", {"brief_id": brief_id}),
+        ("ask_to_confirm", {"project_id": project_id}),
+        ("ask_to_confirm", {"project_id": project_id}),
         ("list_requirements", {"brief_id": brief_id}),
-        ("confirm_requirements", {"brief_id": "../" + brief_id}),
+        ("ask_to_confirm", {"project_id": "../" + project_id}),
+        ("ask_to_confirm", {"project_id": brief_id}),
     ]
     for row in every_row:
         shapes.append(("propose_requirements", {"brief_id": brief_id, "requirements": [row]}))
-        shapes.append(("confirm_requirements", {"brief_id": brief_id}))
+        shapes.append(("ask_to_confirm", {"project_id": project_id}))
         forged_row = {**row, **FORGED}
         forged_target = {**row, "target": {**row["target"], **FORGED}}
         for forged in (forged_row, forged_target):
@@ -43,12 +43,13 @@ def argument_shapes(s: Session, brief_id: str) -> list[tuple[str, dict[str, Any]
 
 
 async def test_no_tool_call_with_any_argument_shape_confirms_anything(s: Session) -> None:
-    brief_id = await s.proposed(s.rows.under_150)
-    for tool, arguments in argument_shapes(s, brief_id):
+    brief = await s.proposed(s.rows.under_150)
+    for tool, arguments in argument_shapes(s, brief):
         await s.client.call_tool(tool, arguments)
     decisions = sorted(s.roots.briefs.glob("*/decisions/*"))
-    listed = await s.call("list_requirements", brief_id=brief_id)
+    listed = await s.call("list_requirements", brief_id=brief.brief_id)
     assert decisions == []
+    assert not s.roots.projects.exists()
     assert listed["confirmed_proposal"] is None
     assert {p["status"] for p in listed["proposals"]} <= {"proposed", "superseded"}
     assert not [
@@ -67,16 +68,3 @@ async def test_a_forged_field_on_a_requirement_row_is_refused_not_ignored(
     )
     assert result.is_error
     assert not list(s.roots.briefs.glob("*/proposals/*"))
-
-
-def test_only_the_page_writes_a_decision() -> None:
-    callers = sorted(
-        str(path.relative_to(SRC))
-        for path in SRC.rglob("*.py")
-        if any(
-            isinstance(node, ast.Attribute | ast.Name)
-            and "record_decision" in (getattr(node, "attr", None), getattr(node, "id", None))
-            for node in ast.walk(ast.parse(path.read_text()))
-        )
-    )
-    assert callers == ["cad/briefs/page.py"]

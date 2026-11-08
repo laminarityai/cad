@@ -54,8 +54,10 @@ def get(url: str, **headers: str) -> tuple[int, str]:
     return request(url, headers=headers)
 
 
-def post(url: str, answer: str, note: str = "", **headers: str) -> tuple[int, str]:
-    body = urlencode({"answer": answer, "note": note}).encode()
+def post(
+    url: str, answer: str, note: str = "", fields: dict[str, str] | None = None, **headers: str
+) -> tuple[int, str]:
+    body = urlencode({"answer": answer, "note": note, **(fields or {})}).encode()
     sent = {
         "Origin": origin_of(url),
         "Content-Type": "application/x-www-form-urlencoded",
@@ -96,6 +98,12 @@ class Rows:
     solid: dict[str, Any] = field(default_factory=lambda: SOLID)
 
 
+@dataclass(frozen=True)
+class Proposed:
+    brief_id: str
+    project_id: str
+
+
 @dataclass
 class Session:
     """An MCP client on an in-process server, and the person's browser (plain HTTP)."""
@@ -120,10 +128,18 @@ class Session:
         blocks = json.dumps([block.model_dump() for block in result.content])
         return blocks + json.dumps(result.structured_content)
 
-    async def proposed(self, *requirements: dict[str, Any]) -> str:
-        brief_id = (await self.call("create_brief", text=TEXT))["brief_id"]
+    async def proposed(
+        self, *requirements: dict[str, Any], project_id: str | None = None
+    ) -> Proposed:
+        """A new brief with one proposal, in a new project unless project_id names one."""
+        joined = {} if project_id is None else {"project_id": project_id}
+        created = await self.call("create_brief", text=TEXT, **joined)
+        brief_id = created["brief_id"]
         await self.call("propose_requirements", brief_id=brief_id, requirements=list(requirements))
-        return brief_id
+        return Proposed(brief_id, created["project_id"])
+
+    async def ask(self, proposed: Proposed) -> dict[str, Any]:
+        return await self.call("ask_to_confirm", project_id=proposed.project_id)
 
 
 @pytest.fixture
