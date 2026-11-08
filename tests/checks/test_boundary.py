@@ -132,6 +132,32 @@ def test_mass_cites_the_datasheet_of_the_density_it_used(request_for_pla: Reques
     assert len(mass.sources) == len(SPECS[2].sources) + 1
 
 
+def test_only_a_check_that_declares_a_read_cites_the_row_it_read(request_for_pla: Request) -> None:
+    parsed = parse(sent(good_report()), request_for_pla, WALL)
+    for result, spec in zip(parsed.results, SPECS, strict=True):
+        assert len(result.sources) == len(spec.sources) + (1 if spec.reads else 0)
+
+
+def test_every_declared_read_names_a_declared_measure() -> None:
+    for spec in SPECS:
+        assert set(spec.reads) <= set(spec.measures)
+
+
+def test_a_read_that_differs_from_what_the_host_sent_is_refused(request_for_pla: Request) -> None:
+    edited = [measured("density", 2.0e-6, "kg/mm^3")]
+    seen = sent(with_result(2, measured=edited))
+    parsed = parse(seen, request_for_pla, WALL)
+    assert {result.verdict for result in parsed.results} == {Verdict.UNKNOWN}
+    assert "mass: density" in parsed.results[0].reason
+
+
+def test_a_read_when_the_host_sent_none_is_refused() -> None:
+    request = build_request("unobtainium", load_materials())
+    parsed = parse(sent(good_report()), request, WALL)
+    assert {result.verdict for result in parsed.results} == {Verdict.UNKNOWN}
+    assert "mass: density" in parsed.results[0].reason
+
+
 def test_a_check_run_serializes_and_reads_back_equal(request_for_pla: Request) -> None:
     parsed = parse(sent(good_report()), request_for_pla, WALL)
     run = CheckRun(
@@ -267,4 +293,4 @@ def test_a_table_row_whose_density_is_unknown_never_reaches_the_container_as_a_n
         "kind": "unknown",
         "reason": "the materials table has no density for mystery: it says unknown",
     }
-    assert request.density_source is None
+    assert request.reads == {}
