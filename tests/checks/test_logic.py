@@ -5,10 +5,11 @@ from dataclasses import dataclass, field
 
 import pytest
 
-from cad.checks.container import closed_solid, extents, interference, mass
+from cad.checks.container import closed_solid, interference
 from cad.checks.container.check import Subject
 from cad.checks.container.kernel import EdgeUses, Shape, StepTooLarge, Unreadable, VolumeProps
 from cad.checks.container.runner import run
+from cad.checks.container.suite import CHECKS
 from cad.checks.container.wire import (
     DensityKnown,
     DensityUnknown,
@@ -79,12 +80,18 @@ class FakeKernel:
         return StepTooLarge(len(self.step)) if len(self.step) > cap else self.step
 
 
-def subject(kernel: FakeKernel, density: DensityWire = KNOWN) -> Subject:
-    return Subject(kernel, FakeShape(), density)
+def subject(kernel: FakeKernel) -> Subject:
+    return Subject(kernel, FakeShape(), KNOWN, {})
 
 
-def unreadable(density: DensityWire = KNOWN) -> Subject:
-    return Subject(FakeKernel(), Unreadable("not a BREP"), density)
+def unreadable() -> Subject:
+    return Subject(FakeKernel(), Unreadable("not a BREP"), KNOWN, {})
+
+
+def checked(
+    kernel: FakeKernel, density: DensityWire = KNOWN, brep: bytes = b"brep"
+) -> dict[str, ResultWire]:
+    return by_id(run({"density": density}, brep, kernel, REPORT_CAP)["results"])
 
 
 def measured(found: FindingWire) -> dict[str, float]:
@@ -192,7 +199,7 @@ def test_interference_names_an_undone_pair_beside_a_real_overlap() -> None:
 
 
 def test_mass_multiplies_the_volume_by_the_density_it_was_given() -> None:
-    found = mass.run(subject(FakeKernel(props=VolumeProps(2000.0, (1.0, 2.0, 3.0)))))
+    found = checked(FakeKernel(props=VolumeProps(2000.0, (1.0, 2.0, 3.0))))["mass"]
     assert found["verdict"] == "pass"
     assert measured(found) == {
         "volume": 2000.0,
@@ -205,7 +212,7 @@ def test_mass_multiplies_the_volume_by_the_density_it_was_given() -> None:
 
 
 def test_mass_never_guesses_a_density() -> None:
-    found = mass.run(subject(FakeKernel(), UNKNOWN))
+    found = checked(FakeKernel(), UNKNOWN)["mass"]
     assert (found["verdict"], found["reason"]) == ("unknown", UNKNOWN["reason"])
     assert sorted(measured(found)) == [
         "center_of_mass:x",
@@ -218,7 +225,7 @@ def test_mass_never_guesses_a_density() -> None:
 @pytest.mark.parametrize("volume", [0.0, -5.0, math.nan, math.inf])
 def test_mass_fails_a_volume_that_is_not_positive_and_finite(volume: float) -> None:
     kernel = FakeKernel(props=VolumeProps(volume, (0.0, 0.0, 0.0)))
-    assert mass.run(subject(kernel))["verdict"] == "fail"
+    assert checked(kernel)["mass"]["verdict"] == "fail"
 
 
 @pytest.mark.parametrize(
@@ -234,13 +241,14 @@ def test_mass_fails_a_volume_that_is_not_positive_and_finite(volume: float) -> N
 def test_mass_is_unknown_with_no_number_on_a_shape_closed_solid_does_not_pass(
     kernel: FakeKernel,
 ) -> None:
-    found = mass.run(subject(kernel))
+    results = checked(kernel)
+    found = results["mass"]
     assert (found["verdict"], found["measured"]) == ("unknown", [])
-    assert closed_solid.run(subject(kernel))["reason"] in found["reason"]
+    assert results["closed_solid"]["reason"] in found["reason"]
 
 
 def test_mass_of_an_unreadable_brep_is_unknown_never_pass() -> None:
-    assert mass.run(unreadable())["verdict"] == "unknown"
+    assert checked(FakeKernel(), brep=UNREADABLE_BREP)["mass"]["verdict"] == "unknown"
 
 
 @pytest.mark.parametrize(
@@ -256,13 +264,14 @@ def test_mass_of_an_unreadable_brep_is_unknown_never_pass() -> None:
 def test_extents_is_unknown_with_no_number_on_a_shape_closed_solid_does_not_pass(
     kernel: FakeKernel,
 ) -> None:
-    found = extents.run(subject(kernel))
+    results = checked(kernel)
+    found = results["extents"]
     assert (found["verdict"], found["measured"]) == ("unknown", [])
-    assert closed_solid.run(subject(kernel))["reason"] in found["reason"]
+    assert results["closed_solid"]["reason"] in found["reason"]
 
 
 def test_extents_reports_each_axis_and_the_same_sizes_sorted() -> None:
-    found = extents.run(subject(FakeKernel(box=(30.0, 10.0, 20.0))))
+    found = checked(FakeKernel(box=(30.0, 10.0, 20.0)))["extents"]
     sizes = {one["name"]: one["magnitude"] for one in found["measured"]}
     assert found["verdict"] == "pass"
     assert sizes == {
@@ -280,12 +289,12 @@ def test_extents_reports_each_axis_and_the_same_sizes_sorted() -> None:
 def test_extents_cannot_pass_a_shape_with_no_finite_bounding_box(
     box: tuple[float, float, float] | None,
 ) -> None:
-    found = extents.run(subject(FakeKernel(box=box)))
+    found = checked(FakeKernel(box=box))["extents"]
     assert (found["verdict"], found["measured"]) == ("unknown", [])
 
 
 def test_extents_of_an_unreadable_brep_is_unknown_never_pass() -> None:
-    assert extents.run(unreadable())["verdict"] == "unknown"
+    assert checked(FakeKernel(), brep=UNREADABLE_BREP)["extents"]["verdict"] == "unknown"
 
 
 def by_id(results: list[ResultWire]) -> dict[str, ResultWire]:
@@ -301,6 +310,30 @@ def test_a_check_that_raises_becomes_unknown_and_the_others_still_run() -> None:
     )
     assert (results["interference"]["verdict"], results["mass"]["verdict"]) == ("pass", "unknown")
     assert results["extents"]["verdict"] == "unknown"
+
+
+@dataclass(slots=True)
+class ValidityRaisesOnceKernel(FakeKernel):
+    raised: bool = False
+
+    def is_valid(self, shape: Shape) -> bool:
+        if not self.raised:
+            self.raised = True
+            raise RuntimeError("BRepCheck exploded")
+        return self.valid
+
+
+def test_a_check_that_requires_closed_solid_reads_its_reported_verdict_not_a_rerun() -> None:
+    results = checked(ValidityRaisesOnceKernel())
+    assert results["closed_solid"]["verdict"] == "unknown"
+    for check_id in ("mass", "extents"):
+        assert (results[check_id]["verdict"], results[check_id]["measured"]) == ("unknown", [])
+
+
+def test_every_check_runs_after_the_checks_whose_verdicts_it_reads() -> None:
+    for index, check in enumerate(CHECKS):
+        earlier = {done.ID for done in CHECKS[:index]}
+        assert {required.ID for required in check.REQUIRES} <= earlier, check.ID
 
 
 def test_the_report_lists_every_check_in_suite_order_with_the_step_of_the_measured_shape() -> None:
