@@ -13,7 +13,7 @@ MAX_K: Final = 20
 SEARCH_KNOWLEDGE = (
     "Search the knowledge base of cited sources (data sheets, standards, reports) by keywords. "
     "Returns up to k sections, best first, each with its subject, source title, url, page, "
-    "section and quoted text. Results are candidates ranked by keyword overlap, not checked "
+    "section and quoted text. Results are possible matches ranked by keyword overlap, not checked "
     "for identity. Read each subject and quote, and use only a result about exactly the "
     "material or part the user means. Cite the source and page you use. A number from a result "
     "is never checked until the user confirms it as a candidate value."

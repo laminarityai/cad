@@ -56,7 +56,7 @@ def test_nothing_matches_and_nothing_returns(make_index: MakeIndex) -> None:
     assert index.search("what is the") == ()
 
 
-def test_any_matching_word_returns_candidates(make_index: MakeIndex) -> None:
+def test_any_matching_word_returns_possible_matches(make_index: MakeIndex) -> None:
     index = make_index(WATER, WATER_ALIASES)
     assert set(ids(index.search("water"))) == {"kb:water#density", "kb:water#ice"}
     assert ids(index.search("water viscosity")) != []

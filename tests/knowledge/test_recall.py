@@ -158,7 +158,7 @@ def test_the_unit_a_query_is_about_outranks_its_near_miss(
 
 
 @pytest.mark.parametrize("query", NO_RIGHT_UNIT)
-def test_a_query_no_unit_is_about_still_returns_candidates_with_their_subject(
+def test_a_query_no_unit_is_about_still_returns_matches_with_their_subject(
     crowded: Index, query: str
 ) -> None:
     hits = crowded.search(query)
