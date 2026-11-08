@@ -7,6 +7,7 @@ from mcp.server import MCPServer
 from mcp.server.mcpserver.tools import Tool
 from pydantic import BaseModel, Field
 
+from cad.agent_measurements import run as own
 from cad.briefs import store as briefs
 from cad.confirmations import http
 from cad.confirmations.ballot import OS_OPEN, WAIT_SECONDS, Desk, Opener
@@ -65,6 +66,24 @@ TEST_MODE = (
     "its measures. Do not estimate a strength, a deflection or a print time yourself: when no "
     "check returned it, say it was not checked."
 )
+NOT_VERIFIED = (
+    "A scorecard's not_verified list holds measurements your own code made. Report each one as "
+    '"my own measurement, not verified". Never call it a pass or a fail, never say it meets or '
+    "misses a requirement, and say that its requirement was not checked. Do not do arithmetic "
+    "on it to reach a verdict."
+)
+OWN_MEASUREMENTS = (
+    "For a confirmed requirement of kind unchecked, you may pass own_measurements: up to "
+    f"{own.MAX_SNIPPETS} entries, each a requirement_id, a short title and build123d Python code "
+    f"of at most {own.MAX_CODE_CHARS // 1024} KiB. The code sees `part`, the scored shape, and "
+    "calls report(name, value, unit) with a name of lowercase letters, digits and underscores, "
+    f"a finite number and a unit of {', '.join(own.UNIT_NAMES)}. It runs in the build sandbox "
+    f"after the checks, all entries in one run of at most {own.WALL_SECONDS} seconds. Each entry "
+    'becomes a not_verified row labelled "agent\'s own measurement, not verified": its values, '
+    "or failed with the reason. The row has no verdict, its requirement stays in "
+    "unverified_requirements, and no check or requirement reads it. own_measurements without a "
+    "confirmed brief, or naming a requirement a check decides, is refused and nothing is scored. "
+)
 SCORE_VARIANT = (
     "Score one built variant with the fixed checks closed_solid, interference, mass and "
     "extents (the axis-aligned bounding box in mm), and store the scorecard beside the variant. "
@@ -105,7 +124,11 @@ SCORE_VARIANT = (
     "Scoring the same variant and key again gives the same scorecard while the materials table, "
     "the sandbox image and the confirmed requirements are unchanged. Scoring a rebuilt "
     "variant by its new id gives the same scorecard with rebuilt_from empty, and that card "
-    "replaces the stored one. In Test mode, score only the variant the user picked. " + RULE
+    "replaces the stored one. In Test mode, score only the variant the user picked. "
+    + OWN_MEASUREMENTS
+    + RULE
+    + " "
+    + NOT_VERIFIED
 )
 LIST_MATERIALS = (
     "List the material keys that score_variant accepts, each with its name. "
@@ -196,7 +219,10 @@ def build_server(
         )
 
     def score_variant(
-        variant_id: str, material_key: MaterialKey, brief_id: str | None = None
+        variant_id: str,
+        material_key: MaterialKey,
+        brief_id: str | None = None,
+        own_measurements: own.OwnMeasurements | None = None,
     ) -> material.ReportedScorecard:
         with agent_facing():
             assess, demand = score.no_brief, score.NO_DEMAND
@@ -208,10 +234,15 @@ def build_server(
                 else:
                     assess, demand = requirements.against(confirmed), requirements.demand(confirmed)
             material.refuse_other_material(confirmed, material_key)
+            if own_measurements:
+                own.refuse_unless_unchecked(confirmed, own_measurements)
             scored = score.score_variant(
                 variant_id, material_key, variants_root, assess, demand=demand
             )
             card = material.reported(scored, confirmed)
+            if own_measurements:
+                rows = own.measure(variants_root, card.variant_id, own_measurements)
+                card = own.attach(card, rows)
             score.store(card, variants_root)
         return card
 
@@ -224,7 +255,7 @@ def build_server(
 
     server = MCPServer(
         "cad",
-        instructions=" ".join((RULE, PLAN_MODE, TEST_MODE)),
+        instructions=" ".join((RULE, PLAN_MODE, TEST_MODE, NOT_VERIFIED)),
         tools=[
             strict_tool(tool)
             for tool in (

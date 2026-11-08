@@ -9,6 +9,9 @@ is either
 - read by that check from the materials table, when the check declares the read in `READS`: the
   value equals the table row found by exact key, and the result carries the row's `Source`.
 
+A number in the card's `not_verified` list is the agent's own measurement. It is
+`NotVerified`, never resolved, and it fails nothing: ADR-0008 keeps it out of the exit.
+
 Any other number is unresolved: no rule places it. A number of a check scored at an older version,
 or against an older table, is stale: score the variant again.
 
@@ -88,7 +91,14 @@ class Unresolved:
     reason: str
 
 
-type Outcome = Resolved | Stale | Unresolved
+@dataclass(frozen=True, slots=True)
+class NotVerified:
+    """The agent's own measurement: information that no check made and nothing grades."""
+
+    reason: str = "agent's own measurement"
+
+
+type Outcome = Resolved | Stale | Unresolved | NotVerified
 
 
 @dataclass(frozen=True, slots=True)
@@ -182,6 +192,8 @@ def _place(
             return Traced(f"{result.check_id}.{measure.name}", found.value, outcome)
         case ("basis", "requirements", int() as index, "comparisons", int() as place, "limit"):
             return Traced(path, found.value, _confirmed(card, index, place, shown))
+        case ("not_verified", *_):
+            return Traced(path, found.value, NotVerified())
         case _:
             pass
     return Traced(path, found.value, Unresolved(f"no rule places a number at {path}"))

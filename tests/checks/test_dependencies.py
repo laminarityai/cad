@@ -90,7 +90,9 @@ def test_every_module_scoring_loads_feeds_the_check_versions() -> None:
     assert loaded - set(report.DEPENDENCIES.files) == set()
 
 
-@pytest.mark.parametrize("outside", ["cad/briefs/", "cad/scorecard/requirements.py"])
+@pytest.mark.parametrize(
+    "outside", ["cad/briefs/", "cad/scorecard/requirements.py", "cad/agent_measurements/"]
+)
 def test_judging_requirements_is_outside_what_check_versions_hash(outside: str) -> None:
     inside = [path for path in report.DEPENDENCIES.files if path.startswith(outside)]
     assert inside == []
