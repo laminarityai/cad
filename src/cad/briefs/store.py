@@ -33,6 +33,7 @@ from cad.briefs.model import (
     RequirementId,
     Target,
 )
+from cad.projects.model import NewProjectId
 from cad.records import signed
 from cad.variants import key
 
@@ -136,12 +137,27 @@ def parse_brief_id(raw: str) -> BriefId:
     return BriefId(raw)
 
 
-def create_brief(root: Path, text: str) -> Brief:
-    brief = Brief(id=BriefId(secrets.token_hex(8)), text=text, created_at=datetime.now(UTC))
+def create_brief(root: Path, text: str, project: NewProjectId) -> Brief:
+    brief = Brief(
+        id=BriefId(secrets.token_hex(8)),
+        text=text,
+        created_at=datetime.now(UTC),
+        project_id=project,
+    )
     first = (f"{brief.id}/brief", BRIEF, brief.model_dump_json().encode())
     if not signed.create_entry(_store(root), brief.id, first, (PROPOSALS, DECISIONS)):
         raise FileExistsError(f"brief {brief.id} already exists")
     return brief
+
+
+def stored_briefs(root: Path) -> list[BriefId]:
+    if not signed.is_directory(root):
+        return []
+    return [
+        BriefId(path.name)
+        for path in root.iterdir()
+        if ID_PATTERN.fullmatch(path.name) and signed.is_directory(path)
+    ]
 
 
 def propose(root: Path, raw_id: str, drafts: Sequence[Draft]) -> ProposalState:

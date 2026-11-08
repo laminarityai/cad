@@ -28,6 +28,7 @@ from tracking import NO_REQUIREMENTS, NoRequirements, describe, outcomes_of, tra
 
 from cad.briefs import store as briefs
 from cad.checks.result import Measure
+from cad.projects.model import new_project_id
 from cad.sandbox.outcome import Build, Built
 from cad.scorecard.model import AwaitingConfirmation
 from cad.scorecard.score import SCORECARD
@@ -39,7 +40,7 @@ FRIENDLY = ({"kind": "unchecked", "statement": "looks friendly"}, "looks friendl
 
 def scored_against_a_brief(store: Path) -> list[str]:
     briefs_root = store.parent / "briefs"
-    brief_id = briefs.create_brief(briefs_root, BRIEF_TEXT).id
+    brief_id = briefs.create_brief(briefs_root, BRIEF_TEXT, new_project_id()).id
     put(store, judged_card(confirm(briefs_root, brief_id, drafts(LIGHT, FRIENDLY))))
     return ["--root", str(store), "--briefs-root", str(briefs_root)]
 
@@ -124,7 +125,7 @@ def test_a_card_judged_against_a_confirmed_brief_resolves_and_reports_its_requir
 def test_awaiting_and_no_brief_cards_count_apart_and_fail_only_when_judgment_is_required(
     store: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    brief_id = briefs.create_brief(store.parent / "briefs", BRIEF_TEXT).id
+    brief_id = briefs.create_brief(store.parent / "briefs", BRIEF_TEXT, new_project_id()).id
     put(store, genuine_card(basis=AwaitingConfirmation(brief_id=brief_id)))
     arguments = ["--root", str(store), "--briefs-root", str(store.parent / "briefs")]
     assert main(arguments) == 0
@@ -142,7 +143,7 @@ def test_a_card_whose_deciding_measure_has_the_wrong_dimension_is_misjudged_and_
     store: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     briefs_root = store.parent / "briefs"
-    brief_id = briefs.create_brief(briefs_root, BRIEF_TEXT).id
+    brief_id = briefs.create_brief(briefs_root, BRIEF_TEXT, new_project_id()).id
     good = judged_card(confirm(briefs_root, brief_id, drafts(LIGHT, FRIENDLY)))
     wrong = tuple(
         Measure(name=one.name, value=UNITS.Quantity(1.0, "mm")) if one.name == "mass" else one
@@ -169,7 +170,7 @@ def test_a_card_with_an_unparseable_unit_is_unreadable_and_the_run_goes_on(
     store: Path, capsys: pytest.CaptureFixture[str], where: str, unit: str
 ) -> None:
     briefs_root = store.parent / "briefs"
-    brief_id = briefs.create_brief(briefs_root, BRIEF_TEXT).id
+    brief_id = briefs.create_brief(briefs_root, BRIEF_TEXT, new_project_id()).id
     good = judged_card(confirm(briefs_root, brief_id, drafts(LIGHT, FRIENDLY)))
     data = json.loads(good.model_dump_json())
     if where == "measure":

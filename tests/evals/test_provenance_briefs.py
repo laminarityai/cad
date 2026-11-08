@@ -10,6 +10,7 @@ from tracking import RequirementOutcome, outcomes_of
 from cad.briefs import store as briefs
 from cad.briefs.store import ConfirmedSet
 from cad.checks.result import Verdict
+from cad.projects.model import new_project_id
 from cad.scorecard.model import AwaitingConfirmation, Scorecard
 from cad.variants import key
 
@@ -29,7 +30,7 @@ def briefs_root(store: Path) -> Path:
 
 @pytest.fixture
 def brief_id(briefs_root: Path) -> str:
-    return briefs.create_brief(briefs_root, BRIEF_TEXT).id
+    return briefs.create_brief(briefs_root, BRIEF_TEXT, new_project_id()).id
 
 
 @pytest.fixture

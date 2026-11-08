@@ -10,7 +10,7 @@ ALLOWED_ARGUMENTS = {
     "build_variant": {"code"},
     "score_variant": {"variant_id", "material_key", "brief_id"},
     "list_materials": set[str](),
-    "create_brief": {"text"},
+    "create_brief": {"text", "project_id"},
     "propose_requirements": {"brief_id", "requirements"},
     "confirm_requirements": {"brief_id"},
     "list_requirements": {"brief_id"},
