@@ -15,6 +15,7 @@ class Reason(StrEnum):
     SCIENTIFIC_NOTATION = "scientific_notation"
     AMBIGUOUS_NUMBER = "ambiguous_number"
     TOO_LONG = "too_long"
+    UNRECOGNISED_TEXT = "unrecognised_text"
 
 
 @dataclass(frozen=True, slots=True)
