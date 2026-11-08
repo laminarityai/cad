@@ -68,7 +68,8 @@ def run_checks(
     """Raises
         UnknownVariant       not 16 lowercase hex digits, or no such entry
         StaleVariant         the entry does not re-derive to its own id: stored before the fix for
-                             issue #6, under another image, or edited
+                             issue #6, under another image, or edited. `OutdatedVariant` when
+                             its signed record pins the code an older sandbox stored
         NotBuilt             the stored outcome is not `built`
         SandboxUnavailable   Docker, the image, the store, or the materials table is unusable
     Returns a `CheckRun` with one result per check, always. A container that times out, runs out of

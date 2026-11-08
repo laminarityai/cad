@@ -12,8 +12,11 @@ is either
 Any other number is unresolved: no rule places it. A number of a check scored at an older version,
 or against an older table, is stale: score the variant again.
 
-A card as a whole fails when it is bound to no signed build (`binding.bind`) or is incomplete: no
-results, a registered check missing or repeated, an unregistered check, or no number at all.
+A card as a whole fails when it is bound to no signed build (`binding.bind`), names a
+`rebuilt_from` whose signed record pins other code (`binding.link`), is incomplete (no
+results, a registered check missing or repeated, an unregistered check, or no number at all), or
+fails `confirmation.check_basis`: its brief or decision cannot be shown, a newer confirmation is in
+force, or its requirement verdicts differ from the ones its own results give.
 
 What this does not prove. Stored scorecards are not signed, so a hand-edited value or verdict is not
 detected, and a table number that was edited together with the row it should match is not either.
@@ -26,14 +29,17 @@ from collections import Counter
 from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
+from typing import Literal, cast
 
-from binding import Unbound, bind
+import pint
+from binding import Unbound, Unlinked, bind, link
+from confirmation import BasisFailure, Shown, check_basis
 
+from cad.briefs.model import describe, limits
 from cad.checks.report import CheckSpec
 from cad.checks.result import CheckResult, Measure
-from cad.scorecard.model import Scorecard
-from cad.tables.materials import UNITS, Cited, MaterialsTable, Source, UnknownMaterial
+from cad.scorecard.model import AgainstBrief, Checked, Scorecard
+from cad.tables.materials import UNITS, Cited, MaterialsTable, Source, UnknownMaterial, magnitude
 
 REL_TOL = 1e-9
 
@@ -53,7 +59,17 @@ class TableStep:
     source: Source
 
 
-type Step = CheckStep | TableStep
+@dataclass(frozen=True, slots=True)
+class ConfirmedStep:
+    """A limit a person confirmed on the page, in the decision the card names."""
+
+    brief_id: str
+    decision_sha256: str
+    requirement_id: str
+    statement: str
+
+
+type Step = CheckStep | TableStep | ConfirmedStep
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,7 +107,8 @@ class Incomplete:
     reason: str
 
 
-type CardFailure = Unreadable | Unbound | Incomplete
+type CardFailure = Unreadable | Unbound | Unlinked | Incomplete | BasisFailure
+type BasisKind = Literal["no_brief", "awaiting_confirmation", "against_brief"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,6 +116,7 @@ class CardTrace:
     variant_id: str
     failures: tuple[CardFailure, ...]
     numbers: tuple[Traced, ...]
+    basis: BasisKind | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,12 +126,25 @@ class Found:
 
 
 def trace_card(
-    card: Scorecard, root: Path, table: MaterialsTable, specs: Mapping[str, CheckSpec]
+    card: Scorecard,
+    root: Path,
+    briefs_root: Path,
+    table: MaterialsTable,
+    specs: Mapping[str, CheckSpec],
 ) -> CardTrace:
-    numbers = tuple(_place(card, found, table, specs) for found in numbers_in(card.model_dump()))
+    basis = check_basis(briefs_root, card)
+    numbers = tuple(
+        _place(card, found, table, specs, basis.shown) for found in numbers_in(card.model_dump())
+    )
     bound = bind(root, card)
-    failures = (*(() if bound is None else (bound,)), *_incomplete(card, numbers, specs))
-    return CardTrace(card.variant_id, failures, numbers)
+    linked = link(root, card)
+    failures = (
+        *(() if bound is None else (bound,)),
+        *(() if linked is None else (linked,)),
+        *_incomplete(card, numbers, specs),
+        *basis.failures,
+    )
+    return CardTrace(card.variant_id, failures, numbers, card.basis.kind)
 
 
 def numbers_in(data: object, where: Where = ()) -> Iterator[Found]:
@@ -134,18 +165,58 @@ def numbers_in(data: object, where: Where = ()) -> Iterator[Found]:
 
 
 def _place(
-    card: Scorecard, found: Found, table: MaterialsTable, specs: Mapping[str, CheckSpec]
+    card: Scorecard,
+    found: Found,
+    table: MaterialsTable,
+    specs: Mapping[str, CheckSpec],
+    shown: Shown | None,
 ) -> Traced:
+    path = _path(found.where)
     match found.where:
         case ("results", int() as index, "measured", int() as place, "value"):
             result = card.results[index]
             measure = result.measured[place]
             outcome = _trace(card, result, measure, table, specs)
             return Traced(f"{result.check_id}.{measure.name}", found.value, outcome)
+        case ("basis", "requirements", int() as index, "comparisons", int() as place, "limit"):
+            return Traced(path, found.value, _confirmed(card, index, place, shown))
         case _:
             pass
-    path = _path(found.where)
     return Traced(path, found.value, Unresolved(f"no rule places a number at {path}"))
+
+
+def _confirmed(card: Scorecard, index: int, place: int, shown: Shown | None) -> Outcome:
+    basis = card.basis
+    assert isinstance(basis, AgainstBrief)
+    entry = basis.requirements[index]
+    assert isinstance(entry, Checked)
+    if shown is None:
+        return Unresolved(f"the brief store shows no confirmation {basis.decision_sha256[:12]}")
+    requirement = next((r for r in shown.requirements if r.id == entry.requirement_id), None)
+    if requirement is None:
+        return Unresolved(f"requirement {entry.requirement_id} is not in the confirmed set")
+    confirmed = limits(requirement.target)
+    if place >= len(confirmed):
+        return Unresolved(f"requirement {entry.requirement_id} confirmed no limit {place}")
+    expected = confirmed[place].quantity
+    held = entry.comparisons[place].limit
+    if not _same(held, expected):
+        return Unresolved(
+            f"the card's limit is {held:g~P}, but the person confirmed {expected:g~P}"
+        )
+    step = ConfirmedStep(
+        basis.brief_id, basis.decision_sha256, requirement.id, describe(requirement)
+    )
+    return Resolved((step,))
+
+
+def _same(held: pint.Quantity, expected: pint.Quantity) -> bool:
+    unit = str(expected.units)
+    try:
+        value = magnitude(held, unit)
+    except pint.DimensionalityError:
+        return False
+    return math.isclose(value, magnitude(expected, unit), rel_tol=REL_TOL)
 
 
 def _path(where: Where) -> str:

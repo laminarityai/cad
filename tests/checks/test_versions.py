@@ -6,6 +6,7 @@ from collections.abc import Mapping
 from dataclasses import replace
 from pathlib import Path
 from types import MappingProxyType
+from typing import Final
 
 import pytest
 
@@ -81,7 +82,17 @@ def test_editing_a_check_file_changes_the_version_of_every_check_that_runs_it(
     assert {i for i in before if before[i] != after[i]} == changed
 
 
-@pytest.mark.parametrize("shared", ["kernel.py", "check.py", "wire.py", "runner.py", "suite.py"])
+KERNEL_FILES = sorted(
+    p.relative_to(CHECKS_DIR).as_posix() for p in (CHECKS_DIR / "kernel").glob("*.py")
+)
+
+
+def test_the_kernel_package_is_staged_whole() -> None:
+    assert KERNEL_FILES
+    assert set(KERNEL_FILES) <= {name.removeprefix(f"{PACKAGE_PATH}/") for name in SOURCES.files}
+
+
+@pytest.mark.parametrize("shared", [*KERNEL_FILES, "check.py", "wire.py", "runner.py", "suite.py"])
 def test_editing_a_shared_file_changes_every_version(shared: str) -> None:
     before = versions(DEPENDENCIES)
     after = versions(edited(DEPENDENCIES, shared))
@@ -121,29 +132,89 @@ def imports_in(path: Path) -> set[str]:
 
 def test_container_modules_import_only_the_standard_library_and_themselves() -> None:
     allowed = sys.stdlib_module_names
-    for path in sorted(CHECKS_DIR.glob("*.py")):
+    for path in sorted(CHECKS_DIR.rglob("*.py")):
         for name in imports_in(path):
             top = name.split(".")[0]
             assert top in allowed or name.startswith(CONTAINER_PACKAGE), (
-                f"{path.name} imports {name}, which the check container's image does not have"
+                f"{path.relative_to(CHECKS_DIR)} imports {name}, which the check image lacks"
             )
 
 
-def ocp_module_names_in(path: Path) -> set[str]:
-    return {
-        node.value
-        for node in ast.walk(ast.parse(path.read_text()))
-        if isinstance(node, ast.Constant)
-        and isinstance(node.value, str)
-        and (node.value == "OCP" or node.value.startswith("OCP."))
+ADAPTERS: Final[Mapping[str, str]] = MappingProxyType(
+    {
+        "kernel": "OCP",
+        "mesher.py": "gmsh",
+        "calculix.py": "ccx",
+        "orca.py": "orca",
     }
+)
 
 
-def test_only_kernel_py_names_an_ocp_module() -> None:
-    assert ocp_module_names_in(CHECKS_DIR / "kernel.py")
-    for path in sorted(CHECKS_DIR.glob("*.py")):
-        if path.name != "kernel.py":
-            assert not ocp_module_names_in(path), f"{path.name} must reach OCP through kernel.py"
+def engine_names_in(path: Path, engine: str) -> bool:
+    for node in ast.walk(ast.parse(path.read_text())):
+        match node:
+            case ast.Constant(value=str() as value):
+                named = value == engine or value.startswith(f"{engine}.")
+            case ast.Import(names=names):
+                named = any(alias.name.split(".")[0] == engine for alias in names)
+            case ast.ImportFrom(module=str() as module):
+                named = module.split(".")[0] == engine
+            case _:
+                named = False
+        if named:
+            return True
+    return False
+
+
+def owned_by(adapter: str, relative: Path) -> bool:
+    name = relative.as_posix()
+    return name == adapter or name.startswith(f"{adapter}/")
+
+
+def engine_leaks(root: Path) -> list[str]:
+    return [
+        f"{path.relative_to(root)} names {engine}; only {adapter} may"
+        for path in sorted(root.rglob("*.py"))
+        for adapter, engine in ADAPTERS.items()
+        if not owned_by(adapter, path.relative_to(root)) and engine_names_in(path, engine)
+    ]
+
+
+def test_only_an_engines_adapter_names_that_engine() -> None:
+    assert engine_leaks(CHECKS_DIR) == []
+
+
+def test_an_adapter_that_exists_does_name_its_engine() -> None:
+    files = sorted(CHECKS_DIR.rglob("*.py"))
+    for adapter, engine in ADAPTERS.items():
+        owned = [p for p in files if owned_by(adapter, p.relative_to(CHECKS_DIR))]
+        assert owned or adapter != "kernel"
+        assert not owned or any(engine_names_in(p, engine) for p in owned), adapter
+
+
+@pytest.mark.parametrize(
+    ("file", "source", "leaks"),
+    [
+        ("extents.py", "import importlib\nimportlib.import_module('OCP.gp')\n", True),
+        ("extents.py", "import gmsh\n", True),
+        ("mass.py", "from gmsh import model\n", True),
+        ("kernel/other.py", "import importlib\nimportlib.import_module(f'OCP.{1}')\n", False),
+        ("mesher.py", "import gmsh\n", False),
+        ("mesher.py", "import importlib\nimportlib.import_module('OCP.gp')\n", True),
+        ("calculix.py", "import subprocess\nsubprocess.run(['ccx'])\n", False),
+        ("fea.py", "import subprocess\nsubprocess.run(['ccx'])\n", True),
+        ("orca.py", "ENGINE = 'orca'\n", False),
+        ("slice.py", "ENGINE = 'orca'\n", True),
+        ("slice.py", "ENGINE = 'the orca whale'\n", False),
+    ],
+)
+def test_the_engine_lint_flags_a_name_outside_its_adapter(
+    tmp_path: Path, file: str, source: str, leaks: bool
+) -> None:
+    path = tmp_path / file
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(source)
+    assert bool(engine_leaks(tmp_path)) is leaks
 
 
 def test_the_staged_directory_holds_exactly_the_hashed_bytes_read_only(tmp_path: Path) -> None:
@@ -161,7 +232,7 @@ def test_a_tampered_or_extended_staged_directory_is_rebuilt_from_the_hashed_byte
     tmp_path: Path,
 ) -> None:
     staged = materialize(SOURCES, tmp_path)
-    kernel = staged / PACKAGE_PATH / "kernel.py"
+    kernel = staged / PACKAGE_PATH / "kernel" / "ocp_kernel.py"
     kernel.chmod(0o644)
     kernel.write_text("raise SystemExit('tampered')\n")
     stray = staged / PACKAGE_PATH / "stray.py"
@@ -169,9 +240,7 @@ def test_a_tampered_or_extended_staged_directory_is_rebuilt_from_the_hashed_byte
     stray.write_text("x = 1\n")
     again = materialize(SOURCES, tmp_path)
     assert again == staged
-    assert (staged / PACKAGE_PATH / "kernel.py").read_bytes() == SOURCES.files[
-        f"{PACKAGE_PATH}/kernel.py"
-    ]
+    assert kernel.read_bytes() == SOURCES.files[f"{PACKAGE_PATH}/kernel/ocp_kernel.py"]
     assert not stray.exists()
     assert os.listdir(tmp_path) == [staged.name]
 

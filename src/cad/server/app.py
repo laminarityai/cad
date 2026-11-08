@@ -4,20 +4,22 @@ from pathlib import Path
 from typing import Annotated, NamedTuple
 
 from mcp.server import MCPServer
-from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.mcpserver.tools import Tool
 from pydantic import BaseModel, Field
 
 from cad.briefs import page
 from cad.briefs import store as briefs
 from cad.briefs.ballot import OS_OPEN, WAIT_SECONDS, Desk, Opener
+from cad.records.roots import PROJECTS_ROOT
 from cad.sandbox import container, host
-from cad.sandbox.outcome import SandboxUnavailable
-from cad.scorecard import score
+from cad.scorecard import requirements, score
 from cad.scorecard.model import Scorecard
 from cad.server.brief_tools import PLAN_MODE, brief_tools
 from cad.server.knowledge_tools import knowledge_tools
+from cad.server.refusals import agent_facing
 from cad.tables.materials import KEY_PATTERN
+from cad.variant_sets import store as variant_sets
+from cad.variant_sets.model import MAX_MEMBERS, SetBuildResult
 from cad.variants import entry, store
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -33,7 +35,14 @@ BUILD_VARIANT = (
     "Returns the variant id, the outcome (built, build_failed with the error and traceback, "
     "timed_out, out_of_memory or no_result) and the tail of what the code printed. "
     "Building the same code again returns its stored outcome without rebuilding, "
-    "except after a timeout."
+    "except after a timeout. "
+    "Pass brief_id once the user has confirmed the brief's requirements: a built variant then "
+    f"joins the brief's variant set, which holds up to {MAX_MEMBERS} variants for the user to "
+    "compare, and variant_set names its slot. Build 3 to 5 different variants. Code already in "
+    "the set keeps its slot. A build for a brief with no confirmed requirements, or for new code "
+    "when the set is full, is refused before it starts. If the set fills while a build runs, "
+    "the build finishes and is stored, but the error says it joined no set and names its "
+    "variant id. Without brief_id the variant joins no set."
 )
 RULE = (
     "Only check results decide whether a design is good. In a reply to the user, state a volume, "
@@ -45,17 +54,33 @@ RULE = (
 SCORE_VARIANT = (
     "Score one built variant with the fixed checks closed_solid, interference, mass and "
     "extents (the axis-aligned bounding box in mm), and store the scorecard beside the variant. "
+    "When an earlier version of the sandbox stored the variant, score_variant rebuilds its "
+    "stored code first and scores the new variant: the scorecard's variant_id is the new id, "
+    "and rebuilt_from is the id you passed. It rebuilds even when the earlier build failed, "
+    "because the new sandbox may build it. A rebuild that does not build is an error that "
+    "gives the build outcome. "
     "Every result has a verdict (pass, fail or unknown), "
     "its measured values, its formula, its sources and its check version. unknown means the "
     "check could not decide, and it is not a pass. "
-    "The scorecard names the table version and the sandbox image digest, and it says that phase 1 "
-    "reads no requirements from the brief. When you report it, give every verdict as the "
-    "scorecard states it, with each check's formula and source, the table version, and that note. "
+    "Pass brief_id when the user has a brief. Once the user has confirmed its requirements, the "
+    "scorecard's basis is against_brief: for each confirmed requirement it names the check that "
+    "decided it, a verdict, and each limit the user confirmed, and unverified_requirements lists "
+    "every requirement that no reviewed check covers. The measured value for a limit is the "
+    "measure of the same name in that check's result. Before the user confirms, the basis is "
+    "awaiting_confirmation and no requirement is judged. Without brief_id the basis is no_brief "
+    "and the scorecard covers no requirement. A limit counts as met up to one part in a billion, "
+    "an allowance for float noise in unit conversion and not an engineering tolerance. envelope "
+    "compares the bounding box of the part as built, never rotated, so it is pass or unknown and "
+    "never fail. When you report the scorecard, give every verdict as it states it, with each "
+    "check's formula and source, the table version and the basis, and say that every "
+    "requirement it did not judge was not checked. "
     "material_key is a key from list_materials. You cannot change a check or the materials table. "
     "Only score_variant writes a stored scorecard, from its own check run, and the server never "
     "reads one back. The file itself is not protected from edits outside the server. "
-    "Scoring the same variant and key again gives the same scorecard while the materials table "
-    "and the sandbox image are unchanged. " + RULE
+    "Scoring the same variant and key again gives the same scorecard while the materials table, "
+    "the sandbox image and the confirmed requirements are unchanged. Scoring a rebuilt "
+    "variant by its new id gives the same scorecard with rebuilt_from empty, and that card "
+    "replaces the stored one. " + RULE
 )
 LIST_MATERIALS = (
     "List the material keys that score_variant accepts, each with its name. "
@@ -120,6 +145,7 @@ def build_server(
     briefs_root: Path = briefs.BRIEFS_ROOT,
     opener: Opener = OS_OPEN,
     wait_seconds: float = WAIT_SECONDS,
+    projects_root: Path = PROJECTS_ROOT,
 ) -> MCPServer:
     desk = Desk(
         briefs_root,
@@ -140,26 +166,35 @@ def build_server(
         )
 
     def build_variant(
-        code: Annotated[str, Field(max_length=MAX_CODE_CHARS)],
-    ) -> store.BuildResult:
-        try:
-            return store.build_variant(code, variants_root)
-        except SandboxUnavailable as error:
-            raise ToolError(str(error)) from error
+        code: Annotated[str, Field(max_length=MAX_CODE_CHARS)], brief_id: str | None = None
+    ) -> SetBuildResult:
+        with agent_facing():
+            if brief_id is not None:
+                return variant_sets.build_into_set(
+                    projects_root, briefs_root, variants_root, brief_id, code
+                )
+            built = store.build_variant(code, variants_root)
+        return SetBuildResult(
+            variant_id=built.variant_id, outcome=built.outcome, output=built.output
+        )
 
-    def score_variant(variant_id: str, material_key: MaterialKey) -> Scorecard:
-        try:
-            return score.score_variant(variant_id, material_key, variants_root)
-        except entry.VariantRefused as error:
-            raise ToolError(f"{type(error).__name__}: {error}") from error
-        except SandboxUnavailable as error:
-            raise ToolError(str(error)) from error
+    def score_variant(
+        variant_id: str, material_key: MaterialKey, brief_id: str | None = None
+    ) -> Scorecard:
+        with agent_facing():
+            assess = score.no_brief
+            if brief_id is not None:
+                confirmed = briefs.confirmed_requirements(briefs_root, brief_id)
+                assess = (
+                    requirements.awaiting(brief_id)
+                    if confirmed is None
+                    else requirements.against(confirmed)
+                )
+            return score.score_variant(variant_id, material_key, variants_root, assess)
 
     def list_materials() -> MaterialListings:
-        try:
+        with agent_facing():
             table = host.materials_table()
-        except SandboxUnavailable as error:
-            raise ToolError(str(error)) from error
         return MaterialListings(
             materials=[MaterialListing(key=m.key, name=m.name) for m in table.materials.values()]
         )

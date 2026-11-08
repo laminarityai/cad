@@ -1,11 +1,8 @@
 """The four brief tools. None of them can write a decision: only the confirmation page can."""
 
-from collections.abc import Generator
-from contextlib import contextmanager
 from pathlib import Path
 from typing import Annotated, Literal
 
-from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.mcpserver.tools import Tool
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -21,8 +18,10 @@ from cad.briefs.model import (
     deciding_check,
     describe,
 )
-from cad.briefs.records import BriefStoreUnusable
-from cad.briefs.store import BriefRefused, BriefState, ProposalState, Status
+from cad.briefs.store import BriefState, ProposalState, Status
+from cad.projects.membership import project_for_new_brief
+from cad.projects.model import PROJECT_ID, PROJECT_ID_CHARS
+from cad.server.refusals import agent_facing
 
 PLAN_MODE = (
     "Plan mode comes first for every brief. Store the user's words with create_brief, unchanged. "
@@ -33,8 +32,11 @@ PLAN_MODE = (
     "declines, read their note, revise, and propose again."
 )
 CREATE_BRIEF = (
-    "Store the user's brief, their own words verbatim, and return its brief id. Do not "
-    "summarize or rewrite it: the user reads this text when they confirm. " + PLAN_MODE
+    "Store the user's brief, their own words verbatim, and return its brief id and project id. "
+    "Do not summarize or rewrite it: the user reads this text when they confirm. A project "
+    "holds every brief for one job. Omit project_id to start a new project. Pass the "
+    "project_id an earlier create_brief returned to add this brief to that project; a brief "
+    "stays in the project it was created in. " + PLAN_MODE
 )
 PROPOSE_REQUIREMENTS = (
     "Propose the whole set of requirements for a brief. Each has a target and a quote copied "
@@ -68,6 +70,7 @@ class RequirementDraft(BaseModel):
 
 class BriefCreated(BaseModel):
     brief_id: str
+    project_id: str
 
 
 class RequirementRow(BaseModel):
@@ -86,6 +89,7 @@ class ProposalView(BaseModel):
 
 class BriefView(BaseModel):
     brief_id: str
+    project_id: str
     text: str
     proposals: list[ProposalView]
     confirmed_proposal: int | None
@@ -138,22 +142,17 @@ def _view(state: BriefState, proposed: ProposalState) -> ProposalView:
     )
 
 
-@contextmanager
-def _agent_facing() -> Generator[None]:
-    try:
-        yield
-    except BriefRefused as error:
-        raise ToolError(f"{type(error).__name__}: {error}") from error
-    except BriefStoreUnusable as error:
-        raise ToolError(str(error)) from error
-
-
 def brief_tools(root: Path, desk: Desk) -> list[Tool]:
     def create_brief(
         text: Annotated[str, Field(min_length=1, max_length=MAX_BRIEF_CHARS)],
+        project_id: Annotated[
+            str | None, Field(max_length=PROJECT_ID_CHARS, pattern=PROJECT_ID.pattern)
+        ] = None,
     ) -> BriefCreated:
-        with _agent_facing():
-            return BriefCreated(brief_id=store.create_brief(root, text).id)
+        with agent_facing():
+            project = project_for_new_brief(root, project_id)
+            brief = store.create_brief(root, text, project)
+        return BriefCreated(brief_id=brief.id, project_id=project)
 
     def propose_requirements(
         brief_id: str,
@@ -162,12 +161,12 @@ def brief_tools(root: Path, desk: Desk) -> list[Tool]:
         ],
     ) -> ProposalView:
         drafts = [store.Draft(target=r.target, quote=r.quote) for r in requirements]
-        with _agent_facing():
+        with agent_facing():
             proposed = store.propose(root, brief_id, drafts)
             return _view(store.read_state(root, brief_id), proposed)
 
     async def confirm_requirements(brief_id: str) -> ConfirmResult:
-        with _agent_facing():
+        with agent_facing():
             after = await desk.confirm(brief_id)
             state = store.read_state(root, brief_id)
         decision = after.decision
@@ -181,11 +180,12 @@ def brief_tools(root: Path, desk: Desk) -> list[Tool]:
         return ConfirmResult(brief_id=state.brief.id, proposal=after.proposal.number, answer=answer)
 
     def list_requirements(brief_id: str) -> BriefView:
-        with _agent_facing():
+        with agent_facing():
             state = store.read_state(root, brief_id)
         confirmed = state.confirmed
         return BriefView(
             brief_id=state.brief.id,
+            project_id=state.brief.project,
             text=state.brief.text,
             proposals=[_view(state, p) for p in state.proposals],
             confirmed_proposal=confirmed.proposal.number if confirmed else None,

@@ -8,6 +8,14 @@ A companion that turns what a user asks for into several engineering-checked des
 What the user asks for, in their own words, together with any images, drawings or documents they attach.
 _Avoid_: Spec, prompt, request
 
+**Project**:
+Everything gathered for one job: one or more briefs, their sources, and the context parts a new part must fit. A brief is created in one project and never moves to another. Variant sets, confirmed table values and the user's reviews of agent-written checks belong to the project.
+_Avoid_: Workspace, job, design
+
+**Context part**:
+An existing CAD part, uploaded or read from a CAD tool, that a person confirmed into a project, such as a rail a new part clips onto. Checks measure new parts against it, and an edit may produce a new part from it.
+_Avoid_: Assembly, reference model, fixture
+
 **Requirement**:
 One checkable target taken from a brief, such as a ratio, a load, or a size limit. It quotes the words of the brief it came from. It is proposed until the user confirms it, and checks read only confirmed requirements.
 _Avoid_: Constraint, goal
@@ -23,6 +31,10 @@ _Avoid_: Elicitation, approval form
 **Variant**:
 One candidate design produced for a brief.
 _Avoid_: Option, candidate, design
+
+**Variant set**:
+The variants built for one brief against the requirements the user confirmed, which the user compares side by side. A set holds at most five. Requirements confirmed later start a new set. A variant keeps its place in its set when a server update gives its code a new variant id.
+_Avoid_: Design, batch, group, shortlist
 
 **Check**:
 A fixed, deterministic test of a variant against a requirement or an engineering standard, which the agent cannot change.

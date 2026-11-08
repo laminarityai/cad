@@ -13,6 +13,7 @@ from pydantic import TypeAdapter
 from cad.briefs import page, store
 from cad.briefs.ballot import Desk, PageUrl
 from cad.briefs.model import Decision, Declined, Target
+from cad.projects.model import new_project_id
 
 if TYPE_CHECKING:
     from conftest import Person, Session
@@ -185,7 +186,7 @@ async def test_an_expired_ballot_is_refused_and_replaced(s: Session, tmp_path: P
     now = [0.0]
     urls: list[PageUrl] = []
     root = tmp_path / "expiring"
-    brief = store.create_brief(root, s.rows.text)
+    brief = store.create_brief(root, s.rows.text, new_project_id())
     target = TypeAdapter[Target](Target).validate_python(s.rows.under_150["target"])
     store.propose(root, brief.id, [store.Draft(target=target, quote="under 150 g")])
     desk = Desk(root, urls.append, page.serve, wait_seconds=0.01, clock=lambda: now[0])
