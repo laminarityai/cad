@@ -161,7 +161,13 @@ async def test_the_score_variant_description_claims_no_more_than_the_server_does
     description = await listed_description("score_variant")
     assert "or a stored scorecard" not in description
     assert "the server never reads one back" in description
-    assert "while the materials table and the sandbox image are unchanged" in description
+    assert (
+        "while the materials table, the sandbox image and the confirmed requirements are unchanged"
+        in description
+    )
+    assert all(
+        kind in description for kind in ("no_brief", "awaiting_confirmation", "against_brief")
+    )
 
 
 async def test_an_unreadable_materials_table_lists_nothing_and_shows_no_host_path(
