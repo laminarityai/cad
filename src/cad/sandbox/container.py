@@ -126,7 +126,7 @@ def run(job: Job) -> Ran:
             state = inspect(name)
             if state is None or state.Status == "created" or state.Error:
                 cause = state.Error if state is not None and state.Error else seen.output
-                raise SandboxUnavailable(f"docker could not run the sandbox: {first_line(cause)}")
+                raise SandboxUnavailable.hiding_host("docker could not run the sandbox", cause)
             return Ran(seen, state)
         finally:
             docker("rm", "--force", name)
@@ -234,7 +234,3 @@ def docker(*args: str) -> subprocess.CompletedProcess[str]:
         raise SandboxUnavailable(
             f"docker did not answer `docker {args[0]}` within {DOCKER_TIMEOUT_SECONDS} s"
         ) from error
-
-
-def first_line(text: str) -> str:
-    return next((line.strip() for line in text.splitlines() if line.strip()), "no message")
