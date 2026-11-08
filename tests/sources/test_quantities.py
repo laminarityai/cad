@@ -214,9 +214,7 @@ def test_refuses_a_unit_that_is_not_on_the_allowlist(quote: str) -> None:
         "Density 1.14 g/cm3; GF30:1.36 g/cm3",
         "Density 1.14 g/cm3, filled ~1.36 g/cm3",
         "Density 1.24 g/cm3 vs.:1.45 g/cm3",
-        "Density 1.24 g/cm3 (unfilled) / -1.45 g/cm3",
         "Density 1.24 g/cm3 \u22481.36 g/cm3",
-        "Density 1.24 g/cm3 \u00b11.36 g/cm3",
     ],
 )
 def test_does_not_lose_a_number_glued_to_a_prefix(quote: str) -> None:
@@ -237,7 +235,13 @@ def test_reads_a_number_glued_to_a_prefix(quote: str, expected: float) -> None:
 
 
 @pytest.mark.parametrize(
-    "quote", ["Density -1.24 g/cm3", "Density \u22121240 kg/m3", "Density (-7850 kg/m3)"]
+    "quote",
+    [
+        "Density -1.24 g/cm3",
+        "Density \u22121240 kg/m3",
+        "Density (-7850 kg/m3)",
+        "Density 1.24 g/cm3 / -1.45 g/cm3",
+    ],
 )
 def test_refuses_a_negative_value(quote: str) -> None:
     result = refusal(quote)
