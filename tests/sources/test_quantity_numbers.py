@@ -168,6 +168,7 @@ def test_the_band_rejects_a_reading_but_never_chooses_one() -> None:
         "Density DIN 7 8500 kg/m3",
         "Density ISO 1183-1 240 kg/m3",
         "Density ISO 1183 1240 kg/m3",
+        "Density DIN 7 850,5 kg/m3",
     ],
 )
 def test_a_standard_followed_by_a_digit_group_is_refused(quote: str) -> None:
@@ -199,7 +200,7 @@ def test_a_condition_with_a_space_grouped_number_is_refused(quote: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "quote", ["Density at -40 °C 1.24 g/cm3", "Density at −40 °C 1.24 g/cm3"]
+    "quote", ["Density at -40 °C 1.24 g/cm3", "Density at \u221240 °C 1.24 g/cm3"]
 )
 def test_a_negative_temperature_is_a_condition_not_a_negative_value(quote: str) -> None:
     assert kg_per_m3(quote) == pytest.approx(1240.0)
@@ -220,8 +221,8 @@ def test_an_apostrophe_grouping_is_named(quote: str) -> None:
     assert "no unit" not in result.detail
 
 
-@pytest.mark.parametrize("quote", ["Density 1.24 ɡ/cm3", "Density 1.24 Kɡ/m3"])
+@pytest.mark.parametrize("quote", ["Density 1.24 \u0261/cm3", "Density 1.24 K\u0261/m3"])
 def test_a_lookalike_unit_letter_is_an_unknown_unit(quote: str) -> None:
     result = refusal(quote)
     assert result.reason is Reason.UNKNOWN_UNIT
-    assert "ɡ" in result.detail
+    assert "\u0261" in result.detail

@@ -11,6 +11,7 @@ class Reason(StrEnum):
     UNKNOWN_UNIT = "unknown_unit"
     WRONG_DIMENSION = "wrong_dimension"
     OUT_OF_BAND = "out_of_band"
+    WIDE_TOLERANCE = "wide_tolerance"
     NEGATIVE = "negative_value"
     SCIENTIFIC_NOTATION = "scientific_notation"
     AMBIGUOUS_NUMBER = "ambiguous_number"

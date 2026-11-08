@@ -321,9 +321,9 @@ def test_every_density_quote_in_the_table_parses_to_the_table_value_or_is_refuse
         if isinstance(result, Refusal):
             continue
         parsed += 1
-        assert result.canonical == pytest.approx(
-            cited.magnitude_in("kg/m^3"), rel=5e-3
-        ), material.key
+        assert result.canonical == pytest.approx(cited.magnitude_in("kg/m^3"), rel=5e-3), (
+            material.key
+        )
     assert parsed >= 17
 
 

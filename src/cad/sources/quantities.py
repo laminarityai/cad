@@ -1,15 +1,26 @@
 import re
 import unicodedata
+from dataclasses import dataclass
+from decimal import Decimal
 from typing import Final
-
-import pint
 
 from cad.sources.fields import MAX_QUOTE_LENGTH, SPECS, Field, FieldSpec
 from cad.sources.refusal import Reason, Refusal
-from cad.sources.scan import Leftover, Value, scan, unlisted_unit
-from cad.tables.materials import UNITS, magnitude
+from cad.sources.scan import Leftover, Unclear, Value, scan, unlisted_unit
 
-__all__ = ["Field", "Reason", "Refusal", "one_quantity"]
+__all__ = ["Field", "Quantity", "Reason", "Refusal", "one_quantity"]
+
+# Real density tolerances are 1 to 2 %, so a wider one means the quote is not one value.
+MAX_TOLERANCE_PERCENT: Final = 10
+
+
+@dataclass(frozen=True, slots=True)
+class Quantity:
+    """The value as the quote wrote it, and the same amount in the field's canonical unit."""
+
+    magnitude: float
+    unit: str
+    canonical: float
 
 
 def _ascii(pattern: str) -> re.Pattern[str]:
@@ -26,16 +37,17 @@ _CUBED: Final = _ascii(r"(?<![A-Za-z])((?i:cm|dm|m|in|ft)\.?)(\u207b?)\u00b3")
 _GLUED_HIGH: Final = _ascii(r"[-\u2013\u2014~]\d+(?:[.,]\d+)*")
 _SEPARATORS: Final = frozenset({"-", "\u2013", "\u2014", "~", "to"})
 _KEEP_COMPATIBILITY: Final = "\u33a4\u33a5"
+_APOSTROPHE_GROUPS: Final = _ascii(r"\d+(?:['\u2019\u02bc\u2032]\d+)+(?:[.,]\d+)?")
 
 
-def one_quantity(quote: str, field: Field) -> pint.Quantity | Refusal:
+def one_quantity(quote: str, field: Field) -> Quantity | Refusal:
     """Read the single quantity of `field`'s dimension out of `quote`, or say why not.
 
     A quote is read only when its whole text fits the grammar in `scan`: one number with one
     unit from the field's list, optionally with a label, a standard, or a condition. Any other
     token refuses the quote, so the reader never has to pick between candidates and never
-    assumes a unit. A number such as "1,240" or "1.240" can mean 1240 or 1.24. The reading that
-    lands inside the field's band is used, and the quote is refused when both do.
+    assumes a unit. A number such as "1,240" or "1.240" can mean 1240 or 1.24, so it is refused:
+    the field's band only rejects a reading, it never chooses between readings.
     """
     spec = SPECS[field]
     if len(quote) > MAX_QUOTE_LENGTH:
@@ -65,7 +77,7 @@ def one_quantity(quote: str, field: Field) -> pint.Quantity | Refusal:
     values = [t for t in scanned if isinstance(t, Value)]
     leftovers = [t for t in scanned if isinstance(t, Leftover)]
     if len(values) == 1 and not leftovers:
-        return _within_band(values[0], spec)
+        return _settle(values[0], spec)
     return _refusal(scanned, values, leftovers, spec)
 
 
@@ -90,6 +102,13 @@ def _is_foreign_digit(char: str) -> bool:
 def _early_refusal(text: str, spec: FieldSpec) -> Refusal | None:
     if _SCIENTIFIC.search(text):
         return _scientific(spec)
+    grouped = _APOSTROPHE_GROUPS.search(text)
+    if grouped is not None:
+        return Refusal(
+            Reason.UNRECOGNISED_TEXT,
+            f"{grouped[0]!r} groups digits with an apostrophe, which this reader does not read",
+            "the number written with one decimal point and no grouping",
+        )
     if _BOUND.search(text):
         return Refusal(
             Reason.BOUND,
@@ -166,28 +185,38 @@ def _range(tokens: list[Value | Leftover]) -> str | None:
     return None
 
 
-def _within_band(found: Value, spec: FieldSpec) -> pint.Quantity | Refusal:
-    if not found.readings:
-        return Refusal(
-            Reason.AMBIGUOUS_NUMBER,
-            f"{found.shown!r} cannot be read as one number",
-            "the number written with one decimal point and no grouping",
+def _settle(found: Value, spec: FieldSpec) -> Quantity | Refusal:
+    number = found.number
+    if isinstance(number, Unclear):
+        return _ambiguous(number)
+    if isinstance(found.tolerance, Unclear):
+        return _ambiguous(found.tolerance)
+    if found.tolerance is not None:
+        limit = (
+            Decimal(MAX_TOLERANCE_PERCENT)
+            if found.percent
+            else number * MAX_TOLERANCE_PERCENT / 100
         )
-    quantities = [UNITS.Quantity(reading, found.unit) for reading in found.readings]
-    inside = [q for q in quantities if spec.low <= magnitude(q, spec.canonical_unit) <= spec.high]
-    if len(inside) == 1:
-        return inside[0]
-    if inside:
+        if found.tolerance > limit:
+            written = f"{found.tolerance}{' %' if found.percent else ''}"
+            return Refusal(
+                Reason.WIDE_TOLERANCE,
+                f"the tolerance \u00b1 {written} is more than {MAX_TOLERANCE_PERCENT}% of {number}",
+                f"one {spec.label} value with a tolerance of at most {MAX_TOLERANCE_PERCENT}%",
+            )
+    canonical = number * found.unit.to_canonical
+    if not spec.low <= canonical <= spec.high:
         return Refusal(
-            Reason.AMBIGUOUS_NUMBER,
-            f"{found.shown} reads as "
-            + " or ".join(f"{r:g}" for r in found.readings)
-            + ", and both fit the band",
-            "the number written with one decimal point and no grouping",
+            Reason.OUT_OF_BAND,
+            f"{found.shown} is {canonical.normalize():f} {spec.canonical_unit}",
+            f"a {spec.label} between {spec.low:g} and {spec.high:g} {spec.canonical_unit}",
         )
-    canonical = magnitude(quantities[0], spec.canonical_unit)
+    return Quantity(float(number), found.unit.symbol, float(canonical))
+
+
+def _ambiguous(number: Unclear) -> Refusal:
     return Refusal(
-        Reason.OUT_OF_BAND,
-        f"{found.shown} is {canonical:g} {spec.canonical_unit}",
-        f"a {spec.label} between {spec.low:g} and {spec.high:g} {spec.canonical_unit}",
+        Reason.AMBIGUOUS_NUMBER,
+        number.detail,
+        "the number written with one decimal point and no grouping",
     )
