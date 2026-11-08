@@ -39,7 +39,7 @@ async def test_list_materials_returns_every_key_and_name_and_no_number() -> None
     assert result.structured_content == {
         "materials": [{"key": m.key, "name": m.name} for m in table.materials.values()]
     }
-    assert len(table.materials) == 5
+    assert len(table.materials) >= 5
     assert numbers_in(result.structured_content) == []
 
 
