@@ -15,6 +15,7 @@ class Reason(StrEnum):
     NEGATIVE = "negative_value"
     SCIENTIFIC_NOTATION = "scientific_notation"
     AMBIGUOUS_NUMBER = "ambiguous_number"
+    TRAILING_DECIMAL = "trailing_decimal"
     TOO_LONG = "too_long"
     UNRECOGNISED_TEXT = "unrecognised_text"
 
