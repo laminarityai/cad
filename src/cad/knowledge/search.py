@@ -1,39 +1,27 @@
-"""Keyword search over the knowledge corpus, on stdlib sqlite FTS5.
+"""Keyword search over the knowledge corpus.
 
-Text, codes and queries share one normal form and one tokenizer, `cad.knowledge.text`, so that
-"PLA+" stays one token, "5.5" stays one token, and "PLA plus" or "PETG\u2014HF" read as PLA+ and
-PETG-HF.
+Each file is about one subject. List the names that mean exactly that subject under aliases. A
+search must name one of them, or it finds nothing; the text then chooses the section.
 
-A query token is a code when it starts with a letter and has a digit or a trailing "+" (M5x0.8,
-PLA+), or when it is an all-caps or code-shaped token that any unit declares, mentions in its
-text or names in its title (PLA, PETG, ABS, HF). A query that holds a plus symbol outside a
-token returns nothing.
+In full, a search has two steps and no score.
 
-A hit is confident when all of these hold. There is no score and no threshold.
+1. Identity. The query is cut into words (`cad.knowledge.text`). A subject is named when one of
+   its aliases is a run of those words. A name inside a longer name is ignored, so "PETG HF"
+   beats "PETG". If the longest names left belong to two subjects, or to none, the search finds
+   nothing. Unit text never takes part: a unit that mentions ABS is not about ABS.
+2. Section. Within the named subject's units, every other query word that is not a stopword must
+   be a word of the unit's title, section or text. At least one such word is needed to choose.
 
-1. Every code in the query is one of the unit's declared codes. A code that the unit merely
-   mentions in its text, or lists under `mentions:`, does not count. A unit about PLA that says
-   "lower than ABS" is not about ABS, and one about PLA+ that says "than ordinary PLA" is not
-   about PLA.
-2. Every other token of the query that is not a stopword is a token of the unit's title, section
-   or text, ignoring case.
-3. The query holds a code, or at least two other tokens.
-4. Hits that declare different codes return nothing, whether or not the query has a code:
-   "PolyTerra density" fits PLA and PLA+ equally, and "PETG density" fits PETG and PETG HF, so the
-   search does not pick. "PETG HF density" resolves because only one unit declares HF.
-
-Otherwise the search returns nothing. Requiring every word keeps "petg basic density" off a
-PETG HF unit; the cost is that a missing word or a plural gives no hit. A hit is a pointer to a
-source, page and section, never a value for a check. Hits come back in unit id order, at most
-MAX_HITS, each with its text cut at MAX_TEXT_CHARS.
+A hit is a pointer to a source, page and section, never a value for a check. Hits come back in unit
+id order, at most MAX_HITS, each with its text cut at MAX_TEXT_CHARS. Requiring every word costs
+recall: a plural or a missing word gives no hit and the agent asks again.
 """
 
-import sqlite3
 from dataclasses import dataclass
 from typing import Final
 
 from cad.knowledge.corpus import Corpus, Pointer
-from cad.knowledge.text import has_code_shape, has_stray_plus, looks_like_a_code, tokens
+from cad.knowledge.text import tokens
 
 MAX_HITS: Final = 5
 MAX_TEXT_CHARS: Final = 2000
@@ -41,6 +29,8 @@ STOPWORDS: Final = frozenset(
     {"a", "an", "and", "are", "as", "at", "be", "by", "can", "do", "does", "for", "from", "how"}
     | {"in", "is", "it", "of", "on", "or", "the", "to", "what", "which", "with"}
 )
+
+type Span = tuple[int, int]
 
 
 @dataclass(frozen=True, slots=True)
@@ -51,44 +41,46 @@ class Hit:
 
 class Index:
     def __init__(self, corpus: Corpus) -> None:
-        self._units = list(corpus.units.values())
-        self._vocabulary = frozenset(
-            token.casefold()
-            for unit in self._units
-            for token in tokens(f"{unit.pointer.title} {unit.pointer.section} {unit.text}")
-            if looks_like_a_code(token)
-        ) | frozenset(code for unit in self._units for code in unit.codes | unit.mentions)
-        self._db = sqlite3.connect(":memory:")
-        self._db.execute(
-            "CREATE VIRTUAL TABLE unit USING fts5(body, tokenize=\"unicode61 tokenchars '+./-'\")"
-        )
-        self._db.executemany(
-            "INSERT INTO unit (rowid, body) VALUES (?, ?)",
-            [
-                (i, " ".join(tokens(f"{u.pointer.title} {u.pointer.section} {u.text}")))
-                for i, u in enumerate(self._units)
-            ],
-        )
+        self._corpus = corpus
+        self._words = {
+            unit.pointer.id: frozenset(
+                tokens(f"{unit.pointer.title} {unit.pointer.section} {unit.text}")
+            )
+            for unit in corpus.units.values()
+        }
 
     def search(self, query: str) -> tuple[Hit, ...]:
-        if has_stray_plus(query):
+        words = tokens(query)
+        spans = self._named(words)
+        if len({subject for subject, _ in spans}) != 1:
             return ()
-        terms = list(dict.fromkeys(t.casefold() for t in tokens(query)))
-        terms = [t for t in terms if t not in STOPWORDS]
-        codes = [t for t in terms if has_code_shape(t) or t in self._vocabulary]
-        words = [t for t in terms if t not in codes]
-        if not codes and len(words) < 2:
+        named = {i for _, (start, end) in spans for i in range(start, end)}
+        rest = {w for i, w in enumerate(words) if i not in named and w not in STOPWORDS}
+        subject = spans[0][0]
+        if not rest:
             return ()
-        rows = self._rows(words) if words else range(len(self._units))
-        found = [u for i in rows if (u := self._units[i]).codes.issuperset(codes)]
-        if len({u.codes for u in found}) > 1:
-            return ()
-        hits = sorted(found, key=lambda unit: unit.pointer.id)
+        hits = sorted(
+            (
+                unit
+                for unit in self._corpus.units.values()
+                if unit.subject == subject and rest <= self._words[unit.pointer.id]
+            ),
+            key=lambda unit: unit.pointer.id,
+        )
         return tuple(Hit(u.pointer, u.text[:MAX_TEXT_CHARS]) for u in hits[:MAX_HITS])
 
-    def _rows(self, words: list[str]) -> list[int]:
-        match = " AND ".join(f'"{w}"' for w in words)
-        rows: list[tuple[int]] = self._db.execute(
-            "SELECT rowid FROM unit WHERE unit MATCH ?", (match,)
-        ).fetchall()
-        return [row[0] for row in rows]
+    def _named(self, words: tuple[str, ...]) -> list[tuple[str, Span]]:
+        """Each alias found in the query as (subject, span), minus names inside longer names."""
+        found = [
+            (subject, (start, start + len(alias)))
+            for alias, subject in self._corpus.aliases.items()
+            for start in range(len(words) - len(alias) + 1)
+            if words[start : start + len(alias)] == alias
+        ]
+        return [
+            (subject, span)
+            for subject, span in found
+            if not any(
+                other != span and other[0] <= span[0] and span[1] <= other[1] for _, other in found
+            )
+        ]

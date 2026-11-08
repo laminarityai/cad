@@ -13,8 +13,8 @@ class MakeIndex(Protocol):
     def __call__(
         self,
         files: Mapping[str, str],
-        codes: Mapping[str, list[str]] | None = None,
-        mentions: Mapping[str, list[str]] | None = None,
+        aliases: Mapping[str, list[str]] | None = None,
+        subjects: Mapping[str, str] | None = None,
     ) -> Index: ...
 
 
@@ -23,26 +23,27 @@ title: {title}
 url: https://example.com/{stem}
 retrieved: 2026-11-07
 license: own-summary
-codes: {codes}
-mentions: {mentions}
+subject: {subject}
+aliases: {aliases}
 ---
 """
 
 
 @pytest.fixture
 def make_index(tmp_path: Path) -> MakeIndex:
+    """Write one file per stem. Its subject is the stem and its alias is the stem, unless given."""
+
     def build(
         files: Mapping[str, str],
-        codes: Mapping[str, list[str]] | None = None,
-        mentions: Mapping[str, list[str]] | None = None,
+        aliases: Mapping[str, list[str]] | None = None,
+        subjects: Mapping[str, str] | None = None,
     ) -> Index:
         for stem, body in files.items():
-            title = stem.replace("-", " ")
             front = FRONT_MATTER.format(
-                title=title,
+                title=stem.replace("-", " "),
                 stem=stem,
-                codes=json.dumps((codes or {}).get(stem, [])),
-                mentions=json.dumps((mentions or {}).get(stem, [])),
+                subject=(subjects or {}).get(stem, stem),
+                aliases=json.dumps((aliases or {}).get(stem, [stem.replace("-", " ")])),
             )
             (tmp_path / f"{stem}.md").write_text(front + body)
         return Index(load(tmp_path))

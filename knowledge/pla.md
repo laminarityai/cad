@@ -3,7 +3,8 @@ title: PolyTerra PLA technical data sheet V6.0 (Polymaker)
 url: https://polymaker.com/wp-content/uploads/TDS_PolyTerra_PLA_V6.0_2026-06-08_EN.pdf
 retrieved: 2026-11-07
 license: own-summary
-codes: [PLA, V6.0]
+subject: polymaker-polyterra-pla
+aliases: [PolyTerra PLA, Polymaker PolyTerra PLA, PLA]
 ---
 ## Density
 <!-- page: 1 -->

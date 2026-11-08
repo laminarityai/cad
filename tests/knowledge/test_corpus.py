@@ -12,6 +12,8 @@ title: Example
 url: https://example.com/x
 retrieved: 2026-11-07
 license: own-summary
+subject: example-subject
+aliases: [Example]
 ---
 ## First
 <!-- page: 2 -->
@@ -59,10 +61,12 @@ def test_the_version_changes_with_any_byte(tmp_path: Path) -> None:
         (GOOD.replace("Some text.\n", ""), "empty"),
         (GOOD.replace("---\n## First", "---\nstray\n## First"), "before the first"),
         ("## No front matter\ntext\n", "front matter"),
-        (GOOD.replace("title: Example", "title: Example PLA data"), "codes"),
-        (GOOD.replace("## First", "## M5x0.8 pitch"), "codes"),
-        (GOOD.replace("license:", "codes: PLA\nlicense:"), "codes"),
-        (GOOD.replace("license:", "codes: [PLA data]\nlicense:"), "codes"),
+        (GOOD.replace("subject: example-subject\n", ""), "subject"),
+        (GOOD.replace("example-subject", "Not A Key"), "subject"),
+        (GOOD.replace("aliases: [Example]\n", ""), "aliases"),
+        (GOOD.replace("[Example]", "[]"), "aliases"),
+        (GOOD.replace("[Example]", "Example"), "aliases"),
+        (GOOD.replace("[Example]", "['+++']"), "aliases"),
         (GOOD.replace("title: Example", "title: [unclosed"), "front matter"),
         (GOOD.replace("2026-11-07", "2026-11-07 10:00:00"), "retrieved"),
         (GOOD.replace("Some text.\n", "Some text.\n<!-- page: 9 -->\n"), "page"),
@@ -73,33 +77,27 @@ def test_a_bad_file_is_reported(tmp_path: Path, text: str, expected: str) -> Non
     assert expected in problems(tmp_path, text)
 
 
-def test_a_unit_declares_the_codes_it_is_about(tmp_path: Path) -> None:
-    text = GOOD.replace("title: Example", "title: Example PLA data").replace(
-        "license:", "codes: [PLA, 'PLA plus']\nlicense:"
-    )
-    (unit,) = load(write(tmp_path, text)).units.values()
-    assert unit.codes == frozenset({"pla", "pla+"})
+def test_a_unit_carries_its_subject_and_the_corpus_its_aliases(tmp_path: Path) -> None:
+    text = GOOD.replace("[Example]", "[PolyTerra PLA+, 'PLA plus', PETG-HF]")
+    corpus = load(write(tmp_path, text))
+    (unit,) = corpus.units.values()
+    assert unit.subject == "example-subject"
+    assert set(corpus.aliases) == {("polyterra", "pla+"), ("pla+",), ("petg", "hf")}
+    assert set(corpus.aliases.values()) == {"example-subject"}
 
 
-def test_a_code_named_in_the_text_must_be_declared_or_mentioned(tmp_path: Path) -> None:
-    named = GOOD.replace("license:", "codes: [PLA]\nlicense:").replace(
-        "Some text.", "PLA is lighter than ABS."
-    )
-    assert "ABS" in problems(tmp_path, named)
-    mentioned = named.replace("license:", "mentions: [ABS]\nlicense:")
-    (unit,) = load(write(tmp_path, mentioned)).units.values()
-    assert unit.codes == frozenset({"pla"})
-    assert unit.mentions == frozenset({"abs"})
-
-
-def test_a_lowercase_title_that_names_a_known_code_must_declare_it(tmp_path: Path) -> None:
-    declared = GOOD.replace("title: Example", "title: Example PLA").replace(
-        "license:", "codes: [PLA]\nlicense:"
-    )
-    write(tmp_path, declared, "a.md")
-    write(tmp_path, GOOD.replace("title: Example", "title: polyterra Pla sheet"), "b.md")
-    with pytest.raises(InvalidCorpus, match="known code"):
+def test_an_alias_two_subjects_claim_is_refused(tmp_path: Path) -> None:
+    write(tmp_path, GOOD, "a.md")
+    other = GOOD.replace("example-subject", "other-subject").replace("[Example]", "[PETG, example]")
+    write(tmp_path, other, "b.md")
+    with pytest.raises(InvalidCorpus, match="claimed by both"):
         load(tmp_path)
+
+
+def test_two_files_may_share_a_subject_and_its_aliases(tmp_path: Path) -> None:
+    write(tmp_path, GOOD, "a.md")
+    write(tmp_path, GOOD, "b.md")
+    assert len(load(tmp_path).units) == 2
 
 
 def test_a_heading_inside_a_code_fence_is_text(tmp_path: Path) -> None:
@@ -137,6 +135,9 @@ def test_every_problem_is_collected(tmp_path: Path) -> None:
 def test_the_seeded_corpus_is_valid_and_answers_its_questions() -> None:
     index = Index(load(CORPUS_PATH))
     assert [h.pointer.id for h in index.search("fresh water density")][:1] == ["kb:water#density"]
+    assert [h.pointer.id for h in index.search("water density at 4 degrees")] == [
+        "kb:water#pure-water-at-4-degrees-celsius"
+    ]
     assert [h.pointer.id for h in index.search("PLA+ density")] == ["kb:pla-plus#density"]
     assert [h.pointer.id for h in index.search("PLA density")] == ["kb:pla#density"]
     assert index.search("PETG density") == ()
@@ -146,7 +147,7 @@ def test_the_seeded_corpus_is_valid_and_answers_its_questions() -> None:
     for query in ("PLA\uff0b density", "PLA + density", "PLA plus density", "PLA\u207a density"):
         assert [h.pointer.id for h in index.search(query)] == ["kb:pla-plus#density"], query
     assert index.search("plus grade density") == ()
-    for query in ("ISO1183 density", "GB/T1033 density", "PLA\u2795 density"):
+    for query in ("ISO1183 density", "GB/T1033 density", "PLA\u2795 density", "water"):
         assert index.search(query) == (), query
 
 
