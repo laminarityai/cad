@@ -4,7 +4,13 @@ from dataclasses import dataclass
 from typing import Literal, Protocol
 
 from cad.checks.container.kernel import Kernel, Shape, Unreadable
-from cad.checks.container.wire import DensityWire, FindingWire, MeasuredWire, SourceLiteral
+from cad.checks.container.wire import (
+    DensityWire,
+    FindingWire,
+    MeasuredWire,
+    ResultWire,
+    SourceLiteral,
+)
 
 DIMENSIONLESS = "dimensionless"
 
@@ -14,6 +20,7 @@ class Subject:
     kernel: Kernel
     shape: Shape | Unreadable
     density: DensityWire
+    reported: Mapping[str, ResultWire]
 
 
 class CheckModule(Protocol):
@@ -41,9 +48,7 @@ class CheckModule(Protocol):
         ...
 
     @property
-    def REQUIRES(self) -> tuple["CheckModule", ...]:
-        """Checks this one runs first and needs to pass. Their files feed this check's version."""
-        ...
+    def REQUIRES(self) -> tuple["CheckModule", ...]: ...
 
     def run(self, subject: Subject) -> FindingWire: ...
 
