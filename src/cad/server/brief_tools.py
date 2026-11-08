@@ -1,11 +1,8 @@
 """The four brief tools. None of them can write a decision: only the confirmation page can."""
 
-from collections.abc import Generator
-from contextlib import contextmanager
 from pathlib import Path
 from typing import Annotated, Literal
 
-from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.mcpserver.tools import Tool
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -21,8 +18,8 @@ from cad.briefs.model import (
     deciding_check,
     describe,
 )
-from cad.briefs.store import BriefRefused, BriefState, ProposalState, Status
-from cad.records.signed import StoreUnusable
+from cad.briefs.store import BriefState, ProposalState, Status
+from cad.server.refusals import agent_facing
 
 PLAN_MODE = (
     "Plan mode comes first for every brief. Store the user's words with create_brief, unchanged. "
@@ -138,21 +135,11 @@ def _view(state: BriefState, proposed: ProposalState) -> ProposalView:
     )
 
 
-@contextmanager
-def _agent_facing() -> Generator[None]:
-    try:
-        yield
-    except BriefRefused as error:
-        raise ToolError(f"{type(error).__name__}: {error}") from error
-    except StoreUnusable as error:
-        raise ToolError(str(error)) from error
-
-
 def brief_tools(root: Path, desk: Desk) -> list[Tool]:
     def create_brief(
         text: Annotated[str, Field(min_length=1, max_length=MAX_BRIEF_CHARS)],
     ) -> BriefCreated:
-        with _agent_facing():
+        with agent_facing():
             return BriefCreated(brief_id=store.create_brief(root, text).id)
 
     def propose_requirements(
@@ -162,12 +149,12 @@ def brief_tools(root: Path, desk: Desk) -> list[Tool]:
         ],
     ) -> ProposalView:
         drafts = [store.Draft(target=r.target, quote=r.quote) for r in requirements]
-        with _agent_facing():
+        with agent_facing():
             proposed = store.propose(root, brief_id, drafts)
             return _view(store.read_state(root, brief_id), proposed)
 
     async def confirm_requirements(brief_id: str) -> ConfirmResult:
-        with _agent_facing():
+        with agent_facing():
             after = await desk.confirm(brief_id)
             state = store.read_state(root, brief_id)
         decision = after.decision
@@ -181,7 +168,7 @@ def brief_tools(root: Path, desk: Desk) -> list[Tool]:
         return ConfirmResult(brief_id=state.brief.id, proposal=after.proposal.number, answer=answer)
 
     def list_requirements(brief_id: str) -> BriefView:
-        with _agent_facing():
+        with agent_facing():
             state = store.read_state(root, brief_id)
         confirmed = state.confirmed
         return BriefView(

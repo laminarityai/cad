@@ -3,7 +3,11 @@ from pathlib import Path
 
 import pytest
 from cards import (
+    BRIEF_TEXT,
+    confirm,
+    drafts,
     genuine_card,
+    judged_card,
     lines,
     put,
     trace,
@@ -15,6 +19,19 @@ from provenance import (
 )
 from trace_store import SPEC_BY_ID, Tally, exit_code, main, tally
 from tracking import NO_REQUIREMENTS, NoRequirements, describe, outcomes_of, track
+
+from cad.briefs import store as briefs
+from cad.scorecard.model import AwaitingConfirmation
+
+LIGHT = ({"kind": "max_mass", "mass": {"magnitude": 150, "unit": "g"}}, "under 150 g")
+FRIENDLY = ({"kind": "unchecked", "statement": "looks friendly"}, "looks friendly")
+
+
+def scored_against_a_brief(store: Path) -> list[str]:
+    briefs_root = store.parent / "briefs"
+    brief_id = briefs.create_brief(briefs_root, BRIEF_TEXT).id
+    put(store, judged_card(confirm(briefs_root, brief_id, drafts(LIGHT, FRIENDLY))))
+    return ["--root", str(store), "--briefs-root", str(briefs_root)]
 
 
 def test_the_command_passes_on_a_store_of_genuine_scorecards(
@@ -81,8 +98,48 @@ def test_stale_and_unresolved_numbers_are_counted_apart(
     assert "stale: 2, unresolved: 1" in out
 
 
+def test_a_card_judged_against_a_confirmed_brief_resolves_and_reports_its_requirements(
+    store: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    arguments = scored_against_a_brief(store)
+    assert main([*arguments, "--steps", "--require-judged"]) == 0
+    out = lines(capsys)
+    assert "cards unconfirmed: 0, misjudged: 0, superseded: 0" in out
+    assert "cards judged: 1, awaiting confirmation: 0, no brief: 0" in out
+    assert "confirmed by a person: brief " in out
+    assert "strict pass rate: 0/2 (0%)" in out
+    assert "requirements covered by reviewed checks: 1/2 (50%)" in out
+
+
+def test_awaiting_and_no_brief_cards_count_apart_and_fail_only_when_judgment_is_required(
+    store: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    brief_id = briefs.create_brief(store.parent / "briefs", BRIEF_TEXT).id
+    put(store, genuine_card(basis=AwaitingConfirmation(brief_id=brief_id)))
+    arguments = ["--root", str(store), "--briefs-root", str(store.parent / "briefs")]
+    assert main(arguments) == 0
+    assert "cards judged: 0, awaiting confirmation: 1, no brief: 0" in lines(capsys)
+    assert main([*arguments, "--require-judged"]) == 1
+    put(store, genuine_card())
+    assert main([*arguments, "--require-judged"]) == 1
+    assert "cards judged: 0, awaiting confirmation: 0, no brief: 1" in lines(capsys)
+
+
 COUNTS = Tally(
-    cards=1, unreadable=0, unbound=0, incomplete=0, numbers=3, resolved=3, stale=0, unresolved=0
+    cards=1,
+    unreadable=0,
+    unbound=0,
+    incomplete=0,
+    unconfirmed=0,
+    misjudged=0,
+    superseded=0,
+    judged=1,
+    awaiting=0,
+    no_brief=0,
+    numbers=3,
+    resolved=3,
+    stale=0,
+    unresolved=0,
 )
 
 
@@ -97,10 +154,29 @@ COUNTS = Tally(
         (replace(COUNTS, incomplete=1), 1),
         (replace(COUNTS, stale=1, resolved=2), 1),
         (replace(COUNTS, unresolved=1, resolved=2), 1),
+        (replace(COUNTS, unconfirmed=1), 1),
+        (replace(COUNTS, misjudged=1), 1),
+        (replace(COUNTS, superseded=1), 1),
+        (replace(COUNTS, judged=0, awaiting=1), 0),
+        (replace(COUNTS, judged=0, no_brief=1), 0),
     ],
 )
 def test_one_function_decides_the_exit_code(counts: Tally, code: int) -> None:
     assert exit_code(counts) == code
+
+
+@pytest.mark.parametrize(
+    ("counts", "code"),
+    [
+        (COUNTS, 0),
+        (replace(COUNTS, judged=0, awaiting=1), 1),
+        (replace(COUNTS, judged=0, no_brief=1), 1),
+    ],
+)
+def test_requiring_judgment_fails_a_card_that_judged_no_requirement(
+    counts: Tally, code: int
+) -> None:
+    assert exit_code(counts, require_judged=True) == code
 
 
 def test_the_tally_counts_a_card_once_per_kind_of_failure() -> None:

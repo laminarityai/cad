@@ -1,6 +1,6 @@
 # Score variant
 
-`score_variant(variant_id, material_key)` runs the fixed checks `closed_solid`, `interference`, `mass` and `extents` on a built variant, stores the scorecard in `~/.cad/variants/<variant_id>/scorecard.json`, and returns it. `list_materials` returns the keys and names that `material_key` accepts. The server exposes no tool that writes a check, a table or a scorecard.
+`score_variant(variant_id, material_key, brief_id?)` runs the fixed checks `closed_solid`, `interference`, `mass` and `extents` on a built variant, stores the scorecard in `~/.cad/variants/<variant_id>/scorecard.json`, and returns it. `list_materials` returns the keys and names that `material_key` accepts. The server exposes no tool that writes a check, a table or a scorecard.
 
 ## Sub-features
 
@@ -11,7 +11,7 @@
 - `score-unknown-variant` returns an error that names the variant id.
 - `score-unknown-key` returns `mass` as `unknown` for a key that is not in the table, and the other three checks still run.
 - `materials-list` returns the five keys and names, and no number.
-- `score-requirements` says in one line that phase 1 reads no requirements from the brief, so `unverified_requirements` is empty.
+- `score-basis` says what the card was scored against. With no `brief_id`, `basis.kind` is `no_brief`. With a brief that nobody confirmed, it is `awaiting_confirmation`. With a confirmed brief, it is `against_brief`, and `basis.requirements` holds one entry per confirmed requirement: `checked` with the deciding `check_id`, a `verdict` and the confirmed `limit` of each comparison, or `unverified` with no verdict. `basis.unverified_requirements` lists the ids of the `unverified` entries.
 - `reply-rule` sends one rule as the server's `instructions` and at the end of the `score_variant` description: a reply states measured geometry only when a `score_variant` result returned it. The reply report of [Agree](./agree.md) measures how often saved replies follow it.
 - `allowlist` fails the build when the server exposes a tool outside the allowlist in `tests/server/test_tool_allowlist.py`.
 - `claude-score` makes Claude Code build a part, score it, and quote the verdicts. `claude-override` shows that Claude Code cannot change a verdict.
@@ -35,13 +35,14 @@ uv run cad-call build_variant "$(jq -Rs '{code: .}' < tests/sandbox/parts/plate.
 ID=$(jq -r .structuredContent.variant_id "$EVIDENCE/build-plate.json")
 ```
 
-- **Scorecard.** Run `uv run cad-call score_variant "{\"variant_id\": \"$ID\", \"material_key\": \"prusament-pla\"}" > "$EVIDENCE/score-plate.json"; echo $?`. Exit code `0`. `structuredContent.results` holds `closed_solid`, `interference`, `mass` and `extents`, each `pass` with a non-empty `formula`, `sources` and `version`. `mass` has a `volume` of 29509.72 mm³ within 0.01. `extents` has `sorted_extent:smallest`, `sorted_extent:middle` and `sorted_extent:largest` of 6, 50 and 100 mm within 0.002. `structuredContent` also has `table_version`, `image_digest` (`sha256:` and 64 hex digits), `brep_sha256`, `step` (`kind` `stored` with a `sha256`), `unverified_requirements` equal to `[]`, and a `requirements_note` that says phase 1 reads no requirements from the brief.
+- **Scorecard.** Run `uv run cad-call score_variant "{\"variant_id\": \"$ID\", \"material_key\": \"prusament-pla\"}" > "$EVIDENCE/score-plate.json"; echo $?`. Exit code `0`. `structuredContent.results` holds `closed_solid`, `interference`, `mass` and `extents`, each `pass` with a non-empty `formula`, `sources` and `version`. `mass` has a `volume` of 29509.72 mm³ within 0.01. `extents` has `sorted_extent:smallest`, `sorted_extent:middle` and `sorted_extent:largest` of 6, 50 and 100 mm within 0.002. `structuredContent` also has `table_version`, `image_digest` (`sha256:` and 64 hex digits), `brep_sha256`, `step` (`kind` `stored` with a `sha256`), and `basis` equal to `{"kind": "no_brief"}`.
 - **Stored.** Run `diff <(jq -S .structuredContent "$EVIDENCE/score-plate.json") <(jq -S . ~/.cad/variants/$ID/scorecard.json)`. It prints nothing.
 - **Failing shell.** Build the plate code with `from build123d import Shell` and `result = Shell(result.faces()[:-1])` appended, then score it. `closed_solid` is `fail` and its reason starts `found 0 solids`. `mass` and `extents` are `unknown` and `measured` is empty. The stored `scorecard.json` says the same.
 - **Twice.** Run the score command twice into two files. `cmp` on the two files prints nothing.
 - **Unknown variant.** Run `uv run cad-call score_variant '{"variant_id": "0123456789abcdef", "material_key": "prusament-pla"}'`. Exit code `1`, `isError` true, and the text names `0123456789abcdef`. An id that is not 16 lowercase hex digits names that text instead. No `scorecard.json` is written.
 - **Unknown key.** Score with `unobtainium`. `mass` is `unknown` and its reason names the key. The other three are `pass`.
 - **Materials.** Run `uv run cad-call list_materials '{}' > "$EVIDENCE/list-materials.json"`. `structuredContent.materials` has 5 entries, each with only `key` and `name`, both strings.
+- **Against a brief.** Run `create_brief` and `propose_requirements` through `cad-call`, then score with `"brief_id": "<id>"`. `basis.kind` is `awaiting_confirmation`. To judge requirements, confirm through the page first: drive `confirm_requirements` through `claude_session.py --opener` as [Briefs](./briefs.md) says, or through an MCP client on `cad-server --opener <human.py>`, never through `cad-call`. Then score again with the same `brief_id`. `basis.kind` is `against_brief`. For the plate in `prusament-pla`, `max_mass` 150 g is `pass`, `min_mass` 50 g is `fail`, an envelope of 120 x 80 x 40 mm is `pass`, and an `unchecked` requirement is `unverified`. An unknown or tampered `brief_id` exits `1` with `UnknownBrief` or `TamperedBrief`, and no `scorecard.json` is written.
 - **Extra argument.** Run `uv run cad-call score_variant '{"variant_id": "0123456789abcdef", "material_key": "prusament-pla", "verdict": "pass"}'`. Exit code `1` and text that says `Extra inputs are not permitted`.
 - **Allowlist.** Run `uv run pytest tests/server/test_tool_allowlist.py -q`. To see it fail, add a stub tool named `edit_check` to `tools` in `src/cad/server/app.py`, run the test again, and revert the edit. The failure names `edit_check`.
 - **Claude Code build and score.** Run `uv run python .claude/skills/verify/scripts/claude_session.py "build a 100x50x6 plate with four 5.1 mm holes in PLA, then score it and quote the four verdicts" "$EVIDENCE/claude-score-plate.json"`. Output starts with `init: cad connected`, has a `tool call: mcp__cad__build_variant` line and then a `tool call: mcp__cad__score_variant` line, and the reply quotes `pass` for all four checks.
@@ -58,3 +59,5 @@ Each score removes its own container. After a run that was killed, list leftover
 - A check version hashes every file that `cad.scorecard.score` or the check runner imports, so an edit to `src/cad/checks/report.py` or `src/cad/sandbox/stage.py` changes all four versions. It also folds the installed version of each third-party distribution those files import, with the distributions they require, so a `uv.lock` bump of pint or pydantic changes all four versions too. A dev tool such as ruff does not.
 - A STEP larger than the 64 MiB report cap turns every result `unknown` (issue 14).
 - A material key is matched exactly. `list_materials` gives the keys.
+- An envelope requirement is `pass` or `unknown`, never `fail`. `extents` measures the box on the part's own axes, and a part that does not fit that way may still fit when rotated.
+- A card stored before `basis` existed carries `requirements_note` and does not parse. The tracer reports it `UNREADABLE`. Score the variant again.

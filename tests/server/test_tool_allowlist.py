@@ -8,7 +8,7 @@ pytestmark = pytest.mark.anyio
 ALLOWED_ARGUMENTS = {
     "server_info": set[str](),
     "build_variant": {"code"},
-    "score_variant": {"variant_id", "material_key"},
+    "score_variant": {"variant_id", "material_key", "brief_id"},
     "list_materials": set[str](),
     "create_brief": {"text"},
     "propose_requirements": {"brief_id", "requirements"},
