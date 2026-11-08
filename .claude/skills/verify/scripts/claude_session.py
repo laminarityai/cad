@@ -1,5 +1,5 @@
 """Usage: uv run python .claude/skills/verify/scripts/claude_session.py [--model <alias>]
-    "<prompt>" <transcript.json>
+    [--opener <program>] "<prompt>" <transcript.json>
 
 Claude Code skips a broken MCP server entry and still exits 0, so this script fails unless the
 system/init event lists `cad` as connected with no mcp_server_errors. It also fails when the
@@ -18,14 +18,19 @@ ROOT = Path(__file__).resolve().parents[4]
 CAD_TOOL_PREFIX = "mcp__cad__"
 
 
-def mcp_config() -> str:
+def mcp_config(opener: str | None = None) -> str:
     config = json.loads((ROOT / ".mcp.json").read_text())
     cad = config["mcpServers"]["cad"]
-    cad["args"] = ["--directory", str(ROOT), *cad["args"]]
+    cad["args"] = [
+        "--directory",
+        str(ROOT),
+        *cad["args"],
+        *(["--opener", opener] if opener else []),
+    ]
     return json.dumps(config)
 
 
-def main(prompt: str, transcript: Path, model: str | None = None) -> int:
+def main(prompt: str, transcript: Path, model: str | None = None, opener: str | None = None) -> int:
     with tempfile.TemporaryDirectory(prefix="claude-session-") as empty:
         done = subprocess.run(
             [
@@ -33,7 +38,7 @@ def main(prompt: str, transcript: Path, model: str | None = None) -> int:
                 "-p",
                 prompt,
                 "--mcp-config",
-                mcp_config(),
+                mcp_config(opener),
                 "--strict-mcp-config",
                 "--tools",
                 "",
@@ -88,7 +93,8 @@ def main(prompt: str, transcript: Path, model: str | None = None) -> int:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model")
+    parser.add_argument("--opener", help="program the cad server runs with the page URL")
     parser.add_argument("prompt")
     parser.add_argument("transcript", type=Path)
     args = parser.parse_args()
-    sys.exit(main(args.prompt, args.transcript, args.model))
+    sys.exit(main(args.prompt, args.transcript, args.model, args.opener))

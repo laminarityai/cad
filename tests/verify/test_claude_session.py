@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 import sys
@@ -45,3 +46,27 @@ def test_a_tool_from_another_mcp_server_is_outside_cad(tmp_path: Path) -> None:
     assert done.returncode == 1
     assert "tools available outside cad: mcp__other__x" in done.stdout
     assert "tools outside cad: mcp__other__x" in done.stdout
+
+
+def test_the_opener_flag_reaches_the_cad_server_arguments(tmp_path: Path) -> None:
+    argv = tmp_path / "argv.json"
+    stub = tmp_path / "bin" / "claude"
+    stub.parent.mkdir()
+    stub.write_text(
+        f"#!{sys.executable}\n"
+        "import json, sys\n"
+        f"open({str(argv)!r}, 'w').write(json.dumps(sys.argv))\n"
+        f"print(open({str(TRANSCRIPTS / 'cad_only.json')!r}).read())\n"
+    )
+    stub.chmod(0o755)
+    done = subprocess.run(
+        [sys.executable, str(SESSION), "--opener", "/bin/echo", "a prompt", str(tmp_path / "o")],
+        capture_output=True,
+        text=True,
+        check=False,
+        env={**os.environ, "PATH": f"{stub.parent}{os.pathsep}{os.environ['PATH']}"},
+    )
+    assert done.returncode == 0, done.stdout
+    arguments = json.loads(argv.read_text())
+    config = json.loads(arguments[arguments.index("--mcp-config") + 1])
+    assert config["mcpServers"]["cad"]["args"][-2:] == ["--opener", "/bin/echo"]

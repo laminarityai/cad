@@ -7,6 +7,7 @@ from mcp import Client
 
 from cad.scorecard import score
 from cad.server.app import RULE, build_server
+from cad.server.brief_tools import PLAN_MODE
 from cad.tables.materials import load_materials
 
 pytestmark = pytest.mark.anyio
@@ -182,5 +183,5 @@ async def test_an_unreadable_materials_table_lists_nothing_and_shows_no_host_pat
 async def test_the_server_tells_every_client_that_only_check_results_are_measurements() -> None:
     async with Client(build_server()) as client:
         instructions = client.instructions
-    assert instructions == RULE
+    assert instructions == RULE + " " + PLAN_MODE
     assert (await listed_description("score_variant")).endswith(RULE)

@@ -1,6 +1,6 @@
 # Score variant
 
-`score_variant(variant_id, material_key)` runs the fixed checks `closed_solid`, `interference`, `mass` and `extents` on a built variant, stores the scorecard in `~/.cad/variants/<variant_id>/scorecard.json`, and returns it. `list_materials` returns the keys and names that `material_key` accepts. The server exposes four tools and no tool that writes a check, a table or a scorecard.
+`score_variant(variant_id, material_key)` runs the fixed checks `closed_solid`, `interference`, `mass` and `extents` on a built variant, stores the scorecard in `~/.cad/variants/<variant_id>/scorecard.json`, and returns it. `list_materials` returns the keys and names that `material_key` accepts. The server exposes no tool that writes a check, a table or a scorecard.
 
 ## Sub-features
 
@@ -13,7 +13,7 @@
 - `materials-list` returns the five keys and names, and no number.
 - `score-requirements` says in one line that phase 1 reads no requirements from the brief, so `unverified_requirements` is empty.
 - `reply-rule` sends one rule as the server's `instructions` and at the end of the `score_variant` description: a reply states measured geometry only when a `score_variant` result returned it. The reply report of [Agree](./agree.md) measures how often saved replies follow it.
-- `allowlist` fails the build when the server exposes a tool outside `server_info`, `build_variant`, `score_variant` and `list_materials`.
+- `allowlist` fails the build when the server exposes a tool outside the allowlist in `tests/server/test_tool_allowlist.py`.
 - `claude-score` makes Claude Code build a part, score it, and quote the verdicts. `claude-override` shows that Claude Code cannot change a verdict.
 
 ## How to get to it (user POV)
