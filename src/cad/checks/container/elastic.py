@@ -31,8 +31,6 @@ def extent(mesh: TetMesh) -> float:
 def region_faces(
     mesh: TetMesh, anchor: Region | FarFrom, tol: float
 ) -> tuple[Face, ...] | Unresolved:
-    """The boundary triangles whose 6 nodes all lie in one of the region's patches, or all lie at
-    least the far cutoff from the center."""
     match anchor:
         case Region(patches):
             faces = tuple(

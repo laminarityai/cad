@@ -17,10 +17,7 @@ ORIGIN = (0.0, 0.0, 0.0)
 
 
 @dataclass(frozen=True, slots=True)
-class Disc:
-    """The disc of `radius` around `center` on the plane through it with this normal. No anchor
-    makes one, but the clamped plate's hand calculation loads a central patch."""
-
+class PlateLoadPatch:
     center: Point
     normal: Point
     radius: float
@@ -34,7 +31,7 @@ class Case:
     largest_extent_mm: float
     material: Material
     fixed: Region
-    loaded: Region | FarFrom | Disc
+    loaded: Region | FarFrom | PlateLoadPatch
     force: Point
     measure: Measure
     expected: float
@@ -139,7 +136,7 @@ CASES: tuple[Case, ...] = (
         largest_extent_mm=2 * PLATE_A,
         material=STEEL,
         fixed=Region((Bore(ORIGIN, Z, PLATE_A, 0.0, PLATE_T),), (0.0, 0.0, PLATE_T / 2)),
-        loaded=Disc((0.0, 0.0, PLATE_T), Z, PATCH_R),
+        loaded=PlateLoadPatch((0.0, 0.0, PLATE_T), Z, PATCH_R),
         force=(0.0, 0.0, -PLATE_P),
         measure="max_displacement",
         expected=PLATE_P * PLATE_A**2 / (16 * math.pi * PLATE_D),

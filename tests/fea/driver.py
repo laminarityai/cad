@@ -2,7 +2,7 @@ import hashlib
 import json
 import sys
 
-from cases import BY_NAME, Case, Disc
+from cases import BY_NAME, Case, PlateLoadPatch
 
 from cad.checks.container.anchors import FarFrom, Plane, Region, Unresolved
 from cad.checks.container.calculix import SolveFailed, solve
@@ -45,9 +45,9 @@ def solved(case: Case, brep: bytes, size_mm: float) -> dict[str, object]:
 
 
 def selected(
-    mesh: TetMesh, anchor: Region | FarFrom | Disc, tol: float
+    mesh: TetMesh, anchor: Region | FarFrom | PlateLoadPatch, tol: float
 ) -> tuple[Face, ...] | Unresolved:
-    if not isinstance(anchor, Disc):
+    if not isinstance(anchor, PlateLoadPatch):
         return region_faces(mesh, anchor, tol)
     plane = region_faces(mesh, Region((Plane(anchor.center, anchor.normal),), anchor.center), tol)
     if isinstance(plane, Unresolved):
@@ -57,7 +57,7 @@ def selected(
         for face in plane
         if all(norm(sub(mesh.nodes[i], anchor.center)) <= anchor.radius + tol for i in face)
     )
-    return inside or Unresolved("no mesh triangle lies wholly inside the disc")
+    return inside or Unresolved("no mesh triangle lies wholly inside the load patch")
 
 
 def main() -> None:
