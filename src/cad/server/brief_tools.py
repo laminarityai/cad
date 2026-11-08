@@ -7,7 +7,7 @@ from typing import Annotated, Literal
 
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.mcpserver.tools import Tool
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from cad.briefs import store
 from cad.briefs.ballot import Desk
@@ -60,6 +60,8 @@ LIST_REQUIREMENTS = (
 
 
 class RequirementDraft(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     target: Target
     quote: Annotated[str, Field(min_length=1, max_length=MAX_STATEMENT_CHARS)]
 

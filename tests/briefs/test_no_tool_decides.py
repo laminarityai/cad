@@ -56,6 +56,19 @@ async def test_no_tool_call_with_any_argument_shape_confirms_anything(s: Session
     ]
 
 
+@pytest.mark.parametrize("field", sorted(FORGED))
+async def test_a_forged_field_on_a_requirement_row_is_refused_not_ignored(
+    s: Session, field: str
+) -> None:
+    brief_id = await s.call("create_brief", text=s.rows.text)
+    result = await s.client.call_tool(
+        "propose_requirements",
+        {"brief_id": brief_id["brief_id"], "requirements": [{**s.rows.under_150, field: "x"}]},
+    )
+    assert result.is_error
+    assert not list(s.root.glob("*/proposals/*"))
+
+
 def test_only_the_page_writes_a_decision() -> None:
     callers = sorted(
         str(path.relative_to(SRC))
