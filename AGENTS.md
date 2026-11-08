@@ -9,7 +9,7 @@
 ## Rules that protect the core claim
 
 - The agent never decides whether a design is good. Checks do. Code that lets the agent change a check, its inputs, or a table it reads is a bug.
-- Numbers a check reads come from the parts and materials tables by exact key, never from vector search or model output.
+- Numbers a check reads come from the parts and materials tables by exact key, never from vector search or model output. A requirement verdict compares a check's measure with a target a person confirmed.
 - Agent-written Python runs only inside the sandbox.
 
 ## Conventions
