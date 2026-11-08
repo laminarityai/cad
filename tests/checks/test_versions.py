@@ -11,6 +11,7 @@ from typing import Final
 import pytest
 
 from cad.checks.container.check import CheckModule, Subject
+from cad.checks.container.inputs import Input
 from cad.checks.container.suite import CHECKS
 from cad.checks.container.wire import FindingWire, SourceLiteral
 from cad.checks.report import DEPENDENCIES, SPECS, build_request, specs
@@ -50,7 +51,8 @@ class NoSource:
     FORMULA = "none"
     SOURCES: tuple[SourceLiteral, ...] = ()
     MEASURES: Mapping[str, str] = MappingProxyType({"x": "mm"})
-    READS: Mapping[str, str] = MappingProxyType({})
+    TAKES: frozenset[Input] = frozenset()
+    READS: Mapping[str, Input] = MappingProxyType({})
     REQUIRES: tuple[CheckModule, ...] = ()
 
     def run(self, subject: Subject) -> FindingWire:

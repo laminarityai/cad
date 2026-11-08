@@ -271,25 +271,23 @@ def test_unknown_results_keep_the_formula_sources_and_version_of_a_real_one(
     "key", ["unobtainium", "prusament-pla ", "PRUSAMENT-PLA", " prusament-pla", ""]
 )
 def test_a_key_that_is_not_exact_has_an_unknown_density(key: str) -> None:
-    density = build_request(key, load_materials()).wire["density"]
+    density = build_request(key, load_materials()).wire["values"]["density"]
     assert density["kind"] == "unknown"
     assert repr(key) in density["reason"]
 
 
 def test_a_cited_density_reaches_the_container_in_kg_per_mm3() -> None:
-    density = build_request("prusament-pla", load_materials()).wire["density"]
+    density = build_request("prusament-pla", load_materials()).wire["values"]["density"]
     assert density["kind"] == "known"
     cited = load_materials().get_material("prusament-pla").density
     assert isinstance(cited, Cited)
-    assert density["kg_per_mm3"] == pytest.approx(cited.magnitude_in("kg/m^3") / 1e9)
+    assert density["magnitude"] == pytest.approx(cited.magnitude_in("kg/m^3") / 1e9)
 
 
 def test_a_table_row_whose_density_is_unknown_never_reaches_the_container_as_a_number() -> None:
-    table = MaterialsTable(
-        "v1", {"mystery": Material("mystery", "Mystery", Unknown(), Unknown(), Unknown())}
-    )
+    table = MaterialsTable("v1", {"mystery": Material("mystery", "Mystery", *[Unknown()] * 5)})
     request = build_request("mystery", table)
-    assert request.wire["density"] == {
+    assert request.wire["values"]["density"] == {
         "kind": "unknown",
         "reason": "the materials table has no density for mystery: it says unknown",
     }

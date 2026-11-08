@@ -3,6 +3,7 @@ from datetime import date
 from typing import Final
 
 from cad.checks.container.check import DIMENSIONLESS, Subject, finding, measure, no_shape
+from cad.checks.container.inputs import Input
 from cad.checks.container.kernel import Unreadable
 from cad.checks.container.wire import FindingWire, SourceLiteral
 
@@ -31,7 +32,8 @@ MEASURES = {
     "max_common_volume": "mm^3",
     "common_volume": "mm^3",
 }
-READS: dict[str, str] = {}
+TAKES: frozenset[Input] = frozenset()
+READS: dict[str, Input] = {}
 REQUIRES = ()
 
 
