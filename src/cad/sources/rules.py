@@ -16,7 +16,7 @@ from cad.sources.units import dimension
 # number starts or ends: ",9" could be 0.9 and "1;24" could be 1.24.
 _LIKE_A_DECIMAL_MARK: Final = frozenset(",;:")
 _TOUCHING: Final = _LIKE_A_DECIMAL_MARK | frozenset("()")
-_BENIGN: Final = frozenset({"separator", "label", "standard", "condition"})
+_BENIGN: Final = frozenset({"separator", "label", "standard", "unlisted_standard", "condition"})
 _RANGE_WORDS: Final = frozenset({"to", "bis"})
 
 
@@ -49,31 +49,43 @@ def refuse(
 
 
 def _ends(text: str, found: list[Token]) -> Refusal | None:
-    """A standard or a condition ends at whitespace, a separator, or the end of the quote."""
+    """An unlisted standard or a condition ends at whitespace, a separator, or the quote's end.
+
+    A listed standard always ends there, by its pattern. An unlisted one followed by a number is
+    refused too, since from its shape alone it is unclear where its own number ends.
+    """
     for index, token in enumerate(found[:-1]):
-        if token.kind not in {"standard", "condition"}:
+        if token.kind not in {"unlisted_standard", "condition"}:
             continue
         after = found[index + 1]
-        name = "standard" if token.kind == "standard" else "condition"
         if not after.spaced and after.kind != "separator":
             rest = text[after.start :].split(" ")[0]
-            return _unclear_end(
-                f"the {name} {token.text!r} runs into {rest!r}, so it is unclear where the "
-                f"{name}'s number ends"
+            if token.kind == "condition":
+                return Refusal(
+                    Reason.AMBIGUOUS_NUMBER,
+                    f"the condition {token.text!r} runs into {rest!r}, so it is unclear where "
+                    "the condition's number ends",
+                    "the value quoted apart from the condition, or typed on the page",
+                )
+            return _unlisted(
+                f"{token.text + rest!r} is not on this reader's list of density test standards, "
+                "so it is unclear where the standard's number ends"
             )
-        if token.kind == "standard" and after.kind == "number":
-            return _unclear_end(
-                f"the standard {token.text!r} is followed by the number {after.text!r}, so it "
-                "is unclear where the standard's number ends and the value starts"
+        if token.kind == "unlisted_standard" and after.kind == "number":
+            return _unlisted(
+                f"the standard {token.text!r} is not on this reader's list of density test "
+                f"standards, so it is unclear where its number ends and the value {after.text!r} "
+                "starts"
             )
     return None
 
 
-def _unclear_end(detail: str) -> Refusal:
+def _unlisted(detail: str) -> Refusal:
     return Refusal(
         Reason.AMBIGUOUS_NUMBER,
         detail,
-        "the value quoted apart from the standard or condition, or typed on the page",
+        "the value quoted apart from the standard or typed on the page; the standard's exact "
+        "spelling can also be added to the list",
     )
 
 

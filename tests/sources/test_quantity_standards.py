@@ -43,7 +43,7 @@ def test_a_listed_standard_ends_where_its_spelling_ends(spelling: str) -> None:
         ("Density ISO 1183-1:2019 1.24 g/cm3", 1240.0),
         ("Density ISO 1183-3 1.24 g/cm3", 1240.0),
         ("Density ISO 1183-1 1,24 g/cm3", 1240.0),
-        ("Density ＩＳＯ 1183 1.24 g/cm3", 1240.0),
+        ("Density \uff29\uff33\uff2f 1183 1.24 g/cm3", 1240.0),
     ],
 )
 def test_a_number_after_a_listed_standard_reads(quote: str, expected: float) -> None:
@@ -69,7 +69,6 @@ def test_the_longest_listed_spelling_wins() -> None:
         "Density GB/T 1033.11.24 g/cm3",
         "Density ASTM D7921.24 g/cm3",
         "Density ISO 1183:1 1.24 g/cm3",
-        "Density ISO 1183:1240 kg/m3",
     ],
 )
 def test_a_listed_standard_glued_to_more_digits_is_refused(quote: str) -> None:
@@ -106,6 +105,7 @@ def test_an_unlisted_standard_followed_by_a_number_is_refused_by_name(
         "Density ISO 1183:2019 1 240 kg/m3",
         "Density ISO 1183 1 2400.5 kg/m3",
         "Density ISO 1183 2019 1.24 g/cm3",
+        "Density ISO 1183:1240 kg/m3",
     ],
 )
 def test_a_listed_standard_does_not_hide_a_split_or_extra_number(quote: str) -> None:
