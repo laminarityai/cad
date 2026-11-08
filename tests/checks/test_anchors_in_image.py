@@ -14,7 +14,7 @@ from cad.checks.container.anchors import Resolved, resolve
 from cad.checks.container.kernel import ocp_kernel
 
 plate = (
-    Box(60, 20, 8)
+    Pos(10, 0, 0) * Box(80, 20, 8)
     - Pos(-20, 0, 0) * Cylinder(2.75, 8)
     - Pos(-20, 0, 2) * Cylinder(5, 4)
     - Pos(20, 0, 0) * Cylinder(2.75, 8)

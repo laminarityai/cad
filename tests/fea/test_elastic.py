@@ -109,6 +109,8 @@ SQUARE = TetMesh(
     tets=(),
     faces=((0, 1, 2, 4, 5, 6), (0, 2, 3, 6, 7, 8), (0, 3, 9, 8, 11, 10)),
 )  # fmt: skip
+ORIGIN = (0.0, 0.0, 0.0)
+HALF = math.sqrt(0.5)
 FLOOR = Region((Plane((5.0, 5.0, 0.0), (0.0, 0.0, -1.0)),), (1.0, 1.0, 0.0))
 WALL = Plane((0.0, 0.0, 0.0), (-1.0, 0.0, 0.0))
 
@@ -119,11 +121,13 @@ def test_a_region_takes_only_the_triangles_with_every_node_on_one_patch() -> Non
 
 
 def test_far_from_takes_the_triangles_wholly_past_the_cutoff() -> None:
-    assert region_faces(SQUARE, FarFrom((1.0, 1.0, 50.0)), 1e-6) == SQUARE.faces[:2]
+    assert (
+        region_faces(SQUARE, FarFrom((1.0, 1.0, 50.0), (0.0, 0.0, -1.0)), 1e-6) == SQUARE.faces[:2]
+    )
 
 
 def test_an_anchor_no_whole_triangle_lies_on_is_unresolved() -> None:
-    assert isinstance(region_faces(SQUARE, FarFrom((0.0, 0.0, 0.0)), 1e-6), Unresolved)
+    assert isinstance(region_faces(SQUARE, FarFrom(ORIGIN, (HALF, HALF, 0.0)), 1e-6), Unresolved)
     off = Region((Plane((0.0, 0.0, 9.0), (0.0, 0.0, 1.0)),), (0.0, 0.0, 9.0))
     assert isinstance(region_faces(SQUARE, off, 1e-6), Unresolved)
 

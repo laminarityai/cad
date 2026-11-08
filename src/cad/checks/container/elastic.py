@@ -38,13 +38,13 @@ def region_faces(
                 for face in mesh.faces
                 if any(all(contains(p, mesh.nodes[i], tol) for i in face) for p in patches)
             )
-        case FarFrom(center):
+        case FarFrom():
             surface = [mesh.nodes[i] for i in face_nodes(mesh.faces)]
             cutoff = anchor.cutoff(surface) - tol
             faces = tuple(
                 face
                 for face in mesh.faces
-                if all(norm(sub(mesh.nodes[i], center)) >= cutoff for i in face)
+                if all(anchor.reach(mesh.nodes[i]) >= cutoff for i in face)
             )
     if not faces:
         return Unresolved("no mesh triangle lies wholly on the anchored surface")
