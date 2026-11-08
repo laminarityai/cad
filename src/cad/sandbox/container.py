@@ -50,6 +50,8 @@ class Job:
     stdin: bytes
     mounts: tuple[ReadOnlyMount, ...] = ()
     wall_seconds: int = WALL_SECONDS
+    memory_mb: int = MEMORY_MB
+    tmpfs_mb: int = TMPFS_MB
 
 
 @dataclass(frozen=True, slots=True)
@@ -143,9 +145,9 @@ def run_argv(name: str, job: Job) -> tuple[str, ...]:
         "--label", f"{OWNER}={os.getpid()}",
         "--interactive", "--init", "--pull", "never", "--log-driver", "none",
         "--network", "none",
-        "--memory", f"{MEMORY_MB}m", "--memory-swap", f"{MEMORY_MB}m",
+        "--memory", f"{job.memory_mb}m", "--memory-swap", f"{job.memory_mb}m",
         "--pids-limit", str(PIDS), "--cpus", str(CPUS),
-        "--read-only", "--tmpfs", f"/tmp:rw,noexec,nosuid,size={TMPFS_MB}m",
+        "--read-only", "--tmpfs", f"/tmp:rw,noexec,nosuid,size={job.tmpfs_mb}m",
         "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
         "--user", "65534:65534", "--env", "HOME=/tmp", "--workdir", "/tmp",
         *mounts,

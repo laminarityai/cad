@@ -5,7 +5,7 @@ import pytest
 from cad.checks.result import CheckRun, Verdict
 from cad.sandbox import __main__ as cli
 from cad.sandbox import stage
-from cad.sandbox.image import context_tar, image_tag
+from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.outcome import Build, Built, NoResult
 from cad.variants import entry
 from cad.variants.store import build_variant
@@ -72,7 +72,7 @@ def test_a_variant_that_did_not_build_is_not_checked(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     code = "x = 1\n"
-    vid = entry.variant_id(code, image_tag(context_tar()))
+    vid = entry.variant_id(code, image_tag(BUILD))
     entry.save(tmp_path, vid, code, Build(outcome=NoResult(reason="r"), output=""), None)
     assert cli.main(["run-checks", vid, "prusament-pla", "--root", str(tmp_path)]) == 1
     assert capsys.readouterr().out.startswith(f"NotBuilt: variant {vid} has no shape")
@@ -82,7 +82,7 @@ def test_a_stage_root_that_cannot_be_written_is_one_line_and_exit_one(
     tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     code = "x = 1\n"
-    vid = entry.variant_id(code, image_tag(context_tar()))
+    vid = entry.variant_id(code, image_tag(BUILD))
     entry.save(tmp_path, vid, code, Build(outcome=Built(), output=""), b"BREP")
     locked = tmp_path / "locked"
     locked.mkdir(mode=0o555)

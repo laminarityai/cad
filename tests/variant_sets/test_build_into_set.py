@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from cad.sandbox.image import context_tar, image_tag
+from cad.sandbox.image import BUILD, image_tag
 from cad.variant_sets import store
 from cad.variant_sets.model import MAX_MEMBERS
 from cad.variants import entry
@@ -32,7 +32,7 @@ async def test_a_member_survives_a_trust_digest_change(
     before = await s.call("build_variant", code=PLATE, brief_id=brief_id)
     monkeypatch.setattr(entry, "TRUST_DIGEST", "a server version from a later deploy")
     [member] = held(s, brief_id)
-    live = member.live_id(image_tag(context_tar()))
+    live = member.live_id(image_tag(BUILD))
     assert member.built_as == before["variant_id"] != live
     after = await s.call("build_variant", code=PLATE, brief_id=brief_id)
     assert after["variant_id"] == live

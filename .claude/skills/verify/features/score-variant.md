@@ -4,7 +4,7 @@
 
 ## Sub-features
 
-- `score-pass` returns a scorecard with four `pass` results for the plate reference variant. Each result has a formula, sources and a version. The scorecard names the table version, the image digest and the shape and STEP hashes.
+- `score-pass` returns a scorecard with four `pass` results for the plate reference variant. Each result has a formula, sources and a version. The scorecard names the table version, the analysis image digest and the shape and STEP hashes.
 - `score-stored` stores the same scorecard in `scorecard.json`.
 - `score-fail` shows `closed_solid` as `fail` for a shell with no solid, and `mass` as `unknown` with no measured value.
 - `score-twice` returns equal scorecards for the same variant and key.
@@ -35,7 +35,7 @@ uv run cad-call build_variant "$(jq -Rs '{code: .}' < tests/sandbox/parts/plate.
 ID=$(jq -r .structuredContent.variant_id "$EVIDENCE/build-plate.json")
 ```
 
-- **Scorecard.** Run `uv run cad-call score_variant "{\"variant_id\": \"$ID\", \"material_key\": \"prusament-pla\"}" > "$EVIDENCE/score-plate.json"; echo $?`. Exit code `0`. `structuredContent.results` holds `closed_solid`, `interference`, `mass` and `extents`, each `pass` with a non-empty `formula`, `sources` and `version`. `mass` has a `volume` of 29509.72 mm³ within 0.01. `extents` has `sorted_extent:smallest`, `sorted_extent:middle` and `sorted_extent:largest` of 6, 50 and 100 mm within 0.002. `structuredContent` also has `table_version`, `image_digest` (`sha256:` and 64 hex digits), `brep_sha256`, `step` (`kind` `stored` with a `sha256`), and `basis` equal to `{"kind": "no_brief"}`.
+- **Scorecard.** Run `uv run cad-call score_variant "{\"variant_id\": \"$ID\", \"material_key\": \"prusament-pla\"}" > "$EVIDENCE/score-plate.json"; echo $?`. Exit code `0`. `structuredContent.results` holds `closed_solid`, `interference`, `mass` and `extents`, each `pass` with a non-empty `formula`, `sources` and `version`. `mass` has a `volume` of 29509.72 mm³ within 0.01. `extents` has `sorted_extent:smallest`, `sorted_extent:middle` and `sorted_extent:largest` of 6, 50 and 100 mm within 0.002. `structuredContent` also has `table_version`, `check_image_digest` (`sha256:` and 64 hex digits), `brep_sha256`, `step` (`kind` `stored` with a `sha256`), and `basis` equal to `{"kind": "no_brief"}`.
 - **Stored.** Run `diff <(jq -S .structuredContent "$EVIDENCE/score-plate.json") <(jq -S . ~/.cad/variants/$ID/scorecard.json)`. It prints nothing.
 - **Failing shell.** Build the plate code with `from build123d import Shell` and `result = Shell(result.faces()[:-1])` appended, then score it. `closed_solid` is `fail` and its reason starts `found 0 solids`. `mass` and `extents` are `unknown` and `measured` is empty. The stored `scorecard.json` says the same.
 - **Twice.** Run the score command twice into two files. `cmp` on the two files prints nothing.

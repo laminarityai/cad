@@ -54,6 +54,7 @@ def run_python(program: str, *args: str) -> str:
 def copied_tree(tmp_path: Path) -> Path:
     root = tmp_path / "src"
     shutil.copytree(SRC / "cad", root / "cad", ignore=shutil.ignore_patterns("__pycache__"))
+    shutil.copytree(SRC.parent / "sandbox", tmp_path / "sandbox")
     return root
 
 
@@ -66,7 +67,10 @@ def copied_tree(tmp_path: Path) -> Path:
         "cad/sandbox/host.py",
         "cad/sandbox/container.py",
         "cad/tables/materials.py",
-        "cad/checks/container/kernel.py",
+        "cad/checks/container/kernel/__init__.py",
+        "cad/checks/container/kernel/protocol.py",
+        "cad/checks/container/kernel/ocp_handles.py",
+        "cad/checks/container/kernel/ocp_kernel.py",
         "cad/__init__.py",
     ],
 )

@@ -13,7 +13,15 @@ UNITS = pint.UnitRegistry()
 TABLE_PATH = Path(__file__).resolve().parents[3] / "tables" / "materials.yaml"
 KEY_PATTERN = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 DENSITY_RANGE_KG_PER_M3 = (500.0, 20000.0)
-FIELD_UNITS = {"density": "kg/m^3", "yield_strength": "MPa", "tensile_strength": "MPa"}
+ELASTIC_MODULUS_RANGE_GPA = (0.01, 500.0)
+MAX_YIELD_STRAIN = 0.1
+FIELD_UNITS = {
+    "density": "kg/m^3",
+    "yield_strength": "MPa",
+    "tensile_strength": "MPa",
+    "elastic_modulus": "MPa",
+    "poisson_ratio": "dimensionless",
+}
 SOURCE_TEXT_FIELDS = ("url", "title", "page", "quote")
 
 type Raw = Mapping[object, object]
@@ -53,6 +61,13 @@ class Material:
     density: Value
     yield_strength: Value
     tensile_strength: Value
+    elastic_modulus: Value
+    poisson_ratio: Value
+
+    def value(self, field: str) -> Value:
+        if field not in FIELD_UNITS:
+            raise KeyError(field)
+        return cast(Value, getattr(self, field))
 
 
 class UnknownMaterial(LookupError):
@@ -132,9 +147,7 @@ def _parse_material(row: Raw, problems: list[str]) -> Material | None:
     values = {field: _parse_value(key, field, row.get(field), problems) for field in FIELD_UNITS}
     if len(problems) > start:
         return None
-    material = Material(
-        key, name, values["density"], values["yield_strength"], values["tensile_strength"]
-    )
+    material = Material(key, name, **values)
     problems.extend(_rule_problems(material))
     return material
 
@@ -201,5 +214,26 @@ def _rule_problems(material: Material) -> list[str]:
         problems.append(
             f"{material.key}: yield_strength {yield_strength.quantity:g~P} is above"
             f" tensile_strength {tensile_strength.quantity:g~P}"
+        )
+    modulus, poisson = material.elastic_modulus, material.poisson_ratio
+    low, high = ELASTIC_MODULUS_RANGE_GPA
+    if isinstance(modulus, Cited) and not low <= modulus.magnitude_in("GPa") <= high:
+        problems.append(
+            f"{material.key}: elastic_modulus {modulus.quantity:g~P} is outside the plausible"
+            f" range {low:g} to {high:g} GPa"
+        )
+    if isinstance(poisson, Cited) and not 0 <= poisson.magnitude_in("dimensionless") < 0.5:
+        problems.append(
+            f"{material.key}: poisson_ratio {poisson.magnitude_in('dimensionless'):g} is not"
+            " at least 0 and below 0.5"
+        )
+    if (
+        isinstance(yield_strength, Cited)
+        and isinstance(modulus, Cited)
+        and yield_strength.magnitude_in("MPa") >= MAX_YIELD_STRAIN * modulus.magnitude_in("MPa")
+    ):
+        problems.append(
+            f"{material.key}: yield_strength {yield_strength.quantity:g~P} is not below"
+            f" {MAX_YIELD_STRAIN:g} of elastic_modulus {modulus.quantity:g~P}"
         )
     return problems

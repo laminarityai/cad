@@ -11,21 +11,22 @@ class SourceLiteral(TypedDict):
     quote: str
 
 
-class DensityKnown(TypedDict):
+class ValueKnown(TypedDict):
     kind: Literal["known"]
-    kg_per_mm3: float
+    magnitude: float
 
 
-class DensityUnknown(TypedDict):
+class ValueUnknown(TypedDict):
     kind: Literal["unknown"]
     reason: str
 
 
-type DensityWire = DensityKnown | DensityUnknown
+type ValueWire = ValueKnown | ValueUnknown
 
 
 class RequestWire(TypedDict):
-    density: DensityWire
+    checks: list[str]
+    values: dict[str, ValueWire]
 
 
 class MeasuredWire(TypedDict):

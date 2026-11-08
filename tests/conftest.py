@@ -6,15 +6,17 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Protocol, cast
 from urllib.parse import urlencode, urlsplit
 
 import pytest
 from mcp import Client
 
+from cad.knowledge.corpus import Corpus
+from cad.knowledge.search import Index
 from cad.records.roots import Roots
 from cad.server.app import build_server
 
@@ -161,7 +163,13 @@ async def s(tmp_path: Path, person: Person) -> AsyncIterator[Session]:
 # default root (HOME_ROOTS, VARIANTS_ROOT) would write there, so every write under it fails the
 # test. The sandbox stage is the one shared directory tests may write.
 GUARDED_HOMES = tuple({Path(pwd.getpwuid(os.getuid()).pw_dir), Path.home()})
-GUARDED = tuple(str(home / ".cad") for home in GUARDED_HOMES)
+GUARDED = tuple(
+    {
+        form(str(home / ".cad")).casefold()
+        for home in GUARDED_HOMES
+        for form in (os.path.abspath, os.path.realpath)
+    }
+)
 ALLOWED = tuple(f"{cad}{os.sep}stage" for cad in GUARDED)
 WRITE_FLAGS = os.O_WRONLY | os.O_RDWR | os.O_CREAT | os.O_APPEND | os.O_TRUNC
 WRITE_EVENTS = frozenset(
@@ -169,18 +177,27 @@ WRITE_EVENTS = frozenset(
     | {"os.truncate", "os.utime", "shutil.rmtree"}
 )
 home_writes: list[str] = []
+home_writes_lock = threading.Lock()
 
 
 def _guarded(target: object) -> str | None:
     if not isinstance(target, str | bytes | os.PathLike):
         return None
     path = os.path.abspath(os.fsdecode(cast("str | bytes | os.PathLike[str]", target)))
-    inside = any(path.startswith(cad + os.sep) for cad in GUARDED)
-    allowed = any(path == stage or path.startswith(stage + os.sep) for stage in ALLOWED)
-    return path if inside and not allowed else None
+    for form in {path.casefold(), os.path.realpath(path).casefold()}:
+        inside = any(form.startswith(cad + os.sep) for cad in GUARDED)
+        allowed = any(form == stage or form.startswith(stage + os.sep) for stage in ALLOWED)
+        if inside and not allowed:
+            return path
+    return None
 
 
 def _refuse_home_writes(event: str, arguments: tuple[object, ...]) -> None:
+    """Refuse a write under the operator's ~/.cad, also through a symlink or in another case.
+
+    It sees only the audited calls of this interpreter. It misses a write from a subprocess or a
+    container, a write sqlite3 makes, and an `os.open` with `dir_fd` and a relative name.
+    """
     if event == "open":
         mode, flags = arguments[1], arguments[2]
         writes = (isinstance(mode, str) and mode.strip("rbt") != "") or (
@@ -196,7 +213,8 @@ def _refuse_home_writes(event: str, arguments: tuple[object, ...]) -> None:
     for target in targets:
         path = _guarded(target)
         if path is not None:
-            home_writes.append(f"{event} {path}")
+            with home_writes_lock:
+                home_writes.append(f"{event} {path}")
             raise PermissionError(f"a test wrote to the operator's {path}; give it tmp_path roots")
 
 
@@ -206,6 +224,19 @@ sys.addaudithook(_refuse_home_writes)
 @pytest.fixture(name="home_writes", autouse=True)
 def no_write_reaches_the_operators_home() -> Iterator[list[str]]:
     yield home_writes
-    written, home_writes[:] = list(home_writes), []
+    with home_writes_lock:
+        written, home_writes[:] = list(home_writes), []
     if written:
         pytest.fail(f"this test wrote to the operator's ~/.cad: {written}")
+
+
+class MakeCorpus(Protocol):
+    def __call__(
+        self, files: Mapping[str, str], aliases: Mapping[str, list[str]] | None = None
+    ) -> Corpus: ...
+
+
+class MakeIndex(Protocol):
+    def __call__(
+        self, files: Mapping[str, str], aliases: Mapping[str, list[str]] | None = None
+    ) -> Index: ...

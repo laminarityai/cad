@@ -26,10 +26,10 @@ SPEC says that everything waiting on the person in a project appears on one page
 
 The tool is `ask_to_confirm(project_id)`. It replaces `confirm_requirements`. It opens the project's page, waits as `confirm_requirements` did, and reports each brief's newest proposal as `waiting`, `confirmed` or `declined`. It cannot answer.
 
-The answer is a `PageAnswer` in the project store. It is no longer a decision record in the brief store. The handler writes one signed record per answered page to `~/.cad/projects/<project_id>/answers/<n>.signed`, and the projects key, `~/.cad/projects.key`, signs it under ADR-0003's scheme. A decision record that the brief store holds from before this change is still read, and it wins over a page answer for the same proposal. Nothing rewrites it.
+The answer is a `PageAnswer` in the project store. It is no longer a decision record in the brief store. The handler writes one signed record per answered page to a zero-padded numbered file such as `~/.cad/projects/<project_id>/answers/0001.signed`, and the projects key, `~/.cad/projects.key`, signs it under ADR-0003's scheme. A decision record that the brief store holds from before this change is still read, and it wins over a page answer for the same proposal. Nothing rewrites it.
 
-One click answers the whole page. The page lists the newest proposal of every brief in the project, and later kinds of item join the same page. The person can tick Decline on single items, and the same click confirms the rest and declines those. The page snapshots its items when it opens. If an item is added or replaced after that, the page records nothing and closes, and the next `ask_to_confirm` opens a new page.
+One click answers the whole page. The page lists every brief in the project whose newest proposal is still waiting, and later kinds of item join the same page. The person can tick Decline on single items, and the same click confirms the rest and declines those. The page snapshots its items when it opens. If an item is added or replaced after that, the page records nothing and closes, and the next `ask_to_confirm` opens a new page.
 
 The guarantee and its gap are unchanged. An agent that reaches the server only through MCP cannot answer the page. An agent with shell tools that runs as the same user can read the projects key, as it could read the brief store's key before.
 
-This amendment awaits the operator's approval.
+The operator approved this amendment on 2026-11-08.

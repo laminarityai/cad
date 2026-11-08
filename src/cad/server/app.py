@@ -17,6 +17,7 @@ from cad.scorecard import requirements, score
 from cad.scorecard.model import Scorecard
 from cad.server.brief_tools import PLAN_MODE, brief_tools
 from cad.server.confirmation_tools import confirmation_tools
+from cad.server.knowledge_tools import knowledge_tools
 from cad.server.refusals import agent_facing
 from cad.tables.materials import KEY_PATTERN
 from cad.variant_sets import store as variant_sets
@@ -204,6 +205,7 @@ def build_server(
                 Tool.from_function(list_materials, description=LIST_MATERIALS),
                 *brief_tools(roots),
                 *confirmation_tools(roots, desk),
+                *knowledge_tools(),
             )
         ],
     )

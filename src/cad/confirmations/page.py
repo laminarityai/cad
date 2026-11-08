@@ -101,10 +101,15 @@ def _declined(fields: dict[str, list[str]], size: int) -> frozenset[int] | None:
         if match is None:
             continue
         index = int(match.group(1))
-        if fields.pop(name) != ["decline"] or index >= size:
+        if fields.pop(name) != ["decline"] or index >= size or not _declinable(size):
             return None
         found.add(index)
     return frozenset(found)
+
+
+def _declinable(size: int) -> bool:
+    """A page of one item shows no Decline box, because its Decline all button does the same."""
+    return size > 1
 
 
 def _verdict_of(form: Form, index: int) -> Literal["confirmed", "declined"]:
@@ -154,7 +159,7 @@ def answer_page(
 
 
 def render(sections: Sequence[Section], action: str) -> bytes:
-    each = len(sections) > 1
+    each = _declinable(len(sections))
     items = "".join(
         _section(index, section) + (_decline_control(index) if each else "")
         for index, section in enumerate(sections)
