@@ -107,7 +107,7 @@ class _BRepGProp(Protocol):
 class _BRepBndLib(Protocol):
     @staticmethod
     def AddOptimal_s(
-        shape: Shape, box: _Box, use_triangulation: bool, use_shape_tolerance: bool
+        shape: Shape, box: _Box, useTriangulation: bool, useShapeTolerance: bool
     ) -> None: ...
 
 
@@ -313,7 +313,9 @@ class OcpKernel:
 
     def extents(self, shape: Shape) -> tuple[float, float, float] | None:
         box = self._ocp.new_box()
-        self._ocp.brep_bnd_lib.AddOptimal_s(shape, box, False, False)
+        self._ocp.brep_bnd_lib.AddOptimal_s(
+            shape, box, useTriangulation=False, useShapeTolerance=False
+        )
         if box.IsVoid() or box.IsOpen():
             return None
         x0, y0, z0, x1, y1, z1 = box.Get()

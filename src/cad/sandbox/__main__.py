@@ -17,7 +17,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     commands.add_parser("build-image", help="build the sandbox image unless the current one exists")
     checks = commands.add_parser(
         "run-checks",
-        help="run closed_solid, interference and mass on a built variant and print the result",
+        help="run the checks on a built variant and print the result",
     )
     checks.add_argument("variant_id", help="the id build_variant returned")
     checks.add_argument(
