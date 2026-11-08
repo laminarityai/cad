@@ -11,10 +11,11 @@ WATER = {
         "## Ice\nIce floats on water.\n"
     )
 }
+WATER_ALIASES = {"water": ["water", "fresh water"]}
 
 
 def test_a_confident_hit_returns_a_pointer_and_text(make_index: MakeIndex) -> None:
-    (hit,) = make_index(WATER).search("water density")
+    (hit,) = make_index(WATER, WATER_ALIASES, family=True).search("water density")
     assert hit.pointer.id == "kb:water#density"
     assert hit.pointer.section == "Density"
     assert hit.pointer.url == "https://example.com/water"
@@ -22,17 +23,17 @@ def test_a_confident_hit_returns_a_pointer_and_text(make_index: MakeIndex) -> No
 
 
 def test_no_confident_hit_returns_nothing(make_index: MakeIndex) -> None:
-    index = make_index(WATER)
+    index = make_index(WATER, WATER_ALIASES, family=True)
     assert index.search("quantum chromodynamics lattice") == ()
     assert index.search("") == ()
 
 
 def test_a_name_alone_does_not_choose_a_section(make_index: MakeIndex) -> None:
-    assert make_index(WATER).search("water") == ()
+    assert make_index(WATER, WATER_ALIASES, family=True).search("water") == ()
 
 
 def test_every_word_after_the_name_must_match_the_unit(make_index: MakeIndex) -> None:
-    index = make_index(WATER)
+    index = make_index(WATER, WATER_ALIASES, family=True)
     assert index.search("water density viscosity") == ()
     assert [h.pointer.id for h in index.search("what is the density of fresh water")] == [
         "kb:water#density"
@@ -40,13 +41,16 @@ def test_every_word_after_the_name_must_match_the_unit(make_index: MakeIndex) ->
 
 
 def test_a_query_that_names_no_subject_finds_nothing(make_index: MakeIndex) -> None:
-    assert make_index(WATER).search("PETG fresh density") == ()
-    assert make_index(WATER).search("fresh density") == ()
+    assert make_index(WATER, WATER_ALIASES, family=True).search("PETG fresh density") == ()
+    assert make_index(WATER, WATER_ALIASES, family=True).search("fresh density") == ()
 
 
 def test_hits_are_ordered_by_id_and_ignore_case(make_index: MakeIndex) -> None:
     index = make_index(
-        {"water": '## Zinc heat\n"water heat capacity"\n\n## Alpha heat\n"Water Heat Capacity"\n'}
+        {"water": "## Zinc heat capacity\nText.\n\n## Alpha Heat Capacity\nText.\n"}, family=True
     )
     hits = index.search("WATER heat capacity")
-    assert [h.pointer.id for h in hits] == ["kb:water#alpha-heat", "kb:water#zinc-heat"]
+    assert [h.pointer.id for h in hits] == [
+        "kb:water#alpha-heat-capacity",
+        "kb:water#zinc-heat-capacity",
+    ]

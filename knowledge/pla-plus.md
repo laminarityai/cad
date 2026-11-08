@@ -4,6 +4,8 @@ url: https://cdn.shopify.com/s/files/1/0789/2979/files/PolyTerra_PLA_Plus_EN_V5.
 retrieved: 2026-11-07
 license: own-summary
 subject: pla-plus
+maker: Polymaker
+line: PolyTerra
 aliases: [PolyTerra PLA+, Polymaker PolyTerra PLA+]
 ---
 ## Density

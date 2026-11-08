@@ -4,6 +4,8 @@ url: https://polymaker.com/wp-content/uploads/TDS_PolyTerra_PLA_V6.0_2026-06-08_
 retrieved: 2026-11-07
 license: own-summary
 subject: pla
+maker: Polymaker
+line: PolyTerra
 aliases: [PolyTerra PLA, Polymaker PolyTerra PLA]
 ---
 ## Density

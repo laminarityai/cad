@@ -1,7 +1,8 @@
 """Keyword search over the knowledge corpus.
 
-Each file is about one subject. List the names that mean exactly that subject under aliases. A
-search must name one of them, or it finds nothing; the text then chooses the section.
+Each file is about one subject. List the names that mean exactly that subject under aliases; a
+branded file's aliases each carry its maker or product line, so "PLA" names only a family file.
+A search must name one alias, or it finds nothing; the section heading then chooses the unit.
 
 In full, a search has two steps and no score.
 
@@ -10,16 +11,16 @@ In full, a search has two steps and no score.
    beats "PETG". If the longest names left belong to two subjects, or to none, the search finds
    nothing. Unit text never takes part: a unit that mentions ABS is not about ABS.
 2. Section. Within the named subject's units, every other query word that is not a stopword must
-   be a word of the unit's section heading or of a span the unit quotes from its source. At least
-   one such word is needed to choose. The source title and the unit's own prose never take part: a
-   caveat that mentions "mineral" does not make the unit about mineral water.
+   be a word of the unit's section heading. At least one such word is needed to choose. The source
+   title, the unit's prose and its quotes never take part: a quote that mentions "mineral", "CF"
+   or "95A" does not make the unit about mineral water, a CF grade or a 95A hardness.
 
 A hit is a pointer to a source, page and section, never a value for a check. Hits come back in unit
 id order, at most MAX_HITS, each with its text cut at MAX_TEXT_CHARS. Requiring every word costs
-recall: a plural or a missing word gives no hit and the agent asks again.
+recall: a plural, a missing word or a word only the quote has gives no hit and the agent asks
+again.
 """
 
-import re
 from dataclasses import dataclass
 from typing import Final
 
@@ -28,7 +29,6 @@ from cad.knowledge.text import STOPWORDS, tokens
 
 MAX_HITS: Final = 5
 MAX_TEXT_CHARS: Final = 2000
-QUOTE: Final = re.compile(r'"([^"]*)"|“([^”]*)”')
 
 type Span = tuple[int, int]
 
@@ -43,7 +43,7 @@ class Index:
     def __init__(self, corpus: Corpus) -> None:
         self._corpus = corpus
         self._words = {
-            unit.pointer.id: frozenset(tokens(f"{unit.pointer.section} {_quoted(unit.text)}"))
+            unit.pointer.id: frozenset(tokens(unit.pointer.section))
             for unit in corpus.units.values()
         }
 
@@ -82,7 +82,3 @@ class Index:
                 other != span and other[0] <= span[0] and span[1] <= other[1] for _, other in found
             )
         ]
-
-
-def _quoted(text: str) -> str:
-    return " ".join(a or b for a, b in QUOTE.findall(text))

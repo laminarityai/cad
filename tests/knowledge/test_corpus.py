@@ -13,12 +13,16 @@ url: https://example.com/x
 retrieved: 2026-11-07
 license: own-summary
 subject: x
+maker: Acme
+line: Example
 aliases: [Example]
 ---
 ## First
 <!-- page: 2 -->
 Some text.
 """
+
+BRAND = "maker: Acme\nline: Example"
 
 
 def write(tmp_path: Path, text: str, name: str = "x.md") -> Path:
@@ -71,9 +75,16 @@ def test_the_version_changes_with_any_byte(tmp_path: Path) -> None:
         (GOOD.replace("[Example]", "[NO]"), "quote it"),
         (GOOD.replace("[Example]", "[the]"), "stopword"),
         (GOOD.replace("[Example]", "[a, An]"), "stopword"),
-        (GOOD.replace("[Example]", "[PLA]"), "family"),
-        (GOOD.replace("[Example]", "[PLA+]"), "family"),
-        (GOOD.replace("[Example]", "['6061']"), "family"),
+        (GOOD.replace("[Example]", "[PLA]"), "maker or line"),
+        (GOOD.replace("[Example]", "[PLA+]"), "maker or line"),
+        (GOOD.replace("[Example]", "['6061']"), "maker or line"),
+        (GOOD.replace("[Example]", "[Example, PLA Matte]"), "maker or line"),
+        (GOOD.replace("maker: Acme\n", ""), "maker"),
+        (GOOD.replace("maker: Acme", "maker: 7"), "maker"),
+        (GOOD.replace("line: Example", "line: [x]"), "line"),
+        (GOOD.replace("maker: Acme", "maker: Acme\nfamily: true"), "family file"),
+        (GOOD.replace(BRAND, "maker: The Steel"), "no word of its own"),
+        (GOOD.replace("[Example]", "[Example, Acme]"), "only the maker"),
         (GOOD.replace("subject: x", "subject: other"), "file name"),
         (GOOD.replace("subject: x", "subject: x\nsubject: other"), "duplicate"),
         (GOOD.replace("[Example]", "[Example]\nfamily: maybe"), "family"),
@@ -90,11 +101,17 @@ def test_a_bad_file_is_reported(tmp_path: Path, text: str, expected: str) -> Non
 
 
 def test_a_unit_carries_its_subject_and_the_corpus_its_aliases(tmp_path: Path) -> None:
-    text = GOOD.replace("[Example]", "[PolyTerra PLA+, 'Polymaker PLA plus', PETG-HF]")
+    text = GOOD.replace(BRAND, "maker: Polymaker\nline: PolyTerra").replace(
+        "[Example]", "[PolyTerra PLA+, 'Polymaker PLA plus', PolyTerra PETG-HF]"
+    )
     corpus = load(write(tmp_path, text))
     (unit,) = corpus.units.values()
     assert unit.subject == "x"
-    assert set(corpus.aliases) == {("polyterra", "pla+"), ("polymaker", "pla+"), ("petg", "hf")}
+    assert set(corpus.aliases) == {
+        ("polyterra", "pla+"),
+        ("polymaker", "pla+"),
+        ("polyterra", "petg", "hf"),
+    }
     assert set(corpus.aliases.values()) == {"x"}
 
 
@@ -105,16 +122,29 @@ def test_an_alias_two_subjects_claim_is_refused(tmp_path: Path) -> None:
         load(tmp_path)
 
 
-def test_a_family_name_is_an_alias_only_when_the_file_declares_family(tmp_path: Path) -> None:
+def test_a_generic_name_is_an_alias_only_when_the_file_declares_family(tmp_path: Path) -> None:
     text = GOOD.replace("[Example]", "[PLA, Generic PLA]")
-    assert "family" in problems(tmp_path, text)
-    declared = text.replace("aliases:", "family: true\naliases:")
+    assert "maker or line" in problems(tmp_path, text)
+    declared = text.replace(BRAND, "family: true")
     assert ("pla",) in load(write(tmp_path, declared)).aliases
 
 
-def test_a_branded_alias_that_contains_a_family_name_is_allowed(tmp_path: Path) -> None:
-    text = GOOD.replace("[Example]", "[PolyTerra PLA, PA6-CF, 316L]")
-    assert len(load(write(tmp_path, text)).aliases) == 3
+def test_a_branded_alias_names_its_maker_or_line(tmp_path: Path) -> None:
+    text = GOOD.replace(BRAND, "maker: Polymaker\nline: PolyTerra")
+    loaded = load(write(tmp_path, text.replace("[Example]", "[PolyTerra PLA, Polymaker PLA]")))
+    assert set(loaded.aliases) == {("polyterra", "pla"), ("polymaker", "pla")}
+    for generic in ("PLA", "the PLA", "PLA filament", "PLA Matte", "PA 6", "nylon 6"):
+        assert "maker or line" in problems(tmp_path, text.replace("[Example]", f"['{generic}']")), (
+            generic
+        )
+
+
+def test_a_family_word_in_the_makers_name_does_not_count(tmp_path: Path) -> None:
+    text = GOOD.replace(BRAND, "maker: British Steel")
+    assert "maker or line" in problems(tmp_path, text.replace("[Example]", "[mild steel]"))
+    loaded = load(write(tmp_path, text.replace("[Example]", "[British Steel S275]")))
+    assert set(loaded.aliases) == {("british", "steel", "s275")}
+    assert "only the maker" in problems(tmp_path, text.replace("[Example]", "[British Steel]"))
 
 
 def test_a_duplicate_yaml_key_is_refused_wherever_it_sits(tmp_path: Path) -> None:
@@ -160,9 +190,10 @@ def test_every_problem_is_collected(tmp_path: Path) -> None:
 def test_the_seeded_corpus_is_valid_and_answers_its_questions() -> None:
     index = Index(load(CORPUS_PATH))
     assert [h.pointer.id for h in index.search("fresh water density")][:1] == ["kb:water#density"]
-    assert [h.pointer.id for h in index.search("water density at 4 degrees")] == [
+    assert [h.pointer.id for h in index.search("pure water at 4 degrees")] == [
         "kb:water#pure-water-at-4-degrees-celsius"
     ]
+    assert index.search("water density at 4 degrees") == ()
     assert [h.pointer.id for h in index.search("PolyTerra PLA+ density")] == ["kb:pla-plus#density"]
     assert [h.pointer.id for h in index.search("PolyTerra PLA density")] == ["kb:pla#density"]
     for query in ("PLA density", "Polymaker PLA density", "Bambu PLA density", "!PLA density"):
@@ -182,6 +213,8 @@ def test_the_seeded_corpus_is_valid_and_answers_its_questions() -> None:
     assert index.search("plus grade density") == ()
     assert index.search("PLA plus density") == ()
     for query in ("ISO1183 density", "GB/T1033 density", "PolyTerra PLA\u2795 density", "water"):
+        assert index.search(query) == (), query
+    for query in ("mineral water density", "water mineral density", "dissolved water density"):
         assert index.search(query) == (), query
 
 

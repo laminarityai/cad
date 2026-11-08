@@ -2,7 +2,7 @@
 
 Each file is about one subject, named by its file stem: `pla.md` has `subject: pla`. List the
 names that mean exactly that subject under `aliases`. A search must name one of them, or it finds
-nothing; the text then chooses the section.
+nothing; the section heading then chooses the unit.
 
     ---
     title: PolyTerra PLA+ technical data sheet V5.1 (Polymaker)
@@ -10,6 +10,8 @@ nothing; the text then chooses the section.
     retrieved: 2026-11-07
     license: own-summary
     subject: pla-plus
+    maker: Polymaker
+    line: PolyTerra       (optional; a trademark product line)
     aliases: [PolyTerra PLA+, Polymaker PolyTerra PLA+]
     ---
     ## Density            -> id kb:<file stem>#density
@@ -17,9 +19,13 @@ nothing; the text then chooses the section.
     Our summary, with a verbatim quote in "double quotes" wherever a number is cited.
 
 A variant is its own subject, and an alias belongs to one subject only: "PETG" is the alias of the
-plain PETG subject, never of PETG HF. A branded product never claims the name of a whole family:
-"PLA" is not an alias of PolyTerra PLA, because PolyTerra's density is not PLA's. The names in
-`cad.knowledge.families` are refused as aliases unless the file declares `family: true`.
+plain PETG subject, never of PETG HF. A file is either `family: true`, about a whole family, grade
+or standard (PLA, 6061-T6, ISO 273), or branded. A branded file declares `maker:` and may declare
+`line:`, and every alias must carry a word of one of them that is not a family word from
+`cad.knowledge.families`. So "PLA", "PLA Matte" and "mild steel" are never one vendor's alias,
+because one vendor's density is not the family's, and "British Steel" lends only "british". The
+maker's name alone ("Bambu Lab") is not an alias either, because it names every product the maker
+sells. A branded file without a maker is refused.
 
 The loader refuses a file whose subject is not its stem, a duplicate YAML key, an alias that is
 not a quoted string (`[6061]` is an int, `[NO]` a bool), an alias made only of stopwords, an alias
@@ -40,7 +46,7 @@ from typing import Any, Final, cast
 
 import yaml
 
-from cad.knowledge.families import FAMILIES
+from cad.knowledge.families import FAMILY_WORDS
 from cad.knowledge.text import STOPWORDS, tokens
 
 CORPUS_PATH: Final = Path(__file__).resolve().parents[3] / "knowledge"
@@ -214,10 +220,9 @@ def _source(stem: str, meta: object) -> tuple[Source | None, list[str]]:
         problems.append("front matter needs a subject key such as pla-plus")
     elif subject != stem:
         problems.append(f"subject {subject!r} must be the file name {stem!r}, one file per subject")
-    family = fields.get("family", False)
-    if type(family) is not bool:
-        problems.append("front matter family must be true or false")
-    aliases, alias_problems = _aliases(fields.get("aliases"), family is True)
+    brand, brand_problems = _brand(fields)
+    problems.extend(brand_problems)
+    aliases, alias_problems = _aliases(fields.get("aliases"), brand)
     problems.extend(alias_problems)
     if problems or not (
         isinstance(title, str)
@@ -229,7 +234,44 @@ def _source(stem: str, meta: object) -> tuple[Source | None, list[str]]:
     return Source(title, url, retrieved, subject, aliases), problems
 
 
-def _aliases(declared: object, family: bool) -> tuple[frozenset[Alias], list[str]]:
+@dataclass(frozen=True, slots=True)
+class _Brand:
+    words: frozenset[str]
+    """Maker and line words that are not family words; an alias carries at least one."""
+    maker: frozenset[str]
+    """Every word of the maker's name; an alias of only these names the whole maker."""
+
+
+def _brand(fields: dict[str, object]) -> tuple[_Brand | None, list[str]]:
+    """What a branded file's aliases must carry, or None for a family file or a bad one."""
+    family, maker, line = (fields.get(k) for k in ("family", "maker", "line"))
+    if family is not None and type(family) is not bool:
+        return None, ["front matter family must be true or false"]
+    if family:
+        if maker is None and line is None:
+            return None, []
+        return None, ["a family file has no maker or line; drop them or drop `family: true`"]
+    problems: list[str] = []
+    if not isinstance(maker, str) or not maker.strip():
+        problems.append(
+            "front matter needs a maker such as `maker: Polymaker`, "
+            "or `family: true` when the source covers a whole family"
+        )
+    if line is not None and (not isinstance(line, str) or not line.strip()):
+        problems.append("front matter line must be a product line name such as PolyTerra")
+    if problems:
+        return None, problems
+    words = {
+        word
+        for word in tokens(f"{maker} {line or ''}")
+        if word[0].isalnum() and word not in FAMILY_WORDS and word not in STOPWORDS
+    }
+    if not words:
+        return None, [f"front matter maker {maker!r} has no word of its own, only family words"]
+    return _Brand(frozenset(words), frozenset(tokens(str(maker)))), []
+
+
+def _aliases(declared: object, brand: _Brand | None) -> tuple[frozenset[Alias], list[str]]:
     if not isinstance(declared, list) or not declared:
         return frozenset(), ["front matter needs aliases, a list of names such as [PolyTerra PLA+]"]
     aliases: set[Alias] = set()
@@ -243,10 +285,16 @@ def _aliases(declared: object, family: bool) -> tuple[frozenset[Alias], list[str
             problems.append(f"front matter aliases entry {item!r} needs a letter or a digit")
         elif all(w in STOPWORDS for w in words):
             problems.append(f"front matter aliases entry {item!r} is only stopwords")
-        elif words in FAMILIES and not family:
+        elif brand is not None and brand.words.isdisjoint(words):
             problems.append(
-                f"front matter aliases entry {item!r} names a whole family of material; "
-                "name the product, or declare `family: true` if the source covers the family"
+                f"front matter aliases entry {item!r} has no word of the maker or line "
+                f"({', '.join(sorted(brand.words))}); name the product as its maker sells it, "
+                "or declare `family: true` when the source covers a whole family"
+            )
+        elif brand is not None and set(words) - STOPWORDS <= brand.maker:
+            problems.append(
+                f"front matter aliases entry {item!r} is only the maker's name, which names "
+                "every product the maker sells; add the product"
             )
         else:
             aliases.add(words)
