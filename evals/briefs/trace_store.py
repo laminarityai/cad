@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, assert_never
 
+import pint
 from binding import Unbound, Unlinked
 from confirmation import Misjudged, Superseded, Unconfirmed
 from provenance import (
@@ -175,7 +176,7 @@ def _read(
     name = path.parent.name
     try:
         card = Scorecard.model_validate_json(path.read_text())
-    except (OSError, ValidationError) as error:
+    except (OSError, ValidationError, pint.UndefinedUnitError, ZeroDivisionError) as error:
         return CardTrace(name, (Unreadable(str(error).splitlines()[0]),), ()), ()
     trace = trace_card(card, root, briefs_root, table, SPEC_BY_ID)
     if card.variant_id != name:

@@ -1,15 +1,21 @@
+import json
 from dataclasses import replace
 from pathlib import Path
 
 import pytest
 from cards import (
+    BREP,
     BRIEF_TEXT,
+    STEP,
+    UNITS,
+    VARIANT_ID,
     confirm,
     drafts,
     genuine_card,
     judged_card,
     lines,
     put,
+    result_of,
     trace,
     with_result,
 )
@@ -21,7 +27,11 @@ from trace_store import SPEC_BY_ID, Tally, exit_code, main, tally
 from tracking import NO_REQUIREMENTS, NoRequirements, describe, outcomes_of, track
 
 from cad.briefs import store as briefs
+from cad.checks.result import Measure
+from cad.sandbox.outcome import Build, Built
 from cad.scorecard.model import AwaitingConfirmation
+from cad.scorecard.score import SCORECARD
+from cad.variants import entry
 
 LIGHT = ({"kind": "max_mass", "mass": {"magnitude": 150, "unit": "g"}}, "under 150 g")
 FRIENDLY = ({"kind": "unchecked", "statement": "looks friendly"}, "looks friendly")
@@ -123,6 +133,63 @@ def test_awaiting_and_no_brief_cards_count_apart_and_fail_only_when_judgment_is_
     put(store, genuine_card())
     assert main([*arguments, "--require-judged"]) == 1
     assert "cards judged: 0, awaiting confirmation: 0, no brief: 1" in lines(capsys)
+
+
+OTHER_VARIANT = "fedcba9876543210"
+
+
+def test_a_card_whose_deciding_measure_has_the_wrong_dimension_is_misjudged_and_the_run_goes_on(
+    store: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    briefs_root = store.parent / "briefs"
+    brief_id = briefs.create_brief(briefs_root, BRIEF_TEXT).id
+    good = judged_card(confirm(briefs_root, brief_id, drafts(LIGHT, FRIENDLY)))
+    wrong = tuple(
+        Measure(name=one.name, value=UNITS.Quantity(1.0, "mm")) if one.name == "mass" else one
+        for one in result_of(good, "mass").measured
+    )
+    put(store, with_result(good, "mass", measured=wrong))
+    other = good.model_copy(update={"variant_id": OTHER_VARIANT})
+    entry.save(
+        store, entry.VariantId(OTHER_VARIANT), "x = 1\n", Build(outcome=Built(), output=""), BREP
+    )
+    (store / OTHER_VARIANT / entry.STEP).write_bytes(STEP)
+    (store / OTHER_VARIANT / SCORECARD).write_text(other.model_dump_json(indent=2) + "\n")
+    assert main(["--root", str(store), "--briefs-root", str(briefs_root)]) == 1
+    out = lines(capsys)
+    assert f"FAIL {VARIANT_ID}" in out
+    assert "MISJUDGED" in out
+    assert f"ok   {OTHER_VARIANT}" in out
+    assert "cards unconfirmed: 0, misjudged: 1, superseded: 0" in out
+
+
+@pytest.mark.parametrize("unit", ["nonsense_unit", "g/0"])
+@pytest.mark.parametrize("where", ["measure", "limit"])
+def test_a_card_with_an_unparseable_unit_is_unreadable_and_the_run_goes_on(
+    store: Path, capsys: pytest.CaptureFixture[str], where: str, unit: str
+) -> None:
+    briefs_root = store.parent / "briefs"
+    brief_id = briefs.create_brief(briefs_root, BRIEF_TEXT).id
+    good = judged_card(confirm(briefs_root, brief_id, drafts(LIGHT, FRIENDLY)))
+    data = json.loads(good.model_dump_json())
+    if where == "measure":
+        mass = next(one for one in data["results"] if one["check_id"] == "mass")
+        next(one for one in mass["measured"] if one["name"] == "mass")["value"]["unit"] = unit
+    else:
+        data["basis"]["requirements"][0]["comparisons"][0]["limit"]["unit"] = unit
+    put(store, json.dumps(data))
+    other = good.model_copy(update={"variant_id": OTHER_VARIANT})
+    entry.save(
+        store, entry.VariantId(OTHER_VARIANT), "x = 1\n", Build(outcome=Built(), output=""), BREP
+    )
+    (store / OTHER_VARIANT / entry.STEP).write_bytes(STEP)
+    (store / OTHER_VARIANT / SCORECARD).write_text(other.model_dump_json(indent=2) + "\n")
+    assert main(["--root", str(store), "--briefs-root", str(briefs_root)]) == 1
+    out = lines(capsys)
+    assert f"FAIL {VARIANT_ID}" in out
+    assert "UNREADABLE" in out
+    assert f"ok   {OTHER_VARIANT}" in out
+    assert "cards unreadable: 1" in out
 
 
 COUNTS = Tally(

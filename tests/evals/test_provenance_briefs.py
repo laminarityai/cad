@@ -43,6 +43,8 @@ def edited(card: Scorecard, change: dict[str, Any]) -> Scorecard:
     first.update(change.get("requirement", {}))
     first["comparisons"][0].update(change.get("comparison", {}))
     data["basis"].update(change.get("basis", {}))
+    if change.get("drop"):
+        del data["basis"]["requirements"][0]
     return Scorecard.model_validate(data)
 
 
@@ -81,6 +83,7 @@ def test_a_limit_edited_on_the_card_is_unresolved_and_the_card_misjudged(
         {"requirement": {"verdict": "pass"}, "comparison": {"verdict": "pass"}},
         {"requirement": {"check_id": "extents"}},
         {"requirement": {"statement": "Mass at most 1 t"}},
+        {"drop": True},
     ],
 )
 def test_a_judgment_edited_on_the_card_is_misjudged(
