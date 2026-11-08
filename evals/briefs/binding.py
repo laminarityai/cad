@@ -47,6 +47,38 @@ def bind(root: Path, card: Scorecard) -> Unbound | None:
     return None
 
 
+@dataclass(frozen=True, slots=True)
+class Unlinked:
+    reason: str
+
+
+def link(root: Path, card: Scorecard) -> Unlinked | None:
+    """A card with `rebuilt_from` is linked when the old entry's signed record pins the same code
+    as the signed record of the variant the card scored."""
+    if card.rebuilt_from is None:
+        return None
+    try:
+        old = entry.parse_variant_id(card.rebuilt_from)
+        new = entry.parse_variant_id(card.variant_id)
+    except entry.VariantRefused as error:
+        return Unlinked(str(error))
+    if not key.key_path(root).is_file():
+        return Unlinked(f"the store has no key at {key.key_path(root)}, so no build is signed")
+    try:
+        old_manifest = entry.read_manifest(root, old)
+        new_manifest = entry.read_manifest(root, new)
+    except SandboxUnavailable:
+        return Unlinked(
+            f"variant {old} or {new} has a build record that this store did not sign "
+            "or that cannot be read"
+        )
+    if old_manifest is None or old_manifest.code_sha256 is None:
+        return Unlinked(f"the card says it was rebuilt from {old}, which pins no code")
+    if new_manifest is None or new_manifest.code_sha256 != old_manifest.code_sha256:
+        return Unlinked(f"variant {new} was not built from the code that {old} stored")
+    return None
+
+
 def _step_unbound(path: Path, sha256: str) -> Unbound | None:
     try:
         held = hashlib.sha256(path.read_bytes()).hexdigest()
