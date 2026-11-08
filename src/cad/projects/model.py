@@ -11,10 +11,18 @@ LEGACY: Final = "pb-"
 
 
 class ProjectRefused(Exception):
-    pass
+    """Agent-facing. The message names the project id, never a host path."""
 
 
 class UnknownProject(ProjectRefused):
+    pass
+
+
+class TamperedProject(ProjectRefused):
+    pass
+
+
+class ProjectBusy(ProjectRefused):
     pass
 
 
