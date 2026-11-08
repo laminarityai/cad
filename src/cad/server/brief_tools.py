@@ -4,6 +4,7 @@ from mcp.server.mcpserver.tools import Tool
 from pydantic import BaseModel, ConfigDict, Field
 
 from cad.briefs import store
+from cad.briefs.edits import placeholder
 from cad.briefs.model import (
     MAX_BRIEF_CHARS,
     MAX_REQUIREMENTS,
@@ -47,7 +48,9 @@ PROPOSE_REQUIREMENTS = (
 LIST_REQUIREMENTS = (
     "Show a brief's text, every proposal with its status (proposed, confirmed, declined or "
     "superseded), and which proposal the user last confirmed: its requirements are the only "
-    "ones checks will read."
+    "ones checks will read. A row whose edited_by_user is set holds the number the user typed "
+    "on the confirmation page in place of the proposed one; its quote still shows the brief's "
+    "own words."
 )
 
 
@@ -63,11 +66,17 @@ class BriefCreated(BaseModel):
     project_id: str
 
 
+class UserEdit(BaseModel):
+    proposed: str
+    confirmed: str
+
+
 class RequirementRow(BaseModel):
     requirement: Requirement
     plain: str
     check: str | None
     status: Literal["proposed", "confirmed"]
+    edited_by_user: UserEdit | None
 
 
 class ProposalView(BaseModel):
@@ -87,7 +96,7 @@ class BriefView(BaseModel):
 
 def _view(state: BriefState, proposed: ProposalState) -> ProposalView:
     confirmed = state.confirmed
-    in_force = {r.id for r in confirmed.proposal.requirements} if confirmed else set[str]()
+    in_force = {r.id for r in confirmed.requirements} if confirmed else set[str]()
     return ProposalView(
         brief_id=state.brief.id,
         proposal=proposed.proposal.number,
@@ -98,10 +107,18 @@ def _view(state: BriefState, proposed: ProposalState) -> ProposalView:
                 plain=describe(r),
                 check=deciding_check(r.target.kind),
                 status="confirmed" if r.id in in_force else "proposed",
+                edited_by_user=_user_edit(was, r),
             )
-            for r in proposed.proposal.requirements
+            for was, r in zip(proposed.proposal.requirements, proposed.requirements, strict=True)
         ],
     )
+
+
+def _user_edit(proposed: Requirement, confirmed: Requirement) -> UserEdit | None:
+    before, after = placeholder(proposed), placeholder(confirmed)
+    if proposed.id == confirmed.id or before is None or after is None:
+        return None
+    return UserEdit(proposed=before, confirmed=after)
 
 
 def brief_tools(roots: Roots) -> list[Tool]:

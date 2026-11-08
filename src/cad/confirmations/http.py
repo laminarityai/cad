@@ -20,6 +20,7 @@ from typing import Final, cast
 from cad.briefs.store import BriefRefused
 from cad.confirmations import page
 from cad.confirmations.ballot import Desk
+from cad.confirmations.items import Refused
 from cad.confirmations.page import AlreadyAnswered, Changed, Recorded, plain
 from cad.projects.model import ProjectRefused
 from cad.records.signed import StoreUnusable
@@ -116,9 +117,12 @@ class _Handler(BaseHTTPRequestHandler):
         form = page.parse_form(body, len(ballot.items))
         if content_type != "application/x-www-form-urlencoded" or form is None:
             return self._send(400, plain(NOT_A_FORM))
-        refusal = page.refused_edits(self._desk.kinds, ballot.items, form)
-        if refusal is not None:
-            return self._send(400, plain(refusal))
+        try:
+            changes = page.read_edits(self._desk.kinds, ballot.items, form)
+        except STORE_FAILURES:
+            return self._send(500, plain(REFUSED))
+        if isinstance(changes, Refused):
+            return self._send(400, plain(changes.message))
         if self._desk.spend(token) is not ballot:
             return self._send(403, plain(FORBIDDEN))
         try:
@@ -134,8 +138,8 @@ class _Handler(BaseHTTPRequestHandler):
         ballot.answered.set()
         match outcome:
             case Recorded(confirmed=confirmed, declined=declined):
-                said = f"Recorded: you confirmed {confirmed} and declined {declined} on this page."
-                self._send(200, plain(f"{said} Return to the chat."))
+                said = f"Recorded. You confirmed {confirmed} and declined {declined} on this page."
+                self._send(200, plain(said, *changes, "Return to the chat."))
             case AlreadyAnswered():
                 self._send(409, plain("This page was already answered."))
             case Changed():

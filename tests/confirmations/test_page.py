@@ -213,7 +213,7 @@ async def test_a_malformed_answer_or_an_edit_does_not_spend_the_ballot(s: Sessio
     ]
     status, body = s.post(url, "confirm", fields={f"edit-0-{ROW}": "under 100 g"})
     assert malformed == [400, 413, 400, 400, 400, 400]
-    assert (status, "Decline and say what to change in the note" in body) == (400, True)
+    assert (status, "This page changed since it opened" in body) == (400, True)
     assert s.post(url, "confirm", fields={f"edit-0-{ROW}": ""})[0] == 200
 
 

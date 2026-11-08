@@ -1,5 +1,4 @@
 import hashlib
-import json
 import logging
 import re
 import secrets
@@ -12,6 +11,7 @@ from typing import Final
 
 from pydantic import BaseModel, ValidationError
 
+from cad.briefs.edits import apply_edits
 from cad.briefs.model import (
     Answer,
     Brief,
@@ -24,8 +24,9 @@ from cad.briefs.model import (
     Requirement,
     RequirementId,
     Target,
+    requirement_id,
 )
-from cad.confirmations.answers import ItemRef, Ledger, read_ledger
+from cad.confirmations.answers import Edit, ItemRef, Ledger, read_ledger
 from cad.projects.model import NewProjectId
 from cad.records import signed
 from cad.records.roots import Roots
@@ -73,6 +74,7 @@ class Draft:
 class Answered:
     answer: Answer
     sha256: str
+    edits: tuple[Edit, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,10 +83,12 @@ class ProposalState:
     sha256: str
     status: Status
     answered: Answered | None
+    requirements: tuple[Requirement, ...]
+    """The proposal's requirements with the person's edits applied: what a confirmation means."""
 
     @property
     def requirement_ids(self) -> list[RequirementId]:
-        return [r.id for r in self.proposal.requirements]
+        return [r.id for r in self.requirements]
 
     @property
     def ref(self) -> ItemRef:
@@ -240,7 +244,10 @@ def read_state(roots: Roots, raw_id: str) -> BriefState:
             ledger = ledger or read_ledger(roots.projects, brief.project)
             answered = _on_page(ledger, proposal_ref(proposal, sha256))
         status = _status(answered, newest=number == len(proposals))
-        states.append(ProposalState(proposal, sha256, status, answered))
+        edited = apply_edits(proposal.requirements, answered.edits if answered else ())
+        if isinstance(edited, str):
+            raise TamperedBrief(_report(root, brief.id))
+        states.append(ProposalState(proposal, sha256, status, answered, edited))
     return BriefState(brief=brief, brief_sha256=brief_sha256, proposals=tuple(states))
 
 
@@ -254,7 +261,7 @@ def confirmed_requirements(roots: Roots, raw_id: str) -> ConfirmedSet | None:
         brief_id=state.brief.id,
         proposal=confirmed.proposal.number,
         decision_sha256=confirmed.answered.sha256,
-        requirements=confirmed.proposal.requirements,
+        requirements=confirmed.requirements,
         _seal=_SEAL,
     )
 
@@ -283,7 +290,7 @@ def _on_page(ledger: Ledger, ref: ItemRef) -> Answered | None:
     if found is None:
         return None
     if found.item.verdict == "confirmed":
-        return Answered(Confirmed(), found.sha256)
+        return Answered(Confirmed(), found.sha256, found.item.edits)
     return Answered(Declined(note=found.page.note), found.sha256)
 
 
@@ -303,11 +310,7 @@ def _resolve(brief: Brief, drafts: Sequence[Draft]) -> tuple[Requirement, ...]:
                 "copy the words exactly from the brief"
             )
         origin = BriefSpan(start=start, end=start + len(draft.quote))
-        identity = json.dumps(
-            [brief.id, draft.target.model_dump(mode="json"), origin.model_dump(mode="json")],
-            sort_keys=True,
-        )
-        rid = RequirementId(hashlib.sha256(identity.encode()).hexdigest()[:16])
+        rid = requirement_id(brief.id, draft.target, origin)
         if any(r.id == rid for r in requirements):
             raise BadProposal(f"requirements[{index}] repeats an earlier requirement")
         requirements.append(
