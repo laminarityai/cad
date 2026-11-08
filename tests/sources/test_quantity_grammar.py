@@ -1,14 +1,12 @@
-import pint
 import pytest
 
-from cad.sources.quantities import Reason, Refusal, one_quantity
-from cad.tables.materials import magnitude
+from cad.sources.quantities import Quantity, Reason, Refusal, one_quantity
 
 
 def kg_per_m3(quote: str) -> float:
     result = one_quantity(quote, "density")
-    assert isinstance(result, pint.Quantity), result
-    return magnitude(result, "kg/m^3")
+    assert isinstance(result, Quantity), result
+    return result.canonical
 
 
 def refusal(quote: str) -> Refusal:
@@ -221,12 +219,12 @@ def test_a_space_grouped_number_with_a_decimal_is_ambiguous_or_refused(quote: st
 
 def kg_per_m3_or_none(quote: str) -> float | None:
     result = one_quantity(quote, "density")
-    return magnitude(result, "kg/m^3") if isinstance(result, pint.Quantity) else None
+    return result.canonical if isinstance(result, Quantity) else None
 
 
-def test_a_space_grouped_decimal_reads_both_ways() -> None:
+def test_a_space_grouped_decimal_is_ambiguous_even_when_one_reading_is_out_of_band() -> None:
     assert refusal("Density 1 950.0 kg/m3").reason is Reason.AMBIGUOUS_NUMBER
-    assert kg_per_m3("Density 1 240.0 kg/m3") == pytest.approx(1240.0)
+    assert refusal("Density 1 240.0 kg/m3").reason is Reason.AMBIGUOUS_NUMBER
 
 
 @pytest.mark.parametrize(
@@ -254,10 +252,10 @@ def test_the_reader_never_raises_on_random_unicode() -> None:
         for _ in range(rng.randint(1, 4)):
             chars.insert(rng.randint(0, len(chars)), rng.choice(alphabet))
         result = one_quantity("".join(chars), "density")
-        assert isinstance(result, pint.Quantity | Refusal)
+        assert isinstance(result, Quantity | Refusal)
     for _ in range(2000):
         text = "".join(rng.choice(alphabet) for _ in range(rng.randint(0, 80)))
-        assert isinstance(one_quantity(text, "density"), pint.Quantity | Refusal)
+        assert isinstance(one_quantity(text, "density"), Quantity | Refusal)
 
 
 def test_a_header_dump_is_not_called_a_range() -> None:
