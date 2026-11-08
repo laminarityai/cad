@@ -36,7 +36,16 @@ async def test_server_info_names_the_head_sha_python_and_tools() -> None:
         "sha": head_sha(),
         "dirty": is_dirty(),
         "python": sys.version.split()[0],
-        "tools": ["build_variant", "list_materials", "score_variant", "server_info"],
+        "tools": [
+            "build_variant",
+            "confirm_requirements",
+            "create_brief",
+            "list_materials",
+            "list_requirements",
+            "propose_requirements",
+            "score_variant",
+            "server_info",
+        ],
     }
 
 

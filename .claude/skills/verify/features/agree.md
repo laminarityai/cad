@@ -45,4 +45,4 @@ A replay builds into a temporary store, `agree-store-*` under the temp directory
   - It misses a length with no measurement word, such as "101 mm long, 50 mm wide and 6.2 mm thick".
   - A self-computed number that equals a checked value within its rounding is reported as checked, for example "37 g" when the mass check measured 36.6 g, or "0 mm³" when the interference check measured a common volume of 0 mm³.
   - Some honest phrases are reported as confirmation, such as "I verified the scorecard was stored" and "which matches my expectation".
-- The scorecard has no extents. `agree.py` measures the stored `result.brep` that the scorecard's `brep_sha256` names.
+- `agree.py` reads the sorted extents from the `sorted_extent:*` measures of the scorecard's `extents` check. It no longer measures the BREP itself. It still refuses a row when the stored `result.brep` or `result.step` does not match the hash the scorecard names. `grade.py` measures the same box with `BRepBndLib.AddOptimal_s(shape, box, False, False)`, which is what `extents` uses.

@@ -1,6 +1,6 @@
 # CAD harness product spec
 
-Nov 5, 2026 · @Kevin · revised after a grilling session; terms follow [GLOSSARY.md](GLOSSARY.md)
+Nov 5, 2026 · @Kevin · revised after a grilling session, and on Nov 7 to make friction a defect; terms follow [GLOSSARY.md](GLOSSARY.md)
 
 ## Summary
 
@@ -8,6 +8,7 @@ We are building an AI engineer that turns what you ask for into several engineer
 
 - **Who it's for:** early CADders, such as students, makers and hobbyists, who can describe what a part must do but can't yet model it fast or size it confidently. The bar is that a working engineer would trust the same output.
 - **What it does:** turns a brief into 3 to 5 parametric variants, checks each one, shows every result with its math, lets you tune the chosen one live, and sends it to Onshape.
+- **How it should feel:** simpler, faster and easier than CAD, most of all in the slow parts of prototyping and testing. The agent does the work and asks you only for the decisions that need a person. If you have to take a step the product could have taken, we have failed.
 - **How it stays honest:** the agent proposes designs, and checks it cannot change decide whether they pass. Each scorecard lists every requirement that no reviewed check covers, so a design never looks more checked than it is.
 - **What it is not:** a new CAD program, a text-to-mesh generator, or a blueprint-to-CAD converter.
 - **First version:** a generalist. It designs any part it can build reliably, with universal checks on everything. Engineering skills for specific domains come later, chosen by what people actually design.
@@ -32,7 +33,18 @@ The full user research is in the report *AI CAD harness user needs*. The knowled
 4. **Checks.** Every variant gets a scorecard. This step is what sets us apart.
 5. **Tune and export.** You pick a variant, tune it with sliders, and send it to Onshape.
 
-Attachments are context, not input to convert. The agent reads them for intent and dimensions, and every dimension it takes from an image becomes a requirement you confirm before any variant is built.
+Attachments are context, not input to convert. The agent reads them for intent and dimensions, and every dimension it takes from an image becomes a requirement you confirm, with the others, before any variant is built.
+
+## Asking you
+
+Friction is a defect. The one step the agent cannot take for you is confirming what it proposed, because then it would be grading its own work. So confirmations stay, and each one costs you as little as possible.
+
+- **One page, one click.** Everything waiting on you appears on one confirmation page: requirements, dimensions read from images, values taken from documents, and sources the agent found. Each item shows the agent's proposal and the words it came from. Confirming the whole page is one click, and editing an item is optional.
+- **Only what a check reads.** The agent asks you to confirm a number only when a check will use it. What it reads for context and intent needs no confirmation.
+- **Nothing waits that doesn't have to.** Work that doesn't depend on a pending answer goes ahead. If your material is not in our table, the variants are still built and the geometry checks still run. Mass shows as waiting on you, and it fills in when you confirm a density, without a rebuild.
+- **Any cited source.** A value can come from a datasheet, a handbook, a supplier's page, a standard's clause, or your own words in the brief. The citation says where the number came from. Your confirmation says that it is the number you mean.
+- **Confirm once.** A confirmed value, material or source is reused for the rest of the project, so you are never asked the same thing twice.
+- **Most briefs need no values confirmed.** Our materials and parts tables cover the common choices, so confirming a value is the exception, not a step in every design.
 
 ## How the agent works
 
@@ -66,7 +78,7 @@ Knowledge lives in five places. Numbers a check uses never come from vector sear
 4. **build123d know-how.** API notes, worked examples and common error fixes, kept small and found by keyword.
 5. **Design library, later.** Past variants with their scorecards. Each records the check and table versions that scored it, so an old pass is not reused after a check changes.
 
-A number the agent extracts from a PDF is a candidate value. No check reads it until a person confirms it, under the same rule as agent-written checks.
+A number the agent takes from any source, such as a PDF, a web page or your brief, is a candidate value. No check reads it until you confirm it, under the same rule as agent-written checks. Until then, each check that needs it shows as waiting on you, and the other checks run.
 
 **Data policy.** The agent may open a specific vendor page while designing and cite it as a source you confirm. Building a shared catalog from a vendor's site needs that vendor's written permission. McMaster-Carr blocks AI agents, so for its parts you paste the details or attach the STEP file. We implement formulas from paid standards and cite the clause. We never ship a standard's text or tables. You supply any copyrighted standard tables yourself. We build our own materials table from manufacturer data sheets and do not use MatWeb data.
 
@@ -116,7 +128,7 @@ The first version is built in five phases, in this order. Each phase ends when i
 5. **Onshape.** Send to Onshape through the REST API.
    - Exit: someone who doesn't use CAD designs and prints a working part from a brief, and an engineer reads its scorecard and agrees with it.
 
-Track progress with two numbers on a private set of briefs that spans at least five domains. The first is the strict pass rate, graded by executable checks, not "valid STL" rates. The second is the share of requirements covered by reviewed checks, which shows whether the "checks decide" claim holds as the agent takes on new domains. Report public benchmarks such as Text2CAD-Bench and BenchCAD-Edit alongside.
+Track progress with three numbers on a private set of briefs that spans at least five domains. The first is the strict pass rate, graded by executable checks, not "valid STL" rates. The second is the share of requirements covered by reviewed checks, which shows whether the "checks decide" claim holds as the agent takes on new domains. The third is friction: how many times you are asked to confirm something, and how many minutes pass, from brief to first scorecard. A change that raises friction needs a stated reason. Report public benchmarks such as Text2CAD-Bench and BenchCAD-Edit alongside.
 
 ## Out of scope for the first version
 

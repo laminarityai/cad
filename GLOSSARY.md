@@ -9,8 +9,16 @@ What the user asks for, in their own words, together with any images, drawings o
 _Avoid_: Spec, prompt, request
 
 **Requirement**:
-One checkable target taken from a brief, such as a ratio, a load, or a size limit.
+One checkable target taken from a brief, such as a ratio, a load, or a size limit. It quotes the words of the brief it came from. It is proposed until the user confirms it, and checks read only confirmed requirements.
 _Avoid_: Constraint, goal
+
+**Proposal**:
+One numbered set of requirements that the agent proposed for a brief. The user confirms or declines a proposal as a whole, on a confirmation page that only the user can answer. A newer proposal never changes an older one.
+_Avoid_: Draft, revision
+
+**Confirmation page**:
+A local web page, opened by the server, where the user confirms or declines a proposal. The agent never sees its address.
+_Avoid_: Elicitation, approval form
 
 **Variant**:
 One candidate design produced for a brief.
@@ -21,7 +29,7 @@ A fixed, deterministic test of a variant against a requirement or an engineering
 _Avoid_: Validator, test, verification
 
 **Universal check**:
-A check that applies to every variant whatever it is, such as building as a closed solid, interference, mass, manufacturability, or FEA under stated loads.
+A check that applies to every variant whatever it is, such as building as a closed solid, interference, mass, extents (the bounding box), manufacturability, or FEA under stated loads.
 
 **Domain check**:
 A check that applies only to one kind of design, such as gear tooth strength or bolted joint preload, and comes from an engineering skill.

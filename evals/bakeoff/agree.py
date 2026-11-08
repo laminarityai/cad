@@ -27,8 +27,8 @@ from typing import Any, Final, Protocol, cast
 import yaml
 from inputs import Attempt, as_result_contract, brief_prompt, read_session, stored_attempts
 
-from cad.checks.container.kernel import Unreadable, ocp_kernel
-from cad.checks.result import StepStored, Verdict
+from cad.checks.container.extents import SORTED_NAMES
+from cad.checks.result import CheckResult, StepStored, Verdict
 from cad.sandbox.outcome import Built
 from cad.scorecard import score
 from cad.scorecard.model import Scorecard
@@ -52,8 +52,8 @@ type Extents = tuple[float, float, float]
 class CardSide:
     """What the scorecard says about one variant. `closed_solid` is the check's verdict, or
     `unscored` when no scorecard exists. The volume is the mass check's, and the extents are the
-    sorted bounding box of the stored BREP the scorecard names. Both are None unless
-    `closed_solid` passes."""
+    sorted extents of the extents check. Both are None unless `closed_solid` passes and the check
+    measured them."""
 
     closed_solid: str
     volume_mm3: float | None
@@ -127,7 +127,6 @@ def agree_rule(card: CardSide, grader: GraderSide) -> Agreement:
 
 class Grade(Protocol):
     def grade(self, part_id: str, step_path: Path) -> dict[str, Any]: ...
-    def extents(self, shape: object) -> list[float]: ...
 
 
 @cache
@@ -173,11 +172,17 @@ def card_side(directory: Path) -> CardSide:
     if verdict != Verdict.PASS:
         return CardSide(verdict.value, None, None)
     mass = next(r for r in card.results if r.check_id == "mass")
-    shape = ocp_kernel().read_brep((directory / entry.BREP).read_bytes())
-    if isinstance(shape, Unreadable):
-        raise EvidenceError(f"result.brep is unreadable here: {shape.reason}")
-    extents = cast(Extents, tuple(grader().extents(shape)))
-    return CardSide(verdict.value, mass.number("volume", "mm^3"), extents)
+    extents = next(r for r in card.results if r.check_id == "extents")
+    return CardSide(verdict.value, mass.number("volume", "mm^3"), sorted_extents(extents))
+
+
+def sorted_extents(result: CheckResult) -> Extents | None:
+    if result.verdict != Verdict.PASS:
+        return None
+    return cast(
+        Extents,
+        tuple(result.number(f"sorted_extent:{name}", "mm") for name in SORTED_NAMES),
+    )
 
 
 def evaluate(label: str, part: str, variant_id: str | None, root: Path, seconds: float) -> Row:

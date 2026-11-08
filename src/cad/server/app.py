@@ -8,10 +8,14 @@ from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.mcpserver.tools import Tool
 from pydantic import BaseModel, Field
 
+from cad.briefs import page
+from cad.briefs import store as briefs
+from cad.briefs.ballot import OS_OPEN, WAIT_SECONDS, Desk, Opener
 from cad.sandbox import container, host
 from cad.sandbox.outcome import SandboxUnavailable
 from cad.scorecard import score
 from cad.scorecard.model import Scorecard
+from cad.server.brief_tools import PLAN_MODE, brief_tools
 from cad.tables.materials import KEY_PATTERN
 from cad.variants import entry, store
 
@@ -38,8 +42,9 @@ RULE = (
     "For anything no check measured, say that it was not checked."
 )
 SCORE_VARIANT = (
-    "Score one built variant with the fixed checks closed_solid, interference and mass, and "
-    "store the scorecard beside the variant. Every result has a verdict (pass, fail or unknown), "
+    "Score one built variant with the fixed checks closed_solid, interference, mass and "
+    "extents (the axis-aligned bounding box in mm), and store the scorecard beside the variant. "
+    "Every result has a verdict (pass, fail or unknown), "
     "its measured values, its formula, its sources and its check version. unknown means the "
     "check could not decide, and it is not a pass. "
     "The scorecard names the table version and the sandbox image digest, and it says that phase 1 "
@@ -109,7 +114,19 @@ def strict_tool(tool: Tool) -> Tool:
     return tool
 
 
-def build_server(variants_root: Path = entry.VARIANTS_ROOT) -> MCPServer:
+def build_server(
+    variants_root: Path = entry.VARIANTS_ROOT,
+    briefs_root: Path = briefs.BRIEFS_ROOT,
+    opener: Opener = OS_OPEN,
+    wait_seconds: float = WAIT_SECONDS,
+) -> MCPServer:
+    desk = Desk(
+        briefs_root,
+        opener,
+        serve=page.serve,
+        wait_seconds=wait_seconds,
+    )
+
     async def server_info() -> ServerInfo:
         """Report the git SHA the server runs from, whether the tree is dirty, Python and tools."""
         tools = await server.list_tools()
@@ -148,12 +165,16 @@ def build_server(variants_root: Path = entry.VARIANTS_ROOT) -> MCPServer:
 
     server = MCPServer(
         "cad",
-        instructions=RULE,
+        instructions=RULE + " " + PLAN_MODE,
         tools=[
-            strict_tool(Tool.from_function(server_info)),
-            strict_tool(Tool.from_function(build_variant, description=BUILD_VARIANT)),
-            strict_tool(Tool.from_function(score_variant, description=SCORE_VARIANT)),
-            strict_tool(Tool.from_function(list_materials, description=LIST_MATERIALS)),
+            strict_tool(tool)
+            for tool in (
+                Tool.from_function(server_info),
+                Tool.from_function(build_variant, description=BUILD_VARIANT),
+                Tool.from_function(score_variant, description=SCORE_VARIANT),
+                Tool.from_function(list_materials, description=LIST_MATERIALS),
+                *brief_tools(briefs_root, desk),
+            )
         ],
     )
     return server
