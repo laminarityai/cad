@@ -1,6 +1,6 @@
 # The agent's own measurements are information, never a verdict
 
-Status: Proposed, awaiting the operator's approval.
+Status: Accepted. The operator approved this ADR on 2026-11-08.
 
 Many novice briefs ask for things that no team check measures, such as walls of at least 2 mm, a hole that fits an M5 bolt, or a snap-fit that does not break (#49). SPEC lets the agent write a check for such a requirement. The check passes automatic gates, and then the person reviews it. In review, a design that let the agent's geometry code grade designs broke three ways. It reported a 1.2 mm wall as 2.25 mm, a 0.4 mm floor as 8 mm and a 4.2 mm hole as 9 mm. Each time it passed every gate, and the person saw the same page for the honest check and the cheating one. This ADR records what phase 2 builds instead.
 
