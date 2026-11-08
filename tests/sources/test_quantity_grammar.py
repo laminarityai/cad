@@ -160,3 +160,131 @@ def test_every_bound_spelling_is_a_bound(quote: str) -> None:
 )
 def test_reads_what_the_grammar_allows(quote: str, expected: float) -> None:
     assert kg_per_m3(quote) == pytest.approx(expected, rel=1e-6)
+
+
+@pytest.mark.parametrize(
+    "quote",
+    [
+        "Density 1240\u00b9 kg/m3",
+        "Density\u00b9 950.0 kg/m3",
+        "Density\u00b9 950 kg/m3",
+        "Density\u00b9 450 kg/m3",
+        "Density 1.24\u00b9 g/cm3",
+        "Density 1180\u00b2 kg/m3",
+        "Density 950,5\u00b3 kg/m3",
+        "Density 1240\u2081 kg/m3",
+        "Density \u2460 950 kg/m3",
+        "Density \u00bd g/cm3",
+        "Density \uff11\uff12\uff14\uff10 kg/m3",
+        "Density 7.\u09ea5 g/cm3",
+        "Density \u09ed.\u09ee\u09eb g/cm3",
+        "Density \u0967\u0968\u096a\u0966 kg/m3",
+    ],
+)
+def test_refuses_a_superscript_subscript_or_non_ascii_digit(quote: str) -> None:
+    result = refusal(quote)
+    assert result.reason is Reason.UNRECOGNISED_TEXT
+    assert "digit" in result.detail
+
+
+@pytest.mark.parametrize(
+    ("quote", "expected"),
+    [
+        ("Density 1.24 g/cm\u00b3", 1240.0),
+        ("Density 1240 kg/m\u00b3", 1240.0),
+        ("Density 0.0448 lb/in\u00b3", 1240.0),
+        ("Density 1.24 g\u00b7cm\u207b\u00b3", 1240.0),
+        ("Density 1240 kg\u00b7m\u207b\u00b3", 1240.0),
+        ("Density 1.24 g/\u33a4", 1240.0),
+        ("Density 1240 kg/\u33a5", 1240.0),
+    ],
+)
+def test_still_reads_a_cubed_length_unit(quote: str, expected: float) -> None:
+    assert kg_per_m3(quote) == pytest.approx(expected, rel=1e-3)
+
+
+@pytest.mark.parametrize(
+    "quote",
+    [
+        "Density 1 950.0 kg/m3",
+        "Density ISO 1183 1 950.0 kg/m3",
+        "Density DIN 53479 1 950.0 kg/m3",
+        "Density 7 850,5 kg/m3",
+        "Density DIN 7 850 kg/m3",
+        "Density DIN 1 950.0 kg/m3",
+    ],
+)
+def test_a_space_grouped_number_with_a_decimal_is_ambiguous_or_refused(quote: str) -> None:
+    assert isinstance(one_quantity(quote, "density"), Refusal)
+    assert "950" not in str(kg_per_m3_or_none(quote))
+
+
+def kg_per_m3_or_none(quote: str) -> float | None:
+    result = one_quantity(quote, "density")
+    return magnitude(result, "kg/m^3") if isinstance(result, pint.Quantity) else None
+
+
+def test_a_space_grouped_decimal_reads_both_ways() -> None:
+    assert refusal("Density 1 950.0 kg/m3").reason is Reason.AMBIGUOUS_NUMBER
+    assert kg_per_m3("Density 1 240.0 kg/m3") == pytest.approx(1240.0)
+
+
+@pytest.mark.parametrize(
+    "quote", ["Density 1.24 g/\u0131n3", "Density 1.24 lb/\u0131n3", "Density 1.24 K\u212a/m3"]
+)
+def test_a_unicode_lookalike_of_a_unit_letter_is_refused_not_raised(quote: str) -> None:
+    assert isinstance(one_quantity(quote, "density"), Refusal)
+
+
+def test_the_reader_never_raises_on_random_unicode() -> None:
+    import random
+
+    seeds = [
+        "Density 1.24 g/cm3",
+        "Density [g/cm3] 1.24 ISO 1183",
+        "Density 1 240,5 kg/m3 \u00b1 2%",
+        "Density at 23 \u00b0C 0.0448 lbs./in.3",
+        "1.20-1.25 g/cm\u00b3",
+    ]
+    alphabet = [chr(c) for c in range(0x20, 0x250)] + [chr(c) for c in range(0x0900, 0x0980)]
+    alphabet += [chr(c) for c in range(0x2000, 0x2200)] + [chr(c) for c in range(0xFF00, 0xFFF0)]
+    rng = random.Random(66)
+    for _ in range(4000):
+        chars = list(rng.choice(seeds))
+        for _ in range(rng.randint(1, 4)):
+            chars.insert(rng.randint(0, len(chars)), rng.choice(alphabet))
+        result = one_quantity("".join(chars), "density")
+        assert isinstance(result, pint.Quantity | Refusal)
+    for _ in range(2000):
+        text = "".join(rng.choice(alphabet) for _ in range(rng.randint(0, 80)))
+        assert isinstance(one_quantity(text, "density"), pint.Quantity | Refusal)
+
+
+def test_a_header_dump_is_not_called_a_range() -> None:
+    result = refusal(
+        "Density [lb/in\u00b3] [g/cm\u00b3] Coef. [10-6/\u00b0F] [10-6/K] 1981 0.323 8.9"
+    )
+    assert result.reason is Reason.MISSING_UNIT
+    assert "choose the figure" not in result.needed
+
+
+def test_the_aurubis_quote_reports_a_missing_unit() -> None:
+    from cad.tables.materials import Cited, load_materials
+
+    density = load_materials().materials["aurubis-c11000-h02"].density
+    assert isinstance(density, Cited)
+    result = refusal(density.source.quote)
+    assert result.reason is Reason.MISSING_UNIT
+    assert "choose the figure" not in result.needed
+
+
+def test_a_malformed_exponent_is_an_unknown_unit_not_a_range() -> None:
+    result = refusal("Density 1.24 g/cm\u207b\u00b3 x")
+    assert result.reason is not Reason.RANGE
+    assert refusal("Density 1.24 g/cm-3").reason is Reason.UNKNOWN_UNIT
+
+
+def test_a_stray_condition_next_to_a_value_is_unrecognised_text() -> None:
+    result = refusal("Density 1.24 g/cm3 23C")
+    assert result.reason is Reason.UNRECOGNISED_TEXT
+    assert "23" in result.detail
