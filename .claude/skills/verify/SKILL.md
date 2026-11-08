@@ -48,7 +48,7 @@ Scripted call, one tool per run. Output is the MCP result as JSON, exit code 1 w
 uv run cad-call <tool> '<json args>'
 ```
 
-Tools today: `server_info` (no arguments), `build_variant` (`code`, the build123d Python source), `score_variant` (`variant_id`, `material_key`) and `list_materials` (no arguments). A tool rejects any argument it does not declare. An unknown tool name returns an error result naming the tool. Arguments that are not a JSON object exit 2 with a usage error, and a tool error exits 1.
+Tools today: `server_info` (no arguments), `build_variant` (`code`, the build123d Python source), `score_variant` (`variant_id`, `material_key`), `list_materials` (no arguments), `create_brief` (`text`), `propose_requirements` (`brief_id`, `requirements`), `confirm_requirements` (`brief_id`) and `list_requirements` (`brief_id`). Never run `confirm_requirements` through `cad-call` with valid arguments: it runs `open` on the confirmation page and opens a browser on the operator's screen. Drive it through `claude_session.py --opener`, as [Briefs](features/briefs.md) says. A tool rejects any argument it does not declare. An unknown tool name returns an error result naming the tool. Arguments that are not a JSON object exit 2 with a usage error, and a tool error exits 1.
 
 Claude Code session. This runs `claude -p` with `--strict-mcp-config --tools "" --allowedTools 'mcp__cad__*' --setting-sources project --disable-slash-commands --output-format json --verbose`. `--tools ""` removes every built-in tool, so only the cad tools exist. `--allowedTools` alone only approves the cad tools, and the built-in read-only tools such as Bash `git grep` still run. The script saves the event transcript, and fails unless the `system/init` event lists `cad` as `connected` with no `mcp_server_errors`. It also fails when the init event's `tools` list names a tool outside cad, or when the transcript has a tool call outside cad. The first check asserts what the model could reach. The second asserts what it called. Claude Code skips a broken `.mcp.json` entry and still exits 0, so never run `claude -p` against the server without that check. `--verbose` is what puts the init event in the JSON output.
 
@@ -113,6 +113,7 @@ Never use `pkill` by name. Keep the files under `$EVIDENCE`, because they are th
 
 ## Helpers
 
-- `scripts/claude_session.py [--model <alias>] "<prompt>" <transcript.json>` is shown in Drive. It exits 1 when `cad` is not connected, when `claude` fails, when the session can reach or calls a tool outside cad, or when the session reports an error.
+- `scripts/claude_session.py [--model <alias>] [--opener <program>] "<prompt>" <transcript.json>` is shown in Drive. `--opener` is passed to `cad-server`, which runs that program with the confirmation page URL instead of `open`.
+- `scripts/human.py` is the scripted person to pass as `--opener`. [Briefs](features/briefs.md) says how. It exits 1 when `cad` is not connected, when `claude` fails, when the session can reach or calls a tool outside cad, or when the session reports an error.
 
 Feature recipes live in [features/README.md](features/README.md).
