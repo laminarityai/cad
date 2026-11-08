@@ -223,7 +223,10 @@ def test_held_out_paraphrases_never_return_a_wrong_unit(index: Index) -> None:
 
 
 def test_held_out_paraphrases_are_not_all_misses(index: Index) -> None:
-    assert recall(index, HELD_OUT) >= 7 / 12
+    # 3/12 is the clean figure. Four KEYS ("heat deflection", "hardness", "Vicat", "drying time")
+    # were written after reading HELD_OUT and lift it to 7/12, so a floor above 3 would rest on
+    # the leak. The keys stay because an author would write them, but they cannot set the floor.
+    assert recall(index, HELD_OUT) >= 3 / 12
 
 
 @pytest.mark.parametrize("query", NEAR_MISSES)

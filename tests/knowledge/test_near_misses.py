@@ -234,10 +234,15 @@ def test_a_format_character_beside_the_plus_is_ignored(make_index: MakeIndex, hi
     assert ids(index.search(f"PLA {hidden}+ density")) == ["kb:plus#density"]
 
 
-@pytest.mark.parametrize("query", ["PA12 + density", "PA12 plus density", "pa12+ density"])
+@pytest.mark.parametrize("query", ["PA12 + density", "PA12 plus density", "PA12+ DENSITY"])
 def test_a_plus_spelling_joins_a_name_with_digits(make_index: MakeIndex, query: str) -> None:
     index = make_index({"u": "## Density\nPA12+ density.\n"}, {"u": ["PA12+"]}, family=True)
     assert ids(index.search(query)) == ["kb:u#density"]
+
+
+def test_a_name_with_digits_matches_only_in_its_own_case(make_index: MakeIndex) -> None:
+    index = make_index({"u": "## Density\nPA12+ density.\n"}, {"u": ["PA12+"]}, family=True)
+    assert index.search("pa12+ density") == ()
 
 
 @pytest.mark.parametrize(

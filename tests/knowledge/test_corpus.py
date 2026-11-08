@@ -108,9 +108,9 @@ def test_a_unit_carries_its_subject_and_the_corpus_its_aliases(tmp_path: Path) -
     (unit,) = corpus.units.values()
     assert unit.subject == "x"
     assert set(corpus.aliases) == {
-        ("polyterra", "pla+"),
-        ("polymaker", "polyterra", "pla+"),
-        ("polyterra", "petg", "hf"),
+        ("PolyTerra", "pla+"),
+        ("polymaker", "PolyTerra", "pla+"),
+        ("PolyTerra", "petg", "hf"),
     }
     assert set(corpus.aliases.values()) == {"x"}
 
@@ -134,7 +134,7 @@ def test_a_branded_alias_names_its_maker_or_line(tmp_path: Path) -> None:
     loaded = load(
         write(tmp_path, text.replace("[Example]", "[PolyTerra PLA, Polymaker PolyTerra PLA]"))
     )
-    assert set(loaded.aliases) == {("polyterra", "pla"), ("polymaker", "polyterra", "pla")}
+    assert set(loaded.aliases) == {("PolyTerra", "pla"), ("polymaker", "PolyTerra", "pla")}
     assert "only the maker" in problems(tmp_path, text.replace("[Example]", "[Polymaker PLA]"))
     for generic in ("PLA", "the PLA", "PLA filament", "PLA Matte", "PA 6", "nylon 6"):
         assert "maker or line" in problems(tmp_path, text.replace("[Example]", f"['{generic}']")), (
@@ -146,7 +146,7 @@ def test_a_family_word_in_the_makers_name_does_not_count(tmp_path: Path) -> None
     text = GOOD.replace(BRAND, "maker: British Steel")
     assert "maker or line" in problems(tmp_path, text.replace("[Example]", "[mild steel]"))
     loaded = load(write(tmp_path, text.replace("[Example]", "[British Steel S275]")))
-    assert set(loaded.aliases) == {("british", "steel", "s275")}
+    assert set(loaded.aliases) == {("british", "steel", "S275")}
     assert "only the maker" in problems(tmp_path, text.replace("[Example]", "[British Steel]"))
 
 
