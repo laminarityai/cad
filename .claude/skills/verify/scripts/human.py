@@ -3,7 +3,8 @@
 
 Usage: human.py <url>. Environment: CAD_HUMAN_LOG (required, a path for JSON lines),
 CAD_HUMAN_DELAY (seconds before answering, default 1), CAD_HUMAN_ANSWER (confirm or decline,
-default confirm). It logs the HTTP status of a GET with the token stripped, a GET with a wrong
+default confirm), CAD_HUMAN_EDIT (optional, "<shown>=<typed>": type <typed> into the field whose
+placeholder is <shown>, such as "150 g=120 g"). It logs the HTTP status of a GET with the token stripped, a GET with a wrong
 token, a GET with the token and each section of that page with its brief and quotes, the answer
 POST and a replayed POST, then the spent token as {"spent_token": ...}, so a run can grep the
 agent's transcript for it.
@@ -26,6 +27,7 @@ from urllib.parse import urlencode, urlsplit
 SECTION = re.compile(r'<section class="item">(.*?)</section>', re.DOTALL)
 QUOTE = re.compile(r'<q class="origin">(.*?)</q>', re.DOTALL)
 BRIEF = re.compile(r'<blockquote class="brief">(.*?)</blockquote>', re.DOTALL)
+FIELD = re.compile(r'<input name="(edit-[0-9]+-[0-9a-f]{16})" placeholder="([^"]*)"')
 
 
 def fetch(
@@ -70,7 +72,11 @@ def main(url: str, log: Path) -> None:
         }
     )
     time.sleep(delay)
-    form = urlencode({"answer": answer, "note": "scripted person declined"}).encode()
+    shown, _, typed = os.environ.get("CAD_HUMAN_EDIT", "").partition("=")
+    fields = {n: typed for n, p in FIELD.findall(page) if shown and html.unescape(p) == shown}
+    record({"step": "edit", "shown": shown, "typed": typed, "fields": len(fields)})
+    note = "" if answer == "confirm" else "scripted person declined"
+    form = urlencode({"answer": answer, "note": note, **fields}).encode()
     headers = {"Origin": origin, "Content-Type": "application/x-www-form-urlencoded"}
     record({"step": answer, "status": fetch(url, form, headers)[0]})
     record({"step": "replay", "status": fetch(url, form, headers)[0]})
