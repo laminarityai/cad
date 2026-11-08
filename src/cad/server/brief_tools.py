@@ -1,5 +1,3 @@
-"""The brief tools. None of them can answer for the person: only the confirmation page can."""
-
 from typing import Annotated, Literal
 
 from mcp.server.mcpserver.tools import Tool

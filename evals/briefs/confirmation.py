@@ -1,11 +1,4 @@
-"""Check a stored scorecard's basis against the signed brief store.
-
-A card scored against a brief names, as `decision_sha256`, the signed record that confirmed it: a
-legacy decision or a page answer. The card holds when that record is a confirmation the store can
-show, it is still the set in force, and judging the confirmed
-requirements against the card's own results gives the card's basis again. Nothing on the card's
-basis is trusted: it is re-derived.
-"""
+"""Check a stored scorecard's basis against the signed brief store."""
 
 from dataclasses import dataclass
 

@@ -1,12 +1,3 @@
-"""The person's answers, one signed record per click on the confirmation page.
-
-    <projects>/<project_id>/answers/<n:04d>.signed     slot "<project_id>/answer/<n>"
-
-A PageAnswer lists every item the page showed, each as the slot and sha256 of the signed record
-the person saw. Status is never stored: an item's answer is the one in the lowest-numbered
-PageAnswer that lists it, so of two pages that answer one item, the first wins.
-"""
-
 import hashlib
 import logging
 import os
@@ -21,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 from cad.briefs.model import MAX_NOTE_CHARS
 from cad.projects.model import ProjectBusy, ProjectId, TamperedProject
 from cad.records import signed
+from cad.records.roots import project_store
 from cad.variants import key
 
 type ItemKindName = Literal["requirements"]
@@ -34,8 +26,6 @@ class _Frozen(BaseModel):
 
 
 class ItemRef(_Frozen):
-    """What the page showed: the kind, the signed record's slot, and the sha256 of its bytes."""
-
     kind: ItemKindName
     slot: str
     sha256: str
@@ -86,11 +76,10 @@ class Ledger:
 
 
 def read_ledger(projects: Path, project: ProjectId) -> Ledger:
-    """Every answer of the project, verified. TamperedProject when any record fails."""
     directory = projects / project / ANSWERS
     if not os.path.lexists(directory):
         return Ledger(())
-    store = _store(projects)
+    store = project_store(projects)
     _require_key(store, directory, project)
     records = signed.read_numbered(store, directory, _slot_of(project))
     if records is None:
@@ -101,14 +90,10 @@ def read_ledger(projects: Path, project: ProjectId) -> Ledger:
 
 
 def append_answer(projects: Path, project: ProjectId, answer: PageAnswer) -> bool:
-    """Store the answer. False when a stored answer already lists any of its items.
-
-    Only cad.confirmations.page calls this, after a POST that spent a live ballot.
-    """
     if answer.project != project:
         raise ValueError(f"an answer for project {answer.project} cannot go in {project}")
     directory = projects / project / ANSWERS
-    store = _store(projects)
+    store = project_store(projects)
     _require_key(store, directory, project)
     directory.mkdir(parents=True, exist_ok=True)
     listed = tuple(a.item for a in answer.answers)
@@ -130,7 +115,6 @@ def append_answer(projects: Path, project: ProjectId, answer: PageAnswer) -> boo
 
 
 def _require_key(store: signed.Store, directory: Path, project: ProjectId) -> None:
-    """A stored answer with no key beside the store is unverifiable; never mint a key for it."""
     if store.key_exists() or not os.path.lexists(directory):
         return
     if signed.is_directory(directory) and all(p.name.startswith(".") for p in directory.iterdir()):
@@ -150,10 +134,6 @@ def _parse(projects: Path, project: ProjectId, record: bytes) -> PageAnswer:
 
 def _slot_of(project: ProjectId) -> Callable[[int], str]:
     return lambda number: f"{project}/answer/{number}"
-
-
-def _store(projects: Path) -> signed.Store:
-    return signed.Store(projects, "project")
 
 
 def _report(projects: Path, project: ProjectId) -> str:

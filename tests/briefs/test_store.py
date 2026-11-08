@@ -53,7 +53,6 @@ def answer_on_page(roots: Roots, brief_id: BriefId, number: int, answer: Answer)
 
 
 def decide_before_pages(roots: Roots, brief_id: BriefId, number: int, answer: Answer) -> None:
-    """Write the signed decision that code from before the confirmation page wrote."""
     state = store.read_state(roots, brief_id)
     proposed = state.proposal(number)
     assert proposed is not None

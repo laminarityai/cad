@@ -1,9 +1,3 @@
-"""What can wait on the person, and how the confirmation page shows it.
-
-Each kind of item is one `ItemKind` in the registry (`cad.confirmations.registry`). The page code
-asks the registry and never branches on a kind's name.
-"""
-
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Protocol
@@ -24,7 +18,6 @@ class Editable:
 class Row:
     headline: str
     quote: str
-    """The person's own words the row came from."""
     decides: str
     editable: Editable | None = None
 
@@ -33,7 +26,6 @@ class Row:
 class Section:
     title: str
     context: str
-    """What the rows are about, shown above them: for requirements, the brief text."""
     rows: tuple[Row, ...]
 
 
@@ -41,22 +33,15 @@ class ItemKind(Protocol):
     @property
     def name(self) -> ItemKindName: ...
 
-    def pending(self, project: ProjectId) -> tuple[ItemRef, ...]:
-        """Every item of this kind waiting on the person in the project, oldest first."""
-        ...
+    def pending(self, project: ProjectId) -> tuple[ItemRef, ...]: ...
 
-    def section(self, ref: ItemRef) -> Section:
-        """The item as the page shows it. Raises when its record no longer hashes to ref."""
-        ...
+    def section(self, ref: ItemRef) -> Section: ...
 
-    def edit(self, ref: ItemRef, edits: Sequence[Edit]) -> str | None:
-        """A message for the person refusing the edits, or None to accept them."""
-        ...
+    def edit(self, ref: ItemRef, edits: Sequence[Edit]) -> str | None: ...
 
 
 type Kinds = Mapping[ItemKindName, ItemKind]
 
 
 def pending(kinds: Kinds, project: ProjectId) -> tuple[ItemRef, ...]:
-    """Everything waiting on the person in the project, in page order: kind by kind."""
     return tuple(ref for kind in kinds.values() for ref in kind.pending(project))

@@ -15,9 +15,7 @@ or against an older table, is stale: score the variant again.
 A card as a whole fails when it is bound to no signed build (`binding.bind`), names a
 `rebuilt_from` whose signed record pins other code (`binding.link`), is incomplete (no
 results, a registered check missing or repeated, an unregistered check, or no number at all), or
-fails `confirmation.check_basis`: its brief or the answer that confirmed it cannot be shown, a
-newer confirmation is in force, or its requirement verdicts differ from the ones its own results
-give.
+fails `confirmation.check_basis`.
 
 What this does not prove. Stored scorecards are not signed, so a hand-edited value or verdict is not
 detected, and a table number that was edited together with the row it should match is not either.

@@ -1,23 +1,3 @@
-"""One open confirmation page per project, and how ask_to_confirm waits for the answer.
-
-A ballot is a one-time token, held in memory by this server process, bound to a snapshot of
-everything waiting on the person in one project when the page opened. It is only the right to
-answer that snapshot once; the answer itself lives in the project store. Per project, driven by
-ask_to_confirm calls (A) and page requests (P):
-
-    none ----A, something pending----> open(S)   new token for snapshot S, page opened, wait
-    open(S) --P confirm or decline---> spent     one PageAnswer for S written; the waiting A returns
-    open(S) --A, pending is still S--> open(S)   same token, page opened again, wait again
-    open(S) --A, pending is now T----> retired   open(T) instead; S's token gets 403
-    open(S) --P, pending is now T----> retired   409, nothing written
-    open(S) --TTL elapsed------------> retired   the next A opens a fresh ballot
-    any -----A, nothing pending------> no ballot returns at once
-
-Each A returns within about wait_seconds whatever the person does, then the tool re-reads the
-store, so an answer recorded later, or by another server process, reaches the next A. Nothing
-about a ballot (token, port, URL) appears in a tool result, an exception message or a log record.
-"""
-
 import hmac
 import logging
 import secrets
@@ -104,7 +84,6 @@ class Desk:
         self._port: int | None = None
 
     async def ask(self, project: ProjectId) -> None:
-        """Open the project's page when anything waits on the person, and wait for an answer."""
         items = pending(self.kinds, project)
         if not items:
             return

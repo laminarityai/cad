@@ -19,6 +19,8 @@ from cad.server.brief_tools import PLAN_MODE, brief_tools
 from cad.server.confirmation_tools import confirmation_tools
 from cad.server.refusals import agent_facing
 from cad.tables.materials import KEY_PATTERN
+from cad.variant_sets import store as variant_sets
+from cad.variant_sets.model import MAX_MEMBERS, SetBuildResult
 from cad.variants import entry, store
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
@@ -34,7 +36,14 @@ BUILD_VARIANT = (
     "Returns the variant id, the outcome (built, build_failed with the error and traceback, "
     "timed_out, out_of_memory or no_result) and the tail of what the code printed. "
     "Building the same code again returns its stored outcome without rebuilding, "
-    "except after a timeout."
+    "except after a timeout. "
+    "Pass brief_id once the user has confirmed the brief's requirements: a built variant then "
+    f"joins the brief's variant set, which holds up to {MAX_MEMBERS} variants for the user to "
+    "compare, and variant_set names its slot. Build 3 to 5 different variants. Code already in "
+    "the set keeps its slot. A build for a brief with no confirmed requirements, or for new code "
+    "when the set is full, is refused before it starts. If the set fills while a build runs, "
+    "the build finishes and is stored, but the error says it joined no set and names its "
+    "variant id. Without brief_id the variant joins no set."
 )
 RULE = (
     "Only check results decide whether a design is good. In a reply to the user, state a volume, "
@@ -152,10 +161,15 @@ def build_server(
         )
 
     def build_variant(
-        code: Annotated[str, Field(max_length=MAX_CODE_CHARS)],
-    ) -> store.BuildResult:
+        code: Annotated[str, Field(max_length=MAX_CODE_CHARS)], brief_id: str | None = None
+    ) -> SetBuildResult:
         with agent_facing():
-            return store.build_variant(code, variants_root)
+            if brief_id is not None:
+                return variant_sets.build_into_set(roots, variants_root, brief_id, code)
+            built = store.build_variant(code, variants_root)
+        return SetBuildResult(
+            variant_id=built.variant_id, outcome=built.outcome, output=built.output
+        )
 
     def score_variant(
         variant_id: str, material_key: MaterialKey, brief_id: str | None = None

@@ -40,7 +40,6 @@ def fetch(
 
 
 def section_of(section: str) -> dict[str, object]:
-    """One item on the page: its brief, its quotes, and whether every quote is in that brief."""
     brief = html.unescape(next(iter(BRIEF.findall(section)), ""))
     quotes = [html.unescape(quote) for quote in QUOTE.findall(section)]
     in_brief = bool(quotes) and all(quote in brief for quote in quotes)

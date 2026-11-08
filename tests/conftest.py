@@ -131,7 +131,6 @@ class Session:
     async def proposed(
         self, *requirements: dict[str, Any], project_id: str | None = None
     ) -> Proposed:
-        """A new brief with one proposal, in a new project unless project_id names one."""
         joined = {} if project_id is None else {"project_id": project_id}
         created = await self.call("create_brief", text=TEXT, **joined)
         brief_id = created["brief_id"]

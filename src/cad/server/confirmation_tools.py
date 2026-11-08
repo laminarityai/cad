@@ -1,9 +1,3 @@
-"""ask_to_confirm: open the project's confirmation page and report what the person answered.
-
-The tool only opens the page and reads the stores afterwards. It cannot answer: only the page's
-request handler writes the person's answer.
-"""
-
 from typing import Annotated, Final, Literal
 
 from mcp.server.mcpserver.tools import Tool

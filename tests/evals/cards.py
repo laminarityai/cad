@@ -104,7 +104,6 @@ def drafts(*rows: tuple[Mapping[str, object], str]) -> list[Draft]:
 
 
 def confirm(roots: Roots, brief_id: str, rows: list[Draft]) -> ConfirmedSet:
-    """Confirm as code from before the confirmation page did: a signed legacy decision."""
     briefs.propose(roots, brief_id, rows)
     state = briefs.read_state(roots, brief_id)
     latest = state.proposals[-1]
@@ -127,8 +126,6 @@ def confirm(roots: Roots, brief_id: str, rows: list[Draft]) -> ConfirmedSet:
 def confirm_on_page(
     roots: Roots, brief_id: str, rows: list[Draft], changes: Mapping[int, str] | None = None
 ) -> ConfirmedSet:
-    """Confirm as the confirmation page does: a PageAnswer in the brief's project. `changes` maps
-    a row's index to the text the person typed over its number."""
     briefs.propose(roots, brief_id, rows)
     state = briefs.read_state(roots, brief_id)
     project = state.brief.project
