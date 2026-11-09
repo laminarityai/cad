@@ -242,6 +242,12 @@ def person() -> Person:
 
 
 @pytest.fixture
+def browser() -> type[Person]:
+    """Makes more people, each with a browser of their own."""
+    return Person
+
+
+@pytest.fixture
 async def s(tmp_path: Path, person: Person) -> AsyncIterator[Session]:
     roots = Roots(tmp_path / "briefs", tmp_path / "projects")
     variants = tmp_path / "variants"
