@@ -34,7 +34,7 @@ class ContextParts:
         return tuple(part.ref for part in parts if part.outcome == "waiting")
 
     def section(self, ref: ItemRef) -> Section:
-        part = self._shown(ref)
+        part = self._part_at(ref)
         record = part.record
         brief = briefs.read_brief(self._roots, record.brief_id)
         if brief.project != record.project or record.origin.end > len(brief.text):
@@ -50,8 +50,7 @@ class ContextParts:
     def edit(self, ref: ItemRef, edits: Sequence[Edit]) -> Refused | Changes:
         return Refused(NO_EDIT)
 
-    def _shown(self, ref: ItemRef) -> Stored:
-        """The record the ref names. Raises when it changed since the page opened."""
+    def _part_at(self, ref: ItemRef) -> Stored:
         match = SLOT.fullmatch(ref.slot)
         if match is None:
             raise TamperedProject(f"no context part is stored at {ref.slot!r}")

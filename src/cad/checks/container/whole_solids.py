@@ -7,7 +7,7 @@ MAX_TOLERANCE_MM: Final = 1e-3
 
 def unmeasurable(kernel: Kernel, shape: Shape) -> str | None:
     """Why Common and DistShapeShape cannot be trusted on the shape, or None. Each rule comes from
-    a case in issue #92 where one of them returned a wrong number."""
+    issue #92."""
     solids = kernel.solids(shape)
     if not solids:
         return "has no solid"

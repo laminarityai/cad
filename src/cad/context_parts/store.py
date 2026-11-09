@@ -29,7 +29,7 @@ type Ingest = Callable[[bytes], Facts | NotAPart]
 
 
 class BadContextPart(ProjectRefused):
-    """Agent-facing. The message names the brief or variant, never a host path."""
+    pass
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,8 +61,6 @@ _SEAL: Final = _Seal()
 
 @dataclass(frozen=True, slots=True)
 class ConfirmedPart:
-    """A context part a person confirmed. Only `confirmed_parts` can make one."""
-
     number: int
     record: ContextPartRecord
     answer_sha256: str
@@ -92,7 +90,7 @@ def propose(
         )
     held = entry.open_entry(variants_root, variant_id, image.image_tag(image.BUILD))
     projects, project = roots.projects, brief.project
-    standing = _standing(stored_parts(projects, project), held.brep_sha256)
+    standing = _newest_undeclined(stored_parts(projects, project), held.brep_sha256)
     if standing is not None:
         return standing
     facts = ingest(held.brep)
@@ -115,7 +113,7 @@ def propose(
 
     def record_for(existing: tuple[bytes, ...]) -> bytes | None:
         found.clear()
-        already = _standing(_stored(projects, project, existing), held.brep_sha256)
+        already = _newest_undeclined(_stored(projects, project, existing), held.brep_sha256)
         if already is not None:
             found.append(already)
             return None
@@ -139,7 +137,7 @@ def stored_parts(projects: Path, project: ProjectId) -> tuple[Stored, ...]:
     if not os.path.lexists(directory):
         return ()
     store = project_store(projects)
-    readable = store.key_exists() or _empty(directory)
+    readable = store.key_exists() or _left_by_crashed_first_proposal(directory)
     raw = signed.read_numbered(store, directory, _slot_of(project)) if readable else None
     if raw is None:
         raise TamperedProject(_report(projects, project))
@@ -147,12 +145,10 @@ def stored_parts(projects: Path, project: ProjectId) -> tuple[Stored, ...]:
 
 
 def newest_parts(projects: Path, project: ProjectId) -> tuple[Stored, ...]:
-    """The newest record of each part: an older one was declined before it was proposed again."""
     return tuple({s.record.id: s for s in stored_parts(projects, project)}.values())
 
 
 def confirmed_parts(projects: Path, project: ProjectId) -> tuple[ConfirmedPart, ...]:
-    """The parts whose newest record a person confirmed on the page."""
     return tuple(
         ConfirmedPart(s.number, s.record, s.answer.sha256, _SEAL)
         for s in newest_parts(projects, project)
@@ -188,8 +184,7 @@ def _stored(projects: Path, project: ProjectId, raw: tuple[bytes, ...]) -> tuple
     return tuple(parts)
 
 
-def _standing(parts: tuple[Stored, ...], brep_sha256: str) -> Stored | None:
-    """The newest record of this BREP, unless the person declined it."""
+def _newest_undeclined(parts: tuple[Stored, ...], brep_sha256: str) -> Stored | None:
     same = [part for part in parts if part.record.brep_sha256 == brep_sha256]
     return same[-1] if same and same[-1].outcome != "declined" else None
 
@@ -208,8 +203,7 @@ def _write_brep(directory: Path, brep: bytes, brep_sha256: str) -> None:
         temporary.unlink(missing_ok=True)
 
 
-def _empty(directory: Path) -> bool:
-    """A directory a crashed first proposal left before the store key existed."""
+def _left_by_crashed_first_proposal(directory: Path) -> bool:
     return signed.is_directory(directory) and all(
         path.name.startswith(".") for path in directory.iterdir()
     )
