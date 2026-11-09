@@ -18,7 +18,7 @@ or against an older table, is stale: score the variant again.
 A card as a whole fails when it is bound to no signed build (`binding.bind`), names a
 `rebuilt_from` whose signed record pins other code (`binding.link`), is incomplete (no
 results, a registered check missing or repeated, an unregistered check, or no number at all), or
-fails `confirmation.check_basis`.
+fails `confirmation.check_basis`, or has a fit result that `fitted.check_fits` cannot place.
 
 What this does not prove. Stored scorecards are not signed, so a hand-edited value or verdict is not
 detected, and a table number that was edited together with the row it should match is not either.
@@ -36,6 +36,7 @@ from typing import Literal, cast
 import pint
 from binding import Unbound, Unlinked, bind, link
 from confirmation import BasisFailure, Shown, check_basis
+from fitted import Unfitted, check_fits
 
 from cad.briefs.model import limits
 from cad.briefs.words import describe
@@ -149,7 +150,7 @@ class Incomplete:
     reason: str
 
 
-type CardFailure = Unreadable | Unbound | Unlinked | Incomplete | BasisFailure
+type CardFailure = Unreadable | Unbound | Unlinked | Incomplete | BasisFailure | Unfitted
 type BasisKind = Literal["no_brief", "awaiting_confirmation", "against_brief"]
 
 
@@ -185,6 +186,7 @@ def trace_card(
         *(() if linked is None else (linked,)),
         *_incomplete(card, numbers, specs),
         *basis.failures,
+        *check_fits(roots, card),
     )
     return CardTrace(card.variant_id, failures, numbers, card.basis.kind)
 

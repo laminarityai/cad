@@ -24,6 +24,7 @@ from typing import Final, assert_never
 import pint
 from binding import Unbound, Unlinked
 from confirmation import Misjudged, Superseded, Unconfirmed
+from fitted import Unfitted
 from provenance import (
     BoundStep,
     CardFailure,
@@ -69,6 +70,7 @@ class Tally:
     unconfirmed: int
     misjudged: int
     superseded: int
+    unfitted: int
     judged: int
     awaiting: int
     no_brief: int
@@ -91,6 +93,7 @@ def tally(traces: Sequence[CardTrace]) -> Tally:
         unconfirmed=_cards_with(traces, Unconfirmed),
         misjudged=_cards_with(traces, Misjudged),
         superseded=_cards_with(traces, Superseded),
+        unfitted=_cards_with(traces, Unfitted),
         judged=bases.count("against_brief"),
         awaiting=bases.count("awaiting_confirmation"),
         no_brief=bases.count("no_brief"),
@@ -115,6 +118,7 @@ def exit_code(counts: Tally, *, require_judged: bool = False) -> int:
         + counts.unconfirmed
         + counts.misjudged
         + counts.superseded
+        + counts.unfitted
         + counts.stale
         + counts.unresolved
     )
@@ -167,7 +171,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     print(
         f"cards unconfirmed: {counts.unconfirmed}, misjudged: {counts.misjudged}, "
-        f"superseded: {counts.superseded}"
+        f"superseded: {counts.superseded}, unfitted: {counts.unfitted}"
     )
     print(
         f"cards judged: {counts.judged}, awaiting confirmation: {counts.awaiting}, "
