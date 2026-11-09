@@ -3,12 +3,10 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any
 
-import anyio
 import pytest
 import trace_store
 
 from cad.scorecard.model import AGENT_MEASUREMENT
-from cad.scorecard.score import SCORECARD
 
 if TYPE_CHECKING:
     from conftest import Person, Session
@@ -109,36 +107,6 @@ async def test_a_broken_measurement_fails_with_its_reason_and_no_value(
     assert reason in row["failed"]
 
 
-async def test_the_store_never_holds_the_card_without_its_material_while_a_measurement_runs(
-    s: Session, person: Person
-) -> None:
-    brief_id, r2, variant_id = await confirmed(s, person)
-    path = s.roots.briefs.parent / "variants" / variant_id / SCORECARD
-    slow = "import time\ntime.sleep(3)\nreport('x', 1.0, 'mm')"
-    stored: list[dict[str, Any]] = []
-    async with anyio.create_task_group() as group:
-
-        async def score() -> None:
-            await s.call(
-                "score_variant",
-                variant_id=variant_id,
-                material_key="prusament-pla",
-                brief_id=brief_id,
-                own_measurements=[own(r2, slow)],
-            )
-            group.cancel_scope.cancel()
-
-        group.start_soon(score)
-        while True:
-            if path.exists():
-                stored.append(json.loads(path.read_text()))
-            await anyio.sleep(0.05)
-    stored.append(json.loads(path.read_text()))
-    incomplete = [card for card in stored if "material" not in card]
-    assert not incomplete, f"{len(incomplete)} of {len(stored)} reads found no material"
-    assert stored[-1]["not_verified"][0]["values"]
-
-
 async def test_a_measurement_of_a_checked_requirement_is_refused(
     s: Session, person: Person
 ) -> None:
@@ -175,7 +143,7 @@ async def test_the_tracer_reads_a_card_the_server_stored_and_counts_its_measurem
     s: Session, person: Person, capsys: pytest.CaptureFixture[str]
 ) -> None:
     brief_id, r2, variant_id = await confirmed(s, person)
-    await s.call(
+    card = await s.call(
         "score_variant",
         variant_id=variant_id,
         material_key="prusament-pla",
@@ -183,7 +151,25 @@ async def test_the_tracer_reads_a_card_the_server_stored_and_counts_its_measurem
         own_measurements=[own(r2, HOLE)],
     )
     root = s.roots.briefs.parent
+    transcript = root / "transcript.json"
+    call: dict[str, Any] = {
+        "type": "tool_use",
+        "id": "1",
+        "name": "mcp__cad__score_variant",
+        "input": {},
+    }
+    text = {"type": "text", "text": json.dumps(card)}
+    shown = {"type": "tool_result", "tool_use_id": "1", "content": [text]}
+    transcript.write_text(
+        json.dumps(
+            [
+                {"type": "assistant", "message": {"content": [call]}},
+                {"type": "user", "message": {"content": [shown]}},
+            ]
+        )
+    )
     trace = [
+        str(transcript),
         "--root",
         str(root / "variants"),
         "--briefs-root",

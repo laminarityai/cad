@@ -14,19 +14,20 @@ from cards import (
     drafts,
     genuine_card,
     judged_card,
-    put,
+    transcript_of,
+    write_transcript,
 )
-from friction import minutes_to_first_scorecard, read_pages
+from friction import minutes_to_first_result, read_pages
 from outcome import BriefResult, Friction, Share, Trace, is_finished
 from session import SessionFacts, SessionRun, failure_note
 from summary import markdown, summarize
 from tracefacts import NO_CARD, trace_session
 
 from cad.briefs import store as briefs
+from cad.checks.job_store import JOBS
 from cad.projects.model import new_project_id
 from cad.records.roots import Roots
 from cad.sandbox.outcome import Build, Built
-from cad.scorecard.score import SCORECARD
 from cad.variants import entry
 
 LIGHT = ({"kind": "max_mass", "mass": {"magnitude": 150, "unit": "g"}}, "under 150 g")
@@ -67,7 +68,7 @@ def a_result(brief_id: str, trace: Trace | None, **changes: object) -> BriefResu
         seconds=10,
         note=None,
         trace=trace,
-        friction=Friction(confirmation_pages=2, ask_calls=2, minutes_to_first_scorecard=1.5),
+        friction=Friction(confirmation_pages=2, ask_calls=2, minutes_to_first_result=1.5),
     )
     return base.model_copy(update=changes)
 
@@ -118,14 +119,14 @@ def test_minutes_run_from_the_first_brief_to_the_earliest_scorecard(tmp_path: Pa
     brief = home / ".cad" / "briefs" / "b1" / "brief.signed"
     brief.parent.mkdir(parents=True)
     brief.write_text("x")
-    later = variants / VARIANT_ID
-    later.mkdir()
-    (later / SCORECARD).write_text("{}")
+    result = variants / VARIANT_ID / JOBS / f"{'a' * 64}.signed"
+    result.parent.mkdir(parents=True)
+    result.write_text("{}")
     os.utime(brief, (1000, 1000))
-    os.utime(later / SCORECARD, (1150, 1150))
+    os.utime(result, (1150, 1150))
     kept = home / ".cad" / "briefs"
-    assert minutes_to_first_scorecard(kept, variants, 200) == pytest.approx(2.5)
-    assert minutes_to_first_scorecard(kept, tmp_path / "none", 200) is None
+    assert minutes_to_first_result(kept, variants, 200) == pytest.approx(2.5)
+    assert minutes_to_first_result(kept, tmp_path / "none", 200) is None
 
 
 def test_minutes_are_dropped_when_the_clock_ran_past_the_session(tmp_path: Path) -> None:
@@ -133,17 +134,17 @@ def test_minutes_are_dropped_when_the_clock_ran_past_the_session(tmp_path: Path)
     brief = home / ".cad" / "briefs" / "b1" / "brief.signed"
     brief.parent.mkdir(parents=True)
     brief.write_text("x")
-    (variants / VARIANT_ID).mkdir()
-    card = variants / VARIANT_ID / SCORECARD
-    card.write_text("{}")
+    result = variants / VARIANT_ID / JOBS / f"{'a' * 64}.signed"
+    result.parent.mkdir(parents=True)
+    result.write_text("{}")
     later = brief.stat().st_mtime + 900
-    os.utime(card, (later, later))
-    assert minutes_to_first_scorecard(home / ".cad" / "briefs", variants, 90) is None
+    os.utime(result, (later, later))
+    assert minutes_to_first_result(home / ".cad" / "briefs", variants, 90) is None
 
 
 def test_a_session_that_stored_nothing_is_not_traced_and_says_why(tmp_path: Path) -> None:
-    home, _ = a_home(tmp_path)
-    traced = trace_session(home)
+    home, variants = a_home(tmp_path)
+    traced = trace_session(home, transcript_of(variants))
     assert not traced.traced
     assert traced.untraced == (NO_CARD,)
 
@@ -161,8 +162,10 @@ def test_a_card_judged_against_a_confirmed_brief_is_traced(tmp_path: Path) -> No
     home, variants = a_home_with_a_build(tmp_path)
     roots = Roots(home / ".cad" / "briefs", home / ".cad" / "projects")
     brief_id = briefs.create_brief(roots, BRIEF_TEXT, new_project_id()).id
-    put(variants, judged_card(confirm_on_page(roots, brief_id, drafts(LIGHT, FRIENDLY))))
-    traced = trace_session(home)
+    write_transcript(
+        variants, judged_card(confirm_on_page(roots, brief_id, drafts(LIGHT, FRIENDLY)))
+    )
+    traced = trace_session(home, transcript_of(variants))
     assert traced.traced, traced.untraced
     assert (traced.strict_pass, traced.coverage) == (
         Share(numerator=0, denominator=2),
@@ -175,14 +178,11 @@ def test_rates_count_the_requirements_of_the_last_card_once(tmp_path: Path) -> N
     roots = Roots(home / ".cad" / "briefs", home / ".cad" / "projects")
     brief_id = briefs.create_brief(roots, BRIEF_TEXT, new_project_id()).id
     card = judged_card(confirm_on_page(roots, brief_id, drafts(LIGHT, FRIENDLY)))
-    put(variants, card)
     second = entry.VariantId("fedcba9876543210")
     entry.save(variants, second, "x = 2\n", Build(outcome=Built(), output=""), BREP)
     (variants / second / entry.STEP).write_bytes(STEP)
-    (variants / second / SCORECARD).write_text(
-        card.model_copy(update={"variant_id": second}).model_dump_json()
-    )
-    traced = trace_session(home)
+    write_transcript(variants, card, card.model_copy(update={"variant_id": second}))
+    traced = trace_session(home, transcript_of(variants))
     assert traced.cards == 2
     assert traced.coverage == Share(numerator=1, denominator=2)
 
@@ -196,8 +196,8 @@ def test_a_session_failure_names_the_line_that_says_why() -> None:
 
 def test_a_card_with_no_brief_is_not_traced(tmp_path: Path) -> None:
     home, variants = a_home_with_a_build(tmp_path)
-    put(variants, genuine_card())
-    traced = trace_session(home)
+    write_transcript(variants, genuine_card())
+    traced = trace_session(home, transcript_of(variants))
     assert not traced.traced
     assert "1 card(s) scored with no brief" in traced.untraced
 

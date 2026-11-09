@@ -57,6 +57,23 @@ class Lanes:
         result = quick.result if isinstance(quick, Done) else quick.result()
         return Settled(result, tuple(_land(flight, deadline) for flight in flights))
 
+    def peek(self, plan: Plan) -> Settled | None:
+        """What the store holds for `plan`, with no wait and no job started. A background job is
+        done when its result is stored, refused when it was interrupted too often, and pending
+        otherwise. None when the quick result is not stored: the variant was never scored."""
+        quick = job_store.read(plan.quick)
+        if quick is None:
+            return None
+        return Settled(quick, tuple(self._look(job) for job in plan.background))
+
+    def _look(self, job: JobSpec) -> Outcome:
+        stored = job_store.read(job)
+        if stored is not None:
+            return Done(stored)
+        if job_store.interrupted_runs(job) >= job_store.ATTEMPT_CAP:
+            return Refused(INTERRUPTED)
+        return Pending()
+
     def _take_off(self, job: JobSpec) -> Done | Refused | Future[JobResult]:
         path = job_store.result_path(job)
         with self._lock:

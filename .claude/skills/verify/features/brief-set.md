@@ -1,8 +1,8 @@
 # Brief set
 
-`evals/briefs/run.py` runs every brief in the private set (`~/cad-evals/briefs/`, one `<id>.yaml` each) through a headless Claude Code session, then traces what the session stored. One run records the phase 2 exit (every number on every scorecard traces to a confirmed source), the friction numbers (#50) and the coverage baseline (#49).
+`evals/briefs/run.py` runs every brief in the private set (`~/cad-evals/briefs/`, one `<id>.yaml` each) through a headless Claude Code session, then traces the scorecards the session was shown. One run records the phase 2 exit (every number on every scorecard traces to a confirmed source), the friction numbers (#50) and the coverage baseline (#49).
 
-Per brief it starts `claude_session.py` with `--opener .claude/skills/verify/scripts/human.py` and a fresh `--home` under `<out>/<id>/home`, so the server's briefs, projects and variants stay in that run's own directory. The session sees only the `brief` field of the YAML, never the `grader` block, and the prompt adds one sentence of framing. Afterwards it runs the tracer (`evals/briefs/trace_store.py`) over that home with `--require-judged` semantics, and writes `<out>/<id>/result.json`.
+Per brief it starts `claude_session.py` with `--opener .claude/skills/verify/scripts/human.py` and a fresh `--home` under `<out>/<id>/home`, so the server's briefs, projects and variants stay in that run's own directory. The session sees only the `brief` field of the YAML, never the `grader` block, and the prompt adds one sentence of framing. Afterwards it runs the tracer (`evals/briefs/trace_store.py`) over that run's transcript and home with `--require-judged` semantics, and writes `<out>/<id>/result.json`.
 
 ## Sub-features
 
@@ -29,11 +29,11 @@ uv run python evals/briefs/run.py --briefs ~/cad-evals/briefs --out ~/cad-evals/
 ## The numbers
 
 - Traced: the tracer exits 0 over that brief's stores with `--require-judged`. That needs at least one card, every card judged against a confirmed brief, and every number resolved. A brief that is not traced lists each reason under `Untraced in <id>` in `summary.md`: failed cards, stale or unresolved numbers, a card awaiting confirmation, a card with no brief, or no card. Agent measurements count as not verified (ADR-0008) and are listed in `result.json` under `agent_measurements`, apart from the untraced ones.
-- Strict pass rate and coverage (#49) are the tracer's `track` numbers over the requirements on the last scorecard stored in the session's home, the one the person reads last. The overall rates pool those requirements across briefs. A requirement passes strictly when a reviewed check decided it and the verdict is pass, and it is covered when a reviewed check decided it. The requirements are the ones the agent proposed and the scripted person confirmed, so a requirement the agent left out of its proposal is in neither number.
-- Friction (#50): confirmation pages are the pages the scripted person opened (its `page` log entries), and `ask_calls` is how many times the agent called `ask_to_confirm`. Minutes run from the earliest stored brief in the session's home to the earliest scorecard file's last write. The scripted person waits one second before it answers, so no reading time is in them. A card that is rescored after a later confirmation counts from its last write.
+- Strict pass rate and coverage (#49) are the tracer's `track` numbers over the requirements on the last scorecard a tool returned in the session, the one the person reads last. The overall rates pool those requirements across briefs. A requirement passes strictly when a reviewed check decided it and the verdict is pass, and it is covered when a reviewed check decided it. The requirements are the ones the agent proposed and the scripted person confirmed, so a requirement the agent left out of its proposal is in neither number.
+- Friction (#50): confirmation pages are the pages the scripted person opened (its `page` log entries), and `ask_calls` is how many times the agent called `ask_to_confirm`. Minutes run from the earliest stored brief in the session's home to the earliest signed job result's last write (the server stores no scorecard). The scripted person waits one second before it answers, so no reading time is in them.
 
 ## Gotchas
 
 - A session that fails is `session_failed` in the summary, not untraced, and the exit code is 1. `--require-traced` makes the exit code 1 for any untraced brief too.
 - Each session is a real model run. See `cost_usd` in `result.json`.
-- `trace_store.trace_root` is what the tracer and the driver share. Run `evals/briefs/trace_store.py --root <home>/.cad/variants --briefs-root <home>/.cad/briefs --projects-root <home>/.cad/projects --require-judged` to see one brief's full trace.
+- `trace_store.trace_cards` is what the tracer and the driver share, and `transcript_cards.read_cards` takes the cards from a transcript. Run `evals/briefs/trace_store.py <out>/<id>/transcript.json --root <home>/.cad/variants --briefs-root <home>/.cad/briefs --projects-root <home>/.cad/projects --require-judged` to see one brief's full trace.

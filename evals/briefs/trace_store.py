@@ -1,17 +1,18 @@
-"""Trace every number on every scorecard stored in a variant store.
+"""Trace every number on every scorecard a session was shown.
 
-    uv run python evals/briefs/trace_store.py [--root DIR] [--briefs-root DIR]
+    uv run python evals/briefs/trace_store.py TRANSCRIPT... [--root DIR] [--briefs-root DIR]
         [--projects-root DIR] [--steps] [--require-judged]
 
-Each card is read, bound to its signed build, checked for completeness, its basis is checked
-against the brief and project stores, and every number on it is traced (see `provenance`). The
-summary counts each kind of failure on its own line, and counts cards judged against a brief apart
-from cards awaiting confirmation and cards with no brief. Exit code 1 means at least one card or
-number failed, or the store holds no card or no number: a pass over nothing proves nothing. With
-`--require-judged`, a card awaiting confirmation or with no brief fails too.
+The cards are the results of score_variant and scorecard calls in the transcripts (see
+`transcript_cards`). Each card is read, bound to its signed build, checked for completeness, its
+basis is checked against the brief and project stores, and every number on it is traced (see
+`provenance`). The summary counts each kind of failure on its own line, and counts cards judged
+against a brief apart from cards awaiting confirmation and cards with no brief. Exit code 1 means
+at least one card or number failed, or the transcripts hold no card or no number: a pass over
+nothing proves nothing. With `--require-judged`, a card awaiting confirmation or with no brief
+fails too.
 
-Limit: stored cards are unsigned, so a hand-edited value or verdict is not detected. The product
-ships hosted, so users cannot edit them.
+Limit: a transcript is unsigned, so a hand-edited card is not detected.
 """
 
 import argparse
@@ -45,6 +46,7 @@ from provenance import (
 )
 from pydantic import ValidationError
 from tracking import RequirementOutcome, describe, outcomes_of, track
+from transcript_cards import read_cards
 
 from cad.briefs import store as briefs
 from cad.briefs.store import BriefRefused
@@ -53,7 +55,6 @@ from cad.records.roots import HOME_ROOTS, Roots
 from cad.research.overlay import project_table
 from cad.scorecard import material
 from cad.scorecard.model import AgainstBrief, AwaitingConfirmation, Scorecard
-from cad.scorecard.score import SCORECARD
 from cad.tables.materials import MaterialsTable, load_materials
 from cad.variants import entry
 
@@ -129,7 +130,7 @@ def exit_code(counts: Tally, *, require_judged: bool = False) -> int:
 
 @dataclass(frozen=True, slots=True)
 class TracedCard:
-    path: Path
+    order: int
     trace: CardTrace
     outcomes: tuple[RequirementOutcome, ...]
 
@@ -147,18 +148,22 @@ class TracedStore:
         return tuple(outcome for one in self.cards for outcome in one.outcomes)
 
 
-def trace_root(root: Path, roots: Roots) -> TracedStore:
-    paths = sorted(
-        path for path in root.glob(f"*/{SCORECARD}") if entry.ID_PATTERN.fullmatch(path.parent.name)
-    )
+def trace_cards(cards: Sequence[str], root: Path, roots: Roots) -> TracedStore:
+    """`cards` is the JSON text of each scorecard, in the order the session got them."""
     table = load_materials()
-    return TracedStore(tuple(TracedCard(path, *_read(path, root, roots, table)) for path in paths))
+    return TracedStore(
+        tuple(
+            TracedCard(order, *_read(order, text, root, roots, table))
+            for order, text in enumerate(cards)
+        )
+    )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        prog="trace_store", description="Trace every number on every stored scorecard."
+        prog="trace_store", description="Trace every number on every scorecard in a transcript."
     )
+    parser.add_argument("transcripts", nargs="+", type=Path, help="claude_session.py transcripts")
     parser.add_argument("--root", type=Path, default=entry.VARIANTS_ROOT, help="the variant store")
     parser.add_argument(
         "--briefs-root", type=Path, default=HOME_ROOTS.briefs, help="the brief store cards name"
@@ -176,7 +181,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="fail a card awaiting confirmation or scored with no brief",
     )
     args = parser.parse_args(argv)
-    found = trace_root(args.root, Roots(briefs=args.briefs_root, projects=args.projects_root))
+    cards = [text for path in args.transcripts for text in read_cards(path)]
+    found = trace_cards(
+        cards, args.root, Roots(briefs=args.briefs_root, projects=args.projects_root)
+    )
     for trace in found.traces:
         _print(trace, args.steps)
     counts = tally(found.traces)
@@ -202,24 +210,20 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(f"strict pass rate: {describe(tracking.strict_pass_rate)}")
     print(f"requirements covered by reviewed checks: {describe(tracking.reviewed_coverage)}")
     if not counts.cards:
-        print(f"no scorecard under {args.root}")
+        print("no scorecard in the transcripts")
     elif not counts.numbers:
         print("no number on any scorecard")
     return exit_code(counts, require_judged=args.require_judged)
 
 
 def _read(
-    path: Path, root: Path, roots: Roots, table: MaterialsTable
+    order: int, text: str, root: Path, roots: Roots, table: MaterialsTable
 ) -> tuple[CardTrace, tuple[RequirementOutcome, ...]]:
-    name = path.parent.name
     try:
-        card = material.STORED.validate_json(path.read_text())
-    except (OSError, ValidationError, pint.UndefinedUnitError, ZeroDivisionError) as error:
-        return CardTrace(name, (Unreadable(str(error).splitlines()[0]),), ()), ()
+        card = material.STORED.validate_json(text)
+    except (ValidationError, pint.UndefinedUnitError, ZeroDivisionError) as error:
+        return CardTrace(f"card {order + 1}", (Unreadable(str(error).splitlines()[0]),), ()), ()
     trace = trace_card(card, root, roots, _table_for(card, roots, table), SPEC_BY_ID)
-    if card.variant_id != name:
-        misplaced = Unbound(f"the card names variant {card.variant_id} but is stored under {name}")
-        trace = CardTrace(name, (misplaced, *trace.failures), trace.numbers, trace.basis)
     return trace, outcomes_of(card)
 
 

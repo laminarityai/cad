@@ -2,6 +2,7 @@ from datetime import date
 
 from cad.checks.report import DEPENDENCIES, SPECS, build_request, reads_of
 from cad.checks.result import ReadCited, ReadMissing, ReadResearched, StepStored, Verdict
+from cad.operations.research import with_research
 from cad.projects.model import ProjectId
 from cad.research.ledger import Ledger, ResearchedRecord
 from cad.research.overlay import ProjectTable, overlay
@@ -9,7 +10,6 @@ from cad.research.requests import requests_on
 from cad.scorecard import material, requirements
 from cad.scorecard.material import ReportedScorecard
 from cad.scorecard.model import Checked, NoBrief, PendingCheck, Scorecard
-from cad.server.research_tools import with_research
 from cad.tables.materials import MaterialsTable, load_materials
 from tests.scorecard.test_requirements import max_mass, result
 

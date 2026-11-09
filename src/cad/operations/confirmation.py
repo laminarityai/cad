@@ -1,18 +1,15 @@
 from typing import Annotated, Final, Literal
 
-from mcp.server.mcpserver.tools import Tool
 from pydantic import BaseModel, Field
 
 from cad.briefs import store
 from cad.briefs.model import Declined
 from cad.briefs.store import BriefState, Status
-from cad.confirmations.ballot import Desk
 from cad.context_parts.model import Outcome
 from cad.context_parts.store import Stored, newest_parts
+from cad.operations.model import Audience, Input, Tenant, operation
 from cad.projects.membership import project_briefs
 from cad.projects.model import PROJECT_ID, PROJECT_ID_CHARS, UnknownProject, parse_project_id
-from cad.records.roots import Roots
-from cad.server.refusals import agent_facing
 
 ASK_TO_CONFIRM = (
     "Ask the user to confirm everything waiting on them in a project, on one page that opens in "
@@ -100,34 +97,41 @@ def _part_item(part: Stored) -> ContextPartItem:
     )
 
 
-def confirmation_tools(roots: Roots, desk: Desk) -> list[Tool]:
-    async def ask_to_confirm(
-        project_id: Annotated[str, Field(max_length=PROJECT_ID_CHARS, pattern=PROJECT_ID.pattern)],
-    ) -> AskResult:
-        with agent_facing():
-            project = parse_project_id(project_id)
-            briefs = project_briefs(roots, project)
-            if not briefs:
-                raise UnknownProject(f"no project {project} is stored; create_brief starts one")
-            await desk.ask(project)
-            found = [_item(store.read_state(roots, brief_id)) for brief_id in briefs]
-            parts = [_part_item(part) for part in newest_parts(roots.projects, project)]
-        items: list[RequirementsItem | ContextPartItem] = [
-            item for item in found if item is not None
-        ]
-        items.extend(parts)
-        outcomes = {item.outcome for item in items}
-        status: Literal["nothing_to_confirm", "pending", "answered"] = (
-            "pending" if "waiting" in outcomes else "answered" if items else "nothing_to_confirm"
-        )
-        advice = [status] if status != "answered" or "declined" not in outcomes else []
-        if "declined" in outcomes:
-            advice.append("declined")
-        return AskResult(
-            project_id=project,
-            status=status,
-            items=items,
-            next=" ".join(NEXT[one] for one in advice),
-        )
+class AskToConfirmInput(Input):
+    project_id: Annotated[str, Field(max_length=PROJECT_ID_CHARS, pattern=PROJECT_ID.pattern)]
 
-    return [Tool.from_function(ask_to_confirm, description=ASK_TO_CONFIRM)]
+
+async def ask_to_confirm(tenant: Tenant, arguments: AskToConfirmInput) -> AskResult:
+    project = parse_project_id(arguments.project_id)
+    briefs = project_briefs(tenant.roots, project)
+    if not briefs:
+        raise UnknownProject(f"no project {project} is stored; create_brief starts one")
+    await tenant.desk.ask(project)
+    found = [_item(store.read_state(tenant.roots, brief_id)) for brief_id in briefs]
+    items: list[RequirementsItem | ContextPartItem] = [item for item in found if item is not None]
+    items.extend(_part_item(part) for part in newest_parts(tenant.roots.projects, project))
+    outcomes = {item.outcome for item in items}
+    status: Literal["nothing_to_confirm", "pending", "answered"] = (
+        "pending" if "waiting" in outcomes else "answered" if items else "nothing_to_confirm"
+    )
+    advice = [status] if status != "answered" or "declined" not in outcomes else []
+    if "declined" in outcomes:
+        advice.append("declined")
+    return AskResult(
+        project_id=project,
+        status=status,
+        items=items,
+        next=" ".join(NEXT[one] for one in advice),
+    )
+
+
+OPERATIONS: Final = (
+    operation(
+        name="ask_to_confirm",
+        audience=Audience.AGENT,
+        description=ASK_TO_CONFIRM,
+        input=AskToConfirmInput,
+        output=AskResult,
+        run=ask_to_confirm,
+    ),
+)

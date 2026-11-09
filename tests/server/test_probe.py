@@ -4,7 +4,9 @@ from typing import Any
 
 import pytest
 
-from cad.server import app, probe
+from cad.operations import registry
+from cad.operations.server import GitState
+from cad.server import probe
 
 WRONG_SHA = "0" * 40
 
@@ -39,10 +41,10 @@ def test_wrong_sha_fails(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_wrong_sha_fails_even_when_the_servers_own_git_lookup_agrees(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    def lying_git_state(root: Path) -> app.GitState:
-        return app.GitState(WRONG_SHA, False)
+    def lying_git_state(root: Path) -> GitState:
+        return GitState(WRONG_SHA, False)
 
-    monkeypatch.setattr(app, "git_state", lying_git_state)
+    monkeypatch.setattr(registry, "git_state", lying_git_state)
     monkeypatch.setattr(probe, "call_tool", reporting({"sha": WRONG_SHA, "dirty": False}))
     assert probe.main() == 1
 

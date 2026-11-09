@@ -31,7 +31,7 @@ Cost: **free** is `cad-call` alone (about 8 s of server start per call). **docke
 | [Briefs](./briefs.md) | `create_brief`, `propose_requirements`, `ask_to_confirm`, `list_requirements`, the confirmation page, refusals | free: refusals, projects. browser: confirm, edit, decline, one page | live: the agent's flow, the adversary |
 | [Build variant](./build-variant.md) | `build_variant` outcomes, the store, Docker down, variant sets | docker | live: the Claude Code call |
 | [Run checks](./run-checks.md) | `cad-sandbox run-checks`: the four geometric checks, `result.step`, stale variants | docker | none |
-| [Score variant](./score-variant.md) | `score_variant`, `list_materials`, `basis`, `made_of`, the allowlist | docker, plus browser for a confirmed brief | live: build and score, override |
+| [Score variant](./score-variant.md) | `score_variant`, `scorecard` read-back, `list_materials`, `basis`, `made_of`, the allowlist | docker, plus browser for a confirmed brief | live: build and score, override |
 | [Knowledge](./knowledge.md) | `search_knowledge` ranking | free | live: choosing between a hit and its near miss |
 | [Research](./research.md) | `submit_research` and the research requests on a scorecard | docker + browser + network | none |
 | [Test mode](./test-mode.md) | the Test mode guidance: score only the picked variant, report what no check measured as not checked | live (three sessions) | none |
@@ -49,4 +49,4 @@ Cost: **free** is `cad-call` alone (about 8 s of server start per call). **docke
 - [Auto mode](./phase-4/auto-mode.md): the server-held Auto run and its stops. Units 7 and 9.
 - [Chat](./phase-4/chat.md): the chat runtime and mode switcher. Unit 8.
 
-Units 1 and 2 change tools that exist. Unit 1 adds `slot` to `build_variant`: update [Build variant](./build-variant.md) with its check (two builds into slot 2, the first in its history). Unit 2 moves the tools into a registry and deletes `scorecard.json`: update every recipe here that reads `scorecard.json`.
+Units 1 and 2 change tools that exist. Unit 1 adds `slot` to `build_variant`: update [Build variant](./build-variant.md) with its check (two builds into slot 2, the first in its history). Unit 2 moved the tools into a registry and deleted `scorecard.json`: [Score variant](./score-variant.md) reads a card back through `scorecard`.

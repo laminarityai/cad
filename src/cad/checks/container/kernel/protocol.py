@@ -122,8 +122,8 @@ class Kernel(Protocol):
     def common_volume(self, first: Shape, second: Shape) -> float | None: ...
 
     def min_distance(self, first: Shape, second: Shape) -> float | None:
-        """BRepExtrema_DistShapeShape's minimum, or None when it is not done. Nested solids give
-        the distance between their boundaries, not 0 (#92)."""
+        """BRepExtrema_DistShapeShape's minimum, or None when it is not done. On the pinned OCP a
+        solid nested inside another gives 0.0, so fit decides overlap with common_volume first."""
         ...
 
     def step_bytes(self, shape: Shape, cap: int) -> bytes | StepTooLarge:
