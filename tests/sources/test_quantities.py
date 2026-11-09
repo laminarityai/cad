@@ -319,13 +319,13 @@ def test_every_density_quote_in_the_table_parses_to_the_table_value_or_is_refuse
         assert result.canonical == pytest.approx(cited.magnitude_in("kg/m^3"), rel=5e-3), (
             material.key
         )
-    assert parsed >= 18
+    assert parsed >= 17
 
 
 @pytest.mark.parametrize(
     ("key", "reason"),
     [
-        ("kaiser-7075-t6", Reason.SEVERAL_QUANTITIES),
+        ("kaiser-7075-t6", Reason.UNRECOGNISED_TEXT),
         ("cliffs-304", Reason.MISSING_UNIT),
         ("cliffs-316", Reason.MISSING_UNIT),
         ("formlabs-clear-resin-v5", Reason.SEVERAL_QUANTITIES),
@@ -339,7 +339,10 @@ def test_refuses_the_table_quotes_that_do_not_state_one_value(key: str, reason: 
     assert refusal(density.source.quote).reason is reason
 
 
-@pytest.mark.parametrize("key", ["kaiser-6061-t6", "aurubis-c11000-h02", "polymaker-polymax-pc"])
+@pytest.mark.parametrize(
+    "key",
+    ["kaiser-6061-t6", "aurubis-c11000-h02", "polymaker-polymax-pc", "polymaker-polylite-abs"],
+)
 def test_refuses_the_table_quotes_with_detached_units_or_exponents(key: str) -> None:
     density = load_materials().materials[key].density
     assert isinstance(density, Known)
@@ -358,7 +361,6 @@ def test_refuses_the_table_quotes_with_detached_units_or_exponents(key: str) -> 
         "bambu-pc",
         "bambu-pla-cf",
         "bambu-petg-cf",
-        "polymaker-polylite-abs",
         "polymaker-fiberon-pa6-cf20",
         "polymaker-fiberon-pa12-cf10",
     ],

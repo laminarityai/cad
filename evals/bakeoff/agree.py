@@ -205,7 +205,8 @@ def replay_one(attempt: Attempt, root: Path) -> Row:
     started = time.monotonic()
     built = store.build_variant(as_result_contract(attempt.path.read_text()), root)
     if isinstance(built.outcome, Built):
-        score.score_variant(built.variant_id, MATERIAL_KEY, root)
+        scored = score.score_variant(built.variant_id, MATERIAL_KEY, root)
+        score.store(material.reported(scored, None), root)
     return evaluate(attempt.label, attempt.part, built.variant_id, root, time.monotonic() - started)
 
 
