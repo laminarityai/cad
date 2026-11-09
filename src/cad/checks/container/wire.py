@@ -28,6 +28,8 @@ class RequestWire(TypedDict):
     checks: list[str]
     values: dict[str, ValueWire]
     load_cases: list["LoadCaseWire"]
+    context_bytes: int
+    """The last `context_bytes` bytes of stdin are the context part's BREP; 0 sends none."""
 
 
 class MeasuredWire(TypedDict):

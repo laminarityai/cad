@@ -121,6 +121,11 @@ class Kernel(Protocol):
 
     def common_volume(self, first: Shape, second: Shape) -> float | None: ...
 
+    def min_distance(self, first: Shape, second: Shape) -> float | None:
+        """BRepExtrema_DistShapeShape's minimum, or None when it is not done. Nested solids give
+        the distance between their boundaries, not 0 (#92)."""
+        ...
+
     def step_bytes(self, shape: Shape, cap: int) -> bytes | StepTooLarge:
         """The writer numbers PRODUCT names per process, so a second call raises: one
         container writes one STEP, which keeps the bytes stable."""

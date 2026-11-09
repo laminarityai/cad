@@ -108,7 +108,7 @@ def assembled(root: Path, outcome: Done | Pending | Refused) -> tuple[Scorecard,
 
 def test_a_pending_background_check_holds_its_place_and_no_verdict(tmp_path: Path) -> None:
     card, assessed = assembled(tmp_path, Pending())
-    assert [one.check_id for one in card.results] == [spec.id for spec in SPECS]
+    assert [one.check_id for one in card.results] == [spec.id for spec in (*QUICK, FEA)]
     assert card.results[4] == PendingCheck(
         check_id="fea",
         formula=FEA.formula,

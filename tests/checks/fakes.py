@@ -99,6 +99,9 @@ class FakeKernel:
         assert isinstance(first, FakeShape) and isinstance(second, FakeShape)
         return self.commons.get((first.index, second.index), 0.0)
 
+    def min_distance(self, first: Shape, second: Shape) -> float | None:
+        raise NotImplementedError("no quick check measures a distance")
+
     def step_bytes(self, shape: Shape, cap: int) -> bytes | StepTooLarge:
         if self.step_raises:
             raise RuntimeError("no STEP")
@@ -108,4 +111,9 @@ class FakeKernel:
 def request(density: ValueWire = KNOWN, checks: tuple[str, ...] | None = None) -> RequestWire:
     quick = [check.ID for check in CHECKS if isinstance(check.BUDGET, Quick)]
     ids = quick if checks is None else list(checks)
-    return {"checks": ids, "values": {Input.DENSITY: density}, "load_cases": []}
+    return {
+        "checks": ids,
+        "values": {Input.DENSITY: density},
+        "load_cases": [],
+        "context_bytes": 0,
+    }

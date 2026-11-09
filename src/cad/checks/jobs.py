@@ -78,7 +78,7 @@ def plan(root: Path, held: Entry, request: Request, table: MaterialsTable, deman
             instance,
         )
         for spec in SPECS
-        if isinstance(spec.budget, Background)
+        if spec.id == "fea"
         for instance, case in sorted(demand.items())
     )
     return Plan(quick=quick, background=background)

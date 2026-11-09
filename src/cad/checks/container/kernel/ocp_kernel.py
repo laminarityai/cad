@@ -144,6 +144,18 @@ class OcpKernel:
         common = self._ocp.new_common(first, second)
         return self.volume_props(common.Shape()).volume if common.IsDone() else None
 
+    def min_distance(self, first: Shape, second: Shape) -> float | None:
+        ocp = self._ocp
+        tool = ocp.new_distance()
+        tool.LoadS1(first)
+        tool.LoadS2(second)
+        tool.SetFlag(ocp.extrema_min)
+        tool.SetAlgo(ocp.extrema_grad)
+        # Issue #92 measured multithreading 1.8 to 3.6 times slower on large parts.
+        tool.SetMultiThread(False)
+        tool.Perform()
+        return tool.Value() if tool.IsDone() else None
+
     def step_bytes(self, shape: Shape, cap: int) -> bytes | StepTooLarge:
         if self._wrote_step:
             raise RuntimeError("one container writes one STEP")

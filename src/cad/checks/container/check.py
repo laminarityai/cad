@@ -46,6 +46,7 @@ class Subject:
     shape: Shape | Unreadable
     inputs: Inputs
     reported: Mapping[str, ResultWire]
+    context: Shape | Unreadable | None = None
 
 
 class CheckModule(Protocol):

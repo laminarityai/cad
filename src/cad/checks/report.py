@@ -203,7 +203,7 @@ def reads_of(spec: CheckSpec, request: Request) -> tuple[Read, ...]:
 def _wire(
     ids: list[str], values: dict[str, ValueWire], load_cases: Sequence[LoadCaseWire]
 ) -> RequestWire:
-    return {"checks": ids, "values": values, "load_cases": list(load_cases)}
+    return {"checks": ids, "values": values, "load_cases": list(load_cases), "context_bytes": 0}
 
 
 @dataclass(frozen=True, slots=True)
