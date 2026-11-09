@@ -194,5 +194,8 @@ def test_a_material_the_table_lacks_is_named_as_the_projects_own_row() -> None:
     assert table.row_key("prusament-pla") == "prusament-pla"
     assert table.row_key("acme-silk-pla") == "project-acme-silk-pla"
     assert table.row_key("project-acme-silk-pla") == "project-acme-silk-pla"
+    assert table.row_key("project-project-acme-silk-pla") == "project-acme-silk-pla"
+    assert table.row_key("project-prusament-pla") == "prusament-pla"
+    assert table.row_key("project-project-prusament-pla") == "prusament-pla"
     blank = table.get_material("project-acme-silk-pla")
     assert {blank.value(field) for field in FIELD_UNITS} == {Unknown()}

@@ -97,10 +97,6 @@ class UnknownMaterial(LookupError):
     pass
 
 
-class KeyInTable(ValueError):
-    pass
-
-
 class InvalidTable(ValueError):
     def __init__(self, problems: list[str]) -> None:
         super().__init__("\n".join(problems))
@@ -120,12 +116,13 @@ class MaterialsTable:
         return material
 
     def row_key(self, key: str) -> str:
-        if key in self.materials:
-            return key
-        named = key.removeprefix(PROJECT_PREFIX)
-        if named in self.materials:
-            raise KeyInTable(f"{named} is in the materials table; use {named}")
-        return PROJECT_PREFIX + named
+        """The key of the row that holds the material `key` names: the git row when git has one,
+        and the project's own row otherwise. The plain name never starts with the prefix, so no
+        project row matches it, and an overlay gives the same key as git."""
+        named = key
+        while named.startswith(PROJECT_PREFIX):
+            named = named.removeprefix(PROJECT_PREFIX)
+        return named if named in self.materials else PROJECT_PREFIX + named
 
 
 def load_materials(path: Path = TABLE_PATH) -> MaterialsTable:

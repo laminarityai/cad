@@ -259,7 +259,7 @@ def build_server(
                     assess, demand = requirements.against(confirmed), requirements.demand(confirmed)
             table = brief_table(roots, brief_id)
             material_key = table.table.row_key(material_key)
-            material.refuse_other_material(confirmed, material_key)
+            material.refuse_other_material(confirmed, material_key, table.table)
             if own_measurements:
                 own.refuse_unless_unchecked(confirmed, own_measurements)
             scored = score.score_variant(
