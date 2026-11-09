@@ -1,8 +1,6 @@
 import pytest
 from agree import (
-    EXTENT_TOL_MM,
     UNSCORED,
-    VOLUME_TOL_MM3,
     CardSide,
     Extents,
     GraderSide,
@@ -24,16 +22,13 @@ def grader(
     return GraderSide(category, volume, extents)
 
 
-def test_the_tolerances_are_the_ones_the_plan_fixed() -> None:
-    assert (VOLUME_TOL_MM3, EXTENT_TOL_MM) == (0.01, 0.002)
-
-
 def test_equal_valid_solids_agree() -> None:
     assert agree_rule(card(), grader()).agrees
 
 
-def test_a_volume_off_by_0_02_mm3_disagrees() -> None:
-    result = agree_rule(card(volume=29509.74), grader())
+@pytest.mark.parametrize("volume", [29509.731, 29509.74])
+def test_a_volume_off_by_more_than_0_01_mm3_disagrees(volume: float) -> None:
+    result = agree_rule(card(volume=volume), grader())
     assert not result.agrees
     assert "volume" in result.reasons[0]
 
@@ -42,8 +37,8 @@ def test_a_volume_off_by_0_005_mm3_agrees() -> None:
     assert agree_rule(card(volume=29509.725), grader()).agrees
 
 
-@pytest.mark.parametrize("offset", [0.003, -0.003])
-def test_an_extent_off_by_0_003_mm_disagrees(offset: float) -> None:
+@pytest.mark.parametrize("offset", [0.0021, -0.0021, 0.003, -0.003])
+def test_an_extent_off_by_more_than_0_002_mm_disagrees(offset: float) -> None:
     result = agree_rule(card(extents=(6.0, 50.0 + offset, 100.0)), grader())
     assert not result.agrees
     assert "extents" in result.reasons[0]
