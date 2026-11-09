@@ -5,7 +5,8 @@ import sys
 import pytest
 from mcp import Client
 
-from cad.server.app import REPO_ROOT, build_server
+from cad.operations.server import REPO_ROOT
+from cad.server.app import build_server
 
 pytestmark = pytest.mark.anyio
 
@@ -44,6 +45,7 @@ async def test_server_info_names_the_head_sha_python_and_tools() -> None:
             "list_requirements",
             "propose_requirements",
             "score_variant",
+            "scorecard",
             "search_knowledge",
             "server_info",
             "submit_research",

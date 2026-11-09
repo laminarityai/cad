@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, cast
 
-from cad.scorecard.score import SCORECARD
+from cad.checks.job_store import JOBS
 
 CLOCK_SLACK_S: Final = 5.0
 
@@ -25,12 +25,12 @@ def read_pages(log: Path) -> Pages:
     )
 
 
-def minutes_to_first_scorecard(
+def minutes_to_first_result(
     briefs_root: Path, variants_root: Path, session_seconds: float
 ) -> float | None:
     """`session_seconds` is a monotonic clock, which does not count sleep; file times do."""
     started = [path.stat().st_mtime for path in briefs_root.glob("*/*") if path.is_file()]
-    stored = [path.stat().st_mtime for path in variants_root.glob(f"*/{SCORECARD}")]
+    stored = [path.stat().st_mtime for path in variants_root.glob(f"*/{JOBS}/*.signed")]
     if not started or not stored:
         return None
     seconds = min(stored) - min(started)

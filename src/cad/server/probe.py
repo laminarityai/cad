@@ -4,7 +4,7 @@ from typing import Any
 
 import anyio
 
-from cad.server.app import REPO_ROOT
+from cad.operations.server import REPO_ROOT
 from cad.server.call import call_tool
 
 UNKNOWN = "unknown"
