@@ -1,7 +1,7 @@
 import inspect
 from collections.abc import Awaitable, Callable, Generator, Iterable
 from contextlib import contextmanager
-from typing import Annotated, cast
+from typing import Annotated, Final, cast
 
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.mcpserver.tools import Tool
@@ -17,6 +17,9 @@ from cad.variants.entry import VariantRefused
 
 type Call = Callable[..., object]
 type TenantOf = Callable[[], Tenant]
+
+REFUSALS: Final = (VariantRefused, BriefRefused, ProjectRefused, SetRefused)
+UNAVAILABLE: Final = (SandboxUnavailable, StoreUnusable)
 
 
 def agent_operations(operations: Iterable[Operation]) -> tuple[Operation, ...]:
@@ -57,9 +60,9 @@ def _call(tenant_of: TenantOf, one: Operation) -> Call:
 def agent_facing() -> Generator[None]:
     try:
         yield
-    except (VariantRefused, BriefRefused, ProjectRefused, SetRefused) as error:
+    except REFUSALS as error:
         raise ToolError(f"{type(error).__name__}: {error}") from error
-    except (SandboxUnavailable, StoreUnusable) as error:
+    except UNAVAILABLE as error:
         raise ToolError(str(error)) from error
 
 
