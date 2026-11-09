@@ -18,7 +18,7 @@ ALLOWED_ARGUMENTS = {
     "list_requirements": {"brief_id"},
     "propose_context_part": {"brief_id", "quote", "name", "variant_id"},
     "search_knowledge": {"query", "k"},
-    "submit_research": {"brief_id", "key", "field", "url", "quote"},
+    "submit_research": {"brief_id", "key", "field", "value", "unit", "url", "quote"},
 }
 
 

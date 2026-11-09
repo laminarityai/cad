@@ -1,6 +1,7 @@
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date
+from decimal import Decimal
 from pathlib import Path
 from typing import Literal
 
@@ -8,6 +9,7 @@ from pydantic import BaseModel, ConfigDict
 
 from cad.projects.model import ProjectId
 from cad.research.fetch import FetchFailed, Page, fetch
+from cad.research.fields import SPECS, Field
 from cad.research.ledger import (
     AlreadyStored,
     Ledger,
@@ -17,10 +19,8 @@ from cad.research.ledger import (
     read_ledger,
 )
 from cad.research.overlay import fill, overlay
+from cad.research.quote import on_page, where_written, written_in
 from cad.research.requests import ResearchRequest, request_for
-from cad.sources.fields import SPECS, Field
-from cad.sources.quantities import Refusal, one_quantity
-from cad.sources.tokens import fold
 from cad.tables.materials import FromResearch, Known, MaterialsTable, row_or_blank
 
 
@@ -29,8 +29,9 @@ class _Frozen(BaseModel):
 
 
 class ResearchAccepted(_Frozen):
-    """The server read `value`, in `unit`, from `quote` on the page at `url`. Checks that read
-    this field for this project now read it, labelled researched."""
+    """The agent read `value` from `quote`, which the server found on the page at `url`; `value`
+    is in the field's canonical `unit`. Checks that read this field for this project now read
+    it, labelled researched."""
 
     kind: Literal["accepted"] = "accepted"
     key: str
@@ -62,6 +63,8 @@ class Question:
     project: ProjectId
     key: str
     field: Field
+    value: float
+    unit: str
     url: str
     quote: str
 
@@ -95,23 +98,19 @@ def submit(
             "replaces; score the variant again",
             other_source_could_answer=False,
         )
-    read = one_quantity(question.quote, question.field)
-    if isinstance(read, Refusal):
-        return ask(f"the quote cannot be read: {read.detail}; the server needs {read.needed}")
+    magnitude = _in_canonical_unit(question)
+    if isinstance(magnitude, _Refusal):
+        return ask(magnitude.reason)
     page = fetcher(question.url)
     if isinstance(page, FetchFailed):
         return ask(page.reason)
     if not on_page(question.quote, page.text):
-        return ask(
-            f"the quote does not appear word for word on {page.url}, starting and ending where "
-            "the page's words and numbers do; copy it exactly from the page as the server "
-            "fetched it, without the page's markup"
-        )
+        return ask(_not_on_page(question, page.url, page.text))
     record = ResearchedRecord(
         project=question.project,
         key=question.key,
         field=question.field,
-        magnitude=read.canonical,
+        magnitude=magnitude,
         unit=SPECS[question.field].canonical_unit,
         url=page.url,
         title=page.title,
@@ -141,9 +140,10 @@ def _admit_at_append(
     def admit(records: tuple[ResearchedRecord, ...]) -> AlreadyStored | Turned | None:
         materials = dict(overlay(git, project, Ledger(records)).table.materials)
         for number, one in enumerate(records, start=1):
-            if (one.key, one.field, one.url, one.quote) == (
+            if (one.key, one.field, one.magnitude, one.url, one.quote) == (
                 record.key,
                 record.field,
+                record.magnitude,
                 record.url,
                 record.quote,
             ):
@@ -154,6 +154,11 @@ def _admit_at_append(
         return None
 
     return admit
+
+
+@dataclass(frozen=True, slots=True)
+class _Refusal:
+    reason: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -171,10 +176,12 @@ class _Asker:
 
 
 def _already_answered(question: Question, held: Known) -> ResearchAccepted | None:
+    unit = SPECS[question.field].canonical_unit
     same = (held.source.url, held.source.quote) == (question.url, question.quote)
     if not same or not isinstance(held.basis, FromResearch):
         return None
-    unit = SPECS[question.field].canonical_unit
+    if held.magnitude_in(unit) != _in_canonical_unit(question):
+        return None
     return ResearchAccepted(
         key=question.key,
         field=question.field,
@@ -186,34 +193,47 @@ def _already_answered(question: Question, held: Known) -> ResearchAccepted | Non
     )
 
 
-def _plain(text: str) -> str:
-    return fold(text).replace("\u2019", "'")
+def _in_canonical_unit(question: Question) -> float | _Refusal:
+    spec = SPECS[question.field]
+    factor = _factor(spec.units, question.unit.strip())
+    if factor is None:
+        spellings = ", ".join(repr(one) for one in spec.units)
+        return _Refusal(
+            f"the unit {question.unit!r} is not one the server converts for {spec.label}; "
+            f"pass one of {spellings}"
+        )
+    written = Decimal(repr(question.value))
+    if not written_in(written, question.quote):
+        return _Refusal(
+            f"the value {written} is not written in the quote as one number; pass the number as "
+            "the quote writes it, in the unit the page gives it, and a quote that contains it"
+        )
+    canonical = written * factor
+    if not spec.admits(canonical):
+        return _Refusal(
+            f"{spec.label} {canonical:g} {spec.canonical_unit} is outside {spec.accepts}"
+        )
+    return float(canonical)
 
 
-def on_page(quote: str, text: str) -> bool:
-    """The quote must sit on boundaries in the page's text, so it never starts or ends partway
-    through a number: "960 kg/m3" is not on a page that says "8960 kg/m3"."""
-    needle, hay = _plain(quote).strip(), _plain(text)
-    start = hay.find(needle) if needle else -1
-    while start != -1:
-        if _opens(hay, start) and _closes(hay, start + len(needle)):
-            return True
-        start = hay.find(needle, start + 1)
-    return False
+def _factor(units: Mapping[str, Decimal], unit: str) -> Decimal | None:
+    """A spelling that differs from one key only in case, such as "Mpa", names that key."""
+    if unit in units:
+        return units[unit]
+    factors = {
+        factor for spelling, factor in units.items() if spelling.casefold() == unit.casefold()
+    }
+    return factors.pop() if len(factors) == 1 else None
 
 
-def _opens(text: str, at: int) -> bool:
-    if at == 0:
-        return True
-    before = text[at - 1]
-    in_number = before in ".," and (text[at].isdigit() or text[at - 2 : at - 1].isdigit())
-    return not (before.isalnum() or in_number)
-
-
-def _closes(text: str, at: int) -> bool:
-    """A "." or "," after the quote ends it unless a digit follows, as in "0.35." at the end of
-    a sentence; "0.3" is cut from "0.35"."""
-    if at == len(text):
-        return True
-    after = text[at]
-    return not (after.isalnum() or (after in ".," and text[at + 1 : at + 2].isdigit()))
+def _not_on_page(question: Question, url: str, text: str) -> str:
+    reason = (
+        f"the quote does not appear on {url} as the server fetched it; copy its words and "
+        "numbers in the page's order, and start and end it on whole numbers"
+    )
+    written = where_written(Decimal(repr(question.value)), text)
+    if not written:
+        return f"{reason}; the page does not write {question.value!r} anywhere"
+    return f"{reason}; the page writes {question.value!r} here: " + " | ".join(
+        repr(one) for one in written
+    )

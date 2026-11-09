@@ -179,3 +179,13 @@ def test_a_transport_error_is_a_reason_not_an_exception() -> None:
     )
     assert isinstance(failed, FetchFailed)
     assert "TimeoutError" in failed.reason
+
+
+def test_a_url_with_characters_outside_ascii_is_requested_percent_encoded() -> None:
+    transport, seen = serve(ok())
+    fetch(
+        "https://example.org/GEP-Ertacetal™%20C.html?q=é",
+        resolve=resolver({"example.org": [PUBLIC]}),
+        transport=transport,
+    )
+    assert seen == [Target("example.org", PUBLIC, "/GEP-Ertacetal%E2%84%A2%20C.html?q=%C3%A9")]

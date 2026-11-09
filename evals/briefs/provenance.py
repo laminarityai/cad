@@ -44,10 +44,10 @@ from cad.checks.container.check import Quick
 from cad.checks.report import CheckSpec
 from cad.checks.result import CheckResult, Measure
 from cad.records.roots import Roots
+from cad.research.fields import SPECS as FIELD_SPECS
+from cad.research.fields import Field
 from cad.scorecard.material import ReportedScorecard
 from cad.scorecard.model import AgainstBrief, Checked, Scorecard
-from cad.sources.fields import SPECS as FIELD_SPECS
-from cad.sources.fields import Field
 from cad.tables.materials import (
     UNITS,
     FromResearch,
@@ -321,8 +321,8 @@ def _table_step(
 ) -> TableStep | ResearchedStep | Stale | Unresolved:
     if card.table_version != table.version:
         return Stale(
-            f"scored against materials table {card.table_version[:12]}, "
-            f"not the current {table.version[:12]}"
+            f"scored against materials table {_short(card.table_version)}, "
+            f"not the current {_short(table.version)}"
         )
     try:
         material = table.get_material(card.material_key)
@@ -341,6 +341,11 @@ def _table_step(
     if isinstance(cited.basis, FromResearch):
         return ResearchedStep(card.material_key, field, cited.source, cited.basis.record)
     return TableStep(card.material_key, field, cited.source)
+
+
+def _short(version: str) -> str:
+    head, plus, research = version.partition("+")
+    return head[:12] + plus + research
 
 
 def _incomplete(

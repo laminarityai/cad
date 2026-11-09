@@ -52,7 +52,7 @@ from cad.briefs import store as briefs
 from cad.briefs.store import BriefRefused
 from cad.checks.report import SPECS
 from cad.records.roots import HOME_ROOTS, Roots
-from cad.research.overlay import project_table
+from cad.research.overlay import project_table, table_named
 from cad.scorecard import material
 from cad.scorecard.model import AgainstBrief, AwaitingConfirmation, Scorecard
 from cad.tables.materials import MaterialsTable, load_materials
@@ -223,19 +223,19 @@ def _read(
         card = material.STORED.validate_json(text)
     except (ValidationError, pint.UndefinedUnitError, ZeroDivisionError) as error:
         return CardTrace(f"card {order + 1}", (Unreadable(str(error).splitlines()[0]),), ()), ()
-    trace = trace_card(card, root, roots, _table_for(card, roots, table), SPEC_BY_ID)
+    trace = trace_card(card, root, roots, _table_scored_against(card, roots, table), SPEC_BY_ID)
     return trace, outcomes_of(card)
 
 
-def _table_for(card: Scorecard, roots: Roots, git: MaterialsTable) -> MaterialsTable:
-    """The table the card was scored against: the git table with its brief's project research."""
+def _table_scored_against(card: Scorecard, roots: Roots, git: MaterialsTable) -> MaterialsTable:
     if not isinstance(card.basis, AgainstBrief | AwaitingConfirmation):
         return git
     try:
         project = briefs.read_brief(roots, card.basis.brief_id).project
     except BriefRefused:
         return git
-    return project_table(git, roots.projects, project).table
+    named = table_named(git, roots.projects, project, card.table_version)
+    return named if named is not None else project_table(git, roots.projects, project).table
 
 
 def _print(trace: CardTrace, steps: bool) -> None:

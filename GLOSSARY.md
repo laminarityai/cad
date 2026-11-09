@@ -62,9 +62,9 @@ _Avoid_: Generated check, custom check
 A number that the agent's own measuring code reported for a requirement no check covers. The code runs only in the sandbox. The scorecard lists the number apart from the check results, labelled "agent's own measurement, not verified". It never passes or fails anything, no check or formula reads it, and its requirement stays unverified (ADR-0008).
 _Avoid_: Agent check, own check, self-check
 
-**Candidate value**:
-A number extracted from a source that no person has confirmed yet. Checks never read candidate values.
-_Avoid_: Extracted value, parsed value
+**Researched value**:
+A material value the tables lack, which the agent read from a public page. The server fetched that page, checked that the agent's quote is on it and writes the agent's number, and cites it. A check reads it only in that project. Every result and verdict that rests on it is labelled researched and counted apart (ADR-0009).
+_Avoid_: Candidate value, extracted value, parsed value
 
 **Unverified requirement**:
 A requirement that no reviewed check covers. The scorecard always lists these.

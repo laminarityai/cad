@@ -31,9 +31,10 @@ CONTEXT_PARTS = (
 
 RESEARCH = (
     "A material value the table lacks is researched, not left unknown. When a scorecard's "
-    "research lists a request, answer each one with submit_research: a public page and a "
-    "quote from it, never a number of your own. Then score again. A result labelled "
-    "researched rests on a value the server read from that quote: report a pass on it as "
+    "research lists a request, answer each one with submit_research: a public page, the "
+    "quote on it that states the value, and the value and unit as that quote writes them, "
+    "never a number you estimated, computed or converted. Then score again. A result labelled "
+    "researched rests on a value read from that cited quote: report a pass on it as "
     '"passes on researched data" and name the source. When a page is refused, try another. '
     "When a scorecard has a research_problem, tell the user what it says and research "
     "nothing for that project: only the operator can fix it."
