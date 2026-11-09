@@ -12,9 +12,11 @@ SERVER_INFO: Final = (
     "Report the git SHA the server runs from, whether the tree is dirty, Python and tools."
 )
 LIST_MATERIALS = (
-    "List the material keys that score_variant accepts, each with its name. "
-    "The checks look each value up by exact key. No value is returned, so there is nothing "
-    "to copy. A value the table lacks comes back on the scorecard as a research request."
+    "List the keys of the materials table, each with its name. The checks look each value up "
+    "by exact key. No value is returned, so there is nothing to copy. A material that is not "
+    "listed can still be named in made_of or score_variant: it becomes the project's own row, "
+    "and each value a check needs comes back as a research request, as does a value the table "
+    "lacks."
 )
 
 

@@ -1,0 +1,41 @@
+url: https://store.bblcdn.com/ad7b08230c164e72856cffbe06bb7dc9.pdf
+ 
+• Properties 
+Bambu Lab has tested the differing aspects in the performance of ASA material, including 
+physical, mechanical, and chemical properties. Typical values are listed as followed:  
+ 
+Physical Properties 
+Subjects Testing Methods Data 
+Density ISO 1183 1.05 g/cm³ 
+Melt Index 260 ° C, 2.16 kg 7.0 ± 0.8 g/10 min 
+Melting Temperature DSC, 10 °C/min 210 °C 
+Glass Transition Temperature DSC, 10 °C/min N/A 
+Crystallization Temperature DSC, 10 °C/min N/A 
+Vicar Softening Temperature ISO 306, GB/T 1633 106 °C 
+Heat Deflection Temperature ISO 75 1.8 MPa 92 °C 
+Heat Deflection Temperature ISO 75 0.45 MPa 100 °C 
+Saturated Water Absorption Rate 25 °C, 55% RH 0.45% 
+ 
+Mechanical Properties 
+Subjects Testing Methods Data 
+Young's Modulus (X-Y) ISO 527, GB/T 1040 2450 ± 270 MPa 
+Young's Modulus (Z) ISO 527, GB/T 1040 2120 ± 260 MPA 
+Tensile Strength (X-Y) ISO 527, GB/T 1040 37 ± 3 MPa 
+Tensile Strength (Z) ISO 527, GB/T 1040 31 ± 4 MPa 
+Breaking Elongation Rate (X-Y) ISO 527, GB/T 1040 9.2 ± 1.4 % 
+Breaking Elongation Rate (Z) ISO 527, GB/T 1040 4.6 ± 0.8 % 
+Bending Modulus (X-Y) ISO 178, GB/T 9341 1920 ± 130 MPa 
+Bending Modulus (Z) ISO 178, GB/T 9341 1650 ± 120 MPa 
+Bending Strength (X-Y) ISO 178, GB/T 9341 65 ± 5 MPa 
+Bending Strength (Z) ISO 178, GB/T 9341 40 ± 3 MPa 
+Impact Strength (X-Y) ISO 179, GB/T 1043 
+41.0 ± 2.3 kJ/m²； 
+19.6 ± 1.8 kJ/m²  
+(notched) 
+Impact Strength (Z) ISO 179, GB/T 1043 4.9 ± 0.6 kJ/m² 
+ 
+ 
+ 
+ 
+ 
+ 

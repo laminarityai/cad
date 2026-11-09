@@ -19,9 +19,10 @@ from cad.sources.fields import Field as MaterialField
 from cad.tables.materials import KEY_PATTERN
 
 SUBMIT_RESEARCH = (
-    "Answer a research request from a score_variant card. Pass the request's brief_id, key and "
-    "field, the URL of a public https page that states the value, and a quote copied word for "
-    "word from that page, naming the property and giving one value with its unit, such as "
+    "Answer a research request from a score_variant card or a propose_requirements reply. "
+    "Pass the request's brief_id, key and field, the URL of a public https page that states "
+    "the value, and a quote copied word for word from that page, naming the property and "
+    "giving one value with its unit, such as "
     '"Poisson\'s ratio 0.36" or "Tensile modulus 3.5 GPa". Never pass a number of your own: '
     "the server fetches the page, checks that the quote is on it and reads the value itself. "
     "A source for a near material, such as generic PLA for a PLA brand, is allowed. accepted "
@@ -53,7 +54,7 @@ def with_research(
 
 class SubmitResearchInput(Input):
     brief_id: str
-    key: Annotated[str, Field(pattern=KEY_PATTERN)]
+    key: Annotated[str, Field(pattern=f"^{KEY_PATTERN.pattern}$")]
     field: MaterialField
     url: Annotated[str, Field(max_length=2048)]
     quote: Annotated[str, Field(min_length=1, max_length=MAX_QUOTE_LENGTH)]
@@ -63,15 +64,16 @@ def submit_research(tenant: Tenant, arguments: SubmitResearchInput) -> ResearchA
     roots = tenant.roots
     try:
         project = briefs.read_brief(roots, arguments.brief_id).project
+        table = host.materials_table()
         question = Question(
             arguments.brief_id,
             project,
-            arguments.key,
+            table.row_key(arguments.key),
             arguments.field,
             arguments.url,
             arguments.quote,
         )
-        return submit(host.materials_table(), roots.projects, question)
+        return submit(table, roots.projects, question)
     except (BriefRefused, ProjectRefused, SandboxUnavailable, StoreUnusable) as error:
         return ResearchRefused(
             key=arguments.key,

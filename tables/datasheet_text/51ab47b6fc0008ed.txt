@@ -1,0 +1,93 @@
+url: https://online.flippingbook.com/view/954192180/629/
+
+
+ 
+ 
+      
+      
+      
+          
+          
+          
+          
+          
+          
+          
+          
+          
+              
+              
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+              
+              
+              
+              
+          
+          
+     
+      
+      
+ 
+ 
+ 
+      
+ 
+     
+             1 
+             628 
+             630 
+             1648 
+     
+     
+             (Part A) Machinerys Handbook 31st Edition Pages 1-1484 
+ Machinery's Handbook, 31st Edition 
+ 566 
+ Stress and Strain in Plastics Table 1. Poisson’s Ratio at 23 ° C for Resins and Compounds Plastic Poisson’s Ratio, ν Plastic 
+ Poisson’s Ratio, ν 
+ ABS, unfilled 
+ 0.35 0.35 0.17 0.27 0.48 0.38 0.33 0.24 0.2 0.32 0.36 0.32 
+ Polycarbonate 
+ 0.37 0.24 0.36 0.45 0.35 0.42 0.35 0.4 0.46 0.4 0.34 
+ Acetal 
+ Polyester, thermoplastic, gfr a Polyester, thermoset, gfr a Polyetherimide Polyethylene, HD Polyphenylene ether Polyphenylene oxide Polypropylene Polystyrene, cross-linked Polyethersulfone 
+ 0.35–0.41 
+ Acrylic (PMMA) Alkyd, mineral filled Diallyl phthalate 
+ 0.35–0.40 
+ FEP resin PC, gfr a PCTFE 
+ 0.27–0.38 
+ Phenolic, cellulose-filled 
+ Phenolic, gfr a 
+ Polyamide, min-filled, gfr a Polyamide 6, dry, gfr a Polyamide 6⁄6, dry, gfr a 
+ PTFE PVF PVDF 
+ a gfr = glass-fiber reinforced, 30 or 33%. Mineral fillers and glass-fiber reinforcements in plastics reduce Poisson’s ratio. In anisotropic structures such as uni- and bi-directional laminates, Poisson’s ratio may be different in orthogonal (i.e., perpendicular) directions. Usually, the value perpendicular to the reinforcing fibers will be the one most likely to be relevant. Vulcanized gum rubber has exceptional behavior; its Poisson ratio = 0.5, and it conserves density. This must be kept in mind in designing items to be compressed, such as rubber cushions and bumpers. When a rubber specimen is compressed it is shortened and its sides must be free to bulge out; otherwise the incompressibility of the rubber would not allow it to deform at all. Shear stress is described on page 219. Any block of material is subject to a set of equal and opposite shearing forces Q . If the block is envisaged as an infinite number of infinites­ imally thin layers as shown diagrammatically in Fig. 6, it is easy to imagine a tendency for one layer subject to a force to slide over the next layer, producing a shear form of deforma­ tion or failure. The shear stress t is defined as (8) Shear stress is always tangential to the area on which it acts. Shearing strain is the angle of deformation g and is measured in radians. A Q Area Resisting Load Shear Load τ = = 
+ Area 
+ Q 
+ Q 
+ A 
+ Q 
+ Q 
+  (radians) = Shear Strain 
+ Shearing Load 
+ Fig. 6. Shear Stress Is Visualized as a Force Q Causing Infinitely Thin Layers of a Component to Slide Past Each Other, Producing a Shear Form of Failure 
+ Example: In Fig. 7a , shear stress in the overlapped zone equals the tensile force F divided by the contact area of the adhesive. That is, t = F /( WL ). As F is increased, the joint will finally fail in shear, either in the adhesive layer or in the material of one of the bars, depending on which material has the greater shear strength. 
+ Copyright 2020, Industrial Press, Inc. 
+ ebooks.industrialpress.com 
+         
+Made with FlippingBook -  Share PDF online          
+     
+      
+ 
+ 
