@@ -1,6 +1,6 @@
 # Phase 4 design: the web app
 
-Status: proposed on 2026-11-08 and not yet approved. Nothing in it is built. It was written against commit 2bc3648. Terms follow GLOSSARY.md. Each phase 4 PR is one numbered unit of §4. §7 lists the questions only the operator can answer. Four ADRs (§4, unit 0) need approval before unit 1 starts.
+Status: proposed on 2026-11-08 and not yet approved. Nothing in it is built. It was written against commit 2bc3648. Terms follow GLOSSARY.md. Each phase 4 PR is one numbered unit of §4. §7 lists the questions only the operator can answer. On 2026-11-08 the operator approved the Auto mode ADR and declined a passkey ADR, so this revision drops it. Hosted confirmation follows the operator's 2026-11-07 direction in #47, recorded as an amendment to ADR-0004. Two ADRs still need approval (§4, unit 0). The Auto mode ADR, numbered 0013 in the first draft, is now 0012.
 
 Phase 4 in SPEC: chat, 3D viewer, scorecards, sliders, the mode switcher, and Auto mode with its stopping rules. Exit: a slider change rebuilds in under 1 second, and Auto mode stops correctly on a brief whose requirements conflict.
 
@@ -21,10 +21,10 @@ These facts about main shape the design. Each was read in code or measured.
 
 1. **One operation registry, two adapters, and an audience on every operation.** Every capability is one typed `Operation` in `cad/operations/`. The MCP tool list and the HTTP routes are both generated from that list. An operation marked `PERSON` only, such as answering the confirmation page or moving a slider, has no MCP tool at all. So "the agent cannot confirm" is a property of the registry, not of a check someone must remember. ADR-0002 still holds, because the web app's agent uses the same MCP tools as any outside client.
 2. **A template is code with a declared `PARAMS` literal, and a tuned variant is the same code with a different literal.** The server reads and rewrites the literal through `ast` and never runs agent code on the host. A tuned variant is therefore an ordinary variant, with the id, store, scorecard and checks that already exist. There is one identity scheme.
-3. **Builds run in a warm, per-account zygote.** A long-lived container from the unchanged build image imports build123d once and forks a fresh child for each build. Only the child runs agent code. ADR-0012 records the change from "fresh container per build" to "fresh process and fresh job directory in a container that only this account's builds use".
-4. **A person confirms with a passkey, on the signed-in web app's page.** ADR-0010 supersedes ADR-0004's channel and keeps its rules. The page URL can now appear in a tool result, because the link carries no capability. Opening the page is not confirming. Confirming needs a WebAuthn user-verification assertion over the exact items on the page.
+3. **Builds run in a warm, per-account zygote.** A long-lived container from the unchanged build image imports build123d once and forks a fresh child for each build. Only the child runs agent code. ADR-0011 records the change from "fresh container per build" to "fresh process and fresh job directory in a container that only this account's builds use".
+4. **A person confirms with the Confirm button in the signed-in web app.** This is the operator's direction in #47 (2026-11-07). An amendment to ADR-0004 records it and keeps that ADR's rules: only the page's handler writes the answer, and status is derived from signed records. Outside MCP clients are told the proposal is waiting in the web app and get no link or token. The limit stays the one ADR-0003 and ADR-0004 already accept: a process that drives the person's signed-in browser could press the button.
 5. **The server decides when Auto mode stops.** The web backend runs the LLM turns. The stopping rules are a pure function over the signed scorecards of the run, held in a signed per-run log on the server. Once a run is stopped, `build_variant` and `score_variant` under that run are refused before any container starts. A bug in our client cannot spend past a stop.
-6. **Phase 4 takes on accounts.** The passkey channel needs a person, and a hosted app needs tenancy, so the phase 3 gap lands here. Phase 4 runs one replica.
+6. **Phase 4 takes on accounts.** The Confirm button needs a signed-in person, and a hosted app needs tenancy, so the phase 3 gap lands here. Phase 4 runs one replica.
 
 ## 1. Usage (caller's view)
 
@@ -154,7 +154,7 @@ Tessellation runs in the analysis image (ADR-0005), never in an agent process, s
 
 During a drag, the front end sends at most one tune per member at a time, and the latest value wins. A drag tick plans no checks. Release (`final=True`) plans the full job set, so FEA never runs once per tick. On release every row turns pending. The previous number may show as ghost text labelled "before", with no verdict colour, because the type of a pending row has no verdict field. A background job for a superseded head is dropped from the queue if it has not started. If it has started, it finishes and is cached.
 
-### 2.4 Confirmation (ADR-0010, resolves #47)
+### 2.4 Confirmation (amends ADR-0004, resolves #47)
 
 ```python
 type Principal = PersonSession | AgentToken
@@ -165,23 +165,15 @@ class PersonSession(_Frozen):
 class AgentToken(_Frozen):
     kind: Literal["agent"] = "agent"; account: AccountId; token_id: str
     conversation: ConversationId | None; auto_run: AutoRunId | None; mode: Mode
-
-class Presence(Protocol):
-    def challenge(self, who: PersonSession, page: PageSnapshot) -> Challenge: ...
-        # HMAC(server key, project | digest of items, edits, declines | issued_at). Stateless.
-    def verify(self, who: PersonSession, page: PageSnapshot, proof: Proof) -> Verified | Refused: ...
-
-class PasskeyPresence(Presence): ...     # hosted
-class OneTimeToken(Presence): ...        # today's token; local dev and `verify` only
 ```
 
-A person session comes only from an HttpOnly, Secure, SameSite=Strict cookie that sign-in sets. An agent token comes only from an `Authorization: Bearer` header on `/mcp`. Different FastAPI dependencies parse them. `answer_page` is `PERSON` only and also requires a `Verified` proof over the page snapshot. So an agent that drives the person's signed-in browser can open the page but cannot answer it without a touch on the person's device.
+A person session comes only from an HttpOnly, Secure, SameSite=Strict cookie that sign-in sets. An agent token comes only from an `Authorization: Bearer` header on `/mcp`. Different FastAPI dependencies parse them, and `answer_page` is `PERSON` only, so no MCP tool can answer a page. `ask_to_confirm` returns `waiting in the web app` with no link and no token, as #47 directs.
 
-The page keeps the `ItemKind` registry, `answers.py` and its sections unchanged. FastAPI renders it in place of the stdlib server. `PageAnswer` gains `account`, `session_id` and the assertion, and the projects key still signs it. "A newer proposal ends the page" becomes a digest mismatch at answer time. A replay is refused because the answered items are no longer pending. The stdlib `ThreadingHTTPServer` page and the in-memory `Desk` are deleted. `ask_to_confirm` waits by polling the signed store.
+The page keeps the `ItemKind` registry, `answers.py` and its sections unchanged. FastAPI renders it inside the signed-in app in place of the stdlib server. Its form carries a CSRF token bound to the page snapshot, so "an item added after the page opened records nothing" still holds. `PageAnswer` gains `account` and `session_id`, and the projects key still signs it. The stdlib `ThreadingHTTPServer` page and the in-memory `Desk` are deleted.
 
-Local dev and the eval driver keep `--opener` through `OneTimeToken`. That is still one page and one answer record, with two ways to prove presence.
+Local dev and the eval driver run the same FastAPI app on 127.0.0.1. With `--opener PROGRAM`, the server mints a local person session and hands its sign-in link only to that program, as it hands the page URL today. One page and one answer record serve both.
 
-### 2.5 Auto mode (`cad/auto/`, ADR-0013)
+### 2.5 Auto mode (`cad/auto/`, ADR-0012)
 
 ```python
 class Standing(_Frozen):                    # one settled revision, projected from a scorecard
@@ -243,7 +235,7 @@ GET  /v1/variants/{vid}/scorecard                   ScorecardSnapshot
 GET  /v1/variants/{vid}/events                      SSE
 GET  /v1/geometry/{brep_sha256}.json                three-cad-viewer shapes, immutable, ETag
 POST /v1/members/{ref}/tune                         202 {variant_id}, PersonSession, metered
-POST /v1/projects/{pid}/answers                     PersonSession + Proof
+POST /v1/projects/{pid}/answers                     PersonSession + CSRF
 PUT  /v1/conversations/{cid}/mode                   PersonSession
 POST /mcp                                           streamable HTTP MCP, AgentToken
 ```
@@ -254,7 +246,7 @@ Each SSE event carries a whole `ScorecardSnapshot` with its etag, not a delta. T
 
 Phase 4 takes the minimum that makes hosting honest:
 
-- Accounts with passkey sign-in. A second passkey needs an assertion from an existing one. Recovery is an operator step (§7).
+- Accounts with email magic-link sign-in. OAuth can come later behind the same `PersonSession`.
 - Tenancy by physical partition. `Tenant` extends `Roots` to `~/.cad/accounts/<aid>/{briefs,projects,variants,jobs,geometry}`. One account's operations cannot name another account's path, so isolation holds by construction, per separate-before-serializing-shared-state. No store is shared between tenants, including content-addressed ones, so a cache hit cannot reveal another tenant's geometry.
 - Agent tokens. A person creates long-lived ones in settings for outside MCP clients. Our backend mints a short-lived one per turn.
 - `AccountMeter(Meter)` charges container-seconds per account against a daily cap, and `Zygotes.build` asks it too. It is a limit on the account, not a budget on Auto, so a capped account gets a refusal before any container starts. Whether a cap that halts a running Auto run counts as a fourth stop reason is a SPEC call (§7).
@@ -266,13 +258,13 @@ Out of scope: billing, teams, sharing and OAuth.
 
 ```text
 src/cad/operations/          NEW   registry, Audience, MCP and HTTP adapters
-src/cad/accounts/            NEW   Principal, sessions, passkeys, agent tokens, Tenant, lease, AccountMeter
+src/cad/accounts/            NEW   Principal, sessions, sign-in, agent tokens, Tenant, lease, AccountMeter
 src/cad/templates/           NEW   declared, rewrite
 src/cad/sandbox/zygote.py    NEW   Zygotes; runner.py gains `serve`
 src/cad/auto/                NEW   model, step, bounds_conflicts, the run log, auto_* operations
 src/cad/geometry/            NEW   tessellation in the analysis worker, content-addressed store
 src/cad/web/                 NEW   FastAPI app, SSE, static React build
-src/cad/confirmations/       EDIT  Presence; http.py and the in-memory Desk deleted
+src/cad/confirmations/       EDIT  FastAPI page; http.py and the in-memory Desk deleted
 src/cad/variant_sets/        EDIT  Member.head, set_by, Tuning log, a read operation
 src/cad/checks/lanes.py      EDIT  peek, notify hook
 src/cad/scorecard/score.py   EDIT  derive from peek; scorecard.json deleted
@@ -284,13 +276,13 @@ web/                         NEW   React app: chat, three-cad-viewer, scorecards
 
 Each PR ends green on `uv run verify` and is exercised through MCP or the app, as AGENTS.md requires.
 
-0. **ADRs 0010 to 0013.** 0010: a person confirms with a passkey in the signed-in app. 0011: a template is a `PARAMS` literal, and a tuned variant is ordinary code. 0012: builds run in a per-account zygote. 0013: the server holds the Auto run and refines ADR-0002's "only our own agent enforces modes". Check: the operator approves.
+0. **ADRs.** An amendment to ADR-0004 records the #47 direction. ADR-0010: a template is a `PARAMS` literal, and a tuned variant is ordinary code. ADR-0011: builds run in a per-account zygote. ADR-0012: the server holds the Auto run and refines ADR-0002's "only our own agent enforces modes", which the operator approved on 2026-11-08. Check: the operator approves ADR-0010 and ADR-0011.
 1. **Zygote bench.** `scripts/bench_rebuild.py` times fork, agent code, export and tessellation on the 10 bake-off parts after parameterising them. Check: p95 under 700 ms from tune to built and tessellated. Cold and warm builds give identical `brep_sha256`. The same id built 50 times after hostile earlier children (a leftover file, a stray process, a monkeypatched module) gives the same hash.
 2. **`Zygotes` replaces per-build `docker run`.** Check: the existing sandbox tests (network blocked, memory, wall and CPU limits, fork bomb) pass against the zygote.
 3. **Templates.** `declared`, `rewrite`, `parameters` in the `build_variant` result, `Member.head`, `set_by` and the `Tuning` log. Check: a property test that `declared(rewrite(c, v)) == v`. `cad-call` shows that two values give two ids and a repeated value starts no container.
 4. **Operations registry and reads.** Move the tools, add `Lanes.peek`, delete `scorecard.json`. Check: the MCP tool list equals the registry's `AGENT` entries, and generating TypeScript from OpenAPI gives no diff.
 5. **Accounts, tenancy, the lease, `/mcp` over HTTP and `AccountMeter`.** Check: tenant B gets `UnknownVariant` for tenant A's id. A second process on the same root refuses to start. A capped account is refused before any container starts. The app step reports the SHA over HTTP.
-6. **Hosted confirmation.** `Presence`, the FastAPI page, `Desk` deleted. Check: Playwright with a virtual authenticator confirms. An agent-token POST, an assertion over a changed page and a replay are each refused and write no record. The scripted-person eval still passes through `--opener`.
+6. **Hosted confirmation.** The FastAPI page, `Desk` deleted. Check: Playwright signs in and confirms with one click. An agent-token POST, a POST with a stale snapshot and a replay are each refused and write no record. `ask_to_confirm` returns no link. The scripted-person eval still passes through `--opener`.
 7. **Geometry.** Tessellation in the warm analysis worker and the geometry route. Check: the mesh volume is within 0.5% of the mass check's volume, and a bake-off part renders in three-cad-viewer (screenshot attached).
 8. **Web shell.** Viewer, scorecards, SSE. Check: Playwright watches a card go from pending to done without a reload, and no pending row ever has a verdict colour.
 9. **Sliders.** `tune`, coalescing, the UI. Check (the first exit): Playwright runs 20 drag-and-release cycles and records a p95 release-to-paint under 1 s, with the timing breakdown printed and a video attached.
@@ -305,7 +297,7 @@ Units 1 to 3 and units 4 to 6 are independent and can run in parallel. Unit 10 n
 - We accept a fresh process in an account-scoped container in place of a fresh container per build, in exchange for removing the 2.5 s import from every slider move.
 - We accept a `PARAMS` convention the agent must follow, in exchange for one variant identity and sliders that never call the model.
 - We accept that the agent sets slider bounds, in exchange for named sliders. Bounds decide no check.
-- We accept one touch per confirmation, in exchange for covering agents with browser tools, which ADR-0004 left open.
+- We accept that a process driving the person's signed-in browser could press Confirm, in exchange for one click and no extra machinery. The operator accepted this limit in ADR-0004 and in #47.
 - We accept that "rebuilds" means the new mesh on screen. Quick verdicts follow about a second later.
 - We accept that only `Bounds` and `Tradeoff` conflicts are named. Any other conflict shows as `Stalled`, and the report names the requirements whose best never moved.
 - We accept one replica, in exchange for not building a distributed queue before anyone needs it.
@@ -318,18 +310,17 @@ Units 1 to 3 and units 4 to 6 are independent and can run in parallel. Unit 10 n
 - **Parameters derived from numeric literals by `ast`.** The sliders get names like `const_7` and bounds nobody chose.
 - **A warm pool of single-use containers.** It keeps fresh-container isolation, but each build costs a 2.5 s refill. A drag at about one build per second needs 3 or 4 warm containers per member, at 2 GB each. It is the fallback if PR 1's isolation tests fail.
 - **OCP.wasm in the browser.** It runs agent Python on the person's machine, outside the sandbox, and the server can no longer vouch for the BREP.
-- **A session cookie alone confirms.** One click and no passkey. An agent driving the person's signed-in browser, such as Claude in Chrome, can click the button.
+- **A passkey touch per confirmation.** It closes the signed-in-browser gap, but adds WebAuthn, enrolment, recovery and a signed challenge for a gap the operator already accepted. The operator declined it on 2026-11-08.
 - **Auto mode's rules in the web app's driver.** A bug there is exactly the unbounded-spend risk, and nothing on the server would stop it.
 
 ## 7. Open questions for the operator
 
 1. Does "a slider change rebuilds in under 1 second" mean the new mesh on screen, or the quick verdicts too? This design reads it as the mesh.
-2. A passkey touch per confirmation, or one click with the browser-agent gap accepted? This design picks the passkey.
-3. How is a lost passkey recovered? Self-service recovery by email reopens #47, because an agent can read mail.
-4. If the account's container-second cap halts an Auto run, is that a fourth stop reason? SPEC says Auto stops "in exactly three cases" and has no budget.
-5. SPEC places accounts and usage limits in phase 3. This design moves them into phase 4. Should SPEC say so?
-6. Is δ = 0.02 on a margin in [-1, 1] the right threshold for "improved"? SPEC already asks whether three revisions is right.
-7. Should `bounds_conflicts` warn on the Plan mode confirmation page? This design says yes.
+2. #47 leaves two points open. Does the Onshape Confirm button wait for the Onshape panel, which SPEC puts out of scope? Should a Claude Code user get a notification with a sign-in-required link, to keep the switch to the web app to one click?
+3. If the account's container-second cap halts an Auto run, is that a fourth stop reason? SPEC says Auto stops "in exactly three cases" and has no budget.
+4. SPEC places accounts and usage limits in phase 3. This design moves them into phase 4. Should SPEC say so?
+5. Is δ = 0.02 on a margin in [-1, 1] the right threshold for "improved"? SPEC already asks whether three revisions is right.
+6. Should `bounds_conflicts` warn on the Plan mode confirmation page? This design says yes.
 
 ## 8. Next implementation step
 
