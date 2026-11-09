@@ -318,8 +318,8 @@ def _table_step(
 ) -> TableStep | ResearchedStep | Stale | Unresolved:
     if card.table_version != table.version:
         return Stale(
-            f"scored against materials table {card.table_version[:12]}, "
-            f"not the current {table.version[:12]}"
+            f"scored against materials table {_short(card.table_version)}, "
+            f"not the current {_short(table.version)}"
         )
     try:
         material = table.get_material(card.material_key)
@@ -338,6 +338,12 @@ def _table_step(
     if isinstance(cited.basis, FromResearch):
         return ResearchedStep(card.material_key, field, cited.source, cited.basis.record)
     return TableStep(card.material_key, field, cited.source)
+
+
+def _short(version: str) -> str:
+    """The git hash cut to 12 characters, keeping the project and record count after it."""
+    head, plus, research = version.partition("+")
+    return head[:12] + plus + research
 
 
 def _incomplete(
