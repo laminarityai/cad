@@ -52,7 +52,7 @@ def test_a_stage_that_cannot_be_written_names_the_variant_and_the_kind_and_no_ho
     monkeypatch: pytest.MonkeyPatch,
     caplog: pytest.LogCaptureFixture,
 ) -> None:
-    variant_id = built(PLATE)
+    variant_id = built(PLATE + "# stage fails\n")  # no earlier test in the session scored it
     root = tmp_path / "stage"
     root.mkdir(mode=0o555)
     monkeypatch.setattr(stage, "STAGE_ROOT", root)

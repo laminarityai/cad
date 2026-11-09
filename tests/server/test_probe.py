@@ -28,6 +28,7 @@ def head_of_this_repo() -> str:
     ).stdout.strip()
 
 
+@pytest.mark.usefixtures("alone_removing_orphans")
 def test_real_server_passes_and_prints_the_sha(capsys: pytest.CaptureFixture[str]) -> None:
     assert probe.main() == 0
     assert f"sha {head_of_this_repo()}" in capsys.readouterr().out
