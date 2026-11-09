@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from cad.checks import job_store
-from cad.checks.jobs import Background, JobResult, JobSpec, Plan, Quick, Refused
+from cad.checks.jobs import Background, Charge, JobResult, JobSpec, Plan, Quick, Refused
 from cad.checks.lanes import INTERRUPTED, Done, Lanes, Pending
 from cad.checks.report import SPECS, build_request, unknown_for_all
 from cad.checks.result import StepMissing
@@ -249,8 +249,8 @@ def test_a_worker_killed_by_a_base_exception_is_replaced(
 
 
 class Closed:
-    def admit(self, job: JobSpec) -> Refused:
-        del job
+    def admit(self, charge: Charge) -> Refused:
+        del charge
         return Refused("the account has no analysis time left")
 
 

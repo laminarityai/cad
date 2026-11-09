@@ -2,6 +2,7 @@ from typing import Annotated, Final
 
 from pydantic import Field
 
+from cad.auto.gate import gate
 from cad.operations.model import Audience, Input, Tenant, operation
 from cad.sandbox import container, host
 from cad.variant_sets import store as variant_sets
@@ -28,7 +29,10 @@ BUILD_VARIANT = (
     "code with no slot when every slot is taken, or for code that another slot already shows, "
     "is refused before it starts. If the set changes while a build runs so that it cannot take "
     "the code, the build finishes and is stored, but the error says it joined no set and names "
-    "its variant id. Without brief_id the variant joins no set, and slot is refused."
+    "its variant id. Without brief_id the variant joins no set, and slot is refused. "
+    "Under an Auto run, pass auto_run with its run id and the run's brief_id: the build is "
+    "refused before it starts once the run has stopped, and a build of code the store does not "
+    "hold is charged to the account's usage limit, whose refusal stops the run."
 )
 
 
@@ -36,9 +40,11 @@ class BuildVariantInput(Input):
     code: Annotated[str, Field(max_length=MAX_CODE_CHARS)]
     brief_id: str | None = None
     slot: Annotated[int | None, Field(strict=True)] = None
+    auto_run: str | None = None
 
 
 def build_variant(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResult:
+    gate(tenant, arguments.auto_run, arguments.brief_id, arguments.code)
     if arguments.brief_id is not None:
         return variant_sets.build_into_set(
             tenant.roots, tenant.variants, arguments.brief_id, arguments.code, arguments.slot

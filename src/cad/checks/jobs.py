@@ -169,11 +169,19 @@ class Refused:
     reason: str
 
 
+@dataclass(frozen=True, slots=True)
+class BuildCharge:
+    variant_id: str
+
+
+type Charge = JobSpec | BuildCharge
+
+
 class Meter(Protocol):
-    def admit(self, job: JobSpec) -> Admitted | Refused: ...
+    def admit(self, charge: Charge) -> Admitted | Refused: ...
 
 
 class Unmetered:
-    def admit(self, job: JobSpec) -> Admitted | Refused:
-        del job
+    def admit(self, charge: Charge) -> Admitted | Refused:
+        del charge
         return Admitted()
