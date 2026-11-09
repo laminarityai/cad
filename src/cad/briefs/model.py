@@ -30,7 +30,7 @@ from cad.checks.result import Comparator, Measured
 from cad.loads.model import LoadCase
 from cad.loads.words import describe_case
 from cad.projects.model import NEW_PROJECT_ID, NewProjectId, ProjectId, legacy_project
-from cad.tables.materials import KEY_PATTERN, UNITS
+from cad.tables.materials import KEY_PATTERN, PROJECT_PREFIX, UNITS
 
 BriefId = NewType("BriefId", str)
 RequirementId = NewType("RequirementId", str)
@@ -173,8 +173,9 @@ class Unchecked(_Frozen):
 class MadeOf(_Frozen):
     """The brief names the material. A confirmed one pins the `material_key` that scoring accepts.
 
-    The key is an exact key of the materials table: propose_requirements refuses a proposal whose
-    key is not in it.
+    The key is an exact key of the materials table, or, for a material the table lacks, a key of
+    your own that names it. The server stores that material as the project's own row, `project-`
+    and your key, and its values are researched.
     """
 
     kind: Literal[Kind.MADE_OF] = Kind.MADE_OF
@@ -358,7 +359,7 @@ def describe(requirement: Requirement) -> str:
         case Unchecked():
             return target.statement
         case MadeOf():
-            return f"Made of {target.material}"
+            return f"Made of {target.material.removeprefix(PROJECT_PREFIX)}"
         case MinSafetyFactor():
             return f"Safety factor against yield at least {target.factor:g} with " + describe_case(
                 target.load

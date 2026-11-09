@@ -33,6 +33,7 @@ from cad.sandbox.container import Job, Ran, TooMuchOutput
 from cad.sandbox.image import ANALYSIS, image_tag
 from cad.sandbox.stage import CONTAINER_ENTRY, PACKAGE_PATH, Sources, read_sources
 from cad.tables.materials import (
+    PROJECT_PREFIX,
     UNITS,
     Basis,
     FromResearch,
@@ -175,6 +176,9 @@ def _read(material: Material, wanted: Input) -> TableRead | None:
 
 
 def _value(material: Material, wanted: Input, read: TableRead | None) -> ValueWire:
+    if read is None and material.key.startswith(PROJECT_PREFIX):
+        reason = f"{material.key} has no row in the materials table, and no {wanted} is researched"
+        return {"kind": "unknown", "reason": reason}
     if read is None:
         reason = f"the materials table has no {wanted} for {material.key}: it says unknown"
         return {"kind": "unknown", "reason": reason}

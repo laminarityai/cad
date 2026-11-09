@@ -16,8 +16,10 @@ SEARCH_KNOWLEDGE = (
     "Returns up to k sections, best first, each with its subject, source title, url, page, "
     "section and quoted text. Results are possible matches ranked by keyword overlap, not checked "
     "for identity. Read each subject and quote, and use only a result about exactly the "
-    "material or part the user means. Cite the source and page you use. A number from a result "
-    "is never checked until the user confirms it as a candidate value."
+    "material or part the user means. Cite the source and page you use. No check reads a "
+    "number from a result. To fill a value a check needs, answer the research request on the "
+    "scorecard or proposal with submit_research, giving the result's url and a quote from that "
+    "page."
 )
 
 
