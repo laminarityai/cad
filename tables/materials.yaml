@@ -68,12 +68,12 @@ materials:
     density:
       value: 1.04 g/cm^3
       source:
-        url: https://polymaker.com/wp-content/uploads/lana-downloads/TDS_Polymaker_PolyLite-ABS_V5.6_2025-12-30_EN.pdf
-        title: Technical Data Sheet V5.6, PolyLite ABS, Polymaker
-        page: page 1, Physical properties, Density row (ISO1183, GB/T1033), typical value at 23 °C; the sheet prints labels and values in separate columns, so the quote is the value cell, and it prints the unit as g/cm³ with a raised 3 that the PDF text layer keeps apart from g/cm
-        retrieved: 2026-11-05
+        url: https://cdn.shopify.com/s/files/1/0548/7299/7945/files/PolyLite_ABS_TDS_EN_V5.4.pdf?v=1731955200
+        title: Technical Data Sheet V5.4, PolyLite ABS, Polymaker (linked from wiki.polymaker.com)
+        page: page 1, Physical properties, Density row, typical value at 23 °C; V5.6 prints the same 1.04 but with a raised 3 that its PDF text layer keeps apart from g/cm, so this row cites V5.4, which writes g/cm3
+        retrieved: 2026-11-09
         standard: ISO 1183, GB/T 1033
-        quote: 1.04 g/cm at 23°C
+        quote: Density ISO1183, GB/T1033 1.04 g/cm3 at 23 °C
     yield_strength: unknown
     tensile_strength:
       value: 33.4 MPa
@@ -113,7 +113,7 @@ materials:
         page: page 2, Typical physical properties
         retrieved: 2026-11-05
         standard: null
-        quote: Nominal Density (68 °F/20 °C) 0.098 lbs./in. 3 2.70 Mg/m 3
+        quote: Nominal Density (68 °F/20 °C) 0.098 lbs./in.3 2.70 Mg/m3
     yield_strength:
       value: 276 MPa
       source:
@@ -122,7 +122,7 @@ materials:
         page: page 1, Typical mechanical properties, T6, T651 row (typical, columns Tensile Ultimate KSI MPa then Yield KSI MPa)
         retrieved: 2026-11-05
         standard: null
-        quote: T6, T651 45 310 40 276 17 95 30 207 14 97 10.0 68.3
+        quote: KSI MPa KSI MPa KSI x 10 3 Gpa T451 35 241 21 145 25 65 24 165 14 97 10.0 68.3 T6, T651 45 310 40 276 17 95 30 207 14 97 10.0 68.3
     tensile_strength:
       value: 310 MPa
       source:
@@ -131,7 +131,7 @@ materials:
         page: page 1, Typical mechanical properties, T6, T651 row (typical, columns Tensile Ultimate KSI MPa then Yield KSI MPa)
         retrieved: 2026-11-05
         standard: null
-        quote: T6, T651 45 310 40 276 17 95 30 207 14 97 10.0 68.3
+        quote: KSI MPa KSI MPa KSI x 10 3 Gpa T451 35 241 21 145 25 65 24 165 14 97 10.0 68.3 T6, T651 45 310 40 276 17 95 30 207 14 97 10.0 68.3
     elastic_modulus:
       value: 68.3 GPa
       source:
@@ -140,7 +140,7 @@ materials:
         page: page 1, Typical mechanical properties, T6, T651 row, Modulus of Elasticity column (typical; sheet does not split tension and compression)
         retrieved: 2026-11-08
         standard: null
-        quote: T6, T651 45 310 40 276 17 95 30 207 14 97 10.0 68.3
+        quote: KSI MPa KSI MPa KSI x 10 3 Gpa T451 35 241 21 145 25 65 24 165 14 97 10.0 68.3 T6, T651 45 310 40 276 17 95 30 207 14 97 10.0 68.3
     poisson_ratio:
       value: '0.33'
       source:
@@ -181,11 +181,11 @@ materials:
         standard: null
         quote: UTS, ksi. (MPa) 0.2% YS, ksi. (MPa) Elongation % in 2 in. (50.8 mm) Rockwell Hardness, B Type 304 95 (655) 42 (290) 55 84
     elastic_modulus:
-      value: 193 GPa
+      value: 193000 MPa
       source:
         url: https://www.clevelandcliffs.com/_assets/_7ce3a04c09e74bf31ff5f89fc888db25/clevelandcliffs/db/1190/10510/file/CLF_ProductData_304-304LSS_052021.pdf
         title: 304/304L Stainless Steel Product Data Bulletin, Cleveland-Cliffs, 2021
-        page: page 4, Physical properties, Modulus of Elasticity in tension (sheet also gives 11.2 x 10^3 ksi in torsion, not used); sheet prints 28.0 x 10^3 ksi (193 x 10^3 MPa), value is the MPa figure written in GPa
+        page: page 4, Physical properties, Modulus of Elasticity in tension (sheet also gives 11.2 x 10^3 ksi in torsion, not used); sheet prints 28.0 x 10^3 ksi (193 x 10^3 MPa), value is that MPa figure
         retrieved: 2026-11-08
         standard: null
         quote: Modulus of Elasticity, ksi. (MPa) in tension in torsion 28.0 x 103 (193 x 103)
@@ -500,12 +500,12 @@ materials:
     density:
       value: 1.19 g/cm^3
       source:
-        url: https://polymaker.com/wp-content/uploads/TDS_Polymaker_PolyMax-PC_V5.5_2026-01-05_EN.pdf
-        title: Technical Data Sheet V5.5, PolyMax PC, Polymaker (2026-01-05)
-        page: page 1, Physical properties, typical value
-        retrieved: 2026-11-07
+        url: https://cdn.shopify.com/s/files/1/0548/7299/7945/files/PolyMax_PC_TDS_EN_V5.4.pdf?v=1731958090
+        title: Technical Data Sheet V5.4, PolyMax PC, Polymaker (linked from wiki.polymaker.com)
+        page: page 1, Physical properties, Density row, typical value at 23 °C; V5.5 prints the same 1.19 but with a raised 3 that its PDF text layer keeps apart from g/cm, so this row cites V5.4, which writes g/cm3
+        retrieved: 2026-11-09
         standard: ISO 1183, GB/T 1033
-        quote: Density ISO1183, GB/T 1033 3 1.19 g/cm at 23°C
+        quote: Density ISO1183, GB/T1033 1.19 g/cm3 at 23°C
     yield_strength: unknown
     tensile_strength:
       value: 53.44 MPa
@@ -642,7 +642,7 @@ materials:
         page: page 1, Typical mechanical properties, T6, T651 row, .500 in. dia. specimen (typical, columns Tensile Ultimate KSI MPa then Yield KSI MPa)
         retrieved: 2026-11-07
         standard: null
-        quote: T6, T651 83 572 73 503 11 150 48 331 23 158 10.3 71.0
+        quote: KSI MPa KSI MPa KSI x 10 3 Gpa 0 33 228 15 103 17 60 22 152 10.3 71.0 T6, T651 83 572 73 503 11 150 48 331 23 158 10.3 71.0
     tensile_strength:
       value: 572 MPa
       source:
@@ -651,7 +651,7 @@ materials:
         page: page 1, Typical mechanical properties, T6, T651 row, .500 in. dia. specimen (typical, columns Tensile Ultimate KSI MPa then Yield KSI MPa)
         retrieved: 2026-11-07
         standard: null
-        quote: T6, T651 83 572 73 503 11 150 48 331 23 158 10.3 71.0
+        quote: KSI MPa KSI MPa KSI x 10 3 Gpa 0 33 228 15 103 17 60 22 152 10.3 71.0 T6, T651 83 572 73 503 11 150 48 331 23 158 10.3 71.0
     elastic_modulus:
       value: 71.0 GPa
       source:
@@ -660,7 +660,7 @@ materials:
         page: page 1, Typical mechanical properties, T6, T651 row, Modulus of Elasticity column (typical; sheet does not split tension and compression)
         retrieved: 2026-11-08
         standard: null
-        quote: T6, T651 83 572 73 503 11 150 48 331 23 158 10.3 71.0
+        quote: KSI MPa KSI MPa KSI x 10 3 Gpa 0 33 228 15 103 17 60 22 152 10.3 71.0 T6, T651 83 572 73 503 11 150 48 331 23 158 10.3 71.0
     poisson_ratio:
       value: '0.33'
       source:
@@ -701,11 +701,11 @@ materials:
         standard: null
         quote: UTS, ksi. (MPa) 0.2% YS, ksi. (MPa) Elongation % in 2 in. (50.8 mm) Rockwell Hardness, B 91 (627) 42 (290) 55 79
     elastic_modulus:
-      value: 193 GPa
+      value: 193000 MPa
       source:
         url: https://www.clevelandcliffs.com/_assets/_464c1f648dd1e0c96c45d68cdce1cf31/clevelandcliffs/db/1190/10513/file/CLF_ProductData_316-316LSS_052021.pdf
         title: 316/316L Stainless Steel Product Data Bulletin, Cleveland-Cliffs, May 2021
-        page: page 4, Physical properties, Modulus of Elasticity in tension (sheet also gives 11.2 x 10^3 ksi in torsion, not used); sheet prints 28.0 x 10^3 ksi (193 x 10^3 MPa), value is the MPa figure written in GPa
+        page: page 4, Physical properties, Modulus of Elasticity in tension (sheet also gives 11.2 x 10^3 ksi in torsion, not used); sheet prints 28.0 x 10^3 ksi (193 x 10^3 MPa), value is that MPa figure
         retrieved: 2026-11-08
         standard: null
         quote: Modulus of Elasticity, ksi. (MPa) in tension in torsion 28.0 x 103 (193 x 103)
@@ -738,7 +738,7 @@ materials:
         page: page 4, Table 1 Typical mechanical properties, standard grades, Commercial Steel (CS Type B) row (typical, ASTM A1011 hot-rolled sheet 0.071-0.75 in.)
         retrieved: 2026-11-07
         standard: null
-        quote: Commercial Steel (CS T ype B) May be moderately formed. A specimen out in any direction can be bent flat on itself without cracking. 36 248 51 351 37 B61
+        quote: Quality Designation Description YS UTS % Elong. in 2” Rockwell Hardnessksi. MPa ksi. MPa Commercial Steel (CS T ype B) May be moderately formed. A specimen out in any direction can be bent flat on itself without cracking. 36 248 51 351 37 B61
     tensile_strength:
       value: 51 ksi
       source:
@@ -747,13 +747,13 @@ materials:
         page: page 4, Table 1 Typical mechanical properties, standard grades, Commercial Steel (CS Type B) row (typical, ASTM A1011 hot-rolled sheet 0.071-0.75 in.)
         retrieved: 2026-11-07
         standard: null
-        quote: Commercial Steel (CS T ype B) May be moderately formed. A specimen out in any direction can be bent flat on itself without cracking. 36 248 51 351 37 B61
+        quote: Quality Designation Description YS UTS % Elong. in 2” Rockwell Hardnessksi. MPa ksi. MPa Commercial Steel (CS T ype B) May be moderately formed. A specimen out in any direction can be bent flat on itself without cracking. 36 248 51 351 37 B61
     elastic_modulus:
-      value: 200 GPa
+      value: 200000 MPa
       source:
         url: https://www.clevelandcliffs.com/_assets/_7ce3a04c09e74bf31ff5f89fc888db25/clevelandcliffs/db/1190/10480/file/CLF_ProductData_HotRolled_062025.pdf
         title: Hot-Rolled Steels Product Data, Cleveland-Cliffs, June 2025
-        page: page 4, Engineering properties (stated for all hot-rolled steels in the bulletin, not per grade), Young's Modulus of Elasticity at 20 °C; sheet prints 200 x 10^3 MPa, value written in GPa
+        page: page 4, Engineering properties (stated for all hot-rolled steels in the bulletin, not per grade), Young's Modulus of Elasticity at 20 °C; sheet prints 200 x 10^3 MPa, value is that MPa figure
         retrieved: 2026-11-08
         standard: null
         quote: Young’s Modulus of Elasticity 200 x 103 MPa at 20°C
@@ -778,7 +778,7 @@ materials:
         page: page 2, Mechanical properties according to EN, Round rods/polygonal rods acc. to EN 12164, temper R400, diameter 2-25 mm; Yield strength Rp0.2 minimum (sheet gives no typical value)
         retrieved: 2026-11-07
         standard: EN 12164
-        quote: R400 2 25 2 20 400 200
+        quote: Temper Diameter Width across flats Tensile strength Rm Yield strength R p0.2 Elongation % Hardness mm mm MPa MPa A100 A11.3 A HB from to from to min. min. max. min. min. min. min. max. M all all as manufactured – without specified mechanical properties R340 10 80 10 60 340 – 280 – – 20 – – H070 10 80 10 60 – – – – – – 70 120 R400 2 25 2 20 400 200
     tensile_strength:
       value: 400 MPa
       source:
@@ -787,7 +787,7 @@ materials:
         page: page 2, Mechanical properties according to EN, Round rods/polygonal rods acc. to EN 12164, temper R400, diameter 2-25 mm; Tensile strength Rm minimum (sheet gives no typical value)
         retrieved: 2026-11-07
         standard: EN 12164
-        quote: R400 2 25 2 20 400 200
+        quote: Temper Diameter Width across flats Tensile strength Rm Yield strength R p0.2 Elongation % Hardness mm mm MPa MPa A100 A11.3 A HB from to from to min. min. max. min. min. min. min. max. M all all as manufactured – without specified mechanical properties R340 10 80 10 60 340 – 280 – – 20 – – H070 10 80 10 60 – – – – – – 70 120 R400 2 25 2 20 400 200
     elastic_modulus:
       value: 102 GPa
       source:
@@ -852,7 +852,7 @@ materials:
         page: page 4, Typical property values (at 23 °C and 50% relative humidity), Modulus of elasticity Et (short-term value), PLEXIGLAS GS column; typical
         retrieved: 2026-11-08
         standard: ISO 527-2/1B/1
-        quote: Modulus of elasticity Et (short-term value) 3300 3300 2700; 2200;
+        quote: Modulus of elasticity Et (short-term value) 3300 3300 2700; 2200; 2000; 1800 MPa ISO 527-2/1B/1
     poisson_ratio:
       value: '0.37'
       source:
@@ -892,7 +892,7 @@ materials:
         page: page 4, Typical property values (at 23 °C and 50% relative humidity), Modulus of elasticity Et (short-term value), PLEXIGLAS XT column; typical
         retrieved: 2026-11-08
         standard: ISO 527-2/1B/1
-        quote: Modulus of elasticity Et (short-term value) 3300 3300 2700; 2200;
+        quote: Modulus of elasticity Et (short-term value) 3300 3300 2700; 2200; 2000; 1800 MPa ISO 527-2/1B/1
     poisson_ratio:
       value: '0.37'
       source:

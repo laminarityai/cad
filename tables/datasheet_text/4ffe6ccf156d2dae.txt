@@ -1,0 +1,39 @@
+url: https://storage.googleapis.com/prusa3d-content-prod-14e8-wordpress-prusament-prod/2023/10/9f8d2165-tds_prusament-petg_n_en.pdf
+2
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Typical material properties
+ Typical Value Method
+MFR [g/10 min] not applicable ISO 1133
+MVR [cm3/10 min] not applicable ISO 1133
+Density [g/cm3] 1.27 ISO 1183
+Moisture Absorption in 24 hours [%](1) 0.07 Prusa Polymers
+Moisture Absorption in 7 days [%](1) 0.10 Prusa Polymers
+Heat Deflection Temperature (0.45 MPa) [°C] 68 ISO 75
+Heat Deflection Temperature (1.80 MPa) [°C] 68 ISO 75
+Tensile Yield Strength for Filament [MPa] 46 ± 1 ISO 527
+Hardness – Shore D 74 Prusa Polymers
+Interlayer Adhesion [MPa] 18 ± 4 Prusa Polymers
+ 
+(1) 24 °C; humidity 22 %
+ 
+ 
+Mechanical properties of 3D printed testing specimens(2)
+Property\Print Direction Horizontal Vertical xz Method
+Tensile Yield Strength [MPa] 47 ± 2 50 ± 1 ISO 527-1
+Tensile Modulus [GPa] 1.5 ± 0.1 1.6 ± 0.1 ISO 527-1
+Elongation at Yield Point [%] 5.1 ± 0.1 5.1 ± 0.1 ISO 527-1
+Flexural Strength [MPa] 66 ± 2 70 ± 1 ISO 178
+Flexural Modulus [GPa] 1.7 ± 0.1 1.6 ± 0.1 ISO 178
+Deflection at Flexural Strength [mm] 9.0 ± 0.1 9.3 ± 0.2 ISO 178
+Impact Strength Charpy [kJ/m2](3) NB* NB* ISO 179-1
+Impact Strength Charpy Notched [kJ/m2](4) 6 ± 1 3 ± 1 ISO 179-1
+ 
+*NB (no break); Testing machine is equipped with 4 Joule pendulum.

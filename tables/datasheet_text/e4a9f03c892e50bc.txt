@@ -1,0 +1,389 @@
+url: https://polymaker.com/wp-content/uploads/lana-downloads/TDS_Polymaker_PolyLite-ABS_V5.6_2025-12-30_EN.pdf
+TECHNICAL
+DATA SHEET
+V5.6
+WWW .POL YMAKER.C O M
+PolyLite™ ABS
+PolyLiteTM ABS is made with a specialty 
+bulk-polymerized ABS resin, which has  
+signiﬁcantly lower volatile content compared to 
+traditional ABS resins. It delivers excellent printing 
+quality with minimal odor during printing.
+P ROP E R T Y TESTING METHOD TYPICAL VALUE
+Density
+Melt index
+ISO1183, GB/T1033
+220°C, 2.16 kg
+31.04 g/cm  at 23°C
+9-14 g/10min
+P H Y SICA L P ROP ERTI E S
+M ECHANIC A L PROP ERTIE S
+PROPERTY TESTING METHOD TYPICAL VALUE
+Young’s modulus (X-Y)
+Young’s modulus (Z)
+Tensile strength (X-Y)
+Tensile strength (Z)
+2246.6 ± 58.2 MPa
+2080.9 ± 92.7 MPa
+33.4 ± 92.7 MPa
+29.7 ± 0.3 MPa
+17.9 ± 1.3 %
+3.1 ± 0.3 %
+ISO 527, GB/T 1040
+ISO 527, GB/T 1040
+ISO 527, GB/T 1040
+Bending modulus (X-Y)
+Bending modulus (Z)
+Notched charpy impact strength (X-Y)
+Elongation at break (X-Y)
+Elongation at break (Z)
+Bending strength (X-Y)
+Bending strength (Z)
+2127.2 ± 29.9 MPa
+N/A
+56.2 ± 0.3 MPa
+N/A
+18.0 ± 0.9 kJ/m/two.sups
+ISO 527, GB/T 1040
+ISO 527, GB/T 1040
+ISO 179, GB/T 1043
+Nozzle temperature
+Build plate temperature
+Build surface treatment
+Cooling fan
+Retraction distance
+Retraction Speed
+Printing Speed
+Drying temp. and time
+*Based on 0.4mm nozzle. Printing conditions may vary   
+ with different nozzle diameters.
+Good:
+Material may get minor attack after long periods of 
+storage with chemical at ambient temperature
+Fair:
+Material can be used for short time contact with 
+chemicals at ambient temperature 
+Poor:
+Material becomes unstable on contact with chemical 
+at ambient temperature
+245-265°C
+90-100°C
+PC and Textured PEI
+OFF
+Closure chamber Needed
+50-200mm/s
+70°C/6H
+1-3 (mm)
+20-40 (mm/s)
+PROPERTY TYPICAL VALUE
+Effect of weak acids
+Effect of strong acids
+Effect of weak alkalis
+Good
+Poor
+Good
+Effect of strong alkalis
+Effect of oils and grease
+Fair
+Good
+CHEMICA L RE S I S TA NCE  DATA
+REC OMMEND E D PRIN T I N G  C O NDI T ION S
+*Based on testing with Polymaker™ PolyLite™ ABS (SKU: PE01001)
+D I SCLAIMER
+FLEXURAL TESTING SPECIMEN
+ISO 178, GB/T 9341
+60.00
+80.00
+10.00
+Z axis
+4.00
+IMPACT TESTING SPECIMEN
+ISO 179, GB/T 1043
+45.00°
+80.00
+10.00
+Z axis
+Impact direction
+4.00
+TENSILE TESTING SPECIMEN
+ISO 527, GB/T 1040
+20.00
+4*R25
+10.00
+150.00
+114.00
+80.00
+Z axis
+4.00
+Printing temperature
+Bed temperature
+T op & bottom layer
+Inﬁll
+Shell
+Cooling fan
+260°C
+90°C
+3
+Environmental Temperature 90°C
+2
+100%
+OFF
+The typical values presented in this data sheet are intended for reference and comparison purposes only. They should not be used for design speciﬁcations or quality 
+control purposes. Actual values may vary signiﬁcantly with printing conditions. End- use performance of printed parts depends not only on materials, but also on part 
+design, environmental conditions, printing conditions, etc. Product speciﬁcations are subject to change without notice.
+Each user is responsible for determining the safety, lawfulness, technical suitability, and disposal/recycling practices of Polymaker™ materials for the intended 
+application. Polymaker™ makes no warranty of any kind, unless announced separately, to the ﬁtness for any use or application. Polymaker™ shall not be made liable for 
+any damage, injury or loss induced from the use of Polymaker™ materials in any application.
+H O W  TO M AKE SP ECI MEN S
+MOISTURE 
+ABSORPTION CURVE
+0.3
+0.2
+Water absorption %
+Days
+70% RH, 23°C
+0.1
+0.0
+2 4 6 8 10 12 14 16
+0.4
+0
+PolyLite™ ABS
+Polymaker™ PolyLite™ ABS
+Equilibrium water absorption (%)= 0.35%
+PROPERTY TESTING METHOD TYPICAL VALUE
+Glass transition temp.
+Melting temp.
+Crystalization temp.
+Decomposition temp.
+Vicat softening temp.
+DSC, 10°C/min
+DSC, 10°C/min
+DSC, 10°C/min
+101°C
+N/A
+TGA, 20°C/min
+N/A
+ISO 306, GB/T 1633
+>380°C
+Heat deﬂection temp.
+Heat deﬂection temp.
+ISO 75 1.8MPa
+104°C
+98°C
+ISO 75 0.45MPa 100°C
+T H ERMA L PROPE R T I E S
+*Curve results are the average of 3 samples
+HDT CURVE
+Polymaker™ PolyLite™ ABS
+Temperature / °C
+Deflection / mm
+-0.10
+0.00
+0.10
+0.20
+0.30
+0.40
+0 25 50 75 100
+98.2
+125
+99.6
+1.8 Mpa
+0.45 Mpa
+N O T E
+It is highly recommended to use the PolyBox™ or
+PolyDryer™ Box when printing or storing Polymaker™ HT-PLA-GF
+PolyBox™ or PolyDryer™ Box
+TECHNICAL
+DATA SHEET
+V5.6
+WWW.PO LYMAKER .C O M
+PolyLite™ ABS
+PolyLiteTM ABS is made with a specialty 
+bulk-polymerized ABS resin, which has 
+significantly lower volatile content compared to 
+traditional ABS resins. It delivers excellent printing 
+quality with minimal odor during printing.
+P RO P E R T Y TESTING METHOD TYPICAL VALUE
+Density
+Melt index
+ISO1183, GB/T1033
+220°C, 2.16 kg
+3 1.04 g/cm at 23°C
+9-14 g/10min
+P H Y S IC A L P RO P ERT I E S
+M ECH ANI C A L PRO P ER TI E S
+PROPERTY TESTING METHOD TYPICAL VALUE
+Young’s modulus (X-Y)
+Young’s modulus (Z)
+Tensile strength (X-Y)
+Tensile strength (Z)
+2246.6 ± 58.2 MPa
+2080.9 ± 92.7 MPa
+33.4 ± 92.7 MPa
+29.7 ± 0.3 MPa
+17.9 ± 1.3 %
+3.1 ± 0.3 %
+ISO 527, GB/T 1040
+ISO 527, GB/T 1040
+ISO 527, GB/T 1040
+Bending modulus (X-Y)
+Bending modulus (Z)
+Notched charpy impact strength (X-Y)
+Elongation at break (X-Y)
+Elongation at break (Z)
+Bending strength (X-Y)
+Bending strength (Z)
+2127.2 ± 29.9 MPa
+N/A
+56.2 ± 0.3 MPa
+N/A
+18.0 ± 0.9 kJ/m2
+ISO 527, GB/T 1040
+ISO 527, GB/T 1040
+ISO 179, GB/T 1043
+Nozzle temperature
+Build plate temperature
+Build surface treatment
+Cooling fan
+Retraction distance
+Retraction Speed
+Printing Speed
+Drying temp. and time
+*Based on 0.4mm nozzle. Printing conditions may vary 
+ with different nozzle diameters.
+Good:
+Material may get minor attack after long periods of 
+storage with chemical at ambient temperature
+Fair:
+Material can be used for short time contact with 
+chemicals at ambient temperature 
+Poor:
+Material becomes unstable on contact with chemical 
+at ambient temperature
+245-265°C
+90-100°C
+PC and Textured PEI
+OFF
+Closure chamber Needed
+50-200mm/s
+70°C/6H
+1-3 (mm)
+20-40 (mm/s)
+PROPERTY TYPICAL VALUE
+Effect of weak acids
+Effect of strong acids
+Effect of weak alkalis
+Good
+Poor
+Good
+Effect of strong alkalis
+Effect of oils and grease
+Fair
+Good
+CH EM IC A L R E S I S TA NC E DATA
+RE C OMM EN D E D PRI N T I N G C O ND I T IO N S
+*Based on testing with Polymaker™ PolyLite™ ABS (SKU: PE01001)
+D I S CL AI ME R
+FLEXURAL TESTING SPECIMEN
+ISO 178, GB/T 9341
+60.00
+80.00
+10.00
+Z axis
+4.00
+IMPACT TESTING SPECIMEN
+ISO 179, GB/T 1043
+45.00°
+80.00
+10.00
+Z axis
+Impact direction
+4.00
+TENSILE TESTING SPECIMEN
+ISO 527, GB/T 1040
+20.00
+4*R25
+10.00
+150.00
+114.00
+80.00
+Z axis
+4.00
+Printing temperature
+Bed temperature
+Top & bottom layer
+Infill
+Shell
+Cooling fan
+260°C
+90°C
+3
+Environmental Temperature 90°C
+2
+100%
+OFF
+The typical values presented in this data sheet are intended for reference and comparison purposes only. They should not be used for design specifications or quality 
+control purposes. Actual values may vary significantly with printing conditions. End- use performance of printed parts depends not only on materials, but also on part 
+design, environmental conditions, printing conditions, etc. Product specifications are subject to change without notice.
+Each user is responsible for determining the safety, lawfulness, technical suitability, and disposal/recycling practices of Polymaker™ materials for the intended 
+application. Polymaker™ makes no warranty of any kind, unless announced separately, to the fitness for any use or application. Polymaker™ shall not be made liable for 
+any damage, injury or loss induced from the use of Polymaker™ materials in any application.
+H O W T O M AKE S P EC I ME N S
+MOISTURE 
+ABSORPTION CURVE
+0.3
+0.2
+Water 
+abs
+orption %
+Days
+70% RH, 23°C
+0.1
+0.0
+2 4 6 8 10 12 14 16
+0.4
+0
+PolyLite™ ABS
+Polymaker™ PolyLite™ ABS
+Equilibrium water absorption (%)= 0.35%
+PROPERTY TESTING METHOD TYPICAL VALUE
+Glass transition temp.
+Melting temp.
+Crystalization temp.
+Decomposition temp.
+Vicat softening temp.
+DSC, 10°C/min
+DSC, 10°C/min
+DSC, 10°C/min
+101°C
+N/A
+TGA, 20°C/min
+N/A
+ISO 306, GB/T 1633
+>380°C
+Heat deflection temp.
+Heat deflection temp.
+ISO 75 1.8MPa
+104°C
+98°C
+ISO 75 0.45MPa 100°C
+T H E RM A L PROP E R T I E S
+*Curve results are the average of 3 samples
+HDT CURVE
+Polymaker™ PolyLite™ ABS
+Temperature / °C
+Deflection / mm
+-0.10
+0.00
+0.10
+0.20
+0.30
+0.40
+0 25 50 75 100 98.2
+125
+99.6
+1.8 Mpa
+0.45 Mpa
+N O T E
+It is highly recommended to use the PolyBox™ or
+PolyDryer™ Box when printing or storing Polymaker™ HT-PLA-GF PolyBox™ or PolyDryer™ Box

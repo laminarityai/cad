@@ -1,0 +1,79 @@
+url: https://www.clevelandcliffs.com/_assets/_7ce3a04c09e74bf31ff5f89fc888db25/clevelandcliffs/db/1190/10480/file/CLF_ProductData_HotRolled_062025.pdf
+HOT -ROLLED STEELS
+Page 4
+Young’s Modulus of Elasticity 200 x 103 MPa at 20°C
+Density 7.87 g/cm3 at 20°C
+Coefficient of Thermal Expansion Low-Carbon/HSLAS: 
+12.4 µm/m/°C in 20-100 °C range
+I-F Steel:
+12.9 µm/m/°C in 20 - 100 °C range
+Thermal Conductivity Low-Carbon/HSLAS: 
+89 W/m°C at 20 °C 
+I-F Steel: 
+93 W/m°C at 20 °C
+Specific Heat 481 J/kg/°C in 50 - 100 °C range
+Electrical Resistivity 0.142 µΩ•m at 20 °C
+ENGINEERING PROPERTIES
+ASTMA568 General requirements 
+ASTM A1011 CS/DS/SS/HSLAS
+ASTMA635 Heavy gauge HR General Requirements
+ASTMA659 CS Carbon (0.16 - 0.25%) 
+SAE J1392 HSLAVSS
+SAE J2340 HSLA 
+SAE J403 Carbon steels to 1080
+SAE J404 Alloy steels (please inquire)
+JIS G3113 Structural Uses
+JIS G3134 High Strength Structural
+SPECIFICATIONS
+Hot-rolled steels are produced in conformance to the 
+following specifications:
+For any specifications not listed here, contact your Cleveland-Cliffs sales representative.
+OUTSIDE PROCESSING 
+T ailored blanks, tension leveling, re-squaring, slitting, cut  -
+-to-length and coil coating are just some of the services 
+Cleveland-Cliffs can provide through arrangements with 
+outside processors. 
+TECHNICAL ASSISTANCE 
+Cleveland-Cliffs’ technical representatives can provide you 
+with more detailed information concerning this product. They 
+also are available to assist you in reviewing any welding, 
+forming, painting or other material selection issue. 
+Quality Designation Description
+YS UTS % Elong. 
+in 2”
+Rockwell 
+Hardnessksi. MPa ksi. MPa
+Commercial Steel  
+(CS T ype B)
+May be moderately formed. A specimen 
+out in any direction can be bent flat on 
+itself without cracking.
+36 248 51 351 37 B61
+Drawing Steel OS  
+(OS T ype B)
+T ype B is made by adding aluminum 
+to the molten steel and may be used in 
+drawing applications.
+33 220 49 338 39 B56
+Drawing Steel with Boron 
+(OS T ype B with B)
+OS is made by adding aluminum and 
+boron to the molten steel and may be 
+used in drawing applications.
+30 210 45 310 40 B50
+TABLE 1 – TYPICAL MECHANCIAL PROPERTIES – STANDARD GRADES
+Typical properties produced by Cleveland-Cliffs for these grades. 
+Commercial Steel and Drawing Steel are designations of the various steels described in A 1011 and A 1018. Each of these steel sheet designations is associated with unique 
+requirements for chemical composition and with non-mandatory, typical mechanical p!Operties. SS and HSLAS are required to meet mandatory mechanical property requirements 
+and chemical requirements.
+MILL LIMITS 
+Hot-rolled steels are available in thicknesses of 0.071 -0.75 
+in. (1.80-19.05 mm) and widths of 30-80 in. (1016-2032 mm) 
+depending on dimension and product quality. For sizes 
+outside of these limits, please contact your Cleveland-Cliffs 
+sales representative.
+The standard inner diameter of hot-rolled pickled coils is 24 
+in. (610 mm), while hot bands have inside diameters of 30 in. 
+(762 mm). 
+Thickness, width, and flatness tolerances are covered in 
+ASTM A568 or A635.

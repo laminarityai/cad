@@ -1,0 +1,802 @@
+url: https://fiberon.polymaker.com/wp-content/uploads/TDS_FIBERON-PA6-CF20_V1.1_EN.pdf
+TECHNICAL
+DATA SHEET
+V1.1
+PHYSICAL PROPERTIES
+HDT CURVE THERMAL PROPERTIES
+MECHANICAL PROPERTIES - DRY STATUS
+PROPERTY TESTING METHOD TYPICAL VALUE
+Young’s modulus (Z)
+Tensile strength (Z)
+Elongation at break (Z)
+Bending modulus (Z)
+Bending strength (Z)
+Charpy impact strength (X-Y)un-notched
+Charpy impact strength (Z) un-notched
+Young’s modulus (X-Y)
+Tensile strength (X-Y)
+Elongation at break (X-Y)
+Bending modulus (X-Y)
+Bending strength (X-Y)
+Charpy impact strength (X-Y) notched
+MECHANICAL PROPERTIES - WET STATUS
+PROPERTY TESTING METHOD TYPICAL VALUE
+Young’s modulus (Z)
+Tensile strength (Z)
+Elongation at break (Z)
+Bending modulus (Z)
+Bending strength (Z)
+Charpy impact strength (X-Y)un-notched
+Charpy impact strength (Z) un-notched
+Young’s modulus (X-Y)
+Tensile strength (X-Y)
+Elongation at break (X-Y)
+Bending modulus (X-Y)
+Bending strength (X-Y)
+Charpy impact strength (X-Y) notched
+SHRINKAGE TESTING
+X-Y
+D
+Z
+X-Y
+Z
+Diameter
+AFTER
+PRINTING
+AFTER
+ANNEALING
+MODEL
+SIZE
+Nozzle temperature
+Build plate temperature
+Chamber temperature
+Cooling fan
+Printing speed  
+Drying temp. and time 
+Annealing temp. and time
+RECOMMENDED PRINTING CONDITIONS
+Recommended 
+support material
+NOTE
+HOW TO MAKE SPECIMENS
+Printing temperature
+Bed temperature
+Top & bottom layer
+Inﬁll
+Shell
+Cooling fan
+20.00
+4*R25
+10.00
+150.00
+114.00
+80.00
+Z axis
+TENSILE TESTING SPECIMENFLEXURAL TESTING SPECIMEN
+ASTM D638 (ISO 527, GB/T 1040)ASTM D638 (ISO 527, GB/T 1040)
+60.00
+80.00
+10.00
+Z axis
+IMPACT TESTING SPECIMEN
+ASTM D638 (ISO 179, GB/T 1043)
+45.00°
+80.00
+10.00
+Z axis
+Impact direction
+4.00
+4.00
+4.00
+DISCLAIMER
+MATERIALS COMPARISON
+WWW.FIBERON3D.COM
+FIBERON WEBSITE
+MOISTURE
+ABSORPTION CURVE
+1.8 MPa
+0.45 MPa
+FIBERON TM  PA6-CF20
+Fiberon™ PA6-CF20 is a carbon ﬁber reinforced PA6 
+(Nylon 6) ﬁlament. The carbon ﬁber reinforcement 
+provides signiﬁcantly improved stiffness, strength and 
+heat resistance with outstanding layer adhesion.
+3759.5 ± 118.5 MPa
+54.0 ± 5.2 MPa
+1.9 ±  0.4 %
+2975.3  ± 174.3 MPa
+71.3  ± 17.7 MPa
+24.0  ± 1.0 kJ/m2
+7.5 ± 2.7 kJ/m2
+8636.5 ± 211.4 MPa
+109.3 ± 2.4 MPa
+2.1 ±  0.2%
+7037.6  ± 205.4 MPa
+161.0  ± 3.9 MPa
+11.0  ± 0.3 kJ/m2
+ISO 527, GB/T 1040
+ISO 527, GB/T 1040
+ISO 527, GB/T 1040
+ISO 178, GB/T 9341
+ISO 178, GB/T 9341
+ISO 179,  GB/T 1043
+1056.1 ± 127.9 MPa
+25.5 ± 1.2 MPa
+6.7 ±  1.7%
+801.1 ± 24.1 MPa
+29.2 ± 1.0 MPa
+73.0  ± 2.0 kJ/m2
+25.2  ± 3.2 kJ/m2
+2508.1 ± 82.6 MPa
+54.7 ± 1.1 MPa
+7.0 ±  0.9%
+2286.2 ± 185.2 MPa
+64.9 ± 4.9 MPa
+35.6  ± 1.2 kJ/m2
+ISO 527, GB/T 1040
+ISO 527, GB/T 1040
+ISO 527, GB/T 1040
+ISO 178, GB/T 9341
+ISO 178, GB/T 9341
+ISO 179,  GB/T 1043
+40mm
+40mm
+10mm
+*Model inﬁll 30%
+40.10mm
+39.90mm
+9.73mm
+40.08mm
+39.86mm
+9.71mm
+280-300 °C
+40-50 °C
+Room Temp.
+OFF
+Up to 300mm/s
+100 °C/10H
+100 °C/16H
+Abrasion of the brass nozzle happens frequently when printing Fiberon™ PA6-CF20. Normally, the life of a brass nozzle 
+would be approximately 9h. A wear-resistance nozzle, such as hardened steel and ruby nozzle, is highly 
+recommended to be used with Fiberon™ PA6-CF20.
+Fiberon™ PA6-CF20 is sensitive to moisture and should always be stored and used under dry conditions (relative 
+humidity below 20%).
+If Fiberon™ PA6-CF20 is used as the support material for itself, please remove the support structure before excessive 
+moisture absorption. Otherwise, the support structure can be permanently bonded to the model.
+After the printing process, it is recommended to anneal the model in the oven at 100°C for 16 hours. 
+300 °C
+50 °C
+3
+2
+100%
+OFF
+The typical values presented in this data sheet are intended for reference and comparison purposes only. They should not be used for design speciﬁcations or quality 
+control purposes. Actual values may vary signiﬁcantly with printing conditions. End- use performance of printed parts depends not only on materials, but also on part 
+design, environmental conditions, printing conditions, etc. 
+Product speciﬁcations are subject to change without notice. Each user is responsible for determining the safety, lawfulness, technical suitability, and disposal/ 
+recycling practices of Polymaker materials for the intended application. Polymaker makes no warranty of any kind, unless announced separately, to the ﬁtness for any 
+use or application. Polymaker shall not be made liable for any damage, injury or loss induced from the use of Polymaker materials in any application.
+Heat resistance - Stiffness
+PROPERTY TESTING METHOD TYPICAL VALUE
+Density
+Melt index
+Flame retardancy 
+Surface Resistivity (Ω)
+ISO1183, GB/T1033
+300°C, 2.16 kg
+UL 94, 1.5mm
+ANSI ESD S11.11
+1.17 g/cm3 at 23°C
+20.5 g/10min
+HB
+OL, >1012 Ω
+PROPERTY TESTING METHOD TYPICAL VALUE
+Glass transition temp.
+Melting temperature
+Crystallization temp.
+Decomposition temp.
+Vicat softening temp.
+Heat deflection temp.
+Heat deflection temp.
+DSC, 10°C/min
+DSC, 10°C/min
+DSC, 10°C/min
+TGA, 20°C/min
+74.2 °C
+218.5 °C
+184.6 °C
+446.2 °C
+ISO 306, GB/T 1633 219.2 °C
+ISO 75 1.8MPa 173 °C
+ISO 75 0.45MPa 215 °C
+PolyDissolve™ S1
+0
+0.5
+1
+1.5
+2
+2.5
+3
+3.5
+0 10 20 30 40 50
+Water Absorp�on(%)
+Days
+Equilibrium water absorp�on (%) = 3.3
+-0.05
+0
+0.05
+0.1
+0.15
+0.2
+0.25
+0.3
+0.35
+0.4
+0 50 100 150 200 250
+Deforma�on(mm)
+Temperature(°C)
+*All specimens were annealed at 100°C for 16h, and immerged in water at 60¥ for 48h prior to testing. The 
+average moisture content of specimens is 5.30%
+*All specimens were annealed at 100°C for 16hT E C H N I C A L
+D A T A   S H E E T
+
+V1.1
+
+F I B E R O N T M   P A 6 - C F 2 0
+
+Fiberon™ PA6-CF20 is a carbon ﬁber reinforced PA6 
+(Nylon 6) ﬁlament. The carbon ﬁber reinforcement 
+provides signiﬁcantly improved stiffness, strength and 
+heat resistance with outstanding layer adhesion.
+
+W W W . F I B E R O N 3 D . C O M
+
+P H Y S I C A L   P R O P E R T I E S
+
+M O I S T U R E
+A B S O R P T I O N   C U R V E
+
+P R O P E R T Y
+
+T E S T I N G   M E T H O D
+
+T Y P I C A L   V A L U E
+
+Density
+
+ISO1183, GB/T1033
+
+1.17 g/cm3
+
+ at 23°C
+
+Melt index
+
+300°C, 2.16 kg
+
+20.5 g/10min
+
+Flame retardancy 
+
+UL 94, 1.5mm
+
+HB
+
+Surface Resistivity (Ω)
+
+ANSI ESD S11.11
+
+OL, >1012 Ω
+
+3.5
+
+3
+
+2.5
+
+2
+
+1.5
+
+1
+
+0.5
+
+)
+
+%
+(
+n
+o
+�
+p
+r
+o
+s
+b
+A
+r
+e
+t
+a
+W
+
+0
+
+0
+
+H D T   C U R V E
+
+T H E R M A L   P R O P E R T I E S
+
+0.45 MPa
+1.8 MPa
+
+Equilibrium water absorp�on (%) = 3.3
+
+10
+
+20
+
+30
+
+40
+
+50
+
+Days
+
+0.4
+
+0.35
+
+0.3
+
+0.25
+
+0.2
+
+0.15
+
+0.1
+
+0.05
+
+)
+
+m
+m
+(
+n
+o
+�
+a
+m
+r
+o
+f
+e
+D
+
+0
+
+0
+
+-0.05
+
+50
+
+100
+
+150
+
+200
+
+250
+
+Temperature(°C)
+
+P R O P E R T Y
+
+T E S T I N G   M E T H O D
+
+T Y P I C A L   V A L U E
+
+Glass transition temp.
+
+DSC, 10°C/min
+
+Melting temperature
+
+DSC, 10°C/min
+
+Crystallization temp.
+
+DSC, 10°C/min
+
+Decomposition temp.
+
+TGA, 20°C/min
+
+74.2 °C
+
+218.5 °C
+
+184.6 °C
+
+446.2 °C
+
+Vicat softening temp.
+
+ISO 306, GB/T 1633
+
+219.2 °C
+
+Heat deflection temp.
+
+ISO 75 1.8MPa
+
+Heat deflection temp.
+
+ISO 75 0.45MPa
+
+173 °C
+
+215 °C
+
+M E C H A N I C A L   P R O P E R T I E S   -   D R Y   S T A T U S
+
+P R O P E R T Y
+
+T E S T I N G   M E T H O D
+
+T Y P I C A L   V A L U E
+
+Young’s modulus (X-Y)
+
+Young’s modulus (Z)
+
+Tensile strength (X-Y)
+
+Tensile strength (Z)
+
+Elongation at break (X-Y)
+
+Elongation at break (Z)
+
+Bending modulus (X-Y)
+
+Bending modulus (Z)
+
+Bending strength (X-Y)
+
+Bending strength (Z)
+
+ISO 527, GB/T 1040
+
+ISO 527, GB/T 1040
+
+ISO 527, GB/T 1040
+
+ISO 178, GB/T 9341
+
+ISO 178, GB/T 9341
+
+Charpy impact strength (X-Y) notched
+
+Charpy impact strength (X-Y)un-notched
+
+ISO 179,  GB/T 1043
+
+Charpy impact strength (Z) un-notched
+
+*All specimens were annealed at 100°C for 16h.
+
+8636.5 ± 211.4 MPa
+
+3759.5 ± 118.5 MPa
+
+109.3 ± 2.4 MPa
+
+54.0 ± 5.2 MPa
+
+2.1 ±  0.2%
+
+1.9 ±  0.4 %
+
+7037.6  ± 205.4 MPa
+
+2975.3  ± 174.3 MPa
+
+161.0  ± 3.9 MPa
+
+71.3  ± 17.7 MPa
+
+11.0  ± 0.3 kJ/m2
+
+24.0  ± 1.0 kJ/m2
+
+7.5 ± 2.7 kJ/m2
+
+M E C H A N I C A L   P R O P E R T I E S   -   W E T   S T A T U S
+
+P R O P E R T Y
+
+T E S T I N G   M E T H O D
+
+T Y P I C A L   V A L U E
+
+Young’s modulus (X-Y)
+
+Young’s modulus (Z)
+
+Tensile strength (X-Y)
+
+Tensile strength (Z)
+
+Elongation at break (X-Y)
+
+Elongation at break (Z)
+
+Bending modulus (X-Y)
+
+Bending modulus (Z)
+
+Bending strength (X-Y)
+
+Bending strength (Z)
+
+ISO 527, GB/T 1040
+
+ISO 527, GB/T 1040
+
+ISO 527, GB/T 1040
+
+ISO 178, GB/T 9341
+
+ISO 178, GB/T 9341
+
+Charpy impact strength (X-Y) notched
+
+Charpy impact strength (X-Y)un-notched
+
+ISO 179,  GB/T 1043
+
+Charpy impact strength (Z) un-notched
+
+2508.1 ± 82.6 MPa
+
+1056.1 ± 127.9 MPa
+
+54.7 ± 1.1 MPa
+
+25.5 ± 1.2 MPa
+
+7.0 ±  0.9%
+
+6.7 ±  1.7%
+
+2286.2 ± 185.2 MPa
+
+801.1 ± 24.1 MPa
+
+64.9 ± 4.9 MPa
+
+29.2 ± 1.0 MPa
+
+35.6  ± 1.2 kJ/m2
+
+73.0  ± 2.0 kJ/m2
+
+25.2  ± 3.2 kJ/m2
+
+*All specimens were annealed at 100°C for 16h, and immerged in water at 60℃ for 48h prior to testing. The 
+average moisture content of specimens is 5.30%
+
+S H R I N K A G E   T E S T I N G
+
+D
+
+M O D E L
+S I Z E
+
+A F T E R
+P R I N T I N G
+
+A F T E R
+A N N E A L I N G
+
+Z
+
+X-Y
+
+Z
+
+40mm
+
+40mm
+
+40.10mm
+
+40.08mm
+
+39.90mm
+
+39.86mm
+
+Diameter
+
+10mm
+
+9.73mm
+
+9.71mm
+
+X-Y
+
+*Model inﬁll 30%
+
+R E C O M M E N D E D   P R I N T I N G   C O N D I T I O N S
+
+Nozzle temperature
+
+280-300 °C
+
+Printing speed  
+
+Up to 300mm/s
+
+Build plate temperature
+
+40-50 °C
+
+Drying temp. and time 
+
+100 °C/10H
+
+Chamber temperature
+
+Room Temp.
+
+Annealing temp. and time
+
+100 °C/16H
+
+PolyDissolve™ S1
+
+Cooling fan
+
+OFF
+
+Recommended 
+support material
+
+N O T E
+
+Abrasion of the brass nozzle happens frequently when printing Fiberon™ PA6-CF20. Normally, the life of a brass nozzle 
+would be approximately 9h. A wear-resistance nozzle, such as hardened steel and ruby nozzle, is highly 
+recommended to be used with Fiberon™ PA6-CF20.
+
+Fiberon™ PA6-CF20 is sensitive to moisture and should always be stored and used under dry conditions (relative 
+humidity below 20%).
+
+If Fiberon™ PA6-CF20 is used as the support material for itself, please remove the support structure before excessive 
+moisture absorption. Otherwise, the support structure can be permanently bonded to the model.
+
+After the printing process, it is recommended to anneal the model in the oven at 100°C for 16 hours. 
+
+H O W   T O   M A K E   S P E C I M E N S
+
+Printing temperature
+
+Bed temperature
+
+300 °C
+
+50 °C
+
+Inﬁll
+
+Shell
+
+Top & bottom layer
+
+3
+
+Cooling fan
+
+100%
+
+2
+
+OFF
+
+FLEXURAL TESTING SPECIMEN
+ASTM D638 (ISO 527, GB/T 1040)
+
+TENSILE TESTING SPECIMEN
+ASTM D638 (ISO 527, GB/T 1040)
+
+IMPACT TESTING SPECIMEN
+ASTM D638 (ISO 179, GB/T 1043)
+
+80.00
+60.00
+
+150.00
+
+114.00
+
+80.00
+
+80.00
+
+45.00°
+
+0
+0
+.
+0
+1
+
+0
+0
+.
+4
+
+Z axis
+
+0
+0
+0
+2
+
+.
+
+0
+0
+.
+4
+
+4*R25
+
+Z axis
+
+0
+0
+0
+1
+
+.
+
+0
+0
+.
+0
+1
+
+0
+0
+.
+4
+
+Z axis
+
+Impact direction
+
+D I S C L A I M E R
+
+The typical values presented in this data sheet are intended for reference and comparison purposes only. They should not be used for design speciﬁcations or quality 
+control purposes. Actual values may vary signiﬁcantly with printing conditions. End- use performance of printed parts depends not only on materials, but also on part 
+design, environmental conditions, printing conditions, etc. 
+Product speciﬁcations are subject to change without notice. Each user is responsible for determining the safety, lawfulness, technical suitability, and disposal/ 
+recycling practices of Polymaker materials for the intended application. Polymaker makes no warranty of any kind, unless announced separately, to the ﬁtness for any 
+use or application. Polymaker shall not be made liable for any damage, injury or loss induced from the use of Polymaker materials in any application.
+
+M A T E R I A L S   C O M P A R I S O N
+
+Heat resistance - Stiffness
+
+F I B E R O N   W E B S I T E
+
+ 

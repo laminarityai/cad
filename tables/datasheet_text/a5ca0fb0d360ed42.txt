@@ -1,0 +1,34 @@
+url: https://store.bblcdn.com/s1/default/58b85d0f3db94878854a28fdb8a0006e/Bambu_PLA_Basic_Technical_Data_Sheet.pdf
+Printing Speed < 300 mm/s 
+Retraction Length 0.6 - 1.0 mm 
+Retraction Speed 20 - 40 mm/s 
+Chamber Temperature 25 - 45 °C 
+Max Overhang Angle 55° 
+Max Bridging Length 30 mm 
+Support Material Support for PLA 
+ 
+• Properties 
+Bambu Lab has tested the differing aspects in the performance of PLA Basic material, including 
+physical, mechanical, and chemical properties. Typical values are listed as followed: 
+ 
+Physical Properties 
+Subjects Testing Methods Data 
+Density ISO 1183 1.24 g/cm³ 
+Melt Index 210 ° C, 2.16 kg 23.2 ± 3.5 g/10 min 
+Melting Temperature DSC, 10 ° C/min 160 °C 
+Glass Transition Temperature DSC, 10 ° C/min 60 °C 
+Crystallization Temperature DSC, 10 ° C/min N / A 
+Vicar Softening Temperature ISO 306, GB/T 1633 57 °C 
+Heat Deflection Temperature ISO 75 1.8 MPa 54 °C 
+Heat Deflection Temperature ISO 75 0.45 MPa 57 °C 
+Saturated Water Absorption Rate 25 ° C, 55% RH 0.43% 
+ 
+Mechanical Properties 
+Subjects Testing Methods Data 
+Young's Modulus (X-Y) ISO 527, GB/T 1040 2580 ± 220 MPa 
+Young's Modulus (Z) ISO 527, GB/T 1040 2060 ± 170 MPa 
+Tensile Strength (X-Y) ISO 527, GB/T 1040 35 ± 4 MPa 
+Tensile Strength (Z) ISO 527, GB/T 1040 31 ± 3 MPa 
+Breaking Elongation Rate (X-Y) ISO 527, GB/T 1040 12.2 ± 1.8 % 
+Breaking Elongation Rate (Z) ISO 527, GB/T 1040 7.5 ± 1.3 % 
+Bending Modulus (X-Y) ISO 178, GB/T 9341 2750 ± 160 MPa 

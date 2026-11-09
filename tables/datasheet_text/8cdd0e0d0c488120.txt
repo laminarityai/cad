@@ -1,0 +1,47 @@
+url: https://cdn.shopify.com/s/files/1/0548/7299/7945/files/PolyMax_PC_TDS_EN_V5.4.pdf?v=1731958090
+ 
+ 
+PolyMax™️   
+PC 
+ 
+PolyMax™ PC is an engineered PC filament combining excellent strength, toughness, 
+heat resistance and printing quality. It is the ideal choice for a wide range of 
+engineering applications. 
+PHYSICAL PROPERTIES 
+ 
+CHEMICAL RESISTANCE DATA 
+Note:  
+- Good: Material may get minor attack after long periods of storage with chemical at ambient temperature 
+- Fair: Material can be used for short time contact with chemical at ambient temperature 
+- Poor: Material becomes unstable on contact with chemical at ambient temperature 
+ 
+ MOISTURE ABSORPTION  CURVE 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Property Testing Method Typical Value 
+Density ISO1183, GB/T1033 1.19 g/cm3 at 23°C 
+Melt index 260°C, 1.2 kg 6-8 g/10min 
+Light transmission N/A N/A 
+Flame retardancy  N/A N/A 
+Property Typical Value 
+Effect of weak acids Good 
+Effect of strong acids Poor 
+Effect of weak alkalis Fair 
+Effect of strong alkalis Poor 
+Effect of oils and grease Good 
+Equilibrium water absorption (%)= 0.253% 

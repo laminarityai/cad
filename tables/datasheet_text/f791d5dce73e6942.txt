@@ -1,0 +1,511 @@
+url: https://aurubis.com/dam/jcr:ec116d17-1541-419a-a897-ad31b4fa6c93/c11000-cu-etp-us.pdf
+Technical Datasheet C11000 
+ 
+This leaflet is for general information only. No claims can be derived from it unless there is evidence of intent or gross negligence. The data given are no 
+warranty that the product is of a specified quality and they cannot replace expert advice or the customer’s own test.  
+ 
+Aurubis.com 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+Cu* 
+ 
+[%] 
+      
+99.90 min       
+*) Incl. Ag       
+Melting 
+point 
+ 
+ 
+[°F] 
+[°C] 
+Density 
+ 
+ 
+ 
+[lb/in³] 
+[g/cm³] 
+Specific 
+heat cap. 
+at 20°C 
+ 
+[Btu/lb°F] 
+[kJ/kgK] 
+Electrical 
+cond. 
+ 
+ 
+[%IACS]  
+[MS/m] 
+Thermal 
+cond. at 
+20°C 
+ 
+[Btu/ft h °F] 
+[W/mK] 
+Mod. of 
+elasticity 
+ 
+ 
+x1000 ksi 
+[GPa] 
+Coef. of 
+therm exp. 
+at 20°C 
+ 
+[10-6/°F] 
+[10-6/K] 
+1981 
+1083 
+0.323 
+8.9 
+0.092 
+0.394 
+100 
+58 
+226 
+391 
+17 
+117 
+9.8 
+17.6 
+ Tensile 
+strength 
+Rm 
+ 
+[ksi] 
+[MPa] 
+Yield 
+strength 
+Rp0.2 
+nominal 
+[ksi] 
+[MPa] 
+Elon-
+gation 2” 
+ 
+nominal 
+ 
+[%] 
+Hard-ness 
+  
+ 
+nominal 
+HR30T 
+HV 
+min bend 
+ratio  
+90° 
+min. bend 
+ratio  
+180° 
+GW BW GW BW 
+Soft 26-38 179-262 10 69 35  0.0 0.0 0.0 0.0 
+H02 (1/2H) 37-46 255-317 37 255 20 50 90 0.0 0.5 0.0 1.0 
+H04 (H) 43-52 297-359 45 310 8 58 100 1.0 2.0 2.0 3.0 
+H06 (EH) 47-56 324-386 50 349 3 60 105 2.0 3.0 2.5  
+H08 (SH) 50-58 345-400 52 359 3 63 110 3.0  4.0  
+H10 (ES) 52 min 359 min 54 373 2 61 min 112 min     
+C11000 (Cu-ETP) 
+Comparable standards: 
+18 08  US
+Aurubis designations: C110 ● PNA211 
+UNS C11000 ● EN CW004A ● JIS C110 
+Electrolytic Tough Pitch Copper (ETP) is the most widely used of the coppers because of 
+its combination of electrical and thermal conductivity, corrosion resistance, workability and 
+aesthetic beauty. The superb corrosion resistance makes it a favored material for building 
+applications and when exposed to weather for long periods, even centuries, this copper will 
+develop a relatively impervious protective film which eventually becomes the familiar green 
+patina of weathered copper. The beauty and ease of finishing make this copper a favorite 
+for articles in the home. 
+Description 
+Composition 
+Mechanical  
+properties 
+Physical  
+properties 
+Other tempers are available upon request. 
+GW bend axis transverse to rolling direction. BW bend axis parallel to rolling direction 
+ 
+The specified conductivity applies to the soft condition only Technical Datasheet C11000 
+
+C11000 (Cu-ETP) 
+
+Comparable standards: 
+Aurubis designations: 
+
+UNS C11000 ● EN CW004A ● JIS C110 
+C110 ● PNA211 
+
+18 08  US
+
+Description 
+
+Electrolytic Tough Pitch Copper (ETP) is the most widely used of the coppers because of 
+its combination of electrical and thermal conductivity, corrosion resistance, workability and 
+aesthetic beauty. The superb corrosion resistance makes it a favored material for building 
+applications and when exposed to weather for long periods, even centuries, this copper will 
+develop a relatively impervious protective film which eventually becomes the familiar green 
+patina of weathered copper. The beauty and ease of finishing make this copper a favorite 
+for articles in the home. 
+
+Composition 
+
+Cu* 
+
+[%] 
+99.90 min 
+*) Incl. Ag 
+
+Physical  
+properties 
+
+Melting 
+point 
+
+Density 
+
+[°F] 
+[°C] 
+1981 
+1083 
+
+[lb/in³] 
+[g/cm³] 
+0.323 
+8.9 
+
+Specific 
+heat cap. 
+at 20°C 
+
+[Btu/lb°F] 
+[kJ/kgK] 
+0.092 
+0.394 
+
+Electrical 
+cond. 
+
+Thermal 
+cond. at 
+20°C 
+
+Mod. of 
+elasticity 
+
+Coef. of 
+therm exp. 
+at 20°C 
+
+[%IACS]  
+[MS/m] 
+100 
+58 
+
+[Btu/ft h °F] 
+[W/mK] 
+226 
+391 
+
+x1000 ksi 
+[GPa] 
+17 
+117 
+
+[10-6/°F] 
+[10-6/K] 
+9.8 
+17.6 
+
+Mechanical  
+properties 
+
+The specified conductivity applies to the soft condition only 
+
+Tensile 
+strength 
+Rm 
+
+[ksi] 
+[MPa] 
+26-38 
+179-262 
+37-46 
+255-317 
+43-52 
+297-359 
+47-56 
+324-386 
+50-58 
+345-400 
+52 min 
+359 min 
+
+Yield 
+strength 
+Rp0.2 
+nominal 
+[ksi] 
+[MPa] 
+10 
+69 
+37 
+255 
+45 
+310 
+50 
+349 
+52 
+359 
+54 
+373 
+
+Elon-
+gation 2” 
+
+nominal 
+
+[%] 
+
+35 
+
+20 
+
+8 
+
+3 
+
+3 
+
+2 
+
+Soft 
+
+H02 (1/2H) 
+
+H04 (H) 
+
+H06 (EH) 
+
+H08 (SH) 
+
+H10 (ES) 
+
+Hard-ness 
+
+min bend 
+ratio  
+90° 
+
+min. bend 
+ratio  
+180° 
+
+nominal 
+HR30T 
+HV 
+
+50 
+90 
+58 
+100 
+60 
+105 
+63 
+110 
+61 min 
+112 min 
+
+GW  BW  GW  BW 
+
+0.0 
+
+0.0 
+
+0.0 
+
+0.0 
+
+0.0 
+
+0.5 
+
+0.0 
+
+1.0 
+
+1.0 
+
+2.0 
+
+2.0 
+
+3.0 
+
+2.0 
+
+3.0 
+
+2.5 
+
+3.0 
+
+4.0 
+
+Other tempers are available upon request. 
+GW bend axis transverse to rolling direction. BW bend axis parallel to rolling direction 
+
+This leaflet is for general information only. No claims can be derived from it unless there is evidence of intent or gross negligence. The data given are no 
+warranty that the product is of a specified quality and they cannot replace expert advice or the customer’s own test. 
+
+Aurubis.com 
+
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+  
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
