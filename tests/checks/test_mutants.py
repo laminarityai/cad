@@ -26,6 +26,12 @@ OVERLAPPING_BOXES = (
     STAR_IMPORT + "result = Compound([Box(10, 10, 10), Pos(5, 5, 5) * Box(10, 10, 10)])\n"
 )
 OPEN_SHELL = STAR_IMPORT + "result = Shell(Box(10, 10, 10).faces()[:-1])\n"
+INSIDE_OUT_BOX = STAR_IMPORT + "result = Solid(Box(10, 10, 10).wrapped.Reversed())\n"
+INSIDE_OUT_IN_GOOD_BOX = (
+    STAR_IMPORT
+    + "inner = Solid(Box(10, 10, 10).wrapped.Reversed())\n"
+    + "result = Compound([Box(20, 20, 20), inner])\n"
+)
 
 type Check = Callable[..., CheckRun]
 
@@ -79,6 +85,20 @@ def test_two_overlapping_boxes_fail_both_checks_with_the_overlap_volume(check: C
     assert "solids 0 and 1 share 125 mm^3" in interference.reason
 
 
+def test_an_inside_out_box_fails_closed_solid(check: Check) -> None:
+    run = check(INSIDE_OUT_BOX)
+    closed = run.result("closed_solid")
+    assert closed.verdict == Verdict.FAIL, closed.reason
+    assert (count(run, "solids"), count(run, "inside_out_solids")) == (1, 1)
+    assert "1 solids have a volume of 0 or less" in closed.reason
+
+
+def test_an_inside_out_box_in_a_good_box_is_counted_per_solid(check: Check) -> None:
+    run = check(INSIDE_OUT_IN_GOOD_BOX)
+    assert run.result("closed_solid").verdict == Verdict.FAIL
+    assert (count(run, "solids"), count(run, "inside_out_solids")) == (2, 1)
+
+
 @pytest.mark.parametrize(
     "shape", ["Sphere(10)", "Cylinder(5, 10)", "Torus(20, 5)"], ids=["sphere", "cylinder", "torus"]
 )
@@ -91,8 +111,24 @@ def test_a_seam_or_a_degenerated_edge_is_not_a_free_edge(shape: str, check: Chec
 
 @pytest.mark.parametrize(
     "code",
-    [PLATE_SHELL, PLATE_TWO, OPEN_SHELL, OVERLAPPING_BOXES, LOOSE_FACE, SOLID_AND_CLOSED_SHELL],
-    ids=["plate_shell", "plate_two", "open_shell", "overlapping_boxes", "loose_face", "and_shell"],
+    [
+        PLATE_SHELL,
+        PLATE_TWO,
+        OPEN_SHELL,
+        OVERLAPPING_BOXES,
+        LOOSE_FACE,
+        SOLID_AND_CLOSED_SHELL,
+        INSIDE_OUT_BOX,
+    ],
+    ids=[
+        "plate_shell",
+        "plate_two",
+        "open_shell",
+        "overlapping_boxes",
+        "loose_face",
+        "and_shell",
+        "inside_out",
+    ],
 )
 def test_mass_is_unknown_with_no_number_when_closed_solid_does_not_pass(
     code: str, check: Check

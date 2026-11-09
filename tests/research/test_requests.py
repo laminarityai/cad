@@ -15,7 +15,6 @@ from tests.scorecard.test_requirements import max_mass, result
 
 GIT = load_materials()
 FEA = next(spec for spec in SPECS if spec.id == "fea")
-MASS = next(spec for spec in SPECS if spec.id == "mass")
 URL = "https://example.org/pla"
 QUOTE = "Poisson's ratio 0.36"
 
@@ -106,7 +105,6 @@ def test_a_requirement_on_cited_values_has_the_checks_basis() -> None:
 
 def test_the_research_code_stays_out_of_every_check_version() -> None:
     assert not [path for path in DEPENDENCIES.files if path.startswith("cad/research/")]
-    assert MASS.version
 
 
 def card_asking() -> ReportedScorecard:

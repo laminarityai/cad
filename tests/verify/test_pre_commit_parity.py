@@ -1,12 +1,9 @@
 import shlex
-from collections.abc import Mapping
 from pathlib import Path
 
 from cad.verify.steps import STEPS
 
 PRE_COMMIT_CONFIG = Path(__file__).resolve().parents[2] / ".pre-commit-config.yaml"
-
-NOT_RUN_AT_COMMIT: Mapping[str, str] = {}
 
 VERIFY_ONLY = ["uv", "run", "verify", "--only"]
 
@@ -25,9 +22,5 @@ def hook_step_names() -> list[str]:
 
 
 def test_pre_commit_runs_every_verify_step_once() -> None:
-    expected = sorted(step.name for step in STEPS if step.name not in NOT_RUN_AT_COMMIT)
+    expected = sorted(step.name for step in STEPS)
     assert sorted(hook_step_names()) == expected
-
-
-def test_exclusions_name_real_steps() -> None:
-    assert {step.name for step in STEPS} >= NOT_RUN_AT_COMMIT.keys()
