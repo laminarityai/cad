@@ -12,7 +12,7 @@ from solids import (
     through_hole,
 )
 
-from cad.checks.container import anchors
+from cad.checks.container import anchors, fea
 from cad.checks.container.anchors import (
     Bore,
     FarFrom,
@@ -225,6 +225,12 @@ def test_both_flat_ends_of_a_bar_are_candidates_and_a_rounded_end_is_not() -> No
     assert sorted(plane(c.support).point[0] for c in ends) == pytest.approx([0, 100])
     (end,) = must(ROUNDED_BAR, case(FLAT_END)).candidates
     assert plane(end.support).normal == pytest.approx((-1, 0, 0))
+
+
+def test_a_flat_face_support_clamps_a_face_and_a_bolted_support_does_not() -> None:
+    assert fea.clamps_a_face(must(BAR, case(FLAT_END)))
+    assert fea.clamps_a_face(must(PLATE, case(LARGEST_FLAT)))
+    assert not fea.clamps_a_face(must(PLATE, case(holes(2))))
 
 
 def test_a_part_with_isotropic_inertia_has_no_long_axis() -> None:

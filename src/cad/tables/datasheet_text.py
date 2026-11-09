@@ -108,7 +108,10 @@ def citations(table: MaterialsTable) -> Iterator[Citation]:
 def written_in(value: Decimal, quote: str) -> bool:
     """Whether some number in the quote, read with "." or "," as its decimal mark or as digit
     grouping, equals `value`: 1.24 is written in "1,24 g/cm3" and 8960 in "8 960 kg/m3".
-    "193 x 103" is 193000, never 193 or 103: a PDF text layer drops the raise of 10³."""
+    "193 x 103" is 193000, never 193 or 103: a PDF text layer drops the raise of 10³.
+
+    The power-of-ten reading also matches a dimension such as "3 x 104 mm", which reads as 30000.
+    No current row is affected, and the quote check alone does not catch it."""
     return any(reading == value for reading in _readings(fold(quote)))
 
 

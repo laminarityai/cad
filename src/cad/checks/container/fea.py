@@ -4,7 +4,7 @@ from datetime import date
 from typing import Final
 
 from cad.checks.container import anchors, closed_solid, interference
-from cad.checks.container.anchors import Bore, Candidate, Resolved, Unresolved
+from cad.checks.container.anchors import Bore, Candidate, Plane, Resolved, Unresolved
 from cad.checks.container.calculix import Material, NodalField, SolveFailed
 from cad.checks.container.check import (
     DIMENSIONLESS,
@@ -86,6 +86,10 @@ ERROR_BOUNDS = {
 }
 
 KEEP_OUT_DIAMETERS: Final = 0.5
+CLAMPED_FACE_NOTE: Final = (
+    "Peak stress next to a clamped face can read high on short parts, so the stress and the "
+    "safety factor here are conservative."
+)
 LARGE_DISPLACEMENT_FRACTION: Final = 0.05
 TOL_FRACTION: Final = 1e-4
 
@@ -133,7 +137,15 @@ def run(subject: Subject) -> FindingWire:
     fine = solve_at(subject.fem, sizes.fine, resolved, material, force)
     if isinstance(fine, Unsolved):
         return finding("unknown", fine.reason, *echoed)
-    return judged(coarse, fine, yield_mpa, anchors.extent(inertia), echoed)
+    return judged(coarse, fine, yield_mpa, anchors.extent(inertia), echoed, clamps_a_face(resolved))
+
+
+def clamps_a_face(resolved: Resolved) -> bool:
+    return any(
+        isinstance(patch, Plane)
+        for candidate in resolved.candidates
+        for patch in candidate.support.patches
+    )
 
 
 def judged(
@@ -142,6 +154,7 @@ def judged(
     yield_mpa: float | None,
     part_extent: float,
     echoed: Sequence[MeasuredWire],
+    clamped_face: bool,
 ) -> FindingWire:
     change = abs(fine.peaks.displacement - coarse.peaks.displacement) / fine.peaks.displacement
     measured = [
@@ -172,7 +185,11 @@ def judged(
         f"by {change:.1%}"
     )
     if yield_mpa is None:
-        return finding("pass", f"{reason}; no yield strength, so no safety factor", *measured)
+        reason = f"{reason}; no yield strength, so no safety factor"
+    if clamped_face:
+        reason = f"{reason}. {CLAMPED_FACE_NOTE}"
+    if yield_mpa is None:
+        return finding("pass", reason, *measured)
     return finding(
         "pass",
         reason,
