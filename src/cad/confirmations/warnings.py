@@ -71,7 +71,7 @@ def _bounds(requirements: tuple[Requirement, ...], table: MaterialsTable) -> tup
 
 
 def _conflict(state: BriefState, bounds: Bounds, requirements: tuple[Requirement, ...]) -> Conflict:
-    named = {one.id: one for one in requirements}
+    named: dict[str, Requirement] = {one.id: one for one in requirements}
     cited = tuple(
         Cited(
             describe(named[rid]), state.brief.text[named[rid].origin.start : named[rid].origin.end]
