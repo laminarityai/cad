@@ -1,8 +1,10 @@
 import hashlib
+import json
 from collections.abc import Mapping
 from datetime import UTC, datetime
 from functools import cache
 from pathlib import Path
+from typing import Any
 
 import pint
 import pytest
@@ -26,7 +28,6 @@ from cad.records import signed
 from cad.records.roots import Roots
 from cad.scorecard.model import Basis, NoBrief, Scorecard
 from cad.scorecard.requirements import against
-from cad.scorecard.score import SCORECARD
 from cad.tables.materials import UNITS, Known, MaterialsTable, load_materials
 
 KEY = "prusament-pla"
@@ -172,9 +173,32 @@ def reasons(traced: CardTrace, kind: type[Stale] | type[Unresolved], label: str 
     ]
 
 
-def put(root: Path, card: Scorecard | str) -> None:
-    text = card if isinstance(card, str) else card.model_dump_json(indent=2) + "\n"
-    (root / VARIANT_ID / SCORECARD).write_text(text)
+def transcript_of(root: Path) -> Path:
+    return root.parent / "transcript.json"
+
+
+def write_transcript(root: Path, *cards: Scorecard | str) -> None:
+    """Write the transcript of a session whose scorecard calls returned `cards`, in order."""
+    events: list[dict[str, Any]] = []
+    for number, card in enumerate(cards):
+        text = card if isinstance(card, str) else card.model_dump_json(indent=2)
+        call = f"call-{number}"
+        use: dict[str, Any] = {
+            "type": "tool_use",
+            "id": call,
+            "name": "mcp__cad__score_variant",
+            "input": {},
+        }
+        result = {
+            "type": "tool_result",
+            "tool_use_id": call,
+            "content": [{"type": "text", "text": text}],
+        }
+        events += [
+            {"type": "assistant", "message": {"content": [use]}},
+            {"type": "user", "message": {"content": [result]}},
+        ]
+    transcript_of(root).write_text(json.dumps(events))
 
 
 def lines(capsys: pytest.CaptureFixture[str]) -> str:

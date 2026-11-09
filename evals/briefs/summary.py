@@ -35,7 +35,7 @@ def _row(one: BriefResult) -> str:
     return (
         f"| {one.id} | {one.domain} | {verdict} | {strict} | {coverage} "
         f"| {one.friction.confirmation_pages} "
-        f"| {_number(one.friction.minutes_to_first_scorecard)} | {cost} |"
+        f"| {_number(one.friction.minutes_to_first_result)} | {cost} |"
     )
 
 
@@ -49,7 +49,7 @@ class Overall(Frozen):
     strict_pass: Share
     coverage: Share
     median_confirmation_pages: float | None
-    median_minutes_to_first_scorecard: float | None
+    median_minutes_to_first_result: float | None
     cost_usd: float
 
 
@@ -62,9 +62,9 @@ def summarize(results: Sequence[BriefResult], missing: Sequence[str], model: str
     finished = [one for one in results if one.status == "finished"]
     traces = [one.trace for one in finished if one.trace is not None]
     minutes = [
-        one.friction.minutes_to_first_scorecard
+        one.friction.minutes_to_first_result
         for one in finished
-        if one.friction.minutes_to_first_scorecard is not None
+        if one.friction.minutes_to_first_result is not None
     ]
     pages = [float(one.friction.confirmation_pages) for one in finished]
     overall = Overall(
@@ -77,7 +77,7 @@ def summarize(results: Sequence[BriefResult], missing: Sequence[str], model: str
         strict_pass=pooled([one.strict_pass for one in traces]),
         coverage=pooled([one.coverage for one in traces]),
         median_confirmation_pages=statistics.median(pages) if pages else None,
-        median_minutes_to_first_scorecard=statistics.median(minutes) if minutes else None,
+        median_minutes_to_first_result=statistics.median(minutes) if minutes else None,
         cost_usd=sum(one.cost_usd or 0.0 for one in results),
     )
     return Summary(overall=overall, briefs=tuple(results))
@@ -95,7 +95,7 @@ def markdown(summary: Summary, missing: Sequence[str]) -> str:
         f"strict pass rate: {percent(overall.strict_pass)}",
         f"requirements covered by reviewed checks: {percent(overall.coverage)}",
         f"confirmation pages per brief: median {_number(overall.median_confirmation_pages)}",
-        f"minutes to first scorecard: median {_number(overall.median_minutes_to_first_scorecard)}",
+        f"minutes to first result: median {_number(overall.median_minutes_to_first_result)}",
         f"cost: ${overall.cost_usd:.2f}",
         "",
         "| brief | domain | trace | strict pass | covered | pages | minutes | cost |",
