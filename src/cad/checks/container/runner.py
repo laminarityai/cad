@@ -54,18 +54,30 @@ class BrepFem:
 
 
 def run(
-    request: RequestWire, brep: bytes, kernel: Kernel, report_cap: int, fem: Fem | None = None
+    request: RequestWire, stdin: bytes, kernel: Kernel, report_cap: int, fem: Fem | None = None
 ) -> CheckedReport:
+    brep, context = _split(stdin, request["context_bytes"], kernel)
     shape = kernel.read_brep(brep)
     engines = BrepFem(brep) if fem is None else fem
     results: list[ResultWire] = []
     for check in with_requirements(request["checks"]):
         reported = {result["id"]: result for result in results}
         inputs = Inputs(check.TAKES, request["values"], tuple(request["load_cases"]))
-        subject = Subject(kernel, engines, shape, inputs, reported)
+        subject = Subject(kernel, engines, shape, inputs, reported, context)
         results.append(_run_check(check.ID, check.run, subject))
     room = _step_room(results, report_cap)
     return {"kind": "checked", "results": results, "step": _step(kernel, shape, room)}
+
+
+def _split(
+    stdin: bytes, context_bytes: int, kernel: Kernel
+) -> tuple[bytes, Shape | Unreadable | None]:
+    if context_bytes == 0:
+        return stdin, None
+    if not 0 < context_bytes <= len(stdin):
+        return stdin, Unreadable(f"the host named {context_bytes} context bytes of {len(stdin)}")
+    cut = len(stdin) - context_bytes
+    return stdin[:cut], kernel.read_brep(stdin[cut:])
 
 
 def _run_check(

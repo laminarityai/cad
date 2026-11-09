@@ -18,17 +18,19 @@ from cad.briefs.model import (
     ClosedSolid,
     Envelope,
     MadeOf,
+    MaxClearance,
     MaxDeflection,
     MaxMass,
     MeasureLimit,
+    MinClearance,
     MinMass,
     MinSafetyFactor,
     Requirement,
     Unchecked,
     amount,
-    describe,
     requirement_id,
 )
+from cad.briefs.words import describe
 from cad.confirmations.answers import Edit
 from cad.tables.materials import UNITS
 
@@ -101,6 +103,8 @@ def placeholder(requirement: Requirement) -> str | None:
             return amount(target.mass)
         case MaxDeflection():
             return amount(target.deflection)
+        case MinClearance() | MaxClearance():
+            return amount(target.clearance)
         case Envelope():
             return " x ".join(amount(edge) for edge in target.edges)
         case _:
@@ -139,6 +143,9 @@ def _edited(requirement: Requirement, text: str) -> Requirement | str:
             case MaxDeflection():
                 [deflection] = _quantities(text, LENGTH)
                 new = MaxDeflection(load=target.load, deflection=deflection)
+            case MinClearance() | MaxClearance():
+                [clearance] = _quantities(text, LENGTH)
+                new = type(target)(part=target.part, clearance=clearance)
             case Envelope():
                 edges = _quantities(text, BOX)
                 new = Envelope.model_validate({"edges": edges})

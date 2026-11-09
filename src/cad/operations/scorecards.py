@@ -7,9 +7,12 @@ from cad.agent_measurements import run as own
 from cad.briefs import store as briefs
 from cad.briefs.store import ConfirmedSet
 from cad.checks import jobs
+from cad.context_parts.ids import ContextPartId
+from cad.context_parts.store import confirmed_parts, part_brep
 from cad.operations.guidance import NOT_VERIFIED, RULE
 from cad.operations.model import BOTH, Audience, Input, Tenant, operation
 from cad.operations.research import brief_table, with_research
+from cad.records.roots import Roots
 from cad.research.overlay import ProjectTable
 from cad.scorecard import material, requirements, score
 from cad.tables.materials import KEY_PATTERN
@@ -41,6 +44,12 @@ SCORE_VARIANT = (
     "with pending checks is not finished: do not state a pending check's result, and call "
     "score_variant again with the same arguments to wait for it. fea states its error: a "
     "measure within that error of a confirmed limit leaves the requirement unknown. "
+    "With a brief_id, each context part confirmed in the brief's project also runs the fit "
+    "check in the background, against the variant as built, so build it in the part's frame. "
+    "Its result carries the part_id as instance and measures overlap_volume and "
+    "min_clearance: it fails when the variant overlaps the part, and it decides each "
+    "min_clearance and max_clearance requirement on that part. A clearance requirement whose "
+    "part is not confirmed is unknown. Without brief_id no fit runs. "
     "When an earlier version of the sandbox stored the variant, score_variant rebuilds its "
     "stored code first and scores the new variant: the scorecard's variant_id is the new id, "
     "and rebuilt_from is the id you passed. It rebuilds even when the earlier build failed, "
@@ -121,15 +130,25 @@ class Judged:
     material_key: str
 
 
+def _context(roots: Roots, brief_id: str) -> dict[ContextPartId, jobs.PartBrep]:
+    project = briefs.read_brief(roots, brief_id).project
+    return {
+        part.record.id: jobs.PartBrep(part.record.brep_sha256, part_brep(roots.projects, part))
+        for part in confirmed_parts(roots.projects, project)
+    }
+
+
 def judged(tenant: Tenant, brief_id: str | None, material_key: str) -> Judged:
     confirmed = None
     assess, demand = score.no_brief, score.NO_DEMAND
     if brief_id is not None:
         confirmed = briefs.confirmed_requirements(tenant.roots, brief_id)
-        if confirmed is None:
-            assess = requirements.awaiting(brief_id)
-        else:
-            assess, demand = requirements.against(confirmed), requirements.demand(confirmed)
+        assess = (
+            requirements.awaiting(brief_id)
+            if confirmed is None
+            else requirements.against(confirmed)
+        )
+        demand = requirements.demand(confirmed, _context(tenant.roots, brief_id))
     table = brief_table(tenant.roots, brief_id)
     key = table.table.row_key(material_key)
     material.refuse_other_material(confirmed, key, table.table)

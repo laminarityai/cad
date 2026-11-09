@@ -13,9 +13,9 @@ from cad.briefs.model import (
     RequirementId,
     Target,
     deciding_check,
-    describe,
     limits,
 )
+from cad.briefs.words import describe
 from cad.checks.container import extents
 from cad.checks.report import SPECS
 from cad.checks.result import Comparator
@@ -47,6 +47,8 @@ def grams(magnitude: float, unit: str = "g") -> dict[str, Any]:
         {"kind": "unchecked", "statement": "holds a shelf", "comparator": "at_most"},
         {"kind": "max_mass", "mass": grams(1), "comparator": "at_least"},
         {"kind": "max_mass", "status": "confirmed", "mass": grams(1)},
+        {"kind": "min_clearance", "part": "rail", "clearance": grams(0.2, "mm")},
+        {"kind": "min_clearance", "part": "part-" + "a" * 16, "clearance": grams(0.2)},
         {"kind": "warp_drive"},
     ],
 )
@@ -79,6 +81,8 @@ def test_every_kind_has_one_deciding_check_or_is_unverified() -> None:
         Kind.MADE_OF: None,
         Kind.MIN_SAFETY_FACTOR: "fea",
         Kind.MAX_DEFLECTION: "fea",
+        Kind.MIN_CLEARANCE: "fit",
+        Kind.MAX_CLEARANCE: "fit",
     }
 
 
@@ -140,6 +144,7 @@ LOAD: dict[str, Any] = {
     "support": {"kind": "flat_end"},
     "load": {"kind": "far_end", "force": grams(10, "N"), "direction": {"kind": "any"}},
 }
+PART = "part-" + "a" * 16
 EXAMPLES: dict[Kind, dict[str, Any]] = {
     Kind.CLOSED_SOLID: {"kind": "closed_solid"},
     Kind.MAX_MASS: {"kind": "max_mass", "mass": grams(150)},
@@ -156,6 +161,8 @@ EXAMPLES: dict[Kind, dict[str, Any]] = {
     Kind.MADE_OF: {"kind": "made_of", "material": "prusament-pla"},
     Kind.MIN_SAFETY_FACTOR: {"kind": "min_safety_factor", "load": LOAD, "factor": 2},
     Kind.MAX_DEFLECTION: {"kind": "max_deflection", "load": LOAD, "deflection": grams(2, "mm")},
+    Kind.MIN_CLEARANCE: {"kind": "min_clearance", "part": PART, "clearance": grams(0.2, "mm")},
+    Kind.MAX_CLEARANCE: {"kind": "max_clearance", "part": PART, "clearance": grams(0.5, "mm")},
 }
 
 

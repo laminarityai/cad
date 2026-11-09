@@ -121,6 +121,11 @@ class Kernel(Protocol):
 
     def common_volume(self, first: Shape, second: Shape) -> float | None: ...
 
+    def min_distance(self, first: Shape, second: Shape) -> float | None:
+        """BRepExtrema_DistShapeShape's minimum, or None when it is not done. On the pinned OCP a
+        solid nested inside another gives 0.0, so fit decides overlap with common_volume first."""
+        ...
+
     def step_bytes(self, shape: Shape, cap: int) -> bytes | StepTooLarge:
         """The writer numbers PRODUCT names per process, so a second call raises: one
         container writes one STEP, which keeps the bytes stable."""

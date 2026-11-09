@@ -4,7 +4,8 @@ from typing import Any
 import pytest
 from pydantic import TypeAdapter
 
-from cad.briefs.model import BriefId, BriefSpan, Requirement, RequirementId, Target, describe
+from cad.briefs.model import BriefId, BriefSpan, Requirement, RequirementId, Target
+from cad.briefs.words import describe
 from cad.checks.report import SPECS, unknown_for_all
 from cad.checks.result import CheckResult, Measure, Verdict
 from cad.scorecard import requirements
@@ -277,4 +278,60 @@ def test_a_requirement_whose_fea_job_is_still_running_is_waiting() -> None:
     )
     assert requirements.judge(given, (*suite(), pending)) == Waiting(
         requirement_id=given.id, statement=describe(given), check_id="fea"
+    )
+
+
+RAIL = "part-" + "a" * 16
+
+
+def clearance(kind: str, mm: float, part: str = RAIL) -> Requirement:
+    return requirement({"kind": kind, "part": part, "clearance": quantity(mm, "mm")})
+
+
+def fitted(mm: float, verdict: Verdict = Verdict.PASS, part: str = RAIL) -> CheckResult:
+    found = result("fit", verdict, overlap_volume=(0.0, "mm^3"), min_clearance=(mm, "mm"))
+    return found.model_copy(update={"instance": part})
+
+
+@pytest.mark.parametrize(
+    ("given", "measured", "verdict"),
+    [
+        (clearance("min_clearance", 0.2), 0.5, Verdict.PASS),
+        (clearance("min_clearance", 0.2), 0.2, Verdict.PASS),
+        (clearance("min_clearance", 0.2), 0.1, Verdict.FAIL),
+        (clearance("max_clearance", 0.5), 0.5, Verdict.PASS),
+        (clearance("max_clearance", 0.5), 40.0, Verdict.FAIL),
+    ],
+)
+def test_a_clearance_is_held_against_the_fit_result_for_its_own_part(
+    given: Requirement, measured: float, verdict: Verdict
+) -> None:
+    results = (*suite(), fitted(99.0, part="part-" + "b" * 16), fitted(measured))
+    judged = checked(requirements.judge(given, results))
+    assert (judged.check_id, judged.verdict) == ("fit", verdict)
+
+
+def test_a_clearance_on_a_part_with_no_fit_result_is_unknown_not_an_error() -> None:
+    given = clearance("min_clearance", 0.2)
+    judged = checked(requirements.judge(given, (*suite(), fitted(0.5, part="part-" + "b" * 16))))
+    assert (judged.verdict, judged.reason) == (
+        Verdict.UNKNOWN,
+        "The context part is not confirmed, so the fit check did not measure against it.",
+    )
+    assert [one.verdict for one in judged.comparisons] == [Verdict.UNKNOWN]
+
+
+@pytest.mark.parametrize("kind", ["min_clearance", "max_clearance"])
+def test_an_overlap_fails_any_clearance_on_that_part(kind: str) -> None:
+    overlapping = fitted(0.0, Verdict.FAIL)
+    judged = checked(requirements.judge(clearance(kind, 0.5), (*suite(), overlapping)))
+    assert (judged.verdict, judged.reason) == (Verdict.FAIL, requirements.OVERLAPS)
+
+
+def test_the_page_names_the_part_and_the_clearance() -> None:
+    assert (
+        describe(clearance("min_clearance", 0.2)) == f"At least 0.2 mm clear of context part {RAIL}"
+    )
+    assert (
+        describe(clearance("max_clearance", 0.5)) == f"At most 0.5 mm clear of context part {RAIL}"
     )

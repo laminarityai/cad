@@ -5,25 +5,28 @@ requirement shapes no check result. The server passes its judgment in, and the t
 again to re-derive a stored card.
 """
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Final
 
 from cad.briefs.model import (
     Envelope,
     Limit,
     MadeOf,
+    MaxClearance,
     MaxDeflection,
+    MinClearance,
     MinSafetyFactor,
     Requirement,
     Target,
     deciding_check,
-    describe,
     limits,
 )
 from cad.briefs.store import ConfirmedSet
-from cad.checks.jobs import Demand
+from cad.briefs.words import describe
+from cad.checks.jobs import Demand, PartBrep
 from cad.checks.report import SPECS
 from cad.checks.result import CheckResult, Comparator, Measured, ReadResearched, Verdict
+from cad.context_parts.ids import ContextPartId
 from cad.scorecard.model import (
     AgainstBrief,
     AwaitingConfirmation,
@@ -53,19 +56,36 @@ ROTATION: Final = (
     "might still fit, and no check measures the smallest box over all rotations."
 )
 WITHIN_ERROR: Final = "The measured value is within the check's stated error of the limit."
+UNCONFIRMED_PART: Final = (
+    "The context part is not confirmed, so the fit check did not measure against it."
+)
+OVERLAPS: Final = (
+    "The variant overlaps the context part, so it does not fit; the fit check's reason says "
+    "by how much."
+)
 ERROR_BOUNDS: Final = {spec.id: spec.error_bounds for spec in SPECS}
 
 
-def demand(confirmed: ConfirmedSet) -> Demand:
-    return {
-        one.target.load.id: one.target.load.wire()
-        for one in confirmed.requirements
-        if isinstance(one.target, MinSafetyFactor | MaxDeflection)
-    }
+def demand(confirmed: ConfirmedSet | None, parts: Mapping[ContextPartId, PartBrep]) -> Demand:
+    held = () if confirmed is None else confirmed.requirements
+    return Demand(
+        loads={
+            one.target.load.id: one.target.load.wire()
+            for one in held
+            if isinstance(one.target, MinSafetyFactor | MaxDeflection)
+        },
+        parts=parts,
+    )
 
 
 def instance(target: Target) -> str:
-    return target.load.id if isinstance(target, MinSafetyFactor | MaxDeflection) else ""
+    match target:
+        case MinSafetyFactor() | MaxDeflection():
+            return target.load.id
+        case MinClearance() | MaxClearance():
+            return target.part
+        case _:
+            return ""
 
 
 def against(confirmed: ConfirmedSet) -> Assess:
@@ -113,7 +133,28 @@ def judge(
     check_id = deciding_check(requirement.target)
     if check_id is None:
         return Unverified(requirement_id=requirement.id, statement=statement)
-    result = _result_of(results, check_id, instance(requirement.target))
+    wanted = instance(requirement.target)
+    result = _result_of(results, check_id, wanted)
+    if result is None:
+        if not isinstance(requirement.target, MinClearance | MaxClearance):
+            named = f" for load case {wanted}" if wanted else ""
+            raise NoDecidingResult(f"no result for the deciding check {check_id}{named}")
+        return Checked(
+            requirement_id=requirement.id,
+            statement=statement,
+            check_id=check_id,
+            verdict=Verdict.UNKNOWN,
+            reason=UNCONFIRMED_PART,
+            comparisons=tuple(
+                Comparison(
+                    measure=limit.measure,
+                    comparator=limit.comparator,
+                    limit=limit.quantity,
+                    verdict=Verdict.UNKNOWN,
+                )
+                for limit in limits(requirement.target)
+            ),
+        )
     if isinstance(result, PendingCheck):
         return Waiting(requirement_id=requirement.id, statement=statement, check_id=check_id)
     missed = Verdict.UNKNOWN if isinstance(requirement.target, Envelope) else Verdict.FAIL
@@ -123,13 +164,19 @@ def judge(
         for limit in limits(requirement.target)
     )
     verdict = _fold(result, comparisons)
+    reason = _reason(result, comparisons, verdict, missed)
+    if (
+        isinstance(requirement.target, MinClearance | MaxClearance)
+        and result.verdict is Verdict.FAIL
+    ):
+        verdict, reason = Verdict.FAIL, OVERLAPS
     researched = tuple(read for read in result.reads if isinstance(read, ReadResearched))
     return Checked(
         requirement_id=requirement.id,
         statement=statement,
         check_id=check_id,
         verdict=verdict,
-        reason=_reason(result, comparisons, verdict, missed),
+        reason=reason,
         comparisons=comparisons,
         basis="researched" if researched else "checks",
         researched=researched,
@@ -138,12 +185,10 @@ def judge(
 
 def _result_of(
     results: Sequence[CheckResult | PendingCheck], check_id: str, wanted: str
-) -> CheckResult | PendingCheck:
-    for result in results:
-        if result.check_id == check_id and result.instance == wanted:
-            return result
-    named = f" for load case {wanted}" if wanted else ""
-    raise NoDecidingResult(f"no result for the deciding check {check_id}{named}")
+) -> CheckResult | PendingCheck | None:
+    return next(
+        (one for one in results if one.check_id == check_id and one.instance == wanted), None
+    )
 
 
 def _compare(result: CheckResult, limit: Limit, missed: Verdict, error: float) -> Comparison:

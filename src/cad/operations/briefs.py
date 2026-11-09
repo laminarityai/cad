@@ -3,7 +3,7 @@ from typing import Annotated, Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from cad.briefs import made_of, store
+from cad.briefs import clearances, made_of, store
 from cad.briefs.edits import placeholder
 from cad.briefs.model import (
     MAX_BRIEF_CHARS,
@@ -13,10 +13,11 @@ from cad.briefs.model import (
     Requirement,
     Target,
     deciding_check,
-    describe,
 )
 from cad.briefs.store import BriefState, ProposalState, Status
+from cad.briefs.words import describe
 from cad.checks.report import QUICK, closure
+from cad.context_parts.store import stored_parts
 from cad.operations.guidance import PLAN_MODE
 from cad.operations.model import BOTH, Audience, Input, Tenant, operation
 from cad.operations.research import brief_table
@@ -48,8 +49,11 @@ PROPOSE_REQUIREMENTS = (
     "a key of your own that names it, such as acme-pla-matte. The server stores a material the "
     "table lacks as the project's own row, project- and your key, and the reply's research "
     "asks for each value its checks read; answer it with submit_research. min_safety_factor (a "
-    "factor, against yield) or max_deflection (a length), each with a load; or unchecked with a "
-    "statement, for anything no check decides. A load has a support, which is holes (a count "
+    "factor, against yield) or max_deflection (a length), each with a load; "
+    "min_clearance or max_clearance with a part, the part_id propose_context_part returned "
+    "for this project, and a clearance length, which the fit check decides against that part "
+    "with the variant built in the part's frame; or unchecked with a statement, for anything "
+    "no check decides. A load has a support, which is holes (a count "
     "and an optional bore diameter), largest_flat or flat_end, and a load, which is far_end or "
     "on_holes (a count and an optional diameter), each with a force such as {magnitude: 49, "
     "unit: N} and a direction: along or across the long axis or the hole_axis, or any. Propose "
@@ -179,10 +183,13 @@ def create_brief(tenant: Tenant, arguments: CreateBriefInput) -> BriefCreated:
 
 
 def propose_requirements(tenant: Tenant, arguments: ProposeRequirementsInput) -> Proposed:
-    table = brief_table(tenant.roots, arguments.brief_id)
-    drafts = made_of.with_row_keys(
-        [store.Draft(target=r.target, quote=r.quote) for r in arguments.requirements], table.table
+    drafts = [store.Draft(target=r.target, quote=r.quote) for r in arguments.requirements]
+    project = store.read_brief(tenant.roots, arguments.brief_id).project
+    clearances.check_proposed(
+        drafts, {one.record.id for one in stored_parts(tenant.roots.projects, project)}
     )
+    table = brief_table(tenant.roots, arguments.brief_id)
+    drafts = made_of.with_row_keys(drafts, table.table)
     proposed = store.propose(tenant.roots, arguments.brief_id, drafts)
     view = _view(store.read_state(tenant.roots, arguments.brief_id), proposed)
     return Proposed(**dict(view), research=_made_of_requests(table, arguments.brief_id, drafts))

@@ -37,7 +37,7 @@ Cost: **free** is `cad-call` alone (about 8 s of server start per call). **docke
 | [Test mode](./test-mode.md) | the Test mode guidance: score only the picked variant, report what no check measured as not checked | live (three sessions) | none |
 | [Agree](./agree.md) | `evals/bakeoff/agree.py`: scorecards against the bake-off grader | docker: replay (60 builds, about 4 min) | live: 10 sessions, about 0.4 USD |
 | [Brief set](./brief-set.md) | `evals/briefs/run.py`: the private brief set, traced numbers, friction | live (one session per brief) | none |
-| [Context parts](./context-parts.md) | `propose_context_part` and the context part item on the confirmation page | free: idempotent, declined, refusals (`tests/context_parts/`). docker: propose a built variant | live: the agent proposes a part and the person confirms it |
+| [Context parts](./context-parts.md) | `propose_context_part`, the context part item on the confirmation page, and the `fit` check against each confirmed part | free: idempotent, declined, refusals (`tests/context_parts/`). docker: propose a built variant. docker + browser: confirm a part, score fit and clearance | live: the agent proposes a part and the person confirms it |
 
 ## Phase 4 web app: NOT YET BUILT
 
