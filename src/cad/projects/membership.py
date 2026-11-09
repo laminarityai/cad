@@ -16,7 +16,6 @@ LOG = logging.getLogger(__name__)
 
 
 def stored_projects(roots: Roots) -> dict[ProjectId, tuple[Brief, ...]]:
-    """Every project that holds a brief, each with its briefs oldest first, newest project first."""
     members: dict[ProjectId, list[Brief]] = {}
     for brief_id in store.stored_briefs(roots):
         try:

@@ -2,7 +2,6 @@
 
 A route accepts only a Clerk session token, from the `__session` cookie or an `Authorization:
 Bearer` header, so an agent's OAuth access token gets 401 here, as a session token does on `/mcp`.
-Every route comes from a registry operation and a `Served` entry, and no route is written by hand.
 """
 
 import hashlib
@@ -35,9 +34,6 @@ type TenantOf = Callable[[AccountId], Tenant]
 
 @dataclass(frozen=True, slots=True)
 class Served:
-    """Where the person reaches an operation. An `immutable` result never changes for its key, so
-    the response carries an ETag and a cache header, and a matching `If-None-Match` gets 304."""
-
     path: str
     immutable: bool = False
 
@@ -48,8 +44,6 @@ def person_routes(
     person_of: PersonOf,
     tenant_of: TenantOf,
 ) -> list[Route]:
-    """One route for each operation the person may reach. An operation with no entry in `served`,
-    or an entry for no operation, is an error."""
     reachable = [one for one in operations if Audience.PERSON in one.audience]
     names = {one.name for one in reachable}
     if names != set(served):

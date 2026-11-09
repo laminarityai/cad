@@ -14,7 +14,7 @@ from cad.confirmations.ballot import OS_OPEN
 from cad.context_parts.ingest import ingest
 from cad.geometry import job, store
 from cad.geometry.model import TessellationFailed
-from cad.operations.model import Audience, Operation
+from cad.operations.model import Audience, Operation, Tenant
 from cad.operations.registry import OPERATIONS, ROUTES
 from cad.operations.routes import Served, person_routes
 from cad.operations.tools import agent_operations
@@ -71,13 +71,17 @@ async def test_every_web_route_comes_from_a_registry_operation(app: Starlette) -
     assert set(web_routes(app)) == reachable
 
 
+def no_tenant(account: AccountId) -> Tenant:
+    raise AssertionError(f"no request should reach {account}")
+
+
 def test_an_operation_with_no_route_and_a_route_with_no_operation_are_both_refused() -> None:
     person = [one for one in OPERATIONS if Audience.PERSON in one.audience]
     with pytest.raises(ValueError, match="lack a partner"):
-        person_routes(person, {}, lambda _: None, lambda _: None)  # pyright: ignore[reportArgumentType]
+        person_routes(person, {}, lambda _: None, no_tenant)
     stray: dict[str, Served] = {**ROUTES, "stray": Served("/v1/stray")}
     with pytest.raises(ValueError, match="stray"):
-        person_routes(person, stray, lambda _: None, lambda _: None)  # pyright: ignore[reportArgumentType]
+        person_routes(person, stray, lambda _: None, no_tenant)
 
 
 def test_no_person_only_operation_is_an_agent_tool() -> None:

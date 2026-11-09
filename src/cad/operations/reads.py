@@ -1,9 +1,3 @@
-"""The person's reads: what the web app shows, taken from the stores and never from an agent.
-
-A read here starts no work. `geometry` starts a tessellation job, and `mesh` only reads a mesh
-that is stored.
-"""
-
 from datetime import datetime
 from typing import Annotated, Final, Literal
 

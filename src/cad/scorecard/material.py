@@ -65,9 +65,6 @@ class ReportedScorecard(Scorecard):
 
 
 class ScorecardSnapshot(ReportedScorecard):
-    """A reported scorecard with its `etag`: a hash of the card's own JSON. Two reads of one card
-    share an etag, and a check result arriving, or a new revision, changes it."""
-
     etag: str
 
 
