@@ -24,8 +24,9 @@ SUBMIT_RESEARCH = (
     'field; the value and its unit as the page writes them, such as 0.36 with unit "" for '
     'a Poisson\'s ratio or 3.5 with unit "GPa"; the URL of a public https page that states '
     "the value; and the quote you read it from, copied word for word from that page, such as "
-    '"the Poisson ratio = 0.36" or a table row. The server fetches the page, checks that the '
-    "quote is on it and that the value is written in the quote, converts the unit, and stores "
+    '"the Poisson ratio = 0.36" or a table row; a value with a unit needs that unit in the quote. '
+    "The server fetches the page, checks that the quote is on it, that the value is written in "
+    "the quote and that the unit beside it is yours, converts the unit, and stores "
     "the page as the value's citation. A source for a near material, such as generic PLA for "
     "a PLA brand, is allowed. accepted means the brief's project now has a researched value "
     "for that field, and only that project. refused gives the reason and, when another page "

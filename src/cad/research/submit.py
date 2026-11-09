@@ -19,7 +19,7 @@ from cad.research.ledger import (
     read_ledger,
 )
 from cad.research.overlay import fill, overlay
-from cad.research.quote import on_page, where_written, written_in
+from cad.research.quote import on_page, units_beside, where_written, written_in
 from cad.research.requests import ResearchRequest, request_for
 from cad.tables.materials import FromResearch, Known, MaterialsTable
 
@@ -208,6 +208,9 @@ def _in_canonical_unit(question: Question) -> float | _Refusal:
             f"the value {written} is not written in the quote; pass the number exactly as the "
             "quote writes it, in the quote's unit, and a quote that contains it"
         )
+    wrong = _wrong_unit(question, factor, written)
+    if wrong is not None:
+        return wrong
     canonical = written * factor
     if not spec.admits(canonical):
         return _Refusal(
@@ -216,10 +219,28 @@ def _in_canonical_unit(question: Question) -> float | _Refusal:
     return float(canonical)
 
 
+def _wrong_unit(question: Question, factor: Decimal, written: Decimal) -> _Refusal | None:
+    spec = SPECS[question.field]
+    if spec.canonical_unit == "dimensionless":
+        return None
+    beside = units_beside(written, question.quote, spec.units)
+    if not beside:
+        return _Refusal(
+            f"the quote writes {written} with no unit of {spec.label}; include the unit the page "
+            "writes for the value in the quote, such as a table row with its column's unit"
+        )
+    if factor in {one for _, one in beside}:
+        return None
+    return _Refusal(
+        f"the quote writes {written} in {beside[0][0]!r}, not {question.unit!r}; pass the unit "
+        "the quote writes beside the value"
+    )
+
+
 def _not_on_page(question: Question, url: str, text: str) -> str:
     reason = (
         f"the quote does not appear on {url} as the server fetched it; copy its words and "
-        "numbers in the page's order, and start and end it on whole numbers"
+        "numbers in the page's order, and start and end it on whole words and numbers"
     )
     written = where_written(Decimal(repr(question.value)), text)
     if not written:
