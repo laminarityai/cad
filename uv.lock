@@ -53,6 +53,7 @@ dependencies = [
     { name = "mcp" },
     { name = "packaging" },
     { name = "pint" },
+    { name = "pyjwt", extra = ["crypto"] },
     { name = "pyyaml" },
 ]
 
@@ -75,6 +76,7 @@ requires-dist = [
     { name = "mcp", specifier = "==2.3.0" },
     { name = "packaging", specifier = ">=24" },
     { name = "pint", specifier = ">=0.24" },
+    { name = "pyjwt", extras = ["crypto"], specifier = ">=2.10" },
     { name = "pyyaml", specifier = ">=6" },
 ]
 

@@ -4,8 +4,9 @@ from typing import Final
 
 from cad.records import signed
 
-BRIEFS_ROOT: Final = Path.home() / ".cad" / "briefs"
-PROJECTS_ROOT: Final = Path.home() / ".cad" / "projects"
+DATA_ROOT: Final = Path.home() / ".cad"
+BRIEFS_ROOT: Final = DATA_ROOT / "briefs"
+PROJECTS_ROOT: Final = DATA_ROOT / "projects"
 PROJECT_STORE_NAME: Final = "project"
 
 

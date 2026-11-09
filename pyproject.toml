@@ -7,6 +7,7 @@ dependencies = [
     "mcp==2.3.0",
     "packaging>=24",
     "pint>=0.24",
+    "pyjwt[crypto]>=2.10",
     "pyyaml>=6",
 ]
 
@@ -14,6 +15,7 @@ dependencies = [
 verify = "cad.verify.__main__:main"
 cad-server = "cad.server.__main__:main"
 cad-call = "cad.server.call:main"
+cad-token = "cad.accounts.local:main"
 cad-sandbox = "cad.sandbox.__main__:main"
 
 [dependency-groups]
