@@ -1,0 +1,40 @@
+url: https://store.bblcdn.com/s1/default/cb94589bf7994fdcbfa833badefae9cd/Bambu_PETG_Basic_Technical_Data_Sheet.pdf
+Retraction Length 0.4 – 0.8 mm 
+Retraction Speed 30 - 60 mm/s 
+Chamber Temperature 35 – 50 °C 
+Max Overhang Angle ~ 70 ° 
+Max Bridging Length ~ 30 mm 
+Support Material Support for PLA/PETG 
+Glue Recommended( Glue Stick/Liquid Glue ) 
+• Properties 
+Bambu Lab has tested the differing aspects in the performance of PETG Basic  material, 
+including physical, mechanical, and chemical properties. Typical values are listed as followed:  
+ 
+Physical Properties 
+Subjects Testing Methods Data 
+Density ISO 1183 1.25 g/cm³ 
+Melt Index 245 ° C, 2.16 kg 22.9 ± 2.4 g/10 min 
+Melting Temperature DSC, 10 ° C/min N / A 
+Glass Transition Temperature DSC, 10 ° C/min 69 °C 
+Crystallization Temperature DSC, 10 ° C/min N / A 
+Vicat Softening Temperature ISO 306, GB/T 1633 69 °C 
+Heat Deflection Temperature ISO 75 1.8 MPa 68 °C 
+Heat Deflection Temperature ISO 75 0.45 MPa 71 °C 
+Saturated Water Absorption Rate 25 ° C, 55% RH 0.45% 
+ 
+Mechanical Properties 
+Subjects Testing Methods Data 
+Young's Modulus (X-Y) ISO 527, GB/T 1040 2780 ± 65 MPa 
+Young's Modulus (Z) ISO 527, GB/T 1040 2550 ± 100 MPa 
+Tensile Strength (X-Y) ISO 527, GB/T 1040 51 ± 1 MPa 
+Tensile Strength (Z) ISO 527, GB/T 1040 35 ± 6 MPa 
+Breaking Elongation Rate (X-Y) ISO 527, GB/T 1040 9.5 ± 0.7 % 
+Breaking Elongation Rate (Z) ISO 527, GB/T 1040 5.2 ± 1.4 % 
+Bending Modulus (X-Y) ISO 178, GB/T 9341 1950 ± 50 MPa 
+Bending Modulus (Z) ISO 178, GB/T 9341 1740 ± 40 MPa 
+Bending Strength (X-Y) ISO 178, GB/T 9341 75 ± 3 MPa 
+Bending Strength (Z) ISO 178, GB/T 9341 56 ± 4 MPa 
+Impact Strength (X-Y) ISO 179, GB/T 1043 34.2 ± 4.1 kJ/m² 
+Impact Strength (Z) ISO 179, GB/T 1043 10.5 ± 1.8 kJ/m² 
+ 
+ 

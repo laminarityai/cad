@@ -1,0 +1,924 @@
+url: https://everyspec.com/MIL-HDBK/MIL-HDBK-0001-0099/download.php?spec=MIL_HDBK_5J.139.pdf
+MIL-HDBK-5J
+31 January 2003
+2-223
+Table 2.7.1.0(b).  Design Mechanical and Physical Properties of AISI 301and
+Relateda,b,c Stainless Steels
+S p e c i f i c a t i o n ...... A M S  5901 AMS 5517 AMS 5518 AMS 5902 AMS 5519
+F o r m  ............ S h e e t  a n d  s t r i p
+Condition ......... A n n e a l e d ¼  H a r d ½  H a r d ¾  H a r d F u l l  H a r d
+Thickness, in. ...... 0.187 ... ... ... ...
+B a s i s............. S A B A B A B A B
+Mechanical Properties:
+Ftu, ksi:
+L..............
+L T ............
+Fty, ksi:
+L..............
+L T ............
+Fcy, ksi:
+L..............
+L T ............
+Fsu,  k s i ..........
+Fbru, ksi:
+( e / D  =  1 . 5 )  .....
+( e / D  =  2 . 0 )  .....
+Fbry, ksi:
+( e / D  =  1 . 5 )  .....
+( e / D  =  2 . 0 )  .....
+e, percent (S basis):
+L T  ............
+ 73
+ 75
+ 26
+ 30
+ 23
+ 29
+ 50
+...
+162
+...
+ 55
+ 40
+124
+122
+ 69
+ 67
+ 44
+ 71
+ 66
+...
+262
+...
+123
+ 25
+129
+127
+ 83
+ 82
+ 54
+ 88
+ 69
+...
+273
+...
+149
+...
+141
+142
+ 93
+ 92
+ 61
+100
+ 77
+...
+292
+...
+167
+d
+151
+152
+110
+105
+ 69
+116
+ 82
+...
+310
+...
+189
+...
+157
+163
+118
+113
+ 75
+127
+ 88
+...
+327
+...
+202
+d
+168
+173
+135
+133
+ 88
+152
+ 93
+...
+342
+...
+234
+...
+174
+175
+137
+125
+ 83
+142
+ 95
+...
+346
+...
+222
+d
+185
+186
+153
+142
+ 94
+164
+100
+...
+361
+...
+249
+...
+E, 103 ksi:
+L  .............
+L T  ............
+Ec, 103 ksi:
+L  .............
+L T ............
+G, 103 k s i  ........
+µ ..............
+29.0
+29.0
+28.0
+28.0
+11.2
+0.27
+27.0
+28.0
+26.0
+27.0
+10.6
+0.27
+26.0
+28.0
+26.0
+27.0
+10.5
+0.27
+26.0
+28.0
+26.0
+27.0
+10.5
+0.27
+26.0
+28.0
+26.0
+27.0
+10.5
+0.27
+Physical Properties:
+Ȧ, lb/in.3 ........
+C, K, and Į ......
+0.286
+See Figure 2.7.1.0
+a Properties also applicable to AISI 302 for the following; AMS 5516 for annealed condition, AMS 5903 for 1/4H
+condition, AMS 5904 for 1/2H condition, AMS 5905 for 3/4H condition, and AMS 5906 for full hard condition.
+b Properties also applicable to AISI 304 for the following; AMS 5513 for annealed condition, AMS 5910 for 1/4H
+condition, AMS 5911 for 1/2H condition, AMS 5912 for 3/4H condition, and AMS 5913 for full hard condition.
+c Properties also applicable to AISI 316 for the following; AMS 5524 for annealed condition and AMS 5907 for 1/4H
+condition.
+d See Table 2.7.1.0(c).
+Note: Yield strength, particularly in compression, and modulus of elasticity in the longitudinal direction may be raised
+appreciably by thermal stress-relieving treatment in the range 500 to 800 (F.
+Downloaded from https://www.everyspec.comMIL-HDBK-5J
+31 January 2003
+3-264
+Table 3.6.2.0(b1).  Design Mechanical and Physical Properties of 6061 Aluminum Alloy
+Sheet
+S p e c i f i c a t i o n  ....... AMS 4026 and AMS-QQ-A-250/11 AMS-QQ-A- 250/11 AMS 4025, AMS 4027 and AMS-QQ-A-250/11
+F o r m  ............. S h e e t
+T e m p e r  ........... T 4 T 4 2 a T6 and T62b
+Thickness, in. ...... 0 . 010-0.249 0.010-0.249 0.010-0.249
+B a s i s  ............. A B S A B
+Mechanical Properties:
+Ftu, ksi:
+L  ..............
+L T  .............
+Fty, ksi:
+L  ..............
+L T  .............
+Fcy, ksi:
+L  ..............
+L T  .............
+Fsu,  k s i  ...........
+Fbru, ksi:
+( e / D  =  1 . 5 )  .......
+( e / D  =  2 . 0 )  .......
+Fbry, ksi:
+( e / D  =  1 . 5 )  .......
+( e / D  =  2 . 0 )  .......
+e, percent (S-basis):
+L T  .............
+...
+30
+...
+16
+...
+16
+20
+48
+63
+22
+26
+c
+...
+32
+...
+18
+...
+18
+21
+51
+67
+25
+29
+...
+...
+30
+...
+14
+...
+...
+...
+...
+...
+...
+...
+c
+42
+42
+36
+35
+35
+36
+27
+67
+88
+50
+58
+c
+43
+43
+38
+37
+37
+38
+28
+69
+90
+53
+61
+...
+E, 103 k s i  .........
+Ec, 103 k s i  ........
+G, 103 k s i  ........
+µ ...............
+ 9.9 
+10.1
+ 3.8 
+ 0.33
+Physical Properties:
+Ȧ, lb/in.3 .........
+C, K, and Į .......
+0.098
+See Figure 3.6.2.0
+a Design allowables were based upon data obtained from testing samples of material, supplied in the O or F temper, which
+were heat treated to demonstrate response to heat treatment by suppliers.  Properties obtained by the user may be lower than
+those listed if the material has been formed or otherwise cold or hot worked, particularly in the annealed temper, prior to
+solution heat treatment.
+b Design allowables were based upon data obtained from testing T6 sheet and from testing samples of sheet, supplied in the
+O or F temper, which were heat treated to T62 temper to demonstrate response to heat treatment by suppliers.  Properties
+obtained may be lower than those listed if the material has been formed or otherwise cold worked, particularly in the
+annealed temper, prior to solution heat treatment.
+c See Table 3.6.2.0(b 3).
+Downloaded from https://www.everyspec.comMIL-HDBK-5J
+31 January 2003
+3-267
+Table 3.6.2.0(c1).  Design Mechanical and Physical Properties of 6061 Aluminum Alloy
+Tube and Pipe
+S p e c i f i c a t i o n  ....... AMS-WW-T-700/6 AMS 4080, AMS 4082, and AMS-WW-T-700/6
+F o r m  ............. D r a w n  t u b e
+T e m p e r  ........... T 4 T 4 2 a T6b and T62
+Wall Thickness, in. . . 0.025- 0.500 0.025-0.500 0.025- 0.500
+Outside Diameter, in. ...
+B a s i s  ............. S S S
+Mechanical Properties:
+Ftu, ksi:
+L  ..............
+Fty, ksi:
+L  ..............
+Fcy, ksi:
+L  ..............
+Fsu,  k s i  ...........
+Fbru, ksi:
+( e / D  =  1 . 5 )  .......
+( e / D  =  2 . 0 )  .......
+Fbry, ksi:
+( e / D  =  1 . 5 )  .......
+( e / D  =  2 . 0 )  .......
+e, percent:
+L  ..............
+30
+16
+14
+20
+48
+63
+22
+26
+c
+30
+14
+...
+...
+...
+...
+...
+...
+c
+42
+35
+34
+27
+67
+88
+49
+56
+c
+E, 103 k s i  .........
+Ec, 103 k s i  ........
+G, 103 k s i  ........
+µ ...............
+ 9.9 
+10.1
+ 3.8 
+ 0.33
+Physical Properties:
+Ȧ, lb/in.3 .........
+C, K, and Į .......
+0.098
+See Figure 3.6.2.0
+a Design allowables were based upon data obtained from testing samples of material, supplied in the O temper, which were
+heat treated to demonstrate response to heat treatment by suppliers.  Properties obtained by the user may be lower than those
+listed if the material has been formed or otherwise cold or hot worked, particularly in the annealed temper, prior to solution
+heat treatment.
+b Design allowables were based upon data obtained from testing T6 temper tube and from testing samples of tube, supplied in
+the O temper, which were heat treated to demonstrate response to heat treatment by suppliers.  Properties obtained by the
+user may be lower than those listed if the material has been formed or otherwise cold worked, particularly in the annealed
+temper, prior to solution heat treatment.
+c See Table 3.6.2.0(c 2).
+Downloaded from https://www.everyspec.comMIL-HDBK-5J
+31 January 2003
+3-371
+Table 3.7.6.0(b1).  Design Mechanical and Physical Properties of 7075 Aluminum Alloy Sheet and Plate
+Specification ....... A M S  4045 and AMS-QQ-A-250/12
+F o r m  ............. S h e e t P l a t e
+T e m p e r  ........... T 6  a n d  T 6 2 a T651
+T h i c k n e s s ,  i n .  ......0.008- 0.011 0.012- 0.039 0.040- 0.125 0.126- 0.249 0.250- 0.499 0.500- 1.000 1.001- 2.000 2.001- 2.500 2.501- 3.000 3.001- 3.500 3.501- 4.000
+B a s i s  ............. S A B A B A B A B A B A B A B A B A B A B
+Mechanical Properties:
+Ftu, ksi:
+L  .............
+L T  ............
+S T  ...........  
+Fty, ksi:
+L  .............
+L T  ............
+S T  ............
+Fcy, ksi:
+L  .............
+L T  ............
+S T  ............
+Fsu,  k s i  ..........
+Fbru c, ksi:
+( e / D  =  1 . 5 )  ......
+( e / D  =  2 . 0 )  ......
+Fbry c, ksi:
+( e / D  =  1 . 5 )  ......
+( e / D  =  2 . 0 )  ......
+e, percent (S-basis):
+L T  ............
+...
+74
+...
+...
+63
+...
+...
+...
+...
+...
+...
+...
+...
+...
+ 5
+ 76
+ 76
+...
+ 69
+ 67
+...
+ 68
+ 71
+...
+ 46
+118
+152
+100
+117
+  7
+ 78
+ 78
+...
+ 72
+ 70
+...
+ 71
+ 74
+...
+ 47
+121
+156
+105
+122
+...
+ 78
+ 78
+...
+ 70
+ 68
+...
+ 69
+ 72
+...
+ 47
+121
+156
+102
+119
+  8
+ 80
+ 80
+...
+ 72
+ 70
+...
+ 71
+ 74
+...
+ 48
+124
+160
+105
+122
+...
+ 78
+ 78
+...
+ 71
+ 69
+...
+ 70
+ 73
+...
+ 47
+121
+156
+103
+121
+  8
+ 80
+ 80
+...
+ 73
+ 71
+...
+ 72
+ 75
+...
+ 48
+124
+160
+106
+124
+...
+ 77
+ 78
+...
+ 69
+ 67
+...
+ 67
+ 71
+...
+ 43
+117
+145
+ 97
+114
+  9
+ 79
+ 80
+...
+ 71
+ 69
+...
+ 69
+ 73
+...
+ 44
+120
+148
+100
+118
+...
+ 77
+ 78
+...
+ 70
+ 68
+...
+ 68
+ 72
+...
+ 44
+117
+145
+100
+117
+  7
+ 79
+ 80
+...
+ 72
+ 70
+...
+ 70
+ 74
+...
+ 45
+120
+148
+103
+120
+...
+ 76
+ 77
+...
+ 69
+ 67
+...
+ 66
+ 71
+...
+ 44
+116
+143
+100
+117
+  6
+ 78
+ 79
+...
+ 71
+ 69
+...
+ 68
+ 73
+...
+ 45
+119
+147
+103
+120
+...
+ 75
+ 76
+ 70b
+ 66
+ 64
+ 59b
+ 62
+ 68
+ 67
+ 44
+114
+141
+ 98
+113
+  5
+ 77
+ 78
+ 71b
+ 68
+ 66
+ 61b
+ 64
+ 70
+ 70
+ 45
+117
+145
+101
+117
+...
+ 71
+ 72
+ 66b
+ 63
+ 61
+ 56b
+ 58
+ 65
+ 64
+ 42
+108
+134
+ 94
+109
+  5
+ 73
+ 74
+ 68b
+ 65
+ 63
+ 58b
+ 60
+ 67
+ 66
+ 43
+111
+137
+ 97
+112
+...
+ 70
+ 71
+ 65b
+ 60
+ 58
+ 54b
+ 55
+ 61
+ 61
+ 42
+107
+132
+ 89
+104
+  5
+ 72
+ 73
+ 67b
+ 62
+ 60
+ 55b
+ 57
+ 64
+ 63
+ 43
+110
+135
+ 93
+108
+...
+ 66
+ 67
+ 61b
+ 56
+ 54
+ 50b
+ 51
+ 57
+ 57
+ 39
+101
+124
+ 84
+ 98
+  3
+ 68
+ 69
+ 63b
+ 58
+ 56
+ 52b
+ 52
+ 59
+ 59
+ 41
+104
+128
+ 87
+103
+...
+E, 103 k s i  ........
+Ec, 103 k s i  ........
+G, 103 k s i  ........
+µ ...............
+10.3
+10.5
+ 3.9 
+ 0.33
+10.3
+10.6
+ 3.9 
+ 0.33
+Physical Properties:
+Ȧ, lb/in.3 .........
+C, K, and Į .......
+0.101
+See Figure 3.7.6.0
+a Design allowables were based upon data obtained from testing T6 temper sheet and from testing samples of sheet, supplied in the O or F temper, which were heat treated to
+demonstrate response to heat treatment by suppliers.  Properties obtained by the user may be lower than those listed if the material has been formed or otherwise cold worked,
+particularly in the annealed temper, prior to solution heat treatment.
+b Caution: This specific alloy, temper, and product form exhibits poor stress-corrosion cracking resistance in this grain direction.  It corresponds to an SCC resistance rating of D, as
+indicated in Table 3.1.2.3.1(a).
+c Bearing values are “dry pin” values per Section 1.4.7.1. See Table 3.1.2.1.1.
+Downloaded from https://www.everyspec.comMIL-HDBK-5J
+31 January 2003
+3-380
+Table 3.7.6.0(d).  Design Mechanical and Physical Properties of 7075 Aluminum Alloy
+Bar, Rod, and Shapes:  Rolled, Drawn, or Cold-Finished
+Specification ........
+AMS 4122, AMS 4123, AMS 4186, AMS 4187, and AMS-QQ-A-225/9
+AMS 4124 and
+AMS-QQ-A-
+225/9
+F o r m.............. B a r ,  r o d ,  a n d  s h a p e s :   r olled, drawn, or cold-finished
+T e m p e r ............ T 6 ,  T 651, and T62a T73b or T7351
+Thicknessc,  i n . ...... 1.000 1.001- 2.000 2.001- 3.000 3.001- 4.000 0.375- 2.000 2.001- 3.000
+B a s i s.............. A B A B A B A B S S
+Mechanical Properties:
+Ftu, ksi:
+L ..............
+L T.............
+Fty, ksi:
+L ..............
+L T.............
+Fcy, ksi:
+L ..............
+L T.............
+Fsu,  k s i ...........
+Fbru f, ksi:
+( e / D  =  1 . 5 ) ......
+( e / D  =  2 . 0 ) ......
+Fbry f, ksi:
+( e / D  =  1 . 5 ) ......
+( e / D  =  2 . 0 ) ......
+e, percent (S-basis):
+L ..............
+ 77
+ 77d
+ 66
+ 66d
+ 64
+...
+ 46
+100
+123
+ 86
+ 92
+  7
+ 79
+ 79d
+ 68
+ 68d
+ 66
+...
+ 47
+103
+126
+ 88
+ 95
+...
+ 77
+ 75d
+ 66
+ 66d
+ 64
+...
+ 46
+100
+123
+ 86
+ 92
+  7
+ 79
+ 77d
+ 68
+ 68d
+ 66
+...
+ 47
+103
+126
+ 88
+ 95
+...
+ 77
+ 72d
+ 66
+ 63d
+ 64
+...
+ 46
+100
+123
+ 86
+ 92
+  7
+ 79
+ 74d
+ 68
+ 65d
+ 66
+...
+ 47
+103
+126
+ 88
+ 95
+...
+ 77
+ 69d
+ 66
+ 60d
+ 64
+...
+ 46
+100
+123
+ 86
+ 92
+  7
+ 79
+ 71d
+ 68
+ 62d
+ 66
+...
+ 47
+103
+126
+ 88
+ 95
+...
+ 68
+...
+ 56
+...
+ 54
+...
+ 42
+101
+131
+ 81
+100
+ 10
+ 68
+ 65e
+ 56
+ 52e
+ 54
+ 55e
+ 40
+101
+131
+ 81
+100
+ 10
+E, 103 k s i .........
+Ec, 103 k s i ........
+G, 103 k s i.........
+µ ...............
+10.3
+10.5
+ 3.9 
+ 0.33
+Physical Properties:
+Ȧ, lb/in.3 .........
+C, K, and Į ........
+0.101
+See Figure 3.7.6.0
+a Design allowables were based upon data obtained from testing of T6 and T651 material and from samples of material, supplied in the
+O or F temper, which were heat treated to T62 temper to demonstrate response to heat treatment by suppliers.
+b Design allowables were based upon data obtained from testing T73 and T7351 temper material and from testing samples of material,
+supplied in the O or F temper, which were heat treated to T73 temper to demonstrate response to heat treatment by suppliers.
+c For rounds (rod) maximum diameter is 4 inches; for square bar, maximum size is 3½ inches; for rectangular bar, maximum thickness
+is 3 inches with corresponding width of 6 inches; for rectangular bar less than 3 inches in thickness, maximum width is 10 inches.
+d Caution: This specific alloy, temper, and product form exhibits poor stress-corrosion cracking resistance in this grain direction.  It 
+corresponds to an SCC resistance rating of D, as indicated in Table 3.1.2.3.1(a).
+ST grain direction.
+e ST grain direction.
+f Bearing values are “dry pin” values per Section 1.4.7.1.
+Downloaded from https://www.everyspec.com

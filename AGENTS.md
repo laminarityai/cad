@@ -16,6 +16,7 @@
 
 - Python, fully typed. Strict type checking, the linter and the formatter run in pre-commit and in CI.
 - One directory per feature. There is one obvious way to do each common thing; if you find two, delete one.
+- Every `quote` in `tables/materials.yaml` is word for word in its cited datasheet. The `materials table` step checks it offline against `tables/datasheet_text/`. After you add or change a row, run `uv run python tools/regen_datasheet_text.py` and commit what it writes.
 - A file-size lint rule fails the build when a file grows too large. Split the file instead of raising the limit.
 
 ## Verify your work

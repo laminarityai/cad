@@ -1,0 +1,100 @@
+url: https://online.kaiseraluminum.com/depot/PublicProductInformation/Document/1015/Kaiser_Aluminum_6061_Sheet_Coil_and_Plate.pdf
+Sheet Coil & Plate Alloy 6061 
+Technical Data 
+ 
+ 
+ 
+www.kaiseraluminum.com  
+Rev. 05/06  
+A L L O Y  D E S C R I P T I O N  
+Generally selected where welding or brazing is required or for its high corrosion resistance in all te mpers. Formability  
+is excellent in O temper and good in the T4 temper.  Machining is more difficult when compared to the o ther machining 
+alloys. Corrosion resistance and appearance after a nodizing are superior to all other screw machine alloys while strength  
+is the lowest. 
+ 
+T Y P I C A L  M E C H A N I C A L  P R O P E R T I E S  
+Temper Tensile (.500" Dia. Specimen)  Hardness  Shear  Fatigue*  Modulus  
+Ultimate  Yield  Elongation/4D  
+Brinell 
+500kg 
+10 mm  
+Ultimate 
+Shearing 
+Strength  
+Endurance Limit - 
+ R.R. Moore Type Modulus of Elasticity   
+KSI MPa KSI MPa  %  KSI MPa KSI MPa KSI x 10 3 Gpa 
+T451 35 241 21 145 25 65 24 165 14 97 10.0 68.3 
+T6, T651 45 310 40 276 17 95 30 207 14 97 10.0 68.3  
+*5 x 10E8 cycles of reversed stress 
+  
+C O M P A R A T I V E  C H A R A C T E R I S T I C S  
+Temper Corrosion Resistance Cold Workability 3 Machinability 3 Anodize Response 3 Brazeability 4 Weldability 4 
+ General 1 Stress 2     Gas Arc Spot 
+0 B A A D A A A A B 
+T451 B B B C A A A A A 
+T6, T651 B A C C A A A A A 
+ 
+1 Ratings A through E are relative ratings in decre asing order of merit, based on exposures to sodium chloride solution by intermittent spraying or immersion. Alloys 
+with A and B ratings can be used in industrial and seacoast atmospheres without protection. Alloys with C, D and E ratings generally should be protected at least on 
+faying surfaces. 
+2  Stress-corrosion cracking ratings are based on service experience and laboratory tests of specimens exposed to the 3.5% sodium chloride alternate immersion test. 
+ A= No known instance of failure in service or in l aboratory tests. 
+ B= No known instance of failure in service; limite d failures in laboratory tests of short transverse specimens. 
+C= Service failures with sustained tension stress acting in short transverse direction relative to grain structure; limited failures in laboratory tests of long transverse 
+specimens. 
+ D= Limited service failures with sustained longitu dinal or long transverse 
+3 Ratings A through D for Workability (cold), A thr ough E for Machinability and A through C for Anodize Response, are relative ratings in decreasing order of merit. 
+4 Ratings A through D for Weldability and Brazeabil ity are relative ratings defined as follows: 
+ A= Generally weldable by all commercial procedures  and methods. 
+ B= Weldable with special techniques or for specifi c applications that justify preliminary trials or testing to develop welding procedure and weld performance. 
+ C= Limited weldability because of crack sensitivit y or loss in resistance to corrosion and mechanical properties. 
+ D= No commonly used welding methods have been deve loped. 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ 
+ Sheet Coil & Plate Alloy 6061 
+Technical Data 
+ 
+ 
+ 
+www.kaiseraluminum.com  
+Rev. 05/06  
+Continued Page 2 of 2 
+C H E M I C A L  C O M P O S I T I O N  L I M I T S  
+ Others 
+Weight % Si Fe Cu Mn Mg Cr Zn Ti Each Total 
+Minimum 0.40 - 0.15 - 0.8 0.04 - - - - 
+Maximum 0.8 0.7 0.40 0.15 1.2 0.35 0.25   0.15 0.05 0.15 
+ 
+T Y P I C A L  P H Y S I C A L  P R O P E R T I E S  
+ 
+ 
+Characteristic  English Metric 
+Nominal Density (68 °F/20 °C)  0.098 lbs./in. 3 2.70 Mg/m 3 
+Melting Range  1080 °F - 1206 °F 582 °C - 652 °C 
+Specific Heat  (212 °F/100 °C)   0.214 BTU/lb. - °F 896 J/kg - °K 
+Linear 
+68 °F-212 °F 
+20 °C-100 °C 
+13.1 micro in./in.-°F 23.6 micro m/m -°K 
+Coefficient of Thermal Expansion 
+Volumetric 
+68 °F/20 °C 3.93 x 10 -5in. 3/in. 3 -°F 71 x 10 -6m3/m 3 -°K 
+O Temper 104 BTU/ft. - hr. - °F 180 W/m - °K 
+T451 89 BTU/ft. - hr. - °F 154 W/m - °K Thermal Conductivity (68 °F/20 °C) 
+T6, T651 97 BTU/ft. - hr. - °F 167 W/m - °K 
+O Temper 47% IACS 
+T451 40% IACS Equal Volume  
+T6, T651 43% IACS 
+O Temper 155% IACS 
+T451 132% IACS 
+Electrical Conductivity (68 °F/20 °C) 
+Equal Weight 
+T6, T651 142% IACS 

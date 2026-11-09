@@ -1,0 +1,40 @@
+url: https://store.bblcdn.com/a52afdccddfd448583d119587122c8c5.pdf
+• Properties 
+Bambu Lab has tested the differing aspects in the performance of PC material, including 
+physical, mechanical, and chemical properties. Typical values are listed as followed:  
+ 
+Physical Properties 
+Subjects Testing Methods Data 
+Density ISO 1183 1.20 g/cm³ 
+Melt Index 260 °C, 2.16 kg 32.2 ± 2.9 g/10 min 
+Melting Temperature DSC, 10 °C/min 228 °C 
+Glass Transition Temperature DSC, 10 °C/min 145 °C 
+Crystallization Temperature DSC, 10 °C/min N/A 
+Vicar Softening Temperature  ISO 306, GB/T 1633 119 °C 
+Heat Deflection Temperature ISO 75 1.8 MPa 117 °C 
+Heat Deflection Temperature ISO 75 0.45 MPa 112 °C 
+Saturated Water Absorption Rate 25 °C, 55% RH 0.25% 
+ 
+Mechanical Properties（Dry state） 
+Subjects Testing Methods Data 
+Young's Modulus (X-Y) ISO 527, GB/T 1040 2110 ± 40 MPa 
+Young's Modulus (Z) ISO 527, GB/T 1040 1450 ± 60 MPa 
+Tensile Strength (X-Y) ISO 527, GB/T 1040 62 ± 2 MPa 
+Tensile Strength (Z) ISO 527, GB/T 1040 56 ± 2 MPa 
+Breaking Elongation Rate (X-Y) ISO 527, GB/T 1040 3.8 ± 0.3 % 
+Breaking Elongation Rate (Z) ISO 527, GB/T 1040 2.1 ± 0.4 % 
+Bending Modulus (X-Y) ISO 178, GB/T 9341 2310 ± 70 MPa 
+Bending Modulus (Z) ISO 178, GB/T 9341 1620 ± 80 MPa 
+Bending Strength (X-Y) ISO 178, GB/T 9341 108 ± 4 MPa 
+Bending Strength (Z) ISO 178, GB/T 9341 55 ± 2 MPa 
+Impact Strength (X-Y) ISO 179, GB/T 1043 
+34.8 ± 2.1 kJ/m²； 
+7.5 ± 1.3 kJ/m² 
+(notched) 
+Impact Strength (Z) ISO 179, GB/T 1043 9.0 ± 0.4 kJ/m² 
+ 
+ 
+ 
+ 
+ 
+ 
