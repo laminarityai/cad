@@ -39,6 +39,8 @@ async def test_server_info_names_the_head_sha_python_and_tools() -> None:
         "python": sys.version.split()[0],
         "tools": [
             "ask_to_confirm",
+            "auto_ask",
+            "auto_revise",
             "build_variant",
             "create_brief",
             "list_materials",

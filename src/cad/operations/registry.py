@@ -2,6 +2,7 @@ import sys
 from typing import Final
 
 from cad.operations import (
+    auto,
     briefs,
     confirmation,
     context_parts,
@@ -44,4 +45,5 @@ OPERATIONS: Final[tuple[Operation, ...]] = (
     *context_parts.OPERATIONS,
     *knowledge.OPERATIONS,
     *research.OPERATIONS,
+    *auto.OPERATIONS,
 )
