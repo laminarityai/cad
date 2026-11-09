@@ -1,0 +1,112 @@
+url: https://www.clevelandcliffs.com/_assets/_464c1f648dd1e0c96c45d68cdce1cf31/clevelandcliffs/db/1190/10513/file/CLF_ProductData_316-316LSS_052021.pdf
+316 / 316L STAINLESS STEEL
+Page 3
+TABLE 1 – TYPICAL ROOM TEMPERATURE MECHANICAL PROPERTIES
+UTS,  
+ksi. (MPa)
+0.2% YS, 
+ksi. (MPa)
+Elongation %  
+in 2 in. (50.8 mm)
+Rockwell  
+Hardness, B
+91 (627) 42 (290) 55 79
+TABLE 2 – ELEVATED TEMPERATURE MECHANICAL PROPERTIES
+Temperature, 
+°F (°C) 
+UTS,  
+ksi. (MPa)
+0.2% YS, 
+ksi. (MPa)
+Elongation %  
+in 2 in. (50.8 mm)
+400 (204) 81 (558) 35 (241) 51
+600 (316) 78 (538) 31 (214) 48
+800 (427) 76 (524) 28 (190) 47
+1000 (538) 70 (483) 24 (165) 44
+1200 (649) 57 (393) 21 (145) 40
+1400 (760) 35 (241) 18 (124) 37
+1600 (871) 24 (165) 16 (110) 44
+Mechanical Properties 
+TABLE 3 – STRESS RUPTURE PROPERTIES
+Temperature, 
+°F (°C) 
+Stress, ksi. (MPa), for rupture in:
+1,000 hours 10,000 hours 100,000 hours
+1100 (593) 36.0 (248) 28.0 (193) 25.0 (172)
+1200 (649) 24.0 (165) 16.5 (114) 13.5 (94)
+1300 (704) 15.5 (106) 10.0 (69) 7.0 (48)
+1400 (760) 10.0 (69) 6.0 (41) 3.5 (24)
+1500 (816) 6.0 (41) 3.5 (24) 2.0 (14)
+1600 (871) 3.5 (24) — —
+316 / 316L STAINLESS STEEL
+Page 4
+CORROSION RESISTANCE
+T ypes 316 and 316L exhibit improve chloride corrosion 
+resistance when compared to T ype 304 due to the 
+molybdenum addition to the steel. This allows for 
+acceptable corrosion protection to marine atmospheres 
+when pitting corrosion is concerned. They also provide 
+good chemical resistance to most agents used in the 
+paper, petroleum, food and dairy industries. They are 
+useful in sulfuric acid environments up to 150 °F (60 °C) 
+when concentrations are below 5%. They show excellent 
+corrosion resistance to acetic, formic, phosphoric,and 
+tartaric acids, as well as some concentrations and 
+temperatures of bromide and iodide solutions. When 
+welding operations are used, the lower carbon T ype 316L 
+allows for reduced risk of intergranular corrosion caused 
+by chromium carbide precipitation.  
+HEAT TREATMENT
+Annealing: Heat to 1900 – 2100 °F (1038 – 1149 °C), then 
+rapidly quench. 
+COLD WORKING
+Due to higher nickel content, these grades work harden at 
+a lower rate than T ype 304. In the annealed condition, they 
+exhibit excellent ductility and may be readily roll formed, 
+deep drawn, and bent. Annealing is essential to restore 
+ductility and to lower hardness for subsequent forming 
+operations. Severely formed parts should be annealed to 
+remove stresses. 
+Properties
+PHYSICAL PROPERTIES
+Density, lbs/in.3 (g/cm3) 0.29 (8.03)
+Electrical Resistivity, µΩ•in. (µΩ•cm)  
+                                         68 °F (20 °C)                          
+ 
+29.4 (74)
+Thermal Conductivity,  
+BTU/hr./ft./°F W/(m•K)
+212 °F (100 °C)
+932 °F (500 °C)
+9.4 (16.2) 
+12.4 (21.4)
+Coefficient of Thermal Expansion,  
+in./in./°F (µm/m /K) 
+ 
+                       32 – 212 °F (0 – 100 °C)  
+                       32 – 600 °F (0 – 315 °C)  
+                     32 – 1000 °F (0 – 538 °C)  
+                     32 – 1200 °F (0 – 649 °C)            
+ 
+ 
+ 
+8.9 x 10-6 (16.0)
+9.0 x 10-6 (16.2)
+9.7 x 10-6 (17.5)
+10.3 x 10-6 (18.5)
+Modulus of Elasticity, ksi. (MPa)   
+                                             in tension  
+                                              in torsion
+ 
+28.0 x 103 (193 x 103) 
+11.2 x 103 (77 x 103)
+Magnetic Permeability Annealed,  
+                          (H/m at 200 Oersteds)
+ 
+1.02 max.
+Specific Heat, BTU/lbs./°F (kJ/g /K) 
+                        32 – 212 °F (0 – 100 °C)
+ 
+0.12 (0.50)
+Melting Range, °F (°C) 2500 – 2550 (1371 –1399)

@@ -339,10 +339,7 @@ def test_refuses_the_table_quotes_that_do_not_state_one_value(key: str, reason: 
     assert refusal(density.source.quote).reason is reason
 
 
-@pytest.mark.parametrize(
-    "key",
-    ["kaiser-6061-t6", "aurubis-c11000-h02", "polymaker-polymax-pc", "polymaker-polylite-abs"],
-)
+@pytest.mark.parametrize("key", ["kaiser-6061-t6", "aurubis-c11000-h02"])
 def test_refuses_the_table_quotes_with_detached_units_or_exponents(key: str) -> None:
     density = load_materials().materials[key].density
     assert isinstance(density, Known)

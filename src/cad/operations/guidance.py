@@ -15,7 +15,9 @@ RULE = (
     "mass, dimension, bounding box or other measured geometry only when a score_variant result "
     "returned it, and name the check. Numbers your own build code printed and arithmetic you did "
     "yourself are not checks: do not report them as measurements or as confirming the scorecard. "
-    "For anything no check measured, say that it was not checked."
+    "When a check is unknown because a material value is missing, answer the card's research "
+    "requests and score again before you report. For anything no check measured after that, "
+    "say that it was not checked."
 )
 
 CONTEXT_PARTS = (
@@ -47,9 +49,9 @@ TEST_MODE = (
     "that variant, with its brief_id. A scorecard with pending checks is not finished: do not "
     "state a pending check's result, and call score_variant again with the same arguments to "
     "wait for it. Report only what the checks returned, and for a load, the fea verdict and "
-    "its measures. Do not estimate a strength, a deflection or a print time yourself: when no "
-    "check returned it, say it was not checked. When fea is unknown because the table lacks a "
-    "material value, answer the card's research requests and score again before you report."
+    "its measures. When fea is unknown because the table lacks a material value, answer the "
+    "card's research requests and score again before you report. Do not estimate a strength, "
+    "a deflection or a print time yourself: when no check returned it, say it was not checked."
 )
 
 NOT_VERIFIED = (

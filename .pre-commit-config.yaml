@@ -37,6 +37,12 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: protocol-models
+        name: protocol models
+        entry: uv run verify --only "protocol models"
+        language: system
+        pass_filenames: false
+        files: ^(src/cad/checks/(lanes|job_store|jobs)\.py|src/cad/sandbox/container\.py|src/cad/confirmations/|src/cad/records/signed\.py|\.claude/skills/protocol-models/)
       - id: sandbox-image
         name: sandbox image
         entry: uv run verify --only "sandbox image"

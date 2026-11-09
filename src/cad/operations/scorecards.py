@@ -13,6 +13,7 @@ from cad.operations.guidance import NOT_VERIFIED, RULE
 from cad.operations.model import BOTH, Audience, Input, Tenant, operation
 from cad.operations.research import brief_table, with_research
 from cad.records.roots import Roots
+from cad.research.overlay import ProjectTable
 from cad.scorecard import material, requirements, score
 from cad.tables.materials import KEY_PATTERN
 
@@ -75,8 +76,11 @@ SCORE_VARIANT = (
     "never fail. When you report the scorecard, give every verdict as it states it, with each "
     "check's formula and source, the table version and the basis, and say that every "
     "requirement it did not judge was not checked. "
-    "material_key is a key from list_materials. When the user confirmed a made_of requirement "
-    "for the brief, pass that key: any other material_key is refused and nothing is scored. "
+    "material_key names the material: a key from list_materials when the table lists that same "
+    "material, and otherwise a key of your own that names it. A key the table lacks is scored "
+    "as the project's own row, project- and your key, and the card's research asks for each "
+    "value a check read. When the user confirmed a made_of requirement for the brief, pass "
+    "that key: any other material_key is refused and nothing is scored. "
     "The card's material says which key was used and what set it, the confirmed requirement or "
     "your argument. When your argument set it, say so wherever a result rests on the material. "
     "You cannot change a check or the materials table. "
@@ -122,6 +126,8 @@ class Judged:
     confirmed: ConfirmedSet | None
     assess: score.Assess
     demand: jobs.Demand
+    table: ProjectTable
+    material_key: str
 
 
 def _context(roots: Roots, brief_id: str) -> dict[ContextPartId, jobs.PartBrep]:
@@ -143,24 +149,27 @@ def judged(tenant: Tenant, brief_id: str | None, material_key: str) -> Judged:
             else requirements.against(confirmed)
         )
         demand = requirements.demand(confirmed, _context(tenant.roots, brief_id))
-    material.refuse_other_material(confirmed, material_key)
-    return Judged(confirmed, assess, demand)
+    table = brief_table(tenant.roots, brief_id)
+    key = table.table.row_key(material_key)
+    material.refuse_other_material(confirmed, key, table.table)
+    return Judged(confirmed, assess, demand, table, key)
 
 
 def score_variant(tenant: Tenant, arguments: ScoreVariantInput) -> material.ReportedScorecard:
     basis = judged(tenant, arguments.brief_id, arguments.material_key)
-    table = brief_table(tenant.roots, arguments.brief_id)
     if arguments.own_measurements:
         own.refuse_unless_unchecked(basis.confirmed, arguments.own_measurements)
     scored = score.score_variant(
         arguments.variant_id,
-        arguments.material_key,
+        basis.material_key,
         tenant.variants,
         basis.assess,
         demand=basis.demand,
-        table=table.table,
+        table=basis.table.table,
     )
-    card = with_research(material.reported(scored, basis.confirmed), table, arguments.brief_id)
+    card = with_research(
+        material.reported(scored, basis.confirmed), basis.table, arguments.brief_id
+    )
     if arguments.own_measurements:
         rows = own.measure(tenant.variants, card.variant_id, arguments.own_measurements)
         card = own.attach(card, rows)
@@ -169,16 +178,17 @@ def score_variant(tenant: Tenant, arguments: ScoreVariantInput) -> material.Repo
 
 def scorecard(tenant: Tenant, arguments: ScorecardInput) -> material.ReportedScorecard:
     basis = judged(tenant, arguments.brief_id, arguments.material_key)
-    table = brief_table(tenant.roots, arguments.brief_id)
     peeked = score.peek_variant(
         arguments.variant_id,
-        arguments.material_key,
+        basis.material_key,
         tenant.variants,
         basis.assess,
         demand=basis.demand,
-        table=table.table,
+        table=basis.table.table,
     )
-    return with_research(material.reported(peeked, basis.confirmed), table, arguments.brief_id)
+    return with_research(
+        material.reported(peeked, basis.confirmed), basis.table, arguments.brief_id
+    )
 
 
 OPERATIONS: Final = (

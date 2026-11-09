@@ -175,8 +175,9 @@ class Unchecked(_Frozen):
 class MadeOf(_Frozen):
     """The brief names the material. A confirmed one pins the `material_key` that scoring accepts.
 
-    The key is an exact key of the materials table: propose_requirements refuses a proposal whose
-    key is not in it.
+    The key is an exact key of the materials table, or, for a material the table lacks, a key of
+    your own that names it. The server stores that material as the project's own row, `project-`
+    and your key, and its values are researched.
     """
 
     kind: Literal[Kind.MADE_OF] = Kind.MADE_OF

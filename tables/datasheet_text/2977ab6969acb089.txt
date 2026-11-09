@@ -1,0 +1,34 @@
+url: https://store.bblcdn.com/3a230e260a3a47c2b0db0156e07eef91.pdf
+Retraction Speed 30 - 60 mm/s
+Chamber Temperature 35 - 50 °C
+Max Overhang Angle ~ 70 °
+Max Bridging Length ~ 30 mm
+Support Material Support for PETG
+• Properties
+Bambu Lab has tested the differing aspects in the performance of PETG HF material,
+including physical, mechanical, and chemical properties. Typical values are listed as followed:
+Physical Properties
+Subjects Testing Methods Data
+Density ISO 1183 1.28 g/cm³
+Melt Index 210 °C, 2.16 kg 28.2 ± 2.7 g/10 min
+Melting Temperature DSC, 10 °C/min 214 °C
+Glass Transition Temperature DSC, 10 °C/min 66 °C
+Crystallization Temperature DSC, 10 °C/min N / A
+Vicar Softening Temperature ISO 306, GB/T 1633 70 °C
+Heat Deflection Temperature ISO 75 1.8 MPa 62 °C
+Heat Deflection Temperature ISO 75 0.45 MPa 69 °C
+Saturated Water Absorption Rate 25 °C, 55% RH 0.40%
+Mechanical Properties
+Subjects Testing Methods Data
+Young's Modulus (X-Y) ISO 527, GB/T 1040 1810 ± 190 MPa
+Young's Modulus (Z) ISO 527, GB/T 1040 1540 ± 130 MPa
+Tensile Strength (X-Y) ISO 527, GB/T 1040 34 ± 4 MPa
+Tensile Strength (Z) ISO 527, GB/T 1040 23 ± 4 MPa
+Breaking Elongation Rate (X-Y) ISO 527, GB/T 1040 8.6 ± 1.2 %
+Breaking Elongation Rate (Z) ISO 527, GB/T 1040 5.1 ± 0.8 %
+Bending Modulus (X-Y) ISO 178, GB/T 9341 2050 ± 120 MPa
+Bending Modulus (Z) ISO 178, GB/T 9341 1810 ± 140 MPa
+Bending Strength (X-Y) ISO 178, GB/T 9341 64 ± 3 MPa
+Bending Strength (Z) ISO 178, GB/T 9341 48 ± 4 MPa
+Impact Strength (X-Y) ISO 179, GB/T 1043 31.5 ± 2.2 kJ/m²; 6.2 ± 1.8 kJ/m² (notched)
+Impact Strength (Z) ISO 179，GB/T 1043 10.6 ± 1.2 kJ/m²

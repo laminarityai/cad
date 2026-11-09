@@ -9,6 +9,7 @@ from cad.briefs.store import BriefRefused, ConfirmedSet
 from cad.briefs.words import describe
 from cad.research.requests import ResearchRequest
 from cad.scorecard.model import Scorecard
+from cad.tables.materials import PROJECT_PREFIX, MaterialsTable
 
 AGENT_CHOSE: Final = (
     "The agent chose this material. No requirement the person confirmed names it, so a result "
@@ -68,14 +69,19 @@ def pinned_by(confirmed: ConfirmedSet | None) -> Requirement | None:
     return next((r for r in confirmed.requirements if isinstance(r.target, MadeOf)), None)
 
 
-def refuse_other_material(confirmed: ConfirmedSet | None, material_key: str) -> None:
+def refuse_other_material(
+    confirmed: ConfirmedSet | None, material_key: str, table: MaterialsTable
+) -> None:
     pin = pinned_by(confirmed)
-    if pin is None or not isinstance(pin.target, MadeOf) or pin.target.material == material_key:
+    if pin is None or not isinstance(pin.target, MadeOf):
+        return
+    pinned = table.row_key(pin.target.material)
+    if pinned == material_key:
         return
     raise MaterialPinned(
         f"material_key {material_key!r} differs from the material the user confirmed, "
-        f"{pin.target.material!r} (requirement {pin.id}). "
-        f"Call score_variant again with material_key {pin.target.material!r}. "
+        f"{pinned!r} (requirement {pin.id}). "
+        f"Call score_variant again with material_key {pinned!r}. "
         "No variant was scored."
     )
 
@@ -85,10 +91,20 @@ def reported(card: Scorecard, confirmed: ConfirmedSet | None) -> ReportedScoreca
     set_by: SetBy = (
         SetByAgent()
         if pin is None
-        else SetByRequirement(requirement_id=pin.id, statement=describe(pin))
+        else SetByRequirement(requirement_id=pin.id, statement=_statement(pin, card.material_key))
     )
     return ReportedScorecard(
         **dict(card), material=MaterialUse(key=card.material_key, set_by=set_by)
+    )
+
+
+def _statement(pin: Requirement, scored: str) -> str:
+    said = describe(pin)
+    if not isinstance(pin.target, MadeOf) or pin.target.material != PROJECT_PREFIX + scored:
+        return said
+    return (
+        f"{said}. The materials table had no {scored} when the person confirmed this; it has "
+        "one now, so the checks read the table's values, not researched ones."
     )
 
 

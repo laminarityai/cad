@@ -18,6 +18,7 @@ from cad.briefs.model import (
 )
 from cad.checks.result import Comparator
 from cad.loads.words import describe_case
+from cad.tables.materials import PROJECT_PREFIX
 
 
 def measure_limit_words(target: MeasureLimit) -> str:
@@ -43,7 +44,7 @@ def describe(requirement: Requirement) -> str:
         case Unchecked():
             return target.statement
         case MadeOf():
-            return f"Made of {target.material}"
+            return f"Made of {target.material.removeprefix(PROJECT_PREFIX)}"
         case MinSafetyFactor():
             return f"Safety factor against yield at least {target.factor:g} with " + describe_case(
                 target.load

@@ -1,0 +1,210 @@
+url: https://polymaker.com/wp-content/uploads/TDS_Polymaker_PolyMax-PC_V5.5_2026-01-05_EN.pdf
+TECHNICAL
+DATA SHEET
+V5.5
+WWW .POL YMAKER.C O M
+PolyMax™ PC
+PolyMax™ PC is an engineered PC ﬁlament 
+combining excellent strength, toughness, heat 
+resistance and printing quality. It is the ideal choice 
+for a wide range of engineering applications.
+P ROP E R T Y TESTING METHOD TYPICAL VALUE
+Density ISO1183, GB/T 1033
+3
+1.19 g/cm  at 23°C
+P H Y SICA L P ROP ERTI E S
+Good:
+Material may get minor attack after long periods of 
+storage with chemical at ambient temperature
+Fair:
+Material can be used for short time contact with 
+chemicals at ambient temperature 
+Poor:
+Material becomes unstable on contact with chemical 
+at ambient temperature
+PROPERTY TYPICAL VALUE
+Effect of weak acids
+Effect of strong acids
+Effect of weak alkalis
+Good
+Poor
+Fair
+Effect of strong alkalis
+Effect of oils and grease
+Poor
+Good
+CHEMICA L RE S I S TA NCE  DATA
+Melt index
+Light transmission
+260°C, 1.2kg
+N/A
+6-8 g/10min
+N/A
+Light transmission N/A N/A
+PolyMax™ PC
+D I SCLAIMER
+The typical values presented in this data sheet are intended for reference and comparison purposes only. They should not be used for design speciﬁcations or quality 
+control purposes. Actual values may vary signiﬁcantly with printing conditions. End- use performance of printed parts depends not only on materials, but also on part 
+design, environmental conditions, printing conditions, etc. Product speciﬁcations are subject to change without notice.
+Each user is responsible for determining the safety, lawfulness, technical suitability, and disposal/recycling practices of Polymaker™ materials for the intended 
+application. Polymaker™ makes no warranty of any kind, unless announced separately, to the ﬁtness for any use or application. Polymaker™ shall not be made liable for 
+any damage, injury or loss induced from the use of Polymaker™ materials in any application.
+Nozzle temperature
+Build plate temperature
+Build surface treatment
+Cooling fan
+Retraction distance
+Retraction speed
+Printing speed
+Drying temp. and time
+*Based on 0.4mm nozzle. Printing conditions may vary   
+ with different nozzle diameters.
+250-270°C
+90-105°C
+PC and T extured PEI
+OFF
+Closure chamber Not needed (70°C-100°C)
+50-200mm/s
+75°C/6H
+1-3 (mm)
+20-40 (mm/s)
+Annealing setting 90°C/2H
+REC OMMEND E D PRIN T I N G  C O NDI T ION S
+MOISTURE 
+ABSORPTION CURVE
+*Equilibrium Water Absorption Rate (%)= 0.253%
+70% RH, 23°C
+PolyMax™ PC
+Water absortion %
+Days
+0.25
+0.30
+50 15 252010 30 35
+0.20
+0.15
+0.10
+0.05
+0.0
+Recommended 
+support material
+PolyDissolve™ S1
+PolySupport™
+Recommended storage for 
+excellent printing quality
+PolyBox™ or PolyDryer™ Box
+*Based on testing with PolyMax™ PC (SKU: PC02003)
+FLEXURAL TESTING SPECIMEN
+ISO 178, GB/T 9341
+60.00
+80.00
+10.00
+Z axis
+4.00
+IMPACT TESTING SPECIMEN
+ISO 179, GB/T 1043
+45.00°
+80.00
+10.00
+Z axis
+Impact direction
+4.00
+TENSILE TESTING SPECIMEN
+ISO 527, GB/T 1040
+20.00
+4*R25
+10.00
+150.00
+114.00
+80.00
+Z axis
+4.00
+Printing temperature
+Bed temperature
+T op & bottom layer
+Inﬁll
+Shell
+Cooling fan
+260°C
+100°C
+3
+Environmental Temperature 90°C
+2
+100%
+OFF
+H O W  TO M AKE SP ECI MEN S
+PROPERTY TESTING METHOD TYPICAL VALUE
+Glass transition temp.
+Melting temp.
+Crystalization temp.
+Decomposition temp.
+Vicat softening temp.
+DSC, 10°C/min
+DSC, 10°C/min
+DSC, 10°C/min
+113°C
+N/A
+TGA, 20°C/min
+N/A
+ISO 306, GB/T 1633
+>360°C
+Heat deﬂection temp.
+Heat deﬂection temp.
+ISO 75 1.8MPa
+117°C
+99°C
+ISO 75 0.45MPa 114°C
+T H ERMA L PROPE R T I E S
+*Curve results are the average of 3 samples
+HDT CURVE
+PolyMax™ PC
+Temperature / °C
+Deflection / mm
+-0.10
+0.00
+0.10
+0.20
+0.30
+0.40
+0 25 50 75 100
+99.3
+125114.1
+1.8 Mpa
+0.45 Mpa
+M ECHANIC A L PROP ERTIE S
+PROPERTY TESTING METHOD TYPICAL VALUE
+Young’s modulus (X-Y)
+Young’s modulus (Z)
+Tensile strength (X-Y)
+Tensile strength (Z)
+2435 ± 63 MPa
+2149 ± 119 MPa
+53.44 ± 0.60 MPa
+41.43 ± 1.50 MPa
+4.53 ± 0.45 %
+2.79 ± 0.21 %
+ISO 527, GB/T 1040
+ISO 527, GB/T 1040
+ISO 527, GB/T 1040
+Bending modulus (X-Y)
+Bending modulus (Z)
+Elongation at break (X-Y)
+Elongation at break (Z)
+Bending strength (X-Y)
+Bending strength (Z)
+2050 ± 79 MPa
+N/A
+81.29 ± 1.53 MPa
+N/A
+21.28 ± 1.69 kJ/m/two.sups
+ISO 527, GB/T 1040
+ISO 527, GB/T 1040
+ISO 179, GB/T 1043
+ISO 179-1 / 1eA:2010,- 30°C N/A
+Notched charpy impact strength (X-Y)
+Low temp. impact strength (X-Y)
+NOTE: 
+- When printing with PolyMax™ PC it is recommended to use an 
+enclosure. For large part it is recommended to use a heated chamber.
+- It is recommended to anneal the printed part right after the printing 
+process to release the residual internal stress.
+Annealing settings: 90˚C for 2h

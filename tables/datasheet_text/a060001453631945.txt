@@ -1,0 +1,41 @@
+url: https://store.bblcdn.com/s7/default/23b4cf2b83d5470bb96d19970b5f3ae8/Bambu_ABS_Technical_Data_Sheet_V3.pdf
+Max Overhang Angle ~ 70° 
+Max Bridging Length  ~ 40 mm 
+ 
+• Properties 
+Bambu Lab has tested the differing aspects in the performance of ABS material, including 
+physical, mechanical, and chemical properties. Typical values are listed as followed:  
+ 
+Physical Properties 
+Subjects Testing Methods Data 
+Density ISO 1183 1.05 g/cm³ 
+Melt Index 260 ° C, 2.16 kg 34.2 ± 3.8 g/10 min 
+Melting Temperature DSC, 10 °C/min 200 °C 
+Glass Transition Temperature DSC, 10 °C/min N/A 
+Crystallization Temperature DSC, 10 °C/min N/A 
+Vicar Softening Temperature ISO 306, GB/T 1633 94 °C 
+Heat Deflection Temperature ISO 75 1.8 MPa 84 °C 
+Heat Deflection Temperature ISO 75 0.45 MPa 87 °C 
+Saturated Water Absorption Rate 25 °C, 55% RH 0.65% 
+ 
+Mechanical Properties 
+Subjects Testing Methods Data 
+Young's Modulus (X-Y) ISO 527, GB/T 1040 2200 ± 190 MPa 
+Young's Modulus (Z) ISO 527, GB/T 1040 1960 ± 110 MPA 
+Tensile Strength (X-Y) ISO 527, GB/T 1040 33 ± 3 MPa 
+Tensile Strength (Z) ISO 527, GB/T 1040 28 ± 2 MPa 
+Breaking Elongation Rate (X-Y) ISO 527, GB/T 1040 10.5 ± 1.0 % 
+Breaking Elongation Rate (Z) ISO 527, GB/T 1040 4.7 ± 0.8 % 
+Bending Modulus (X-Y) ISO 178, GB/T 9341 1880 ± 110 MPa 
+Bending Modulus (Z) ISO 178, GB/T 9341 1590 ± 100 MPa 
+Bending Strength (X-Y) ISO 178, GB/T 9341 62 ± 4 MPa 
+Bending Strength (Z) ISO 178, GB/T 9341 39 ± 4 MPa 
+Impact Strength (X-Y) ISO 179, GB/T 1043 
+39.3 ± 3.6 kJ/m²； 
+21.5 ± 2.2 kJ/m²  
+(notched) 
+Impact Strength (Z) ISO 179, GB/T 1043 7.4 ± 1.2 kJ/m² 
+ 
+ 
+ 
+ 

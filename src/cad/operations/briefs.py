@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import Annotated, Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -8,18 +9,26 @@ from cad.briefs.model import (
     MAX_BRIEF_CHARS,
     MAX_REQUIREMENTS,
     MAX_STATEMENT_CHARS,
+    MadeOf,
     Requirement,
     Target,
     deciding_check,
 )
 from cad.briefs.store import BriefState, ProposalState, Status
 from cad.briefs.words import describe
+from cad.checks.report import QUICK, closure
 from cad.context_parts.store import stored_parts
 from cad.operations.guidance import PLAN_MODE
 from cad.operations.model import BOTH, Audience, Input, Tenant, operation
+from cad.operations.research import brief_table
 from cad.projects.membership import project_for_new_brief
 from cad.projects.model import PROJECT_ID, PROJECT_ID_CHARS
-from cad.sandbox import host
+from cad.research.overlay import ProjectTable
+from cad.research.requests import ResearchRequest, requests_before_scoring
+
+AFTER_PROPOSAL: Final = (
+    "You may research it while the user confirms: score_variant reads the stored value."
+)
 
 CREATE_BRIEF = (
     "Store the user's brief, their own words verbatim, and return its brief id and project id. "
@@ -35,13 +44,16 @@ PROPOSE_REQUIREMENTS = (
     "holds one team check's measure to a limit the user confirms, with check_id, measure, a "
     "comparator (at_most or at_least) and a limit such as {magnitude: 30, unit: cm^3}, and "
     "today the only measure is check_id mass, measure volume, which takes a volume; made_of with a "
-    "material, only when the brief names one, quoting its words and copying the key exactly from "
-    "list_materials (never guess a near match; at most one per brief); min_safety_factor (a "
-    "factor, against yield) or max_deflection (a length), each with a load; min_clearance or "
-    "max_clearance with a part, the part_id propose_context_part returned for this project, "
-    "and a clearance length, which the fit check decides against that part with the variant "
-    "built in the part's frame; or unchecked with a statement, for anything no check decides. "
-    "A load has a support, which is holes (a count "
+    "material, only when the brief names one, quoting its words (at most one per brief): copy "
+    "the key from list_materials when the table lists that same material, and otherwise give "
+    "a key of your own that names it, such as acme-pla-matte. The server stores a material the "
+    "table lacks as the project's own row, project- and your key, and the reply's research "
+    "asks for each value its checks read; answer it with submit_research. min_safety_factor (a "
+    "factor, against yield) or max_deflection (a length), each with a load; "
+    "min_clearance or max_clearance with a part, the part_id propose_context_part returned "
+    "for this project, and a clearance length, which the fit check decides against that part "
+    "with the variant built in the part's frame; or unchecked with a statement, for anything "
+    "no check decides. A load has a support, which is holes (a count "
     "and an optional bore diameter), largest_flat or flat_end, and a load, which is far_end or "
     "on_holes (a count and an optional diameter), each with a force such as {magnitude: 49, "
     "unit: N} and a direction: along or across the long axis or the hole_axis, or any. Propose "
@@ -92,6 +104,13 @@ class ProposalView(BaseModel):
     requirements: list[RequirementRow]
 
 
+class Proposed(ProposalView):
+    """`research` asks for each value of the made_of material that the set's checks read and
+    the table lacks."""
+
+    research: tuple[ResearchRequest, ...] = Field(default=(), exclude_if=lambda one: not one)
+
+
 class BriefView(BaseModel):
     brief_id: str
     project_id: str
@@ -118,6 +137,18 @@ def _view(state: BriefState, proposed: ProposalState) -> ProposalView:
             for was, r in zip(proposed.proposal.requirements, proposed.requirements, strict=True)
         ],
     )
+
+
+def _made_of_requests(
+    table: ProjectTable, brief_id: str, drafts: Sequence[store.Draft]
+) -> tuple[ResearchRequest, ...]:
+    key = next((d.target.material for d in drafts if isinstance(d.target, MadeOf)), None)
+    if key is None or table.problem is not None:
+        return ()
+    checks = [spec.id for spec in QUICK]
+    checks += [check for d in drafts if (check := deciding_check(d.target)) is not None]
+    fields = sorted({str(one) for spec in closure(checks) for one in spec.takes})
+    return requests_before_scoring(table.table, key, fields, brief_id, AFTER_PROPOSAL)
 
 
 def _user_edit(proposed: Requirement, confirmed: Requirement) -> UserEdit | None:
@@ -151,15 +182,17 @@ def create_brief(tenant: Tenant, arguments: CreateBriefInput) -> BriefCreated:
     return BriefCreated(brief_id=brief.id, project_id=project)
 
 
-def propose_requirements(tenant: Tenant, arguments: ProposeRequirementsInput) -> ProposalView:
+def propose_requirements(tenant: Tenant, arguments: ProposeRequirementsInput) -> Proposed:
     drafts = [store.Draft(target=r.target, quote=r.quote) for r in arguments.requirements]
-    made_of.check_proposed(drafts, host.materials_table().materials)
     project = store.read_brief(tenant.roots, arguments.brief_id).project
     clearances.check_proposed(
         drafts, {one.record.id for one in stored_parts(tenant.roots.projects, project)}
     )
+    table = brief_table(tenant.roots, arguments.brief_id)
+    drafts = made_of.with_row_keys(drafts, table.table)
     proposed = store.propose(tenant.roots, arguments.brief_id, drafts)
-    return _view(store.read_state(tenant.roots, arguments.brief_id), proposed)
+    view = _view(store.read_state(tenant.roots, arguments.brief_id), proposed)
+    return Proposed(**dict(view), research=_made_of_requests(table, arguments.brief_id, drafts))
 
 
 def list_requirements(tenant: Tenant, arguments: ListRequirementsInput) -> BriefView:
@@ -188,7 +221,7 @@ OPERATIONS: Final = (
         audience=Audience.AGENT,
         description=PROPOSE_REQUIREMENTS,
         input=ProposeRequirementsInput,
-        output=ProposalView,
+        output=Proposed,
         run=propose_requirements,
     ),
     operation(

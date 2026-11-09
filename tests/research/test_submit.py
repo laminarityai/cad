@@ -226,3 +226,30 @@ def test_an_unreadable_ledger_is_refused_before_the_fetch_and_asks_for_nothing(
     assert answer.reason == read_ledger(roots.projects, pid).problem
     assert answer.request is None
     assert fetched == []
+
+
+def test_a_material_with_no_row_gets_the_projects_own_row_from_research(roots: Roots) -> None:
+    pid = create_brief(roots, "a bracket", new_project_id()).project
+    key = "project-acme-silk-pla"
+    density = ask(roots, "Density 1.24 g/cm3", key=key, field="density", project=pid)
+    assert isinstance(density, ResearchAccepted)
+    assert (density.key, density.value, density.record) == (key, 1240.0, 1)
+    tensile = ask(roots, "Tensile strength 50 MPa", key=key, field="tensile_strength", project=pid)
+    assert isinstance(tensile, ResearchAccepted)
+    material = table_of(roots, pid).get_material(key)
+    assert isinstance(material.density, Known)
+    assert isinstance(material.density.basis, FromResearch)
+    assert isinstance(material.tensile_strength, Known)
+    assert isinstance(material.poisson_ratio, Unknown)
+    assert key not in GIT.materials
+
+
+def test_a_project_row_obeys_the_table_rules(roots: Roots) -> None:
+    pid = create_brief(roots, "a bracket", new_project_id()).project
+    key = "project-acme-silk-pla"
+    ask(roots, "Tensile strength 50 MPa", key=key, field="tensile_strength", project=pid)
+    text = "Yield strength 90 MPa"
+    answer = ask(roots, text, key=key, field="yield_strength", project=pid, fetcher=page(text))
+    assert isinstance(answer, ResearchRefused)
+    assert "above tensile_strength" in answer.reason
+    assert answer.request is not None
