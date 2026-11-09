@@ -16,10 +16,11 @@ Run every call with `HOME` set to a fresh directory, so nothing writes to the op
 
 - `fea` is `unknown`, its `reads` lists `poisson_ratio` as `missing`, and `research` has one request for `poisson_ratio` with `low` 0, `high` 0.5 and `exclusive` true.
 - `uv run cad-call submit_research '{"brief_id": "<brief_id>", "key": "prusament-pla", "field": "poisson_ratio", "value": 0.35, "unit": "", "url": "https://pmc.ncbi.nlm.nih.gov/articles/PMC8123144/", "quote": "the Poisson ratio = 0.36, was used"}'` returns `refused` with "the value 0.35 is not written in the quote", before any fetch.
-- The same call with `"value": 0.36` and `"quote": "the Poisson ratio = 0.30, was used"` returns `refused` with "does not appear on" and the page's text around 0.36.
 - The same call with `"value": 0.36` and `"quote": "the Poisson ratio = 0.36, was used"` (a sentence; the old quote reader refused it) returns `accepted` with `value` 0.36, `unit` `dimensionless` and `record` 1.
 - Score again: `fea` decides, its `reads` has `researched` for `poisson_ratio` with the url and quote, the requirement has `basis` `researched`, and `research` is gone.
-- A table row of another shape: `bambu-pla-basic` has `yield_strength` unknown. `{"key": "bambu-pla-basic", "field": "yield_strength", "value": 43, "unit": "MPa", "url": "https://fiberlogy.com/en/filaments/asa-en/asa-asa-en/", "quote": "Tensile strength at yield: 43 MPa (ISO 527)"}` returns `accepted`, or `refused` with "breaks the table's rules" when 43 MPa is not below the cited tensile strength.
+- The same call with `"value": 0.4` returns `refused` with "already has a researched poisson_ratio" and no request.
+- A table row, a page of another shape: `polymaker-polymax-pc` has `poisson_ratio` unknown. `{"key": "polymaker-polymax-pc", "field": "poisson_ratio", "value": 0.37, "unit": "", "url": "https://www.azom.com/article.aspx?ArticleID=1934", "quote": "The Poisson ratio of polycarbonate is 0.37"}` returns `refused` with "does not appear on" and "the page writes 0.37 here", quoting the table's text. The same call with `"quote": "Poisson's ratio | 0.37"` returns `accepted` with `record` 2.
+- `trace_store.py` (see `research-current`) reports `numbers resolved: 30, stale: 0`.
 
 ## Gotchas
 
