@@ -10,14 +10,17 @@
     tolerance = ±, +/- or +-
     percent   = %
     label     = typical, nominal, value, and every field's own labels in `fields`
+    prose     = a word from `PROSE`, which joins a label and a value in a sentence, as in
+                "a Poisson's ratio of 0.35 was used"
     separator = , ; : ( ) = [ ]
     mark      = a dash, ~, / or "..." (only ever part of a range or a negative sign)
     word      = any other run of text that starts with a letter
     other     = any other single character
 
 No class skips a character. A word, an other or a stray mark never belongs to a value, so
-the reader refuses a quote that has one. The tokens do not include whitespace; instead each
-token says whether whitespace comes before it.
+the reader refuses a quote that has one. A prose word reads only in a quote that names the
+field's own label. The tokens do not include whitespace; instead each token says whether
+whitespace comes before it.
 """
 
 import re
@@ -38,6 +41,7 @@ type Kind = Literal[
     "tolerance",
     "percent",
     "label",
+    "prose",
     "separator",
     "mark",
     "word",
@@ -68,6 +72,12 @@ PRESSURE_PATTERN: Final = (
     + r")(?![A-Za-z0-9^/-])"
 )
 _LABELS: Final = "|".join(re.escape(label) for label in sorted(ALL_LABELS, key=len, reverse=True))
+PROSE: Final = (
+    *("a", "an", "the", "of", "is", "was", "were", "are", "be", "been", "equals", "equal"),
+    *("to", "as", "used", "assumed", "taken", "measured", "reported", "found", "set", "given"),
+    *("obtained", "determined"),
+)
+_ENDS_WORD: Final = r"(?=$| |[,;:()=\[\]])"
 
 _SPELLINGS: Final = sorted(
     (spelling for spellings in STANDARDS.values() for spelling in spellings), key=len, reverse=True
@@ -97,6 +107,7 @@ _SOURCES: Final[tuple[tuple[Kind, str, int], ...]] = (
     ("tolerance", r"±|\+/-|\+-", re.ASCII),
     ("percent", r"%", re.ASCII),
     ("label", rf"(?<![A-Za-z])(?i:{_LABELS})(?![A-Za-z])", re.ASCII),
+    ("prose", rf"(?<![A-Za-z0-9])(?i:{'|'.join(PROSE)}){_ENDS_WORD}", re.ASCII),
     ("separator", r"[,;:()=\[\]]", re.ASCII),
     ("mark", r"\.{2,}|[-\u2010-―~/]", re.ASCII),
     ("word", r"[^\W\d_][^ ,;:()=\[\]]*", 0),

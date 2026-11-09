@@ -19,7 +19,9 @@ from cad.sources.units import dimension
 # number starts or ends: ",9" could be 0.9 and "1;24" could be 1.24.
 _LIKE_A_DECIMAL_MARK: Final = frozenset(",;:")
 _TOUCHING: Final = _LIKE_A_DECIMAL_MARK | frozenset("()")
-_BENIGN: Final = frozenset({"separator", "label", "standard", "unlisted_standard", "condition"})
+_BENIGN: Final = frozenset(
+    {"separator", "label", "prose", "standard", "unlisted_standard", "condition"}
+)
 _RANGE_WORDS: Final = frozenset({"to", "bis"})
 
 
@@ -158,7 +160,9 @@ def _range(
         if not (_is_number(found, low) and _is_number(found, high)) or isinstance(between, Value):
             continue
         word = found[between]
-        joined = word.kind == "mark" or (word.kind == "word" and word.text.lower() in _RANGE_WORDS)
+        joined = word.kind == "mark" or (
+            word.kind in {"word", "prose"} and word.text.lower() in _RANGE_WORDS
+        )
         if joined and _ends_cleanly(found, high):
             shown = text[_first(found, low).start : _last(found, high).end]
             return Refusal(
@@ -174,7 +178,7 @@ def _ends_cleanly(found: list[Token], item: Value | int) -> bool:
     after = item.last + 1 if isinstance(item, Value) else item + 1
     if isinstance(item, Value) or after >= len(found) or found[after].spaced:
         return True
-    return found[after].kind not in {"mark", "other", "word"}
+    return found[after].kind not in {"mark", "other", "word", "prose"}
 
 
 def _several(
@@ -303,7 +307,8 @@ def _unrecognised(found: list[Token], leftovers: list[int], spec: FieldSpec) -> 
         return Refusal(
             Reason.UNRECOGNISED_TEXT,
             f"{shown} is not a {spec.label} value, label, standard or condition",
-            f"a quote of just the {spec.label} value and its unit, written as {spec.unit_hint}",
+            f"a quote of just the {spec.label} value and its unit, written as {spec.unit_hint}, "
+            "or a sentence that joins its name and value with words such as 'of', 'is' or 'was'",
         )
     return None
 
@@ -321,7 +326,7 @@ def _other_quantity(found: list[Token], spec: FieldSpec) -> Refusal | None:
 
 
 def _unlabelled(found: list[Token], spec: FieldSpec) -> Refusal | None:
-    if not spec.needs_label:
+    if not spec.needs_label and all(token.kind != "prose" for token in found):
         return None
     own = {label_key(label) for label in spec.labels}
     if any(token.kind == "label" and label_key(token.text) in own for token in found):
