@@ -31,7 +31,8 @@ These facts about main shape the design. Each was read in code or measured.
 ### 1a. The agent declares a template
 
 ```python
-build_variant(code='''
+build_variant(
+    code="""
 from build123d import *
 PARAMS = {
     "length": {"value": 80, "min": 40, "max": 160, "step": 0.5, "unit": "mm"},
@@ -39,7 +40,9 @@ PARAMS = {
 }
 p = {k: v["value"] for k, v in PARAMS.items()}
 result = Box(p["length"], 40, 20) - Box(p["length"] - 2 * p["wall"], 40 - 2 * p["wall"], 20)
-''', brief_id="b-…")
+""",
+    brief_id="b-…",
+)
 # -> {variant_id, outcome, parameters: [{name: "length", …}, {name: "wall", …}], variant_set: {slot: 2}}
 ```
 
@@ -58,10 +61,10 @@ events.on("variant_built", e => viewer.replace(e.view));       // target: under 
 ### 1c. The web backend runs Auto mode
 
 ```python
-run = await mcp.call("auto_start", brief_id=b)        # Continue | Stopped, Bounds conflicts stop here
+run = await mcp.call("auto_start", brief_id=b)  # Continue | Stopped, Bounds conflicts stop here
 while isinstance(run, Continue):
     run = await mcp.call("auto_revise", run_id=run.run_id, code=await llm.revise(run.failing))
-chat.post(run.report)                                  # server-written: reason, requirements, revisions tried
+chat.post(run.report)  # server-written: reason, requirements, revisions tried
 ```
 
 The agent may call `auto_ask(note)` at any time to stop early. It can always stop a run and can never keep one going.
@@ -75,6 +78,7 @@ class Audience(Flag):
     AGENT = auto()
     PERSON = auto()
 
+
 @dataclass(frozen=True, slots=True)
 class Operation[I: BaseModel, O: BaseModel]:
     name: str
@@ -82,6 +86,7 @@ class Operation[I: BaseModel, O: BaseModel]:
     input: type[I]
     output: type[O]
     run: Callable[[Tenant, Principal, I], O]
+
 
 OPERATIONS: Final[tuple[Operation, ...]]
 ```
@@ -96,11 +101,17 @@ OPERATIONS: Final[tuple[Operation, ...]]
 
 ```python
 class Param(_Frozen):
-    value: float; min: float; max: float; step: float; unit: Literal["mm", "deg", "count"]
+    value: float
+    min: float
+    max: float
+    step: float
+    unit: Literal["mm", "deg", "count"]
     # validator: min <= value <= max, step > 0, at most 12 per template
 
-def declared(code: str) -> Mapping[ParamName, Param] | NoParams | ParamsRefused: ...   # ast only
-def rewrite(code: str, values: Mapping[ParamName, float]) -> str | ParamsRefused: ...
+
+def declared(code: str) -> Mapping[ParamName, Param] | NoParams | ParamsRefused: ...  # ast only
+def rewrite(code: str, values: Mapping[ParamName, float]) -> str | ParamsRefused:
+    ...
     # snaps each value to step, refuses unknown names and out-of-range values,
     # replaces only the PARAMS literal's source span
 ```
@@ -111,12 +122,16 @@ A variant-set member keeps its slot and points at its current variant:
 
 ```python
 class Member(_Frozen):
-    slot: int                                       # 1..5, unchanged by tuning
-    head: VariantId                                 # what the viewer and scorecard show
+    slot: int  # 1..5, unchanged by tuning
+    head: VariantId  # what the viewer and scorecard show
     set_by: Mapping[ParamName, Literal["agent", "person"]]
 
-class Tuning(_Frozen):                              # signed, append-only, one per settled change of head
-    member: MemberRef; values: Mapping[ParamName, float]; variant_id: VariantId; by: Literal["agent", "person"]
+
+class Tuning(_Frozen):  # signed, append-only, one per settled change of head
+    member: MemberRef
+    values: Mapping[ParamName, float]
+    variant_id: VariantId
+    by: Literal["agent", "person"]
 ```
 
 Moving `head` is not a confirmation, so either actor may do it. `set_by` is how Auto mode knows "something the person set" (§2.5). The SPEC's "git per design" maps onto this log: a member is a branch and a tuning is a commit. Phase 4 does not run git (§5).
@@ -127,14 +142,16 @@ Moving `head` is not a confirmation, so either actor may do it. `set_by` is how 
 @dataclass(frozen=True, slots=True)
 class ZygoteKey:
     account: AccountId
-    image_id: str                                   # never shared across accounts
+    image_id: str  # never shared across accounts
+
 
 class Zygotes:
     """Owns every build container. One per key, reaped after 10 idle minutes or 50 builds.
     Limits match container.Job: --network none, read-only root, uid 65534, 2 CPU, 2 GB,
     a 60 s wall and the CPU rlimit per child."""
+
     def build(self, key: ZygoteKey, code: str) -> Run: ...
-    def warm(self, key: ZygoteKey) -> None: ...     # called when a person opens a variant set
+    def warm(self, key: ZygoteKey) -> None: ...  # called when a person opens a variant set
 ```
 
 `runner.py` gains a `serve` loop that reads framed jobs on stdin. For each job the parent makes `/tmp/job-<n>` and forks. The child changes into the job directory, runs the code with `runpy`, exports the BREP and writes its report. The parent then kills the child's process group and deletes the job directory. The parent never runs agent code, so its memory stays clean for the next fork. Children run one at a time, so a child cannot reach a sibling.
@@ -159,12 +176,20 @@ During a drag, the front end sends at most one tune per member at a time, and th
 ```python
 type Principal = PersonSession | AgentToken
 
+
 class PersonSession(_Frozen):
-    kind: Literal["person"] = "person"; account: AccountId; session_id: str
+    kind: Literal["person"] = "person"
+    account: AccountId
+    session_id: str
+
 
 class AgentToken(_Frozen):
-    kind: Literal["agent"] = "agent"; account: AccountId; token_id: str
-    conversation: ConversationId | None; auto_run: AutoRunId | None; mode: Mode
+    kind: Literal["agent"] = "agent"
+    account: AccountId
+    token_id: str
+    conversation: ConversationId | None
+    auto_run: AutoRunId | None
+    mode: Mode
 ```
 
 A person session comes only from an HttpOnly, Secure, SameSite=Strict cookie that sign-in sets. An agent token comes only from an `Authorization: Bearer` header on `/mcp`. Different FastAPI dependencies parse them, and `answer_page` is `PERSON` only, so no MCP tool can answer a page. `ask_to_confirm` returns `waiting in the web app` with no link and no token, as #47 directs.
@@ -176,32 +201,52 @@ Local dev and the eval driver run the same FastAPI app on 127.0.0.1. With `--ope
 ### 2.5 Auto mode (`cad/auto/`, ADR-0012)
 
 ```python
-class Standing(_Frozen):                    # one settled revision, projected from a scorecard
+class Standing(_Frozen):  # one settled revision, projected from a scorecard
     revision: int
-    variant_id: VariantId | None            # None: the build failed, which counts as no progress
+    variant_id: VariantId | None  # None: the build failed, which counts as no progress
     margin: Mapping[RequirementId, float | None]
-        # in [-1, 1]. For <=: (limit - m) / (|limit| + |m|). For >=: (m - limit) / (|limit| + |m|).
-        # The sign is the verdict. The minimum over a requirement's comparisons.
-        # None: unknown, unverified, waiting or pending. No number means no progress.
+    # in [-1, 1]. For <=: (limit - m) / (|limit| + |m|). For >=: (m - limit) / (|limit| + |m|).
+    # The sign is the verdict. The minimum over a requirement's comparisons.
+    # None: unknown, unverified, waiting or pending. No number means no progress.
+
 
 type StopReason = AllPass | NeedsPerson | Stalled
 
+
 class NeedsPerson(_Frozen):
     kind: Literal["conflict", "person_set_value", "source_to_confirm", "agent_asked"]
-    requirements: tuple[RequirementId, ...]; evidence: ConflictEvidence | None; note: str
+    requirements: tuple[RequirementId, ...]
+    evidence: ConflictEvidence | None
+    note: str
+
 
 type ConflictEvidence = Bounds | Tradeoff
 
-class Bounds(_Frozen):                      # proved from confirmed targets and tables, before any build
-    statement: str                          # "min_mass 50 g > density(PLA) 1.24 g/cm³ × envelope 8 cm³ = 9.9 g"
-    reads: tuple[Read, ...]                 # table rows by exact key, researched rows labelled
 
-class Tradeoff(_Frozen):                    # observed in the run
-    best_a: VariantId; best_b: VariantId    # each is the best for one requirement, and no revision passes both
+class Bounds(_Frozen):  # proved from confirmed targets and tables, before any build
+    statement: str  # "min_mass 50 g > density(PLA) 1.24 g/cm³ × envelope 8 cm³ = 9.9 g"
+    reads: tuple[Read, ...]  # table rows by exact key, researched rows labelled
 
-class Running(_Frozen):  history: tuple[Standing, ...]; best: Mapping[RequirementId, float]; stale: int
-class Stopped(_Frozen):  history: tuple[Standing, ...]; reason: StopReason; report: str
+
+class Tradeoff(_Frozen):  # observed in the run
+    best_a: VariantId
+    best_b: VariantId  # each is the best for one requirement, and no revision passes both
+
+
+class Running(_Frozen):
+    history: tuple[Standing, ...]
+    best: Mapping[RequirementId, float]
+    stale: int
+
+
+class Stopped(_Frozen):
+    history: tuple[Standing, ...]
+    reason: StopReason
+    report: str
+
+
 type AutoState = Running | Stopped
+
 
 def bounds_conflicts(reqs: ConfirmedRequirements, tables: Tables) -> tuple[Conflict, ...]: ...
 def step(state: Running, standing: Standing) -> AutoState: ...
