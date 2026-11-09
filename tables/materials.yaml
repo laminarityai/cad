@@ -9,7 +9,7 @@ materials:
         page: page 2, Typical material properties
         retrieved: 2026-11-05
         standard: ISO 1183
-        quote: Density [g/cm3] 1.24 ISO 1183
+        quote: Density [g/cm3 ] 1.24 ISO 1183
     yield_strength:
       value: 51 MPa
       source:
@@ -70,29 +70,29 @@ materials:
       source:
         url: https://polymaker.com/wp-content/uploads/lana-downloads/TDS_Polymaker_PolyLite-ABS_V5.6_2025-12-30_EN.pdf
         title: Technical Data Sheet V5.6, PolyLite ABS, Polymaker
-        page: page 1, Physical properties
+        page: page 1, Physical properties, Density row (ISO1183, GB/T1033), typical value at 23 °C; the sheet prints labels and values in separate columns, so the quote is the value cell, and it prints the unit as g/cm³ with a raised 3 that the PDF text layer keeps apart from g/cm
         retrieved: 2026-11-05
         standard: ISO 1183, GB/T 1033
-        quote: Density ISO1183, GB/T1033 1.04 g/cm3 at 23°C
+        quote: 1.04 g/cm at 23°C
     yield_strength: unknown
     tensile_strength:
       value: 33.4 MPa
       source:
         url: https://polymaker.com/wp-content/uploads/lana-downloads/TDS_Polymaker_PolyLite-ABS_V5.6_2025-12-30_EN.pdf
         title: Technical Data Sheet V5.6, PolyLite ABS, Polymaker
-        page: page 1, Mechanical properties
+        page: page 1, Mechanical properties, Tensile strength (X-Y) row (ISO 527, GB/T 1040), typical value; the sheet prints labels and values in separate columns, so the quote is the value cell; the sheet itself prints the spread as ± 92.7 MPa, the same spread as the Young's modulus (Z) row above it, so the spread is a source typo (issue #110); the value is the 33.4 MPa mean
         retrieved: 2026-11-05
         standard: ISO 527, GB/T 1040
-        quote: Tensile strength (X-Y) ISO 527, GB/T 1040 33.4 ± 92.7 MPa
+        quote: 33.4 ± 92.7 MPa
     elastic_modulus:
       value: 2246.6 MPa
       source:
         url: https://polymaker.com/wp-content/uploads/lana-downloads/TDS_Polymaker_PolyLite-ABS_V5.6_2025-12-30_EN.pdf
         title: Technical Data Sheet V5.6, PolyLite ABS, Polymaker
-        page: page 1, Mechanical properties, Young's modulus (X-Y), typical value; printed specimens, X-Y direction; value is the mean of mean ± spread
+        page: page 1, Mechanical properties, Young's modulus (X-Y) row, typical value; printed specimens, X-Y direction; value is the mean of mean ± spread; the sheet prints labels and values in separate columns, so the quote is the value cell
         retrieved: 2026-11-08
         standard: ISO 527, GB/T 1040
-        quote: Young’s modulus (X-Y) ... 2246.6 ± 58.2 MPa
+        quote: 2246.6 ± 58.2 MPa
     poisson_ratio:
       value: '0.35'
       source:
@@ -119,19 +119,19 @@ materials:
       source:
         url: https://online.kaiseraluminum.com/depot/PublicProductInformation/Document/1015/Kaiser_Aluminum_6061_Sheet_Coil_and_Plate.pdf
         title: Sheet Coil & Plate Alloy 6061 Technical Data, Kaiser Aluminum, Rev. 05/06
-        page: page 1, Typical mechanical properties, T6, T651 row
+        page: page 1, Typical mechanical properties, T6, T651 row (typical, columns Tensile Ultimate KSI MPa then Yield KSI MPa)
         retrieved: 2026-11-05
         standard: null
-        quote: T6, T651 45 310 40 276 17 95 30 207 14 97 10.0 68.3 (Tensile Ultimate KSI MPa, Yield KSI MPa)
+        quote: T6, T651 45 310 40 276 17 95 30 207 14 97 10.0 68.3
     tensile_strength:
       value: 310 MPa
       source:
         url: https://online.kaiseraluminum.com/depot/PublicProductInformation/Document/1015/Kaiser_Aluminum_6061_Sheet_Coil_and_Plate.pdf
         title: Sheet Coil & Plate Alloy 6061 Technical Data, Kaiser Aluminum, Rev. 05/06
-        page: page 1, Typical mechanical properties, T6, T651 row
+        page: page 1, Typical mechanical properties, T6, T651 row (typical, columns Tensile Ultimate KSI MPa then Yield KSI MPa)
         retrieved: 2026-11-05
         standard: null
-        quote: T6, T651 45 310 40 276 17 95 30 207 14 97 10.0 68.3 (Tensile Ultimate KSI MPa, Yield KSI MPa)
+        quote: T6, T651 45 310 40 276 17 95 30 207 14 97 10.0 68.3
     elastic_modulus:
       value: 68.3 GPa
       source:
@@ -140,7 +140,7 @@ materials:
         page: page 1, Typical mechanical properties, T6, T651 row, Modulus of Elasticity column (typical; sheet does not split tension and compression)
         retrieved: 2026-11-08
         standard: null
-        quote: Modulus of Elasticity KSI MPa KSI MPa % KSI MPa KSI MPa KSI x 10 3 Gpa ... T6, T651 45 310 40 276 17 95 30 207 14 97 10.0 68.3
+        quote: T6, T651 45 310 40 276 17 95 30 207 14 97 10.0 68.3
     poisson_ratio:
       value: '0.33'
       source:
@@ -149,7 +149,7 @@ materials:
         page: page 3-264, Table 3.6.2.0(b1), 6061 aluminum alloy sheet, tempers T4, T42 and T6/T62 (one µ value for all columns), row µ; column order E, Ec, G, µ
         retrieved: 2026-11-08
         standard: null
-        quote: Design Mechanical and Physical Properties of 6061 Aluminum Alloy Sheet ... T6 and T62b ... µ ............... 9.9 10.1 3.8 0.33
+        quote: μ ............... 9.9 10.1 3.8 0.33
 
   - key: cliffs-304
     name: Cleveland-Cliffs Type 304 stainless steel
@@ -170,7 +170,7 @@ materials:
         page: page 3, Table 1 Typical room temperature mechanical properties, Type 304 row
         retrieved: 2026-11-05
         standard: null
-        quote: UTS, ksi. (MPa) 0.2% YS, ksi. (MPa) ... Type 304 95 (655) 42 (290) 55 84
+        quote: UTS, ksi. (MPa) 0.2% YS, ksi. (MPa) Elongation % in 2 in. (50.8 mm) Rockwell Hardness, B Type 304 95 (655) 42 (290) 55 84
     tensile_strength:
       value: 95 ksi
       source:
@@ -179,7 +179,7 @@ materials:
         page: page 3, Table 1 Typical room temperature mechanical properties, Type 304 row
         retrieved: 2026-11-05
         standard: null
-        quote: UTS, ksi. (MPa) 0.2% YS, ksi. (MPa) ... Type 304 95 (655) 42 (290) 55 84
+        quote: UTS, ksi. (MPa) 0.2% YS, ksi. (MPa) Elongation % in 2 in. (50.8 mm) Rockwell Hardness, B Type 304 95 (655) 42 (290) 55 84
     elastic_modulus:
       value: 193 GPa
       source:
@@ -197,7 +197,7 @@ materials:
         page: page 2-223, Table 2.7.1.0(b), AISI 301 and related stainless steels, sheet and strip, row µ (0.27 in every condition, annealed through full hard); footnote b says the properties also apply to AISI 304 (AMS 5513 annealed, AMS 5910-5913 1/4H to full hard)
         retrieved: 2026-11-08
         standard: null
-        quote: Design Mechanical and Physical Properties of AISI 301and Relateda,b,c Stainless Steels ... µ .............. 29.0 29.0 28.0 28.0 11.2 0.27 ... b Properties also applicable to AISI 304 for the following; AMS 5513 for annealed condition
+        quote: μ .............. 29.0 29.0 28.0 28.0 11.2 0.27
 
   - key: bambu-pla-basic
     name: Bambu Lab PLA Basic
@@ -408,19 +408,19 @@ materials:
       source:
         url: https://fiberon.polymaker.com/wp-content/uploads/TDS_FIBERON-PA6-CF20_V1.1_EN.pdf
         title: Technical Data Sheet V1.1, Fiberon PA6-CF20, Polymaker
-        page: page 1, Mechanical properties - dry status, typical value; printed specimens, X-Y direction, dry (not water-conditioned), annealed at 100 °C for 16 h
+        page: page 1, Mechanical properties - dry status, Tensile strength (X-Y) row, typical value; printed specimens, X-Y direction, dry (not water-conditioned), annealed at 100 °C for 16 h; the sheet prints labels and values in separate columns, so the quote is the value cell
         retrieved: 2026-11-07
         standard: ISO 527, GB/T 1040
-        quote: Tensile strength (X-Y) ISO 527, GB/T 1040 109.3 ± 2.4 MPa
+        quote: 109.3 ± 2.4 MPa
     elastic_modulus:
       value: 8636.5 MPa
       source:
         url: https://fiberon.polymaker.com/wp-content/uploads/TDS_FIBERON-PA6-CF20_V1.1_EN.pdf
         title: Technical Data Sheet V1.1, Fiberon PA6-CF20, Polymaker
-        page: page 1, Mechanical properties - dry status, Young's modulus (X-Y), typical value; printed specimens, X-Y direction, dry (not water-conditioned), annealed at 100 °C for 16 h; value is the mean of mean ± spread
+        page: page 1, Mechanical properties - dry status, Young's modulus (X-Y), typical value; printed specimens, X-Y direction, dry (not water-conditioned), annealed at 100 °C for 16 h; value is the mean of mean ± spread; the sheet prints labels and values in separate columns, so the quote is the value cell
         retrieved: 2026-11-08
         standard: ISO 527, GB/T 1040
-        quote: Young’s modulus (X-Y) ... 8636.5 ± 211.4 MPa
+        quote: 8636.5 ± 211.4 MPa
     poisson_ratio: unknown
 
   - key: polymaker-fiberon-pa12-cf10
@@ -440,19 +440,19 @@ materials:
       source:
         url: https://fiberon.polymaker.com/wp-content/uploads/TDS_FIBERON-PA12-CF10_V1.1_EN.pdf
         title: Technical Data Sheet V1.1, Fiberon PA12-CF10, Polymaker
-        page: page 1, Mechanical properties - dry status, typical value; printed specimens, X-Y direction, dry (not water-conditioned), annealed at 100 °C for 16 h
+        page: page 1, Mechanical properties - dry status, Tensile strength (X-Y) row, typical value; printed specimens, X-Y direction, dry (not water-conditioned), annealed at 100 °C for 16 h; the sheet prints labels and values in separate columns, so the quote is the value cell
         retrieved: 2026-11-07
         standard: ISO 527, GB/T 1040
-        quote: Tensile strength (X-Y) ISO 527, GB/T 1040 77.4 ± 1.1 MPa
+        quote: 77.4 ± 1.1 MPa
     elastic_modulus:
       value: 3311.2 MPa
       source:
         url: https://fiberon.polymaker.com/wp-content/uploads/TDS_FIBERON-PA12-CF10_V1.1_EN.pdf
         title: Technical Data Sheet V1.1, Fiberon PA12-CF10, Polymaker
-        page: page 1, Mechanical properties - dry status, Young's modulus (X-Y), typical value; printed specimens, X-Y direction, dry (not water-conditioned), annealed at 100 °C for 16 h; value is the mean of mean ± spread
+        page: page 1, Mechanical properties - dry status, Young's modulus (X-Y), typical value; printed specimens, X-Y direction, dry (not water-conditioned), annealed at 100 °C for 16 h; value is the mean of mean ± spread; the sheet prints labels and values in separate columns, so the quote is the value cell
         retrieved: 2026-11-08
         standard: ISO 527, GB/T 1040
-        quote: Young’s modulus (X-Y) ... 3311.2 ± 134.9 MPa
+        quote: 3311.2 ± 134.9 MPa
     poisson_ratio: unknown
 
   - key: bambu-pc
@@ -512,19 +512,19 @@ materials:
       source:
         url: https://polymaker.com/wp-content/uploads/TDS_Polymaker_PolyMax-PC_V5.5_2026-01-05_EN.pdf
         title: Technical Data Sheet V5.5, PolyMax PC, Polymaker (2026-01-05)
-        page: page 1, Mechanical properties, typical value; printed specimens, X-Y direction, 100% infill, not stated as annealed
+        page: page 1, Mechanical properties, Tensile strength (X-Y) row, typical value; printed specimens, X-Y direction, 100% infill, not stated as annealed; the sheet prints labels and values in separate columns, so the quote is the value cell
         retrieved: 2026-11-07
         standard: ISO 527, GB/T 1040
-        quote: Tensile strength (X-Y) ISO 527, GB/T 1040 53.44 ± 0.60 MPa
+        quote: 53.44 ± 0.60 MPa
     elastic_modulus:
       value: 2435 MPa
       source:
         url: https://polymaker.com/wp-content/uploads/TDS_Polymaker_PolyMax-PC_V5.5_2026-01-05_EN.pdf
         title: Technical Data Sheet V5.5, PolyMax PC, Polymaker (2026-01-05)
-        page: page 1, Mechanical properties, Young's modulus (X-Y), typical value; printed specimens, X-Y direction, 100% infill, not stated as annealed; value is the mean of mean ± spread
+        page: page 1, Mechanical properties, Young's modulus (X-Y), typical value; printed specimens, X-Y direction, 100% infill, not stated as annealed; value is the mean of mean ± spread; the sheet prints labels and values in separate columns, so the quote is the value cell
         retrieved: 2026-11-08
         standard: ISO 527, GB/T 1040
-        quote: Young’s modulus (X-Y) ... 2435 ± 63 MPa
+        quote: 2435 ± 63 MPa
     poisson_ratio: unknown
 
   - key: bambu-pla-cf
@@ -633,7 +633,7 @@ materials:
         page: page 2, Typical physical properties (nominal density, all tempers)
         retrieved: 2026-11-07
         standard: null
-        quote: Nominal Density (68 ºF / 20 ºC) 0.101 lbs./in.3 2.80 Mg/m3
+        quote: Metric 2.80 Mg/m3
     yield_strength:
       value: 503 MPa
       source:
@@ -660,7 +660,7 @@ materials:
         page: page 1, Typical mechanical properties, T6, T651 row, Modulus of Elasticity column (typical; sheet does not split tension and compression)
         retrieved: 2026-11-08
         standard: null
-        quote: Modulus of Elasticity KSI MPa KSI MPa % KSI MPa KSI MPa KSI x 10 3 Gpa ... T6, T651 83 572 73 503 11 150 48 331 23 158 10.3 71.0
+        quote: T6, T651 83 572 73 503 11 150 48 331 23 158 10.3 71.0
     poisson_ratio:
       value: '0.33'
       source:
@@ -669,7 +669,7 @@ materials:
         page: page 3-380, Table 3.7.6.0(d), 7075 aluminum alloy bar, rod and shapes, rolled, drawn or cold-finished, tempers T6, T651, T62 and T73, T7351 (one µ value for all columns), row µ; column order E, Ec, G, µ
         retrieved: 2026-11-08
         standard: null
-        quote: Design Mechanical and Physical Properties of 7075 Aluminum Alloy Bar, Rod, and Shapes ... µ ............... 10.3 10.5 3.9 0.33
+        quote: μ ............... 10.3 10.5 3.9 0.33
 
   - key: cliffs-316
     name: Cleveland-Cliffs Type 316/316L stainless steel
@@ -717,7 +717,7 @@ materials:
         page: page 2-223, Table 2.7.1.0(b), AISI 301 and related stainless steels, sheet and strip, row µ (0.27 in every condition); footnote c says the properties also apply to AISI 316 (AMS 5524 annealed, AMS 5907 1/4H)
         retrieved: 2026-11-08
         standard: null
-        quote: Design Mechanical and Physical Properties of AISI 301and Relateda,b,c Stainless Steels ... µ .............. 29.0 29.0 28.0 28.0 11.2 0.27 ... c Properties also applicable to AISI 316 for the following; AMS 5524 for annealed condition and AMS 5907 for 1/4H
+        quote: μ .............. 29.0 29.0 28.0 28.0 11.2 0.27
 
   - key: cliffs-hot-rolled-cs-type-b
     name: Cleveland-Cliffs hot-rolled Commercial Steel (CS Type B) mild steel sheet
@@ -820,7 +820,7 @@ materials:
         page: page 1, Physical properties table, Mod. of elasticity column; 17 x 1000 ksi [117 GPa]; one value for the alloy, not per temper or load direction
         retrieved: 2026-11-08
         standard: null
-        quote: Mod. of elasticity x1000 ksi [GPa] ... 100 58 226 391 17 117
+        quote: x1000 ksi [GPa] 17 117
     poisson_ratio: unknown
 
   - key: plexiglas-gs-0f00
@@ -861,7 +861,7 @@ materials:
         page: page 4, Typical property values, Poisson's ratio μb (dilatation speed of 5% per min; up to 2% dilatation; at 23 °C), PLEXIGLAS GS column; typical
         retrieved: 2026-11-08
         standard: ISO 527-1
-        quote: Poisson’s ratio μb ... up to 2% dilatation; at 23 °C) 0.37 0.37 0.41; 0.42. 0.41; 0.43 - ISO 527-1
+        quote: Poisson's ratio μb (dilatation speed of 5% per min; up to 2% dilatation; at 23 °C) 0.37 0.37 0.41; 0.42. 0.41; 0.43 - ISO 527-1
 
   - key: plexiglas-xt-0a000
     name: PLEXIGLAS XT clear 0A000 extruded acrylic (PMMA) sheet
@@ -901,7 +901,7 @@ materials:
         page: page 4, Typical property values, Poisson's ratio μb (dilatation speed of 5% per min; up to 2% dilatation; at 23 °C), PLEXIGLAS XT column; typical
         retrieved: 2026-11-08
         standard: ISO 527-1
-        quote: Poisson’s ratio μb ... up to 2% dilatation; at 23 °C) 0.37 0.37 0.41; 0.42. 0.41; 0.43 - ISO 527-1
+        quote: Poisson's ratio μb (dilatation speed of 5% per min; up to 2% dilatation; at 23 °C) 0.37 0.37 0.41; 0.42. 0.41; 0.43 - ISO 527-1
 
   - key: mcam-ertacetal-c
     name: Mitsubishi Chemical Advanced Materials Acetron GP / Ertacetal C POM-C (acetal copolymer) stock shapes

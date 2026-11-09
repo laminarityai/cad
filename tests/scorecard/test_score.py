@@ -73,15 +73,12 @@ AGAINST = AgainstBrief(
 )
 
 
-def test_the_plate_scorecard_equals_the_one_stored_beside_the_variant(
-    built: Build, store: Path
-) -> None:
+def test_the_plate_passes_every_check_with_its_volume(built: Build, store: Path) -> None:
     variant_id = built(PLATE)
     card = score.score_variant(variant_id, "prusament-pla", store)
     assert [result.check_id for result in card.finished] == CHECK_IDS
     assert [result.verdict for result in card.finished] == [Verdict.PASS] * 4
     assert card.finished[2].number("volume", "mm^3") == pytest.approx(PLATE_VOLUME_MM3, abs=0.01)
-    assert stored(store, variant_id) == card
 
 
 def test_the_scorecard_names_the_table_the_analysis_image_and_every_check_version(
@@ -92,7 +89,7 @@ def test_the_scorecard_names_the_table_the_analysis_image_and_every_check_versio
     assert card.check_image_digest == current_image(IMAGE_TAG)
     assert card.check_image_digest != current_image(image_tag(BUILD))
     assert all(result.version and result.formula and result.sources for result in card.finished)
-    fields = json.loads((store / card.variant_id / score.SCORECARD).read_text())
+    fields = json.loads(card.model_dump_json())
     assert [result["version"] for result in fields["results"]] == [r.version for r in card.finished]
 
 
@@ -127,7 +124,7 @@ def test_a_phase_one_card_with_a_requirements_note_and_no_basis_is_unreadable() 
         Scorecard.model_validate(old)
 
 
-def test_scoring_stores_the_basis_the_assessor_gives_for_the_suite_it_ran(
+def test_scoring_gives_the_basis_the_assessor_gives_for_the_suite_it_ran(
     built: Build, store: Path
 ) -> None:
     seen: list[score.Results] = []
@@ -140,7 +137,6 @@ def test_scoring_stores_the_basis_the_assessor_gives_for_the_suite_it_ran(
     card = score.score_variant(variant_id, "prusament-pla", store, awaiting)
     assert seen == [card.results]
     assert card.basis == AwaitingConfirmation(brief_id="1" * 16)
-    assert stored(store, variant_id) == card
     assert score.score_variant(variant_id, "prusament-pla", store).basis == NoBrief()
 
 
@@ -152,18 +148,16 @@ def test_scoring_the_same_variant_twice_gives_equal_scorecards(built: Build, sto
     assert first.model_dump_json() == second.model_dump_json()
 
 
-def test_the_plate_shell_mutant_is_stored_with_closed_solid_failed(
+def test_the_plate_shell_mutant_is_scored_with_closed_solid_failed(
     built: Build, store: Path
 ) -> None:
-    variant_id = built(PLATE_SHELL)
-    score.score_variant(variant_id, "prusament-pla", store)
-    card = stored(store, variant_id)
+    card = score.score_variant(built(PLATE_SHELL), "prusament-pla", store)
     assert card.finished[0].verdict == Verdict.FAIL
     assert card.finished[2].verdict == Verdict.UNKNOWN
     assert card.finished[2].measured == ()
 
 
-def test_an_unknown_material_key_is_stored_with_mass_unknown(built: Build, store: Path) -> None:
+def test_an_unknown_material_key_is_scored_with_mass_unknown(built: Build, store: Path) -> None:
     variant_id = built(PLATE)
     card = score.score_variant(variant_id, "unobtainium", store)
     assert [result.verdict for result in card.finished] == [
@@ -172,7 +166,6 @@ def test_an_unknown_material_key_is_stored_with_mass_unknown(built: Build, store
         Verdict.UNKNOWN,
         Verdict.PASS,
     ]
-    assert stored(store, variant_id) == card
 
 
 def test_an_edited_scorecard_file_changes_nothing_the_next_score_reports(
@@ -180,11 +173,10 @@ def test_an_edited_scorecard_file_changes_nothing_the_next_score_reports(
 ) -> None:
     variant_id = built(PLATE_SHELL)
     honest = score.score_variant(variant_id, "prusament-pla", store)
-    path = store / variant_id / score.SCORECARD
+    path = score.store(honest, store)
     path.write_text(path.read_text().replace('"fail"', '"pass"'))
     assert stored(store, variant_id) != honest
     assert score.score_variant(variant_id, "prusament-pla", store) == honest
-    assert stored(store, variant_id) == honest
 
 
 def test_an_unknown_variant_is_refused_naming_the_id_and_stores_nothing(

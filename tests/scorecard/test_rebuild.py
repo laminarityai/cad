@@ -6,7 +6,6 @@ from cad.sandbox import container
 from cad.sandbox.container import Job, Ran
 from cad.sandbox.outcome import Build, Built, NoResult
 from cad.scorecard import score
-from cad.scorecard.model import Scorecard
 from cad.variants import entry
 from cad.variants.store import RebuildFailed, build_variant
 
@@ -42,8 +41,6 @@ def test_scoring_a_variant_an_older_sandbox_stored_scores_its_code_rebuilt(
     assert jobs == ["build", "check"]
     assert card.rebuilt_from == old
     assert card.variant_id == build_variant(PLATE, tmp_path).variant_id != old
-    stored = (tmp_path / card.variant_id / score.SCORECARD).read_text()
-    assert Scorecard.model_validate_json(stored) == card
     assert sorted(path.name for path in (tmp_path / old).iterdir()) == old_files
     assert (tmp_path / old / entry.CODE).read_text() == PLATE
 
