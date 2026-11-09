@@ -56,7 +56,7 @@ You switch modes in the chat, the way you switch modes in Claude Code.
 
 - **Plan mode.** The agent asks questions and turns the brief into requirements, without making geometry. It ends when you confirm the requirements.
 - **Design mode** is the default. The agent makes variants, runs checks, shows scorecards, and stops for you to pick or tune.
-- **Auto mode.** The agent revises variants against the checks without stopping. It stops in exactly three cases. The first is that every requirement passes. The second is that it needs a decision only you can make, such as relaxing one of two conflicting requirements, changing something you set, or using a source it found. The third is that three revisions in a row improved no failing requirement, in which case it reports what it tried and asks how to proceed. There is no budget.
+- **Auto mode.** The agent revises variants against the checks without stopping. It stops in exactly three cases. The first is that every requirement passes. The second is that it needs a decision only you can make, such as relaxing one of two conflicting requirements, changing something you set, or using a source it found. The third is that three revisions in a row improved no failing requirement, in which case it reports what it tried and asks how to proceed. There is no budget. An account's usage limit can refuse a build during a run, but that is an account limit, not a fourth case.
 - **Test mode.** Deeper, slower analysis of one chosen variant, such as full FEA, tolerance stack-ups and slicing.
 
 ### Checks
@@ -91,7 +91,7 @@ A number the agent takes from any source, such as a PDF, a web page or your brie
 The MCP server is the product ([ADR-0002](docs/adr/0002-mcp-server-is-the-product.md)). Every capability is an MCP tool: making variants, running checks, reading tables and the knowledge base, and exporting to Onshape. Our web app's agent is the first client and uses the same interface as Claude Code or any other MCP client. Because checks run on the server, any agent that connects can do the engineering but cannot grade its own work.
 
 - **Sandbox.** Every variant is Python written by an AI. The server runs it in a locked-down container with no network access and with time and memory limits. This is a security requirement from the first release.
-- **Hosted, with accounts.** The first version is hosted only. The web app and MCP clients both sign in, and accounts carry usage limits because FEA and slicing cost compute. Accounts and usage limits ship in phase 3.
+- **Hosted, with accounts.** The first version is hosted only. The web app and MCP clients both sign in, and accounts carry usage limits because FEA and slicing cost compute. Accounts and usage limits ship in phase 4.
 - **Modes travel as guidance.** Outside clients get the tools and the same checks. They also get the modes and stopping rules as guidance, but only our own agent enforces them.
 - **Sliders skip the model.** A slider change calls the tool server directly and rebuilds without calling the LLM.
 - **Long jobs stream.** FEA and slicing take seconds to minutes, so they run as background jobs and the scorecard fills in as results arrive.
@@ -125,10 +125,10 @@ The first version is built in five phases, in this order. Each phase ends when i
    - Exit: Claude Code, connected to the server, produces scorecards for the 10 bake-off parts that agree with the bake-off grader, and the sandbox blocks network access and enforces its limits.
 2. **Briefs, requirements and scorecards.** Plan mode, 3 to 5 variants, scorecards that list unverified requirements, sources and candidate values, the knowledge base, agent-written checks with per-project review, and context parts with the fit check.
    - Exit: on the private brief set, across at least five domains, every number on every scorecard traces to a confirmed source. The one exception is an agent's own measurement, which is counted as not verified.
-3. **Physics and manufacturing.** FEA under stated loads, printability checks, slicer cost and print time, Test mode, and accounts with usage limits.
+3. **Physics and manufacturing.** FEA under stated loads, printability checks, slicer cost and print time, and Test mode.
    - Exit: FEA results land within a stated error of hand calculations on beam and plate cases with known answers.
-4. **Web app.** Chat, 3D viewer, scorecards, sliders, the mode switcher, and Auto mode with its stopping rules.
-   - Exit: a slider change rebuilds in under 1 second, and Auto mode stops correctly on a brief whose requirements conflict.
+4. **Web app.** Chat, 3D viewer, scorecards, sliders, the mode switcher, Auto mode with its stopping rules, and accounts with usage limits.
+   - Exit: releasing a slider rebuilds the variant and updates its scorecard without a page reload, and Auto mode stops correctly on a brief whose requirements conflict.
 5. **Onshape.** Send to Onshape through the REST API.
    - Exit: someone who doesn't use CAD designs and prints a working part from a brief, and an engineer reads its scorecard and agrees with it.
 
@@ -153,7 +153,7 @@ The canonical private brief set is the 20 per-brief files in `~/cad-evals/briefs
 - **Licensed standards.** ASME, ISO, AGMA and DIN documents are paid. We implement formulas and cite the clause, and never ship a standard's text or tables. DIN also forbids AI use of its documents, which matters when users upload standard PDFs.
 - **Silent edit damage.** About 64% of edits that look successful break unrelated features ([BenchCAD](https://arxiv.org/html/2605.10865v1)), so regression checks run on every commit.
 - **Running AI-written code.** Every variant is code an AI wrote, and outside MCP clients can send code too. The sandbox ships in phase 1.
-- **Compute cost.** Any MCP client can trigger FEA and slicing on our servers, so accounts and usage limits ship in phase 3, the phase that adds FEA and slicing.
+- **Compute cost.** Any MCP client can trigger FEA and slicing on our servers, so accounts and usage limits ship in phase 4, the phase that hosts the server.
 - **Auto mode has no hard stop.** If the stuck detection has a bug, Auto mode can loop and spend without limit. Watch run lengths and costs from the first Auto run.
 - **Speed.** FEA and slicing take seconds to minutes. The scorecard fills in as results arrive while the viewer stays live.
 - **Onshape API limits.** Onshape tracks API usage per user or company. Check the published limits before relying on live sync.
