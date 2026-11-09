@@ -1,7 +1,7 @@
 <!--
   PROTOTYPE. Throwaway. Not production code, never imported by the app.
-  Plan: three layouts (A three-pane, B comparison-first, C chat-first) for the phase 4 web app,
-  sharing one in-memory mock state, so the operator can pick a shape before the React shell (plan PRs F and I).
+  Plan: the three-pane layout the operator picked (scorecard | viewer | chat), with the mode picker
+  inside the chat composer, as the shape for the React shell (plan PRs F and I).
 -->
 <title>Cad Workspace Prototype</title>
 <style>
@@ -65,11 +65,11 @@ button{cursor:pointer}
 .sc{width:100%}
 .scrow{display:grid;grid-template-columns:minmax(120px,150px) minmax(0,1fr) auto;gap:2px 10px;padding:7px 10px;border-top:1px solid var(--rule-2);align-items:start}
 .sc .scrow:first-child{border-top:0}
-.scrow .meas .vs,.scrow .meas>span:first-child{white-space:nowrap}
+.scrow .meas>span:first-child{white-space:nowrap}
 .scrow .ghost{white-space:normal}
 .sc .req{font-family:var(--mono);font-size:12px;white-space:nowrap}
 .sc .chk{font-family:var(--mono);font-size:10.5px;color:var(--ink-3)}
-.sc .meas{font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums}
+.sc .meas{min-width:0;font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums}
 .sc .meas .vs{color:var(--ink-3)}
 .sc .ghost{display:block;color:var(--ink-3);font-size:11px}
 .sc .v{text-align:right;white-space:nowrap}
@@ -118,10 +118,22 @@ button{cursor:pointer}
 .msg.agent .txt{border-left:2px solid var(--accent);padding:1px 0 1px 9px}
 .msg.refuse .txt{border-left-color:var(--fail)}
 .msg.sys .txt{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);border-top:1px dashed var(--rule);padding-top:5px}
-.compose{display:flex;gap:6px;padding:8px;border-top:1px solid var(--rule);background:var(--panel)}
-.compose input{flex:1;min-width:0;border:1px solid var(--rule);background:var(--panel-2);padding:7px 9px}
+.compose{display:flex;flex-direction:column;gap:6px;padding:8px;border-top:1px solid var(--rule);background:var(--panel)}
+.compose input{width:100%;min-width:0;border:1px solid var(--rule);background:var(--panel-2);padding:7px 9px}
 .compose input:focus{outline:2px solid var(--accent);outline-offset:-1px}
-.compose button{border:1px solid var(--ink);background:var(--ink);color:var(--bg);padding:7px 12px;font-family:var(--mono);font-size:12px}
+.compose button[type="submit"]{border:1px solid var(--ink);background:var(--ink);color:var(--bg);padding:7px 12px;font-family:var(--mono);font-size:12px}
+.cfoot{display:flex;align-items:center;gap:8px}
+.cfoot .lbl{flex:1;min-width:0}
+.modepick{position:relative}
+.modebtn{border:1px solid var(--rule);background:var(--panel-2);padding:5px 9px;font-family:var(--mono);font-size:12px}
+.modebtn[data-mode="plan"]{color:var(--res);border-color:var(--res)}
+.modebtn[data-mode="auto"]{color:var(--accent);border-color:var(--accent)}
+.modemenu{position:absolute;left:0;bottom:calc(100% + 4px);z-index:60;width:260px;max-width:calc(100vw - 48px);background:var(--panel-2);border:1px solid var(--ink);box-shadow:0 6px 20px rgba(0,0,0,.18);display:flex;flex-direction:column}
+.modemenu button{border:0;border-top:1px solid var(--rule-2);background:transparent;text-align:left;padding:7px 10px;display:flex;flex-direction:column;gap:1px}
+.modemenu button:first-child{border-top:0}
+.modemenu button[aria-checked="true"]{box-shadow:inset 3px 0 0 var(--accent)}
+.modemenu b{font-family:var(--mono);font-size:12px}
+.modemenu span{font-family:var(--sans);font-size:12px;color:var(--ink-2)}
 .sugg{display:flex;gap:5px;flex-wrap:wrap;padding:0 8px 8px;background:var(--panel)}
 .sugg button{border:1px solid var(--rule);background:transparent;font-family:var(--mono);font-size:11px;padding:3px 7px;color:var(--ink-2)}
 
@@ -159,59 +171,19 @@ button{cursor:pointer}
 .statep .sim{padding:6px 10px;display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid var(--rule-2)}
 .statep .sim button{border:1px solid var(--rule);background:transparent;font-size:10.5px;padding:3px 6px}
 
-/* pill */
-.pill{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:50;display:flex;align-items:center;background:var(--ink);color:var(--bg);font-family:var(--mono);font-size:12px;box-shadow:0 6px 20px rgba(0,0,0,.25)}
-.pill button{border:0;background:transparent;color:inherit;padding:8px 12px;font-size:14px}
-.pill span{padding:0 6px;white-space:nowrap}
-.pill.lift{bottom:120px}
-
 /* ===== A: three-pane ===== */
-.A{display:grid;grid-template-columns:minmax(260px,320px) minmax(0,1fr) minmax(340px,420px);gap:10px;padding:10px 16px 80px;height:calc(100vh - 52px);min-height:620px}
+.A{display:grid;grid-template-columns:minmax(340px,420px) minmax(0,1fr) minmax(300px,360px);gap:10px;padding:10px 16px 80px;height:calc(100vh - 52px);min-height:620px}
 .A .col{display:flex;flex-direction:column;gap:10px;min-height:0;min-width:0}
 .A .chatsec{flex:1;min-height:0;display:flex;flex-direction:column}
 .A .chatsec .chat{flex:1}
 .A .viewer{flex:1;min-height:260px}
-.A .right{overflow-y:auto}
+.A .side{overflow-y:auto}
 @media (max-width:980px){
   .A{grid-template-columns:1fr;height:auto;min-height:0}
   .A .viewer{height:300px;flex:none}
   .A .chatsec{height:440px;flex:none}
   .A .col.chatcol{order:3}
 }
-
-/* ===== B: comparison-first ===== */
-.B{padding:10px 16px 200px;display:flex;flex-direction:column;gap:10px}
-.B .bar{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
-.B .grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
-.B .card{border:1px solid var(--rule);background:var(--panel);min-width:0;text-align:left;padding:0;display:flex;flex-direction:column}
-.B .card[aria-pressed="true"]{outline:2px solid var(--accent);outline-offset:-2px}
-.B .card .viewer{height:150px;border:0;border-bottom:1px solid var(--rule-2)}
-.B .card .meta{padding:7px 8px}
-.B .card .meta .n{font-family:var(--mono);font-weight:600}
-.B .card .meta .r{font-family:var(--mono);font-size:10.5px;color:var(--ink-3)}
-.B .card.empty{border-style:dashed;align-items:center;justify-content:center;min-height:200px;color:var(--ink-3);font-family:var(--mono);font-size:12px;background:transparent}
-.B .detail{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:10px}
-.B .detail .viewer{height:360px}
-.drawer{position:fixed;left:0;right:0;bottom:0;z-index:40;background:var(--panel);border-top:1px solid var(--ink);display:flex;flex-direction:column;max-height:70vh}
-.drawer .handle{display:flex;align-items:center;gap:10px;padding:6px 16px;border:0;background:transparent;text-align:left;border-bottom:1px solid var(--rule-2)}
-.drawer .handle .last{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-2);font-size:13px}
-.drawer .msgs{height:44vh;flex:none}
-@media (max-width:980px){
-  .B .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .B .bar,.B .detail{grid-template-columns:1fr}
-  .B .detail .viewer{height:280px}
-}
-
-/* ===== C: chat-first ===== */
-.C{max-width:780px;margin:0 auto;padding:0 16px 180px}
-.C .banner{position:sticky;top:0;z-index:30;padding:8px 0;background:var(--bg)}
-.C .thread{display:flex;flex-direction:column;gap:14px;padding-top:6px}
-.C .rich{margin-top:6px}
-.C .rich .viewer{height:280px}
-.C .rich .slots{margin-bottom:6px}
-.C .composeC{position:fixed;left:0;right:0;bottom:0;z-index:40;background:var(--panel);border-top:1px solid var(--rule)}
-.C .composeC .inner{max-width:780px;margin:0 auto}
-.C .superseded{font-family:var(--mono);font-size:11px;color:var(--ink-3);border:1px dashed var(--rule);padding:6px 8px}
 
 @media (max-width:600px){
   .top{gap:8px}
@@ -223,7 +195,6 @@ button{cursor:pointer}
   .scrow .meas{grid-column:1/-1;grid-row:2}
   .scrow .v{grid-row:1;grid-column:2}
   .stopbtn{width:100%;justify-content:center}
-  .pill span{display:none}
 }
 </style>
 
@@ -240,7 +211,7 @@ const html = htm.bind(React.createElement);
 
 /* ---------- data shape ----------
   State = {
-    layout: 'A'|'B'|'C', mode: 'plan'|'design'|'auto', selected: slot index,
+    mode: 'plan'|'design'|'auto', selected: slot index,
     slots: [Slot|null] x5     Slot = {slot, label, wall_mm, gusset, width_mm, k, d0, revisions, pending, before}
     research: {flexural_modulus: null | {value, source, quote}}
     waiting: null | {requirements:[...], conflict:{statement, choice:'drop'|'keep'}}
@@ -254,7 +225,7 @@ const CONFLICT = 'min_mass 50 g > density(PLA) 1.24 g/cm³ × envelope 8 cm³ = 
 
 function mkSlot(n,label,wall,gusset,width,k,d0){return {slot:n,label,wall_mm:wall,gusset,width_mm:width,k,d0,revisions:1,pending:false,before:null};}
 const initial = {
-  layout:'A', mode:'design', selected:1,
+  mode:'design', selected:1,
   slots:[
     mkSlot(1,'thin L',2.5,false,78,1.30,0.62),
     mkSlot(2,'L + gusset',3.0,true,78,1.40,0.62),
@@ -487,7 +458,7 @@ function Viewer({s, mini, theme}){
     scene.add(new THREE.HemisphereLight(0xffffff,0x444444,.75));
     const dl = new THREE.DirectionalLight(0xffffff,.7); dl.position.set(80,120,90); scene.add(dl);
     const group = new THREE.Group(); scene.add(group);
-    const o = {theta:0.75, phi:1.12, r: mini?200:175};
+    const o = {theta:0.75, phi:1.12, r: mini?260:250};
     const place = ()=>{ cam.position.set(o.r*Math.sin(o.phi)*Math.sin(o.theta), o.r*Math.cos(o.phi), o.r*Math.sin(o.phi)*Math.cos(o.theta)); cam.lookAt(0,0,0); };
     const render = ()=>{ place(); renderer.render(scene,cam); };
     const size = ()=>{ const w=el.clientWidth,h=el.clientHeight; if(!w||!h) return; renderer.setSize(w,h,false); cam.aspect=w/h; cam.updateProjectionMatrix(); render(); };
@@ -514,14 +485,8 @@ function Top({st, setTheme, theme}){
   return html`<header className="top">
     <span className="brand">cad<b>/</b>ws</span>
     <span className="brief">brief <q>${BRIEF}</q></span>
-    <${ModeSwitch} st=${st}/>
     <button className="ghostbtn" onClick=${()=>setTheme(theme==='dark'?'light':theme==='light'?'auto':'dark')}>theme: ${theme}</button>
   </header>`;
-}
-function ModeSwitch({st}){
-  return html`<div className="seg" role="group" aria-label="mode">
-    ${['plan','design','auto'].map(m=>html`<button key=${m} aria-pressed=${st.mode===m} onClick=${()=>st.mode!==m&&setMode(m)}>${m[0].toUpperCase()+m.slice(1)}</button>`)}
-  </div>`;
 }
 function Scorecard({st, compact}){
   const s = st.slots[st.selected];
@@ -554,9 +519,9 @@ function Slots({st}){
         <div className="r">${s.revisions} rev</div><${Strip} s=${s} st=${st}/></button>`
     : html`<button key=${i} className="slot empty" onClick=${buildNew}><div className="n">${i+1}</div><div className="r">empty · build</div></button>`)}</div>`;
 }
-function Auto({st, banner}){
+function Auto({st}){
   const a = st.auto;
-  if(st.mode!=='auto' && a.status==='idle') return banner?null:html`<div className="auto"><div className="st"><div className="lbl">Auto run</div><div className="big muted">Switch to Auto mode to start a run.</div></div></div>`;
+  if(st.mode!=='auto' && a.status==='idle') return html`<div className="auto"><div className="st"><div className="lbl">Auto run</div><div className="big muted">Switch to Auto in the chat to start a run.</div></div></div>`;
   if(a.status==='running') return html`<div className="auto running">
     <div className="st"><div className="lbl"><span className="dot"></span>Auto running · v${a.slot+1}</div>
       <div className="big">revision <b>${a.revision}</b> · ${a.standing||'…'}</div></div>
@@ -588,113 +553,62 @@ function Msg({m, st, rich}){
   return html`<div className=${cls}><div className="who">${m.who==='sys'?'':m.who}</div><div className="txt">${m.text}</div>${rich}</div>`;
 }
 const SUGG = ['make the wall 4 mm','build another variant','start auto'];
-function Compose({onSend}){
+const MODES = {plan:'Propose requirements. Builds are refused.', design:'Build and revise variants when you ask.', auto:'Revise on its own until a stop rule ends the run.'};
+const cap = m=>m[0].toUpperCase()+m.slice(1);
+function cycleMode(){ const k=Object.keys(MODES); setMode(k[(k.indexOf(S.mode)+1)%k.length]); }
+function ModePicker({st}){
+  const [open,setOpen] = useState(false);
+  return html`<div className="modepick">
+    ${open && html`<div className="modemenu" role="menu">${Object.keys(MODES).map(m=>html`<button type="button" key=${m} role="menuitemradio" aria-checked=${st.mode===m}
+        onClick=${()=>{ if(st.mode!==m) setMode(m); setOpen(false); }}><b>${cap(m)}</b><span>${MODES[m]}</span></button>`)}</div>`}
+    <button type="button" className="modebtn" data-mode=${st.mode} aria-haspopup="menu" aria-expanded=${open} onClick=${()=>setOpen(!open)}>${cap(st.mode)} <span aria-hidden="true">▾</span></button>
+  </div>`;
+}
+function Compose({st, onSend}){
   const [v,setV] = useState('');
   const go = t=>{ onSend(t); setV(''); };
   return html`<div>
     <form className="compose" onSubmit=${e=>{e.preventDefault(); go(v);}}>
-      <input value=${v} onInput=${e=>setV(e.target.value)} placeholder="Ask the agent…" aria-label="message"/>
-      <button type="submit">Send</button></form>
+      <input value=${v} onInput=${e=>setV(e.target.value)} onKeyDown=${e=>{ if(e.key==='Tab'&&e.shiftKey){ e.preventDefault(); cycleMode(); } }}
+        placeholder=${st.mode==='plan'?'Describe what you need…':'Ask the agent…'} aria-label="message"/>
+      <div className="cfoot"><${ModePicker} st=${st}/><span className="lbl">⇧Tab to switch</span><button type="submit">Send</button></div></form>
     <div className="sugg">${SUGG.map(t=>html`<button key=${t} onClick=${()=>go(t)}>${t}</button>`)}</div></div>`;
 }
 function useAutoScroll(dep){ const r=useRef(null); useEffect(()=>{ if(r.current) r.current.scrollTop=r.current.scrollHeight; },[dep]); return r; }
 function Chat({st}){
   const ref = useAutoScroll(st.chat.length);
-  return html`<div className="chat"><div className="msgs" ref=${ref}>${st.chat.map((m,i)=>html`<${Msg} key=${i} m=${m} st=${st}/>`)}</div><${Compose} onSend=${send}/></div>`;
+  return html`<div className="chat"><div className="msgs" ref=${ref}>${st.chat.map((m,i)=>html`<${Msg} key=${i} m=${m} st=${st}/>`)}</div><${Compose} st=${st} onSend=${send}/></div>`;
 }
 function StatePanel({st}){
   const view = {...st, chat: st.chat.slice(-4).concat([{note:`${st.chat.length} messages total, last 4 shown`}])};
   return html`<details className="statep"><summary>state · last action: <b>${st.lastAction}</b></summary>
     <div className="sim"><span className="lbl" style=${{alignSelf:'center'}}>simulate stop:</span>
       ${['needs you · conflict','agent asked','account limit'].map(r=>html`<button key=${r} onClick=${()=>simStop(r)}>${r}</button>`)}
-      <button onClick=${()=>{ Object.values(pendTimers).forEach(clearTimeout); clearTimeout(autoTimer); act('reset all', n=>{ Object.assign(n, structuredClone(initial), {layout:n.layout}); }); }}>reset all</button></div>
+      <button onClick=${()=>{ Object.values(pendTimers).forEach(clearTimeout); clearTimeout(autoTimer); act('reset all', n=>{ Object.assign(n, structuredClone(initial)); }); }}>reset all</button></div>
     <pre>${JSON.stringify(view,null,1)}</pre></details>`;
 }
 
 /* ---------- layouts ---------- */
 function LayoutA({st, theme}){
   return html`<main className="A">
-    <div className="col chatcol"><div className="sec chatsec"><h3><span>Chat</span><span className="scsum">${st.mode}</span></h3><${Chat} st=${st}/></div></div>
+    <div className="col side"><${Waiting} st=${st}/><${Scorecard} st=${st}/></div>
     <div className="col"><${Slots} st=${st}/><${Viewer} s=${st.slots[st.selected]} theme=${theme}/><${Auto} st=${st}/></div>
-    <div className="col right"><${Waiting} st=${st}/><${Scorecard} st=${st}/></div>
+    <div className="col chatcol"><div className="sec chatsec"><h3><span>Chat</span></h3><${Chat} st=${st}/></div></div>
   </main>`;
 }
-function LayoutB({st, theme}){
-  const [open,setOpen] = useState(false);
-  const last = st.chat[st.chat.length-1];
-  const ref = useAutoScroll(st.chat.length+(open?1:0));
-  return html`<main className="B">
-    <div className="bar"><${Auto} st=${st}/><${WaitingCompact} st=${st}/></div>
-    <div className="grid">${st.slots.map((s,i)=> s
-      ? html`<div key=${i} role="button" tabIndex="0" className="card" aria-pressed=${st.selected===i} onClick=${()=>act('select',n=>{n.selected=i})}>
-          <${Viewer} s=${s} mini theme=${theme}/>
-          <div className="meta"><div style=${{display:'flex',justifyContent:'space-between'}}><span className="n">v${s.slot} <span className="muted" style=${{fontWeight:400,fontFamily:'var(--sans)'}}>${s.label}</span></span><span className="r">${s.revisions} rev</span></div>
-          <${Strip} s=${s} st=${st}/><div className="scsum" style=${{marginTop:'4px'}}>${s.pending?'pending':standing(s,st).text}</div></div></div>`
-      : html`<button key=${i} className="card empty" onClick=${buildNew}>slot ${i+1} · empty<br/>build a variant</button>`)}</div>
-    <div className="detail"><${Viewer} s=${st.slots[st.selected]} theme=${theme}/><${Scorecard} st=${st}/></div>
-    <div className="drawer">
-      <button className="handle" onClick=${()=>setOpen(!open)} aria-expanded=${open}>
-        <span className="lbl">chat ${open?'▾':'▴'}</span><span className="last">${last.who==='you'?'you: ':''}${last.text}</span></button>
-      ${open && html`<div className="msgs" ref=${ref}>${st.chat.map((m,i)=>html`<${Msg} key=${i} m=${m} st=${st}/>`)}</div>`}
-      <${Compose} onSend=${send}/>
-    </div>
-  </main>`;
-}
-function WaitingCompact({st}){
-  const [open,setOpen]=useState(false);
-  const w = st.waiting;
-  if(!w) return html`<div className="auto"><div className="st"><div className="lbl">Waiting on you</div><div className="big muted">Nothing waiting.</div></div></div>`;
-  return html`<div>${open ? html`<${Waiting} st=${st}/>` : html`<div className="auto" style=${{borderColor:'var(--wait)'}}><div className="st"><div className="lbl" style=${{color:'var(--wait)'}}>Waiting on you · ${w.requirements.length} + 1 conflict</div>
-      <div className="mono" style=${{fontSize:'12px',overflowWrap:'anywhere'}}>${w.conflict.statement}</div></div>
-      <button className="startbtn" onClick=${()=>setOpen(true)}>Review & confirm</button></div>`}</div>`;
-}
-function LayoutC({st, theme}){
-  const lastIdx = k=>{ for(let i=st.chat.length-1;i>=0;i--) if(st.chat[i].card===k) return i; return -1; };
-  const live = {confirm:lastIdx('confirm'), slots:lastIdx('slots'), scorecard:lastIdx('scorecard')};
-  const ref = useRef(null);
-  useEffect(()=>{ window.scrollTo({top:document.body.scrollHeight}); },[st.chat.length]);
-  const card = (m,i)=>{
-    if(!m.card) return null;
-    if(live[m.card]!==i) return html`<div className="rich superseded">${m.card} · superseded by a newer card below</div>`;
-    if(m.card==='confirm') return html`<div className="rich"><${Waiting} st=${st}/></div>`;
-    if(m.card==='slots') return html`<div className="rich"><${Slots} st=${st}/><${Viewer} s=${st.slots[st.selected]} theme=${theme}/></div>`;
-    if(m.card==='scorecard') return html`<div className="rich"><${Scorecard} st=${st}/></div>`;
-  };
-  return html`<main className="C">
-    <div className="banner"><${Auto} st=${st} banner/></div>
-    <div className="thread" ref=${ref}>${st.chat.map((m,i)=>html`<${Msg} key=${i} m=${m} st=${st} rich=${card(m,i)}/>`)}</div>
-    <div className="composeC"><div className="inner"><${Compose} onSend=${send}/></div></div>
-  </main>`;
-}
-
 /* ---------- app ---------- */
-const LAYOUTS = ['A','B','C'];
-const NAMES = {A:'three-pane', B:'comparison', C:'chat-first'};
-function readHash(){ const h = location.hash.replace('#',''); return LAYOUTS.includes(h)?h:'A'; }
 function App(){
   const st = useS();
-  const [layout,setLayout] = useState(readHash());
   const [theme,setThemeS] = useState('auto');
   const setTheme = t=>{ setThemeS(t); if(t==='auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme',t); };
-  useEffect(()=>{ const f=()=>setLayout(readHash()); window.addEventListener('hashchange',f); return()=>window.removeEventListener('hashchange',f); },[]);
-  const go = d=>{ const i=(LAYOUTS.indexOf(layout)+d+3)%3; location.hash = LAYOUTS[i]; };
-  useEffect(()=>{ const k=e=>{ const a=document.activeElement; if(a && (a.tagName==='INPUT'||a.tagName==='TEXTAREA'||a.isContentEditable)) return;
-      if(e.key==='ArrowLeft') go(-1); if(e.key==='ArrowRight') go(1); };
-    window.addEventListener('keydown',k); return()=>window.removeEventListener('keydown',k); },[layout]);
-  useEffect(()=>{ act('layout', n=>{ n.layout = layout; }); },[layout]);
   const mq = window.matchMedia('(prefers-color-scheme: dark)');
   const [sys,setSys] = useState(mq.matches);
   useEffect(()=>{ const f=e=>setSys(e.matches); mq.addEventListener('change',f); return()=>mq.removeEventListener('change',f); },[]);
   const eff = theme==='auto'?(sys?'dark':'light'):theme;
-  const L = {A:LayoutA,B:LayoutB,C:LayoutC}[layout];
   return html`<${React.Fragment}>
     <${Top} st=${st} theme=${theme} setTheme=${setTheme}/>
-    <${L} key=${layout} st=${st} theme=${eff}/>
+    <${LayoutA} st=${st} theme=${eff}/>
     <${StatePanel} st=${st}/>
-    <nav className=${'pill'+(layout!=='A'?' lift':'')} aria-label="prototype variant">
-      <button onClick=${()=>go(-1)} aria-label="previous variant">←</button>
-      <b style=${{padding:'0 4px'}}>${layout}</b><span>${NAMES[layout]}</span>
-      <button onClick=${()=>go(1)} aria-label="next variant">→</button></nav>
   </${React.Fragment}>`;
 }
 ReactDOM.createRoot(document.getElementById('root')).render(html`<${App}/>`);
