@@ -41,6 +41,7 @@ async def test_server_info_names_the_head_sha_python_and_tools() -> None:
             "ask_to_confirm",
             "auto_ask",
             "auto_revise",
+            "auto_start",
             "build_variant",
             "create_brief",
             "list_materials",

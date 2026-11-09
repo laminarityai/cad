@@ -7,11 +7,9 @@ from cad.auto.model import (
     Asked,
     AutoState,
     Capped,
-    Ended,
     Event,
     Mark,
     NeedsPerson,
-    PersonStopped,
     Proposed,
     Revised,
     Running,
@@ -20,6 +18,7 @@ from cad.auto.model import (
     Stopped,
     StopReason,
     TamperedRun,
+    Unsettled,
 )
 from cad.checks.result import Verdict
 from cad.scorecard.model import AgainstBrief, Checked, Scorecard, Unverified
@@ -37,13 +36,13 @@ WORDS: Final = {
 }
 
 
-def standing_of(card: Scorecard, revision: int, code_sha256: str) -> Standing | None:
+def standing_of(card: Scorecard, revision: int, code_sha256: str) -> Standing | Unsettled:
     # card.not_verified holds agent measurements, so it is never read here.
     basis = card.basis
     if not isinstance(basis, AgainstBrief):
         raise ValueError("an auto run scores against its confirmed brief")
-    if card.pending or any(isinstance(row, Waiting) for row in basis.requirements):
-        return None
+    if card.pending:
+        return Unsettled()
     marks: list[tuple[str, Mark]] = []
     for row in basis.requirements:
         match row:
@@ -52,7 +51,7 @@ def standing_of(card: Scorecard, revision: int, code_sha256: str) -> Standing | 
             case Unverified():
                 marks.append((row.requirement_id, Mark.UNVERIFIED))
             case Waiting():
-                return None
+                return Unsettled()
             case _:
                 assert_never(row)
     return Standing(
@@ -100,8 +99,6 @@ def step(state: AutoState, event: Event) -> AutoState:
             return _stop(state, NeedsPerson(why="agent_asked", note=event.note))
         case Capped():
             return _stop(state, AccountLimit(refused=event.refused, reason=event.reason))
-        case Ended():
-            return _stop(state, PersonStopped())
         case Started():
             raise TamperedRun("an auto run's log holds a second start record")
         case _:
@@ -167,8 +164,6 @@ def _reason(reason: StopReason) -> str:
             return _needs_person(reason)
         case AccountLimit():
             return f"The account's usage limit refused a build under the run: {reason.reason}"
-        case PersonStopped():
-            return "The person stopped the run."
         case _:
             assert_never(reason)
 

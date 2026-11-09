@@ -9,20 +9,20 @@ from cad.auto.model import (
     Asked,
     AutoRun,
     AutoState,
-    Ended,
     Event,
     Revised,
     Running,
     RunRefused,
     Standing,
     Started,
-    new_run_id,
+    Unsettled,
+    nth_run_id,
 )
 from cad.auto.step import standing_of
 from cad.briefs import store as briefs
 from cad.briefs.model import MAX_NOTE_CHARS, MadeOf
 from cad.operations import scorecards
-from cad.operations.model import Audience, Input, Tenant, operation
+from cad.operations.model import Audience, Input, Mode, Tenant, operation
 from cad.operations.variants import MAX_CODE_CHARS
 from cad.sandbox.outcome import Built
 from cad.scorecard import material
@@ -30,20 +30,18 @@ from cad.variant_sets import store as variant_sets
 from cad.variant_sets.model import code_sha256
 
 AUTO_START = (
-    "Start an Auto run on a brief whose requirements the person confirmed. Only the person "
-    "starts one, in the web app. The run uses the confirmed made_of material, or material_key "
-    "when no requirement names one. When the confirmed targets conflict, the run stops at once "
-    "with the proof and builds nothing. A brief that already has a run that has not stopped "
-    "returns that run."
+    "Start an Auto run on a brief whose requirements the person confirmed. Only a conversation "
+    "the person switched to Auto mode in the web app can start one; any other caller is "
+    "refused. The run uses the confirmed made_of material, or material_key when no requirement "
+    "names one. When the confirmed targets conflict, the run stops at once with the proof and "
+    "builds nothing. A brief that already has a run that has not stopped returns that run."
 )
-AUTO_STOP = "The person stops an Auto run. A run that has already stopped stays as it is."
 STOPS = (
     "The run stops when every checked requirement of the latest revision passes, when a "
     "requirement waits on the person, when requirements are proposed in the run's project, "
-    "when you call auto_ask, when the account's usage limit refuses a build, or when the "
-    "person stops it. Once it has stopped, auto_revise, and build_variant and score_variant "
-    "with its auto_run, are refused before anything builds or runs: give the user the stop's "
-    "report and start nothing more. "
+    "when you call auto_ask, or when the account's usage limit refuses a build. Once it has "
+    "stopped, auto_revise, and build_variant and score_variant with its auto_run, are refused "
+    "before anything builds or runs: give the user the stop's report and start nothing more. "
 )
 AUTO_REVISE = (
     "Build and score one revision of the design under an Auto run the person started. Pass "
@@ -86,11 +84,12 @@ class AskInput(Input):
     note: Annotated[str, Field(min_length=1, max_length=MAX_NOTE_CHARS)]
 
 
-class StopInput(Input):
-    run_id: str
-
-
 def auto_start(tenant: Tenant, arguments: StartInput) -> AutoRun:
+    if tenant.mode is not Mode.AUTO:
+        raise RunRefused(
+            "auto_start needs a web app conversation the person switched to Auto mode; "
+            f"this caller's mode is {tenant.mode or 'none'}"
+        )
     roots = tenant.roots
     confirmed = briefs.confirmed_requirements(roots, arguments.brief_id)
     if confirmed is None:
@@ -104,11 +103,6 @@ def auto_start(tenant: Tenant, arguments: StartInput) -> AutoRun:
         raise RunRefused("no confirmed requirement names the material, so pass material_key")
     basis = scorecards.judged(tenant, arguments.brief_id, key)
     project = briefs.read_brief(roots, arguments.brief_id).project
-    live = log.live_run(roots, project, confirmed.brief_id)
-    if live is not None:
-        live = record_proposals(roots, live.run_id)
-        if isinstance(live.state, Running):
-            return live
     started = Started(
         brief_id=confirmed.brief_id,
         project=project,
@@ -117,7 +111,17 @@ def auto_start(tenant: Tenant, arguments: StartInput) -> AutoRun:
         watermark=watermark(roots, project),
         conflicts=bounds_conflicts(confirmed.requirements, basis.table.table),
     )
-    return log.start_run(roots, new_run_id(project), started)
+    number = 1
+    while True:
+        run_id = nth_run_id(project, confirmed.brief_id, number)
+        existed = log.exists(roots, run_id)
+        if not existed:
+            log.create_run(roots, run_id, started)
+        run = record_proposals(roots, run_id)
+        # A start that lost the create to a concurrent one returns the winner's run.
+        if isinstance(run.state, Running) or not existed:
+            return run
+        number += 1
 
 
 def auto_revise(tenant: Tenant, arguments: ReviseInput) -> AutoRun:
@@ -139,8 +143,8 @@ def auto_revise(tenant: Tenant, arguments: ReviseInput) -> AutoRun:
             brief_id=brief_id,
         )
         standing = standing_of(scorecards.score_variant(tenant, scored), revision, sha)
-        if standing is None:
-            return AutoRun(run_id=run_id, state=running.model_copy(update={"settling": True}))
+        if isinstance(standing, Unsettled):
+            return AutoRun(run_id=run_id, state=running, settling=True)
     else:
         standing = Standing(
             revision=revision, variant_id=built.variant_id, code_sha256=sha, built=False, marks=()
@@ -163,26 +167,14 @@ def auto_ask(tenant: Tenant, arguments: AskInput) -> AutoRun:
     return log.append_event(tenant.roots, arguments.run_id, lambda _: Asked(note=arguments.note))
 
 
-def auto_stop(tenant: Tenant, arguments: StopInput) -> AutoRun:
-    return log.append_event(tenant.roots, arguments.run_id, lambda _: Ended())
-
-
 OPERATIONS: Final = (
     operation(
         name="auto_start",
-        audience=Audience.PERSON,
+        audience=Audience.AGENT,
         description=AUTO_START,
         input=StartInput,
         output=AutoRun,
         run=auto_start,
-    ),
-    operation(
-        name="auto_stop",
-        audience=Audience.PERSON,
-        description=AUTO_STOP,
-        input=StopInput,
-        output=AutoRun,
-        run=auto_stop,
     ),
     operation(
         name="auto_revise",

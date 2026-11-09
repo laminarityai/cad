@@ -1,5 +1,5 @@
+import hashlib
 import re
-import secrets
 from enum import StrEnum
 from typing import Annotated, Final, Literal, Self
 
@@ -24,8 +24,10 @@ class TamperedRun(RunRefused):
     pass
 
 
-def new_run_id(project: ProjectId) -> str:
-    return f"{project}-r{secrets.token_hex(8)}"
+def nth_run_id(project: ProjectId, brief_id: str, number: int) -> str:
+    # Derived, not random: two concurrent starts of a brief name the same run, so one wins.
+    digest = hashlib.sha256(f"{brief_id}/{number}".encode()).hexdigest()
+    return f"{project}-r{digest[:16]}"
 
 
 def run_project(run_id: str) -> ProjectId:
@@ -100,13 +102,7 @@ class AccountLimit(_Frozen):
     reason: str
 
 
-class PersonStopped(_Frozen):
-    kind: Literal["person_stopped"] = "person_stopped"
-
-
-type StopReason = Annotated[
-    AllPass | NeedsPerson | AccountLimit | PersonStopped, Field(discriminator="kind")
-]
+type StopReason = Annotated[AllPass | NeedsPerson | AccountLimit, Field(discriminator="kind")]
 
 
 class Started(_Frozen):
@@ -140,20 +136,13 @@ class Capped(_Frozen):
     reason: str
 
 
-class Ended(_Frozen):
-    kind: Literal["ended"] = "ended"
-
-
-type Event = Annotated[
-    Started | Revised | Proposed | Asked | Capped | Ended, Field(discriminator="kind")
-]
+type Event = Annotated[Started | Revised | Proposed | Asked | Capped, Field(discriminator="kind")]
 
 
 class Running(_Frozen):
     kind: Literal["running"] = "running"
     start: Started
     history: tuple[Standing, ...] = ()
-    settling: bool = False
 
     @property
     def failing(self) -> tuple[str, ...]:
@@ -174,9 +163,14 @@ class Stopped(_Frozen):
 type AutoState = Annotated[Running | Stopped, Field(discriminator="kind")]
 
 
+class Unsettled(_Frozen):
+    pass
+
+
 class AutoRun(_Frozen):
     run_id: str
     state: AutoState
+    settling: bool = False
 
 
 class RunStopped(RunRefused):

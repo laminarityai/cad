@@ -1,7 +1,7 @@
 import inspect
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from enum import Flag, auto
+from enum import Flag, StrEnum, auto
 from pathlib import Path
 from typing import TypeAliasType
 
@@ -21,6 +21,13 @@ class Audience(Flag):
 BOTH = Audience.AGENT | Audience.PERSON
 
 
+class Mode(StrEnum):
+    PLAN = "plan"
+    DESIGN = "design"
+    AUTO = "auto"
+    TEST = "test"
+
+
 @dataclass(frozen=True, slots=True)
 class Tenant:
     roots: Roots
@@ -28,6 +35,9 @@ class Tenant:
     desk: Desk
     ingest: Ingest
     meter: Meter = field(default_factory=Unmetered)
+    # The caller's conversation mode, from the AgentToken our web backend builds (ADR-0010, phase
+    # 4 unit 8). None is an outside client, which has no conversation and so cannot run Auto.
+    mode: Mode | None = None
 
 
 class Input(BaseModel):

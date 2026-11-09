@@ -47,14 +47,17 @@ def read_run(roots: Roots, run_id: str) -> AutoRun:
     return AutoRun(run_id=run_id, state=fold(read_events(roots, run_id)))
 
 
-def start_run(roots: Roots, run_id: str, started: Started) -> AutoRun:
+def exists(roots: Roots, run_id: str) -> bool:
+    return os.path.lexists(run_dir(roots, run_id))
+
+
+def create_run(roots: Roots, run_id: str, started: Started) -> None:
+    """Exclusive: when a concurrent start already created run_id, this writes nothing."""
     directory = run_dir(roots, run_id)
     directory.parent.mkdir(parents=True, exist_ok=True)
     first = (_slot_of(run_id)(1), signed.slot_file(1), _encode(started))
     entry = directory.relative_to(roots.projects).as_posix()
-    if not signed.create_entry(project_store(roots.projects), entry, first, ()):
-        raise ProjectBusy(f"auto run {run_id} already exists; start again")
-    return read_run(roots, run_id)
+    signed.create_entry(project_store(roots.projects), entry, first, ())
 
 
 def append_event(roots: Roots, run_id: str, make: Make) -> AutoRun:
@@ -70,19 +73,6 @@ def append_event(roots: Roots, run_id: str, make: Make) -> AutoRun:
 
     _append(roots, run_id, record_for)
     return read_run(roots, run_id)
-
-
-def live_run(roots: Roots, project: str, brief_id: str) -> AutoRun | None:
-    directory = roots.projects / project / AUTO
-    if not signed.is_directory(directory):
-        return None
-    for path in sorted(directory.iterdir()):
-        if path.name.startswith("."):
-            continue
-        run = read_run(roots, path.name)
-        if isinstance(run.state, Running) and run.state.start.brief_id == brief_id:
-            return run
-    return None
 
 
 def _append(

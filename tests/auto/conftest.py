@@ -10,13 +10,14 @@ import pytest
 from mcp import Client
 from mcp.server import MCPServer
 
+from cad.auto.log import read_run
 from cad.auto.model import AutoRun
 from cad.checks.jobs import Admitted, Charge, Refused
 from cad.confirmations import http
 from cad.confirmations.ballot import Desk
 from cad.confirmations.registry import kinds
 from cad.context_parts.ingest import ingest
-from cad.operations.model import Tenant
+from cad.operations.model import Mode, Tenant
 from cad.operations.registry import OPERATIONS
 from cad.operations.tools import tools
 from cad.records.roots import Roots
@@ -65,11 +66,11 @@ class Session:
         assert result.is_error, result.structured_content
         return result.content[0].model_dump()["text"]
 
-    def person(self, name: str, **arguments: Any) -> AutoRun:
-        one = next(one for one in OPERATIONS if one.name == name)
-        run = one.run(self.tenant, one.input(**arguments))
-        assert isinstance(run, AutoRun)
-        return run
+    async def start(self, **arguments: Any) -> AutoRun:
+        return AutoRun.model_validate(await self.call("auto_start", **arguments))
+
+    def run(self, run_id: str) -> AutoRun:
+        return read_run(self.roots, run_id)
 
     async def confirmed(self, text: str, *requirements: dict[str, Any]) -> str:
         brief = await self.call("create_brief", text=text)
@@ -103,7 +104,12 @@ async def s(tmp_path: Path, meter: Counting) -> AsyncIterator[Session]:
     roots = Roots(tmp_path / "briefs", tmp_path / "projects")
     desk = Desk(roots, kinds(roots), confirm, serve=http.serve, wait_seconds=5)
     tenant = Tenant(
-        roots=roots, variants=tmp_path / "variants", desk=desk, ingest=ingest, meter=meter
+        roots=roots,
+        variants=tmp_path / "variants",
+        desk=desk,
+        ingest=ingest,
+        meter=meter,
+        mode=Mode.AUTO,
     )
     async with Client(MCPServer("cad", tools=tools(tenant, OPERATIONS))) as client:
         yield Session(client, tenant, meter)

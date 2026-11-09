@@ -8,11 +8,9 @@ from cad.auto.model import (
     Asked,
     Bounds,
     Capped,
-    Ended,
     Event,
     Mark,
     NeedsPerson,
-    PersonStopped,
     Proposed,
     Revised,
     Running,
@@ -20,6 +18,7 @@ from cad.auto.model import (
     Started,
     Stopped,
     StopReason,
+    Unsettled,
 )
 from cad.auto.step import fold, standing_of
 from cad.checks.result import ReadResearched, StepMissing, Verdict
@@ -92,7 +91,7 @@ def card(
 
 def settle(scored: Scorecard) -> Standing:
     standing = standing_of(scored, 1, "c" * 64)
-    assert standing is not None
+    assert isinstance(standing, Standing)
     return standing
 
 
@@ -143,7 +142,7 @@ def test_a_settled_revision_stops_the_run_only_by_the_table(
     ],
 )
 def test_a_card_with_anything_pending_has_no_standing(scored: Scorecard) -> None:
-    assert standing_of(scored, 1, "c" * 64) is None
+    assert standing_of(scored, 1, "c" * 64) == Unsettled()
 
 
 def test_a_failed_build_never_passes_even_with_no_requirement_to_fail() -> None:
@@ -177,7 +176,6 @@ def test_the_report_labels_research_and_lists_the_unverified() -> None:
             Capped(refused="v" * 16, reason="daily limit"),
             AccountLimit(refused="v" * 16, reason="daily limit"),
         ),
-        (Ended(), PersonStopped()),
     ],
 )
 def test_each_stop_event_stops_the_run(event: Event, reason: StopReason) -> None:
@@ -194,7 +192,7 @@ def test_the_agents_note_is_in_the_report_verbatim() -> None:
 
 def test_a_stopped_run_absorbs_every_later_event() -> None:
     passing = Revised(standing=settle(card(checked("r1", PASS))))
-    state = run(Asked(note="stuck"), passing, Ended(), Capped(refused=None, reason="x"))
+    state = run(Asked(note="stuck"), passing, Capped(refused=None, reason="x"))
     assert isinstance(state, Stopped)
     assert state.reason == NeedsPerson(why="agent_asked", note="stuck")
     assert state.history == ()
