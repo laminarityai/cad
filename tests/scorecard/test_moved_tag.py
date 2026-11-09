@@ -10,7 +10,6 @@ from cad.checks.result import StepStored
 from cad.sandbox import container, image
 from cad.sandbox.container import Job, Ran
 from cad.scorecard import score
-from cad.scorecard.model import Scorecard
 from cad.variants import entry
 
 PLATE = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
@@ -47,7 +46,7 @@ def lookups_see_other(monkeypatch: pytest.MonkeyPatch, moved: tuple[bool, ...]) 
 @pytest.mark.parametrize(
     "moved", [(False, True, False), (False, False, True)], ids=["away-and-back", "away-during-run"]
 )
-def test_a_moving_tag_gives_a_stored_scorecard_naming_the_image_the_checks_ran_in(
+def test_a_moving_tag_gives_a_scorecard_naming_the_image_the_checks_ran_in(
     moved: tuple[bool, ...],
     built: Build,
     store: Path,
@@ -59,6 +58,5 @@ def test_a_moving_tag_gives_a_stored_scorecard_naming_the_image_the_checks_ran_i
     card = score.score_variant(variant_id, "prusament-pla", store)
     assert check_images == [card.check_image_digest]
     directory = store / variant_id
-    assert Scorecard.model_validate_json((directory / score.SCORECARD).read_text()) == card
     step = (directory / entry.STEP).read_bytes()
     assert card.step == StepStored(sha256=hashlib.sha256(step).hexdigest())

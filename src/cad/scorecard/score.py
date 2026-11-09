@@ -43,9 +43,7 @@ def score_variant(
     table = table or host.materials_table()
     request = build_request(material_key, table)
     plan = jobs.plan(root, held, request, table, demand)
-    card = scorecard_of(plan, request, lanes.settle(plan, WAIT_SECONDS), assess, rebuilt_from)
-    store(card, root)
-    return card
+    return scorecard_of(plan, request, lanes.settle(plan, WAIT_SECONDS), assess, rebuilt_from)
 
 
 def open_or_rebuild(variant_id: str, root: Path) -> tuple[entry.Entry, str | None]:
