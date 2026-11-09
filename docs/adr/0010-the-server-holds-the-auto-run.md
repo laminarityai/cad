@@ -1,6 +1,6 @@
 # The server holds the Auto run
 
-Status: Accepted. The operator approved this ADR on 2026-11-08, with the stop rules below and no progress rule on the server. On 2026-11-09 the operator decided the last two open points: the server keeps the three stop cases it can see itself, and Auto runs only in the web app for now. Nothing is left open.
+Status: Accepted. The operator approved this ADR on 2026-11-08, with the stop rules below and no progress rule on the server. On 2026-11-09 the operator decided the last two open points: the server keeps the three stop cases it can see itself, and Auto runs only in the web app for now. Nothing is left open. An amendment of 2026-11-09 at the end adds the person's stop.
 
 In Auto mode the agent revises variants against the checks without stopping, until a stop rule ends the run (SPEC, Modes). ADR-0002 made modes agent behavior. The server ships them as guidance, and only our own agent enforces them. That is not enough for Auto mode in phase 4. Auto mode spends compute on every revision. If the rules live in the web app's driver, a bug in the driver can keep a run going after it should have stopped, and nothing on the server would refuse the next build. SPEC names that risk: "Auto mode relies on the agent to stop." This ADR records where the run lives and what stops it. The design is in `docs/design/phase-4.md` §2.5.
 
@@ -45,3 +45,15 @@ The `auto_*` tools join the MCP tool list, because our own agent reaches the ser
 SPEC's sentence "only our own agent enforces them" changes to say that the server enforces the mode and Auto mode's stop rules in web app conversations, and that modes stay guidance for outside clients.
 
 The phase 4 exit, "Auto mode stops correctly on a brief whose requirements conflict", is tested on two briefs. On a brief whose bounds conflict, the run stops before any build with the proof. On a stiffness-against-mass brief, the agent stops and reports within six revisions, with a note that names both requirements.
+
+## Amendment 2026-11-09: the person can stop a run
+
+Status: Accepted. The operator directed on 2026-11-09 that the person gets a Stop button for an Auto run, and that leaving Auto mode stops the run through the same path. This amendment records that direction.
+
+A run also stops in a fourth case:
+
+- **The person stops the run.** The person presses Stop in the web app, or switches the conversation out of Auto mode. Either one calls `auto_stop`, an operation that only a person session can call. No MCP tool exposes it, so the agent cannot stop a run in the person's name. `auto_stop` appends a `PersonStopped` record to the run's log, and the run's state becomes `Stopped` with the reason `StoppedByPerson`. On a run that has already stopped, it appends nothing and returns the existing stop. After the stop, the server refuses `auto_revise`, `build_variant` and `score_variant` under the run before any container starts, as for every other stop.
+
+The agent still has its own way to stop, `auto_ask`, and the server's rules are unchanged.
+
+This amendment also makes precise how the agent token carries the mode. The token carries the conversation. At each tool call the server reads that conversation's mode and current Auto run from the account's conversation store. So when the person switches mode or presses Stop during an agent turn, the next tool call in that turn sees the change. A mode or run copied into the token at the start of the turn would stay stale until the turn ends. `build_variant` and `score_variant` take the run from the conversation and have no `auto_run` argument. In Auto mode, both are refused until `auto_start` gives the conversation a run that has not stopped.
