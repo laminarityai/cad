@@ -42,10 +42,10 @@ from cad.checks.container.check import Quick
 from cad.checks.report import CheckSpec
 from cad.checks.result import CheckResult, Measure
 from cad.records.roots import Roots
+from cad.research.fields import SPECS as FIELD_SPECS
+from cad.research.fields import Field
 from cad.scorecard.material import ReportedScorecard
 from cad.scorecard.model import AgainstBrief, Checked, Scorecard
-from cad.sources.fields import SPECS as FIELD_SPECS
-from cad.sources.fields import Field
 from cad.tables.materials import (
     UNITS,
     FromResearch,

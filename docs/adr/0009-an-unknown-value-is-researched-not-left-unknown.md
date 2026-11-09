@@ -81,3 +81,19 @@ A researched value can be wrong for the specific grade. For example, a handbook 
 The server makes outbound requests to URLs the agent chooses. They are read-only GETs, with a size cap and a timeout. Pages behind a login, or that block bots, give no value. The data policy in SPEC still applies: opening a specific vendor page and citing it is allowed, and building a catalog from a vendor's site is not.
 
 A source page can change or vanish. The record keeps the quote and a hash of what was fetched, so the scorecard still shows what the check read.
+
+## Amendment (2026-11-08): the agent reads the number, the server cites and checks it
+
+The operator decided on 2026-11-08 that the server stops reading the number out of the quote. In the operator's words: "LLMs are pretty good at reading from a page and extracting the correct numbers. Just retrieving a webpage and the value is good enough, we do not need to create a parser that has to work for every single page. however, the page that was used must be cited." A hand-written quote reader overfits to the few pages it was built from, and it refused ordinary sentences such as "the Poisson ratio = 0.36, was used" (#120). Each refusal sent the agent to look for another page, which is friction.
+
+This replaces the parts of this ADR that say the server reads the quantity with the quote reader and that the agent never gives the number:
+
+- The agent's `submit_research` call gives the key, the field, the value and its unit as the page writes them, the page's URL, and the quote it read the value from.
+- The server still fetches the page itself, under the rules in "Fetching". It checks two things, and neither reads labels, units or prose. The quote must appear on the fetched page, compared with whitespace, case and Unicode forms folded. The value must be written in the quote as a number, in the page's own format, such as "1.24", "1,24" or "1.24e3". If either check fails, the server refuses and says why, and the agent can fix the call or try another page.
+- The server converts the unit by an exact table of spellings, and refuses a spelling it has no key for. It applies the field's range and the table's rules, as before.
+- The record cites the page: the URL, the page title, the quote, the date it was fetched and the hash of the fetched page. A value that is already known, cited or researched, is never replaced.
+- The verdict is still labelled `researched` and counted apart. "Keeping a researched verdict honest" still holds. The quote check now proves that the page states the quote and that the quote writes the agent's number. It does not prove that the agent picked the right number from the quote, which the labelled, cited verdict lets a reviewer see.
+
+- A table value is `cited` or `researched`. The `confirmed` kind this ADR lists is dropped, as the ADR-0006 amendment records, so a researched value is replaced only by a reviewed value in git.
+
+The quote reader in `cad.sources` is deleted, because research was its only user.

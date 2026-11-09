@@ -59,7 +59,7 @@ def test_a_missing_material_value_on_a_pending_fea_asks_for_research() -> None:
     assert request.exclusive
     assert "more than 0 and less than 0.5" in request.instruction
     assert "submit_research" in request.instruction
-    assert "Never type the number" in request.instruction
+    assert "the value is written in the quote" in request.instruction
 
 
 def test_a_researched_value_is_read_with_its_source_and_asks_for_nothing() -> None:

@@ -4,9 +4,9 @@ from typing import Final
 from pydantic import BaseModel, ConfigDict
 
 from cad.checks.result import CheckResult, ReadMissing
+from cad.research.fields import SPECS, Field
 from cad.research.overlay import Dropped
 from cad.scorecard.model import PendingCheck
-from cad.sources.fields import SPECS, Field
 from cad.tables.materials import MaterialsTable, Unknown
 
 SUBMIT: Final = "submit_research"
@@ -44,11 +44,12 @@ def request_for(
     instruction = (
         f"{first}research {field} for {key}: find a public https page that states the "
         f"{spec.label} of this material, and call {SUBMIT} with brief_id, key {key!r}, field "
-        f"{field!r}, the page's URL and a quote copied word for word from the page that names "
-        f"the {spec.label} and gives one value, such as {spec.labels[0]!r} and its value. "
-        "Never type the number: the server fetches the page and reads it from the quote. A "
-        "source for a near material, such as plain PLA for a PLA blend, is allowed. The server "
-        f"accepts {spec.accepts}. Then call score_variant again."
+        f"{field!r}, the value and its unit ({spec.unit_hint}) as the page writes them, the "
+        "page's URL, and the quote you read the value from, copied word for word from the "
+        "page. The server fetches the page, checks that the quote is on it and that the value "
+        "is written in the quote, cites the page, and labels the value researched. A source for "
+        "a near material, such as plain PLA for a PLA blend, is allowed. The server accepts "
+        f"{spec.accepts}. Then call score_variant again."
     )
     return ResearchRequest(
         brief_id=brief_id,

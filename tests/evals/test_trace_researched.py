@@ -56,7 +56,7 @@ async def test_a_card_the_server_stored_through_score_variant_traces(
 
 def researched(roots: Roots) -> tuple[str, MaterialsTable]:
     brief = briefs.create_brief(roots, BRIEF_TEXT, new_project_id())
-    question = Question(brief.id, brief.project, KEY, "poisson_ratio", URL, QUOTE)
+    question = Question(brief.id, brief.project, KEY, "poisson_ratio", 0.36, "", URL, QUOTE)
     page = Page(URL, "PLA data", f"Mechanical properties {QUOTE} Density 1.24 g/cm3", "ab" * 32)
     answer = submit(
         table(), roots.projects, question, fetcher=lambda _: page, today=lambda: date(2026, 11, 8)
