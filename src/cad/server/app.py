@@ -232,7 +232,7 @@ def build_server(
     def build_variant(
         code: Annotated[str, Field(max_length=MAX_CODE_CHARS)],
         brief_id: str | None = None,
-        slot: int | None = None,
+        slot: Annotated[int | None, Field(strict=True)] = None,
     ) -> SetBuildResult:
         with agent_facing():
             if brief_id is not None:

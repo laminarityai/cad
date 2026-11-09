@@ -249,3 +249,14 @@ async def test_a_revision_that_does_not_build_changes_nothing(s: Session) -> Non
     failed = await s.call("build_variant", code="x = 1\n", brief_id=brief_id, slot=1)
     assert failed["variant_set"]["kind"] == "not_joined"
     assert shows(s, brief_id) == [built["variant_id"]]
+
+
+@pytest.mark.parametrize("slot", [True, "1", 1.0])
+async def test_a_slot_that_is_not_a_whole_number_is_refused_before_any_container(
+    s: Session, monkeypatch: pytest.MonkeyPatch, slot: object
+) -> None:
+    brief_id = await s.confirmed_brief()
+    monkeypatch.setenv("DOCKER_HOST", NO_DOCKER)
+    text = await s.refusal("build_variant", code=PLATE, brief_id=brief_id, slot=slot)
+    assert "slot" in text
+    assert held(s, brief_id) == []
