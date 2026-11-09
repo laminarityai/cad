@@ -54,8 +54,7 @@ def table_named(
     git: MaterialsTable, projects: Path, project: ProjectId, version: str
 ) -> MaterialsTable | None:
     """The project table `version` names, rebuilt from the ledger's first records, or None when
-    the ledger no longer holds them. A later record never changes a value an earlier one filled,
-    so every value this table holds is the value the project's table holds today."""
+    the ledger no longer holds them."""
     records = read_ledger(projects, project).records
     for count in range(len(records) + 1):
         if _version(git, project, count) == version:

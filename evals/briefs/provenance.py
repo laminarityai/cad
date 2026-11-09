@@ -341,7 +341,6 @@ def _table_step(
 
 
 def _short(version: str) -> str:
-    """The git hash cut to 12 characters, keeping the project and record count after it."""
     head, plus, research = version.partition("+")
     return head[:12] + plus + research
 

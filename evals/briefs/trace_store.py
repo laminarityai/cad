@@ -195,16 +195,14 @@ def _read(
         card = material.STORED.validate_json(path.read_text())
     except (OSError, ValidationError, pint.UndefinedUnitError, ZeroDivisionError) as error:
         return CardTrace(name, (Unreadable(str(error).splitlines()[0]),), ()), ()
-    trace = trace_card(card, root, roots, _table_for(card, roots, table), SPEC_BY_ID)
+    trace = trace_card(card, root, roots, _table_scored_against(card, roots, table), SPEC_BY_ID)
     if card.variant_id != name:
         misplaced = Unbound(f"the card names variant {card.variant_id} but is stored under {name}")
         trace = CardTrace(name, (misplaced, *trace.failures), trace.numbers, trace.basis)
     return trace, outcomes_of(card)
 
 
-def _table_for(card: Scorecard, roots: Roots, git: MaterialsTable) -> MaterialsTable:
-    """The table the card was scored against: the git table with the research records its
-    brief's project held then. A record added since leaves every value the card read unchanged."""
+def _table_scored_against(card: Scorecard, roots: Roots, git: MaterialsTable) -> MaterialsTable:
     if not isinstance(card.basis, AgainstBrief | AwaitingConfirmation):
         return git
     try:

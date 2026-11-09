@@ -18,9 +18,8 @@
     other     = any other single character
 
 No class skips a character. A word, an other or a stray mark never belongs to a value, so
-the reader refuses a quote that has one. A prose word reads only in a quote that names the
-field's own label. The tokens do not include whitespace; instead each token says whether
-whitespace comes before it.
+the reader refuses a quote that has one. The tokens do not include whitespace; instead each
+token says whether whitespace comes before it.
 """
 
 import re
