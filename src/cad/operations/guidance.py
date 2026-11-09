@@ -20,6 +20,12 @@ RULE = (
     "say that it was not checked."
 )
 
+CONTEXT_PARTS = (
+    "When the brief says the new part must fit with an existing part that you built as a "
+    "variant, propose that variant with propose_context_part before you call ask_to_confirm, "
+    "so the user confirms it on the same page, and build the new part in its frame."
+)
+
 RESEARCH = (
     "A material value the table lacks is researched, not left unknown. When a scorecard's "
     "research lists a request, answer each one with submit_research: a public page and a "
@@ -52,4 +58,4 @@ NOT_VERIFIED = (
     "on it to reach a verdict."
 )
 
-INSTRUCTIONS: Final = " ".join((RULE, PLAN_MODE, TEST_MODE, RESEARCH, NOT_VERIFIED))
+INSTRUCTIONS: Final = " ".join((RULE, PLAN_MODE, CONTEXT_PARTS, TEST_MODE, RESEARCH, NOT_VERIFIED))

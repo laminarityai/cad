@@ -5,7 +5,14 @@ from typing import Any
 import pytest
 from mcp import Client
 
-from cad.operations.guidance import NOT_VERIFIED, PLAN_MODE, RESEARCH, RULE, TEST_MODE
+from cad.operations.guidance import (
+    CONTEXT_PARTS,
+    NOT_VERIFIED,
+    PLAN_MODE,
+    RESEARCH,
+    RULE,
+    TEST_MODE,
+)
 from cad.sandbox.outcome import Build, Built
 from cad.server.app import build_server
 from cad.tables.materials import load_materials
@@ -224,5 +231,7 @@ async def test_an_unreadable_materials_table_lists_nothing_and_shows_no_host_pat
 async def test_the_server_tells_every_client_that_only_check_results_are_measurements() -> None:
     async with Client(build_server()) as client:
         instructions = client.instructions
-    assert instructions == " ".join((RULE, PLAN_MODE, TEST_MODE, RESEARCH, NOT_VERIFIED))
+    assert instructions == " ".join(
+        (RULE, PLAN_MODE, CONTEXT_PARTS, TEST_MODE, RESEARCH, NOT_VERIFIED)
+    )
     assert (await listed_description("score_variant")).endswith(f"{RULE} {NOT_VERIFIED}")

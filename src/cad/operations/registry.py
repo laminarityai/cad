@@ -1,7 +1,15 @@
 import sys
 from typing import Final
 
-from cad.operations import briefs, confirmation, knowledge, research, scorecards, variants
+from cad.operations import (
+    briefs,
+    confirmation,
+    context_parts,
+    knowledge,
+    research,
+    scorecards,
+    variants,
+)
 from cad.operations import server as server_operations
 from cad.operations.model import BOTH, Operation, Tenant, operation
 from cad.operations.server import REPO_ROOT, NoArguments, ServerInfo, git_state
@@ -33,6 +41,7 @@ OPERATIONS: Final[tuple[Operation, ...]] = (
     *server_operations.OPERATIONS,
     *briefs.OPERATIONS,
     *confirmation.OPERATIONS,
+    *context_parts.OPERATIONS,
     *knowledge.OPERATIONS,
     *research.OPERATIONS,
 )

@@ -8,6 +8,7 @@ from cad.checks.container.kernel import (
     EdgeUses,
     FaceInfo,
     Inertia,
+    Point,
     Shape,
     StepTooLarge,
     Unreadable,
@@ -79,8 +80,14 @@ class FakeKernel:
     def volume_props(self, shape: Shape) -> VolumeProps:
         return self.props
 
+    def bounds(self, shape: Shape) -> tuple[Point, Point] | None:
+        return None if self.box is None else ((0.0, 0.0, 0.0), self.box)
+
     def extents(self, shape: Shape) -> tuple[float, float, float] | None:
         return self.box
+
+    def max_tolerance(self, shape: Shape) -> float:
+        return 1e-7
 
     def faces(self, shape: Shape) -> tuple[FaceInfo, ...]:
         raise NotImplementedError("no check reads faces yet")

@@ -77,7 +77,7 @@ claude --version
 HOME="$CAD_HOME" uv run cad-call <tool> '<json args>'
 ```
 
-It prints the MCP result as JSON and exits 1 when the result is an error and 2 when the arguments are not a JSON object. Tools: `server_info`, `build_variant`, `score_variant`, `scorecard`, `list_materials`, `create_brief`, `propose_requirements`, `ask_to_confirm`, `list_requirements`, `search_knowledge`, `submit_research`. `jq -Rs '{code: .}' < <file>.py` turns a build123d file into the arguments `build_variant` takes. The stdio client passes the server only `HOME`, `LOGNAME`, `PATH`, `SHELL`, `TERM` and `USER`.
+It prints the MCP result as JSON and exits 1 when the result is an error and 2 when the arguments are not a JSON object. Tools: `server_info`, `build_variant`, `score_variant`, `scorecard`, `list_materials`, `create_brief`, `propose_requirements`, `propose_context_part`, `ask_to_confirm`, `list_requirements`, `search_knowledge`, `submit_research`. `jq -Rs '{code: .}' < <file>.py` turns a build123d file into the arguments `build_variant` takes. The stdio client passes the server only `HOME`, `LOGNAME`, `PATH`, `SHELL`, `TERM` and `USER`.
 
 ### The confirmation page in a real browser
 

@@ -73,7 +73,7 @@ def publish(store: Store, slot: str, path: Path, record: bytes) -> bool:
 
 def read(store: Store, slot: str, path: Path) -> bytes | None:
     """The record, or None when the file is missing, not a regular file, or not signed for slot."""
-    mac, newline, record = (_read_regular(path) or b"").partition(b"\n")
+    mac, newline, record = (read_regular(path) or b"").partition(b"\n")
     try:
         valid = bool(newline) and key.verify(store.root, slot, record, mac)
     except SandboxUnavailable as error:
@@ -168,7 +168,8 @@ def _unusable(store: Store) -> StoreUnusable:
     return StoreUnusable(f"the {store.name} store's key is unusable; the operator must fix it")
 
 
-def _read_regular(path: Path) -> bytes | None:
+def read_regular(path: Path, limit: int = MAX_RECORD_BYTES) -> bytes | None:
+    """The file's bytes, or None when it is missing, a symlink, not a regular file or over limit."""
     try:
         descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
     except OSError:
@@ -176,5 +177,5 @@ def _read_regular(path: Path) -> bytes | None:
     with os.fdopen(descriptor, "rb") as file:
         if not stat.S_ISREG(os.fstat(file.fileno()).st_mode):
             return None
-        data = file.read(MAX_RECORD_BYTES + 1)
-    return None if len(data) > MAX_RECORD_BYTES else data
+        data = file.read(limit + 1)
+    return None if len(data) > limit else data

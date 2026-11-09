@@ -8,6 +8,7 @@ from typing import TypeAliasType
 from pydantic import BaseModel, ConfigDict
 
 from cad.confirmations.ballot import Desk
+from cad.context_parts.store import Ingest
 from cad.records.roots import Roots
 
 
@@ -24,6 +25,7 @@ class Tenant:
     roots: Roots
     variants: Path
     desk: Desk
+    ingest: Ingest
 
 
 class Input(BaseModel):

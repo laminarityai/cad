@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from cad.confirmations import http
 from cad.confirmations.ballot import OS_OPEN, WAIT_SECONDS, Desk
 from cad.confirmations.registry import kinds
+from cad.context_parts.ingest import ingest
 from cad.operations.model import BOTH, Audience, Input, Tenant, operation
 from cad.operations.registry import OPERATIONS
 from cad.operations.tools import agent_operations, tools
@@ -37,7 +38,7 @@ def say(text: str) -> Callable[[Tenant, Nothing], Words]:
 def a_tenant(tmp_path: Path) -> Tenant:
     roots = Roots(briefs=tmp_path / "briefs", projects=tmp_path / "projects")
     desk = Desk(roots, kinds(roots), OS_OPEN, serve=http.serve, wait_seconds=WAIT_SECONDS)
-    return Tenant(roots=roots, variants=tmp_path / "variants", desk=desk)
+    return Tenant(roots=roots, variants=tmp_path / "variants", desk=desk, ingest=ingest)
 
 
 async def listed(server: MCPServer) -> dict[str, str]:
