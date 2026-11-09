@@ -24,6 +24,7 @@ import asyncio
 import itertools
 import json
 import os
+import re
 import shlex
 import socket
 import subprocess
@@ -122,7 +123,24 @@ def open_page(run: Path, url: str) -> int:
     if reply is None:
         append(run, {"error": f"no browser daemon answered in {run}; run browser.py start"})
         return 1
+    if "error" in reply:
+        print(reply["error"], file=sys.stderr)
+        return 1
     return 0
+
+
+def last_page(run: Path) -> int:
+    """The highest page number any file or log line of `run` already uses, 0 when none."""
+    used = [int(m[1]) for f in run.glob("page-*") if (m := re.match(r"page-(\d+)[.-]", f.name))]
+    log = run / "browser.jsonl"
+    for line in log.read_text().splitlines() if log.exists() else []:
+        try:
+            entry: Entry = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(page := entry.get("page"), int):
+            used.append(page)
+    return max(used, default=0)
 
 
 def stop(run: Path) -> int:
@@ -148,32 +166,39 @@ async def serve(run: Path) -> None:
 
     async with async_playwright() as playwright:
         browser = await playwright.chromium.launch()
-        numbers = itertools.count(1 + len(list(run.glob("page-*.aria.yml"))))
+        numbers = itertools.count(1 + last_page(run))
         served: list[int] = []
         person = {"answer": "confirm", "edit": "", "delay": "1"}
         stopping = asyncio.Event()
 
         async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
-            request: Entry = json.loads(await reader.readline())
             reply: Entry = {"pid": os.getpid(), "browser": browser.version, "pages": len(served)}
-            given = request.get("person")
-            changes = {str(k): str(v) for k, v in cast(Entry, given).items()} if given else {}
             try:
-                visit = visit_of(str(request.get("url")), person | changes)
-            except ValueError as error:
-                reply["error"] = str(error)
-                visit = None
-            if request["do"] == "stop":
-                stopping.set()
-            elif request["do"] == "set" and visit is not None:
-                person.update(changes)
-                append(run, {"step": "set", **person})
-            elif request["do"] == "visit" and visit is not None:
-                n = next(numbers)
-                await drive(browser, run, n, visit)
-                served.append(n)
-                reply["page"] = n
-            elif "error" in reply:
+                request = cast(Entry, json.loads(await reader.readline()))
+                action = request["do"]
+                given = cast(Entry, request.get("person") or {})
+                changes = {str(k): str(v) for k, v in given.items()}
+                if unknown := sorted(set(changes) - set(PERSON)):
+                    raise ValueError(f"unknown setting {unknown}; the settings are {list(PERSON)}")
+                if action == "stop":
+                    stopping.set()
+                elif action == "set":
+                    visit_of("", person | changes)
+                    person.update(changes)
+                    append(run, {"step": "set", **person})
+                elif action == "visit":
+                    visit = visit_of(str(request["url"]), person | changes)
+                    n = next(numbers)
+                    failure = await drive(browser, run, n, visit)
+                    reply["page"] = n
+                    if failure is None:
+                        served.append(n)
+                    else:
+                        reply["error"] = failure
+                elif action != "status":
+                    raise ValueError(f"unknown request {action!r}")
+            except (ValueError, KeyError, TypeError, AttributeError) as error:
+                reply["error"] = f"bad request: {type(error).__name__}: {error}"
                 append(run, {"error": reply["error"]})
             reply["person"] = person
             writer.write(json.dumps(reply).encode() + b"\n")
@@ -191,7 +216,10 @@ async def serve(run: Path) -> None:
     (run / "browser.pid").unlink(missing_ok=True)
 
 
-async def drive(browser: Browser, run: Path, n: int, visit: Visit) -> None:
+async def drive(browser: Browser, run: Path, n: int, visit: Visit) -> str | None:
+    """Drive one page. None on success, else the failure, with the page token left out."""
+    token = urlsplit(visit.url).path.rpartition("/")[2]
+
     def log(entry: Entry) -> None:
         append(run, {"page": n, **entry})
 
@@ -217,7 +245,7 @@ async def drive(browser: Browser, run: Path, n: int, visit: Visit) -> None:
         )
         if status != 200:
             await page.screenshot(path=run / f"page-{n}-before.png", full_page=True)
-            return
+            return None
         await asyncio.sleep(visit.delay)
         if visit.edit is not None:
             shown, typed = visit.edit
@@ -238,11 +266,15 @@ async def drive(browser: Browser, run: Path, n: int, visit: Visit) -> None:
         said = await page.locator("body").inner_text()
         await page.screenshot(path=run / f"page-{n}-after.png", full_page=True)
         log({"step": visit.answer, "status": answered.status, "said": said})
-        log({"spent_token": urlsplit(visit.url).path.rpartition("/")[2]})
+        log({"spent_token": token})
     except Exception as error:  # the server discards the opener's output, so log every failure
-        log({"error": f"{type(error).__name__}: {error}"})
+        failure = f"{type(error).__name__}: {error}"
+        failure = failure.replace(token, "<token>") if token else failure
+        log({"error": failure})
+        return failure
     finally:
         await context.close()
+    return None
 
 
 async def read_sections(page: Page) -> list[dict[str, object]]:

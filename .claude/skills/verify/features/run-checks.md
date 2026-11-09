@@ -20,7 +20,7 @@
 
 ## How to get to it (user POV)
 
-- Run `uv run cad-sandbox run-checks <variant_id> <material_key>` in a terminal, with an id that `build_variant` returned.
+- Run `HOME="$CAD_HOME" uv run cad-sandbox run-checks <variant_id> <material_key>` in a terminal, with an id that `build_variant` returned.
 - Call the `score_variant` tool, which runs the same function.
 
 ## Driving it with cad-sandbox
@@ -37,7 +37,7 @@ HOME="$CAD_HOME" uv run cad-call build_variant "$(jq -Rs '{code: .}' < tests/san
 ID=$(jq -r .structuredContent.variant_id "$EVIDENCE/build-plate.json")
 ```
 
-- **Pass.** Run `uv run cad-sandbox run-checks "$ID" prusament-pla > "$EVIDENCE/checks-plate.json"; echo $?`. Exit code `0`. `results` has `closed_solid`, `interference`, `mass` and `extents`, each with `verdict` `pass`, a non-empty `formula` and a non-empty `sources` list. `mass` has a `volume` measure of 29509.72 mm^3 within 0.01 and lists the density datasheet as its last source. `extents` has `extent:x`, `extent:y` and `extent:z` of 100, 50 and 6 mm within 0.002 (the plate lies flat with its long side on x) and sorted extents of 6, 50 and 100 mm. `step` is `{"kind": "stored", "sha256": <hash>}`, and `$CAD_HOME/.cad/variants/$ID/result.step` exists.
+- **Pass.** Run `HOME="$CAD_HOME" uv run cad-sandbox run-checks "$ID" prusament-pla > "$EVIDENCE/checks-plate.json"; echo $?`. Exit code `0`. `results` has `closed_solid`, `interference`, `mass` and `extents`, each with `verdict` `pass`, a non-empty `formula` and a non-empty `sources` list. `mass` has a `volume` measure of 29509.72 mm^3 within 0.01 and lists the density datasheet as its last source. `extents` has `extent:x`, `extent:y` and `extent:z` of 100, 50 and 6 mm within 0.002 (the plate lies flat with its long side on x) and sorted extents of 6, 50 and 100 mm. `step` is `{"kind": "stored", "sha256": <hash>}`, and `$CAD_HOME/.cad/variants/$ID/result.step` exists.
 - **Closed solid fails.** Build the plate code with `from build123d import Shell` and `result = Shell(result.faces()[:-1])` appended, then run. `closed_solid` is `fail`, its reason starts `found 0 solids` and `solids` is 0. `mass` and `extents` are `unknown` with an empty `measured` list, and their reasons start `closed_solid is fail`. The exit code is still `0`, because the run completed.
 - **Interference fails.** Build `from build123d import *` and `result = Compound([Box(10, 10, 10), Pos(5, 5, 5) * Box(10, 10, 10)])`, then run. `interference` is `fail` with `common_volume:0-1` of 125 mm^3. `mass` is `unknown` with an empty `measured` list, because `closed_solid` fails on 2 solids.
 - **Mass ratio.** Run `prusament-pla` and then `kaiser-6061-t6` on one id. Both `volume` measures match, and the ratio of the two `mass` measures equals the ratio of the two densities in `tables/materials.yaml` to four digits.
@@ -45,7 +45,7 @@ ID=$(jq -r .structuredContent.variant_id "$EVIDENCE/build-plate.json")
 - **Deterministic.** Run the plate twice into two files and run `cmp` on them. Then `cmp` the `result.step` hash in both. Both pairs are identical.
 - **Version.** Note each `version` in the output. Append a comment to `src/cad/checks/container/closed_solid.py`, then run again from a new process. The `closed_solid`, `mass` and `extents` versions changed and the `interference` version did not. Revert the edit. This re-keys no variant, because the file is outside `src/cad/sandbox/` and `src/cad/variants/`.
 - **Garbage BREP.** Build a variant whose code writes a built report with random bytes as `brep` to fd 3 (`os.write(3, ...)`, then `os._exit(0)`), then run it twice. `closed_solid` is `fail` with a reason that starts `the BREP could not be read`, the other three are `unknown`, `step` is `{"kind": "missing"}` with a `reason` that says the BREP could not be read, and no `result.step` exists. The second run answers the same.
-- **Refusals.** Run `uv run cad-sandbox run-checks fe250eb62250be75 prusament-pla; echo $?` on an id from before this change. The output is one line, `StaleVariant: variant fe250eb62250be75 was not stored by this version of the sandbox; build its code again`, and the exit code is `1`. An id that is not 16 lowercase hex digits prints an `UnknownVariant` line, and an id whose build failed prints a `NotBuilt` line. No container starts for any of them.
+- **Refusals.** Run `HOME="$CAD_HOME" uv run cad-sandbox run-checks fe250eb62250be75 prusament-pla; echo $?` on an id from before this change. The output is one line, `StaleVariant: variant fe250eb62250be75 was not stored by this version of the sandbox; build its code again`, and the exit code is `1`. An id that is not 16 lowercase hex digits prints an `UnknownVariant` line, and an id whose build failed prints a `NotBuilt` line. No container starts for any of them.
 - **Test suite.** Run `uv run pytest tests/checks -q`. It needs Docker for the mutant, reference part, forgery and CLI tests.
 
 ## Cleanup

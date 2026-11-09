@@ -24,7 +24,7 @@ export CAD_HOME="$EVIDENCE/home"
 export CAD_BROWSER="$EVIDENCE/browser"
 ```
 
-`CAD_HOME` is the server's `HOME` for the whole run, so a variant built once is a store hit for every later call, and briefs confirmed in one step are visible in the next. `claude_session.py` uses `$CAD_HOME` when it is set. Put `HOME="$CAD_HOME"` in front of every `cad-call`. Never drive the server in your own `HOME`: it writes to the operator's `~/.cad` (issue #81).
+`CAD_HOME` is the server's `HOME` for the whole run, so a variant built once is a store hit for every later call, and briefs confirmed in one step are visible in the next. `claude_session.py` uses `$CAD_HOME` when it is set. Put `HOME="$CAD_HOME"` in front of every `cad-call` and every `cad-sandbox run-checks`. Never drive the server in your own `HOME`: it writes to the operator's `~/.cad` (issue #81).
 
 ## Cost: take the cheapest path that proves the claim
 
