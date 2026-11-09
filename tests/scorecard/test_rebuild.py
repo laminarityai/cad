@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from cad.checks import job_store
 from cad.sandbox import container
 from cad.sandbox.container import Job, Ran
 from cad.sandbox.outcome import Build, Built, NoResult
@@ -88,5 +89,5 @@ def test_a_rebuild_that_fails_reports_its_build_outcome_and_stores_no_scorecard(
     assert f"variant {old}" in str(raised.value)
     assert f"as variant {new}" in str(raised.value)
     assert "a part this sandbox cannot build" in str(raised.value)
-    assert not (tmp_path / old / score.SCORECARD).exists()
-    assert not (tmp_path / new / score.SCORECARD).exists()
+    assert not (tmp_path / old / job_store.JOBS).exists()
+    assert not (tmp_path / new / job_store.JOBS).exists()

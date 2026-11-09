@@ -1,17 +1,16 @@
-from typing import Annotated
+from typing import Annotated, Final
 
-from mcp.server.mcpserver.tools import Tool
 from pydantic import Field
 
 from cad.briefs import store as briefs
 from cad.briefs.store import BriefRefused
+from cad.operations.model import Audience, Input, Tenant, operation
 from cad.projects.model import ProjectRefused
 from cad.records.roots import Roots
 from cad.records.signed import StoreUnusable
-from cad.research.fetch import fetch
 from cad.research.overlay import ProjectTable, project_table
 from cad.research.requests import SUBMIT, requests_on
-from cad.research.submit import Fetch, Question, ResearchAnswer, ResearchRefused, submit
+from cad.research.submit import Question, ResearchAnswer, ResearchRefused, submit
 from cad.sandbox import host
 from cad.sandbox.outcome import SandboxUnavailable
 from cad.scorecard.material import ReportedScorecard
@@ -53,20 +52,43 @@ def with_research(
     return card.model_copy(update={"research": research}) if research else card
 
 
-def research_tools(roots: Roots, fetcher: Fetch = fetch) -> list[Tool]:
-    def submit_research(
-        brief_id: str,
-        key: Annotated[str, Field(pattern=f"^{KEY_PATTERN.pattern}$")],
-        field: MaterialField,
-        url: Annotated[str, Field(max_length=2048)],
-        quote: Annotated[str, Field(min_length=1, max_length=MAX_QUOTE_LENGTH)],
-    ) -> ResearchAnswer:
-        try:
-            project = briefs.read_brief(roots, brief_id).project
-            table = host.materials_table()
-            question = Question(brief_id, project, table.row_key(key), field, url, quote)
-            return submit(table, roots.projects, question, fetcher=fetcher)
-        except (BriefRefused, ProjectRefused, SandboxUnavailable, StoreUnusable) as error:
-            return ResearchRefused(key=key, field=field, reason=f"{type(error).__name__}: {error}")
+class SubmitResearchInput(Input):
+    brief_id: str
+    key: Annotated[str, Field(pattern=f"^{KEY_PATTERN.pattern}$")]
+    field: MaterialField
+    url: Annotated[str, Field(max_length=2048)]
+    quote: Annotated[str, Field(min_length=1, max_length=MAX_QUOTE_LENGTH)]
 
-    return [Tool.from_function(submit_research, name=SUBMIT, description=SUBMIT_RESEARCH)]
+
+def submit_research(tenant: Tenant, arguments: SubmitResearchInput) -> ResearchAnswer:
+    roots = tenant.roots
+    try:
+        project = briefs.read_brief(roots, arguments.brief_id).project
+        table = host.materials_table()
+        question = Question(
+            arguments.brief_id,
+            project,
+            table.row_key(arguments.key),
+            arguments.field,
+            arguments.url,
+            arguments.quote,
+        )
+        return submit(table, roots.projects, question)
+    except (BriefRefused, ProjectRefused, SandboxUnavailable, StoreUnusable) as error:
+        return ResearchRefused(
+            key=arguments.key,
+            field=arguments.field,
+            reason=f"{type(error).__name__}: {error}",
+        )
+
+
+OPERATIONS: Final = (
+    operation(
+        name=SUBMIT,
+        audience=Audience.AGENT,
+        description=SUBMIT_RESEARCH,
+        input=SubmitResearchInput,
+        output=ResearchAnswer,
+        run=submit_research,
+    ),
+)

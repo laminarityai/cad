@@ -1,12 +1,13 @@
 """The knowledge base search tool. It returns pointers and quotes, never a value a check reads."""
 
+from functools import cache
 from typing import Annotated, Final
 
-from mcp.server.mcpserver.tools import Tool
 from pydantic import BaseModel, Field
 
 from cad.knowledge.corpus import load
 from cad.knowledge.search import Index
+from cad.operations.model import BOTH, Input, Tenant, operation
 
 MAX_QUERY_CHARS: Final = 500
 MAX_K: Final = 20
@@ -37,27 +38,42 @@ class KnowledgeHits(BaseModel):
     hits: list[KnowledgeHit]
 
 
-def knowledge_tools() -> tuple[Tool, ...]:
-    index = Index(load())
+class SearchKnowledgeInput(Input):
+    query: Annotated[str, Field(max_length=MAX_QUERY_CHARS)]
+    k: Annotated[int, Field(ge=1, le=MAX_K)] = 5
 
-    def search_knowledge(
-        query: Annotated[str, Field(max_length=MAX_QUERY_CHARS)],
-        k: Annotated[int, Field(ge=1, le=MAX_K)] = 5,
-    ) -> KnowledgeHits:
-        return KnowledgeHits(
-            hits=[
-                KnowledgeHit(
-                    id=hit.pointer.id,
-                    subject=hit.subject,
-                    title=hit.pointer.title,
-                    section=hit.pointer.section,
-                    page=hit.pointer.page,
-                    url=hit.pointer.url,
-                    retrieved=hit.pointer.retrieved.isoformat(),
-                    text=hit.text,
-                )
-                for hit in index.search(query, k)
-            ]
-        )
 
-    return (Tool.from_function(search_knowledge, description=SEARCH_KNOWLEDGE),)
+@cache
+def _index() -> Index:
+    return Index(load())
+
+
+def search_knowledge(tenant: Tenant, arguments: SearchKnowledgeInput) -> KnowledgeHits:
+    del tenant
+    return KnowledgeHits(
+        hits=[
+            KnowledgeHit(
+                id=hit.pointer.id,
+                subject=hit.subject,
+                title=hit.pointer.title,
+                section=hit.pointer.section,
+                page=hit.pointer.page,
+                url=hit.pointer.url,
+                retrieved=hit.pointer.retrieved.isoformat(),
+                text=hit.text,
+            )
+            for hit in _index().search(arguments.query, arguments.k)
+        ]
+    )
+
+
+OPERATIONS: Final = (
+    operation(
+        name="search_knowledge",
+        audience=BOTH,
+        description=SEARCH_KNOWLEDGE,
+        input=SearchKnowledgeInput,
+        output=KnowledgeHits,
+        run=search_knowledge,
+    ),
+)

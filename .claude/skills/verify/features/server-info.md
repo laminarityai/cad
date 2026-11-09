@@ -13,7 +13,7 @@ The `server_info` tool tells a client which commit the server runs from, which P
 
 ## How to get to it (user POV)
 
-- Run `uv run cad-call server_info '{}'` in a terminal.
+- Run `HOME="$CAD_HOME" uv run cad-call server_info '{}'` in a terminal.
 - Ask Claude Code, with the repo's `.mcp.json` loaded, to call the `server_info` tool.
 - Run `uv run verify` and read the `app` line.
 
@@ -24,12 +24,12 @@ Preconditions:
 - `uv sync --frozen` has run.
 - The Doctor commands in `../SKILL.md` agree on the SHA.
 
-- **Scripted call.** Run `uv run cad-call server_info '{}'`. Exit code `0`. `structuredContent` has `sha` equal to `git rev-parse HEAD`, `dirty` true when `git status --porcelain` is not empty, a `python` version and `tools` equal to `["ask_to_confirm", "build_variant", "create_brief", "list_materials", "list_requirements", "propose_requirements", "score_variant", "search_knowledge", "server_info"]`.
+- **Scripted call.** Run `HOME="$CAD_HOME" uv run cad-call server_info '{}'`. Exit code `0`. `structuredContent` has `sha` equal to `git rev-parse HEAD`, `dirty` true when `git status --porcelain` is not empty, a `python` version and `tools` equal to `["ask_to_confirm", "build_variant", "create_brief", "list_materials", "list_requirements", "propose_requirements", "score_variant", "scorecard", "search_knowledge", "server_info", "submit_research"]`.
 - **Claude Code call.** Run `uv run python .claude/skills/verify/scripts/claude_session.py "call the server_info tool and print its sha" "$EVIDENCE/claude-server-info.json"`. Output starts with `init: cad connected`, has a `tool call: mcp__cad__server_info {}` line, and the reply contains the head SHA.
-- **Unknown tool.** Run `uv run cad-call no_such_tool '{}'`. Exit code `1`. The result has `isError` true and text `Unknown tool: no_such_tool`.
-- **Extra argument.** Run `uv run cad-call server_info '{"x": 1}'`. Exit code `1`. The result has `isError` true and text that says `Extra inputs are not permitted`.
+- **Unknown tool.** Run `HOME="$CAD_HOME" uv run cad-call no_such_tool '{}'`. Exit code `1`. The result has `isError` true and text `Unknown tool: no_such_tool`.
+- **Extra argument.** Run `HOME="$CAD_HOME" uv run cad-call server_info '{"x": 1}'`. Exit code `1`. The result has `isError` true and text that says `Extra inputs are not permitted`.
 - **App step.** Run `uv run verify --only app`. Prints `ok   app`, then `server_info sha <head sha> dirty=True` or `dirty=False`, and exits 0. It fails when git fails, when either SHA is `unknown`, or when the SHAs differ.
-- **Malformed arguments.** Run `uv run cad-call server_info '{not json'`. Exit code `2` and a usage error on stderr, with no traceback.
+- **Malformed arguments.** Run `HOME="$CAD_HOME" uv run cad-call server_info '{not json'`. Exit code `2` and a usage error on stderr, with no traceback.
 
 ## Gotchas
 

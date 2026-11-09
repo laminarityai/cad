@@ -7,6 +7,7 @@ from pydantic import TypeAdapter
 
 from cad.briefs.model import BriefId, BriefSpan, Requirement, RequirementId, Target
 from cad.checks import jobs
+from cad.checks.container.fea import CLAMPED_FACE_NOTE
 from cad.checks.lanes import Lanes
 from cad.checks.result import CheckResult, Verdict
 from cad.loads.model import LoadCase
@@ -79,6 +80,7 @@ def test_the_cantilever_deflection_verdicts_match_the_hand_calc(
     found = fea_result(card)
     assert found.instance == case.id
     assert found.verdict == Verdict.PASS, found.reason
+    assert CLAMPED_FACE_NOTE in found.reason
     measured = magnitude(found.value("max_displacement"), "mm")
     print(f"fea max_displacement {measured:.4f} mm, hand {hand:.4f} mm")
     assert measured == pytest.approx(hand, rel=0.03)
