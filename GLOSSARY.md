@@ -74,7 +74,7 @@ A document, datasheet, table or standard that a requirement or check cites, eith
 _Avoid_: Reference, citation, research
 
 **Template**:
-A family of designs controlled by parameters, from which variants are made.
+A family of designs controlled by parameters, which an engineering skill may bundle as a starting point for variants. The first version has none. A person changes a variant by asking in chat, and the agent edits its code.
 _Avoid_: Model, generator
 
 ## Modes
@@ -86,10 +86,10 @@ A setting on the conversation that decides what the agent does next and when it 
 The agent asks questions and turns the brief into requirements, without making geometry. It ends when the user confirms the requirements.
 
 **Design mode**:
-The default mode. The agent makes variants, runs checks, shows scorecards, and stops for the user to pick or tune.
+The default mode. The agent makes variants, runs checks, shows scorecards, and stops for the user to pick a variant or ask for a change.
 
 **Auto mode**:
-The agent revises variants against the checks without stopping, until every requirement passes, it needs a decision from the user, or it stops making progress.
+The agent revises variants against the checks without stopping, until every requirement passes, it needs a decision from the user, or it judges that it is stuck. An account's usage limit also ends a run when it refuses a build.
 
 **Test mode**:
 Deeper, slower analysis of one chosen variant, such as full FEA, tolerance stack-ups and slicing.
