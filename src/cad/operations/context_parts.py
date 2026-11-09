@@ -1,16 +1,12 @@
-from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Final
 
-from mcp.server.mcpserver.tools import Tool
 from pydantic import BaseModel, Field
 
 from cad.briefs.model import MAX_STATEMENT_CHARS
 from cad.context_parts import store
 from cad.context_parts.ingest import Facts
 from cad.context_parts.model import MAX_NAME_CHARS, Outcome
-from cad.context_parts.store import Ingest
-from cad.records.roots import Roots
-from cad.server.refusals import agent_facing
+from cad.operations.model import Audience, Input, Tenant, operation
 
 PROPOSE_CONTEXT_PART = (
     "Propose a context part: a part the user's new part must fit with, such as a rail it slides "
@@ -32,15 +28,33 @@ class PartProposed(BaseModel):
     facts: Facts
 
 
-def context_part_tools(roots: Roots, variants_root: Path, ingest: Ingest) -> list[Tool]:
-    def propose_context_part(
-        brief_id: str,
-        quote: Annotated[str, Field(min_length=1, max_length=MAX_STATEMENT_CHARS)],
-        name: Annotated[str, Field(min_length=1, max_length=MAX_NAME_CHARS)],
-        variant_id: str,
-    ) -> PartProposed:
-        with agent_facing():
-            part = store.propose(roots, variants_root, brief_id, quote, name, variant_id, ingest)
-        return PartProposed(part_id=part.record.id, status=part.outcome, facts=part.record.facts)
+class ProposeContextPartInput(Input):
+    brief_id: str
+    quote: Annotated[str, Field(min_length=1, max_length=MAX_STATEMENT_CHARS)]
+    name: Annotated[str, Field(min_length=1, max_length=MAX_NAME_CHARS)]
+    variant_id: str
 
-    return [Tool.from_function(propose_context_part, description=PROPOSE_CONTEXT_PART)]
+
+def propose_context_part(tenant: Tenant, arguments: ProposeContextPartInput) -> PartProposed:
+    part = store.propose(
+        tenant.roots,
+        tenant.variants,
+        arguments.brief_id,
+        arguments.quote,
+        arguments.name,
+        arguments.variant_id,
+        tenant.ingest,
+    )
+    return PartProposed(part_id=part.record.id, status=part.outcome, facts=part.record.facts)
+
+
+OPERATIONS: Final = (
+    operation(
+        name="propose_context_part",
+        audience=Audience.AGENT,
+        description=PROPOSE_CONTEXT_PART,
+        input=ProposeContextPartInput,
+        output=PartProposed,
+        run=propose_context_part,
+    ),
+)

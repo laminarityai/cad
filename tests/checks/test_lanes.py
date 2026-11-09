@@ -271,3 +271,47 @@ def test_the_key_covers_the_shape_the_inputs_and_the_cited_rows(tmp_path: Path) 
     request = replace(plain.request, reads={name: recited})
     assert request.wire == plain.request.wire
     assert replace(plain, request=request).key != plain.key
+
+
+def test_a_peek_at_a_job_never_run_is_none_and_starts_nothing(
+    tmp_path: Path, runner: GatedRunner
+) -> None:
+    assert Lanes(runner).peek(with_fea(tmp_path)) is None
+    assert runner.runs == []
+
+
+def test_a_peek_reads_the_stored_quick_result_and_calls_a_background_job_pending(
+    tmp_path: Path, runner: GatedRunner
+) -> None:
+    runner.background.gate.clear()
+    lanes = Lanes(runner)
+    plan = with_fea(tmp_path)
+    quick = lanes.settle(quick_only(tmp_path), 0).quick
+    runs = list(runner.runs)
+    peeked = lanes.peek(plan)
+    assert peeked is not None
+    assert peeked.quick == quick
+    assert peeked.background == (Pending(),)
+    assert runner.runs == runs
+
+
+def test_a_peek_reports_a_stored_background_result_as_done_and_runs_nothing(
+    tmp_path: Path, runner: GatedRunner
+) -> None:
+    lanes = Lanes(runner)
+    plan = with_fea(tmp_path)
+    settled = lanes.settle(plan, LONG)
+    assert settled.background == (Done(ran(job(tmp_path, FEA))),)
+    runs = list(runner.runs)
+    assert lanes.peek(plan) == settled
+    assert runner.runs == runs
+
+
+def test_a_peek_does_not_trust_a_result_signed_for_another_job(
+    tmp_path: Path, runner: GatedRunner
+) -> None:
+    lanes = Lanes(runner)
+    lanes.settle(quick_only(tmp_path), 0)
+    path = job_store.result_path(job(tmp_path))
+    path.write_bytes(path.read_bytes().replace(b'"unknown"', b'"pass"'))
+    assert lanes.peek(quick_only(tmp_path)) is None

@@ -33,7 +33,7 @@ class Trace(Frozen):
 class Friction(Frozen):
     confirmation_pages: int
     ask_calls: int
-    minutes_to_first_scorecard: float | None
+    minutes_to_first_result: float | None
 
 
 class BriefResult(Frozen):
