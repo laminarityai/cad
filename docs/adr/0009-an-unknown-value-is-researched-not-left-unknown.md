@@ -82,6 +82,24 @@ The server makes outbound requests to URLs the agent chooses. They are read-only
 
 A source page can change or vanish. The record keeps the quote and a hash of what was fetched, so the scorecard still shows what the check read.
 
+## Amendment (2026-11-08): the agent reads the number, the server cites and checks it
+
+The operator decided on 2026-11-08 that the server stops reading the number out of the quote. In the operator's words: "LLMs are pretty good at reading from a page and extracting the correct numbers. Just retrieving a webpage and the value is good enough, we do not need to create a parser that has to work for every single page. however, the page that was used must be cited." A hand-written quote reader overfits to the few pages it was built from, and it refused ordinary sentences such as "the Poisson ratio = 0.36, was used" (#120). Each refusal sent the agent to look for another page, which is friction.
+
+This replaces the parts of this ADR that say the server reads the quantity with the quote reader and that the agent never gives the number:
+
+- The agent's `submit_research` call gives the key, the field, the value and its unit as the page writes them, the page's URL, and the quote it read the value from.
+- The server still fetches the page itself, under the rules in "Fetching". On 2026-11-09 the operator chose to keep exactly two checks, and neither reads a unit, a label or prose:
+  - The quote is on the fetched page. The comparison uses only the letters and numbers of each, in order and case folded, so whitespace, punctuation, markup and case may differ. A quote may not start or end inside a number, so "960 kg/m3" is not on a page that says "8960 kg/m3".
+  - The value is written in the quote as one number. "." or "," may be a decimal mark or digit grouping, so 1.24 is written in "1.24" and "1,24", but not in "124" or "1.245". Digits that follow a letter, as in "D638" or "cm3", are not a number.
+- The server trusts the agent's unit. It converts it by an exact table of spellings, and a spelling that differs from a key only in case, such as "Mpa", names that key. It applies the field's range and the table's rules, as before. Measured on 23 quotes an agent copied from 19 real pages, the two checks accept 22. The one refusal is a quote that left out the symbol "ν" between the label and the number.
+- The record cites the page: the URL, the page title, the quote, the date it was fetched and the hash of the fetched page. A value that is already known, cited or researched, is never replaced.
+- The verdict is still labelled `researched` and counted apart. "Keeping a researched verdict honest" still holds. The two checks prove that the page states the quote and that the quote writes the agent's number. They do not prove that the agent picked the right number or the right unit. They accept 75 ksi from "Tensile Strength (MPa) 55-75", 0.3 from "-0.3", 2.1 from "2.1 × 10⁵", 960 from "8 960", and 1.337 or 1337 from "1,337". The labelled, cited verdict lets a reviewer see each of these.
+
+- A table value is `cited` or `researched`. The `confirmed` kind this ADR lists is dropped, as the ADR-0006 amendment records, so a researched value is replaced only by a reviewed value in git.
+
+The quote reader in `cad.sources` is deleted, because research was its only user.
+
 ## Amended 2026-11-09
 
 The operator deferred printability on 2026-11-08 and slicing, print time and cost on 2026-11-09, indefinitely. The phase 3 cases above that depend on them wait too: a `printed_on` process with no row, `max_print_time` and `max_cost`, process fields, slicer profiles and filament prices. The rule is unchanged, and applies to them when they return.

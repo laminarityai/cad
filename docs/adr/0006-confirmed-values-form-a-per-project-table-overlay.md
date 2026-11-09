@@ -25,3 +25,7 @@ SPEC says that the parts and materials tables are files in git. Shared rows stil
 Any page answer in a project changes the table version. So every variant in the project is scored again on its next comparison, even if the answer was not a value. We accept this cost because the tracer can then rebuild the exact table.
 
 The overlay inherits the guarantee of ADR-0004 and its gap. An agent that reaches the server only through MCP cannot add an overlay row. An agent with shell tools that runs as the same user can read the store key and sign a forged answer.
+
+## Amendment (2026-11-08): no `confirmed` value kind
+
+The operator dropped the `confirmed` provenance kind for table values on 2026-11-08. Nothing produces it: no page asks a person to confirm a material value, and [ADR-0009](0009-an-unknown-value-is-researched-not-left-unknown.md) researches every unknown value instead. A table value is `cited` (git) or `researched` (the project overlay). The overlay this ADR describes now holds only researched records, and its version is `<git>+<pid>@r<n>`, where `<n>` counts the project's research records. A person still confirms requirements on the page (ADR-0004), and only those.

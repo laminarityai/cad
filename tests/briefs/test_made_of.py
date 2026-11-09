@@ -117,7 +117,9 @@ async def test_a_researched_project_row_decides_the_mass_labelled_researched(
 
     quote = "Density 1.24 g/cm3"
     project = briefs.read_brief(s.roots, brief_id).project
-    question = Question(brief_id, project, "project-acme-silk-pla", "density", URL, quote)
+    question = Question(
+        brief_id, project, "project-acme-silk-pla", "density", 1.24, "g/cm3", URL, quote
+    )
     fetched = Page(URL, "Silk PLA data", f"Physical properties {quote}", "ab" * 32)
     answer = submit(load_materials(), s.roots.projects, question, fetcher=lambda _: fetched)
     assert isinstance(answer, ResearchAccepted)

@@ -62,6 +62,8 @@ async def test_research_for_a_project_key_for_a_table_row_is_refused(s: Session,
         brief_id=created["brief_id"],
         key=key,
         field="density",
+        value=1.28,
+        unit="g/cm3",
         url="https://example.org/petg",
         quote="Density 1.28 g/cm3",
     )
@@ -80,6 +82,8 @@ async def test_research_for_a_key_that_is_not_lowercase_words_is_refused(
         brief_id=created["brief_id"],
         key=key,
         field="density",
+        value=1.24,
+        unit="g/cm3",
         url="https://example.org/pla",
         quote="Density 1.24 g/cm3",
     )
@@ -144,7 +148,9 @@ async def test_a_git_row_added_after_research_grades_on_git_values(
     )
     await s.call("ask_to_confirm", project_id=created["project_id"])
     project = briefs.read_brief(s.roots, created["brief_id"]).project
-    question = Question(created["brief_id"], project, f"project-{ACME}", "density", URL, QUOTE)
+    question = Question(
+        created["brief_id"], project, f"project-{ACME}", "density", 1.1, "g/cm3", URL, QUOTE
+    )
     page = Page(URL, "Acme data", f"Physical properties {QUOTE}", "ab" * 32)
     assert isinstance(
         submit(load_materials(), s.roots.projects, question, fetcher=lambda _: page),

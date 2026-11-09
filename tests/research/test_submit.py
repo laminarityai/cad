@@ -7,6 +7,7 @@ from cad.briefs.store import create_brief
 from cad.projects.model import ProjectId, new_project_id
 from cad.records.roots import Roots
 from cad.research.fetch import FetchFailed, Page
+from cad.research.fields import SPECS, Field
 from cad.research.ledger import Ledger, read_ledger
 from cad.research.overlay import overlay, project_table
 from cad.research.submit import (
@@ -14,11 +15,16 @@ from cad.research.submit import (
     Question,
     ResearchAccepted,
     ResearchRefused,
-    on_page,
     submit,
 )
-from cad.sources.fields import Field
-from cad.tables.materials import FromResearch, Known, MaterialsTable, Unknown, load_materials
+from cad.tables.materials import (
+    FromResearch,
+    Known,
+    Material,
+    MaterialsTable,
+    Unknown,
+    load_materials,
+)
 
 URL = "https://example.org/pla"
 TEXT = "Mechanical properties Density 1.24 g/cm3 Poisson's ratio 0.36 Tensile strength 50 MPa"
@@ -38,13 +44,15 @@ def ask(
     roots: Roots,
     quote: str = "Poisson's ratio 0.36",
     *,
+    value: float = 0.36,
+    unit: str = "",
     key: str = "prusament-pla",
     field: Field = "poisson_ratio",
     fetcher: Fetch | None = None,
     project: ProjectId | None = None,
 ) -> ResearchAccepted | ResearchRefused:
     pid = project or create_brief(roots, "a bracket", new_project_id()).project
-    question = Question("b-1", pid, key, field, URL, quote)
+    question = Question("b-1", pid, key, field, value, unit, URL, quote)
     return submit(
         GIT, roots.projects, question, fetcher=fetcher or page(), today=lambda: date(2026, 11, 8)
     )
@@ -71,12 +79,22 @@ def test_a_quote_on_the_page_fills_the_unknown_field_for_that_project_only(roots
 
 
 def test_a_quote_not_on_the_page_is_refused_with_a_new_request(roots: Roots) -> None:
-    answer = ask(roots, "Poisson's ratio 0.30")
+    answer = ask(roots, "Poisson's ratio 0.30", value=0.3)
     assert isinstance(answer, ResearchRefused)
-    assert "does not appear word for word" in answer.reason
+    assert "does not appear on" in answer.reason
     assert answer.request is not None
     assert answer.request.field == "poisson_ratio"
     assert answer.request.problems == (answer.reason,)
+
+
+def test_a_quote_not_on_the_page_is_refused_with_where_the_page_writes_the_value(
+    roots: Roots,
+) -> None:
+    text = "Young's modulus E 2-2.6 GPa Poisson's ratio \u03bd 0.38 Yield strength 35 MPa"
+    answer = ask(roots, "Poisson's ratio 0.38", value=0.38, fetcher=page(text))
+    assert isinstance(answer, ResearchRefused)
+    assert "the page writes 0.38 here" in answer.reason
+    assert "poisson's ratio \u03bd 0.38" in answer.reason
 
 
 def test_whitespace_and_apostrophe_style_do_not_hide_a_quote(roots: Roots) -> None:
@@ -91,15 +109,80 @@ def test_a_failed_fetch_is_a_reason_and_a_new_request(roots: Roots) -> None:
     assert answer.request is not None
 
 
-def test_a_quote_the_reader_refuses_is_a_reason_and_a_new_request(roots: Roots) -> None:
-    answer = ask(roots, "Tensile strength 50 MPa", field="yield_strength", key="bambu-pla-basic")
+ARTICLE = (
+    "Material properties. For the simulation, the Poisson ratio = 0.36, was used, as reported "
+    "for PLA. Density 1.21 g/cm\u00b3 was measured by pycnometry. "
+    "Property | Value | Unit Tensile modulus | 3,5 | GPa Yield strength | 1.24e3 | psi"
+)
+
+
+@pytest.mark.parametrize(
+    ("quote", "field", "value", "unit", "canonical"),
+    [
+        ("the Poisson ratio = 0.36, was used", "poisson_ratio", 0.36, "", 0.36),
+        ("Density 1.21 g/cm\u00b3", "density", 1.21, "g/cm\u00b3", 1210.0),
+        ("Tensile modulus | 3,5 | GPa", "elastic_modulus", 3.5, "GPa", 3500.0),
+        ("Yield strength | 1.24e3 | psi", "yield_strength", 1240, "psi", 8.54949868),
+    ],
+)
+def test_the_agents_reading_of_an_ordinary_quote_is_accepted_in_the_canonical_unit(
+    roots: Roots, quote: str, field: Field, value: float, unit: str, canonical: float
+) -> None:
+    blank = Material("blank", "Blank", *(Unknown() for _ in range(5)))
+    table = MaterialsTable(GIT.version, {**GIT.materials, "blank": blank})
+    pid = create_brief(roots, "a bracket", new_project_id()).project
+    question = Question("b-1", pid, "blank", field, value, unit, URL, quote)
+    answer = submit(table, roots.projects, question, fetcher=page(ARTICLE))
+    assert isinstance(answer, ResearchAccepted), answer
+    assert answer.value == pytest.approx(canonical)
+    assert (answer.unit, answer.url, answer.quote) == (SPECS[field].canonical_unit, URL, quote)
+
+
+def test_a_value_not_written_in_the_quote_is_refused_before_the_fetch(roots: Roots) -> None:
+    fetched: list[str] = []
+
+    def fetcher(url: str) -> Page:
+        fetched.append(url)
+        return Page(url, "PLA", TEXT, "ab" * 32)
+
+    answer = ask(roots, value=0.35, fetcher=fetcher)
     assert isinstance(answer, ResearchRefused)
-    assert "cannot be read" in answer.reason
+    assert "0.35 is not written in the quote" in answer.reason
     assert answer.request is not None
+    assert fetched == []
+
+
+def test_a_value_converted_from_the_quote_is_not_written_in_it(roots: Roots) -> None:
+    answer = ask(
+        roots,
+        "Yield strength 4.35 ksi",
+        value=30,
+        unit="MPa",
+        field="yield_strength",
+        key="bambu-pla-basic",
+    )
+    assert isinstance(answer, ResearchRefused)
+    assert "not written in the quote" in answer.reason
+
+
+def test_a_unit_the_server_has_no_key_for_is_refused_with_the_spellings_it_takes(
+    roots: Roots,
+) -> None:
+    answer = ask(
+        roots,
+        "Yield strength 30 MPa",
+        value=30,
+        unit="megapascal",
+        field="yield_strength",
+        key="bambu-pla-basic",
+    )
+    assert isinstance(answer, ResearchRefused)
+    assert "'megapascal' is not one the server converts" in answer.reason
+    assert "'MPa'" in answer.reason
 
 
 def test_a_cited_value_is_never_replaced(roots: Roots) -> None:
-    answer = ask(roots, "Density 1.24 g/cm3", field="density")
+    answer = ask(roots, "Density 1.24 g/cm3", value=1.24, unit="g/cm3", field="density")
     assert isinstance(answer, ResearchRefused)
     assert "already has a cited density" in answer.reason
     assert answer.request is None
@@ -118,9 +201,30 @@ def test_the_same_answer_twice_stores_one_record(roots: Roots) -> None:
     assert len(read_ledger(roots.projects, pid).records) == 1
 
 
+def test_a_researched_value_is_never_replaced_by_another_reading(roots: Roots) -> None:
+    pid = create_brief(roots, "a bracket", new_project_id()).project
+    assert isinstance(ask(roots, project=pid), ResearchAccepted)
+    text = "Poisson's ratio 0.36. Poisson's ratio 0.4"
+    again = ask(roots, "Poisson's ratio 0.4", value=0.4, project=pid, fetcher=page(text))
+    assert isinstance(again, ResearchRefused)
+    assert "already has a researched poisson_ratio" in again.reason
+    assert again.request is None
+    held = table_of(roots, pid).get_material("prusament-pla").poisson_ratio
+    assert isinstance(held, Known)
+    assert held.magnitude_in("dimensionless") == 0.36
+
+
 def test_a_value_that_breaks_the_table_rules_is_refused(roots: Roots) -> None:
     text = "Yield strength 90 MPa"
-    answer = ask(roots, text, field="yield_strength", key="bambu-pla-basic", fetcher=page(text))
+    answer = ask(
+        roots,
+        text,
+        value=90,
+        unit="MPa",
+        field="yield_strength",
+        key="bambu-pla-basic",
+        fetcher=page(text),
+    )
     assert isinstance(answer, ResearchRefused)
     assert "breaks the table's rules" in answer.reason
     assert "above tensile_strength" in answer.reason
@@ -149,42 +253,10 @@ def test_a_ledger_the_store_did_not_sign_gives_no_values_and_says_why(roots: Roo
     assert loaded.problem == ledger.problem
 
 
-@pytest.mark.parametrize(
-    ("quote", "text"),
-    [
-        ("960 kg/m3", "Density: 8960 kg/m3"),
-        ("1.34 g/cm3", "Density 11.34 g/cm3"),
-        ("250 MPa", "Yield strength 1250 MPa"),
-        ("Poisson's ratio 0.3", "Poisson's ratio 0.35"),
-        ("Poisson's ratio 0", "Poisson's ratio 0.35"),
-        ("34 g/cm3", "Density .34 g/cm3"),
-        ("960 kg/m3", "Density 8,960 kg/m3"),
-    ],
-)
-def test_a_quote_that_starts_or_ends_inside_a_number_is_not_on_the_page(
-    quote: str, text: str
-) -> None:
-    assert not on_page(quote, text)
-
-
-@pytest.mark.parametrize(
-    ("quote", "text"),
-    [
-        ("Density 8960 kg/m3", "Density 8960 kg/m3"),
-        ("Poisson's ratio 0.35", "(Poisson's ratio 0.35)"),
-        ("Poisson's ratio 0.35", "Poisson's ratio 0.35. Density 1.24 g/cm3"),
-        ("Poisson's ratio 0.35", "Poisson's ratio 0.35, density 1.24 g/cm3"),
-        ("Poisson's ratio 0.35", "Poisson's ratio 0.3 and Poisson's ratio 0.35"),
-    ],
-)
-def test_a_quote_bounded_by_the_text_or_punctuation_is_on_the_page(quote: str, text: str) -> None:
-    assert on_page(quote, text)
-
-
 def test_a_quote_cut_from_a_longer_number_is_refused(roots: Roots) -> None:
-    answer = ask(roots, "Poisson's ratio 0.3", fetcher=page("Poisson's ratio 0.35"))
+    answer = ask(roots, "Poisson's ratio 0.3", value=0.3, fetcher=page("Poisson's ratio 0.35"))
     assert isinstance(answer, ResearchRefused)
-    assert "does not appear word for word" in answer.reason
+    assert "does not appear on" in answer.reason
 
 
 @pytest.mark.parametrize("value", ["0", "0.5"])
@@ -197,7 +269,7 @@ def test_a_poisson_ratio_the_table_rules_refuse_is_refused_before_the_fetch(
         fetched.append(url)
         return Page(url, "PLA", f"Poisson's ratio {value}", "ab" * 32)
 
-    answer = ask(roots, f"Poisson's ratio {value}", fetcher=fetcher)
+    answer = ask(roots, f"Poisson's ratio {value}", value=float(value), fetcher=fetcher)
     assert isinstance(answer, ResearchRefused)
     assert "more than 0 and less than 0.5" in answer.reason
     assert fetched == []
@@ -228,13 +300,71 @@ def test_an_unreadable_ledger_is_refused_before_the_fetch_and_asks_for_nothing(
     assert fetched == []
 
 
+def ask_blank(
+    roots: Roots, field: Field, value: float, unit: str, quote: str, text: str
+) -> ResearchAccepted | ResearchRefused:
+    blank = Material("blank", "Blank", *(Unknown() for _ in range(5)))
+    table = MaterialsTable(GIT.version, {**GIT.materials, "blank": blank})
+    pid = create_brief(roots, "a bracket", new_project_id()).project
+    question = Question("b-1", pid, "blank", field, value, unit, URL, quote)
+    return submit(table, roots.projects, question, fetcher=page(text))
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "unit", "quote", "canonical"),
+    [
+        ("tensile_strength", 75, "ksi", "Tensile Strength (MPa) 55-75", 517.106797),
+        ("tensile_strength", 50, "MPa", "Tensile strength 50 N/mm\u00b2", 50.0),
+        ("density", 8940, "kg/m3", "Copper | 8940", 8940.0),
+        ("tensile_strength", 1170, "Mpa", "Tensile Strength, Ultimate: 1170 Mpa", 1170.0),
+    ],
+)
+def test_the_agents_unit_is_trusted_and_converted(
+    roots: Roots, field: Field, value: float, unit: str, quote: str, canonical: float
+) -> None:
+    answer = ask_blank(roots, field, value, unit, quote, quote)
+    assert isinstance(answer, ResearchAccepted), answer
+    assert answer.value == pytest.approx(canonical)
+
+
+@pytest.mark.parametrize(
+    ("value", "quote"),
+    [
+        (638, "Tested to ASTM D638-14, tensile strength 50 MPa"),
+        (6, "Alloy 6061-T6, tensile strength 310 MPa"),
+    ],
+)
+def test_digits_from_a_standard_or_alloy_name_are_not_a_value(
+    roots: Roots, value: float, quote: str
+) -> None:
+    answer = ask_blank(roots, "tensile_strength", value, "MPa", quote, quote)
+    assert isinstance(answer, ResearchRefused), answer
+    assert "not written in the quote" in answer.reason
+
+
+def test_a_quote_that_drops_an_exponent_is_refused(roots: Roots) -> None:
+    text = "Poisson's ratio 0.3e-1 is reported"
+    answer = ask_blank(roots, "poisson_ratio", 0.3, "", "Poisson's ratio 0.3", text)
+    assert isinstance(answer, ResearchRefused), answer
+    assert "does not appear on" in answer.reason
+
+
+def ask_tensile(roots: Roots, key: str, project: ProjectId) -> ResearchAccepted | ResearchRefused:
+    text = "Tensile strength 50 MPa"
+    return ask(
+        roots, text, value=50, unit="MPa", key=key, field="tensile_strength", project=project
+    )
+
+
 def test_a_material_with_no_row_gets_the_projects_own_row_from_research(roots: Roots) -> None:
     pid = create_brief(roots, "a bracket", new_project_id()).project
     key = "project-acme-silk-pla"
-    density = ask(roots, "Density 1.24 g/cm3", key=key, field="density", project=pid)
+    density = ask(
+        roots, "Density 1.24 g/cm3", value=1.24, unit="g/cm3", key=key, field="density", project=pid
+    )
     assert isinstance(density, ResearchAccepted)
     assert (density.key, density.value, density.record) == (key, 1240.0, 1)
-    tensile = ask(roots, "Tensile strength 50 MPa", key=key, field="tensile_strength", project=pid)
+    tensile = ask_tensile(roots, key, pid)
     assert isinstance(tensile, ResearchAccepted)
     material = table_of(roots, pid).get_material(key)
     assert isinstance(material.density, Known)
@@ -247,9 +377,18 @@ def test_a_material_with_no_row_gets_the_projects_own_row_from_research(roots: R
 def test_a_project_row_obeys_the_table_rules(roots: Roots) -> None:
     pid = create_brief(roots, "a bracket", new_project_id()).project
     key = "project-acme-silk-pla"
-    ask(roots, "Tensile strength 50 MPa", key=key, field="tensile_strength", project=pid)
+    ask_tensile(roots, key, pid)
     text = "Yield strength 90 MPa"
-    answer = ask(roots, text, key=key, field="yield_strength", project=pid, fetcher=page(text))
+    answer = ask(
+        roots,
+        text,
+        value=90,
+        unit="MPa",
+        key=key,
+        field="yield_strength",
+        project=pid,
+        fetcher=page(text),
+    )
     assert isinstance(answer, ResearchRefused)
     assert "above tensile_strength" in answer.reason
     assert answer.request is not None

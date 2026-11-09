@@ -12,6 +12,7 @@ row's unit, by its own spelling or one listed in `UNIT_SPELLINGS`, with case kep
 
 import hashlib
 import re
+import unicodedata
 from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
@@ -20,8 +21,7 @@ from typing import Final
 
 import pint
 
-from cad.research.submit import on_page
-from cad.sources.tokens import fold
+from cad.research.quote import on_page
 from cad.tables.materials import FIELD_UNITS, TABLE_PATH, UNITS, Known, MaterialsTable
 
 STORE = TABLE_PATH.parent / "datasheet_text"
@@ -112,7 +112,7 @@ def written_in(value: Decimal, quote: str) -> bool:
 
     The power-of-ten reading also matches a dimension such as "3 x 104 mm", which reads as 30000.
     No current row is affected, and the quote check alone does not catch it."""
-    return any(reading == value for reading in _readings(fold(quote)))
+    return any(reading == value for reading in _readings(_fold(quote)))
 
 
 def unit_written_in(unit: pint.Unit, quote: str) -> bool:
@@ -126,7 +126,7 @@ def unit_written_in(unit: pint.Unit, quote: str) -> bool:
     `cad.tables.materials` and a reviewer catch that switch."""
     if unit.dimensionless:
         return True
-    text = fold(quote)
+    text = _fold(quote)
     return any(
         re.search(rf"(?<![A-Za-z]){re.escape(spelling)}(?![A-Za-z0-9])", text)
         for name, others in UNIT_SPELLINGS.items()
@@ -149,6 +149,12 @@ def _readings(quote: str) -> Iterator[Decimal]:
             yield Decimal(head + "".join(rest[:-1]) + "." + rest[-1])
     for token in SPACE_GROUPED.findall(quote):
         yield Decimal(token.replace(" ", ""))
+
+
+def _fold(text: str) -> str:
+    """NFKC with the minus sign as "-", and every run of whitespace as one space."""
+    normal = unicodedata.normalize("NFKC", text).replace("\u2212", "-")
+    return " ".join(normal.split())
 
 
 def quote_problems(table: MaterialsTable, store: Path = STORE) -> list[str]:

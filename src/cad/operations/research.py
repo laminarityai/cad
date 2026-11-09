@@ -8,30 +8,32 @@ from cad.operations.model import Audience, Input, Tenant, operation
 from cad.projects.model import ProjectRefused
 from cad.records.roots import Roots
 from cad.records.signed import StoreUnusable
+from cad.research.fields import MAX_QUOTE_LENGTH
+from cad.research.fields import Field as MaterialField
 from cad.research.overlay import ProjectTable, project_table
 from cad.research.requests import SUBMIT, requests_on
 from cad.research.submit import Question, ResearchAnswer, ResearchRefused, submit
 from cad.sandbox import host
 from cad.sandbox.outcome import SandboxUnavailable
 from cad.scorecard.material import ReportedScorecard
-from cad.sources.fields import MAX_QUOTE_LENGTH
-from cad.sources.fields import Field as MaterialField
 from cad.tables.materials import KEY_PATTERN
 
 SUBMIT_RESEARCH = (
     "Answer a research request from a score_variant card or a propose_requirements reply. "
-    "Pass the request's brief_id, key and field, the URL of a public https page that states "
-    "the value, and a quote copied word for word from that page, naming the property and "
-    "giving one value with its unit, such as "
-    '"Poisson\'s ratio 0.36" or "Tensile modulus 3.5 GPa". Never pass a number of your own: '
-    "the server fetches the page, checks that the quote is on it and reads the value itself. "
+    "Pass the request's brief_id, key and field; the value and its unit as the page writes "
+    'them, such as 0.36 with unit "" for a Poisson\'s ratio or 3.5 with unit "GPa"; the URL '
+    "of a public https page that states the value; and the quote you read it from, copied "
+    'from that page, such as "the Poisson ratio = 0.36" or a table row. The server fetches '
+    "the page, checks that the quote is on it and that the value is written in the quote, "
+    "converts your unit, and stores the page as the value's citation. Spacing, punctuation, "
+    "markup and case in the quote may differ from the page; its words and numbers may not. "
     "A source for a near material, such as generic PLA for a PLA brand, is allowed. accepted "
     "means the brief's project now has a researched value for that field, and only that "
     "project. refused gives the reason and, when another page could answer, a new request: "
-    "find another source and submit again. A field the table already cites is never replaced. "
-    "Then call score_variant again with the same arguments: a result that reads the value is "
-    'labelled researched, and you report a pass on it as "passes on researched data", naming '
-    "the source and quote."
+    "fix what the reason names or find another source and submit again. A field the table "
+    "already cites is never replaced. Then call score_variant again with the same arguments: "
+    "a result that reads the value is labelled researched, and you report a pass on it as "
+    '"passes on researched data", naming the source and quote.'
 )
 
 
@@ -56,6 +58,8 @@ class SubmitResearchInput(Input):
     brief_id: str
     key: Annotated[str, Field(pattern=f"^{KEY_PATTERN.pattern}$")]
     field: MaterialField
+    value: float
+    unit: Annotated[str, Field(max_length=32)]
     url: Annotated[str, Field(max_length=2048)]
     quote: Annotated[str, Field(min_length=1, max_length=MAX_QUOTE_LENGTH)]
 
@@ -70,6 +74,8 @@ def submit_research(tenant: Tenant, arguments: SubmitResearchInput) -> ResearchA
             project,
             table.row_key(arguments.key),
             arguments.field,
+            arguments.value,
+            arguments.unit,
             arguments.url,
             arguments.quote,
         )
