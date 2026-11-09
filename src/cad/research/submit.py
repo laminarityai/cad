@@ -98,9 +98,9 @@ def submit(
             "replaces; score the variant again",
             other_source_could_answer=False,
         )
-    magnitude = _canonical(question)
-    if isinstance(magnitude, str):
-        return ask(magnitude)
+    magnitude = _in_canonical_unit(question)
+    if isinstance(magnitude, _Refusal):
+        return ask(magnitude.reason)
     page = fetcher(question.url)
     if isinstance(page, FetchFailed):
         return ask(page.reason)
@@ -157,6 +157,11 @@ def _admit_at_append(
 
 
 @dataclass(frozen=True, slots=True)
+class _Refusal:
+    reason: str
+
+
+@dataclass(frozen=True, slots=True)
 class _Asker:
     question: Question
 
@@ -175,7 +180,7 @@ def _already_answered(question: Question, held: Known) -> ResearchAccepted | Non
     same = (held.source.url, held.source.quote) == (question.url, question.quote)
     if not same or not isinstance(held.basis, FromResearch):
         return None
-    if held.magnitude_in(unit) != _canonical(question):
+    if held.magnitude_in(unit) != _in_canonical_unit(question):
         return None
     return ResearchAccepted(
         key=question.key,
@@ -188,25 +193,26 @@ def _already_answered(question: Question, held: Known) -> ResearchAccepted | Non
     )
 
 
-def _canonical(question: Question) -> float | str:
-    """The value in the field's canonical unit, or why the server cannot take it."""
+def _in_canonical_unit(question: Question) -> float | _Refusal:
     spec = SPECS[question.field]
     factor = spec.units.get(question.unit.strip())
     if factor is None:
         spellings = ", ".join(repr(one) for one in spec.units)
-        return (
+        return _Refusal(
             f"the unit {question.unit!r} is not one the server converts for {spec.label}; "
             f"pass one of {spellings}"
         )
     written = Decimal(repr(question.value))
     if not written_in(written, question.quote):
-        return (
+        return _Refusal(
             f"the value {written} is not written in the quote; pass the number exactly as the "
             "quote writes it, in the quote's unit, and a quote that contains it"
         )
     canonical = written * factor
     if not spec.admits(canonical):
-        return f"{spec.label} {canonical:g} {spec.canonical_unit} is outside {spec.accepts}"
+        return _Refusal(
+            f"{spec.label} {canonical:g} {spec.canonical_unit} is outside {spec.accepts}"
+        )
     return float(canonical)
 
 

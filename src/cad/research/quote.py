@@ -1,6 +1,3 @@
-"""The two checks the server makes on a researched value: its quote is on the fetched page, and
-the agent's number is written in that quote. Neither reads labels, units or prose."""
-
 import re
 import unicodedata
 from collections.abc import Iterator
@@ -16,8 +13,6 @@ _CONTEXT: Final = 60
 
 
 def fold(text: str) -> str:
-    """NFKC, case folded, one apostrophe and minus sign, and every whitespace or control
-    character run as one space."""
     normal = unicodedata.normalize("NFKC", text).translate(_FOLDS).casefold()
     folded: list[str] = []
     for char in normal:
@@ -34,7 +29,7 @@ def on_page(quote: str, text: str) -> bool:
     view of it render them differently: "Density | 1.25 g/cm3" is on a page whose table says
     "Density 1.25 g/cm<sup>3</sup>". The match never starts or ends partway through a number:
     "960 kg/m3" is not on a page that says "8960 kg/m3"."""
-    needle, hay = _key(quote).strip(" .,"), _key(text)
+    needle, hay = _comparable(quote).strip(" .,"), _comparable(text)
     start = hay.find(needle) if needle else -1
     while start != -1:
         if _opens(hay, start) and _closes(hay, start + len(needle)):
@@ -50,7 +45,6 @@ def written_in(value: Decimal, quote: str) -> bool:
 
 
 def where_written(value: Decimal, text: str, limit: int = 2) -> tuple[str, ...]:
-    """Up to `limit` stretches of the page's text around a number that equals `value`."""
     folded = fold(text)
     found: list[str] = []
     for match, reading in _readings(folded):
@@ -60,9 +54,7 @@ def where_written(value: Decimal, text: str, limit: int = 2) -> tuple[str, ...]:
     return tuple(found)
 
 
-def _key(text: str) -> str:
-    """The folded text's letters, digits, "." and ",", with one space kept only where dropping
-    the characters between two runs would join two numbers."""
+def _comparable(text: str) -> str:
     joined: list[str] = []
     for run in _RUN.findall(fold(text)):
         if joined and _joins_numbers(joined[-1], run):
@@ -109,12 +101,8 @@ def _opens(text: str, at: int) -> bool:
 
 
 def _closes(text: str, at: int) -> bool:
-    """A "." or "," after the quote ends it unless a digit follows, as in "0.35." at the end of
-    a sentence; "0.3" is cut from "0.35"."""
     if at == len(text):
         return True
-    after = text[at]
-    return not (
-        (after.isdigit() and text[at - 1].isdigit())
-        or (after in ".," and text[at + 1 : at + 2].isdigit())
-    )
+    digits_continue = text[at].isdigit() and text[at - 1].isdigit()
+    decimals_follow = text[at] in ".," and text[at + 1 : at + 2].isdigit()
+    return not (digits_continue or decimals_follow)

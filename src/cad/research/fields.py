@@ -1,5 +1,4 @@
-"""The material fields research fills, and the unit spellings the server converts by exact key.
-Nothing here parses a unit expression: a spelling that is not a key is refused."""
+"""Nothing here parses a unit expression: a spelling that is not a key is refused."""
 
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -15,8 +14,7 @@ MAX_QUOTE_LENGTH: Final = 500
 
 @dataclass(frozen=True, slots=True)
 class FieldSpec:
-    """`units` maps each accepted spelling to its factor into `canonical_unit`. `exclusive` keeps
-    `low` and `high` themselves out, as the materials table's rules do."""
+    """`units` maps each accepted spelling to its factor into `canonical_unit`."""
 
     label: str
     canonical_unit: str
@@ -33,7 +31,6 @@ class FieldSpec:
 
     @property
     def accepts(self) -> str:
-        """The accepted range, in words: "0.1 to 5000 MPa" or "more than 0 and less than 0.5"."""
         unit = "" if self.canonical_unit == "dimensionless" else f" {self.canonical_unit}"
         if self.exclusive:
             return f"more than {self.low:g} and less than {self.high:g}{unit}"
