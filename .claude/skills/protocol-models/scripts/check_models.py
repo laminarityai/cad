@@ -124,7 +124,7 @@ MUTANTS: Final = (
     ),
     Mutant(
         "no-cap-refusal",
-        "_refusal stops refusing fea at the attempt cap",
+        "_interrupted_too_often stops refusing fea at the attempt cap",
         JOB_LANES_CAP,
         (
             (

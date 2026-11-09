@@ -4,7 +4,7 @@ import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Final, NewType, Protocol
+from typing import Final, NewType
 
 from pydantic import BaseModel, ConfigDict
 
@@ -160,20 +160,5 @@ def _run_background(spec: JobSpec, budget: Background) -> JobResult:
 
 
 @dataclass(frozen=True, slots=True)
-class Admitted:
-    pass
-
-
-@dataclass(frozen=True, slots=True)
 class Refused:
     reason: str
-
-
-class Meter(Protocol):
-    def admit(self, job: JobSpec) -> Admitted | Refused: ...
-
-
-class Unmetered:
-    def admit(self, job: JobSpec) -> Admitted | Refused:
-        del job
-        return Admitted()
