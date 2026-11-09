@@ -26,12 +26,5 @@ async def listed_arguments() -> dict[str, set[str]]:
     return {tool.name: set(tool.input_schema.get("properties", {})) for tool in listed.tools}
 
 
-async def test_the_server_exposes_no_tool_outside_the_allowlist() -> None:
-    exposed = await listed_arguments()
-    extra = sorted(set(exposed) - set(ALLOWED_ARGUMENTS))
-    assert extra == [], f"tools outside the allowlist: {extra}"
-    assert sorted(exposed) == sorted(ALLOWED_ARGUMENTS)
-
-
 async def test_no_tool_takes_a_check_a_table_a_scorecard_or_a_decision_as_an_argument() -> None:
     assert await listed_arguments() == ALLOWED_ARGUMENTS

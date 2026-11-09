@@ -131,22 +131,20 @@ def crowded(tmp_path_factory: pytest.TempPathFactory) -> Index:
 
 
 def test_the_authors_questions_find_their_unit_first(index: Index) -> None:
-    # The exact-identity design found 33/35 and at most one unit, so @1 and @5 were the same.
-    assert recall_at(index, AUTHORED, 1) >= 35
-    assert recall_at(index, AUTHORED, 5) >= 35
+    # The exact-identity design found 33/35.
+    assert recall_at(index, AUTHORED, 1) == len(AUTHORED)
 
 
 def test_held_out_paraphrases_find_their_unit_first(index: Index) -> None:
     # The exact-identity design found 3/12 here, the clean figure without the leaked keys.
-    assert recall_at(index, HELD_OUT, 1) >= 12
-    assert recall_at(index, HELD_OUT, 5) >= 12
+    assert recall_at(index, HELD_OUT, 1) == len(HELD_OUT)
 
 
 def test_recall_holds_when_the_near_misses_are_in_the_corpus(crowded: Index) -> None:
     # "Bambu PLA Basic density at 23 °C" ranks the HDT section first: its quote has "°C".
     assert recall_at(crowded, AUTHORED, 1) >= 34
-    assert recall_at(crowded, AUTHORED, 5) >= 35
-    assert recall_at(crowded, HELD_OUT, 1) >= 12
+    assert recall_at(crowded, AUTHORED, 5) == len(AUTHORED)
+    assert recall_at(crowded, HELD_OUT, 1) == len(HELD_OUT)
 
 
 @pytest.mark.parametrize(("query", "right", "near"), NEAR_MISSES)

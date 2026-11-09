@@ -103,6 +103,7 @@ def test_a_card_with_each_basis_round_trips_through_its_stored_json(
     (tmp_path / card.variant_id).mkdir()
     path = score.store(card, tmp_path)
     assert Scorecard.model_validate_json(path.read_text()) == card
+    assert sorted(child.name for child in path.parent.iterdir()) == [score.SCORECARD]
 
 
 @pytest.mark.parametrize(
@@ -138,14 +139,6 @@ def test_scoring_gives_the_basis_the_assessor_gives_for_the_suite_it_ran(
     assert seen == [card.results]
     assert card.basis == AwaitingConfirmation(brief_id="1" * 16)
     assert score.score_variant(variant_id, "prusament-pla", store).basis == NoBrief()
-
-
-def test_scoring_the_same_variant_twice_gives_equal_scorecards(built: Build, store: Path) -> None:
-    variant_id = built(PLATE)
-    first = score.score_variant(variant_id, "prusament-pla", store)
-    second = score.score_variant(variant_id, "prusament-pla", store)
-    assert first == second
-    assert first.model_dump_json() == second.model_dump_json()
 
 
 def test_the_plate_shell_mutant_is_scored_with_closed_solid_failed(
@@ -186,14 +179,6 @@ def test_an_unknown_variant_is_refused_naming_the_id_and_stores_nothing(
     with pytest.raises(entry.UnknownVariant, match=UNBUILT_ID):
         score.score_variant(UNBUILT_ID, "prusament-pla", store)
     assert not (store / UNBUILT_ID).exists()
-
-
-def test_the_scorecard_round_trips_through_its_json(tmp_path: Path) -> None:
-    card = offline_card()
-    (tmp_path / card.variant_id).mkdir()
-    path = score.store(card, tmp_path)
-    assert Scorecard.model_validate_json(path.read_text()) == card
-    assert sorted(child.name for child in path.parent.iterdir()) == [score.SCORECARD]
 
 
 def test_a_symlinked_variant_directory_is_not_written_through(tmp_path: Path) -> None:

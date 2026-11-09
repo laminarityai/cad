@@ -1,3 +1,4 @@
+import hashlib
 from collections.abc import Sequence
 from email.message import Message
 
@@ -48,7 +49,7 @@ def test_a_public_html_page_gives_its_title_text_and_hash() -> None:
     assert page.title == "PLA"
     assert "Poisson's ratio 0.36" in page.text
     assert "x=1" not in page.text
-    assert len(page.sha256) == 64
+    assert page.sha256 == hashlib.sha256(HTML).hexdigest()
     assert seen == [Target("example.org", PUBLIC, "/pla")]
 
 
