@@ -13,7 +13,8 @@ from starlette.applications import Starlette
 from cad.accounts.local import LocalIssuer
 from cad.accounts.principal import AccountId
 from cad.accounts.tenants import Tenants
-from cad.confirmations.ballot import OS_OPEN
+from cad.confirmations.waiting import Door
+from cad.confirmations.web import LocalSignIn
 from cad.context_parts.ingest import ingest
 from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.outcome import Build, Built
@@ -35,12 +36,12 @@ def local(tmp_path: Path) -> LocalIssuer:
 
 @pytest.fixture
 def tenants(tmp_path: Path) -> Tenants:
-    return Tenants(tmp_path / "accounts", 60, OS_OPEN, 0.3, ingest)
+    return Tenants(tmp_path / "accounts", 60, Door(wait_seconds=0.3), ingest)
 
 
 @pytest.fixture
 async def app(local: LocalIssuer, tenants: Tenants) -> AsyncIterator[Starlette]:
-    app = build_app(local.issuer(), tenants)
+    app = build_app(local.issuer(), tenants, LocalSignIn(local))
     async with app.router.lifespan_context(app):
         yield app
 
@@ -90,7 +91,7 @@ async def test_the_metadata_names_a_bare_origin_issuer_exactly(
     local: LocalIssuer, tenants: Tenants
 ) -> None:
     clerk = replace(local.issuer(), url="https://neat-beetle-7570.clerk.accounts.dev")
-    async with http(build_app(clerk, tenants)) as client:
+    async with http(build_app(clerk, tenants, LocalSignIn(local))) as client:
         metadata = (await client.get("/.well-known/oauth-protected-resource/mcp")).json()
     assert metadata["authorization_servers"] == ["https://neat-beetle-7570.clerk.accounts.dev"]
     assert metadata["resource"] == MCP

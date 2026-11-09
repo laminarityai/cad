@@ -1,4 +1,5 @@
-"""The cad server over HTTP: `/mcp` for agents, `/v1/...` for the signed-in person.
+"""The cad server over HTTP: `/mcp` for agents, `/v1/...` and the confirmation page for the
+signed-in person.
 
 Clerk is the authorization server and this server is only the resource server. `/mcp` takes a
 Clerk OAuth access token and serves the Protected Resource Metadata (RFC 9728) that names the
@@ -39,7 +40,8 @@ from cad.accounts.local import LocalIssuer
 from cad.accounts.principal import account_id
 from cad.accounts.tenants import ACCOUNTS, Tenants
 from cad.accounts.tokens import Issuer, Verifier
-from cad.confirmations.ballot import Opener, program_opener
+from cad.confirmations.waiting import Door, Opener, page_address, program_opener, sign_in_opener
+from cad.confirmations.web import ClerkSignIn, LocalSignIn, SignIn, confirm_routes
 from cad.context_parts.ingest import ingest as read_part
 from cad.context_parts.store import Ingest
 from cad.operations.guidance import INSTRUCTIONS
@@ -53,7 +55,6 @@ from cad.sandbox.outcome import SandboxUnavailable
 
 DAILY_CAP_SECONDS: Final = 3600
 PORT: Final = 8765
-WAIT_SECONDS: Final = 20.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -76,7 +77,7 @@ class AgentTokens:
         )
 
 
-def build_app(issuer: Issuer, tenants: Tenants) -> Starlette:
+def build_app(issuer: Issuer, tenants: Tenants, sign_in: SignIn) -> Starlette:
     verifier = Verifier(issuer)
 
     def tenant_of_token() -> Tenant:
@@ -96,11 +97,9 @@ def build_app(issuer: Issuer, tenants: Tenants) -> Starlette:
         ),
         token_verifier=AgentTokens(verifier),
     )
-    public = urlsplit(issuer.resource)
     app = server.streamable_http_app(
         transport_security=TransportSecuritySettings(
-            allowed_hosts=[public.netloc],
-            allowed_origins=[f"{public.scheme}://{public.netloc}"],
+            allowed_hosts=[urlsplit(issuer.resource).netloc], allowed_origins=[origin(issuer)]
         )
     )
     app.router.routes.insert(0, _resource_metadata(issuer))
@@ -108,7 +107,13 @@ def build_app(issuer: Issuer, tenants: Tenants) -> Starlette:
     app.router.routes.append(
         person_route("/v1/variants/{variant_id}/scorecard", scorecard, verifier.person, tenants.of)
     )
+    app.router.routes.extend(confirm_routes(verifier, tenants.of, origin(issuer), sign_in))
     return app
+
+
+def origin(issuer: Issuer) -> str:
+    public = urlsplit(issuer.resource)
+    return f"{public.scheme}://{public.netloc}"
 
 
 def _resource_metadata(issuer: Issuer) -> Route:
@@ -132,15 +137,22 @@ def _resource_metadata(issuer: Issuer) -> Route:
 
 
 def choose_issuer(root: Path, host: str, port: int, environ: Mapping[str, str]) -> Issuer:
+    return _trust(root, host, port, environ)[0]
+
+
+def _trust(
+    root: Path, host: str, port: int, environ: Mapping[str, str]
+) -> tuple[Issuer, LocalIssuer | None, SignIn]:
     clerk = clerk_issuer(environ)
     if clerk is not None:
-        return clerk
+        return clerk, None, ClerkSignIn(clerk.url, environ[PUBLISHABLE_KEY])
     if not _loopback(host):
         raise SystemExit(
             f"cad-http: no Clerk instance is configured, so it serves only on a loopback address; "
             f"set {PUBLISHABLE_KEY} and {PUBLIC_URL} to serve on {host}"
         )
-    return LocalIssuer.open(root, f"http://{host}:{port}").issuer()
+    local = LocalIssuer.open(root, f"http://{host}:{port}")
+    return local.issuer(), local, LocalSignIn(local)
 
 
 def _loopback(host: str) -> bool:
@@ -155,11 +167,19 @@ def serve(
     host: str,
     port: int,
     cap_seconds: int,
-    opener: Opener,
+    opener: Opener | None,
     ingest: Ingest = read_part,
     environ: Mapping[str, str] = os.environ,
 ) -> None:
-    issuer = choose_issuer(root, host, port, environ)
+    """`opener`, the scripted person's program, gets a sign-in link from the local issuer, so it
+    is refused once Clerk signs people in."""
+    issuer, local, sign_in = _trust(root, host, port, environ)
+    if opener is not None and local is None:
+        raise SystemExit("cad-http: --opener needs the local issuer; Clerk signs people in here")
+    door = Door(
+        page_url=page_address(origin(issuer)),
+        open_page=None if opener is None or local is None else sign_in_opener(local, opener),
+    )
     try:
         held = lease.take(root / ACCOUNTS)
     except lease.LeaseHeld as error:
@@ -167,10 +187,10 @@ def serve(
     meter.require()
     with suppress(SandboxUnavailable):
         container.remove_orphans()
-    tenants = Tenants(root / ACCOUNTS, cap_seconds, opener, WAIT_SECONDS, ingest)
+    tenants = Tenants(root / ACCOUNTS, cap_seconds, door, ingest)
     logging.getLogger(__name__).info("serving %s, tokens from %s", issuer.resource, issuer.url)
     with held:
-        uvicorn.run(build_app(issuer, tenants), host=host, port=port, log_level="warning")
+        uvicorn.run(build_app(issuer, tenants, sign_in), host=host, port=port, log_level="warning")
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -184,10 +204,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=DAILY_CAP_SECONDS,
         help=f"container-seconds each account may use per UTC day (default {DAILY_CAP_SECONDS})",
     )
-    parser.add_argument("--opener", default="open", metavar="PROGRAM")
+    parser.add_argument(
+        "--opener",
+        metavar="PROGRAM",
+        help="local issuer only: program the server runs with each sign-in link to the page",
+    )
     args = parser.parse_args(argv)
     logging.basicConfig(stream=sys.stderr, level=logging.INFO)
-    serve(args.root, args.host, args.port, args.cap_seconds, program_opener(args.opener))
+    opener = None if args.opener is None else program_opener(args.opener)
+    serve(args.root, args.host, args.port, args.cap_seconds, opener)
     return 0
 
 

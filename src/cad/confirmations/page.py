@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import Final, Literal
 from urllib.parse import parse_qs
 
+from cad.accounts.principal import PersonSession
 from cad.briefs.model import MAX_NOTE_CHARS
 from cad.confirmations.answers import (
     MAX_EDIT_CHARS,
@@ -16,8 +17,8 @@ from cad.confirmations.answers import (
     append_answer,
     read_ledger,
 )
-from cad.confirmations.ballot import Ballot
 from cad.confirmations.items import Changes, Editable, Kinds, Refused, Section, pending
+from cad.projects.model import ProjectId
 from cad.records.roots import Roots
 
 EDIT: Final = re.compile(r"edit-(0|[1-9][0-9]{0,3})-([0-9a-f]{16})")
@@ -26,6 +27,7 @@ DECLINE_EDITS: Final = (
     "that item. Go back and confirm it, or clear the change."
 )
 DECLINE: Final = re.compile(r"decline-(0|[1-9][0-9]{0,3})")
+SNAPSHOT: Final = "snapshot"
 STYLE: Final = (
     "body{font:16px/1.5 system-ui,sans-serif;max-width:46rem;margin:2rem auto;padding:0 1rem;"
     "color:#1d1d1f;background:#fafafa}"
@@ -66,11 +68,25 @@ class Changed:
     pass
 
 
-def parse_form(body: bytes, size: int) -> Form | None:
+def sealed_snapshot(body: bytes) -> str | None:
+    fields = _fields(body)
+    found = None if fields is None else fields.get(SNAPSHOT, [])
+    return found[0] if found is not None and len(found) == 1 else None
+
+
+def _fields(body: bytes) -> dict[str, list[str]] | None:
     try:
-        fields = parse_qs(body.decode(), keep_blank_values=True, strict_parsing=True)
+        return parse_qs(body.decode(), keep_blank_values=True, strict_parsing=True)
     except (UnicodeDecodeError, ValueError):
         return None
+
+
+def parse_form(body: bytes, size: int) -> Form | None:
+    """The answer the form gives. Its snapshot is read apart, by `sealed_snapshot`."""
+    fields = _fields(body)
+    if fields is None:
+        return None
+    fields.pop(SNAPSHOT, None)
     answers = fields.pop("answer", [])
     notes = fields.pop("note", [""])
     if len(answers) != 1 or len(notes) != 1 or len(notes[0]) > MAX_NOTE_CHARS:
@@ -136,37 +152,43 @@ def _label(index: int) -> str:
     return f"Item {index + 1}"
 
 
-def view(kinds: Kinds, ballot: Ballot) -> bytes | Changed:
-    if pending(kinds, ballot.project) != ballot.items:
-        return Changed()
-    sections = [kinds[ref.kind].section(ref) for ref in ballot.items]
-    return render(sections, f"/confirm/{ballot.token}")
+def view(kinds: Kinds, project: ProjectId, items: Sequence[ItemRef], snapshot: str) -> bytes:
+    sections = [kinds[ref.kind].section(ref) for ref in items]
+    return render(sections, f"/projects/{project}/confirm", snapshot)
 
 
 def answer_page(
-    roots: Roots, kinds: Kinds, ballot: Ballot, form: Form, now: datetime
+    roots: Roots,
+    kinds: Kinds,
+    project: ProjectId,
+    items: tuple[ItemRef, ...],
+    form: Form,
+    person: PersonSession,
+    now: datetime,
 ) -> Recorded | AlreadyAnswered | Changed:
-    ledger = read_ledger(roots.projects, ballot.project)
-    if any(ledger.of(ref) is not None for ref in ballot.items):
+    ledger = read_ledger(roots.projects, project)
+    if any(ledger.of(ref) is not None for ref in items):
         return AlreadyAnswered()
-    if pending(kinds, ballot.project) != ballot.items:
+    if pending(kinds, project) != items:
         return Changed()
     answer = PageAnswer(
-        project=ballot.project,
+        project=project,
         answers=tuple(
             ItemAnswer(item=ref, verdict=_verdict_of(form, index), edits=form.edits.get(index, ()))
-            for index, ref in enumerate(ballot.items)
+            for index, ref in enumerate(items)
         ),
         note=form.note,
         decided_at=now,
+        account=person.account,
+        session_id=person.session_id,
     )
-    if not append_answer(roots.projects, ballot.project, answer):
+    if not append_answer(roots.projects, project, answer):
         return AlreadyAnswered()
     verdicts = [item.verdict for item in answer.answers]
     return Recorded(verdicts.count("confirmed"), verdicts.count("declined"))
 
 
-def render(sections: Sequence[Section], action: str) -> bytes:
+def render(sections: Sequence[Section], action: str, snapshot: str) -> bytes:
     each = _declinable(len(sections))
     items = "".join(
         _section(f"{_label(index)}. " if each else "", index, section)
@@ -184,6 +206,7 @@ def render(sections: Sequence[Section], action: str) -> bytes:
         f"the right one beside it. Checks will read these numbers.{pick}</p>"
         f"{items}"
         f'<form id="page" method="post" action="{html.escape(action)}">'
+        f'<input type="hidden" name="{SNAPSHOT}" value="{html.escape(snapshot)}">'
         '<label for="note">Note to the agent, if you decline</label>'
         f'<textarea id="note" name="note" maxlength="{MAX_NOTE_CHARS}"></textarea>'
         '<button name="answer" value="confirm">Confirm</button>'
