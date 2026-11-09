@@ -7,6 +7,8 @@ ADR-0009: a material value the table lacks is researched, not left unknown. When
 - `research-request` makes `score_variant` with a brief return a `research` request for each missing material value a check read. Missing geometry never asks.
 - `research-accept` stores a value read from a quote on a fetched page, and the next `score_variant` reads it, with table version `<git>+<project_id>@r<n>`.
 - `research-refuse` refuses a quote that is not on the page or is cut from a longer number, a quote the reader refuses, a failed or guarded fetch, and a value that breaks the table's rules. Each gives a reason and a new request. The reader refuses a value outside the request's range before any fetch. A field git cites is refused with no request.
+- `research-current` keeps a card current when a later record fills a value the card never read. Two variants in one project: variant A reads a researched `poisson_ratio` for `prusament-pla` (record 1), then a record for `bambu-pla-basic` lands (record 2). `evals/briefs/trace_store.py --root <home>/.cad/variants --briefs-root <home>/.cad/briefs --projects-root <home>/.cad/projects` reports `stale: 0` for both cards. It rebuilds each card's table from the first `n` records its version names.
+- `research-prose` reads a short sentence that names the field, such as "the Poisson ratio = 0.36" on `https://pmc.ncbi.nlm.nih.gov/articles/PMC8123144/`, which returns `accepted` with `value` 0.36. The same quote with the page's trailing ", was used" is refused, because the comma touches the digits.
 - `research-unreadable` covers a project ledger the store cannot read. `submit_research` refuses before the fetch with no new request, and `score_variant` puts the problem in `research_problem` and asks for no research.
 
 ## Driving it with cad-call
@@ -21,5 +23,5 @@ Run every call with `HOME` set to a fresh directory, so nothing writes to the op
 
 ## Gotchas
 
-- The quote reader reads a datasheet line, a label and one value, such as "Poisson's ratio 0.35". Prose such as "Poisson's ratio of pure PLA equals 0.35" is refused. Pick a table row.
-- Many datasheet sites answer the server's fetch with HTTP 403, and PDFs are refused. The request then asks for another page.
+- The quote reader reads a datasheet line, such as "Poisson's ratio 0.35", or a short sentence that names the field and joins it to one value with words from `PROSE` in `cad.sources.tokens`, such as "a Poisson's ratio of 0.35 was used". Any other word refuses the quote, so "Poisson's ratio of pure PLA equals 0.35" is refused. Cut the quote to the label and the value.
+- Many sites answer the server's fetch with HTTP 403, and PDFs are refused. The request then asks for another page. On 2026-11-08, 11 of 40 likely research sites answered 403 (matweb, makeitfrom, specialchem, mdpi, sciencedirect, researchgate, wiley, acs, tandfonline, curbell, ulprospector). A browser-like Accept header and a `Mozilla/5.0 (compatible; ...)` User-Agent changed none of them. PMC, Wikipedia, engineeringtoolbox, azom, simplify3d and the Prusa and Bambu wikis answer 200.

@@ -23,7 +23,9 @@ SUBMIT_RESEARCH = (
     "Answer a research request from a score_variant card. Pass the request's brief_id, key and "
     "field, the URL of a public https page that states the value, and a quote copied word for "
     "word from that page, naming the property and giving one value with its unit, such as "
-    '"Poisson\'s ratio 0.36" or "Tensile modulus 3.5 GPa". Never pass a number of your own: '
+    '"Poisson\'s ratio 0.36", "Tensile modulus 3.5 GPa" or "a Poisson\'s ratio of 0.36 was '
+    'used". Cut a longer sentence down to the property and its value. Never pass a number of '
+    "your own: "
     "the server fetches the page, checks that the quote is on it and reads the value itself. "
     "A source for a near material, such as generic PLA for a PLA brand, is allowed. accepted "
     "means the brief's project now has a researched value for that field, and only that "
