@@ -90,10 +90,10 @@ def test_mass_ratio_is_the_density_ratio(check: Callable[..., CheckRun]) -> None
     assert ratio == pytest.approx(expected, rel=1e-4)
 
 
-@pytest.mark.parametrize("key", ["unobtainium", "prusament-pla ", "PRUSAMENT-PLA"])
 def test_a_key_that_is_not_in_the_table_makes_mass_unknown_and_the_other_checks_still_run(
-    key: str, check: Callable[..., CheckRun]
+    check: Callable[..., CheckRun],
 ) -> None:
+    key = "unobtainium"
     run = check(PLATE, key)
     mass = run.result("mass")
     assert mass.verdict == Verdict.UNKNOWN

@@ -91,15 +91,17 @@ OPERATIONS: Final[tuple[Operation, ...]]
 The person asks for a change in chat, and the agent edits the variant's code and calls `build_variant` with the member's `slot`. The new code becomes the slot's next revision, so the set never fills up with edits, and the viewer and scorecard show the slot's latest revision. `auto_revise` builds the same way. Each revision is a signed, append-only record, so earlier revisions stay readable. Code already built is a store hit with no build.
 
 ```python
-class Member(_Frozen):
-    slot: int  # 1..5, unchanged by revisions
-    revisions: tuple[Revision, ...]  # signed, append-only; the last one is what the set shows
-
-
-class Revision(_Frozen):
+class Revision(_Frozen):  # one signed record; the log is one numbered file per revision
+    slot: int  # 1..5
+    code: str  # kept so a server update can rebuild the slot (variant_sets/model.py)
     code_sha256: str
     built_as: VariantId
     joined_at: datetime
+
+
+class Member(_Frozen):  # derived by grouping the log on slot; never stored
+    slot: int
+    revisions: tuple[Revision, ...]  # oldest first; the last one is what the set shows
 ```
 
 ### 2.3 Builds
