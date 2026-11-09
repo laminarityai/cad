@@ -1,0 +1,75 @@
+url: https://plaskolite.com/docs/default-source/pds/pds329_tuf_gp_metric.pdf
+GENERAL PURPOSE
+TUFFAK GP sheet is a polished 
+surface, UV stabilized, transparent 
+polycarbonate product. It features 
+outstanding impact strength, 
+superior dimensional stability, high 
+temperature resistance, and high 
+clarity. This lightweight thermofor-
+mable sheet is also easy to fabricate 
+and decorate. TUFFAK GP sheet is 
+offered with a five (5) year Limited 
+Product Warranty against breakage. 
+The terms of the warranty are 
+available upon request. 
+APPLICATIONS 
+Industrial glazing, machine guards, 
+structural parts, thermoformed and 
+fabricated components
+TYPICAL METRIC ISO PROPERTIES*
+  Property Test Method Units Values
+ PHYSICAL   
+ Density ISO 1183 g/cm³ 1.2
+ Refractive Index ISO 489 – 1.586
+ Light Transmission, Clear @ 3.0mm ASTM D 1003 % 86
+ Light Transmission, I30 Gray @ 3.0mm ASTM D 1003 % 50
+ Light Transmission, K09 Bronze @ 3.0mm ASTM D 1003 % 50
+ Light Transmission, I35 Dark Gray @ 3.0mm ASTM D 1003 % 18
+ Water Absorption ISO 62 (1) % 0.15
+ Haze @ 3mm, clear ASTM D 1003 % <1
+ MECHANICAL**   
+ Tensile Strength, Ultimate ASTM D 638 MPa 66
+ Tensile Strength, Yield ISO 527-2 MPa 62
+ Tensile Modulus ISO 527-2 MPa 2340
+ Elongation at Break ISO 527-2 % 110
+ Flexural Strength ISO 178 MPa 93
+ Flexural Modulus ISO 178 MPa 2380
+ Compressive Strength ASTM D 695 MPa 86
+ Compressive Modulus ASTM D 695 MPa 2380
+ Izod Impact Strength, Notched ISO 180/1A kJ/m² >65
+ Charpy Impact Strength, Unnotched ISO 179/1eU kJ/m² No Break
+ Instrumented Impact @ 3.18mm ASTM D 3763 J 64
+ Shear Strength, Ultimate ASTM D 732 MPa 69
+ Shear Strength, Yield ASTM D 732 MPa 41
+ Shear Modulus ASTM D 732 MPa 786
+ Rockwell Hardness ASTM D 785 – M70 / R118
+ THERMAL   
+ Coefficient of Linear Thermal Expansion ISO 11359-2 um/m-°C 68
+ Thermal Conductivity ASTM C 177 Cal cm/sec-cm2-°C 0.005
+ Heat Deflection Temperature @ 1.86 MPa ISO 75-1 °C 132
+ Vicat Softening Temp. (50N) ISO 306 °C 144
+ Brittleness Temperature ASTM D 746 °C -129
+ Shading Coefficient, clear @ 6.0mm NFRC 100-2010 – 0.97
+ Shading Coefficient, Gray or Bronze @ 6.0mm NFRC 100-2010 – 0.77
+ U factor @ 6.0mm (summer, winter) NFRC 100-2010 W/m²·°C 4.83, 5.22
+ U factor @ 9.54mm (summer, winter) NFRC 100-2010 W/m²·°C 4.43, 4.83
+ ELECTRICAL   
+ Dielectric Constant @ 50 Hz DIN 53483 – 3.0
+ Surface Resistivity IEC 60093 Ohm >1014
+ Volume Resistivity IEC 60093 Ohm·cm >1015
+ Dissipation Factor @ 100 Hz & 1MHz DIN 53483 – 0.0006/0.009
+ Arc Resistance   
+      Stainless Steel Strip electrode ASTM D 495 Seconds 10
+      Tungsten Electrodes ASTM D 495 Seconds 120
+ Dielectric Strength, in air @ 3.0mm ASTM D 149 V/mm 15000
+ FLAMMABILITY   
+ Horizontal Burn, AEB ASTM D 635 cm <2.54
+ Ignition Temperature, Self ASTM D 1929 °C 577
+ Ignition Temperature, Flash ASTM D 1929 °C 466
+ Flame Class @ 1.52mm - <10.0mm (All colors, Clear) UL 94 – HB
+                      @ >/= 10.0mm (Clear) UL 94 – V-0
+ Flammability (2-5mm) Euroclass EN13501 - B,s1,do
+*Typical properties are not intended for specification purposes.
+**Some properties characterized using non-textured sheet.
+TUFFAK GP POLYCARBONATE SHEET

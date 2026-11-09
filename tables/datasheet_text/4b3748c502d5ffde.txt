@@ -1,0 +1,80 @@
+url: https://formlabs-media.formlabs.com/filer_public/dd/7f/dd7f3de9-55ae-4c82-ac52-408a4b5df64d/clear_resin_v5_tds___formlabs.pdf
+Formlabs 2
+Mechanical Properties
+Tensile Properties
+GREEN   CURE V1 CURE V2  METHOD
+TENSILE
+PROPERTIES
+(GREEN & POST-
+CURED WITHOUT
+HEAT)
+5 MIN POST-
+CURE
+1 MIN
+POST-
+CURE
+Ultimate Tensile
+Strength
+46 MPa
+(6672
+psi)
+51 MPa
+(7340 psi)
+49 MPa
+(7110 psi)
+ASTM
+D638-14
+Tensile Modulus
+2200
+MPa
+(319 ksi)
+2575 MPa
+(373 ksi)
+2167 MPa
+(314 ksi)
+ASTM
+D638-14
+Elongation at
+Break 13% 10% 13.50% ASTM D638-14
+TENSILE
+PROPERTIES
+(HEATED POST-
+CURE)
+15 MIN POST-
+CURE AT 60
+°C 
+4 MIN
+POST-
+CURE AT
+60 °C
+Ultimate Tensile
+Strength
+60 MPa
+(8702 psi)
+58 MPa
+(8410 psi)
+ASTM
+D638-14
+Tensile Modulus 2750 MPa (399 ksi) 2700 MPa (392 ksi) ASTM D638-14
+Elongation at
+Break 8 % 11 % ASTM D638-14
+https://staging.formlabs.com/tds/clear-resin-v5-tds/ 2/13Formlabs 4
+General Properties
+5 MIN POST-CURE
+- CURE V1
+15 MIN POST-CURE AT 60
+°C - CURE V1 METHOD
+Shore
+Hardness 78 D 80 D ASTM D2240-15
+Density 1.21 g/cm3
+(0.0437 lb/in3)
+1.21 g/cm3
+(0.0437 lb/in3) ASTM D792
+Representative Tensile Curve
+Samples were tested following ASTM D638, Type I. The curve is a single sample
+chosen as representative and may not be representative of the average values of
+stress and strain. Samples were conditioned in a laboratory environment at 23°C,
+50% relative humidity for 48 hours prior to testing.
+Formlabs Clear Resin V5 Representative Tensile Curve
+Single Sample ASTM D638 Type 1 Bar Conditioned 23°C 50% RH
+https://staging.formlabs.com/tds/clear-resin-v5-tds/ 4/13

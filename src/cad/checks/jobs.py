@@ -2,16 +2,18 @@ import dataclasses
 import hashlib
 import json
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import NewType, Protocol
+from typing import Final, NewType, Protocol
 
 from pydantic import BaseModel, ConfigDict
 
+from cad.checks.container import fea, fit
 from cad.checks.container.check import Background, Budget, Quick
 from cad.checks.container.wire import LoadCaseWire
 from cad.checks.report import IMAGE_TAG, QUICK, SPECS, CheckSpec, Request, build_request, parse
 from cad.checks.result import CheckResult, Step, StepMissing
+from cad.context_parts.ids import ContextPartId
 from cad.sandbox import container, host, image, stage
 from cad.sandbox.outcome import SandboxUnavailable
 from cad.tables.materials import MaterialsTable
@@ -20,7 +22,24 @@ from cad.variants.entry import Entry
 
 JobKey = NewType("JobKey", str)
 
-type Demand = Mapping[str, LoadCaseWire]
+FEA: Final = next(spec for spec in SPECS if spec.id == fea.ID)
+FIT: Final = next(spec for spec in SPECS if spec.id == fit.ID)
+
+
+@dataclass(frozen=True, slots=True)
+class PartBrep:
+    sha256: str
+    data: bytes
+
+
+@dataclass(frozen=True, slots=True)
+class Demand:
+    """What the background checks measure against: fea once per load case, fit once per
+    context part. Each mapping's key is the result's instance."""
+
+    loads: Mapping[str, LoadCaseWire] = field(default_factory=dict[str, LoadCaseWire])
+    parts: Mapping[ContextPartId, PartBrep] = field(default_factory=dict[ContextPartId, PartBrep])
+
 
 NO_STEP = "a background job keeps no STEP; the quick job derives it"
 
@@ -34,6 +53,7 @@ class JobSpec:
     budget: Budget
     request: Request
     instance: str = ""
+    context: PartBrep | None = None
 
     @property
     def key(self) -> JobKey:
@@ -42,8 +62,9 @@ class JobSpec:
             for name, read in sorted(self.request.reads.items())
         }
         versions = [one.version for one in self.checks]
+        context = None if self.context is None else self.context.sha256
         canonical = json.dumps(
-            [self.brep_sha256, IMAGE_TAG, versions, self.request.wire, reads],
+            [self.brep_sha256, IMAGE_TAG, versions, self.request.wire, reads, context],
             sort_keys=True,
             default=str,
         ).encode()
@@ -67,21 +88,32 @@ class JobResult(BaseModel):
 
 def plan(root: Path, held: Entry, request: Request, table: MaterialsTable, demand: Demand) -> Plan:
     quick = JobSpec(root, held.id, held.brep_sha256, QUICK, Quick(), request)
-    background = tuple(
+    loads = tuple(
         JobSpec(
             root,
             held.id,
             held.brep_sha256,
-            (spec,),
-            spec.budget,
-            build_request(request.material_key, table, (spec,), (case,)),
+            (FEA,),
+            FEA.budget,
+            build_request(request.material_key, table, (FEA,), (case,)),
             instance,
         )
-        for spec in SPECS
-        if isinstance(spec.budget, Background)
-        for instance, case in sorted(demand.items())
+        for instance, case in sorted(demand.loads.items())
     )
-    return Plan(quick=quick, background=background)
+    parts = tuple(
+        JobSpec(
+            root,
+            held.id,
+            held.brep_sha256,
+            (FIT,),
+            FIT.budget,
+            build_request(request.material_key, table, (FIT,), context_bytes=len(part.data)),
+            instance,
+            part,
+        )
+        for instance, part in sorted(demand.parts.items())
+    )
+    return Plan(quick=quick, background=(*loads, *parts))
 
 
 def run_job(spec: JobSpec) -> JobResult:
@@ -106,7 +138,8 @@ def _run_background(spec: JobSpec, budget: Background) -> JobResult:
     held = entry.open_entry(spec.root, spec.variant_id, image.image_tag(image.BUILD))
     image_id = image.current_image(IMAGE_TAG)
     try:
-        job = host.check_job(held.brep, image_id, spec.request, budget.wall_seconds)
+        context = b"" if spec.context is None else spec.context.data
+        job = host.check_job(held.brep + context, image_id, spec.request, budget.wall_seconds)
     except OSError as error:
         raise SandboxUnavailable.hiding_host(
             f"cannot stage the check sources for variant {held.id}", error, stage.STAGE_ROOT

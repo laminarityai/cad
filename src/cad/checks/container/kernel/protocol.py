@@ -98,11 +98,19 @@ class Kernel(Protocol):
 
     def volume_props(self, shape: Shape) -> VolumeProps: ...
 
-    def extents(self, shape: Shape) -> tuple[float, float, float] | None:
-        """Sizes along x, y and z of the axis-aligned bounding box in the shape's own frame, or
-        None when the shape has no bounds or unbounded ones. The box is the tightest the kernel
+    def bounds(self, shape: Shape) -> tuple[Point, Point] | None:
+        """The lowest and highest corner of the axis-aligned bounding box in the shape's own frame,
+        or None when the shape has no bounds or unbounded ones. The box is the tightest the kernel
         computes (BRepBndLib.AddOptimal_s from geometry, not from the mesh, with no tolerance gap
         added)."""
+        ...
+
+    def extents(self, shape: Shape) -> tuple[float, float, float] | None:
+        """Sizes along x, y and z of the `bounds` box."""
+        ...
+
+    def max_tolerance(self, shape: Shape) -> float:
+        """The largest tolerance of any vertex, edge or face of the shape."""
         ...
 
     def faces(self, shape: Shape) -> tuple[FaceInfo, ...]:
@@ -112,6 +120,11 @@ class Kernel(Protocol):
     def inertia(self, shape: Shape) -> Inertia: ...
 
     def common_volume(self, first: Shape, second: Shape) -> float | None: ...
+
+    def min_distance(self, first: Shape, second: Shape) -> float | None:
+        """BRepExtrema_DistShapeShape's minimum, or None when it is not done. On the pinned OCP a
+        solid nested inside another gives 0.0, so fit decides overlap with common_volume first."""
+        ...
 
     def step_bytes(self, shape: Shape, cap: int) -> bytes | StepTooLarge:
         """The writer numbers PRODUCT names per process, so a second call raises: one

@@ -1,13 +1,11 @@
 import base64
 import json
-import os
-import resource
-import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import cast
 
 from cad.checks.container.calculix import Material, NodalField, NodalLoads, SolveFailed, solve
+from cad.checks.container.channel import serve
 from cad.checks.container.check import Fem, Subject, finding
 from cad.checks.container.inputs import Inputs
 from cad.checks.container.kernel import (
@@ -29,22 +27,13 @@ from cad.checks.container.wire import (
     StepWire,
 )
 
-CPU_KILL_AFTER_SECONDS = 5
-
 
 def main() -> None:
-    # OCCT prints transfer statistics to fd 1 from C++, so fd 1 is moved aside before OCP loads.
-    report_channel = os.dup(1)
-    os.dup2(2, 1)
-    cpu_seconds = int(sys.argv[1])
-    resource.setrlimit(resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds + CPU_KILL_AFTER_SECONDS))
-    request = cast(RequestWire, json.loads(sys.argv[2]))
-    report = run(request, sys.stdin.buffer.read(), ocp_kernel(), int(sys.argv[3]))
-    sys.stdout.flush()
-    sys.stderr.flush()
-    with os.fdopen(report_channel, "wb") as channel:
-        channel.write(json.dumps(report).encode())
-    os._exit(0)
+    serve(
+        lambda args, brep: run(
+            cast(RequestWire, json.loads(args[0])), brep, ocp_kernel(), int(args[1])
+        )
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,18 +54,30 @@ class BrepFem:
 
 
 def run(
-    request: RequestWire, brep: bytes, kernel: Kernel, report_cap: int, fem: Fem | None = None
+    request: RequestWire, stdin: bytes, kernel: Kernel, report_cap: int, fem: Fem | None = None
 ) -> CheckedReport:
+    brep, context = _split(stdin, request["context_bytes"], kernel)
     shape = kernel.read_brep(brep)
     engines = BrepFem(brep) if fem is None else fem
     results: list[ResultWire] = []
     for check in with_requirements(request["checks"]):
         reported = {result["id"]: result for result in results}
         inputs = Inputs(check.TAKES, request["values"], tuple(request["load_cases"]))
-        subject = Subject(kernel, engines, shape, inputs, reported)
+        subject = Subject(kernel, engines, shape, inputs, reported, context)
         results.append(_run_check(check.ID, check.run, subject))
     room = _step_room(results, report_cap)
     return {"kind": "checked", "results": results, "step": _step(kernel, shape, room)}
+
+
+def _split(
+    stdin: bytes, context_bytes: int, kernel: Kernel
+) -> tuple[bytes, Shape | Unreadable | None]:
+    if context_bytes == 0:
+        return stdin, None
+    if not 0 < context_bytes <= len(stdin):
+        return stdin, Unreadable(f"the host named {context_bytes} context bytes of {len(stdin)}")
+    cut = len(stdin) - context_bytes
+    return stdin[:cut], kernel.read_brep(stdin[cut:])
 
 
 def _run_check(

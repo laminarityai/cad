@@ -12,6 +12,7 @@ import yaml
 UNITS = pint.UnitRegistry()
 TABLE_PATH = Path(__file__).resolve().parents[3] / "tables" / "materials.yaml"
 KEY_PATTERN = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
+PROJECT_PREFIX = "project-"
 DENSITY_RANGE_KG_PER_M3 = (500.0, 20000.0)
 ELASTIC_MODULUS_RANGE_GPA = (0.01, 500.0)
 MAX_YIELD_STRAIN = 0.1
@@ -85,6 +86,13 @@ class Material:
         return cast(Value, getattr(self, field))
 
 
+def row_or_blank(materials: Mapping[str, Material], key: str) -> Material | None:
+    found = materials.get(key)
+    if found is None and key.startswith(PROJECT_PREFIX):
+        return Material(key, key, **dict.fromkeys(FIELD_UNITS, Unknown()))
+    return found
+
+
 class UnknownMaterial(LookupError):
     pass
 
@@ -101,11 +109,20 @@ class MaterialsTable:
     materials: Mapping[str, Material]
 
     def get_material(self, key: str) -> Material:
-        material = self.materials.get(key)
+        material = row_or_blank(self.materials, key)
         if material is None:
             known = ", ".join(sorted(self.materials))
             raise UnknownMaterial(f"no material with key {key!r}; keys are {known}")
         return material
+
+    def row_key(self, key: str) -> str:
+        """The key of the row that holds the material `key` names: the git row when git has one,
+        and the project's own row otherwise. The plain name never starts with the prefix, so no
+        project row matches it, and an overlay gives the same key as git."""
+        named = key
+        while named.startswith(PROJECT_PREFIX):
+            named = named.removeprefix(PROJECT_PREFIX)
+        return named if named in self.materials else PROJECT_PREFIX + named
 
 
 def load_materials(path: Path = TABLE_PATH) -> MaterialsTable:
@@ -153,6 +170,9 @@ def _parse_material(row: Raw, problems: list[str]) -> Material | None:
     key = row.get("key")
     if not isinstance(key, str) or KEY_PATTERN.fullmatch(key) is None:
         problems.append(f"{key!r}: key must be lowercase words joined by '-'")
+        return None
+    if key.startswith(PROJECT_PREFIX):
+        problems.append(f"{key}: the {PROJECT_PREFIX} prefix is kept for a project's own rows")
         return None
     name = row.get("name")
     if not isinstance(name, str) or not name:

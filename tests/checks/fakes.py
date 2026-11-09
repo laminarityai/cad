@@ -8,6 +8,7 @@ from cad.checks.container.kernel import (
     EdgeUses,
     FaceInfo,
     Inertia,
+    Point,
     Shape,
     StepTooLarge,
     Unreadable,
@@ -79,8 +80,14 @@ class FakeKernel:
     def volume_props(self, shape: Shape) -> VolumeProps:
         return self.props
 
+    def bounds(self, shape: Shape) -> tuple[Point, Point] | None:
+        return None if self.box is None else ((0.0, 0.0, 0.0), self.box)
+
     def extents(self, shape: Shape) -> tuple[float, float, float] | None:
         return self.box
+
+    def max_tolerance(self, shape: Shape) -> float:
+        return 1e-7
 
     def faces(self, shape: Shape) -> tuple[FaceInfo, ...]:
         raise NotImplementedError("no check reads faces yet")
@@ -92,6 +99,9 @@ class FakeKernel:
         assert isinstance(first, FakeShape) and isinstance(second, FakeShape)
         return self.commons.get((first.index, second.index), 0.0)
 
+    def min_distance(self, first: Shape, second: Shape) -> float | None:
+        raise NotImplementedError("no quick check measures a distance")
+
     def step_bytes(self, shape: Shape, cap: int) -> bytes | StepTooLarge:
         if self.step_raises:
             raise RuntimeError("no STEP")
@@ -101,4 +111,9 @@ class FakeKernel:
 def request(density: ValueWire = KNOWN, checks: tuple[str, ...] | None = None) -> RequestWire:
     quick = [check.ID for check in CHECKS if isinstance(check.BUDGET, Quick)]
     ids = quick if checks is None else list(checks)
-    return {"checks": ids, "values": {Input.DENSITY: density}, "load_cases": []}
+    return {
+        "checks": ids,
+        "values": {Input.DENSITY: density},
+        "load_cases": [],
+        "context_bytes": 0,
+    }

@@ -73,6 +73,7 @@ def test_the_check_ids_are_the_suite_order() -> None:
         "mass",
         "extents",
         "fea",
+        "fit",
     ]
 
 
@@ -80,7 +81,8 @@ def test_the_check_ids_are_the_suite_order() -> None:
     ("check_file", "changed"),
     [
         ("closed_solid.py", {"closed_solid", "mass", "extents", "fea"}),
-        ("interference.py", {"interference", "mass", "fea"}),
+        ("interference.py", {"interference", "mass", "fea", "fit"}),
+        ("fit.py", {"fit"}),
         ("fea.py", {"fea"}),
         ("mass.py", {"mass"}),
     ],

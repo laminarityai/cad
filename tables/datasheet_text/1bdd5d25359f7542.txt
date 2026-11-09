@@ -1,0 +1,74 @@
+url: https://plaskolite.com/docs/default-source/pds/pds004_tuf_gp.pdf
+GENERAL PURPOSE
+TUFFAK GP sheet is a polished 
+surface, UV stabilized, transparent 
+polycarbonate product. It features 
+outstanding impact strength, 
+superior dimensional stability, high 
+temperature resistance, and high 
+clarity. This lightweight thermofor-
+mable sheet is also easy to fabricate 
+and decorate. TUFFAK GP sheet is 
+offered with a five (5) year Limited 
+Product Warranty against breakage. 
+The terms of the warranty are 
+available upon request. 
+APPLICATIONS 
+Industrial glazing, machine guards, 
+structural parts, thermoformed and 
+fabricated components
+TYPICAL PROPERTIES*
+  Property Test Method Units Values
+ PHYSICAL   
+ Specific Gravity ASTM D 792 – 1.2
+ Refractive Index ASTM D 542 – 1.586
+ Light Transmission, Clear @ 0.118˝ ASTM D 1003 % 86
+ Light Transmission, I30 Gray @ 0.118˝ ASTM D 1003 % 50
+ Light Transmission, K09 Bronze @ 0.118˝ ASTM D 1003 % 50
+ Light Transmission, I35 Dark Gray @ 0.118˝ ASTM D 1003 % 18
+ Water Absorption, 24 hours ASTM D 570 % 0.15
+ Poisson’s Ratio ASTM E 132 – 0.38
+ MECHANICAL**   
+ Tensile Strength, Ultimate ASTM D 638 psi 9,500
+ Tensile Strength, Yield ASTM D 638 psi 9,000
+ Tensile Modulus ASTM D 638 psi 340,000
+ Elongation ASTM D 638 % 110
+ Flexural Strength ASTM D 790 psi 13,500
+ Flexural Modulus ASTM D 790 psi 345,000
+ Compressive Strength ASTM D 695 psi 12,500
+ Compressive Modulus ASTM D 695 psi 345,000
+ Izod Impact Strength, Notched @ 0.125˝ ASTM D 256 ft·lbs/in 18
+ Izod Impact Strength, Unnotched @ 0.125˝ ASTM D 256 ft·lbs/in 60 (no break)
+ Instrumented Impact @ 0.125˝ ASTM D 3763 ft·lbs 47
+ Shear Strength, Ultimate ASTM D 732 psi 10,000
+ Shear Strength, Yield ASTM D 732 psi 6,000
+ Shear Modulus ASTM D 732 psi 114,000
+ Rockwell Hardness ASTM D 785 – M70 / R118
+ THERMAL   
+ Coefficient of Thermal Expansion ASTM D 696 in/in/°F 3.75 x 10-5
+ Coefficient of Thermal Conductivity ASTM C 177 BTU·in/hr·ft²·°F 1.35
+ Heat Deflection Temperature @ 264 psi ASTM D 648 °F 270
+ Heat Deflection Temperature @ 66 psi ASTM D 648 °F 280
+ Brittleness Temperature ASTM D 746 °F -200
+ Shading Coefficient, clear @ 0.236˝ NFRC 100-2010 – 0.97
+ Shading Coefficient, Gray or Bronze @ 0.236˝ NFRC 100-2010 – 0.77
+ U factor @ 0.236˝ (summer, winter) NFRC 100-2010 BTU/hr·ft²·°F 0.85, 0.92
+ U factor @ 0.375˝ (summer, winter) NFRC 100-2010 BTU/hr·ft²·°F 0.78, 0.85
+ ELECTRICAL   
+ Dielectric Constant @ 10 Hz ASTM D 150 – 2.96
+ Dielectric Constant @ 60 Hz ASTM D 150 – 3.17
+ Volume Resistivity ASTM D 257 Ohm·cm 8.2 x 1016
+ Dissipation Factor @ 60 Hz ASTM D 150 – 0.0009
+ Arc Resistance   
+      Stainless Steel Strip electrode ASTM D 495 Seconds 10
+      Tungsten Electrodes ASTM D 495 Seconds 120
+ Dielectric Strength, in air @ 0.125˝ ASTM D 149 V/mil 380
+ FLAMMABILITY   
+ Horizontal Burn, AEB ASTM D 635 in <1
+ Ignition Temperature, Self ASTM D 1929 °F 1022
+ Ignition Temperature, Flash ASTM D 1929 °F 824
+ Flame Class @ 0.060˝ UL 94 – HB
+                      @ 0.394˝ UL 94 – V-0
+*Typical properties are not intended for specification purposes.
+**Some properties characterized using non-textured sheet.
+TUFFAK GP POLYCARBONATE SHEET

@@ -1,0 +1,39 @@
+url: https://store.bblcdn.com/842f399d4e274507953a5231126ec8c1.pdf
+Max Overhang Angle 55° 
+Max Bridging Length  30 mm 
+Support Material Support for PLA 
+ 
+• Properties 
+Bambu Lab has tested the differing aspects in the performance of PLA-CF material, including 
+physical, mechanical, and chemical properties. Typical values are listed as followed:  
+ 
+Physical Properties 
+Subjects Testing Methods Data 
+Density ISO 1183 1.22 g/cm³ 
+Melt Index 210 °C, 2.16 kg 3.7 ± 0.6 g/10 min 
+Melting Temperature DSC, 10 °C/min 165 °C 
+Glass Transition Temperature DSC, 10 °C/min 63 °C 
+Crystallization Temperature DSC, 10 °C/min N/A 
+Vicar Softening Temperature ISO 306, GB/T 1633 69 °C 
+Heat Deflection Temperature ISO 75 1.8 MPa 54 °C 
+Heat Deflection Temperature ISO 75 0.45 MPa 55 °C 
+Saturated Water Absorption Rate 25 °C, 55% RH 0.42% 
+ 
+Mechanical Properties 
+Subjects Testing Methods Data 
+Young's Modulus (X-Y) ISO 527, GB/T 1040 2790 ± 120 MPa 
+Young's Modulus (Z) ISO 527, GB/T 1040 2160 ± 90 MPa 
+Tensile Strength (X-Y) ISO 527, GB/T 1040 38 ± 4 MPa 
+Tensile Strength (Z) ISO 527, GB/T 1040 26 ± 2 MPa 
+Breaking Elongation Rate (X-Y) ISO 527, GB/T 1040 8.4 ± 3.2 % 
+Breaking Elongation Rate (Z) ISO 527, GB/T 1040 3.6 ± 0.7 % 
+Bending Modulus (X-Y) ISO 178, GB/T 9341 3950 ± 190 MPa 
+Bending Modulus (Z) ISO 178, GB/T 9341 2260 ± 180 MPa 
+Bending Strength (X-Y) ISO 178, GB/T 9341 89 ± 4 MPa 
+Bending Strength (Z) ISO 178, GB/T 9341 49 ± 3 MPa 
+Impact Strength (X-Y) ISO 179, GB/T 1043 23.2 ± 3.7 kJ/m² ; 7.6 ± 2.6 kJ/m² (notched) 
+Impact Strength (X-Y) ISO 179, GB/T 1043 7.8 ± 0.7 kJ/m² 
+ 
+ 
+ 
+ 

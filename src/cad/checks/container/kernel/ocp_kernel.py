@@ -89,7 +89,7 @@ class OcpKernel:
         center = props.CentreOfMass()
         return VolumeProps(props.Mass(), (center.X(), center.Y(), center.Z()))
 
-    def extents(self, shape: Shape) -> tuple[float, float, float] | None:
+    def bounds(self, shape: Shape) -> tuple[Point, Point] | None:
         box = self._ocp.new_box()
         self._ocp.brep_bnd_lib.AddOptimal_s(
             shape, box, useTriangulation=False, useShapeTolerance=False
@@ -97,7 +97,17 @@ class OcpKernel:
         if box.IsVoid() or box.IsOpen():
             return None
         x0, y0, z0, x1, y1, z1 = box.Get()
-        return (x1 - x0, y1 - y0, z1 - z0)
+        return (x0, y0, z0), (x1, y1, z1)
+
+    def extents(self, shape: Shape) -> tuple[float, float, float] | None:
+        corners = self.bounds(shape)
+        if corners is None:
+            return None
+        low, high = corners
+        return (high[0] - low[0], high[1] - low[1], high[2] - low[2])
+
+    def max_tolerance(self, shape: Shape) -> float:
+        return self._ocp.new_tolerance().Tolerance(shape, 1)
 
     def faces(self, shape: Shape) -> tuple[FaceInfo, ...]:
         ocp = self._ocp
@@ -133,6 +143,18 @@ class OcpKernel:
     def common_volume(self, first: Shape, second: Shape) -> float | None:
         common = self._ocp.new_common(first, second)
         return self.volume_props(common.Shape()).volume if common.IsDone() else None
+
+    def min_distance(self, first: Shape, second: Shape) -> float | None:
+        ocp = self._ocp
+        tool = ocp.new_distance()
+        tool.LoadS1(first)
+        tool.LoadS2(second)
+        tool.SetFlag(ocp.extrema_min)
+        tool.SetAlgo(ocp.extrema_grad)
+        # Issue #92 measured multithreading 1.8 to 3.6 times slower on large parts.
+        tool.SetMultiThread(False)
+        tool.Perform()
+        return tool.Value() if tool.IsDone() else None
 
     def step_bytes(self, shape: Shape, cap: int) -> bytes | StepTooLarge:
         if self._wrote_step:

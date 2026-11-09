@@ -2,6 +2,7 @@ from datetime import date
 
 from cad.checks.report import DEPENDENCIES, SPECS, build_request, reads_of
 from cad.checks.result import ReadCited, ReadMissing, ReadResearched, StepStored, Verdict
+from cad.operations.research import with_research
 from cad.projects.model import ProjectId
 from cad.research.ledger import Ledger, ResearchedRecord
 from cad.research.overlay import ProjectTable, overlay
@@ -9,13 +10,11 @@ from cad.research.requests import requests_on
 from cad.scorecard import material, requirements
 from cad.scorecard.material import ReportedScorecard
 from cad.scorecard.model import Checked, NoBrief, PendingCheck, Scorecard
-from cad.server.research_tools import with_research
 from cad.tables.materials import MaterialsTable, load_materials
 from tests.scorecard.test_requirements import max_mass, result
 
 GIT = load_materials()
 FEA = next(spec for spec in SPECS if spec.id == "fea")
-MASS = next(spec for spec in SPECS if spec.id == "mass")
 URL = "https://example.org/pla"
 QUOTE = "Poisson's ratio 0.36"
 
@@ -106,7 +105,6 @@ def test_a_requirement_on_cited_values_has_the_checks_basis() -> None:
 
 def test_the_research_code_stays_out_of_every_check_version() -> None:
     assert not [path for path in DEPENDENCIES.files if path.startswith("cad/research/")]
-    assert MASS.version
 
 
 def card_asking() -> ReportedScorecard:
@@ -135,3 +133,15 @@ def test_an_unreadable_ledger_puts_its_problem_on_the_card_and_asks_for_nothing(
     card = with_research(card_asking(), ProjectTable(GIT, problem=problem), "b-1")
     assert card.research == ()
     assert card.research_problem == problem
+
+
+def test_a_project_key_with_no_row_asks_for_every_value_the_check_read() -> None:
+    key = "project-acme-silk-pla"
+    card = pending(GIT, key)
+    assert all(isinstance(read, ReadMissing) for read in card.reads)
+    requests = requests_on([card], key, GIT, "b-1")
+    assert [(one.key, one.field) for one in requests] == [
+        (key, "elastic_modulus"),
+        (key, "poisson_ratio"),
+        (key, "yield_strength"),
+    ]

@@ -1,8 +1,8 @@
 """Usage: uv run python .claude/skills/verify/scripts/claude_session.py [--model <alias>]
     [--opener <program>] [--home <dir> | --real-home] "<prompt>" <transcript.json>
 
-The cad server runs with HOME set to a fresh temporary directory, so a drive never writes to the
-operator's ~/.cad (issue #81). --home reuses a directory across sessions; --real-home opts out.
+The cad server runs with HOME set to --home, else $CAD_HOME, else a fresh temporary directory, so a
+drive never writes to the operator's ~/.cad (issue #81). --real-home opts out.
 
 Claude Code skips a broken MCP server entry and still exits 0, so this script fails unless the
 system/init event lists `cad` as connected with no mcp_server_errors. It also fails when the
@@ -11,6 +11,7 @@ init event lists a tool outside cad, or the transcript has a tool call outside c
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -107,14 +108,17 @@ if __name__ == "__main__":
     parser.add_argument("--model")
     parser.add_argument("--opener", help="program the cad server runs with the page URL")
     homes = parser.add_mutually_exclusive_group()
-    homes.add_argument("--home", type=Path, help="HOME for the cad server, kept across sessions")
+    homes.add_argument(
+        "--home", type=Path, help="HOME for the server, kept across sessions (default $CAD_HOME)"
+    )
     homes.add_argument("--real-home", action="store_true", help="run the server in your own HOME")
     parser.add_argument("prompt")
     parser.add_argument("transcript", type=Path)
     args = parser.parse_args()
     home = None
-    if args.home:
-        home = args.home.resolve()
+    shared = args.home or os.environ.get("CAD_HOME")
+    if shared and not args.real_home:
+        home = Path(shared).resolve()
         home.mkdir(parents=True, exist_ok=True)
     elif not args.real_home:
         home = Path(tempfile.mkdtemp(prefix="cad-home-"))

@@ -7,9 +7,10 @@ from cad.checks.result import CheckResult, ReadMissing
 from cad.research.overlay import Dropped
 from cad.scorecard.model import PendingCheck
 from cad.sources.fields import SPECS, Field
-from cad.tables.materials import MaterialsTable, Unknown
+from cad.tables.materials import MaterialsTable, Unknown, row_or_blank
 
 SUBMIT: Final = "submit_research"
+RESCORE: Final = "Then call score_variant again."
 
 
 class ResearchRequest(BaseModel):
@@ -31,7 +32,11 @@ class ResearchRequest(BaseModel):
 
 
 def request_for(
-    brief_id: str | None, key: str, field: Field, problems: Sequence[str] = ()
+    brief_id: str | None,
+    key: str,
+    field: Field,
+    problems: Sequence[str] = (),
+    then: str = RESCORE,
 ) -> ResearchRequest:
     spec = SPECS[field]
     if brief_id is None:
@@ -48,7 +53,7 @@ def request_for(
         f"the {spec.label} and gives one value, such as {spec.labels[0]!r} and its value. "
         "Never type the number: the server fetches the page and reads it from the quote. A "
         "source for a near material, such as plain PLA for a PLA blend, is allowed. The server "
-        f"accepts {spec.accepts}. Then call score_variant again."
+        f"accepts {spec.accepts}. {then}"
     )
     return ResearchRequest(
         brief_id=brief_id,
@@ -70,7 +75,7 @@ def requests_on(
     brief_id: str | None,
     dropped: Sequence[Dropped] = (),
 ) -> tuple[ResearchRequest, ...]:
-    material = table.materials.get(material_key)
+    material = row_or_blank(table.materials, material_key)
     if material is None:
         return ()
     problems: dict[str, list[str]] = {}
@@ -85,6 +90,22 @@ def requests_on(
                 wanted[field] = None
     return tuple(
         request_for(brief_id, material_key, field, problems.get(field, ())) for field in wanted
+    )
+
+
+def requests_before_scoring(
+    table: MaterialsTable, key: str, fields: Iterable[str], brief_id: str, then: str
+) -> tuple[ResearchRequest, ...]:
+    material = row_or_blank(table.materials, key)
+    if material is None:
+        return ()
+    wanted: dict[Field, None] = {
+        field: None for name in fields if (field := _field(name)) is not None
+    }
+    return tuple(
+        request_for(brief_id, key, field, then=then)
+        for field in wanted
+        if isinstance(material.value(field), Unknown)
     )
 
 

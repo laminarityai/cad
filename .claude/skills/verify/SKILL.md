@@ -1,119 +1,155 @@
 ---
 name: verify
-description: Drive the cad MCP server the way a client does, either with one scripted stdio call (`cad-call`) or with a headless Claude Code session (`claude -p` through `.mcp.json`). Use it to prove any change to a tool, the server, or what an MCP client sees.
+description: Drive the cad MCP server the way a client does (one scripted stdio call with `cad-call`, or a headless Claude Code session with `claude_session.py`) and drive its confirmation page in a real Chromium (`browser.py`). Use it to prove any change to a tool, the server, the confirmation page, or what an MCP client sees.
 ---
 
-# Verify the cad MCP server
+# Verify cad
 
-The product is a local MCP server over stdio (`uv run cad-server`). It has no screen. Evidence is a saved JSON transcript or a terminal capture. Run every command from the repo root, in a checkout where `uv sync --frozen` has run. Run each command as written, and replace only a `<placeholder>` in angle brackets or the `$EVIDENCE` variable.
+What a user touches today:
 
-`claude_session.py` runs each Claude Code session from an empty temporary directory outside the repo, so the agent works away from `tables/` and the checks. It starts the server with `HOME` set to a fresh temporary directory and prints `server home: <path>` first, so a drive never writes to the operator's `~/.cad` (issue #81). Pass `--home <dir>` to keep one home across several sessions, such as a confirmation followed by a build, and run `cad-call` with `HOME=<dir>` to reach the same stores. `.mcp.json` starts the server with `uv run --frozen cad-server`, and `uv` finds the project from its working directory, so the script passes that entry with `--directory <repo root>` added in front. `${CLAUDE_PROJECT_DIR}` does not help. With `claude -p --mcp-config <absolute path>` run from `/tmp`, the variable was unset, and an entry that used it as `uv run --frozen --project "${CLAUDE_PROJECT_DIR}" cad-server` failed to connect.
+- **The MCP server over stdio** (`uv run cad-server`). Drive it with `cad-call` (one tool call) or `claude_session.py` (a real Claude Code session).
+- **The confirmation page** that `ask_to_confirm` opens on 127.0.0.1. Drive it in a real browser with `browser.py`.
 
-Set the evidence directory once per run. A swarm lane sets it to its own lane directory.
+The phase 4 web app (chat, viewer, live scorecards, Auto mode, hosted `/mcp`) is designed in `docs/design/phase-4.md` and not built. [features/phase-4/](features/phase-4/) names the proof to write when each unit lands.
+
+Run every command from the repo root. Run each command as written, and replace only a `<placeholder>` or a `$VARIABLE` this file sets.
+
+## Run setup
+
+Set these once per run. A swarm lane sets its own.
 
 ```
 export EVIDENCE=$(mktemp -d)
+export CAD_HOME="$EVIDENCE/home"
+export CAD_BROWSER="$EVIDENCE/browser"
 ```
+
+`CAD_HOME` is the server's `HOME` for the whole run, so a variant built once is a store hit for every later call, and briefs confirmed in one step are visible in the next. `claude_session.py` uses `$CAD_HOME` when it is set. Put `HOME="$CAD_HOME"` in front of every `cad-call` and every `cad-sandbox run-checks`. Never drive the server in your own `HOME`: it writes to the operator's `~/.cad` (issue #81).
+
+## Cost: take the cheapest path that proves the claim
+
+| Path | Cost per use | Use it to prove |
+|---|---|---|
+| `cad-call` on a tool that starts no container | about 8 s (server start), no Docker, no model | a tool's result, a refusal, stored files |
+| `cad-call build_variant`, `score_variant`, `cad-sandbox run-checks` | one container, about 20 s for new code. The same code in the same `CAD_HOME` is a store hit and starts none | a build, a check, a scorecard |
+| `browser.py` | one Chromium per run: about 13 s on the first launch after install, 2 s after that. Each page adds about 2 s | what the person sees and does on the confirmation page |
+| `claude_session.py` | a live model session: money and 30 s to several minutes | what the agent does: which tools it calls, what it says |
+
+Confirming a brief needs no model: create the brief, propose and call `ask_to_confirm` with `cad-call`, with the browser as the person (see Drive). Use a live session only when the claim is about the agent's behaviour. Each feature file in [features/README.md](features/README.md) lists its cheapest proof.
 
 ## Launch
 
-There is no long-running process to start. Each drive starts its own server and stops it when the call ends. `build_variant` runs each build in a Docker container, and `cad-sandbox run-checks` runs the checks in a second one, so Docker Desktop must run, and both sandbox images must exist: builds run in `cad-sandbox` and checks run in `cad-analysis`.
-
 ```
 uv sync --frozen
+uv run playwright install chromium
 uv run cad-sandbox build-image
+uv run python .claude/skills/verify/scripts/browser.py start "$CAD_BROWSER"
 ```
 
-The second command prints one line per image, `sandbox image cad-sandbox:<tag> is current` and then `sandbox image cad-analysis:<tag> is current`, when the images exist, and builds each missing one otherwise, which takes minutes the first time. With Docker down it prints one line that names the cause and exits 1.
+- `playwright install chromium` is needed once per machine. It deletes browsers of other Playwright versions that it thinks are unused.
+- `build-image` is needed only for recipes that start a container. It prints `sandbox image cad-sandbox:<tag> is current` and then the same line for `cad-analysis:<tag>`, or builds a missing image, which takes minutes. With Docker down it prints the cause and exits 1.
+- `browser.py start` is needed only for recipes that open the confirmation page. It returns when the browser answers, and prints `browser ready: {...}` and `opener: <path>`. Running it again on the same directory reuses the running browser.
 
-Ready means `uv run cad-call server_info '{}'` exits 0 (see Doctor).
+There is no long-running server. Each `cad-call` and each Claude Code session starts its own server and stops it.
 
 ## Doctor
 
-Run first whenever anything looks off. All three are read-only.
+Run these first whenever anything looks off. All of them are read-only.
 
 ```
-uv run cad-call server_info '{}'
+HOME="$CAD_HOME" uv run cad-call server_info '{}'
 git rev-parse HEAD
+uv run python .claude/skills/verify/scripts/browser.py status "$CAD_BROWSER"
+docker ps -a --filter label=cad.sandbox
 claude --version
 ```
 
-Pass when `structuredContent.sha` in the first output equals the second output. A different SHA means you are driving another checkout. `structuredContent.dirty` is true when `git status --porcelain` is not empty, so a true value means the SHA does not describe the code that ran. `claude mcp list` shows `cad` as `Pending approval` until the repo's `.mcp.json` server is approved once in an interactive `claude` session. The headless `claude -p` drive below does not need that approval.
+- `structuredContent.sha` must equal `git rev-parse HEAD`. A different SHA means another checkout. `dirty` true means the SHA does not describe the code that ran.
+- `browser.py status` prints the daemon's pid, Chromium version, pages served and the current answer settings, or `no browser running for <dir>` with exit 1.
+- `docker ps` lists sandbox containers (`cad.sandbox` is `build` or `check`). An exited one is left from a killed server. The next server start removes it.
+- `claude --version` matters only for a live session.
 
 ## Drive
 
-Scripted call, one tool per run. Output is the MCP result as JSON, exit code 1 when the result is an error.
+### cad-call
 
 ```
-uv run cad-call <tool> '<json args>'
+HOME="$CAD_HOME" uv run cad-call <tool> '<json args>'
 ```
 
-Tools today: `server_info` (no arguments), `build_variant` (`code`, the build123d Python source, and an optional `brief_id`), `score_variant` (`variant_id`, `material_key`, and an optional `brief_id`), `list_materials` (no arguments), `create_brief` (`text`, and an optional `project_id`), `propose_requirements` (`brief_id`, `requirements`), `ask_to_confirm` (`project_id`), `list_requirements` (`brief_id`) and `submit_research` (`brief_id`, `key`, `field`, `url`, `quote`; see [Research](features/research.md)). Never run `ask_to_confirm` through `cad-call` with a project that has a proposed requirement: it runs `open` on the confirmation page and opens a browser on the operator's screen. Drive it through `claude_session.py --opener`, as [Briefs](features/briefs.md) says. A tool rejects any argument it does not declare. An unknown tool name returns an error result naming the tool. Arguments that are not a JSON object exit 2 with a usage error, and a tool error exits 1.
+It prints the MCP result as JSON and exits 1 when the result is an error and 2 when the arguments are not a JSON object. Tools: `server_info`, `build_variant`, `score_variant`, `scorecard`, `list_materials`, `create_brief`, `propose_requirements`, `propose_context_part`, `ask_to_confirm`, `list_requirements`, `search_knowledge`, `submit_research`. `jq -Rs '{code: .}' < <file>.py` turns a build123d file into the arguments `build_variant` takes. The stdio client passes the server only `HOME`, `LOGNAME`, `PATH`, `SHELL`, `TERM` and `USER`.
 
-Claude Code session. This runs `claude -p` with `--strict-mcp-config --tools "" --allowedTools 'mcp__cad__*' --setting-sources project --disable-slash-commands --output-format json --verbose`. `--tools ""` removes every built-in tool, so only the cad tools exist. `--allowedTools` alone only approves the cad tools, and the built-in read-only tools such as Bash `git grep` still run. The script saves the event transcript, and fails unless the `system/init` event lists `cad` as `connected` with no `mcp_server_errors`. It also fails when the init event's `tools` list names a tool outside cad, or when the transcript has a tool call outside cad. The first check asserts what the model could reach. The second asserts what it called. Claude Code skips a broken `.mcp.json` entry and still exits 0, so never run `claude -p` against the server without that check. `--verbose` is what puts the init event in the JSON output.
+### The confirmation page in a real browser
 
-```
-uv run python .claude/skills/verify/scripts/claude_session.py "call the server_info tool and print its sha" "$EVIDENCE/claude-server-info.json"
-```
+`browser.py start` writes `$CAD_BROWSER/bin/open`, the opener. The server runs it with the page URL, and it hands the URL to the one running Chromium. For each page n, the browser reads every section by its heading, saves `page-<n>.aria.yml` (the ARIA snapshot), types an edit if one is set, saves `page-<n>-before.png`, presses `Confirm` or `Decline all`, and saves `page-<n>-after.png` (the reply page). It appends JSON lines to `$CAD_BROWSER/browser.jsonl`:
 
-It prints `init: cad connected`, one `tool call: mcp__cad__<name> <args>` line per MCP call, and the final reply. Any other tool in the init `tools` list prints `tools available outside cad: <names>` after the init line, and a call to any other tool prints `tools outside cad: <names>` last. Either one exits 1.
+- `{"page": n, "step": "page", "status": 200, "heading": ..., "sections": [{"heading", "brief", "quotes", "quotes_in_brief"}], "quotes_in_brief": true}`
+- `{"page": n, "step": "edit", "shown": "150 g", "typed": "120 g", "fields": 1}`, only when an edit is set
+- `{"page": n, "step": "confirm" | "decline", "status": 200, "said": "Recorded. You confirmed 1 and declined 0 on this page. ..."}`
+- `{"page": n, "spent_token": "<token>"}`
+- `{"page": n, "error": "..."}` for any failure, because the server discards the opener's output
 
-Build a variant from a file. `jq -Rs '{code: .}'` turns the file into the JSON object `cad-call` takes:
-
-```
-uv run cad-call build_variant "$(jq -Rs '{code: .}' < tests/sandbox/parts/plate.py)" > "$EVIDENCE/build-plate.json"
-```
-
-Variants live in `~/.cad/variants/<variant_id>/`. The same code returns its stored outcome without a new build. A build stores `result.brep` only.
-
-Score a built variant. `score_variant` runs the four checks and prints the scorecard as the MCP result, and it stores the same scorecard in `~/.cad/variants/<variant_id>/scorecard.json`. `list_materials` lists the keys it accepts:
+Set how the person answers. The settings hold for every later page:
 
 ```
-uv run cad-call list_materials '{}' > "$EVIDENCE/list-materials.json"
-uv run cad-call score_variant "{\"variant_id\": \"$(jq -r .structuredContent.variant_id "$EVIDENCE/build-plate.json")\", \"material_key\": \"prusament-pla\"}" > "$EVIDENCE/score-plate.json"
+uv run python .claude/skills/verify/scripts/browser.py set "$CAD_BROWSER" answer=decline
+uv run python .claude/skills/verify/scripts/browser.py set "$CAD_BROWSER" answer=confirm "edit=150 g=120 g"
+uv run python .claude/skills/verify/scripts/browser.py set "$CAD_BROWSER" edit= delay=1
 ```
 
-The checks alone, without a scorecard, run through the sandbox CLI. It prints the `CheckRun` as JSON, exits 0 when the run completed even if a check failed, and exits 1 with one line for a refusal or an unavailable sandbox:
+`edit=<shown>=<typed>` types `<typed>` into each `Change to` field whose placeholder is `<shown>`. `delay` is the seconds before answering (default 1). A declined page gets the note `scripted person declined`.
+
+**Confirm with no model.** `cad-call` starts a server whose opener is `open` from `PATH`, so put the browser's `bin` first:
 
 ```
-uv run cad-sandbox run-checks "$(jq -r .structuredContent.variant_id "$EVIDENCE/build-plate.json")" prusament-pla > "$EVIDENCE/checks-plate.json"
+PATH="$CAD_BROWSER/bin:$PATH" HOME="$CAD_HOME" uv run cad-call ask_to_confirm '{"project_id": "<project_id>"}'
 ```
 
-The first run of the checks on a variant (either command) also writes `~/.cad/variants/<variant_id>/result.step`, derived from the BREP the checks measured. Any edit under `src/cad/sandbox/` or `src/cad/variants/` changes every variant id, so ids from before the edit are refused with `StaleVariant`: build the code again.
+Never run `ask_to_confirm` through `cad-call` without that `PATH`: it runs the system `open` and shows a page on the operator's screen.
 
-The whole gate. Its app step calls `server_info`, runs `git rev-parse HEAD` itself, and fails when git fails, when either SHA is `unknown`, or when they differ. It prints the SHA and `dirty=True` or `dirty=False`, and a dirty tree does not fail it:
+### Claude Code session
+
+```
+uv run python .claude/skills/verify/scripts/claude_session.py [--opener "$CAD_BROWSER/bin/open"] [--model <alias>] "<prompt>" "$EVIDENCE/<slug>.json"
+```
+
+It runs `claude -p` from an empty temporary directory, with only the cad tools (`--tools "" --allowedTools 'mcp__cad__*' --strict-mcp-config`), and saves the event transcript. It prints `server home: <path>`, `init: cad connected`, one `tool call: mcp__cad__<name> <args>` line per call, and `result: <reply>`. It exits 1 when `cad` is not connected, when the session can reach or calls a tool outside cad (`tools available outside cad:` or `tools outside cad:`), or when the session reports an error. Claude Code skips a broken MCP entry and still exits 0, so never run a bare `claude -p` against the server.
+
+The session's server inherits the environment, so `CAD_HUMAN_ANSWER`, `CAD_HUMAN_EDIT` and `CAD_HUMAN_DELAY` in front of the command override the browser's settings for that session's pages.
+
+### The gate
 
 ```
 uv run verify
 ```
 
+It runs the type checks, lint, format, file size, materials table, sandbox image, tests, and the `app` step, which fails unless `server_info` reports `git rev-parse HEAD`. A dirty tree prints `dirty=True` and does not fail.
+
 ## Evidence
 
-- Save `cad-call` output with `> "$EVIDENCE/<slug>.json"` and the exit code next to it.
-- Save the Claude Code transcript at the path you pass to `claude_session.py`.
-- Prove the real path. A claim about what a client sees needs a `claude_session.py` run, not only a unit test or `cad-call`.
-- Capture the call and the result. The transcript has both. For a tool that writes files, also list the files.
-- The server logs to stderr. Stdout carries the protocol. With mcp 2.3.0 the SDK points fd 1 at stderr while it serves, so a stray `print` in a tool does not corrupt the stream. Output still unflushed at shutdown can reach the real stdout, and the client then logs a parse warning. Log through `logging` anyway.
+Everything goes under `$EVIDENCE`: `cad-call` output as `<slug>.json`, transcripts, `$CAD_BROWSER/` (log, ARIA snapshots, screenshots) and `$CAD_HOME/.cad/` (the stores the run wrote).
+
+- Prove the user's path. A claim about what the agent does needs a transcript. A claim about the page needs the browser's screenshots and log, not an HTTP probe.
+- Capture the action and the result, then read the side effect from a second view: `list_requirements` after a page answer, the variant directory after a build, `scorecard` after a score.
+- The spent token must not appear in any transcript: `grep -c "<spent_token>" <transcript>` prints `0`.
 
 ## Cleanup
 
-Nothing to tear down. `cad-call` and `claude_session.py` each end their own server process, and each build removes its own container. A killed server cannot remove its container, so each server start removes every exited sandbox container whose `cad.owner-pid` process is gone. It never removes a running container. To see what is left, list the sandbox containers. The `cad.sandbox` label is `build` for a build and `check` for a check run:
-
 ```
+uv run python .claude/skills/verify/scripts/browser.py stop "$CAD_BROWSER"
 docker ps -a --filter label=cad.sandbox
-```
-
-Look for leftover servers with a filter on this checkout's interpreter. `pgrep -f` takes a regular expression and matches the whole command line, so a bare `cad.server` also matches other checkouts' servers and `uv run cad-server`. Stop only the PIDs this run started.
-
-```
 pgrep -fl "$PWD/.venv/bin/python.*(-m cad\.server|bin/cad-server)"
 ```
 
-Never use `pkill` by name. Keep the files under `$EVIDENCE`, because they are the evidence.
+- `stop` closes Chromium and ends the daemon, and prints `browser stopped: pid <pid>, <n> pages`. If it says the daemon is still running, `kill` that pid only.
+- Each build and check removes its own container. `cad.sandbox` labels only sandbox containers, so removing what the second command lists is safe.
+- The third command lists servers from this checkout. Stop only the pids this run started. Never `pkill` by name.
+- Keep `$EVIDENCE`. It is the proof.
 
 ## Helpers
 
-- `scripts/claude_session.py [--model <alias>] [--opener <program>] [--home <dir> | --real-home] "<prompt>" <transcript.json>` is shown in Drive. `--real-home` runs the server in your own `HOME`; use it only when the operator asks. `--opener` is passed to `cad-server`, which runs that program with the confirmation page URL instead of `open`.
-- `scripts/human.py` is the scripted person to pass as `--opener`. [Briefs](features/briefs.md) says how. It exits 1 when `cad` is not connected, when `claude` fails, when the session can reach or calls a tool outside cad, or when the session reports an error.
+- `scripts/browser.py start|set|status|stop <dir>` and the opener `<dir>/bin/open <url>`: the person in a real browser. Use it for every proof of the confirmation page.
+- `scripts/human.py <url>`, with `CAD_HUMAN_LOG=<path>`: a headless person over plain HTTP. Use it only where a browser cannot help: the brief-set eval (`evals/briefs/`), which runs many sessions in parallel, and the HTTP probes a browser cannot make, a GET with no or a wrong token and a replayed POST (see [Briefs](features/briefs.md)).
+- `scripts/claude_session.py [--model <alias>] [--opener <program>] [--home <dir> | --real-home] "<prompt>" <transcript.json>`: a headless Claude Code session. `--home` overrides `$CAD_HOME`. `--real-home` uses your own `HOME`, only when the operator asks.
 
-Feature recipes live in [features/README.md](features/README.md).
+Feature recipes: [features/README.md](features/README.md).

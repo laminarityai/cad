@@ -14,11 +14,12 @@ from cards import (
     genuine_card,
     judged_card,
     lines,
-    put,
     result_of,
     roots_beside,
     trace,
+    transcript_of,
     with_result,
+    write_transcript,
 )
 from provenance import (
     CardTrace,
@@ -32,16 +33,20 @@ from cad.checks.result import Measure
 from cad.projects.model import new_project_id
 from cad.sandbox.outcome import Build, Built
 from cad.scorecard.model import AwaitingConfirmation, Scorecard
-from cad.scorecard.score import SCORECARD
 from cad.variants import entry
 
 LIGHT = ({"kind": "max_mass", "mass": {"magnitude": 150, "unit": "g"}}, "under 150 g")
 FRIENDLY = ({"kind": "unchecked", "statement": "looks friendly"}, "looks friendly")
 
 
+def bare(store: Path) -> list[str]:
+    return [str(transcript_of(store)), "--root", str(store)]
+
+
 def arguments_for(store: Path) -> list[str]:
     roots = roots_beside(store)
     return [
+        str(transcript_of(store)),
         "--root",
         str(store),
         "--briefs-root",
@@ -58,15 +63,15 @@ def judged_against_a_brief(store: Path) -> Scorecard:
 
 
 def scored_against_a_brief(store: Path) -> list[str]:
-    put(store, judged_against_a_brief(store))
+    write_transcript(store, judged_against_a_brief(store))
     return arguments_for(store)
 
 
 def test_the_command_passes_on_a_store_of_genuine_scorecards(
     store: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    put(store, genuine_card())
-    assert main(["--root", str(store)]) == 0
+    write_transcript(store, genuine_card())
+    assert main(bare(store)) == 0
     out = lines(capsys)
     assert "cards unreadable: 0, unbound: 0, incomplete: 0" in out
     count = len(trace(genuine_card(), store).numbers)
@@ -77,8 +82,8 @@ def test_the_command_passes_on_a_store_of_genuine_scorecards(
 def test_the_command_prints_the_chain_of_a_computed_number(
     store: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    put(store, genuine_card())
-    assert main(["--root", str(store), "--steps"]) == 0
+    write_transcript(store, genuine_card())
+    assert main([*bare(store), "--steps"]) == 0
     out = lines(capsys)
     assert "mass.volume = " in out
     assert f"computed by check mass at version {SPEC_BY_ID['mass'].version[:12]}" in out
@@ -88,8 +93,8 @@ def test_the_command_prints_the_chain_of_a_computed_number(
 def test_the_command_counts_each_kind_of_failure_on_its_own(
     store: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    put(store, with_result(genuine_card(brep_sha256="f" * 64, results=()), "mass"))
-    assert main(["--root", str(store)]) == 1
+    write_transcript(store, with_result(genuine_card(brep_sha256="f" * 64, results=()), "mass"))
+    assert main(bare(store)) == 1
     out = lines(capsys)
     assert "cards unreadable: 0, unbound: 1, incomplete: 1" in out
 
@@ -97,31 +102,31 @@ def test_the_command_counts_each_kind_of_failure_on_its_own(
 def test_the_command_fails_on_an_unreadable_scorecard(
     store: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    put(store, '{"variant_id": "0123456789abcdef"}')
-    assert main(["--root", str(store)]) == 1
+    write_transcript(store, '{"variant_id": "0123456789abcdef"}')
+    assert main(bare(store)) == 1
     out = lines(capsys)
     assert "UNREADABLE" in out
     assert "cards unreadable: 1, unbound: 0, incomplete: 0" in out
 
 
-def test_the_command_fails_on_a_card_stored_under_another_variant_id(
+def test_the_command_fails_on_a_card_for_a_variant_the_store_never_built(
     store: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    put(store, genuine_card(variant_id="fedcba9876543210"))
-    assert main(["--root", str(store)]) == 1
-    assert "stored under" in lines(capsys)
+    write_transcript(store, genuine_card(variant_id="fedcba9876543210"))
+    assert main(bare(store)) == 1
+    assert "cards unreadable: 0, unbound: 1" in lines(capsys)
 
 
 def test_the_command_fails_on_a_store_with_no_scorecard(tmp_path: Path) -> None:
-    assert main(["--root", str(tmp_path)]) == 1
+    assert main([str(tmp_path / "transcript.json"), "--root", str(tmp_path)]) == 1
 
 
 def test_stale_and_unresolved_numbers_are_counted_apart(
     store: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     card = with_result(genuine_card(), "extents", version="0" * 64)
-    put(store, card.model_copy(update={"material_key": "unobtainium"}))
-    assert main(["--root", str(store)]) == 1
+    write_transcript(store, card.model_copy(update={"material_key": "unobtainium"}))
+    assert main(bare(store)) == 1
     out = lines(capsys)
     assert "stale: 2, unresolved: 1" in out
 
@@ -143,12 +148,12 @@ def test_awaiting_and_no_brief_cards_count_apart_and_fail_only_when_judgment_is_
     store: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     brief_id = briefs.create_brief(roots_beside(store), BRIEF_TEXT, new_project_id()).id
-    put(store, genuine_card(basis=AwaitingConfirmation(brief_id=brief_id)))
+    write_transcript(store, genuine_card(basis=AwaitingConfirmation(brief_id=brief_id)))
     arguments = arguments_for(store)
     assert main(arguments) == 0
     assert "cards judged: 0, awaiting confirmation: 1, no brief: 0" in lines(capsys)
     assert main([*arguments, "--require-judged"]) == 1
-    put(store, genuine_card())
+    write_transcript(store, genuine_card())
     assert main([*arguments, "--require-judged"]) == 1
     assert "cards judged: 0, awaiting confirmation: 0, no brief: 1" in lines(capsys)
 
@@ -164,13 +169,12 @@ def test_a_card_whose_deciding_measure_has_the_wrong_dimension_is_misjudged_and_
         Measure(name=one.name, value=UNITS.Quantity(1.0, "mm")) if one.name == "mass" else one
         for one in result_of(good, "mass").measured
     )
-    put(store, with_result(good, "mass", measured=wrong))
     other = good.model_copy(update={"variant_id": OTHER_VARIANT})
     entry.save(
         store, entry.VariantId(OTHER_VARIANT), "x = 1\n", Build(outcome=Built(), output=""), BREP
     )
     (store / OTHER_VARIANT / entry.STEP).write_bytes(STEP)
-    (store / OTHER_VARIANT / SCORECARD).write_text(other.model_dump_json(indent=2) + "\n")
+    write_transcript(store, with_result(good, "mass", measured=wrong), other)
     assert main(arguments_for(store)) == 1
     out = lines(capsys)
     assert f"FAIL {VARIANT_ID}" in out
@@ -191,16 +195,15 @@ def test_a_card_with_an_unparseable_unit_is_unreadable_and_the_run_goes_on(
         next(one for one in mass["measured"] if one["name"] == "mass")["value"]["unit"] = unit
     else:
         data["basis"]["requirements"][0]["comparisons"][0]["limit"]["unit"] = unit
-    put(store, json.dumps(data))
     other = good.model_copy(update={"variant_id": OTHER_VARIANT})
     entry.save(
         store, entry.VariantId(OTHER_VARIANT), "x = 1\n", Build(outcome=Built(), output=""), BREP
     )
     (store / OTHER_VARIANT / entry.STEP).write_bytes(STEP)
-    (store / OTHER_VARIANT / SCORECARD).write_text(other.model_dump_json(indent=2) + "\n")
+    write_transcript(store, json.dumps(data), other)
     assert main(arguments_for(store)) == 1
     out = lines(capsys)
-    assert f"FAIL {VARIANT_ID}" in out
+    assert "FAIL card 1" in out
     assert "UNREADABLE" in out
     assert f"ok   {OTHER_VARIANT}" in out
     assert "cards unreadable: 1" in out
@@ -215,6 +218,7 @@ COUNTS = Tally(
     unconfirmed=0,
     misjudged=0,
     superseded=0,
+    unfitted=0,
     judged=1,
     awaiting=0,
     no_brief=0,
@@ -237,6 +241,7 @@ COUNTS = Tally(
         (replace(COUNTS, unbound=1), 1),
         (replace(COUNTS, unlinked=1), 1),
         (replace(COUNTS, incomplete=1), 1),
+        (replace(COUNTS, unfitted=1), 1),
         (replace(COUNTS, stale=1, resolved=2), 1),
         (replace(COUNTS, unresolved=1, resolved=2), 1),
         (replace(COUNTS, unconfirmed=1), 1),
