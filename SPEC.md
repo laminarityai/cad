@@ -56,7 +56,7 @@ You switch modes in the chat, the way you switch modes in Claude Code.
 
 - **Plan mode.** The agent asks questions and turns the brief into requirements, without making geometry. It ends when you confirm the requirements.
 - **Design mode** is the default. The agent makes variants, runs checks, shows scorecards, and stops for you to pick or tune.
-- **Auto mode.** The agent revises variants against the checks without stopping. It stops in exactly three cases. The first is that every requirement passes. The second is that it needs a decision only you can make, such as relaxing one of two conflicting requirements, changing something you set, or using a source it found. The third is that three revisions in a row improved no failing requirement, in which case it reports what it tried and asks how to proceed. There is no budget. An account's usage limit can refuse a build during a run, but that is an account limit, not a fourth case.
+- **Auto mode.** The agent revises variants against the checks without stopping. It stops in three cases. The first is that every requirement passes, which the checks decide. The second is that it needs a decision only you can make, such as relaxing one of two conflicting requirements, changing something you set, or using a source it found. The third is that the agent judges it is stuck, in which case it reports what it tried and asks how to proceed. There is no budget. An account's usage limit also ends a run when it refuses a build.
 - **Test mode.** Deeper, slower analysis of one chosen variant, such as full FEA, tolerance stack-ups and slicing.
 
 ### Checks
@@ -154,7 +154,7 @@ The canonical private brief set is the 20 per-brief files in `~/cad-evals/briefs
 - **Silent edit damage.** About 64% of edits that look successful break unrelated features ([BenchCAD](https://arxiv.org/html/2605.10865v1)), so regression checks run on every commit.
 - **Running AI-written code.** Every variant is code an AI wrote, and outside MCP clients can send code too. The sandbox ships in phase 1.
 - **Compute cost.** Any MCP client can trigger FEA and slicing on our servers, so accounts and usage limits ship in phase 4, the phase that hosts the server.
-- **Auto mode has no hard stop.** If the stuck detection has a bug, Auto mode can loop and spend without limit. Watch run lengths and costs from the first Auto run.
+- **Auto mode relies on the agent to stop.** If the agent never judges itself stuck, a run keeps spending until the account's usage limit refuses a build. Watch run lengths and costs from the first Auto run.
 - **Speed.** FEA and slicing take seconds to minutes. The scorecard fills in as results arrive while the viewer stays live.
 - **Onshape API limits.** Onshape tracks API usage per user or company. Check the published limits before relying on live sync.
 - **Vendor terms.** Most vendors' data terms are unknown. The data policy above holds until each vendor gives written permission.
@@ -163,6 +163,5 @@ The canonical private brief set is the 20 per-brief files in `~/cad-evals/briefs
 
 - [ ] What do novices actually get wrong, such as fits, wall thickness or fastener sizing?
 - [ ] Which domain gets the first engineering skill?
-- [ ] Is three revisions without progress the right stuck threshold for Auto mode?
 - [ ] Will WCP, REV, igus, Misumi and SDP-SI give written permission to build catalogs from their data?
 - [ ] Do we keep checks and tables private or open-source them? The answer decides whether self-hosting makes sense.

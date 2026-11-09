@@ -1,8 +1,10 @@
 # Phase 4 design: the web app
 
-Status: proposed on 2026-11-08. Nothing in it is built. It was written against commit 2bc3648. Terms follow GLOSSARY.md. Each phase 4 PR is one numbered unit of §4. §7 lists the questions only the operator can answer.
+Status: proposed on 2026-11-08. Nothing in it is built. It was written against commit 2bc3648. Terms follow GLOSSARY.md. Each phase 4 PR is one numbered unit of §4. §7 lists the questions still open for the operator.
 
 The operator made these decisions on 2026-11-08, and this revision records them. ADR-0010 (templates) and the Auto mode ADR, now ADR-0011, are approved. The warm per-account zygote is dropped as too costly for an MVP, so builds stay a fresh container per build. SPEC's phase 4 exit no longer has a time target. Accounts and usage limits move from phase 3 to phase 4. A passkey ADR was declined. Hosted confirmation follows the operator's 2026-11-07 direction in #47, recorded as an amendment to ADR-0004 that still needs approval (§4, unit 0).
+
+Later on 2026-11-08 the operator settled the rest at MVP size. Auto mode stops when every requirement passes, when the agent judges it is stuck or needs a decision only the person can make, or when the account's usage cap refuses a build. This works like Claude Code, where the model stops when it thinks it is done or stuck, and the cap is the backstop. The server no longer measures progress, so the margin, δ, the stall and tradeoff rules and the 300-revision bound are removed. `bounds_conflicts` warns on the Plan mode confirmation page, before any build. The ADR-0004 amendment adopts URL-mode elicitation to open the page, with `waiting in the web app` as the fallback. Two earlier choices of this design stand. A cap refusal ends the Auto run, and tessellation is a background job in the analysis image.
 
 Phase 4 in SPEC: chat, 3D viewer, scorecards, sliders, the mode switcher, Auto mode with its stopping rules, and accounts with usage limits. Exit: releasing a slider rebuilds the variant and updates its scorecard without a page reload, and Auto mode stops correctly on a brief whose requirements conflict.
 
@@ -24,7 +26,7 @@ These facts about main shape the design. Each was read in code or measured.
 1. **One operation registry, two adapters, and an audience on every operation.** Every capability is one typed `Operation` in `cad/operations/`. The MCP tool list and the HTTP routes are both generated from that list. An operation marked `PERSON` only, such as answering the confirmation page or moving a slider, has no MCP tool at all. So "the agent cannot confirm" is a property of the registry, not of a check someone must remember. ADR-0002 still holds, because the web app's agent uses the same MCP tools as any outside client.
 2. **A template is code with a declared `PARAMS` literal, and a tuned variant is the same code with a different literal.** The server reads and rewrites the literal through `ast` and never runs agent code on the host. A tuned variant is therefore an ordinary variant, with the id, store, scorecard and checks that already exist. There is one identity scheme.
 3. **A person confirms with the Confirm button in the signed-in web app.** This is the operator's direction in #47 (2026-11-07). An amendment to ADR-0004 records it and keeps that ADR's rules: only the page's handler writes the answer, and status is derived from signed records. An outside MCP client signs the person in with MCP authorization, as any remote MCP server does. If the client supports URL-mode elicitation, `ask_to_confirm` asks it to open the page for the person. Otherwise the tool says the proposal is waiting in the web app. On neither path does the agent get a link or a token. The limit stays the one ADR-0003 and ADR-0004 already accept: a process that drives the person's signed-in browser could press the button.
-4. **The server decides when Auto mode stops.** The web backend runs the LLM turns. The stopping rules are a pure function over the signed scorecards of the run, held in a signed per-run log on the server. Once a run is stopped, `build_variant` and `score_variant` under that run are refused before any container starts. A bug in our client cannot spend past a stop.
+4. **The server holds the Auto run.** The web backend runs the LLM turns. The server decides "all pass" from the signed scorecards of the run, held in a signed per-run log. The agent decides when it is stuck, and says so with `auto_ask`. Once a run is stopped, `build_variant` and `score_variant` under that run are refused before any container starts. A bug in our client cannot spend past a stop.
 5. **Phase 4 takes on accounts and usage limits.** The Confirm button needs a signed-in person, and a hosted app needs tenancy, so the operator moved them from phase 3 to phase 4 on 2026-11-08. Phase 4 runs one replica.
 
 ## 1. Usage (caller's view)
@@ -64,10 +66,10 @@ events.on("variant_built", e => viewer.replace(e.view));       // no reload; the
 run = await mcp.call("auto_start", brief_id=b)  # Continue | Stopped, Bounds conflicts stop here
 while isinstance(run, Continue):
     run = await mcp.call("auto_revise", run_id=run.run_id, code=await llm.revise(run.failing))
-chat.post(run.report)  # server-written: reason, requirements, revisions tried
+chat.post(run.report)  # reason, requirements, revisions tried, and the agent's note
 ```
 
-The agent may call `auto_ask(note)` at any time to stop early. It can always stop a run and can never keep one going.
+The agent calls `auto_ask(note)` when it judges it is stuck or needs a decision only the person can make. The note says what it tried. The agent can always stop a run, and it can never keep one going past a stop the server decides.
 
 ## 2. Shape
 
@@ -193,24 +195,19 @@ Local dev and the eval driver run the same FastAPI app on 127.0.0.1. With `--ope
 ```python
 class Standing(_Frozen):  # one settled revision, projected from a scorecard
     revision: int
-    variant_id: VariantId | None  # None: the build failed, which counts as no progress
-    margin: Mapping[RequirementId, float | None]
-    # in [-1, 1]. For <=: (limit - m) / (|limit| + |m|). For >=: (m - limit) / (|limit| + |m|).
-    # The sign is the verdict. The minimum over a requirement's comparisons.
-    # None: unknown, unverified, waiting or pending. No number means no progress.
+    variant_id: VariantId | None  # None: the build failed
+    passes: Mapping[RequirementId, bool | None]
+    # None: unknown, unverified, waiting or pending. Only Checked rows give a bool.
 
 
-type StopReason = AllPass | NeedsPerson | Stalled
+type StopReason = AllPass | NeedsPerson | AccountLimit
 
 
 class NeedsPerson(_Frozen):
     kind: Literal["conflict", "person_set_value", "source_to_confirm", "agent_asked"]
     requirements: tuple[RequirementId, ...]
-    evidence: ConflictEvidence | None
-    note: str
-
-
-type ConflictEvidence = Bounds | Tradeoff
+    bounds: Bounds | None  # set only for a conflict found before any build
+    note: str  # for agent_asked, the agent's report of what it tried
 
 
 class Bounds(_Frozen):  # proved from confirmed targets and tables, before any build
@@ -218,15 +215,12 @@ class Bounds(_Frozen):  # proved from confirmed targets and tables, before any b
     reads: tuple[Read, ...]  # table rows by exact key, researched rows labelled
 
 
-class Tradeoff(_Frozen):  # observed in the run
-    best_a: VariantId
-    best_b: VariantId  # each is the best for one requirement, and no revision passes both
+class AccountLimit(_Frozen):  # the usage cap refused a build under the run
+    refused: VariantId | None
 
 
 class Running(_Frozen):
     history: tuple[Standing, ...]
-    best: Mapping[RequirementId, float]
-    stale: int
 
 
 class Stopped(_Frozen):
@@ -244,14 +238,15 @@ def step(state: Running, standing: Standing) -> AutoState: ...
 
 The rules, in order:
 
-1. **Bounds conflict.** `auto_start` runs `bounds_conflicts` before any build. It is interval arithmetic over the kinds that bound one quantity. Mass is bounded by `min_mass`, `max_mass`, and `made_of` density times the `envelope` volume. Extent is bounded by `envelope` and `measure_limit`. It also runs when the person opens the confirmation page, so Plan mode warns before anything is built.
+1. **Bounds conflict.** `auto_start` runs `bounds_conflicts` before any build. It is interval arithmetic over the kinds that bound one quantity. Mass is bounded by `min_mass`, `max_mass`, and `made_of` density times the `envelope` volume. Extent is bounded by `envelope` and `measure_limit`. It also runs when the person opens the confirmation page, and the page shows each conflict as a warning. So Plan mode warns before anything is built, while the person can still change a target.
 2. **All pass.** Every `Checked` requirement passes. `Unverified` requirements are listed in the stop report and count as neither pass nor fail, or Auto could never end on a brief with an unchecked requirement. A pass that rests on research is reported as "passes on researched data" (ADR-0009).
-3. **Needs the person.** A tool call under the run that changes a parameter whose `set_by` is `person`, or that proposes requirements, stops the run. So does a latest scorecard row that is `Waiting` on a confirmation. The agent's `auto_ask` also stops it.
-4. **Stalled or traded off.** A revision makes progress when some failing requirement's margin beats its best earlier in the run by at least δ = 0.02. Comparing against the best, not the previous revision, means oscillating between two requirements earns nothing. Three revisions in a row without progress stop the run. If two failing requirements have different best revisions and no revision passes both, the reason is `NeedsPerson(conflict, Tradeoff)`, which asks which one to relax. Otherwise it is `Stalled`, with what was tried.
+3. **Needs the person.** A tool call under the run that changes a parameter whose `set_by` is `person`, or that proposes requirements, stops the run. So does a latest scorecard row that is `Waiting` on a confirmation.
+4. **The agent stops.** The agent calls `auto_ask` when it judges it is stuck or needs a decision only the person can make, such as which of two conflicting requirements to relax. The reason is `NeedsPerson(agent_asked)`, and its note says what the agent tried. The server does not judge progress.
+5. **The usage cap refuses a build.** When `AccountMeter` refuses a build under the run, the run stops with `AccountLimit` (§2.7).
 
-A revision counts only once its scorecard has no pending check. The server waits for settlement, so a slow FEA job is never a revision without progress. `standing` reads only `AgainstBrief.requirements` and `Checked` rows, so an agent measurement (ADR-0008) has no path into the rules, and a test asserts that.
+A revision counts only once its scorecard has no pending check. The server waits for settlement, so a run never passes on a pending row. `standing` reads only `AgainstBrief.requirements` and `Checked` rows, so an agent measurement (ADR-0008) cannot make a run pass, and a test asserts that.
 
-**Termination.** Margins lie in [-1, 1], and each requirement's best only rises. Each reset of the stall counter uses up at least δ of that range, so a run has at most `3 × 2/δ = 300` revisions per failing requirement. A property test generates adversarial scorecard sequences and asserts the bound. Together with the server refusing builds after a stop, this answers the SPEC risk that a stuck-detection bug spends without limit. It adds no budget.
+**No length bound on the server.** A run that never passes and that the agent never stops ends when the account's usage cap refuses a build. The cap is the backstop for the SPEC risk that the agent never judges itself stuck. It is a daily account limit, not a per-run budget.
 
 State lives in an append-only signed log at `projects/<pid>/auto/<run>/NNNN.signed`. `AutoState` is a fold over that log, never a stored field, as brief status already is. Replaying `auto_revise` with the same code gives the same variant id, which is already in the log, so it returns the same state without appending.
 
@@ -284,7 +279,7 @@ Phase 4 takes the minimum that makes hosting honest:
 - Accounts with email magic-link sign-in. Google or GitHub sign-in can come later behind the same `PersonSession`.
 - Tenancy by physical partition. `Tenant` extends `Roots` to `~/.cad/accounts/<aid>/{briefs,projects,variants,jobs,geometry}`. One account's operations cannot name another account's path, so isolation holds by construction, per separate-before-serializing-shared-state. No store is shared between tenants, including content-addressed ones, so a cache hit cannot reveal another tenant's geometry.
 - Agent tokens. An outside MCP client gets one through MCP authorization (§2.4). Our backend mints a short-lived one per turn.
-- `AccountMeter(Meter)` charges container-seconds per account against a daily cap, and every build and check job asks it before its container starts. A capped account gets a refusal before any container starts. The cap is an account limit, not a fourth Auto stop. Auto mode still stops in exactly SPEC's three cases. When the cap refuses a build under an Auto run, the refusal names the account limit, the run makes no further revisions, and the chat says the account limit halted it.
+- `AccountMeter(Meter)` charges container-seconds per account against a daily cap, and every build and check job asks it before its container starts. A capped account gets a refusal before any container starts. When the cap refuses a build under an Auto run, the refusal names the account limit, the run stops with `AccountLimit`, and the chat says the account limit halted it. The cap is a daily account limit, not a per-run budget.
 - One replica, enforced. The data root takes an exclusive lease at startup, so a second process on the same root refuses to start. Ballots stop being process state (§2.4). Sessions and Auto state are on disk. Lanes and the semaphore stay in memory and are rebuilt on restart. Shared storage and a job queue wait for measured need.
 
 Out of scope: billing, teams, sharing, and sign-in through a third party such as Google.
@@ -318,9 +313,9 @@ Each PR ends green on `uv run verify` and is exercised through MCP or the app, a
 5. **Geometry.** Tessellation as an analysis-image job and the geometry route. Check: the mesh volume is within 0.5% of the mass check's volume, and a bake-off part renders in three-cad-viewer (screenshot attached).
 6. **Web shell.** Viewer, scorecards, SSE. Check: Playwright watches a card go from pending to done without a reload, and no pending row ever has a verdict colour.
 7. **Sliders.** `tune`, latest-wins on release, the UI. Check (the first exit): Playwright releases a slider, and the viewer and scorecard update to the new variant without a reload. The release-to-mesh time is printed and not gated. A video is attached.
-8. **Auto core.** `step`, `bounds_conflicts`, the run log and the `auto_*` operations. Check: table tests for all pass, oscillation stalling at 3, pending not counting, and a person-set value stopping the run. A scripted driver that keeps calling after `Stopped` is refused with no container started. The property test holds the 300-revision bound. An agent measurement cannot change `step`.
+8. **Auto core.** `step`, `bounds_conflicts`, the run log and the `auto_*` operations. Check: table tests for all pass, pending not counting toward all pass, a person-set value stopping the run, `auto_ask` stopping it with the agent's note, and a cap refusal stopping it with `AccountLimit`. A scripted driver that keeps calling after `Stopped` is refused with no container started. An agent measurement cannot change `step`.
 9. **Chat runtime and mode switcher.** Check: a headless scripted-model run through Plan, Design and Auto mode.
-10. **Conflict exit eval.** Check (the second exit): on "fits in a 20 mm cube, PLA, at least 50 g" the run stops with `NeedsPerson(conflict, Bounds)` before any build. On a stiffness-versus-mass brief it stops with `conflict, Tradeoff` naming both requirements within 6 revisions. This reuses the brief-set eval driver that phase 2's exit also needs.
+10. **Conflict exit eval.** Check (the second exit): on "fits in a 20 mm cube, PLA, at least 50 g" the confirmation page warns of the conflict, and the run stops with `NeedsPerson(conflict)` and its `Bounds` before any build. On a stiffness-versus-mass brief the agent stops and reports within 6 revisions, with a note that names both requirements. This reuses the brief-set eval driver that phase 2's exit also needs.
 
 Unit 1 and units 2 to 4 are independent and can run in parallel. Unit 8 needs only unit 2.
 
@@ -330,7 +325,7 @@ Unit 1 and units 2 to 4 are independent and can run in parallel. Unit 8 needs on
 - We accept a `PARAMS` convention the agent must follow, in exchange for one variant identity and sliders that never call the model.
 - We accept that the agent sets slider bounds, in exchange for named sliders. Bounds decide no check.
 - We accept that a process driving the person's signed-in browser could press Confirm, in exchange for one click and no extra machinery. The operator accepted this limit in ADR-0004 and in #47.
-- We accept that only `Bounds` and `Tradeoff` conflicts are named. Any other conflict shows as `Stalled`, and the report names the requirements whose best never moved.
+- We accept that the server proves only `Bounds` conflicts. Any other conflict, such as stiffness against mass, reaches the person only when the agent stops and reports it. In exchange, the server has no progress rule to tune. A run where the agent never stops ends at the usage cap.
 - We accept one replica, in exchange for not building a distributed queue before anyone needs it.
 - We accept the signed tuning log as history. Running git per design waits until someone needs a diff a log cannot give.
 
@@ -344,13 +339,12 @@ Unit 1 and units 2 to 4 are independent and can run in parallel. Unit 8 needs on
 - **A notification with a sign-in-required link,** by email or in the app's inbox. It works with any client, but it is a scheme of our own. URL-mode elicitation is the standard way a remote MCP server sends a person to a page.
 - **OCP.wasm in the browser.** It runs agent Python on the person's machine, outside the sandbox, and the server can no longer vouch for the BREP.
 - **A passkey touch per confirmation.** It closes the signed-in-browser gap, but adds WebAuthn, enrolment, recovery and a signed challenge for a gap the operator already accepted. The operator declined it on 2026-11-08.
+- **A stall rule on the server.** A run stopped after three revisions in a row in which no failing requirement's margin beat its best by δ = 0.02. It bounded a run at 300 revisions per failing requirement. It also needed a margin for every comparison, a δ to tune, and tradeoff detection. The operator dropped it on 2026-11-08 for the agent's own judgment, with the usage cap as the backstop.
 - **Auto mode's rules in the web app's driver.** A bug there is exactly the unbounded-spend risk, and nothing on the server would stop it.
 
 ## 7. Open questions for the operator
 
-1. Should the ADR-0004 amendment adopt URL-mode elicitation as the way an outside client opens the page (§2.4)? The answer is still written only by the page, and a client without URL mode falls back to `waiting in the web app`. This design says yes.
-2. Is δ = 0.02 on a margin in [-1, 1] the right threshold for "improved"? SPEC already asks whether three revisions is right.
-3. Should `bounds_conflicts` warn on the Plan mode confirmation page? This design says yes.
+None.
 
 ## 8. Next implementation step
 
