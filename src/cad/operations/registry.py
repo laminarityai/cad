@@ -6,6 +6,7 @@ from cad.operations import (
     briefs,
     confirmation,
     context_parts,
+    conversations,
     geometry,
     knowledge,
     research,
@@ -47,5 +48,6 @@ OPERATIONS: Final[tuple[Operation, ...]] = (
     *knowledge.OPERATIONS,
     *research.OPERATIONS,
     *auto.OPERATIONS,
+    *conversations.OPERATIONS,
     *geometry.OPERATIONS,
 )

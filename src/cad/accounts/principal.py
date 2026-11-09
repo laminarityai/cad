@@ -3,6 +3,8 @@ from typing import Final, Literal, NewType
 
 from pydantic import BaseModel, ConfigDict
 
+from cad.conversations.model import ConversationId
+
 AccountId = NewType("AccountId", str)
 
 # A Clerk user id is `user_` and base62. The id names a directory, so it is checked here, at the
@@ -39,6 +41,9 @@ class AgentToken(_Frozen):
     account: AccountId
     token_id: str
     client_id: str
+    # Only our web backend's token names a conversation. Its mode and Auto run are read from the
+    # conversation's record on every call, so a switch or a Stop reaches the next tool call.
+    conversation: ConversationId | None = None
 
 
 type Principal = PersonSession | AgentToken

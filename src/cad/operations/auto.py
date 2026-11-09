@@ -1,3 +1,4 @@
+from dataclasses import replace
 from typing import Annotated, Final
 
 from pydantic import Field
@@ -21,8 +22,10 @@ from cad.auto.model import (
 from cad.auto.step import standing_of
 from cad.briefs import store as briefs
 from cad.briefs.model import MAX_NOTE_CHARS, MadeOf
+from cad.conversations import store as conversations
+from cad.conversations.model import Mode
 from cad.operations import scorecards
-from cad.operations.model import Audience, Input, Mode, Tenant, operation
+from cad.operations.model import Audience, Input, Tenant, operation
 from cad.operations.variants import MAX_CODE_CHARS
 from cad.sandbox import image
 from cad.sandbox.outcome import Built
@@ -36,15 +39,21 @@ AUTO_START = (
     "the person switched to Auto mode in the web app can start one; any other caller is "
     "refused. The run uses the confirmed made_of material, or material_key when no requirement "
     "names one. When the confirmed targets conflict, the run stops at once with the proof and "
-    "builds nothing. A brief that already has a run that has not stopped returns that run."
+    "builds nothing. A brief that already has a run that has not stopped returns that run. A "
+    "conversation holds one run at a time: while its run has not stopped, starting another "
+    "brief's run is refused until you stop that run with auto_ask. In Auto mode, "
+    "build_variant and score_variant are refused until a run is started. The person can "
+    "stop the run from the web app."
 )
 STOPS = (
     "The run stops when every checked requirement of the latest revision passes, when a "
     "requirement waits on the person, when requirements are proposed in the run's project, "
-    "when you call auto_ask, or when the account's usage limit refuses a build or a check. Once "
-    "it has "
-    "stopped, auto_revise, and build_variant and score_variant with its auto_run, are refused "
-    "before anything builds or runs: give the user the stop's report and start nothing more. "
+    "when you call auto_ask, when the person stops it, or when the account's usage limit "
+    "refuses a build or a check. Once it has "
+    "stopped, auto_revise, build_variant and score_variant are refused before anything builds "
+    "or runs: give the user the stop's report and start nothing more. The person can also stop "
+    "the run with the Stop button in the web app. build_variant and score_variant take the run "
+    "from the conversation, so they have no auto_run argument. "
 )
 AUTO_REVISE = (
     "Build and score one revision of the design under an Auto run the person started. Pass "
@@ -69,6 +78,10 @@ AUTO_ASK = (
     "report gives the note as you wrote it. Returns the stopped run. On a run that has "
     "already stopped, nothing is recorded and the existing stop is returned."
 )
+AUTO_STOP = (
+    "Stop an Auto run for the person, who pressed Stop in the web app. On a run that has already "
+    "stopped, nothing is recorded and the existing stop is returned. Returns the stopped run."
+)
 
 
 class StartInput(Input):
@@ -87,8 +100,12 @@ class AskInput(Input):
     note: Annotated[str, Field(min_length=1, max_length=MAX_NOTE_CHARS)]
 
 
+class StopInput(Input):
+    run_id: str
+
+
 def auto_start(tenant: Tenant, arguments: StartInput) -> AutoRun:
-    if tenant.mode is not Mode.AUTO:
+    if tenant.mode is not Mode.AUTO or tenant.conversation is None:
         raise RunRefused(
             "auto_start needs a web app conversation the person switched to Auto mode; "
             f"this caller's mode is {tenant.mode or 'none'}"
@@ -123,14 +140,15 @@ def auto_start(tenant: Tenant, arguments: StartInput) -> AutoRun:
         run = record_proposals(roots, run_id)
         # A start that lost the create to a concurrent one returns the winner's run.
         if isinstance(run.state, Running) or not existed:
-            return run
+            return conversations.attach_run(tenant, tenant.conversation, run_id)
         number += 1
 
 
 def auto_revise(tenant: Tenant, arguments: ReviseInput) -> AutoRun:
     roots, run_id = tenant.roots, arguments.run_id
     brief_id = log.read_run(roots, run_id).state.start.brief_id
-    running = gate(tenant, run_id, brief_id)
+    bound = replace(tenant, auto_run=run_id)
+    running = gate(bound, brief_id)
     assert running is not None
     sha = code_sha256(arguments.code)
     if _tried(running, sha):
@@ -147,7 +165,7 @@ def auto_revise(tenant: Tenant, arguments: ReviseInput) -> AutoRun:
                 material_key=running.start.material_key,
                 brief_id=brief_id,
             )
-            standing = standing_of(scorecards.score_variant(tenant, scored), revision, sha)
+            standing = standing_of(scorecards.score_variant(bound, scored), revision, sha)
             if isinstance(standing, Unsettled):
                 return AutoRun(run_id=run_id, state=running, settling=True)
         else:
@@ -169,6 +187,10 @@ def auto_revise(tenant: Tenant, arguments: ReviseInput) -> AutoRun:
 
 def _tried(state: AutoState, sha: str) -> bool:
     return any(one.code_sha256 == sha for one in state.history)
+
+
+def auto_stop(tenant: Tenant, arguments: StopInput) -> AutoRun:
+    return log.stop_by_person(tenant.roots, arguments.run_id)
 
 
 def auto_ask(tenant: Tenant, arguments: AskInput) -> AutoRun:
@@ -200,5 +222,13 @@ OPERATIONS: Final = (
         input=AskInput,
         output=AutoRun,
         run=auto_ask,
+    ),
+    operation(
+        name="auto_stop",
+        audience=Audience.PERSON,
+        description=AUTO_STOP,
+        input=StopInput,
+        output=AutoRun,
+        run=auto_stop,
     ),
 )

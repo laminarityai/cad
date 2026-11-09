@@ -4,6 +4,7 @@ from contextlib import contextmanager
 from cad.auto.log import append_event, read_run
 from cad.auto.model import AutoRun, Capped, Proposed, Running, RunRefused, RunStopped, Started
 from cad.briefs import store as briefs
+from cad.conversations.model import Mode
 from cad.operations.model import Tenant
 from cad.projects.membership import project_briefs
 from cad.projects.model import ProjectId
@@ -11,8 +12,12 @@ from cad.records.roots import Roots
 from cad.sandbox.meter import AccountLimitReached
 
 
-def gate(tenant: Tenant, run_id: str | None, brief_id: str | None) -> Running | None:
+def gate(tenant: Tenant, brief_id: str | None) -> Running | None:
+    """The conversation's own Auto run gates a build or a score. Auto mode with no run refuses."""
+    run_id = tenant.auto_run
     if run_id is None:
+        if tenant.mode is Mode.AUTO:
+            raise RunRefused("this conversation is in Auto mode, so call auto_start first")
         return None
     run = record_proposals(tenant.roots, run_id)
     if not isinstance(run.state, Running):

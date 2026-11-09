@@ -4,6 +4,7 @@ A route accepts only a Clerk session token, from the `__session` cookie or an `A
 Bearer` header, so an agent's OAuth access token gets 401 here, as a session token does on `/mcp`.
 """
 
+import json
 from collections.abc import Awaitable, Callable
 from typing import Final, cast
 
@@ -25,7 +26,9 @@ type PersonOf = Callable[[str], PersonSession | None]
 type TenantOf = Callable[[AccountId], Tenant]
 
 
-def person_route(path: str, one: Operation, person_of: PersonOf, tenant_of: TenantOf) -> Route:
+def person_route(
+    path: str, one: Operation, person_of: PersonOf, tenant_of: TenantOf, method: str = "GET"
+) -> Route:
     if Audience.PERSON not in one.audience:
         raise ValueError(f"{one.name} is not for the person, so it has no web route")
 
@@ -34,8 +37,13 @@ def person_route(path: str, one: Operation, person_of: PersonOf, tenant_of: Tena
         if person is None:
             return _error(401, "sign in: this route takes a Clerk session token", CHALLENGE)
         tenant = tenant_of(person.account)
+        body = await _body(request) if method != "GET" else {}
+        if body is None:
+            return _error(422, "the request body is not a JSON object")
         try:
-            arguments = one.input.model_validate({**request.query_params, **request.path_params})
+            arguments = one.input.model_validate(
+                {**request.query_params, **body, **request.path_params}
+            )
         except ValidationError as error:
             return _error(422, str(error))
 
@@ -55,7 +63,18 @@ def person_route(path: str, one: Operation, person_of: PersonOf, tenant_of: Tena
             return _error(503, str(error))
         return JSONResponse(cast(BaseModel, result).model_dump(mode="json", by_alias=True))
 
-    return Route(path, endpoint, methods=["GET"], name=one.name)
+    return Route(path, endpoint, methods=[method], name=one.name)
+
+
+async def _body(request: Request) -> dict[str, object] | None:
+    raw = await request.body()
+    if not raw.strip():
+        return {}
+    try:
+        parsed: object = json.loads(raw)
+    except ValueError:
+        return None
+    return cast(dict[str, object], parsed) if isinstance(parsed, dict) else None
 
 
 def session_token(request: Request) -> str:

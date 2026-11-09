@@ -10,12 +10,14 @@ from cad.auto.model import (
     Event,
     Mark,
     NeedsPerson,
+    PersonStopped,
     Proposed,
     Revised,
     Running,
     Standing,
     Started,
     Stopped,
+    StoppedByPerson,
     StopReason,
     TamperedRun,
     Unsettled,
@@ -99,6 +101,8 @@ def step(state: AutoState, event: Event) -> AutoState:
             return _stop(state, NeedsPerson(why="agent_asked", note=event.note))
         case Capped():
             return _stop(state, AccountLimit(refused=event.refused, reason=event.reason))
+        case PersonStopped():
+            return _stop(state, StoppedByPerson())
         case Started():
             raise TamperedRun("an auto run's log holds a second start record")
         case _:
@@ -164,6 +168,8 @@ def _reason(reason: StopReason) -> str:
             return _needs_person(reason)
         case AccountLimit():
             return f"The account's usage limit refused a build under the run: {reason.reason}"
+        case StoppedByPerson():
+            return "The person stopped the run."
         case _:
             assert_never(reason)
 

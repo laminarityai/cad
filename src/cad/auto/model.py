@@ -102,7 +102,13 @@ class AccountLimit(_Frozen):
     reason: str
 
 
-type StopReason = Annotated[AllPass | NeedsPerson | AccountLimit, Field(discriminator="kind")]
+class StoppedByPerson(_Frozen):
+    kind: Literal["stopped_by_person"] = "stopped_by_person"
+
+
+type StopReason = Annotated[
+    AllPass | NeedsPerson | AccountLimit | StoppedByPerson, Field(discriminator="kind")
+]
 
 
 class Started(_Frozen):
@@ -136,7 +142,13 @@ class Capped(_Frozen):
     reason: str
 
 
-type Event = Annotated[Started | Revised | Proposed | Asked | Capped, Field(discriminator="kind")]
+class PersonStopped(_Frozen):
+    kind: Literal["person_stopped"] = "person_stopped"
+
+
+type Event = Annotated[
+    Started | Revised | Proposed | Asked | Capped | PersonStopped, Field(discriminator="kind")
+]
 
 
 class Running(_Frozen):
