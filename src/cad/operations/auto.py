@@ -105,8 +105,10 @@ def auto_start(tenant: Tenant, arguments: StartInput) -> AutoRun:
     basis = scorecards.judged(tenant, arguments.brief_id, key)
     project = briefs.read_brief(roots, arguments.brief_id).project
     live = log.live_run(roots, project, confirmed.brief_id)
-    if live is not None and isinstance((live := record_proposals(roots, live.run_id)).state, Running):
-        return live
+    if live is not None:
+        live = record_proposals(roots, live.run_id)
+        if isinstance(live.state, Running):
+            return live
     started = Started(
         brief_id=confirmed.brief_id,
         project=project,
