@@ -1,9 +1,3 @@
-"""The whole stop machine of an Auto run. Pure: no IO, no clock, no agent text but the note.
-
-There is no margin, no stall rule and no bound on revisions (ADR-0010): the agent judges when it
-is stuck, and the account's usage limit is the backstop.
-"""
-
 from collections.abc import Sequence
 from typing import Final, assert_never
 
@@ -44,8 +38,7 @@ WORDS: Final = {
 
 
 def standing_of(card: Scorecard, revision: int, code_sha256: str) -> Standing | None:
-    """None while any check is pending. Reads only the requirement rows the server judged from
-    signed check results; `card.not_verified` holds agent measurements and is never read."""
+    # card.not_verified holds agent measurements, so it is never read here.
     basis = card.basis
     if not isinstance(basis, AgainstBrief):
         raise ValueError("an auto run scores against its confirmed brief")

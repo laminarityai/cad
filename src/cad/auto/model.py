@@ -1,9 +1,3 @@
-"""What an Auto run is: the events its signed log holds, and the state folded from them.
-
-No type here holds a stored status. A run's state is `step.fold` over its events, so the stop is
-derived from facts the server observed, never written as a verdict anyone could edit (ADR-0010).
-"""
-
 import re
 import secrets
 from enum import StrEnum
@@ -48,8 +42,6 @@ class _Frozen(BaseModel):
 
 
 class Mark(StrEnum):
-    """One settled requirement row of a revision, projected from the server's scorecard."""
-
     PASS = "pass"
     PASS_RESEARCHED = "pass_researched"
     FAIL = "fail"
@@ -59,9 +51,6 @@ class Mark(StrEnum):
 
 
 class Standing(_Frozen):
-    """One revision once its scorecard has no pending check. `marks` is empty when it did not
-    build."""
-
     revision: Annotated[int, Field(ge=1)]
     variant_id: str
     code_sha256: str
@@ -70,8 +59,6 @@ class Standing(_Frozen):
 
 
 class Read(_Frozen):
-    """One table value read by exact key, labelled with where it came from."""
-
     material_key: str
     field: Literal["density"]
     value: str
@@ -79,8 +66,6 @@ class Read(_Frozen):
 
 
 class Bounds(_Frozen):
-    """A conflict proved from confirmed targets and table rows before any build."""
-
     quantity: Literal["mass", "volume"]
     statement: str
     requirements: tuple[str, ...]
@@ -125,9 +110,6 @@ type StopReason = Annotated[
 
 
 class Started(_Frozen):
-    """`watermark` counts each project brief's proposals at the start, so a later proposal in
-    any of them is seen as new."""
-
     kind: Literal["started"] = "started"
     brief_id: str
     project: str
@@ -168,9 +150,6 @@ type Event = Annotated[
 
 
 class Running(_Frozen):
-    """`settling` is set on a result only: the latest code's scorecard still has a pending
-    check, so nothing was recorded, and the same code again waits for it."""
-
     kind: Literal["running"] = "running"
     start: Started
     history: tuple[Standing, ...] = ()

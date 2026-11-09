@@ -4,7 +4,7 @@ from pydantic import Field
 
 from cad.auto import log
 from cad.auto.bounds import bounds_conflicts
-from cad.auto.gate import gate, observe, watermark
+from cad.auto.gate import gate, record_proposals, watermark
 from cad.auto.model import (
     Asked,
     AutoRun,
@@ -105,7 +105,7 @@ def auto_start(tenant: Tenant, arguments: StartInput) -> AutoRun:
     basis = scorecards.judged(tenant, arguments.brief_id, key)
     project = briefs.read_brief(roots, arguments.brief_id).project
     live = log.live_run(roots, project, confirmed.brief_id)
-    if live is not None and isinstance((live := observe(roots, live.run_id)).state, Running):
+    if live is not None and isinstance((live := record_proposals(roots, live.run_id)).state, Running):
         return live
     started = Started(
         brief_id=confirmed.brief_id,
@@ -157,7 +157,7 @@ def _tried(state: AutoState, sha: str) -> bool:
 
 
 def auto_ask(tenant: Tenant, arguments: AskInput) -> AutoRun:
-    observe(tenant.roots, arguments.run_id)
+    record_proposals(tenant.roots, arguments.run_id)
     return log.append_event(tenant.roots, arguments.run_id, lambda _: Asked(note=arguments.note))
 
 

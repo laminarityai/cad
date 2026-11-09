@@ -1,10 +1,3 @@
-"""An Auto run's signed append-only log, `projects/<pid>/auto/<run>/NNNN.signed` (ADR-0010).
-
-This is the only writer. Each append re-folds every stored event inside `signed.append`'s retry
-loop, so deciding that the run is stopped and appending to it are one decision: once it has
-stopped, nothing more is written.
-"""
-
 import os
 from collections.abc import Callable
 from pathlib import Path
@@ -55,7 +48,6 @@ def read_run(roots: Roots, run_id: str) -> AutoRun:
 
 
 def start_run(roots: Roots, run_id: str, started: Started) -> AutoRun:
-    """Create the run's directory holding its start record, in one rename."""
     directory = run_dir(roots, run_id)
     directory.parent.mkdir(parents=True, exist_ok=True)
     first = (_slot_of(run_id)(1), signed.slot_file(1), _encode(started))
@@ -66,9 +58,6 @@ def start_run(roots: Roots, run_id: str, started: Started) -> AutoRun:
 
 
 def append_event(roots: Roots, run_id: str, make: Make) -> AutoRun:
-    """Append what `make` returns for the run's state. A stopped run, or None from `make`,
-    appends nothing. Returns the run as its log stands after."""
-
     def record_for(existing: tuple[bytes, ...]) -> bytes | None:
         events = _parse(existing)
         if events is None:
@@ -84,7 +73,6 @@ def append_event(roots: Roots, run_id: str, make: Make) -> AutoRun:
 
 
 def live_run(roots: Roots, project: str, brief_id: str) -> AutoRun | None:
-    """The brief's run that has not stopped, if any."""
     directory = roots.projects / project / AUTO
     if not signed.is_directory(directory):
         return None

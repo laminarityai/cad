@@ -1,7 +1,3 @@
-"""Prove that confirmed targets conflict, before any build, by interval arithmetic over one
-quantity at a time. Every number comes from a confirmed target or a table row read by exact key;
-an unknown value gives no bound, and nothing here is guessed or researched."""
-
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass

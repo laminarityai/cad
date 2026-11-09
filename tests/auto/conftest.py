@@ -40,8 +40,6 @@ def confirm(url: str) -> None:
 
 @dataclass
 class Counting:
-    """A meter that records every charge it is asked about, and refuses when `refuse` is set."""
-
     refuse: str | None = None
     charges: list[Charge] = field(default_factory=list[Charge])
 
@@ -68,7 +66,6 @@ class Session:
         return result.content[0].model_dump()["text"]
 
     def person(self, name: str, **arguments: Any) -> AutoRun:
-        """What the web app's person session calls: an operation no MCP tool exposes."""
         one = next(one for one in OPERATIONS if one.name == name)
         run = one.run(self.tenant, one.input(**arguments))
         assert isinstance(run, AutoRun)
@@ -86,7 +83,6 @@ class Session:
         await self.call("propose_requirements", brief_id=brief_id, requirements=list(requirements))
 
     def failed_variant(self, code: str) -> str:
-        """A stored variant whose build failed, so building its code again starts no container."""
         vid = entry.variant_id(code, image_tag(BUILD))
         failed = Build(outcome=BuildFailed(error="NameError", traceback=""), output="")
         entry.save(self.tenant.variants, vid, code, failed, None)

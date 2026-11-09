@@ -1,5 +1,3 @@
-"""The one check every spending operation makes under an Auto run, before any container starts."""
-
 from cad.auto.log import append_event, read_run
 from cad.auto.model import AutoRun, Capped, Proposed, Running, RunRefused, RunStopped, Started
 from cad.briefs import store as briefs
@@ -15,12 +13,9 @@ from cad.variants import entry
 def gate(
     tenant: Tenant, run_id: str | None, brief_id: str | None, code: str | None = None
 ) -> Running | None:
-    """None outside a run. Under one: the run as it stands, or RunStopped once it has stopped.
-    With code that the store does not hold, the meter is asked for the build, and a refusal
-    stops the run; a stored build spends nothing, so it is never refused."""
     if run_id is None:
         return None
-    run = observe(tenant.roots, run_id)
+    run = record_proposals(tenant.roots, run_id)
     if not isinstance(run.state, Running):
         raise RunStopped(run)
     start = run.state.start
@@ -42,9 +37,8 @@ def gate(
     return run.state
 
 
-def observe(roots: Roots, run_id: str) -> AutoRun:
-    """The run, after recording any proposal made in its project since it started: all the
-    person's waiting items share one page, so a proposal in any brief needs the person."""
+def record_proposals(roots: Roots, run_id: str) -> AutoRun:
+    # Project-wide: one confirmation page lists every brief's waiting items.
     run = read_run(roots, run_id)
     if not isinstance(run.state, Running):
         return run

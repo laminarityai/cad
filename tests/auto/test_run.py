@@ -49,7 +49,6 @@ def records(s: Session, run_id: str) -> int:
 
 
 async def refused_everything(s: Session, brief_id: str, run_id: str, code: str) -> None:
-    """A driver that keeps going after the stop: every spending call is refused."""
     score = {"variant_id": "0" * 16, "material_key": "prusament-pla", "brief_id": brief_id}
     for _ in range(3):
         for text in (

@@ -171,8 +171,6 @@ class Refused:
 
 @dataclass(frozen=True, slots=True)
 class BuildCharge:
-    """One uncached build: a fresh build container for the variant's code."""
-
     variant_id: str
 
 
