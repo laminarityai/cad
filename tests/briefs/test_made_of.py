@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from cad.scorecard import score
+from cad.checks import job_store
 
 if TYPE_CHECKING:
     from conftest import Person, Session
@@ -41,8 +41,8 @@ async def built(s: Session) -> str:
     return (await s.call("build_variant", code=PLATE))["variant_id"]
 
 
-def card_path(s: Session, variant_id: str) -> Path:
-    return s.roots.briefs.parent / "variants" / variant_id / score.SCORECARD
+def jobs_path(s: Session, variant_id: str) -> Path:
+    return s.roots.briefs.parent / "variants" / variant_id / job_store.JOBS
 
 
 async def test_a_made_of_with_a_key_the_table_lacks_is_refused_and_stores_nothing(
@@ -94,7 +94,7 @@ async def test_a_mismatched_material_key_is_refused_and_scores_nothing(
     assert "MaterialPinned" in text
     assert "prusament-petg" in text
     assert "No variant was scored" in text
-    assert not card_path(s, variant_id).exists()
+    assert not jobs_path(s, variant_id).exists()
 
 
 async def test_a_mismatch_is_refused_before_the_variant_is_opened_or_rebuilt(

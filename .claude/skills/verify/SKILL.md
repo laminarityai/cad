@@ -66,7 +66,7 @@ uv run cad-call build_variant "$(jq -Rs '{code: .}' < tests/sandbox/parts/plate.
 
 Variants live in `~/.cad/variants/<variant_id>/`. The same code returns its stored outcome without a new build. A build stores `result.brep` only.
 
-Score a built variant. `score_variant` runs the four checks and prints the scorecard as the MCP result, and it stores the same scorecard in `~/.cad/variants/<variant_id>/scorecard.json`. `list_materials` lists the keys it accepts:
+Score a built variant. `score_variant` runs the four checks and prints the scorecard as the MCP result, and it signs each job's result under `~/.cad/variants/<variant_id>/jobs/`. `scorecard` derives the same card from those results without running anything. `list_materials` lists the keys it accepts:
 
 ```
 uv run cad-call list_materials '{}' > "$EVIDENCE/list-materials.json"

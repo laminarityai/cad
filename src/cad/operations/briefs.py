@@ -1,6 +1,5 @@
-from typing import Annotated, Literal
+from typing import Annotated, Final, Literal
 
-from mcp.server.mcpserver.tools import Tool
 from pydantic import BaseModel, ConfigDict, Field
 
 from cad.briefs import made_of, store
@@ -15,21 +14,12 @@ from cad.briefs.model import (
     describe,
 )
 from cad.briefs.store import BriefState, ProposalState, Status
+from cad.operations.guidance import PLAN_MODE
+from cad.operations.model import BOTH, Audience, Input, Tenant, operation
 from cad.projects.membership import project_for_new_brief
 from cad.projects.model import PROJECT_ID, PROJECT_ID_CHARS
-from cad.records.roots import Roots
 from cad.sandbox import host
-from cad.server.refusals import agent_facing
 
-PLAN_MODE = (
-    "Plan mode comes first for every brief. Store the user's words with create_brief, unchanged. "
-    "Turn them into requirements with propose_requirements, each quoting the words it comes "
-    "from. Then call ask_to_confirm with the project_id: only the user can confirm, on one page "
-    "that opens on their screen and lists everything waiting on them in the project, and you "
-    "cannot answer it. Build no geometry for a brief until ask_to_confirm or list_requirements "
-    "says its requirements are confirmed. If the user declines, read their note, revise, and "
-    "propose again."
-)
 CREATE_BRIEF = (
     "Store the user's brief, their own words verbatim, and return its brief id and project id. "
     "Do not summarize or rewrite it: the user reads this text when they confirm. A project "
@@ -133,44 +123,72 @@ def _user_edit(proposed: Requirement, confirmed: Requirement) -> UserEdit | None
     return UserEdit(proposed=before, confirmed=after)
 
 
-def brief_tools(roots: Roots) -> list[Tool]:
-    def create_brief(
-        text: Annotated[str, Field(min_length=1, max_length=MAX_BRIEF_CHARS)],
-        project_id: Annotated[
-            str | None, Field(max_length=PROJECT_ID_CHARS, pattern=PROJECT_ID.pattern)
-        ] = None,
-    ) -> BriefCreated:
-        with agent_facing():
-            project = project_for_new_brief(roots, project_id)
-            brief = store.create_brief(roots, text, project)
-        return BriefCreated(brief_id=brief.id, project_id=project)
+class CreateBriefInput(Input):
+    text: Annotated[str, Field(min_length=1, max_length=MAX_BRIEF_CHARS)]
+    project_id: Annotated[
+        str | None, Field(max_length=PROJECT_ID_CHARS, pattern=PROJECT_ID.pattern)
+    ] = None
 
-    def propose_requirements(
-        brief_id: str,
-        requirements: Annotated[
-            list[RequirementDraft], Field(min_length=1, max_length=MAX_REQUIREMENTS)
-        ],
-    ) -> ProposalView:
-        drafts = [store.Draft(target=r.target, quote=r.quote) for r in requirements]
-        with agent_facing():
-            made_of.check_proposed(drafts, host.materials_table().materials)
-            proposed = store.propose(roots, brief_id, drafts)
-            return _view(store.read_state(roots, brief_id), proposed)
 
-    def list_requirements(brief_id: str) -> BriefView:
-        with agent_facing():
-            state = store.read_state(roots, brief_id)
-        confirmed = state.confirmed
-        return BriefView(
-            brief_id=state.brief.id,
-            project_id=state.brief.project,
-            text=state.brief.text,
-            proposals=[_view(state, p) for p in state.proposals],
-            confirmed_proposal=confirmed.proposal.number if confirmed else None,
-        )
-
-    return [
-        Tool.from_function(create_brief, description=CREATE_BRIEF),
-        Tool.from_function(propose_requirements, description=PROPOSE_REQUIREMENTS),
-        Tool.from_function(list_requirements, description=LIST_REQUIREMENTS),
+class ProposeRequirementsInput(Input):
+    brief_id: str
+    requirements: Annotated[
+        list[RequirementDraft], Field(min_length=1, max_length=MAX_REQUIREMENTS)
     ]
+
+
+class ListRequirementsInput(Input):
+    brief_id: str
+
+
+def create_brief(tenant: Tenant, arguments: CreateBriefInput) -> BriefCreated:
+    project = project_for_new_brief(tenant.roots, arguments.project_id)
+    brief = store.create_brief(tenant.roots, arguments.text, project)
+    return BriefCreated(brief_id=brief.id, project_id=project)
+
+
+def propose_requirements(tenant: Tenant, arguments: ProposeRequirementsInput) -> ProposalView:
+    drafts = [store.Draft(target=r.target, quote=r.quote) for r in arguments.requirements]
+    made_of.check_proposed(drafts, host.materials_table().materials)
+    proposed = store.propose(tenant.roots, arguments.brief_id, drafts)
+    return _view(store.read_state(tenant.roots, arguments.brief_id), proposed)
+
+
+def list_requirements(tenant: Tenant, arguments: ListRequirementsInput) -> BriefView:
+    state = store.read_state(tenant.roots, arguments.brief_id)
+    confirmed = state.confirmed
+    return BriefView(
+        brief_id=state.brief.id,
+        project_id=state.brief.project,
+        text=state.brief.text,
+        proposals=[_view(state, p) for p in state.proposals],
+        confirmed_proposal=confirmed.proposal.number if confirmed else None,
+    )
+
+
+OPERATIONS: Final = (
+    operation(
+        name="create_brief",
+        audience=Audience.AGENT,
+        description=CREATE_BRIEF,
+        input=CreateBriefInput,
+        output=BriefCreated,
+        run=create_brief,
+    ),
+    operation(
+        name="propose_requirements",
+        audience=Audience.AGENT,
+        description=PROPOSE_REQUIREMENTS,
+        input=ProposeRequirementsInput,
+        output=ProposalView,
+        run=propose_requirements,
+    ),
+    operation(
+        name="list_requirements",
+        audience=BOTH,
+        description=LIST_REQUIREMENTS,
+        input=ListRequirementsInput,
+        output=BriefView,
+        run=list_requirements,
+    ),
+)
