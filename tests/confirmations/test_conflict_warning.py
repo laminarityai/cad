@@ -1,0 +1,136 @@
+from __future__ import annotations
+
+import html
+from typing import TYPE_CHECKING, Any, Final
+
+import pytest
+
+if TYPE_CHECKING:
+    from conftest import Session
+
+pytestmark = pytest.mark.anyio
+CUBE_TEXT: Final = "A block that fits in a 20 mm cube, PLA, at least 50 g"
+CUBE: Final = {
+    "target": {"kind": "envelope", "edges": [{"magnitude": 20, "unit": "mm"}] * 3},
+    "quote": "fits in a 20 mm cube",
+}
+PLA: Final = {"target": {"kind": "made_of", "material": "prusament-pla"}, "quote": "PLA"}
+
+
+def min_mass(grams: float) -> dict[str, Any]:
+    return {
+        "target": {"kind": "min_mass", "mass": {"magnitude": grams, "unit": "g"}},
+        "quote": "at least 50 g",
+    }
+
+
+WARNING: Final = "Warning: these requirements conflict"
+
+
+async def brief(s: Session, *requirements: dict[str, Any], project_id: str | None = None) -> str:
+    joined = {} if project_id is None else {"project_id": project_id}
+    created = await s.call("create_brief", text=CUBE_TEXT, **joined)
+    await propose(s, created["brief_id"], *requirements)
+    return created["project_id"]
+
+
+async def propose(s: Session, brief_id: str, *requirements: dict[str, Any]) -> None:
+    await s.call("propose_requirements", brief_id=brief_id, requirements=list(requirements))
+
+
+async def page(s: Session, project_id: str) -> str:
+    await s.call("ask_to_confirm", project_id=project_id)
+    status, body = s.get(s.person.url)
+    assert status == 200
+    return body
+
+
+async def test_a_cube_that_cannot_weigh_50_g_is_warned_of_with_the_bound(s: Session) -> None:
+    body = await page(s, await brief(s, CUBE, PLA, min_mass(50)))
+    assert body.count(WARNING) == 1
+    assert "min_mass 50 g &gt; density(prusament-pla) 1.24 g/cm³" in body
+    assert "envelope 8 cm³ = 9.92 g" in body
+    for quote in ("fits in a 20 mm cube", "PLA", "at least 50 g"):
+        assert f'<q class="origin">{html.escape(quote)}</q>' in body
+
+
+async def test_the_warning_holds_no_control_and_the_page_still_answers(s: Session) -> None:
+    body = await page(s, await brief(s, CUBE, PLA, min_mass(50)))
+    warning = body[body.index('<div class="warning"') : body.index("</div>", body.index(WARNING))]
+    assert "<button" not in warning
+    assert "<input" not in warning
+    assert "<textarea" not in warning
+    assert '<button name="answer" value="confirm">Confirm</button>' in body
+
+
+async def test_a_brief_with_no_conflict_shows_no_warning(s: Session) -> None:
+    body = await page(s, await brief(s, CUBE, PLA, min_mass(5)))
+    assert WARNING not in body
+    assert 'class="warning"' not in body
+
+
+async def test_a_confirmed_side_and_a_proposed_side_conflict(s: Session) -> None:
+    created = await s.call("create_brief", text=CUBE_TEXT)
+    await propose(s, created["brief_id"], CUBE, PLA)
+    s.person.answer = "confirm"
+    await s.call("ask_to_confirm", project_id=created["project_id"])
+    s.person.answer = None
+    await propose(s, created["brief_id"], min_mass(50))
+    body = await page(s, created["project_id"])
+    assert body.count(WARNING) == 1
+    assert "envelope 8 cm³ = 9.92 g" in body
+
+
+async def test_a_material_the_table_lacks_loads_the_page_without_a_warning(s: Session) -> None:
+    unknown = {"target": {"kind": "made_of", "material": "no-such-material"}, "quote": "PLA"}
+    body = await page(s, await brief(s, CUBE, unknown, min_mass(50)))
+    assert WARNING not in body
+
+
+async def test_an_unknown_material_still_warns_of_a_conflict_that_needs_no_density(
+    s: Session,
+) -> None:
+    unknown = {"target": {"kind": "made_of", "material": "no-such-material"}, "quote": "PLA"}
+    heavy = {
+        "target": {
+            "kind": "measure_limit",
+            "check_id": "mass",
+            "measure": "volume",
+            "comparator": "at_least",
+            "limit": {"magnitude": 9, "unit": "cm^3"},
+        },
+        "quote": "at least 50 g",
+    }
+    body = await page(s, await brief(s, CUBE, unknown, heavy))
+    assert body.count(WARNING) == 1
+    assert "volume at least 9 cm³ &gt; envelope 8 cm³" in body
+
+
+async def test_another_projects_page_carries_no_warning(s: Session) -> None:
+    await brief(s, CUBE, PLA, min_mass(50))
+    other = await s.call("create_brief", text="A wall hook, under 150 g")
+    await propose(
+        s,
+        other["brief_id"],
+        {
+            "target": {"kind": "max_mass", "mass": {"magnitude": 150, "unit": "g"}},
+            "quote": "under 150 g",
+        },
+    )
+    body = await page(s, other["project_id"])
+    assert WARNING not in body
+
+
+async def test_two_conflicts_in_one_brief_are_two_warnings(s: Session) -> None:
+    volume = {
+        "target": {
+            "kind": "measure_limit",
+            "check_id": "mass",
+            "measure": "volume",
+            "comparator": "at_least",
+            "limit": {"magnitude": 9, "unit": "cm^3"},
+        },
+        "quote": "at least 50 g",
+    }
+    body = await page(s, await brief(s, CUBE, PLA, min_mass(50), volume))
+    assert body.count(WARNING) == 2
