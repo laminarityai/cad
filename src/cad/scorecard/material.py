@@ -2,7 +2,7 @@
 
 from typing import Annotated, Final, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from cad.briefs.model import MadeOf, Requirement, describe
 from cad.briefs.store import BriefRefused, ConfirmedSet
@@ -83,3 +83,7 @@ def reported(card: Scorecard, confirmed: ConfirmedSet | None) -> ReportedScoreca
     return ReportedScorecard(
         **dict(card), material=MaterialUse(key=card.material_key, set_by=set_by)
     )
+
+
+STORED: Final = TypeAdapter[ReportedScorecard | Scorecard](ReportedScorecard | Scorecard)
+"""A stored card. Cards stored before the server reported the material have no `material`."""
