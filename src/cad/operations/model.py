@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict
 from cad.confirmations.ballot import Desk
 from cad.context_parts.store import Ingest
 from cad.records.roots import Roots
+from cad.sandbox.meter import Meter
 
 
 class Audience(Flag):
@@ -26,6 +27,7 @@ class Tenant:
     variants: Path
     desk: Desk
     ingest: Ingest
+    meter: Meter
 
 
 class Input(BaseModel):
