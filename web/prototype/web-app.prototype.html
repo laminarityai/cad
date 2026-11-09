@@ -1,0 +1,698 @@
+<!--
+  PROTOTYPE. Throwaway. Not production code, never imported by the app.
+  Plan: three layouts (A three-pane, B comparison-first, C chat-first) for the phase 4 web app,
+  sharing one in-memory mock state, so the operator can pick a shape before the React shell (plan PRs F and I).
+-->
+<title>Cad Workspace Prototype</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600&display=swap');
+:root{
+  --bg:#e9ecea; --panel:#f6f7f6; --panel-2:#ffffff; --ink:#111517; --ink-2:#4a5357; --ink-3:#7d878b;
+  --rule:#c3cac8; --rule-2:#dde2e0; --accent:#0b5c8c; --accent-ink:#ffffff;
+  --pass:#1d6b43; --pass-bg:#dcefe3; --fail:#a3221b; --fail-bg:#f6dedb;
+  --wait:#8a5a00; --wait-bg:#f6ead0; --res:#5a3fa0; --res-bg:#e6e0f4; --unk:#5d666a; --unk-bg:#e3e6e5;
+  --model:#c9cfcb; --model-edge:#2a3236; --grid:#b9c1be; --envelope:#0b5c8c;
+  --stop:#c0261c; --stop-ink:#ffffff;
+  --mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,Consolas,monospace;
+  --sans:'IBM Plex Sans Condensed','Arial Narrow','Helvetica Neue',Arial,sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0d1012; --panel:#14181b; --panel-2:#191e22; --ink:#dfe5e3; --ink-2:#a3adb0; --ink-3:#6c777b;
+  --rule:#2c3438; --rule-2:#21282b; --accent:#5fb0e0; --accent-ink:#06141c;
+  --pass:#5cc68b; --pass-bg:#11281c; --fail:#ff7a6e; --fail-bg:#2d1513; --wait:#f0b44a; --wait-bg:#2b2210;
+  --res:#b9a2ff; --res-bg:#221b38; --unk:#9aa4a8; --unk-bg:#1d2326;
+  --model:#7d8a86; --model-edge:#0d1012; --grid:#2c3438; --envelope:#5fb0e0; --stop:#ff5a4c; --stop-ink:#1a0503;
+  color-scheme: dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0d1012; --panel:#14181b; --panel-2:#191e22; --ink:#dfe5e3; --ink-2:#a3adb0; --ink-3:#6c777b;
+  --rule:#2c3438; --rule-2:#21282b; --accent:#5fb0e0; --accent-ink:#06141c;
+  --pass:#5cc68b; --pass-bg:#11281c; --fail:#ff7a6e; --fail-bg:#2d1513; --wait:#f0b44a; --wait-bg:#2b2210;
+  --res:#b9a2ff; --res-bg:#221b38; --unk:#9aa4a8; --unk-bg:#1d2326;
+  --model:#7d8a86; --model-edge:#0d1012; --grid:#2c3438; --envelope:#5fb0e0; --stop:#ff5a4c; --stop-ink:#1a0503;
+  color-scheme: dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.4;overflow-x:hidden;-webkit-font-smoothing:antialiased}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3)}
+.muted{color:var(--ink-2)}
+#root{min-height:100vh}
+
+/* top bar */
+.top{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:10px 16px;border-bottom:1px solid var(--rule);background:var(--panel)}
+.brand{font-family:var(--mono);font-weight:600;letter-spacing:.04em}
+.brand b{color:var(--accent)}
+.brief{flex:1 1 260px;min-width:0;font-family:var(--mono);font-size:12px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brief q{color:var(--ink)}
+.seg{display:inline-flex;border:1px solid var(--rule);background:var(--panel-2)}
+.seg button{border:0;background:transparent;padding:5px 11px;font-family:var(--mono);font-size:12px;border-right:1px solid var(--rule)}
+.seg button:last-child{border-right:0}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--bg)}
+.ghostbtn{border:1px solid var(--rule);background:transparent;padding:5px 9px;font-family:var(--mono);font-size:11px}
+
+/* generic section */
+.sec{background:var(--panel);border:1px solid var(--rule)}
+.sec>h3{margin:0;padding:7px 10px;border-bottom:1px solid var(--rule-2);display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.sec>h3 span:first-child{font-family:var(--mono);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);font-weight:500}
+.sec .body{padding:10px}
+
+/* scorecard */
+.sc{width:100%;border-collapse:collapse}
+.sc td{padding:6px 8px;border-top:1px solid var(--rule-2);vertical-align:top}
+.sc tr:first-child td{border-top:0}
+.sc .req{font-family:var(--mono);font-size:12px;white-space:nowrap}
+.sc .chk{font-family:var(--mono);font-size:10.5px;color:var(--ink-3)}
+.sc .meas{font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums}
+.sc .meas .vs{color:var(--ink-3)}
+.sc .ghost{display:block;color:var(--ink-3);font-size:11px}
+.sc .v{text-align:right;white-space:nowrap}
+.sc .note{font-size:12px;color:var(--ink-2)}
+.chip{display:inline-block;font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.06em;padding:2px 6px;border:1px solid currentColor;text-transform:uppercase}
+.chip.pass{color:var(--pass);background:var(--pass-bg)}
+.chip.fail{color:var(--fail);background:var(--fail-bg)}
+.chip.wait{color:var(--wait);background:var(--wait-bg)}
+.chip.unk{color:var(--unk);background:var(--unk-bg);border-style:dashed}
+.chip.pend{color:var(--ink-3);background:transparent;border-style:dotted}
+.chip.res{color:var(--res);background:var(--res-bg)}
+.tag-res{display:inline-block;margin-top:3px;font-family:var(--mono);font-size:10.5px;color:var(--res)}
+.tag-res::before{content:"◆ ";}
+.scgroup{padding:6px 10px 2px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);border-top:1px solid var(--rule)}
+.scsum{font-family:var(--mono);font-size:11px;color:var(--ink-2)}
+
+/* slots */
+.slots{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.slot{border:1px solid var(--rule);background:var(--panel-2);padding:6px 7px;text-align:left;min-width:0;position:relative}
+.slot[aria-pressed="true"]{outline:2px solid var(--accent);outline-offset:-2px}
+.slot .n{font-family:var(--mono);font-weight:600;font-size:13px}
+.slot .r{font-family:var(--mono);font-size:10.5px;color:var(--ink-3)}
+.slot.empty{border-style:dashed;color:var(--ink-3);background:transparent}
+.strip{display:flex;gap:2px;margin-top:5px;height:5px}
+.strip i{flex:1;background:var(--rule-2)}
+.strip i.pass{background:var(--pass)} .strip i.fail{background:var(--fail)} .strip i.wait{background:var(--wait)}
+.strip i.unk{background:repeating-linear-gradient(90deg,var(--unk) 0 2px,transparent 2px 4px)}
+.strip i.pend{background:transparent;outline:1px dotted var(--ink-3);outline-offset:-1px}
+.pulse{animation:pulse 1s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35}}
+
+/* viewer */
+.viewer{position:relative;background:var(--panel-2);border:1px solid var(--rule);overflow:hidden;touch-action:none;cursor:grab}
+.viewer canvas{display:block;width:100%!important;height:100%!important}
+.viewer .hud{position:absolute;left:8px;top:6px;font-family:var(--mono);font-size:11px;color:var(--ink-2);pointer-events:none}
+.viewer .hud b{color:var(--ink)}
+.viewer .hint{position:absolute;right:8px;bottom:6px;font-family:var(--mono);font-size:10px;color:var(--ink-3);pointer-events:none}
+.viewer .pendflag{position:absolute;right:8px;top:6px;font-family:var(--mono);font-size:10.5px;color:var(--wait)}
+
+/* chat */
+.chat{display:flex;flex-direction:column;min-height:0}
+.msgs{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:10px;min-height:0}
+.msg{max-width:100%}
+.msg .who{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin-bottom:2px}
+.msg.you .txt{background:var(--ink);color:var(--bg);padding:7px 9px;display:inline-block}
+.msg.agent .txt{border-left:2px solid var(--accent);padding:1px 0 1px 9px}
+.msg.refuse .txt{border-left-color:var(--fail)}
+.msg.sys .txt{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);border-top:1px dashed var(--rule);padding-top:5px}
+.compose{display:flex;gap:6px;padding:8px;border-top:1px solid var(--rule);background:var(--panel)}
+.compose input{flex:1;min-width:0;border:1px solid var(--rule);background:var(--panel-2);padding:7px 9px}
+.compose input:focus{outline:2px solid var(--accent);outline-offset:-1px}
+.compose button{border:1px solid var(--ink);background:var(--ink);color:var(--bg);padding:7px 12px;font-family:var(--mono);font-size:12px}
+.sugg{display:flex;gap:5px;flex-wrap:wrap;padding:0 8px 8px;background:var(--panel)}
+.sugg button{border:1px solid var(--rule);background:transparent;font-family:var(--mono);font-size:11px;padding:3px 7px;color:var(--ink-2)}
+
+/* auto */
+.auto{border:1px solid var(--rule);background:var(--panel);padding:9px 10px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.auto.running{border-color:var(--accent);box-shadow:inset 3px 0 0 var(--accent)}
+.auto.stopped{box-shadow:inset 3px 0 0 var(--ink-3)}
+.auto .st{flex:1 1 200px;min-width:0}
+.auto .big{font-family:var(--mono);font-size:13px}
+.stopbtn{border:0;background:var(--stop);color:var(--stop-ink);font-family:var(--mono);font-weight:600;font-size:14px;letter-spacing:.08em;padding:10px 20px;display:inline-flex;align-items:center;gap:8px}
+.stopbtn::before{content:"";width:10px;height:10px;background:currentColor}
+.startbtn{border:1px solid var(--accent);background:var(--accent);color:var(--accent-ink);font-family:var(--mono);font-size:12px;padding:7px 12px}
+.report{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);margin:6px 0 0;white-space:pre-wrap;width:100%}
+.reason{font-family:var(--mono);font-size:12px;font-weight:600}
+.dot{display:inline-block;width:8px;height:8px;background:var(--accent);margin-right:6px;animation:pulse 1s infinite}
+
+/* waiting */
+.wait-list{list-style:none;margin:0;padding:0}
+.wait-list li{padding:7px 0;border-top:1px solid var(--rule-2);display:grid;grid-template-columns:1fr auto;gap:2px 10px}
+.wait-list li:first-child{border-top:0;padding-top:0}
+.wait-list .req{font-family:var(--mono);font-size:12px}
+.wait-list blockquote{grid-column:1/-1;margin:0;font-size:12.5px;color:var(--ink-2)}
+.wait-list blockquote::before{content:"brief: "; font-family:var(--mono);font-size:10px;color:var(--ink-3);text-transform:uppercase;letter-spacing:.08em}
+.wait-list mark{background:var(--wait-bg);color:var(--ink);padding:0 2px}
+.conflict{margin:8px 0;border:1px solid var(--wait);background:var(--wait-bg);padding:8px}
+.conflict .eq{font-family:var(--mono);font-size:12px;color:var(--ink);overflow-wrap:anywhere}
+.conflict label{display:block;font-size:12.5px;margin-top:5px}
+.confirmbtn{width:100%;border:1px solid var(--ink);background:var(--ink);color:var(--bg);font-family:var(--mono);font-size:13px;font-weight:600;letter-spacing:.06em;padding:9px}
+.empty-note{font-family:var(--mono);font-size:12px;color:var(--ink-3)}
+
+/* state panel */
+.statep{margin:16px;border:1px solid var(--rule);background:var(--panel);font-family:var(--mono);font-size:11px}
+.statep summary{padding:6px 10px;cursor:pointer;color:var(--ink-2)}
+.statep pre{margin:0;padding:10px;max-height:340px;overflow:auto;border-top:1px solid var(--rule-2);white-space:pre-wrap;overflow-wrap:anywhere}
+.statep .sim{padding:6px 10px;display:flex;gap:6px;flex-wrap:wrap;border-top:1px solid var(--rule-2)}
+.statep .sim button{border:1px solid var(--rule);background:transparent;font-size:10.5px;padding:3px 6px}
+
+/* pill */
+.pill{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:50;display:flex;align-items:center;background:var(--ink);color:var(--bg);font-family:var(--mono);font-size:12px;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+.pill button{border:0;background:transparent;color:inherit;padding:8px 12px;font-size:14px}
+.pill span{padding:0 6px;white-space:nowrap}
+.pill.lift{bottom:120px}
+
+/* ===== A: three-pane ===== */
+.A{display:grid;grid-template-columns:minmax(260px,320px) minmax(0,1fr) minmax(300px,380px);gap:10px;padding:10px 16px 80px;height:calc(100vh - 52px);min-height:620px}
+.A .col{display:flex;flex-direction:column;gap:10px;min-height:0;min-width:0}
+.A .chatsec{flex:1;min-height:0;display:flex;flex-direction:column}
+.A .chatsec .chat{flex:1}
+.A .viewer{flex:1;min-height:260px}
+.A .right{overflow-y:auto}
+@media (max-width:980px){
+  .A{grid-template-columns:1fr;height:auto;min-height:0}
+  .A .viewer{height:300px;flex:none}
+  .A .chatsec{height:440px;flex:none}
+  .A .col.chatcol{order:3}
+}
+
+/* ===== B: comparison-first ===== */
+.B{padding:10px 16px 200px;display:flex;flex-direction:column;gap:10px}
+.B .bar{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.B .grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
+.B .card{border:1px solid var(--rule);background:var(--panel);min-width:0;text-align:left;padding:0;display:flex;flex-direction:column}
+.B .card[aria-pressed="true"]{outline:2px solid var(--accent);outline-offset:-2px}
+.B .card .viewer{height:150px;border:0;border-bottom:1px solid var(--rule-2)}
+.B .card .meta{padding:7px 8px}
+.B .card .meta .n{font-family:var(--mono);font-weight:600}
+.B .card .meta .r{font-family:var(--mono);font-size:10.5px;color:var(--ink-3)}
+.B .card.empty{border-style:dashed;align-items:center;justify-content:center;min-height:200px;color:var(--ink-3);font-family:var(--mono);font-size:12px;background:transparent}
+.B .detail{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:10px}
+.B .detail .viewer{height:360px}
+.drawer{position:fixed;left:0;right:0;bottom:0;z-index:40;background:var(--panel);border-top:1px solid var(--ink);display:flex;flex-direction:column;max-height:70vh}
+.drawer .handle{display:flex;align-items:center;gap:10px;padding:6px 16px;border:0;background:transparent;text-align:left;border-bottom:1px solid var(--rule-2)}
+.drawer .handle .last{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink-2);font-size:13px}
+.drawer .msgs{height:44vh;flex:none}
+@media (max-width:980px){
+  .B .grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .B .bar,.B .detail{grid-template-columns:1fr}
+  .B .detail .viewer{height:280px}
+}
+
+/* ===== C: chat-first ===== */
+.C{max-width:780px;margin:0 auto;padding:0 16px 180px}
+.C .banner{position:sticky;top:0;z-index:30;padding:8px 0;background:var(--bg)}
+.C .thread{display:flex;flex-direction:column;gap:14px;padding-top:6px}
+.C .rich{margin-top:6px}
+.C .rich .viewer{height:280px}
+.C .rich .slots{margin-bottom:6px}
+.C .composeC{position:fixed;left:0;right:0;bottom:0;z-index:40;background:var(--panel);border-top:1px solid var(--rule)}
+.C .composeC .inner{max-width:780px;margin:0 auto}
+.C .superseded{font-family:var(--mono);font-size:11px;color:var(--ink-3);border:1px dashed var(--rule);padding:6px 8px}
+
+@media (max-width:600px){
+  .top{gap:8px}
+  .brief{flex-basis:100%;order:3;white-space:normal}
+  .slots{grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+  .slot{padding:5px 4px}
+  .slot .r{font-size:9.5px}
+  .sc td{padding:5px 5px}
+  .sc .req{white-space:normal;overflow-wrap:anywhere}
+  .stopbtn{width:100%;justify-content:center}
+  .pill span{display:none}
+}
+</style>
+
+<div id="root"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/htm@3.1.1/dist/htm.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+const {useState,useEffect,useRef,useSyncExternalStore} = React;
+const html = htm.bind(React.createElement);
+
+/* ---------- data shape ----------
+  State = {
+    layout: 'A'|'B'|'C', mode: 'plan'|'design'|'auto', selected: slot index,
+    slots: [Slot|null] x5     Slot = {slot, label, wall_mm, gusset, width_mm, k, d0, revisions, pending, before}
+    research: {flexural_modulus: null | {value, source, quote}}
+    waiting: null | {requirements:[...], conflict:{statement, choice:'drop'|'keep'}}
+    confirmed: [RequirementId], min_mass_kept: bool
+    auto: {status:'idle'|'running'|'stopped', slot, revision, history:[Standing], reason, note, report}
+    chat: [{who:'you'|'agent'|'sys', text, refuse?, card?: 'confirm'|'slots'|'scorecard'|'viewer'}]
+  }
+*/
+const BRIEF = 'a wall bracket for a 2 kg shelf, PLA, fits in 80×60×40 mm';
+const CONFLICT = 'min_mass 50 g > density(PLA) 1.24 g/cm³ × envelope 8 cm³ = 9.9 g';
+
+function mkSlot(n,label,wall,gusset,width,k,d0){return {slot:n,label,wall_mm:wall,gusset,width_mm:width,k,d0,revisions:1,pending:false,before:null};}
+const initial = {
+  layout:'A', mode:'design', selected:1,
+  slots:[
+    mkSlot(1,'thin L',2.5,false,78,1.30,0.62),
+    mkSlot(2,'L + gusset',3.0,true,78,1.40,0.62),
+    mkSlot(3,'ribbed',3.5,false,78,1.18,0.55),
+    mkSlot(4,'heavy',5.0,true,84,1.40,0.62),
+    null,
+  ],
+  research:{flexural_modulus:null},
+  waiting:{
+    requirements:[
+      {id:'max_deflection', target:'≤ 0.50 mm at 19.6 N', quote:['a wall bracket for a ','2 kg shelf',', PLA, fits in 80×60×40 mm']},
+      {id:'min_mass', target:'≥ 50 g', quote:['a wall bracket for a ','2 kg shelf',', PLA, fits in 80×60×40 mm'], conflict:true},
+      {id:'unchecked: two screw holes', target:'no check exists', quote:['a ','wall bracket',' for a 2 kg shelf, PLA, fits in 80×60×40 mm']},
+    ],
+    conflict:{statement:CONFLICT, choice:'drop'},
+  },
+  confirmed:['max_envelope','made_of','min_safety_factor'],
+  min_mass_kept:false,
+  auto:{status:'idle', slot:null, revision:0, history:[], reason:null, note:null, report:null},
+  chat:[
+    {who:'you', text:BRIEF},
+    {who:'agent', text:'I stored your brief word for word and proposed requirements, each quoting your words. Three confirmed earlier; three are waiting on you, and one of them conflicts with the envelope.', card:'confirm'},
+    {who:'agent', text:'Built four variants in Design mode. The fixed checks scored them; v2 is selected.', card:'slots'},
+    {who:'agent', text:'v2 fails min_safety_factor (1.40 against ≥ 2.00). max_deflection is unknown until PLA\'s flexural modulus is researched.', card:'scorecard'},
+  ],
+  lastAction:'init',
+};
+
+/* ---------- store ---------- */
+let S = structuredClone(initial);
+const subs = new Set();
+function act(name, fn){ const n = structuredClone(S); fn(n); n.lastAction = name; S = n; subs.forEach(f=>f()); }
+function useS(){ return useSyncExternalStore(cb=>{subs.add(cb);return()=>subs.delete(cb)}, ()=>S); }
+
+/* ---------- mock checks ---------- */
+const sf = s => s.k*Math.pow(s.wall_mm/3,2)*(s.gusset?1.0:0.95);
+const defl = s => s.d0*Math.pow(3/s.wall_mm,3)*(s.gusset?0.9:1);
+function rows(s, st){
+  if(!s) return [];
+  const R = [];
+  const env = s.width_mm<=80;
+  R.push({id:'max_envelope', check:'extents', kind:'checked', ok:env, meas:`${s.width_mm.toFixed(1)}×58.0×40.0 mm`, target:'≤ 80×60×40 mm'});
+  R.push({id:'made_of', check:'materials', kind:'checked', ok:true, meas:'PLA', target:'= PLA'});
+  const f = sf(s);
+  R.push({id:'min_safety_factor', check:'fea', kind:'checked', ok:f>=2, meas:f.toFixed(2), target:'≥ 2.00 at 19.6 N', key:'sf'});
+  const deflConfirmed = st.confirmed.includes('max_deflection');
+  if(deflConfirmed){
+    if(!st.research.flexural_modulus){
+      R.push({id:'max_deflection', check:'fea', kind:'unknown', meas:'—', target:'≤ 0.50 mm', note:'flexural_modulus(PLA) not in the materials table. Research requested.'});
+    } else {
+      const d = defl(s);
+      R.push({id:'max_deflection', check:'fea', kind:'checked', ok:d<=0.5, meas:d.toFixed(2)+' mm', target:'≤ 0.50 mm', researched:true, key:'defl'});
+    }
+  } else {
+    R.push({id:'max_deflection', check:'fea', kind:'waiting', meas:'—', target:'≤ 0.50 mm', note:'Proposed. Waiting on your confirmation.'});
+  }
+  if(!st.confirmed.includes('min_mass') && st.waiting) R.push({id:'min_mass', check:'mass', kind:'waiting', meas:'—', target:'≥ 50 g', note:'Proposed. Conflicts with the envelope; see the confirmation.'});
+  if(st.min_mass_kept){ const m = 1.24*(1.6*s.wall_mm+(s.gusset?0.6:0)); R.push({id:'min_mass', check:'mass', kind:'checked', ok:m>=50, meas:m.toFixed(1)+' g', target:'≥ 50 g'}); }
+  R.push({id:'two screw holes', check:'—', kind:'unverified', meas:'', target:'', note:'No check exists. Not counted as pass or fail.'});
+  if(s.pending){
+    const b = s.before||{};
+    return R.map(r=> r.kind==='checked' ? {...r, kind:'pending', before:b[r.id]} : r);
+  }
+  return R;
+}
+function snapshot(s, st){ const o={}; rows({...s,pending:false},st).forEach(r=>{ if(r.kind==='checked') o[r.id]=r.meas; }); return o; }
+function verdict(r){ if(r.kind==='checked') return r.ok?'pass':'fail'; return {waiting:'wait',unknown:'unk',pending:'pend',unverified:null}[r.kind]; }
+function standing(s, st){
+  const R = rows(s,st).filter(r=>r.kind!=='unverified');
+  const p = R.filter(r=>r.kind==='checked'&&r.ok).length, f = R.filter(r=>r.kind==='checked'&&!r.ok).length;
+  const other = R.length-p-f;
+  return {pass:p, fail:f, other, text:`${p} pass · ${f} fail${other?` · ${other} not decided`:''}`};
+}
+function allPass(s, st){ const R = rows(s,st).filter(r=>r.kind!=='unverified'); return R.length>0 && R.every(r=>r.kind==='checked'&&r.ok); }
+
+/* ---------- actions ---------- */
+let pendTimers = {};
+function say(n, who, text, extra){ n.chat.push({who, text, ...(extra||{})}); }
+function revise(idx, change, why, settleMs){
+  act('revise', n=>{
+    const s = n.slots[idx]; if(!s) return;
+    s.before = snapshot(s,n); s.revisions += 1; s.pending = true; Object.assign(s, change);
+    if(why) say(n,'agent', why);
+  });
+  clearTimeout(pendTimers[idx]);
+  pendTimers[idx] = setTimeout(()=>settle(idx), settleMs||2000);
+}
+function settle(idx){
+  act('settle', n=>{
+    const s = n.slots[idx]; if(!s) return;
+    if(!n.research.flexural_modulus && n.confirmed.includes('max_deflection')){
+      n.research.flexural_modulus = {value:'3.5 GPa', source:'NatureWorks Ingeo 4043D technical data sheet', quote:'Flexural Modulus, MPa (psi) 3500'};
+      say(n,'sys','research filled flexural_modulus(PLA) = 3.5 GPa from a fetched datasheet. Rows that use it are labelled researched.');
+    }
+    s.pending = false;
+    const st = standing(s,n);
+    if(n.auto.status==='running' && n.auto.slot===idx){
+      n.auto.history.push({revision:s.revisions, wall:s.wall_mm, standing:st.text, sf:sf(s).toFixed(2)});
+      n.auto.standing = st.text;
+    } else {
+      say(n,'agent',`v${s.slot} revision ${s.revisions} scored: ${st.text}.`, {card:'scorecard'});
+    }
+  });
+  if(S.auto.status==='running' && S.auto.slot===idx) autoAfterSettle();
+}
+function setMode(m){
+  act('mode', n=>{ n.mode=m; say(n,'sys',`mode → ${m[0].toUpperCase()+m.slice(1)}${m==='plan'?' · builds refused':''}`); });
+}
+function refusePlan(n, what){ say(n,'agent',`Plan mode refuses builds, so I did not ${what}. I can still revise requirements here. Switch to Design to build.`, {refuse:true}); }
+function send(text){
+  const t = text.trim(); if(!t) return;
+  const wall = t.match(/wall[^0-9]*(\d+(?:\.\d+)?)\s*mm/i);
+  act('send', n=>{ say(n,'you',t); });
+  if(wall){
+    if(S.mode==='plan'){ act('refuse', n=>refusePlan(n,'rebuild the wall')); return; }
+    if(S.auto.status==='running'){ act('busy', n=>say(n,'agent','An Auto run is revising this set. Stop it first, or wait for it to finish.')); return; }
+    const mm = parseFloat(wall[1]); const i = S.selected;
+    revise(i, {wall_mm:mm}, `Changing v${i+1}'s wall to ${mm} mm. Building revision ${(S.slots[i]?.revisions||0)+1}; every row turns pending until the checks finish.`);
+    return;
+  }
+  if(/variant|another|new/i.test(t)){ buildNew(); return; }
+  if(/auto/i.test(t)){ if(S.mode!=='auto') setMode('auto'); startAuto(); return; }
+  act('reply', n=>say(n,'agent', n.mode==='plan' ? 'Noted. In Plan mode I only propose requirements; anything I propose goes to your confirmation page.' : 'Try "make the wall 4 mm", "build another variant" or "start auto".'));
+}
+function buildNew(){
+  if(S.mode==='plan'){ act('refuse', n=>refusePlan(n,'build a variant')); return; }
+  const i = S.slots.findIndex(s=>!s);
+  if(i<0){ act('full', n=>say(n,'agent','All five slots hold a variant. A change becomes a revision of one of them.')); return; }
+  act('build', n=>{ const s = mkSlot(i+1,'wide foot',3.2,true,76,1.5,0.58); s.pending=true; s.before={}; n.slots[i]=s; n.selected=i; say(n,'agent',`Building v${i+1} in slot ${i+1}.`); });
+  clearTimeout(pendTimers[i]); pendTimers[i]=setTimeout(()=>settle(i),2000);
+}
+function confirmAll(){
+  act('confirm', n=>{
+    const keep = n.waiting.conflict.choice==='keep';
+    n.confirmed.push('max_deflection'); if(keep){ n.confirmed.push('min_mass'); n.min_mass_kept=true; }
+    n.waiting = null;
+    say(n,'sys',`you confirmed max_deflection and the unchecked screw-hole requirement${keep?', and kept min_mass despite the conflict':'; min_mass dropped'}.`);
+  });
+}
+let autoTimer = null;
+function startAuto(){
+  if(S.mode!=='auto'){ act('refuse', n=>say(n,'agent','Auto runs only in Auto mode. Switch the mode first.',{refuse:true})); return; }
+  if(S.auto.status==='running') return;
+  const i = S.selected; const s = S.slots[i];
+  if(!s){ act('noslot', n=>say(n,'agent','Select a slot with a variant first.')); return; }
+  if(S.min_mass_kept){
+    act('auto-conflict', n=>{ n.auto={status:'stopped',slot:i,revision:0,history:[],reason:'needs you · conflict', note:CONFLICT, report:'Stopped before any build. The confirmed targets cannot all hold: '+CONFLICT+'. Relax min_mass or the envelope.'}; say(n,'agent','Auto stopped before any build: your confirmed targets conflict.'); });
+    return;
+  }
+  act('auto-start', n=>{ n.auto={status:'running',slot:i,revision:0,startWall:s.wall_mm,history:[],standing:standing(s,n).text,reason:null,note:null,report:null}; say(n,'sys',`Auto run started on v${i+1}.`); });
+  tick();
+}
+function tick(){
+  clearTimeout(autoTimer);
+  autoTimer = setTimeout(()=>{
+    if(S.auto.status!=='running') return;
+    const i = S.auto.slot; const s = S.slots[i];
+    act('auto-rev', n=>{ n.auto.revision += 1; });
+    revise(i, {wall_mm: Math.round((s.wall_mm+0.25)*100)/100}, null, 1200);
+  }, 2000 - 1200);
+}
+function autoAfterSettle(){
+  const i = S.auto.slot, s = S.slots[i];
+  if(allPass(s,S)){ stopAuto('all pass'); return; }
+  if(S.auto.revision>=10){ stopAuto('agent asked', 'Ten wall increments brought the safety factor up but the wall now nears the envelope. Should I add a gusset instead, or relax max_deflection?'); return; }
+  tick();
+}
+function stopAuto(reason, note){
+  clearTimeout(autoTimer);
+  act('auto-stop', n=>{
+    const a = n.auto; if(a.status!=='running' && reason!=='sim') return;
+    const s = n.slots[a.slot];
+    const unv = 'two screw holes (unverified, no check)';
+    const res = n.research.flexural_modulus ? '\nmax_deflection passes on researched data (flexural_modulus 3.5 GPa, researched).' : '';
+    const lines = [`${a.revision} revision${a.revision===1?'':'s'} on v${a.slot+1} · wall ${a.startWall} → ${s.wall_mm} mm`,
+      ...a.history.map(h=>`  r${h.revision}  wall ${h.wall.toFixed(2)} mm  SF ${h.sf}  ${h.standing}`),
+      `Listed apart: ${unv}.`+(reason==='all pass'?res:'')];
+    a.status='stopped'; a.reason=reason; a.note=note||null; a.report=lines.join('\n');
+    if(s.pending){ /* a stop mid-build discards nothing; the revision still settles */ }
+    say(n,'agent', {
+      'all pass':`Auto stopped: every checked requirement passes on v${a.slot+1}.`,
+      'you stopped it':'You stopped the Auto run. Nothing more will build under it.',
+      'agent asked':'I stopped the run to ask you something.',
+      'needs you · conflict':'Auto stopped: confirmed targets conflict.',
+      'account limit':'Auto stopped: the account usage limit refused the next build.',
+    }[reason]||'Auto stopped.');
+  });
+}
+function simStop(reason){
+  if(S.auto.status!=='running'){ if(S.mode!=='auto') setMode('auto'); startAuto(); }
+  setTimeout(()=>{
+    if(reason==='needs you · conflict') stopAuto(reason, CONFLICT);
+    else if(reason==='agent asked') stopAuto(reason,'Thicker walls fix the safety factor but every gram pushes against max_mass. Which should I relax?');
+    else stopAuto(reason);
+  }, 50);
+}
+
+/* ---------- 3D viewer ---------- */
+function cssVar(name){ return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
+function buildBracket(group, s, pending){
+  while(group.children.length){ const c=group.children.pop(); c.geometry&&c.geometry.dispose(); c.material&&c.material.dispose(); }
+  const t = s.wall_mm, W=40, H=60, L=s.width_mm;
+  const mat = new THREE.MeshStandardMaterial({color:new THREE.Color(cssVar('--model')||'#ccc'), roughness:.75, metalness:.05, transparent:pending, opacity:pending?.55:1});
+  const edge = new THREE.LineBasicMaterial({color:new THREE.Color(cssVar('--model-edge')||'#222')});
+  const add = (geo, x,y,z, rz)=>{ const m=new THREE.Mesh(geo,mat.clone()); m.position.set(x,y,z); if(rz) m.rotation.z=rz; group.add(m); const e=new THREE.LineSegments(new THREE.EdgesGeometry(geo),edge.clone()); e.position.copy(m.position); e.rotation.copy(m.rotation); group.add(e); };
+  add(new THREE.BoxGeometry(t,H,W), t/2, H/2, 0);          // the wall leg, against the wall
+  add(new THREE.BoxGeometry(L-t,t,W), t+(L-t)/2, H-t/2, 0); // the shelf arm
+  if(s.gusset){ const g=Math.min(L,H)*0.62; const len=Math.hypot(g,g); add(new THREE.BoxGeometry(len,t,t*1.4), t+g/2-1, H-t-g/2+1, 0, Math.PI/4); }
+  // screw holes on the wall leg
+  const hole = new THREE.MeshBasicMaterial({color:new THREE.Color(cssVar('--model-edge')||'#222')});
+  [H*0.28,H*0.62].forEach(y=>{ const c=new THREE.Mesh(new THREE.CylinderGeometry(2.2,2.2,t+0.4,20),hole); c.rotation.z=Math.PI/2; c.position.set(t/2,y,0); group.add(c); });
+  // envelope 80x60x40
+  const env = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(80,60,40)), new THREE.LineDashedMaterial({color:new THREE.Color(cssVar('--envelope')||'#06c'),dashSize:2,gapSize:2,transparent:true,opacity:.6}));
+  env.position.set(40,30,0); env.computeLineDistances(); group.add(env);
+  // wall plane
+  const wall = new THREE.Mesh(new THREE.PlaneGeometry(70,90), new THREE.MeshBasicMaterial({color:new THREE.Color(cssVar('--grid')||'#999'),transparent:true,opacity:.35,side:THREE.DoubleSide}));
+  wall.rotation.y=Math.PI/2; wall.position.set(-0.2,30,0); group.add(wall);
+  group.position.set(-40,-30,0);
+}
+function Viewer({s, mini, theme}){
+  const ref = useRef(null); const R = useRef(null);
+  useEffect(()=>{
+    const el = ref.current;
+    const renderer = new THREE.WebGLRenderer({antialias:true, alpha:true});
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+    el.appendChild(renderer.domElement);
+    const scene = new THREE.Scene();
+    const cam = new THREE.PerspectiveCamera(32,1,1,2000);
+    scene.add(new THREE.HemisphereLight(0xffffff,0x444444,.75));
+    const dl = new THREE.DirectionalLight(0xffffff,.7); dl.position.set(80,120,90); scene.add(dl);
+    const group = new THREE.Group(); scene.add(group);
+    const o = {theta:0.75, phi:1.12, r: mini?250:230};
+    const place = ()=>{ cam.position.set(o.r*Math.sin(o.phi)*Math.sin(o.theta), o.r*Math.cos(o.phi), o.r*Math.sin(o.phi)*Math.cos(o.theta)); cam.lookAt(0,0,0); };
+    const render = ()=>{ place(); renderer.render(scene,cam); };
+    const size = ()=>{ const w=el.clientWidth,h=el.clientHeight; if(!w||!h) return; renderer.setSize(w,h,false); cam.aspect=w/h; cam.updateProjectionMatrix(); render(); };
+    const ro = new ResizeObserver(size); ro.observe(el);
+    let drag=null;
+    const down=e=>{ drag={x:e.clientX,y:e.clientY,t:o.theta,p:o.phi}; el.setPointerCapture(e.pointerId); el.style.cursor='grabbing'; if(mini) e.stopPropagation(); };
+    const move=e=>{ if(!drag) return; o.theta = drag.t - (e.clientX-drag.x)*0.01; o.phi = Math.max(0.2,Math.min(2.9, drag.p - (e.clientY-drag.y)*0.01)); render(); };
+    const up=()=>{ drag=null; el.style.cursor=''; };
+    const wheel=e=>{ if(mini) return; e.preventDefault(); o.r=Math.max(120,Math.min(500,o.r*(1+e.deltaY*0.001))); render(); };
+    el.addEventListener('pointerdown',down); el.addEventListener('pointermove',move); el.addEventListener('pointerup',up); el.addEventListener('pointercancel',up); el.addEventListener('wheel',wheel,{passive:false});
+    R.current = {renderer,scene,group,render,size};
+    return ()=>{ ro.disconnect(); renderer.dispose(); renderer.forceContextLoss&&renderer.forceContextLoss(); el.innerHTML=''; R.current=null; };
+  },[]);
+  useEffect(()=>{ const r=R.current; if(!r||!s) return; buildBracket(r.group, s, s.pending); r.size(); }, [s&&s.wall_mm, s&&s.gusset, s&&s.width_mm, s&&s.pending, theme]);
+  return html`<div className="viewer" ref=${ref} style=${mini?{}:{}}>
+    ${s && html`<div className="hud">v${s.slot} · r${s.revisions} · wall <b>${s.wall_mm.toFixed(2)} mm</b>${mini?'':` · ${s.label}`}</div>`}
+    ${s && s.pending && html`<div className="pendflag pulse">building…</div>`}
+    ${!mini && html`<div className="hint">drag to orbit · scroll to zoom · dashed box = envelope</div>`}
+  </div>`;
+}
+
+/* ---------- shared pieces ---------- */
+function Top({st, setTheme, theme}){
+  return html`<header className="top">
+    <span className="brand">cad<b>/</b>ws</span>
+    <span className="brief">brief <q>${BRIEF}</q></span>
+    <${ModeSwitch} st=${st}/>
+    <button className="ghostbtn" onClick=${()=>setTheme(theme==='dark'?'light':theme==='light'?'auto':'dark')}>theme: ${theme}</button>
+  </header>`;
+}
+function ModeSwitch({st}){
+  return html`<div className="seg" role="group" aria-label="mode">
+    ${['plan','design','auto'].map(m=>html`<button key=${m} aria-pressed=${st.mode===m} onClick=${()=>st.mode!==m&&setMode(m)}>${m[0].toUpperCase()+m.slice(1)}</button>`)}
+  </div>`;
+}
+function Scorecard({st, compact}){
+  const s = st.slots[st.selected];
+  if(!s) return html`<div className="sec"><h3><span>Scorecard</span></h3><div className="body empty-note">Empty slot.</div></div>`;
+  const R = rows(s,st); const main = R.filter(r=>r.kind!=='unverified'); const unv = R.filter(r=>r.kind==='unverified');
+  const sd = standing(s,st);
+  const row = r=>{ const v=verdict(r);
+    return html`<tr key=${r.id}>
+      <td><div className="req">${r.id}</div><div className="chk">${r.check}</div></td>
+      <td className="meas">${r.kind==='pending'
+          ? html`<span>… <span className="vs">vs ${r.target}</span></span>${r.before && html`<span className="ghost">before ${r.before}</span>`}`
+          : r.kind==='checked' ? html`<span>${r.meas} <span className="vs">vs ${r.target}</span></span>${r.researched && html`<span className="tag-res">${r.ok?'passes on researched data':'fails on researched data'}</span>`}`
+          : html`<span className="vs">${r.target}</span>${r.note && html`<span className="ghost">${r.note}</span>`}`}</td>
+      <td className="v">${v && html`<span className=${'chip '+v}>${{pass:'pass',fail:'fail',wait:'waiting on you',unk:'unknown',pend:'pending'}[v]}</span>`}</td>
+    </tr>`; };
+  return html`<div className="sec">
+    <h3><span>Scorecard · v${s.slot} r${s.revisions}</span><span className="scsum">${s.pending?'pending':sd.text}</span></h3>
+    <table className="sc"><tbody>${main.map(row)}</tbody></table>
+    ${unv.length>0 && html`<div className="scgroup">Unverified · no check exists</div><table className="sc"><tbody>${unv.map(r=>html`<tr key=${r.id}><td><div className="req">${r.id}</div></td><td className="note">${r.note}</td></tr>`)}</tbody></table>`}
+  </div>`;
+}
+function Strip({s, st}){
+  const R = rows(s,st).filter(r=>r.kind!=='unverified');
+  return html`<div className="strip">${R.map(r=>html`<i key=${r.id} className=${verdict(r)} title=${r.id}></i>`)}</div>`;
+}
+function Slots({st}){
+  return html`<div className="slots">${st.slots.map((s,i)=> s
+    ? html`<button key=${i} className="slot" aria-pressed=${st.selected===i} onClick=${()=>act('select',n=>{n.selected=i})}>
+        <div className="n">v${s.slot}${s.pending?html` <span className="pulse" style=${{color:'var(--wait)'}}>●</span>`:''}</div>
+        <div className="r">${s.revisions} rev</div><${Strip} s=${s} st=${st}/></button>`
+    : html`<button key=${i} className="slot empty" onClick=${buildNew}><div className="n">${i+1}</div><div className="r">empty · build</div></button>`)}</div>`;
+}
+function Auto({st, banner}){
+  const a = st.auto;
+  if(st.mode!=='auto' && a.status==='idle') return banner?null:html`<div className="auto"><div className="st"><div className="lbl">Auto run</div><div className="big muted">Switch to Auto mode to start a run.</div></div></div>`;
+  if(a.status==='running') return html`<div className="auto running">
+    <div className="st"><div className="lbl"><span className="dot"></span>Auto running · v${a.slot+1}</div>
+      <div className="big">revision <b>${a.revision}</b> · ${a.standing||'…'}</div></div>
+    <button className="stopbtn" onClick=${()=>stopAuto('you stopped it')}>STOP</button></div>`;
+  if(a.status==='stopped') return html`<div className="auto stopped">
+    <div className="st"><div className="lbl">Auto stopped</div><div className="reason">${a.reason}</div>
+      ${a.note && html`<div className="muted" style=${{fontSize:'13px'}}>${a.reason==='agent asked'?'Agent: ':''}“${a.note}”</div>`}</div>
+    ${st.mode==='auto' && html`<button className="startbtn" onClick=${()=>{act('reset',n=>{n.auto.status='idle'}); startAuto();}}>Run again</button>`}
+    <pre className="report">${a.report}</pre></div>`;
+  return html`<div className="auto"><div className="st"><div className="lbl">Auto run</div><div className="big muted">Idle. Revises v${st.selected+1} until a stop rule ends it.</div></div>
+    <button className="startbtn" onClick=${startAuto}>Start Auto</button></div>`;
+}
+function Waiting({st}){
+  const w = st.waiting;
+  if(!w) return html`<div className="sec"><h3><span>Waiting on you</span><span className="scsum">0</span></h3><div className="body empty-note">Nothing waiting.</div></div>`;
+  return html`<div className="sec"><h3><span>Waiting on you</span><span className="scsum" style=${{color:'var(--wait)'}}>${w.requirements.length}</span></h3><div className="body">
+    <ul className="wait-list">${w.requirements.map(r=>html`<li key=${r.id}><span className="req">${r.id}</span><span className="mono muted" style=${{fontSize:'12px'}}>${r.target}</span>
+      <blockquote>${r.quote[0]}<mark>${r.quote[1]}</mark>${r.quote[2]}</blockquote></li>`)}</ul>
+    <div className="conflict"><div className="lbl" style=${{color:'var(--wait)'}}>Conflict · proved before any build</div>
+      <div className="eq">${w.conflict.statement}</div>
+      <label><input type="radio" name=${'cf'} checked=${w.conflict.choice==='drop'} onChange=${()=>act('choice',n=>{n.waiting.conflict.choice='drop'})}/> drop min_mass</label>
+      <label><input type="radio" name=${'cf'} checked=${w.conflict.choice==='keep'} onChange=${()=>act('choice',n=>{n.waiting.conflict.choice='keep'})}/> keep it (Auto will stop before building)</label>
+    </div>
+    <button className="confirmbtn" onClick=${confirmAll}>CONFIRM</button>
+  </div></div>`;
+}
+function Msg({m, st, rich}){
+  const cls = 'msg '+(m.who==='you'?'you':m.who==='sys'?'sys':'agent')+(m.refuse?' refuse':'');
+  return html`<div className=${cls}><div className="who">${m.who==='sys'?'':m.who}</div><div className="txt">${m.text}</div>${rich}</div>`;
+}
+const SUGG = ['make the wall 4 mm','build another variant','start auto'];
+function Compose({onSend}){
+  const [v,setV] = useState('');
+  const go = t=>{ onSend(t); setV(''); };
+  return html`<div>
+    <form className="compose" onSubmit=${e=>{e.preventDefault(); go(v);}}>
+      <input value=${v} onInput=${e=>setV(e.target.value)} placeholder="Ask the agent…" aria-label="message"/>
+      <button type="submit">Send</button></form>
+    <div className="sugg">${SUGG.map(t=>html`<button key=${t} onClick=${()=>go(t)}>${t}</button>`)}</div></div>`;
+}
+function useAutoScroll(dep){ const r=useRef(null); useEffect(()=>{ if(r.current) r.current.scrollTop=r.current.scrollHeight; },[dep]); return r; }
+function Chat({st}){
+  const ref = useAutoScroll(st.chat.length);
+  return html`<div className="chat"><div className="msgs" ref=${ref}>${st.chat.map((m,i)=>html`<${Msg} key=${i} m=${m} st=${st}/>`)}</div><${Compose} onSend=${send}/></div>`;
+}
+function StatePanel({st}){
+  const view = {...st, chat: st.chat.slice(-4).concat([{note:`${st.chat.length} messages total, last 4 shown`}])};
+  return html`<details className="statep"><summary>state · last action: <b>${st.lastAction}</b></summary>
+    <div className="sim"><span className="lbl" style=${{alignSelf:'center'}}>simulate stop:</span>
+      ${['needs you · conflict','agent asked','account limit'].map(r=>html`<button key=${r} onClick=${()=>simStop(r)}>${r}</button>`)}
+      <button onClick=${()=>{ Object.values(pendTimers).forEach(clearTimeout); clearTimeout(autoTimer); act('reset all', n=>{ Object.assign(n, structuredClone(initial), {layout:n.layout}); }); }}>reset all</button></div>
+    <pre>${JSON.stringify(view,null,1)}</pre></details>`;
+}
+
+/* ---------- layouts ---------- */
+function LayoutA({st, theme}){
+  return html`<main className="A">
+    <div className="col chatcol"><div className="sec chatsec"><h3><span>Chat</span><span className="scsum">${st.mode}</span></h3><${Chat} st=${st}/></div></div>
+    <div className="col"><${Slots} st=${st}/><${Viewer} s=${st.slots[st.selected]} theme=${theme}/><${Auto} st=${st}/></div>
+    <div className="col right"><${Waiting} st=${st}/><${Scorecard} st=${st}/></div>
+  </main>`;
+}
+function LayoutB({st, theme}){
+  const [open,setOpen] = useState(false);
+  const last = st.chat[st.chat.length-1];
+  const ref = useAutoScroll(st.chat.length+(open?1:0));
+  return html`<main className="B">
+    <div className="bar"><${Auto} st=${st}/><${WaitingCompact} st=${st}/></div>
+    <div className="grid">${st.slots.map((s,i)=> s
+      ? html`<div key=${i} role="button" tabIndex="0" className="card" aria-pressed=${st.selected===i} onClick=${()=>act('select',n=>{n.selected=i})}>
+          <${Viewer} s=${s} mini theme=${theme}/>
+          <div className="meta"><div style=${{display:'flex',justifyContent:'space-between'}}><span className="n">v${s.slot} <span className="muted" style=${{fontWeight:400,fontFamily:'var(--sans)'}}>${s.label}</span></span><span className="r">${s.revisions} rev</span></div>
+          <${Strip} s=${s} st=${st}/><div className="scsum" style=${{marginTop:'4px'}}>${s.pending?'pending':standing(s,st).text}</div></div></div>`
+      : html`<button key=${i} className="card empty" onClick=${buildNew}>slot ${i+1} · empty<br/>build a variant</button>`)}</div>
+    <div className="detail"><${Viewer} s=${st.slots[st.selected]} theme=${theme}/><${Scorecard} st=${st}/></div>
+    <div className="drawer">
+      <button className="handle" onClick=${()=>setOpen(!open)} aria-expanded=${open}>
+        <span className="lbl">chat ${open?'▾':'▴'}</span><span className="last">${last.who==='you'?'you: ':''}${last.text}</span></button>
+      ${open && html`<div className="msgs" ref=${ref}>${st.chat.map((m,i)=>html`<${Msg} key=${i} m=${m} st=${st}/>`)}</div>`}
+      <${Compose} onSend=${send}/>
+    </div>
+  </main>`;
+}
+function WaitingCompact({st}){
+  const [open,setOpen]=useState(false);
+  const w = st.waiting;
+  if(!w) return html`<div className="auto"><div className="st"><div className="lbl">Waiting on you</div><div className="big muted">Nothing waiting.</div></div></div>`;
+  return html`<div>${open ? html`<${Waiting} st=${st}/>` : html`<div className="auto" style=${{borderColor:'var(--wait)'}}><div className="st"><div className="lbl" style=${{color:'var(--wait)'}}>Waiting on you · ${w.requirements.length} + 1 conflict</div>
+      <div className="mono" style=${{fontSize:'12px',overflowWrap:'anywhere'}}>${w.conflict.statement}</div></div>
+      <button className="startbtn" onClick=${()=>setOpen(true)}>Review & confirm</button></div>`}</div>`;
+}
+function LayoutC({st, theme}){
+  const lastIdx = k=>{ for(let i=st.chat.length-1;i>=0;i--) if(st.chat[i].card===k) return i; return -1; };
+  const live = {confirm:lastIdx('confirm'), slots:lastIdx('slots'), scorecard:lastIdx('scorecard')};
+  const ref = useRef(null);
+  useEffect(()=>{ window.scrollTo({top:document.body.scrollHeight}); },[st.chat.length]);
+  const card = (m,i)=>{
+    if(!m.card) return null;
+    if(live[m.card]!==i) return html`<div className="rich superseded">${m.card} · superseded by a newer card below</div>`;
+    if(m.card==='confirm') return html`<div className="rich"><${Waiting} st=${st}/></div>`;
+    if(m.card==='slots') return html`<div className="rich"><${Slots} st=${st}/><${Viewer} s=${st.slots[st.selected]} theme=${theme}/></div>`;
+    if(m.card==='scorecard') return html`<div className="rich"><${Scorecard} st=${st}/></div>`;
+  };
+  return html`<main className="C">
+    <div className="banner"><${Auto} st=${st} banner/></div>
+    <div className="thread" ref=${ref}>${st.chat.map((m,i)=>html`<${Msg} key=${i} m=${m} st=${st} rich=${card(m,i)}/>`)}</div>
+    <div className="composeC"><div className="inner"><${Compose} onSend=${send}/></div></div>
+  </main>`;
+}
+
+/* ---------- app ---------- */
+const LAYOUTS = ['A','B','C'];
+const NAMES = {A:'three-pane', B:'comparison', C:'chat-first'};
+function readHash(){ const h = location.hash.replace('#',''); return LAYOUTS.includes(h)?h:'A'; }
+function App(){
+  const st = useS();
+  const [layout,setLayout] = useState(readHash());
+  const [theme,setThemeS] = useState('auto');
+  const setTheme = t=>{ setThemeS(t); if(t==='auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme',t); };
+  useEffect(()=>{ const f=()=>setLayout(readHash()); window.addEventListener('hashchange',f); return()=>window.removeEventListener('hashchange',f); },[]);
+  const go = d=>{ const i=(LAYOUTS.indexOf(layout)+d+3)%3; location.hash = LAYOUTS[i]; };
+  useEffect(()=>{ const k=e=>{ const a=document.activeElement; if(a && (a.tagName==='INPUT'||a.tagName==='TEXTAREA'||a.isContentEditable)) return;
+      if(e.key==='ArrowLeft') go(-1); if(e.key==='ArrowRight') go(1); };
+    window.addEventListener('keydown',k); return()=>window.removeEventListener('keydown',k); },[layout]);
+  useEffect(()=>{ act('layout', n=>{ n.layout = layout; }); },[layout]);
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  const [sys,setSys] = useState(mq.matches);
+  useEffect(()=>{ const f=e=>setSys(e.matches); mq.addEventListener('change',f); return()=>mq.removeEventListener('change',f); },[]);
+  const eff = theme==='auto'?(sys?'dark':'light'):theme;
+  const L = {A:LayoutA,B:LayoutB,C:LayoutC}[layout];
+  return html`<${React.Fragment}>
+    <${Top} st=${st} theme=${theme} setTheme=${setTheme}/>
+    <${L} key=${layout} st=${st} theme=${eff}/>
+    <${StatePanel} st=${st}/>
+    <nav className=${'pill'+(layout!=='A'?' lift':'')} aria-label="prototype variant">
+      <button onClick=${()=>go(-1)} aria-label="previous variant">←</button>
+      <b style=${{padding:'0 4px'}}>${layout}</b><span>${NAMES[layout]}</span>
+      <button onClick=${()=>go(1)} aria-label="next variant">→</button></nav>
+  </${React.Fragment}>`;
+}
+ReactDOM.createRoot(document.getElementById('root')).render(html`<${App}/>`);
+})();
+</script>
