@@ -79,6 +79,7 @@ def test_closed_solid_reason_names_every_failing_term() -> None:
         "free_edges": 2,
         "over_used_edges": 1,
         "valid": 0,
+        "inside_out_solids": 0,
     }
 
 
@@ -165,10 +166,20 @@ def test_mass_never_guesses_a_density() -> None:
     ]
 
 
-@pytest.mark.parametrize("volume", [0.0, -5.0, math.nan, math.inf])
-def test_mass_fails_a_volume_that_is_not_positive_and_finite(volume: float) -> None:
-    kernel = FakeKernel(props=VolumeProps(volume, (0.0, 0.0, 0.0)))
-    assert checked(kernel)["mass"]["verdict"] == "fail"
+@pytest.mark.parametrize(
+    ("volume", "closed", "mass"),
+    [
+        (0.0, "fail", "unknown"),
+        (-5.0, "fail", "unknown"),
+        (math.nan, "fail", "unknown"),
+        (math.inf, "pass", "fail"),
+    ],
+)
+def test_no_check_passes_a_volume_that_is_not_positive_and_finite(
+    volume: float, closed: str, mass: str
+) -> None:
+    results = checked(FakeKernel(props=VolumeProps(volume, (0.0, 0.0, 0.0))))
+    assert (results["closed_solid"]["verdict"], results["mass"]["verdict"]) == (closed, mass)
 
 
 @pytest.mark.parametrize(
