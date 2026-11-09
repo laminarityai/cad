@@ -48,7 +48,7 @@ The phase 4 exit, "Auto mode stops correctly on a brief whose requirements confl
 
 ## Amendment 2026-11-09: the person can stop a run
 
-Status: Accepted. The operator directed on 2026-11-09 that the person gets a Stop button for an Auto run, and that leaving Auto mode stops the run through the same path. This amendment records that direction.
+Status: Accepted. The operator directed on 2026-11-09 that the person gets a Stop button for an Auto run, and that leaving Auto mode stops the run through the same path. The operator approved this amendment, including how the agent token carries the mode, on 2026-11-09.
 
 A run also stops in a fourth case:
 
