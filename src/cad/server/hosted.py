@@ -29,6 +29,9 @@ from mcp.server.auth.settings import AuthSettings
 from mcp.server.transport_security import TransportSecuritySettings
 from pydantic import AnyHttpUrl
 from starlette.applications import Starlette
+from starlette.requests import Request
+from starlette.responses import JSONResponse
+from starlette.routing import Route
 
 from cad.accounts import lease
 from cad.accounts.clerk import PUBLIC_URL, PUBLISHABLE_KEY, clerk_issuer
@@ -100,11 +103,32 @@ def build_app(issuer: Issuer, tenants: Tenants) -> Starlette:
             allowed_origins=[f"{public.scheme}://{public.netloc}"],
         )
     )
+    app.router.routes.insert(0, _resource_metadata(issuer))
     scorecard = next(one for one in OPERATIONS if one.name == "scorecard")
     app.router.routes.append(
         person_route("/v1/variants/{variant_id}/scorecard", scorecard, verifier.person, tenants.of)
     )
     return app
+
+
+def _resource_metadata(issuer: Issuer) -> Route:
+    """RFC 9728 metadata naming Clerk's issuer exactly as its tokens' `iss` does. The SDK's own
+    route holds it as a pydantic URL, which appends `/` to a bare origin, and Clerk refuses an
+    authorization server that does not match its issuer. This route is matched first."""
+    metadata = {
+        "resource": issuer.resource,
+        "authorization_servers": [issuer.url],
+        "bearer_methods_supported": ["header"],
+    }
+
+    async def handle(_: Request) -> JSONResponse:
+        return JSONResponse(metadata, headers={"Cache-Control": "public, max-age=3600"})
+
+    return Route(
+        f"/.well-known/oauth-protected-resource{urlsplit(issuer.resource).path}",
+        handle,
+        methods=["GET"],
+    )
 
 
 def choose_issuer(root: Path, host: str, port: int, environ: Mapping[str, str]) -> Issuer:

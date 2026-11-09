@@ -1,5 +1,6 @@
 from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -83,6 +84,16 @@ async def test_the_metadata_names_the_issuer_and_mcp_challenges_without_a_token(
     assert metadata["authorization_servers"] == ["http://127.0.0.1/cad-local-issuer"]
     assert challenged.status_code == 401
     assert "oauth-protected-resource/mcp" in challenged.headers["www-authenticate"]
+
+
+async def test_the_metadata_names_a_bare_origin_issuer_exactly(
+    local: LocalIssuer, tenants: Tenants
+) -> None:
+    clerk = replace(local.issuer(), url="https://neat-beetle-7570.clerk.accounts.dev")
+    async with http(build_app(clerk, tenants)) as client:
+        metadata = (await client.get("/.well-known/oauth-protected-resource/mcp")).json()
+    assert metadata["authorization_servers"] == ["https://neat-beetle-7570.clerk.accounts.dev"]
+    assert metadata["resource"] == MCP
 
 
 async def test_a_session_token_on_mcp_gets_401(app: Starlette, local: LocalIssuer) -> None:
