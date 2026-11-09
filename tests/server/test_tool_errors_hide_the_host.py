@@ -76,7 +76,8 @@ async def test_an_unusable_store_names_the_variant_and_the_kind_and_no_host_path
     tmp_path: Path, caplog: pytest.LogCaptureFixture
 ) -> None:
     locked = tmp_path / "locked"
-    locked.mkdir(mode=0o555)
+    (locked / "usage").mkdir(parents=True)
+    locked.chmod(0o555)
     root = locked / "variants"
     text = await call("build_variant", root, "", "locked store")
     locked.chmod(0o755)
