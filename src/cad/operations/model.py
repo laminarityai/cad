@@ -1,12 +1,13 @@
 import inspect
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Flag, auto
 from pathlib import Path
 from typing import TypeAliasType
 
 from pydantic import BaseModel, ConfigDict
 
+from cad.checks.jobs import Meter, Unmetered
 from cad.confirmations.ballot import Desk
 from cad.context_parts.store import Ingest
 from cad.records.roots import Roots
@@ -26,6 +27,7 @@ class Tenant:
     variants: Path
     desk: Desk
     ingest: Ingest
+    meter: Meter = field(default_factory=Unmetered)
 
 
 class Input(BaseModel):
