@@ -5,10 +5,16 @@ from typing import Any
 import pytest
 from mcp import Client
 
+from cad.operations.guidance import (
+    CONTEXT_PARTS,
+    NOT_VERIFIED,
+    PLAN_MODE,
+    RESEARCH,
+    RULE,
+    TEST_MODE,
+)
 from cad.sandbox.outcome import Build, Built
-from cad.scorecard import score
-from cad.server.app import NOT_VERIFIED, RESEARCH, RULE, TEST_MODE, build_server
-from cad.server.brief_tools import PLAN_MODE
+from cad.server.app import build_server
 from cad.tables.materials import load_materials
 from cad.variants import entry
 
@@ -82,8 +88,7 @@ async def test_build_then_score_returns_the_scorecard_it_stored(tmp_path: Path) 
         "mass": "pass",
         "extents": "pass",
     }
-    stored = json.loads((tmp_path / variant_id / score.SCORECARD).read_text())
-    assert stored == scored.structured_content
+    assert not list((tmp_path / variant_id).glob("scorecard*"))
 
 
 async def test_scoring_a_variant_an_older_sandbox_stored_names_the_rebuild_and_its_source(
@@ -102,9 +107,7 @@ async def test_scoring_a_variant_an_older_sandbox_stored_names_the_rebuild_and_i
     assert scored.structured_content["rebuilt_from"] == old
     new = built.structured_content["variant_id"]
     assert scored.structured_content["variant_id"] == new
-    assert json.loads((tmp_path / new / score.SCORECARD).read_text()) == scored.structured_content
     assert (tmp_path / old / entry.CODE).read_text() == PLATE
-    assert not (tmp_path / old / score.SCORECARD).exists()
 
 
 async def test_a_failed_rebuild_is_an_error_naming_both_ids_and_no_host_path(
@@ -198,8 +201,8 @@ async def test_a_well_formed_key_missing_from_the_table_scores_with_mass_unknown
 
 async def test_the_score_variant_description_claims_no_more_than_the_server_does() -> None:
     description = await listed_description("score_variant")
-    assert "or a stored scorecard" not in description
-    assert "the server never reads one back" in description
+    assert "stored scorecard" not in description
+    assert "store the scorecard" not in description
     assert (
         "while the materials table, the sandbox image and the confirmed requirements are unchanged"
         in description
@@ -228,5 +231,7 @@ async def test_an_unreadable_materials_table_lists_nothing_and_shows_no_host_pat
 async def test_the_server_tells_every_client_that_only_check_results_are_measurements() -> None:
     async with Client(build_server()) as client:
         instructions = client.instructions
-    assert instructions == " ".join((RULE, PLAN_MODE, TEST_MODE, RESEARCH, NOT_VERIFIED))
+    assert instructions == " ".join(
+        (RULE, PLAN_MODE, CONTEXT_PARTS, TEST_MODE, RESEARCH, NOT_VERIFIED)
+    )
     assert (await listed_description("score_variant")).endswith(f"{RULE} {NOT_VERIFIED}")

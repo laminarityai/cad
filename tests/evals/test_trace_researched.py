@@ -1,8 +1,18 @@
+import json
 from datetime import date
 from pathlib import Path
 
 import pytest
-from cards import BRIEF_TEXT, KEY, genuine_card, lines, roots_beside, table
+from cards import (
+    BRIEF_TEXT,
+    KEY,
+    genuine_card,
+    lines,
+    roots_beside,
+    table,
+    transcript_of,
+    write_transcript,
+)
 from mcp import Client
 from provenance import BoundStep, CardTrace, ResearchedStep, Resolved, trace_card
 from trace_store import SPEC_BY_ID, main
@@ -16,7 +26,7 @@ from cad.research.fetch import Page
 from cad.research.overlay import project_table
 from cad.research.requests import request_for
 from cad.research.submit import Question, ResearchAccepted, submit
-from cad.scorecard import material, score
+from cad.scorecard import material
 from cad.scorecard.model import AwaitingConfirmation
 from cad.server.app import build_server
 from cad.tables.materials import UNITS, Known, MaterialsTable
@@ -29,6 +39,7 @@ QUOTE = "Poisson's ratio 0.36"
 def arguments_for(store: Path) -> list[str]:
     roots = roots_beside(store)
     return [
+        str(transcript_of(store)),
         "--root",
         str(store),
         "--briefs-root",
@@ -39,7 +50,7 @@ def arguments_for(store: Path) -> list[str]:
 
 
 @pytest.mark.anyio
-async def test_a_card_the_server_stored_through_score_variant_traces(
+async def test_a_card_the_server_returned_through_score_variant_traces(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
     store = tmp_path / "store"
@@ -47,10 +58,11 @@ async def test_a_card_the_server_stored_through_score_variant_traces(
     async with Client(build_server(store, roots_beside(store))) as client:
         built = await client.call_tool("build_variant", {"code": PLATE})
         assert built.structured_content is not None
-        await client.call_tool(
+        scored = await client.call_tool(
             "score_variant",
             {"variant_id": built.structured_content["variant_id"], "material_key": KEY},
         )
+    write_transcript(store, json.dumps(scored.structured_content))
     assert main(arguments_for(store)) == 0
     assert "cards unreadable: 0, unbound: 0, incomplete: 0" in lines(capsys)
 
@@ -105,7 +117,7 @@ def stored_researched_card(store: Path) -> tuple[material.ReportedScorecard, Mat
         basis=AwaitingConfirmation(brief_id=brief_id),
     )
     reported = material.reported(card, None)
-    score.store(reported, store)
+    write_transcript(store, reported)
     return reported, scored
 
 

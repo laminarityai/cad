@@ -1,6 +1,6 @@
 import json
 
-from cad.server.app import REPO_ROOT
+from cad.operations.server import REPO_ROOT
 
 MCP_CONFIG = REPO_ROOT / ".mcp.json"
 

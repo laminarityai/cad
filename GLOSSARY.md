@@ -33,8 +33,16 @@ One candidate design produced for a brief.
 _Avoid_: Option, candidate, design
 
 **Variant set**:
-The variants built for one brief against the requirements the user confirmed, which the user compares side by side. A set holds at most five. Requirements confirmed later start a new set. A variant keeps its place in its set when a server update gives its code a new variant id.
+The variants built for one brief against the requirements the user confirmed, which the user compares side by side. A set holds at most five, one per slot. Requirements confirmed later start a new set. A variant keeps its place in its set when a server update gives its code a new variant id.
 _Avoid_: Design, batch, group, shortlist
+
+**Slot**:
+A place in a variant set, numbered 1 to 5, that keeps its number for as long as the set lives. It shows the latest revision of the variant the user is working on there.
+_Avoid_: Position, index
+
+**Revision**:
+One signed entry in a slot's history, made when new code is built into the slot. A change the user asks for in chat adds a revision to the slot it changes and takes no new slot. Earlier revisions stay readable.
+_Avoid_: Version, edit, draft
 
 **Check**:
 A fixed, deterministic test of a variant against a requirement or an engineering standard, which the agent cannot change.
@@ -74,7 +82,7 @@ A document, datasheet, table or standard that a requirement or check cites, eith
 _Avoid_: Reference, citation, research
 
 **Template**:
-A family of designs controlled by parameters, from which variants are made.
+A family of designs controlled by parameters, which an engineering skill may bundle as a starting point for variants. The first version has none. A person changes a variant by asking in chat, and the agent edits its code.
 _Avoid_: Model, generator
 
 ## Modes
@@ -86,10 +94,10 @@ A setting on the conversation that decides what the agent does next and when it 
 The agent asks questions and turns the brief into requirements, without making geometry. It ends when the user confirms the requirements.
 
 **Design mode**:
-The default mode. The agent makes variants, runs checks, shows scorecards, and stops for the user to pick or tune.
+The default mode. The agent makes variants, runs checks, shows scorecards, and stops for the user to pick a variant or ask for a change.
 
 **Auto mode**:
-The agent revises variants against the checks without stopping, until every requirement passes, it needs a decision from the user, or it stops making progress.
+The agent revises variants against the checks without stopping, until every requirement passes, it needs a decision from the user, or it judges that it is stuck. An account's usage limit also ends a run when it refuses a build.
 
 **Test mode**:
 Deeper, slower analysis of one chosen variant, such as full FEA, tolerance stack-ups and slicing.

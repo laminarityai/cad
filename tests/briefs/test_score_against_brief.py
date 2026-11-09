@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from cad.scorecard import score
+from cad.checks import job_store
 
 if TYPE_CHECKING:
     from conftest import Person, Session
@@ -44,8 +44,8 @@ async def proposed(s: Session) -> tuple[str, str]:
     return created["brief_id"], created["project_id"]
 
 
-def card_path(s: Session, variant_id: str) -> Path:
-    return s.roots.briefs.parent / "variants" / variant_id / score.SCORECARD
+def jobs_path(s: Session, variant_id: str) -> Path:
+    return s.roots.briefs.parent / "variants" / variant_id / job_store.JOBS
 
 
 async def test_a_score_with_no_brief_says_so_and_judges_nothing(s: Session) -> None:
@@ -91,7 +91,7 @@ async def test_a_confirmed_brief_is_judged_requirement_by_requirement(
             "verdict": "pass",
         }
     ]
-    assert card_path(s, variant_id).is_file()
+    assert jobs_path(s, variant_id).is_dir()
 
 
 @pytest.mark.parametrize(
@@ -106,7 +106,7 @@ async def test_a_brief_the_store_cannot_show_is_refused_before_any_check_runs(
         "score_variant", variant_id=variant_id, material_key="prusament-pla", brief_id=brief_id
     )
     assert refusal in text
-    assert not card_path(s, variant_id).exists()
+    assert not jobs_path(s, variant_id).exists()
 
 
 async def test_a_tampered_brief_is_refused_before_any_check_runs(s: Session) -> None:
@@ -117,4 +117,4 @@ async def test_a_tampered_brief_is_refused_before_any_check_runs(s: Session) -> 
         "score_variant", variant_id=variant_id, material_key="prusament-pla", brief_id=brief_id
     )
     assert "TamperedBrief" in text
-    assert not card_path(s, variant_id).exists()
+    assert not jobs_path(s, variant_id).exists()

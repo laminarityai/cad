@@ -1,10 +1,17 @@
 from collections.abc import Iterable
 from typing import Final
 
-from cad.checks.container import closed_solid, extents, fea, interference, mass
+from cad.checks.container import closed_solid, extents, fea, fit, interference, mass
 from cad.checks.container.check import CheckModule
 
-CHECKS: Final[tuple[CheckModule, ...]] = (closed_solid, interference, mass, extents, fea)
+CHECKS: Final[tuple[CheckModule, ...]] = (
+    closed_solid,
+    interference,
+    mass,
+    extents,
+    fea,
+    fit,
+)
 
 
 def with_requirements(check_ids: Iterable[str]) -> tuple[CheckModule, ...]:

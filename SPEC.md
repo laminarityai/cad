@@ -7,7 +7,7 @@ Nov 5, 2026 · @Kevin · revised after a grilling session, and on Nov 7 to make 
 We are building an AI engineer that turns what you ask for into several engineering-checked designs to choose from. Pitch: CAD at the speed of thought, with the engineering already done.
 
 - **Who it's for:** early CADders, such as students, makers and hobbyists, who can describe what a part must do but can't yet model it fast or size it confidently. The bar is that a working engineer would trust the same output.
-- **What it does:** turns a brief into 3 to 5 parametric variants, checks each one, shows every result with its math, lets you tune the chosen one live, and sends it to Onshape.
+- **What it does:** turns a brief into 3 to 5 parametric variants, checks each one, shows every result with its math, changes the chosen one when you ask in chat, and sends it to Onshape.
 - **How it should feel:** simpler, faster and easier than CAD, most of all in the slow parts of prototyping and testing. The agent does the work and asks you only for the decisions that need a person. If you have to take a step the product could have taken, we have failed.
 - **How it stays honest:** the agent proposes designs, and checks it cannot change decide whether they pass. Each scorecard lists every requirement that no reviewed check covers, so a design never looks more checked than it is.
 - **What it is not:** a new CAD program, a text-to-mesh generator, or a blueprint-to-CAD converter.
@@ -31,7 +31,7 @@ The full user research is in the report *AI CAD harness user needs*. The knowled
 2. **Requirements.** The agent turns the brief into checkable requirements and shows where each one came from. You confirm them.
 3. **Variants.** The agent builds 3 to 5 parametric variants.
 4. **Checks.** Every variant gets a scorecard. This step is what sets us apart.
-5. **Tune and export.** You pick a variant, tune it with sliders, and send it to Onshape.
+5. **Change and export.** You pick a variant, ask in chat for any change, and send it to Onshape. The agent edits the variant and rebuilds it, and the checks run again.
 
 Attachments are context, not input to convert. The agent reads them for intent and dimensions, and every dimension it takes from an image becomes a requirement you confirm, with the others, before any variant is built.
 
@@ -55,8 +55,8 @@ Friction is a defect. The one step the agent cannot take for you is confirming w
 You switch modes in the chat, the way you switch modes in Claude Code.
 
 - **Plan mode.** The agent asks questions and turns the brief into requirements, without making geometry. It ends when you confirm the requirements.
-- **Design mode** is the default. The agent makes variants, runs checks, shows scorecards, and stops for you to pick or tune.
-- **Auto mode.** The agent revises variants against the checks without stopping. It stops in exactly three cases. The first is that every requirement passes. The second is that it needs a decision only you can make, such as relaxing one of two conflicting requirements, changing something you set, or using a source it found. The third is that three revisions in a row improved no failing requirement, in which case it reports what it tried and asks how to proceed. There is no budget.
+- **Design mode** is the default. The agent makes variants, runs checks, shows scorecards, and stops for you to pick a variant or ask for a change.
+- **Auto mode.** The agent revises variants against the checks without stopping. It stops in three cases. The first is that every requirement passes, which the checks decide. The second is that it needs a decision only you can make, such as relaxing one of two conflicting requirements, changing a requirement you confirmed, or using a source it found. The third is that the agent judges it is stuck, in which case it reports what it tried and asks how to proceed. There is no budget. An account's usage limit also ends a run when it refuses a build.
 - **Test mode.** Deeper, slower analysis of one chosen variant, such as full FEA, tolerance stack-ups and slicing.
 
 ### Checks
@@ -91,9 +91,8 @@ A number the agent takes from a web page fills a missing value only as a researc
 The MCP server is the product ([ADR-0002](docs/adr/0002-mcp-server-is-the-product.md)). Every capability is an MCP tool: making variants, running checks, reading tables and the knowledge base, and exporting to Onshape. Our web app's agent is the first client and uses the same interface as Claude Code or any other MCP client. Because checks run on the server, any agent that connects can do the engineering but cannot grade its own work.
 
 - **Sandbox.** Every variant is Python written by an AI. The server runs it in a locked-down container with no network access and with time and memory limits. This is a security requirement from the first release.
-- **Hosted, with accounts.** The first version is hosted only. The web app and MCP clients both sign in, and accounts carry usage limits because FEA and slicing cost compute. Accounts and usage limits ship in phase 3.
+- **Hosted, with accounts.** The first version is hosted only. The web app and MCP clients both sign in through Clerk with Google, and accounts carry usage limits because FEA and slicing cost compute. Accounts and usage limits ship in phase 4.
 - **Modes travel as guidance.** Outside clients get the tools and the same checks. They also get the modes and stopping rules as guidance, but only our own agent enforces them.
-- **Sliders skip the model.** A slider change calls the tool server directly and rebuilds without calling the LLM.
 - **Long jobs stream.** FEA and slicing take seconds to minutes, so they run as background jobs and the scorecard fills in as results arrive.
 
 ## Stack
@@ -114,8 +113,9 @@ Python on the backend, because the CAD kernel, FEA and slicer wrappers all have 
 | LLM | Model-agnostic through MCP | Our bake-off ran Claude Sonnet and Opus at about $0.01 per generated part | Route cheap edits to a small model later |
 | Viewer | three-cad-viewer (the viewer inside [OCP CAD Viewer](https://pypi.org/project/ocp-vscode/4.1.0/)) | Built for build123d B-rep: picking, measuring, part tree | [OCP.wasm](https://github.com/Yeicor/OCP.wasm) (active as of Sep 2026) for in-browser build123d later |
 | App | FastAPI backend, React front end, job queue for FEA and slicing | Long jobs run in the background and stream results | None needed |
+| Sign-in | [Clerk](https://clerk.com/docs/guides/ai/mcp/connect-mcp-client), with Google sign-in | Clerk is the OAuth 2.1 authorization server for MCP clients, with client registration and a consent screen, so our server only verifies its tokens | Supabase Auth (open source, newer OAuth server); Better Auth, which would need a Node service |
 | Onshape link | Onshape REST API (STEP import, translated into Onshape parts) | You stay in Onshape for the rest of your design | An Onshape extension panel later; it is an iframe inside Onshape, and App Store listing needs OAuth2 |
-| History | Git per design: each variant a branch, each edit a commit | Diffs and undo for free; regression checks run on every commit | None needed |
+| History | A signed log of revisions per variant slot; each chat edit adds one | Enough to show what changed and go back, with no git process per design. Git waits until someone needs a diff the log cannot give | None needed |
 
 ## Build plan
 
@@ -125,10 +125,10 @@ The first version is built in five phases, in this order. Each phase ends when i
    - Exit: Claude Code, connected to the server, produces scorecards for the 10 bake-off parts that agree with the bake-off grader, and the sandbox blocks network access and enforces its limits.
 2. **Briefs, requirements and scorecards.** Plan mode, 3 to 5 variants, scorecards that list unverified requirements, sources and researched values, the knowledge base, agent-written checks with per-project review, and context parts with the fit check.
    - Exit: on the private brief set, across at least five domains, every number on every scorecard traces to a confirmed source. The one exception is an agent's own measurement, which is counted as not verified.
-3. **Physics and manufacturing.** FEA under stated loads, printability checks, slicer cost and print time, Test mode, and accounts with usage limits.
+3. **Physics and manufacturing.** FEA under stated loads, slicer cost and print time, and Test mode.
    - Exit: FEA results land within a stated error of hand calculations on beam and plate cases with known answers.
-4. **Web app.** Chat, 3D viewer, scorecards, sliders, the mode switcher, and Auto mode with its stopping rules.
-   - Exit: a slider change rebuilds in under 1 second, and Auto mode stops correctly on a brief whose requirements conflict.
+4. **Web app.** Chat, 3D viewer, scorecards, the mode switcher, Auto mode with its stopping rules, and accounts with usage limits.
+   - Exit: a change asked for in chat rebuilds the variant and updates its scorecard without a page reload, and Auto mode stops correctly on a brief whose requirements conflict.
 5. **Onshape.** Send to Onshape through the REST API.
    - Exit: someone who doesn't use CAD designs and prints a working part from a brief, and an engineer reads its scorecard and agrees with it.
 
@@ -145,6 +145,7 @@ The canonical private brief set is the 20 per-brief files in `~/cad-evals/briefs
 - Robot simulation export and comparing predictions with measured test data.
 - The Onshape extension panel.
 - Self-hosting the server.
+- Printability checks. You know your printer better than we do, many designs are never printed, and the product's job is the design.
 - Drawing generation, CNC and sheet-metal quotes, and SolidWorks and Fusion plugins.
 
 ## Risks
@@ -153,8 +154,8 @@ The canonical private brief set is the 20 per-brief files in `~/cad-evals/briefs
 - **Licensed standards.** ASME, ISO, AGMA and DIN documents are paid. We implement formulas and cite the clause, and never ship a standard's text or tables. DIN also forbids AI use of its documents, which matters when users upload standard PDFs.
 - **Silent edit damage.** About 64% of edits that look successful break unrelated features ([BenchCAD](https://arxiv.org/html/2605.10865v1)), so regression checks run on every commit.
 - **Running AI-written code.** Every variant is code an AI wrote, and outside MCP clients can send code too. The sandbox ships in phase 1.
-- **Compute cost.** Any MCP client can trigger FEA and slicing on our servers, so accounts and usage limits ship in phase 3, the phase that adds FEA and slicing.
-- **Auto mode has no hard stop.** If the stuck detection has a bug, Auto mode can loop and spend without limit. Watch run lengths and costs from the first Auto run.
+- **Compute cost.** Any MCP client can trigger FEA and slicing on our servers, so accounts and usage limits ship in phase 4, the phase that hosts the server.
+- **Auto mode relies on the agent to stop.** If the agent never judges itself stuck, a run keeps spending until the account's usage limit refuses a build. Watch run lengths and costs from the first Auto run.
 - **Speed.** FEA and slicing take seconds to minutes. The scorecard fills in as results arrive while the viewer stays live.
 - **Onshape API limits.** Onshape tracks API usage per user or company. Check the published limits before relying on live sync.
 - **Vendor terms.** Most vendors' data terms are unknown. The data policy above holds until each vendor gives written permission.
@@ -163,6 +164,5 @@ The canonical private brief set is the 20 per-brief files in `~/cad-evals/briefs
 
 - [ ] What do novices actually get wrong, such as fits, wall thickness or fastener sizing?
 - [ ] Which domain gets the first engineering skill?
-- [ ] Is three revisions without progress the right stuck threshold for Auto mode?
 - [ ] Will WCP, REV, igus, Misumi and SDP-SI give written permission to build catalogs from their data?
 - [ ] Do we keep checks and tables private or open-source them? The answer decides whether self-hosting makes sense.

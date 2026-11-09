@@ -1,0 +1,66 @@
+url: https://www.mcam.com/mam/63654/GEP-Ertacetal™%20C%20POM-C_en_US.pdf
+   
+Note: 1 g/cm³ = 1,000 kg/m³ ; 1 MPa = 1 N/mm² ; 1 kV/mm = 1 MV/m NYP: there is no yield point
+Acetron  GP/Ertacetal  C POM-C
+Copolymer Polyoxymethylene
+Acetron  GP POM-C/Ertacetal  C POM-C is a general purpose polyoxymethylene, copolymer acetal grade that is often favored for its porosity- 
+free nature. These POM-C shapes also offer low moisture absorption and excellent machinability capabilities, making it a very versatile material 
+that can excel in a multitude of environments. Due to these characteristics, Acetron  GP/Ertacetal  C POM-C components are used frequently for 
+food contact applications and meet FDA compositional compliance requirements.
+ISO* ASTM*
+Test methods Units Indicative values Test methods Units Indicative values
+Melting temperature (DSC, 10°C (50°F) / min) ISO 11357-1/-3 °C 165 ASTM D3418 °F 335
+Glass transition temperature (DMA- Tan δ) (2) °C °F
+Thermal conductivity at 23°C (73°F) W/(K.m) 0.31 BTU in./(hr.ft².°F) 1.6
+Coefficient of linear thermal expansion (-40 to 150 °C) (-40 to 300°F) ASTM E-831 (TMA) µin./in./°F 54
+Coefficient of linear thermal expansion (23 to 100°C) (73°F to 210°F) µm/(m.K) 125
+Coefficient of linear thermal expansion (23 to 150°C) (73°F to 300°F) µm/(m.K)
+Coefficient of linear thermal expansion (>150°C) (> 300°F) µm/(m.K)
+Heat Deflection Temperature: method A: 1.8 MPa (264 PSI) ISO 75-1/-2 °C 100 ASTM D648 °F 220
+Continuous allowable service temperature in air (20.000 hrs) (3) °C 100 °F 210
+Min. service temperature (4) °C -50 °F
+Flammability: UL 94 (3 mm (1/8 in.)) (5) HB HB
+Flammability: Oxygen Index ISO 4589-1/-2 % 15
+Tensile strength ISO 527-1/-2 (7) MPa 66 ASTM D638 (8) PSI 9,500
+Tensile strain (elongation) at yield ISO 527-1/-2 (7) % 15 ASTM D638 (8) % 11
+Tensile strain (elongation) at break ISO 527-1/-2 (7) % 40 ASTM D638 (8) % 40
+Tensile modulus of elasticity ISO 527-1/-2 (9) MPa 3,000 ASTM D638 (8) KSI 400
+Shear Strength ASTM D732 MPa 55 ASTM D732 PSI 8,000
+Compressive stress at 1 / 2 / 5 % nominal strain ISO 604 (10) MPa 23 / 40 / 72
+Compressive strength ASTM D695 (11) PSI 13,500
+Charpy impact strength - unnotched ISO 179-1/1eU kJ/m² no break
+Charpy impact strength - notched ISO 179-1/1eA kJ/m² 8.0
+Izod Impact notched ASTM D256 ft.lb./in 1.00
+Flexural strength ISO 178 (12) MPa 91 ASTM D790 (13) PSI 12,000
+Flexural modulus of elasticity ISO 178 (12) MPa 2,660 ASTM D790 KSI 400
+Rockwell M hardness (14) ISO 2039-2 84 ASTM D785 88
+Rockwell R hardness (14) ISO 2039-2 ASTM D785 120
+Electric strength IEC 60243-1 (15) kV/mm 20 ASTM D149 Volts/mil 420
+Volume resistivity IEC 62631-3-1 Ohm.cm 10^14 ASTM D257 Ohm.cm
+Surface resistivity ANSI/ESD STM 11.11 Ohm 10^13 ANSI/ESD STM 11.11 Ohm 10^13
+Dielectric constant at 1 MHz IEC 62631-2-1 3.8 ASTM D150 3.8
+Dissipation factor at 1MHz IEC 62631-2-1 0.008 ASTM D150 0.005
+Color White, Black, Colors White, Black, Colors
+Density ISO 1183-1 g/cm³ 1.41
+Specific Gravity ASTM D792 1.41
+Water absorption after 24h immersion in water of 23 °C (73°F) ISO 62 (16) % 0.24 ASTM D570 (17) % 0.20
+Water absorption at saturation in water of 23 °C (73°F) % 0.80 ASTM D570 (17) % 0.9
+Wear rate ISO 7148-2 (18) µm/km 45 QTM 55010 (19) In³.min/ft.lbs.hrX10-¹⁰ 200
+Dynamic Coefficient of Friction (-) ISO 7148-2 (18) 0.3-0.45 QTM 55007 (20) 0.25
+Limiting PV at 100 FPM (safety factor 4) QTM 55007 (21) ft.lbs/in².min 2,700
+Limiting PV at 0.1 / 1 m/s cylindrical sleeve bearings MPa.m/s 0.16 / 0.1
+Limiting PV at 0.5 m/s cylindrical sleeve bearings QTM 55007 (21) MPa.m/s
+Chemical Resistance www.mcam.com/en/support/chemical-resistance-information www.mcam.com/en/support/chemical-resistance-information
+This table, mainly to be used for comparison purposes, is a valuable help in the choice of a material. The data listed here fall within the 
+normal range of product properties of dry material. However, they are not guaranteed and they should not be used to establish material 
+specification limits nor used alone as the basis of design. See the remaining notes on the next page.
+Acetron  / Ertacetal  is a protected trademark of Mitsubishi Chemical Advanced Materials
+mcam.com
+™ ™
+™ ™
+™ ™
+PRODUCT DATASHEET
+Copyright © 2026 The Mitsubishi Chemical Advanced Materials group of companies. All rights reserved. - Date of issue / revision: 30/06/2026
+Thermal properties (1)Mechanical Properties (6)Electrical PropertiesMiscellaneous
+™ ™
+1 of 2

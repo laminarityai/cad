@@ -7,6 +7,7 @@ import pytest
 import yaml
 
 from cad.tables.materials import (
+    FIELD_UNITS,
     TABLE_PATH,
     InvalidTable,
     Known,
@@ -179,3 +180,22 @@ def test_rejects_an_implausible_elastic_constant(
     tmp_path: Path, modulus: str, poisson: str, problem: str
 ) -> None:
     assert problem in problems_after(tmp_path, "prusament-pla", elastic(modulus, poisson))
+
+
+def test_a_git_row_may_not_take_a_projects_key(tmp_path: Path) -> None:
+    def edit(row: Row) -> None:
+        row["key"] = "project-prusament-pla"
+
+    assert "kept for a project's own rows" in problems_after(tmp_path, "prusament-pla", edit)
+
+
+def test_a_material_the_table_lacks_is_named_as_the_projects_own_row() -> None:
+    table = load_materials()
+    assert table.row_key("prusament-pla") == "prusament-pla"
+    assert table.row_key("acme-silk-pla") == "project-acme-silk-pla"
+    assert table.row_key("project-acme-silk-pla") == "project-acme-silk-pla"
+    assert table.row_key("project-project-acme-silk-pla") == "project-acme-silk-pla"
+    assert table.row_key("project-prusament-pla") == "prusament-pla"
+    assert table.row_key("project-project-prusament-pla") == "prusament-pla"
+    blank = table.get_material("project-acme-silk-pla")
+    assert {blank.value(field) for field in FIELD_UNITS} == {Unknown()}

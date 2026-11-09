@@ -16,10 +16,13 @@
 
 - Python, fully typed. Strict type checking, the linter and the formatter run in pre-commit and in CI.
 - One directory per feature. There is one obvious way to do each common thing; if you find two, delete one.
+- Every `quote` in `tables/materials.yaml` is word for word in its cited datasheet. The `materials table` step checks it offline against `tables/datasheet_text/`. After you add or change a row, run `uv run python tools/regen_datasheet_text.py` and commit what it writes.
 - A file-size lint rule fails the build when a file grows too large. Split the file instead of raising the limit.
 
 ## Verify your work
 
 `uv run verify` is the single command that runs type checking, lint, the format check, the file-size check, tests and the app step, and exits non-zero on the first failure. The app step starts the MCP server and fails unless `server_info` reports the SHA that `git rev-parse HEAD` gives. A change is done when `verify` passes and you have exercised the change through the MCP server or the app, not only through unit tests.
+
+The `protocol models` step model-checks the job queue and the confirmation answer flow with TLC, so it needs Java 11 or later on PATH (macOS: `brew install --cask temurin`). It downloads the TLA+ tools to `~/.cache/cad` on its first run. See [.claude/skills/protocol-models/SKILL.md](.claude/skills/protocol-models/SKILL.md).
 
 After `uv sync`, run `uvx pre-commit install` once. Each commit then runs the same steps through `verify --only <step>`.

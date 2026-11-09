@@ -5,9 +5,9 @@ Usage: human.py <url>. Environment: CAD_HUMAN_LOG (required, a path for JSON lin
 (seconds before answering, default 1), CAD_HUMAN_ANSWER (confirm or decline, default confirm),
 CAD_HUMAN_EDIT (optional, "<shown>=<typed>": type <typed> into the field whose placeholder is
 <shown>, such as "150 g=120 g"). It logs the HTTP status of a GET with the token stripped, a GET
-with a wrong token, a GET with the token and each section of that page with its brief and quotes,
-the answer POST and a replayed POST, then the spent token as {"spent_token": ...}, so a run can grep
-the agent's transcript for it.
+with a wrong token, a GET with the token and each section of that page with its title, each row's
+headline, its brief and quotes, the answer POST and a replayed POST, then the spent token as
+{"spent_token": ...}, so a run can grep the agent's transcript for it.
 The server does not wait for it, so it records its own failures in the log.
 """
 
@@ -27,6 +27,8 @@ from urllib.parse import urlencode, urlsplit
 SECTION = re.compile(r'<section class="item">(.*?)</section>', re.DOTALL)
 QUOTE = re.compile(r'<q class="origin">(.*?)</q>', re.DOTALL)
 BRIEF = re.compile(r'<blockquote class="brief">(.*?)</blockquote>', re.DOTALL)
+TITLE = re.compile(r"<h2>(.*?)</h2>", re.DOTALL)
+HEADLINE = re.compile(r"<strong>(.*?)</strong>", re.DOTALL)
 FIELD = re.compile(r'<input name="(edit-[0-9]+-[0-9a-f]{16})" placeholder="([^"]*)"')
 
 
@@ -45,7 +47,15 @@ def section_of(section: str) -> dict[str, object]:
     brief = html.unescape(next(iter(BRIEF.findall(section)), ""))
     quotes = [html.unescape(quote) for quote in QUOTE.findall(section)]
     in_brief = bool(quotes) and all(quote in brief for quote in quotes)
-    return {"brief": brief, "quotes": quotes, "quotes_in_brief": in_brief}
+    title = html.unescape(next(iter(TITLE.findall(section)), ""))
+    headlines = [html.unescape(headline) for headline in HEADLINE.findall(section)]
+    return {
+        "title": title,
+        "headlines": headlines,
+        "brief": brief,
+        "quotes": quotes,
+        "quotes_in_brief": in_brief,
+    }
 
 
 def main(url: str, log: Path) -> None:

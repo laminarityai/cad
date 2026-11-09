@@ -5,8 +5,9 @@ from typing import Final
 from cad.briefs import store
 from cad.briefs.bindable import BINDABLE
 from cad.briefs.edits import apply_edits, placeholder
-from cad.briefs.model import MadeOf, MeasureLimit, Requirement, Target, deciding_check, describe
+from cad.briefs.model import MadeOf, MeasureLimit, Requirement, Target, deciding_check
 from cad.briefs.store import ProposalState, Status, TamperedBrief
+from cad.briefs.words import describe
 from cad.confirmations.answers import Edit, ItemKindName, ItemRef
 from cad.confirmations.items import Changes, Editable, Refused, Row, Section
 from cad.projects.membership import project_briefs

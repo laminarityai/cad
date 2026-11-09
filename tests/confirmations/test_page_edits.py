@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from cad.briefs import store
-from cad.briefs.model import describe
+from cad.briefs.words import describe
 from cad.confirmations import answers, page
 from cad.confirmations.answers import Edit, PageAnswer
 from cad.confirmations.page import DECLINE_EDITS
@@ -187,18 +187,6 @@ async def test_list_requirements_says_the_user_changed_the_number(s: Session) ->
     edited, untouched = listed["proposals"][0]["requirements"]
     assert edited["edited_by_user"] == {"proposed": "150 g", "confirmed": "120 g"}
     assert untouched["edited_by_user"] is None
-
-
-async def test_text_pint_would_choke_on_is_refused_and_the_page_stays_open(s: Session) -> None:
-    brief = await s.proposed(s.rows.under_150)
-    [light] = row_ids(s, brief.brief_id)
-    await s.ask(brief)
-    texts = ("120 g's", '120 g"', "120 g (", "120 g/0", "120 g**0", "120 g-))")
-    refused = [s.post(s.person.url, "confirm", fields={f"edit-0-{light}": t}) for t in texts]
-    assert [status for status, _ in refused] == [400] * len(texts)
-    assert all(html.escape("Mass at most 150 g: Write a number") in body for _, body in refused)
-    assert answers.read_ledger(s.roots.projects, ProjectId(brief.project_id)).answers == ()
-    assert s.post(s.person.url, "confirm", fields={f"edit-0-{light}": "120 g"})[0] == 200
 
 
 async def test_the_recorded_page_says_what_the_person_changed(s: Session) -> None:

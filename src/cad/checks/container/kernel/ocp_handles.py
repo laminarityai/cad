@@ -78,9 +78,26 @@ class _Box(Protocol):
     def Get(self) -> tuple[float, float, float, float, float, float]: ...
 
 
+class _Tolerance(Protocol):
+    def Tolerance(self, shape: Shape, mode: int) -> float:
+        """A positive mode gives the largest tolerance, 0 the mean, a negative one the smallest."""
+        ...
+
+
 class _Boolean(Protocol):
     def IsDone(self) -> bool: ...
     def Shape(self) -> Shape: ...
+
+
+class _Distance(Protocol):
+    def LoadS1(self, shape: Shape) -> None: ...
+    def LoadS2(self, shape: Shape) -> None: ...
+    def SetFlag(self, flag: object) -> None: ...
+    def SetAlgo(self, algo: object) -> None: ...
+    def SetMultiThread(self, on: bool) -> None: ...
+    def Perform(self) -> bool: ...
+    def IsDone(self) -> bool: ...
+    def Value(self) -> float: ...
 
 
 class _Model(Protocol): ...
@@ -161,7 +178,9 @@ class Ocp:
     new_props: Callable[[], _Props]
     new_box: Callable[[], _Box]
     new_analyzer: Callable[[Shape], _Analyzer]
+    new_tolerance: Callable[[], _Tolerance]
     new_common: Callable[[Shape, Shape], _Boolean]
+    new_distance: Callable[[], _Distance]
     new_writer: Callable[[], _Writer]
     new_header: Callable[[_Model], _Header]
     new_hstring: Callable[[str], object]
@@ -190,6 +209,8 @@ class Ocp:
     vertex: object
     as_is: object
     ret_done: object
+    extrema_min: object
+    extrema_grad: object
 
 
 def _module(name: str) -> ModuleType:
@@ -200,6 +221,7 @@ def load_ocp() -> Ocp:
     topods, brep, top_abs = _module("TopoDS"), _module("BRep"), _module("TopAbs")
     gp, geom_abs = _module("gp"), _module("GeomAbs")
     step_control, header = _module("STEPControl"), _module("APIHeaderSection")
+    extrema = _module("Extrema")
     return Ocp(
         new_shape=cast(Callable[[], Shape], topods.TopoDS_Shape),
         new_builder=cast(Callable[[], object], brep.BRep_Builder),
@@ -213,8 +235,14 @@ def load_ocp() -> Ocp:
         new_props=cast(Callable[[], _Props], _module("GProp").GProp_GProps),
         new_box=cast(Callable[[], _Box], _module("Bnd").Bnd_Box),
         new_analyzer=cast(Callable[[Shape], _Analyzer], _module("BRepCheck").BRepCheck_Analyzer),
+        new_tolerance=cast(
+            Callable[[], _Tolerance], _module("ShapeAnalysis").ShapeAnalysis_ShapeTolerance
+        ),
         new_common=cast(
             Callable[[Shape, Shape], _Boolean], _module("BRepAlgoAPI").BRepAlgoAPI_Common
+        ),
+        new_distance=cast(
+            Callable[[], _Distance], _module("BRepExtrema").BRepExtrema_DistShapeShape
         ),
         new_writer=cast(Callable[[], _Writer], step_control.STEPControl_Writer),
         new_header=cast(Callable[[_Model], _Header], header.APIHeaderSection_MakeHeader),
@@ -244,4 +272,6 @@ def load_ocp() -> Ocp:
         vertex=top_abs.TopAbs_VERTEX,
         as_is=step_control.STEPControl_AsIs,
         ret_done=_module("IFSelect").IFSelect_RetDone,
+        extrema_min=extrema.Extrema_ExtFlag_MIN,
+        extrema_grad=extrema.Extrema_ExtAlgo_Grad,
     )

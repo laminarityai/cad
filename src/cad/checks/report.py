@@ -33,6 +33,7 @@ from cad.sandbox.container import Job, Ran, TooMuchOutput
 from cad.sandbox.image import ANALYSIS, image_tag
 from cad.sandbox.stage import CONTAINER_ENTRY, PACKAGE_PATH, Sources, read_sources
 from cad.tables.materials import (
+    PROJECT_PREFIX,
     UNITS,
     Basis,
     FromResearch,
@@ -151,6 +152,8 @@ def build_request(
     table: MaterialsTable,
     checks: Sequence[CheckSpec] = QUICK,
     load_cases: Sequence[LoadCaseWire] = (),
+    *,
+    context_bytes: int = 0,
 ) -> Request:
     ids = [spec.id for spec in checks]
     taken = sorted(set[Input]().union(*(spec.takes for spec in closure(ids))))
@@ -158,13 +161,14 @@ def build_request(
         material = table.get_material(material_key)
     except UnknownMaterial as error:
         missing: ValueWire = {"kind": "unknown", "reason": str(error)}
-        wire = _wire(ids, dict.fromkeys(taken, missing), load_cases)
+        wire = _wire(ids, dict.fromkeys(taken, missing), load_cases, context_bytes)
         return Request(wire, material_key, {}, table.version)
     reads = {wanted: read for wanted in taken if (read := _read(material, wanted)) is not None}
     values: dict[str, ValueWire] = {
         wanted: _value(material, wanted, reads.get(wanted)) for wanted in taken
     }
-    return Request(_wire(ids, values, load_cases), material_key, reads, table.version)
+    wire = _wire(ids, values, load_cases, context_bytes)
+    return Request(wire, material_key, reads, table.version)
 
 
 def _read(material: Material, wanted: Input) -> TableRead | None:
@@ -175,6 +179,9 @@ def _read(material: Material, wanted: Input) -> TableRead | None:
 
 
 def _value(material: Material, wanted: Input, read: TableRead | None) -> ValueWire:
+    if read is None and material.key.startswith(PROJECT_PREFIX):
+        reason = f"{material.key} has no row in the materials table, and no {wanted} is researched"
+        return {"kind": "unknown", "reason": reason}
     if read is None:
         reason = f"the materials table has no {wanted} for {material.key}: it says unknown"
         return {"kind": "unknown", "reason": reason}
@@ -201,9 +208,17 @@ def reads_of(spec: CheckSpec, request: Request) -> tuple[Read, ...]:
 
 
 def _wire(
-    ids: list[str], values: dict[str, ValueWire], load_cases: Sequence[LoadCaseWire]
+    ids: list[str],
+    values: dict[str, ValueWire],
+    load_cases: Sequence[LoadCaseWire],
+    context_bytes: int,
 ) -> RequestWire:
-    return {"checks": ids, "values": values, "load_cases": list(load_cases)}
+    return {
+        "checks": ids,
+        "values": values,
+        "load_cases": list(load_cases),
+        "context_bytes": context_bytes,
+    }
 
 
 @dataclass(frozen=True, slots=True)

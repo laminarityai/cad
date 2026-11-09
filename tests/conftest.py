@@ -1,3 +1,4 @@
+import fcntl
 import json
 import os
 import pwd
@@ -15,10 +16,14 @@ from urllib.parse import urlencode, urlsplit
 import pytest
 from mcp import Client
 
+from cad.context_parts.ingest import Facts, NotAPart
 from cad.knowledge.corpus import Corpus
 from cad.knowledge.search import Index
 from cad.records.roots import Roots
+from cad.sandbox.image import BUILD, image_tag
+from cad.sandbox.outcome import Build, BuildFailed, Built
 from cad.server.app import build_server
+from cad.variants import entry
 
 TEXT = "A wall bracket for a 2 kg shelf, under 150 g, fits in 120 x 80 x 40 mm, printable in PETG"
 UNDER_150 = {
@@ -37,6 +42,13 @@ ENVELOPE = {
     "quote": "fits in 120 x 80 x 40 mm",
 }
 SOLID = {"target": {"kind": "closed_solid"}, "quote": "printable in PETG"}
+RAIL = b"CASCADE Topology V3, a rail\n"
+RAIL_FACTS = Facts(solids=1, volume_mm3=6000.0, box_min=(-15, 0, 0), box_max=(15, 20, 10))
+NOT_A_PART = b"CASCADE Topology V3, a face and no solid\n"
+
+
+def fake_ingest(brep: bytes) -> Facts | NotAPart:
+    return NotAPart("it has no solid") if brep == NOT_A_PART else RAIL_FACTS
 
 
 def origin_of(url: str) -> str:
@@ -101,6 +113,9 @@ class Rows:
     shelf: dict[str, Any] = field(default_factory=lambda: SHELF)
     envelope: dict[str, Any] = field(default_factory=lambda: ENVELOPE)
     solid: dict[str, Any] = field(default_factory=lambda: SOLID)
+    rail: bytes = RAIL
+    rail_facts: Facts = RAIL_FACTS
+    not_a_part: bytes = NOT_A_PART
 
 
 @dataclass(frozen=True)
@@ -116,6 +131,7 @@ class Session:
     client: Client
     person: Person
     roots: Roots
+    variants: Path
     rows: Rows = field(default_factory=Rows)
     get = staticmethod(get)
     post = staticmethod(post)
@@ -145,6 +161,21 @@ class Session:
     async def ask(self, proposed: Proposed) -> dict[str, Any]:
         return await self.call("ask_to_confirm", project_id=proposed.project_id)
 
+    def variant(self, code: str, brep: bytes | None = RAIL) -> str:
+        vid = entry.variant_id(code, image_tag(BUILD))
+        built = Build(outcome=Built(), output="")
+        failed = Build(outcome=BuildFailed(error="NameError", traceback=""), output="")
+        entry.save(self.variants, vid, code, built if brep else failed, brep)
+        return vid
+
+
+@pytest.fixture
+def alone_removing_orphans(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
+    """A server start removes exited orphans daemon-wide, so xdist workers take turns here."""
+    with (tmp_path_factory.getbasetemp().parent / "removes-orphans.lock").open("w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        yield
+
 
 @pytest.fixture
 def person() -> Person:
@@ -154,9 +185,10 @@ def person() -> Person:
 @pytest.fixture
 async def s(tmp_path: Path, person: Person) -> AsyncIterator[Session]:
     roots = Roots(tmp_path / "briefs", tmp_path / "projects")
-    server = build_server(tmp_path / "variants", roots, opener=person, wait_seconds=0.3)
+    variants = tmp_path / "variants"
+    server = build_server(variants, roots, opener=person, wait_seconds=0.3, ingest=fake_ingest)
     async with Client(server) as client:
-        yield Session(client, person, roots)
+        yield Session(client, person, roots, variants)
 
 
 # The operator's ~/.cad holds their real briefs, answers and keys. A test that falls back to a

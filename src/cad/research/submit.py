@@ -21,7 +21,7 @@ from cad.research.ledger import (
 from cad.research.overlay import fill, overlay
 from cad.research.quote import on_page, units_beside, where_written, written_in
 from cad.research.requests import ResearchRequest, request_for
-from cad.tables.materials import FromResearch, Known, MaterialsTable
+from cad.tables.materials import FromResearch, Known, MaterialsTable, row_or_blank
 
 
 class _Frozen(BaseModel):
@@ -81,7 +81,7 @@ def submit(
     ledger = read_ledger(projects, question.project)
     if ledger.problem is not None:
         return ask(ledger.problem, other_source_could_answer=False)
-    material = overlay(git, question.project, ledger).table.materials.get(question.key)
+    material = row_or_blank(overlay(git, question.project, ledger).table.materials, question.key)
     if material is None:
         return ask(
             f"no row in the materials table has the key {question.key!r}",

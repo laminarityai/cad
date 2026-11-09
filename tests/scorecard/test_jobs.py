@@ -10,6 +10,7 @@ from cad.checks.jobs import JobResult, Plan, Refused
 from cad.checks.lanes import Done, Pending, Settled
 from cad.checks.report import QUICK, SPECS, build_request, unknown_for_all
 from cad.checks.result import CheckResult, ReadCited, ReadMissing, StepMissing, Verdict
+from cad.context_parts.ids import ContextPartId
 from cad.sandbox import container
 from cad.sandbox.container import Job, Ran
 from cad.scorecard import score
@@ -22,6 +23,9 @@ POISSON_UNKNOWN = "the materials table has no poisson_ratio for prusament-pla: i
 PLATE = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
 PLATE_SHELL = PLATE + "from build123d import Shell\nresult = Shell(result.faces()[:-1])\n"
 FEA = SPECS[4]
+FIT = SPECS[5]
+RAIL = jobs.PartBrep("r" * 64, b"rail brep")
+RAIL_ID = ContextPartId("part-" + "1" * 16)
 CASE: LoadCaseWire = {
     "support": {"kind": "flat_end"},
     "load": {"kind": "far_end", "force_n": 10.0, "direction": {"kind": "any"}},
@@ -83,7 +87,8 @@ def test_a_tampered_job_result_is_run_again_and_never_trusted(
 def background_plan(root: Path) -> Plan:
     held = Entry(VariantId("0123456789abcdef"), root, b"brep", "b" * 64)
     table = load_materials()
-    return jobs.plan(root, held, build_request("prusament-pla", table), table, {"c1": CASE})
+    demand = jobs.Demand(loads={"c1": CASE})
+    return jobs.plan(root, held, build_request("prusament-pla", table), table, demand)
 
 
 def quick_result() -> JobResult:
@@ -108,7 +113,7 @@ def assembled(root: Path, outcome: Done | Pending | Refused) -> tuple[Scorecard,
 
 def test_a_pending_background_check_holds_its_place_and_no_verdict(tmp_path: Path) -> None:
     card, assessed = assembled(tmp_path, Pending())
-    assert [one.check_id for one in card.results] == [spec.id for spec in SPECS]
+    assert [one.check_id for one in card.results] == [spec.id for spec in (*QUICK, FEA)]
     assert card.results[4] == PendingCheck(
         check_id="fea",
         formula=FEA.formula,
@@ -143,7 +148,7 @@ def test_a_card_must_list_exactly_its_pending_checks(tmp_path: Path) -> None:
 def test_with_no_demand_one_quick_job_runs_the_quick_checks(tmp_path: Path) -> None:
     held = Entry(VariantId("0123456789abcdef"), tmp_path, b"brep", "b" * 64)
     table = load_materials()
-    plan = jobs.plan(tmp_path, held, build_request("prusament-pla", table), table, {})
+    plan = jobs.plan(tmp_path, held, build_request("prusament-pla", table), table, jobs.Demand())
     assert (plan.quick.checks, plan.quick.budget, plan.background) == (QUICK, Quick(), ())
     assert "fea" not in [spec.id for spec in QUICK]
 
@@ -157,6 +162,34 @@ def test_each_demanded_load_case_is_one_fea_job_sent_only_what_fea_takes(tmp_pat
     assert set(job.request.wire["values"]) == set(FEA.takes)
     assert plan.quick.request.wire["load_cases"] == []
     assert job.key != plan.quick.key
+
+
+def test_fea_runs_only_per_load_case_and_fit_only_per_context_part(tmp_path: Path) -> None:
+    held = Entry(VariantId("0123456789abcdef"), tmp_path, b"brep", "b" * 64)
+    table = load_materials()
+    request = build_request("prusament-pla", table)
+    demand = jobs.Demand(loads={"c1": CASE}, parts={RAIL_ID: RAIL})
+    plan = jobs.plan(tmp_path, held, request, table, demand)
+    fea_job, fit_job = plan.background
+    assert (fea_job.checks, fea_job.instance, fea_job.context) == ((FEA,), "c1", None)
+    assert (fit_job.checks, fit_job.instance, fit_job.context) == ((FIT,), RAIL_ID, RAIL)
+    assert fit_job.budget == FIT.budget
+    assert fit_job.request.wire["load_cases"] == []
+    assert fit_job.request.wire["context_bytes"] == len(RAIL.data)
+    assert fea_job.request.wire["context_bytes"] == 0
+
+
+def test_another_context_part_is_another_fit_job(tmp_path: Path) -> None:
+    held = Entry(VariantId("0123456789abcdef"), tmp_path, b"brep", "b" * 64)
+    table = load_materials()
+    request = build_request("prusament-pla", table)
+    keys = [
+        jobs.plan(tmp_path, held, request, table, jobs.Demand(parts={RAIL_ID: part}))
+        .background[0]
+        .key
+        for part in (RAIL, jobs.PartBrep("s" * 64, b"rail brep"))
+    ]
+    assert keys[0] != keys[1]
 
 
 def test_a_finished_fea_job_fills_its_place_with_its_instance(tmp_path: Path) -> None:

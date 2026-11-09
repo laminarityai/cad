@@ -40,9 +40,16 @@ class SetKey:
     decision_sha256: str
 
 
-class Member(BaseModel):
+class SlotRefused(SetRefused):
+    pass
+
+
+class Revision(BaseModel):
+    """One signed record of the set's log: this code became what `slot` shows."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
+    slot: int = Field(ge=1, le=MAX_MEMBERS)
     code: str
     code_sha256: str
     built_as: VariantId
@@ -52,9 +59,30 @@ class Member(BaseModel):
         return variant_id(self.code, image_tag)
 
 
+class Member(BaseModel):
+    """A slot and every revision it has had, oldest first. The last one is what the set shows."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    slot: int
+    revisions: tuple[Revision, ...] = Field(min_length=1)
+
+    @property
+    def latest(self) -> Revision:
+        return self.revisions[-1]
+
+
+def group(log: tuple[Revision, ...]) -> tuple[Member, ...]:
+    by_slot: dict[int, list[Revision]] = {}
+    for revision in log:
+        by_slot.setdefault(revision.slot, []).append(revision)
+    return tuple(Member(slot=slot, revisions=tuple(by_slot[slot])) for slot in sorted(by_slot))
+
+
 class Joined(BaseModel):
     kind: Literal["joined"] = "joined"
     slot: int
+    revision: int
     limit: int = MAX_MEMBERS
     already_member: bool
 

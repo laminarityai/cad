@@ -1,0 +1,164 @@
+url: https://www.clevelandcliffs.com/_assets/_7ce3a04c09e74bf31ff5f89fc888db25/clevelandcliffs/db/1190/10510/file/CLF_ProductData_304-304LSS_052021.pdf
+304 / 304L STAINLESS STEEL
+Page 3
+Mechanical Properties
+TABLE 1 – TYPICAL ROOM TEMPERATURE MECHANICAL PROPERTIES
+UTS,  
+ksi. (MPa)
+0.2% YS, 
+ksi. (MPa)
+Elongation %  
+in 2 in. (50.8 mm)
+Rockwell  
+Hardness, B
+Type 304 95 (655) 42 (290) 55 84
+Type 304L 95 (655) 40 (276) 55 82
+TABLE 2 – ELEVATED TEMPERATURE MECHANICAL PROPERTIES
+Temperature,  
+°F (°C)
+UTS,  
+ksi. (MPa)
+0.2% YS, 
+ksi. (MPa)
+Elongation %  
+in 2 in. (50.8 mm)
+Room 85 (586) 35 (241) 55
+400 (204) 72 (496) 23 (159) 51
+600 (316) 68 (469) 20 (134) 45
+800 (427) 64 (441) 17 (114) 40
+1000 (538) 56 (386) 14 (97) 36
+1200 (649) 44 (303) 13 (88) 34
+1400 (760) 29 (200) 11 (76) 36
+1600 (871) 16 (110) — 40
+TABLE 3 – LOW TEMPERATURE MECHANICAL PROPERTIES
+Condition Temperature, °F (°C) UTS,  ksi. (MPa) 0.2% YS, ksi. (MPa) Elongation %  in 2 in. (50.8 mm)
+Annealed
+-320 (-196) 235 (1620) 56 (386) 40
+-80 (-62) 161 (1110) 50 (345) 57
+-40 (-40) 145 (1000) 48 (331) 60
+32 (0) 122 (841) 40 (296) 65
+70 (21) 85 (586) 35 (241) 55
+TABLE 4 – FATIGUE STRENGTH
+Condition Fatigue Strength,  ksi. (MPa)
+Annealed – 150 BHN 35 (241)
+Cold Drawn – 277 BHN 70 (70)304 / 304L STAINLESS STEEL
+Page 4
+Mechanical Properties
+FIGURE 1 – EFFECT OF COLD WORK ON  
+TENSILE PROPERTIES
+Density, lbs/in.3 (g/cm3) 0.29 (8.03)
+Electrical Resistivity, µΩ•in. (µΩ•cm)  
+                                       68 °F (20 °C)  
+                                 1200 °F (659 °C)
+ 
+28.4 (72) 
+45.8 (116)
+Thermal Conductivity,  
+BTU/hr./ft./°F W/(m•K)
+212 °F (100 °C)
+932 °F (500 °C)
+9.4 (16.2) 
+12.4 (21.4)
+Coefficient of Thermal Expansion,  
+in./in./°F (µm/m /K) 
+ 
+                    32 – 212 °F (0 – 100 °C)  
+                    32 – 600 °F (0 – 315 °C)  
+                  32 – 1000 °F (0 – 538 °C)  
+                  32 – 1200 °F (0 – 649 °C)            
+ 
+ 
+ 
+9.4 x 10-6 (16.9)
+9.9 x 10-6 (17.3)
+10.2 x 10-6 (18.4)
+10.4 x 10-6 (18.7)
+Modulus of Elasticity, ksi. (MPa)  
+                                          in tension  
+                                          in torsion
+ 
+28.0 x 103 (193 x 103) 
+11.2 x 103 (78 x 103)
+Magnetic Permeability Annealed,  
+                      (H/m at 200 Oersteds)
+ 
+1.02 max.
+Specific Heat, BTU/lbs./°F (kJ/kg /K)
+32 – 212 °F (0 – 100 °C)
+ 
+0.12 (0.50)
+Melting Range, °F (°C) 2550 – 2650 (1399 –1454)
+% Cold Reduction
+200
+ 180 
+160 
+140
+120
+100 
+80
+60
+40
+20
+ 0 
+(1379)
+(1241)
+(1103)
+(965)
+(827)
+(689)
+(552) 
+(414)
+(276) 
+(138)
+ 
+80
+ 
+60
+40
+20
+ 0 
+Elongation % in 2" (50.8 mm)
+Stress, ksi. (MPa)
+0 10 20 30 40 50 60 70 80
+UTS
+0.2% YS
+Elongation
+PHYSICAL PROPERTIES
+CORROSION RESISTANCE
+T ypes 304 and 304L exhibit excellent resistance to 
+corrosive environments, such as can be found in the 
+chemical, textile and petroleum industries. T ype 304 
+and 304L are suitable for the food and dairy industries, 
+and excel in rural and industrial atmospheric exposure. 
+By reducing the carbon content in T ype 304L, welding 
+operations will not cause carbide precipitation that can 
+lead to intergranular corrosion.
+OXIDATION RESISTANCE
+The maximum temperature to which T ype 304 can be 
+exposed continuously without appreciable scaling is 
+about 1650 °F (899 °C). For intermittent cyclic exposure, 
+is about 1500 °F (816°C). 
+HEAT TREATMENT
+T ype 304 is non-hardenable by heat treatment. 
+Annealing: Heat to 1900 – 2050 °F (1038 – 1121 °C), then 
+cool rapidly. Thin strip sections may be air cooled, but 
+heavy sections should be water quenched to minimize ex -
+posure in the carbide precipitation region.  
+Stress Relief Annealing:  Cold worked parts should be 
+stress relieved at 750 °F (399 °C) for 1/2 to 2 hours. 
+COLD WORKING
+High hardness and strength are achieved through cold 
+working. In the annealed condition, T ypes 304 and 304L 
+are very ductile and can be cold worked easily by roll 
+forming, deep drawing, bending, and other common 
+fabricating methods. Since the material work hardens 
+rapidly, in-process annealing may be necessary to restore 
+ductility and to lower hardness. 
+FORMABILITY
+T ype 304 and 304L can be readily formed and drawn. The 
+higher nickel versions of T ype 304 are well suited to severe 
+forming applications involving multi-draw operations and 
+forming of complex shapes. This is largely due to its 
+combination of lower strength and lower work hardening 
+rate. As with all austenitic stainless steels, annealing or 
+stress-relieving can be performed following fabrication. 

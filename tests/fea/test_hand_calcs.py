@@ -1,4 +1,7 @@
+import hashlib
 import json
+import os
+import secrets
 from collections.abc import Mapping
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -21,6 +24,7 @@ PROGRAM: Final = (
 )
 CORE: Final = read_sources("cad.checks.container.calculix")
 DETERMINISM_CASE: Final = "cantilever tip"
+CACHE: Final = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "cad" / "fea"
 
 
 def brep_of(case: Case) -> bytes:
@@ -29,8 +33,8 @@ def brep_of(case: Case) -> bytes:
     return built.verdict.brep
 
 
-def solve(case: Case, brep: bytes) -> bytes:
-    job = Job(
+def solve_job(case: Case, brep: bytes) -> Job:
+    return Job(
         "check",
         current_image(IMAGE_TAG),
         ("python", "-I", "-c", PROGRAM, case.name),
@@ -40,10 +44,48 @@ def solve(case: Case, brep: bytes) -> bytes:
         memory_mb=2048,
         tmpfs_mb=768,
     )
+
+
+def solve(case: Case, brep: bytes) -> bytes:
+    job = solve_job(case, brep)
     ran = container.run(job)
     assert ran.state.ExitCode == 0, ran.attended.output
     assert isinstance(ran.attended.report, bytes), ran.attended.output
     return ran.attended.report
+
+
+def key(job: Job) -> str:
+    """Digest every input the solve container can read, so equal keys mean equal reports.
+
+    The container has no network and a read-only root. It reads only the image, its argv, stdin
+    and the two mounts. The mounts enter by content, the harness without `__pycache__`, and
+    container.py by its source, since it holds the docker flags. The determinism test below proves
+    equal inputs give equal bytes.
+    """
+    digest = hashlib.sha256()
+    limits = f"{job.wall_seconds} {job.memory_mb} {job.tmpfs_mb}"
+    for text in (job.image_id, *job.command, limits, CORE.digest):
+        digest.update(hashlib.sha256(text.encode()).digest())
+    for data in (job.stdin, Path(container.__file__).read_bytes()):
+        digest.update(hashlib.sha256(data).digest())
+    harness = Path(__file__).parent
+    for path in sorted(harness.rglob("*")):
+        if path.is_file() and "__pycache__" not in path.parts:
+            digest.update(path.relative_to(harness).as_posix().encode() + b"\0")
+            digest.update(hashlib.sha256(path.read_bytes()).digest())
+    return digest.hexdigest()
+
+
+def cached_solve(case: Case, brep: bytes) -> bytes:
+    stored = CACHE / key(solve_job(case, brep))
+    if stored.is_file():
+        return stored.read_bytes()
+    report = solve(case, brep)
+    CACHE.mkdir(parents=True, exist_ok=True)
+    writing = CACHE / f".{stored.name}.{secrets.token_hex(8)}"
+    writing.write_bytes(report)
+    writing.replace(stored)
+    return report
 
 
 @pytest.fixture(scope="module")
@@ -55,7 +97,7 @@ def breps() -> Mapping[str, bytes]:
 @pytest.fixture(scope="module")
 def reports(breps: Mapping[str, bytes]) -> Mapping[str, bytes]:
     with ThreadPoolExecutor(2) as pool:
-        solved = pool.map(solve, CASES, (breps[case.name] for case in CASES))
+        solved = pool.map(cached_solve, CASES, (breps[case.name] for case in CASES))
         return dict(zip(BY_NAME, solved, strict=True))
 
 

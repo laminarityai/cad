@@ -1,0 +1,177 @@
+url: https://online.kaiseraluminum.com/depot/PublicProductInformation/Document/1028/Kaiser_Aluminum_7075_Rod_and_Bar.pdf
+R O D  &  B A R  A L L O Y  7 0 7 5
+Technical Data
+www.kaiseraluminum.com   |   KA-RBH-7075-8.10
+This alloy offers the highest strength of the common screw machine alloys. The superior stress corrosion resistance of the
+T73 and T7351 tempers makes it a logical replacement for 2024, 2014 and 2017 in many of the most critical applications.
+The T6 and T651 tempers have fair machinability, resistance welding and corrosion resistance ratings. This alloy is heavily
+utilized by the aircraft and ordnance industries because of its superior strength.
+ALLOY DESCRIPTION
+Temper Tensile (.500” Dia. Specimen) Hardness Shear Fatigue* Modulus
+Ultimate Yield Elongation/4D
+Brinell
+500 kg
+10 mm
+Ultimate
+Shearing
+Strength
+Endurance Limit -
+R.R. Moore Type
+Modulus of
+Elasticity
+  KSI MPa KSI MPa % KSI MPa KSI MPa KSI x 10 3 Gpa
+ 0 33 228 15 103  17 60 22 152   10.3  71.0
+ T6, T651  83  572  73  503  11  150  48  331  23 158 10.3  71.0
+ T73, T7351  73  503  63  434  13   44  303  23 158 10.3  71.0
+TYPICAL MECHANICAL PROPERTIES
+Temper Corrosion Resistance Cold Workability3 Machinability3 Anodize Response3 Brazeability4
+General1
+ T6, T651 C C D C B D D D B
+ T73, T7351 C B D C B D D D B
+COMPARATIVE CHARACTERISTICS
+ T6, T651 C C D C B D D D B
+ T73, T7351 C B D C B D D D B
+ T6, T651 C C D C B D D D B
+ T73, T7351 C B D C B D D D B
+ T6, T651 C C D C B D D D B
+ T73, T7351 C B D C B D D D B
+ T6, T651 C C D C B D D D B
+ T73, T7351 C B D C B D D D B
+ T6, T651 C C D C B D D D B
+ T73, T7351 C B D C B D D D B
+ T6, T651 C C D C B D D D B
+ T73, T7351 C B D C B D D D B
+Weldability4
+ T6, T651 C C D C B D D D B
+ T73, T7351 C B D C B D D D B
+Stress2 Gas Arc Spot
+*5 x 10E8 cycles of reversed stress
+  KSI MPa KSI MPa % KSI MPa KSI MPa KSI x 10
+ 0 33 228 15 103  17 60 22 152   10.3  71.0
+ T6, T651  83  572  73  503  11  150  48  331  23 158 10.3  71.0
+ T73, T7351  73  503  63  434  13   44  303  23 158 10.3  71.0
+  KSI MPa KSI MPa % KSI MPa KSI MPa KSI x 10
+ 0 33 228 15 103  17 60 22 152   10.3  71.0
+ T6, T651  83  572  73  503  11  150  48  331  23 158 10.3  71.0
+ T73, T7351  73  503  63  434  13   44  303  23 158 10.3  71.0
+  KSI MPa KSI MPa % KSI MPa KSI MPa KSI x 10
+ 0 33 228 15 103  17 60 22 152   10.3  71.0
+ T6, T651  83  572  73  503  11  150  48  331  23 158 10.3  71.0
+ T73, T7351  73  503  63  434  13   44  303  23 158 10.3  71.0
+  KSI MPa KSI MPa % KSI MPa KSI MPa KSI x 10
+ 0 33 228 15 103  17 60 22 152   10.3  71.0
+ T6, T651  83  572  73  503  11  150  48  331  23 158 10.3  71.0
+ T73, T7351  73  503  63  434  13   44  303  23 158 10.3  71.0
+  KSI MPa KSI MPa % KSI MPa KSI MPa KSI x 10
+ 0 33 228 15 103  17 60 22 152   10.3  71.0
+ T6, T651  83  572  73  503  11  150  48  331  23 158 10.3  71.0
+ T73, T7351  73  503  63  434  13   44  303  23 158 10.3  71.0
+  KSI MPa KSI MPa % KSI MPa KSI MPa KSI x 10
+ 0 33 228 15 103  17 60 22 152   10.3  71.0
+ T6, T651  83  572  73  503  11  150  48  331  23 158 10.3  71.0
+ T73, T7351  73  503  63  434  13   44  303  23 158 10.3  71.0
+  KSI MPa KSI MPa % KSI MPa KSI MPa KSI x 10
+ 0 33 228 15 103  17 60 22 152   10.3  71.0
+ T6, T651  83  572  73  503  11  150  48  331  23 158 10.3  71.0
+ T73, T7351  73  503  63  434  13   44  303  23 158 10.3  71.0
+1  Ratings A through E are relative ratings in decreasing order of merit, based on exposures to sodium chloride solution by intermittent spraying or immersion.
+  Alloys with A and B ratings can be used in industrial and seacoast atmospheres without protection. Alloys with C, D and E ratings generally should be protected
+  at least on faying surfaces.
+2   Stress-corrosion cracking ratings are based on service experience and on laboratory tests of specimens exposed to the 3.5% sodium chloride alternate 
+  immersion test.
+  A= No known instance of failure in service or in laboratory tests.
+  B= No known instance of failure in service; limited failures in laboratory tests of short transverse specimens.
+  C= Service failures with sustained tension stress acting in short transverse direction relative to grain structure; limited failures in laboratory tests of long 
+  transverse specimens.
+  D= Limited service failures with sustained longitudinal or long transverse areas.
+3   Ratings A through D for Workability (cold), A through E for Machinability and A through C for Anodize Response, are relative ratings in decreasing order of merit.
+4   Ratings A through D for Weldability and Brazeability are relative ratings deﬁ  ned as follows:
+  A= Generally weldable by all commercial procedures and methods.
+  B= Weldable with special techniques or for speciﬁ  c applications that justify preliminary trials or testing to develop welding procedure and weld performance.
+  C= Limited weldability because of crack sensitivity or loss in resistance to corrosion and mechanical properties.
+  D= No commonly used welding methods have been developed.
+Additional product data sheets including alloys 2014, 2017, 2219 and 7X49 are available atR O D  &  B A R  A L L O Y  7 0 7 5
+Technical Data
+Cold Finished Extruded
+ASTM B221
+AMS-QQ-A-200/11
+AMS 4154
+AMS 4166
+AMS 4167
+AMS 4168
+AMS 4169
+APPLICABLE SPECIFICATIONS
+Others
+Weight %
+Minimum
+Maximum
+CHEMICAL COMPOSITION LIMITS
+Si
+0.40
+Fe
+0.50
+Cu
+1.20
+2.00
+Mn
+0.30
+Mg
+2.10
+2.90
+Cr
+0.18
+0.28
+Each
+0.05
+Total
+0.15
+Zn
+5.10
+6.10
+Ti
+0.20
+ASTM B211
+AMS-QQ-A-225/9
+AMS 4187
+AMS 4122
+AMS 4123
+AMS 4124
+Nominal Density (68 ºF / 20 ºC)
+Melting Range
+Speciﬁ  c Heat (212 ºF / 100 ºC)
+Coefﬁ  cient of Thermal Expansion
+Thermal Conductivity (68 ºF / 20 ºC)
+Electrical Conductivity (68 ºF / 20 ºC)
+Characteristic
+TYPICAL PHYSICAL PROPERTIES
+English Metric
+2.80 Mg/m3
+532 ºC - 635 ºC
+960 J/kg - ºK
+23.4 micro m/m - ºK
+68 x 10-6 m3/m3 - ºK
+130 W/m - ºK
+155 W/m - ºK
+0.101 lbs./in.3
+990 ºF - 1175 ºF
+0.23 BTU/lb. - ºF
+13.0 micro in./in. - ºF
+3.78 x 10-5 in.3/in.3 - ºF
+75 BTU/ft. - hr. - ºF
+90 BTU/ft. - hr. - ºF
+33% IACS
+40% IACS
+105% IACS
+Linear
+68 ºF - 212 ºF
+20 ºC - 100 ºC
+Volumetric
+68 ºF / 20 ºC
+T6, T651
+T73, T7351
+Equal Volume
+Equal Weight
+T6, T651
+T73, T7351
+T6, T651
+T73, T7351

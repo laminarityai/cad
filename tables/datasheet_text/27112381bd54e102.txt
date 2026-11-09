@@ -1,0 +1,58 @@
+url: https://www.plexiglas.de/files/plexiglas-content/pdf/technische-informationen/211-1-EN-PLEXIGLAS-GS-XT.pdf
+PLEXIGLAS® | Ref. No. 211-1 | 04/25
+Page 4/7
+PLEXIGLAS®
+Solid sheet, block, multi-skin sheet, corrugated sheet, 
+tube and rod
+Typical property values (at 23°C and 50% relative humidity)
+Mechanical properties
+PLEXIGLAS® GS 
+0F00; 0Z09
+PLEXIGLAS® XT 
+0A000; 0A070
+PLEXIGLAS® Resist 
+45; 65; 75; 100
+Unit Test standard
+Density ρ 1.19 1.19 1.19 g/cm³ ISO 1183
+Impact strength acU (Charpy) 15 15 45; 65; 75; no break kJ/m2 ISO 179/1fu
+Notched impact strength aiN (lzod) 1.6 1.6 2,5; 4,5; 6,0; 6,5 kJ/m2 ISO 180/1 A
+Notched impact strength acN (Charpy) - - 3,5; 6,5; 7,5; 8,0 kJ/m2 ISO 179/1eA
+Tensile strength σM MPa ISO 527-2/1B/5
+– 40 °C 110 100 -
+23 °C 80 72 60; 50; 45; 40
+70 °C 40 35 -
+Elongation at break εB 5.5 4.5 - % ISO 527-2/1B/5
+Nominal elongation at break εtB - - 10; 15; 20; 25 % ISO 527-2/1B/50
+Flexural strength σbB 
+Standard test specimen (80 x 10 x 4 mm3)
+115 105 95; 85; 77; 69 MPa ISO 178
+Compressive yield stress σdF 110 103 - 103 ISO 604
+Max. safety stress σmax. (up to 40 °C) 5–10 5–10 5–10 MPa -
+Modulus of elasticity Et  
+(short-term value)
+3300 3300 2700; 2200; 
+2000; 1800
+MPa ISO 527-2/1B/1
+Min. cold bending radius 330 x thickness 330 x thickness 270 x thickness; 
+210 x thickness; 
+180 x thickness; 
+150 x thickness
+- -
+Dynamic shear modulus G at approx. 10 Hz 1700 1700 - MPa ISO 537
+Indentation hardness H961/30 175 175 145; 130; 120; 100 MPa ISO 2039-1
+Abrasion resistance in Taber abrader test 
+(100 rev.; 5.4 N; CS-10F)
+20 –30 20 –30 20 –30; 30 –40; 
+30 –40; 30 –40
+% Haze ISO 9352
+Coefficient of friction μ - -
+plastic / plastic 0.8 0.8 -
+plastic / steel 0.5 0.5 -
+steel / plastic 0.45 0.45 -
+Poisson’s ratio μb 
+(dilatation speed of 5% per min;  
+up to 2% dilatation; at 23 °C)
+0.37 0.37 0.41; 0.42. 0.41; 0.43 - ISO 527-1
+Resistance to puck impact from thickness - - -; from 5mm; -; - - Similar to  
+DIN 18 032.
+Part 3
