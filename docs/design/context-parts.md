@@ -27,28 +27,33 @@ A context part is a signed record in the project store. Its geometry is a conten
 
 ```python
 # src/cad/context_parts/model.py
-ContextPartId = NewType("ContextPartId", str)          # "part-" + brep_sha256[:16]
+ContextPartId = NewType("ContextPartId", str)  # "part-" + brep_sha256[:16]
+
 
 class FromVariant(_Frozen):
     kind: Literal["variant"] = "variant"
-    variant_id: str                                     # 16 hex
+    variant_id: str  # 16 hex
+
 
 type PartOrigin = Annotated[FromVariant, Field(discriminator="kind")]
 # Later arms, one per path: FromUpload(file_name, step_sha256), then Onshape and Fusion (#60).
 
+
 class Facts(_Frozen):
     """Measured by the analysis container at ingest. Shown to the person and the agent so they can
     recognise the part and build in its frame. No check reads them."""
+
     solids: int
     volume_mm3: float
     box_min: tuple[float, float, float]
     box_max: tuple[float, float, float]
 
+
 class ContextPartRecord(_Frozen):
     project: ProjectId
     brief_id: BriefId
-    name: str                                           # 1..80 chars
-    origin: BriefSpan                                   # the brief words it came from
+    name: str  # 1..80 chars
+    origin: BriefSpan  # the brief words it came from
     source: PartOrigin
     brep_sha256: str
     facts: Facts
@@ -103,8 +108,8 @@ On the host, `jobs.Demand` becomes a typed pair, so a load case is never paired 
 ```python
 @dataclass(frozen=True, slots=True)
 class Demand:
-    loads: Mapping[str, LoadCaseWire] = {}               # fea instances
-    parts: Mapping[ContextPartId, PartBrep] = {}         # fit instances; PartBrep(sha256, data)
+    loads: Mapping[str, LoadCaseWire] = {}  # fea instances
+    parts: Mapping[ContextPartId, PartBrep] = {}  # fit instances; PartBrep(sha256, data)
 ```
 
 `JobSpec` gains `context: PartBrep | None`, and its `key` hashes the context SHA-256, so a new part never reuses a cached result. `score_variant` with a `brief_id` adds the confirmed context parts of the brief's project. Without a brief, no fit runs.
@@ -114,11 +119,13 @@ class Demand:
 Two kinds, the way `min_mass` and `max_mass` pair:
 
 ```python
-class MinClearance(_Frozen):        # "at least 0.2 mm clear of the rail"
+class MinClearance(_Frozen):  # "at least 0.2 mm clear of the rail"
     kind: Literal[Kind.MIN_CLEARANCE]
     part: ContextPartId
     clearance: Length
-class MaxClearance(_Frozen):        # "no more than 0.5 mm gap to the rail"
+
+
+class MaxClearance(_Frozen):  # "no more than 0.5 mm gap to the rail"
     kind: Literal[Kind.MAX_CLEARANCE]
     part: ContextPartId
     clearance: Length
