@@ -32,6 +32,7 @@ class Mode(StrEnum):
 class Tenant:
     roots: Roots
     variants: Path
+    geometry: Path
     desk: Desk
     ingest: Ingest
     meter: Meter = field(default_factory=Unmetered)

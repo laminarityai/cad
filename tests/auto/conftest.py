@@ -106,6 +106,7 @@ async def s(tmp_path: Path, meter: Counting) -> AsyncIterator[Session]:
     tenant = Tenant(
         roots=roots,
         variants=tmp_path / "variants",
+        geometry=tmp_path / "geometry",
         desk=desk,
         ingest=ingest,
         meter=meter,

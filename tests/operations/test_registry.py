@@ -38,7 +38,13 @@ def say(text: str) -> Callable[[Tenant, Nothing], Words]:
 def a_tenant(tmp_path: Path) -> Tenant:
     roots = Roots(briefs=tmp_path / "briefs", projects=tmp_path / "projects")
     desk = Desk(roots, kinds(roots), OS_OPEN, serve=http.serve, wait_seconds=WAIT_SECONDS)
-    return Tenant(roots=roots, variants=tmp_path / "variants", desk=desk, ingest=ingest)
+    return Tenant(
+        roots=roots,
+        variants=tmp_path / "variants",
+        geometry=tmp_path / "geometry",
+        desk=desk,
+        ingest=ingest,
+    )
 
 
 async def listed(server: MCPServer) -> dict[str, str]:

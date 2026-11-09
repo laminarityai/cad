@@ -7,6 +7,7 @@ from cad.confirmations.ballot import OS_OPEN, WAIT_SECONDS, Desk, Opener
 from cad.confirmations.registry import kinds
 from cad.context_parts.ingest import ingest as read_part
 from cad.context_parts.store import Ingest
+from cad.geometry.store import GEOMETRY_ROOT
 from cad.operations.guidance import INSTRUCTIONS
 from cad.operations.model import Tenant
 from cad.operations.registry import OPERATIONS
@@ -21,7 +22,10 @@ def build_server(
     opener: Opener = OS_OPEN,
     wait_seconds: float = WAIT_SECONDS,
     ingest: Ingest = read_part,
+    geometry_root: Path = GEOMETRY_ROOT,
 ) -> MCPServer:
     desk = Desk(roots, kinds(roots), opener, serve=http.serve, wait_seconds=wait_seconds)
-    tenant = Tenant(roots=roots, variants=variants_root, desk=desk, ingest=ingest)
+    tenant = Tenant(
+        roots=roots, variants=variants_root, geometry=geometry_root, desk=desk, ingest=ingest
+    )
     return MCPServer("cad", instructions=INSTRUCTIONS, tools=tools(tenant, OPERATIONS))
