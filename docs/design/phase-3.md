@@ -227,6 +227,8 @@ The peak is the maximum over nodes, scaled by |F|. The sign of the load does not
 
 **Stress at supports.** A rigid bore makes the peak stress there unbounded, and that peak depends on the mesh. Judging it would make every bolted part fail at random. So `max_von_mises` and `safety_factor` are read outside a keep-out of 0.5 × bore diameter around each `Holes` support. The keep-out size is a constant in `fea.py`. The peak inside the keep-out is reported as `support_max_von_mises` and is not judged. This leaves a known gap: a thin neck right at a bolt hole is not judged. A later bolt-bearing domain check will cover it. The card's formula text states the gap.
 
+**Stress at a clamped face.** Fixing every node of a flat support face makes the peak stress next to it too high on short, stocky parts, because the clamp adds a stress concentration that a beam does not have. A 40×10×10 steel beam read about 22% above beam theory at its root (investigation in #108). The operator decided on 2026-11-08 to leave the measurement as it is, since the error is on the safe side, and to say so on the card. When any support of the load case is a flat face (`flat_end` or `largest_flat`), a passing fea result's `reason` ends with `CLAMPED_FACE_NOTE` in `fea.py`: "Peak stress next to a clamped face can read high on short parts, so the stress and the safety factor here are conservative." A support through holes does not carry the note. No number changes, and the 7% stress bound in §2.9 holds for the validation cases, not for a short part.
+
 **Gates.** Each gate gives `unknown` for that load case. The other cases still report.
 
 - The mesh fails, or the fine mesh exceeds 150k nodes.
@@ -374,6 +376,8 @@ A test that extends the existing one for OCP walks the AST of `checks/container/
 - **Architecture:** x86 and arm64 may differ in the last bits. That is fine, because the card records `image_digest`, and the validation tolerances do not depend on those bits.
 
 ### 2.5 The three new checks
+
+*Deferred indefinitely by the operator on 2026-11-08. The person knows their printer better than we do, many designs are never printed, and the product's job is the design. The section stays as a record. `slice` below needs an orientation from somewhere else before it is built.*
 
 **`printability`** (`Quick`; REQUIRES closed_solid; TAKES NOZZLE, MAX_OVERHANG, MIN_WALL, BED)
 
@@ -563,7 +567,7 @@ Can start now without touching phase-2 files:
 After phase 2 merges `briefs/` and `brief_tools.py`:
 
 7. **`fea` check** + `min_safety_factor` / `max_deflection` kinds + demand-driven planning + `Waiting`. End-to-end validation case through MCP.
-8. **`printability`** + `processes.yaml` + `printed_on` + the `list_processes` tool (allowlist test updated).
+8. *Deferred indefinitely (operator, 2026-11-08).* **`printability`** + `processes.yaml` + `printed_on` + the `list_processes` tool (allowlist test updated).
 9. **PrusaSlicer adapter** (`prusa.py`, renaming the `orca.py` row of the adapter lint) + `slice` + `max_print_time` / `max_cost` + filament cost data + determinism test.
 10. **Test mode guidance** in server instructions and tool descriptions, plus a `/verify` headless `claude -p` run of the hook brief in §1a.
 11. **`made_of`**, the card's `material` field, and the `score_variant` refusal of a `material_key` that differs from a confirmed `made_of` (§2.2).

@@ -1,5 +1,5 @@
 import pytest
-from solids import box, box_face, box_shell, brep_bytes, compound, loosened
+from solids import box, box_face, box_shell, brep_bytes, compound, inside_out, loosened
 
 from cad.context_parts.ingest import Facts, NotAPart, ingest, judged
 from cad.sandbox.container import Attended, ContainerState, Job, Ran, TooMuchOutput
@@ -38,10 +38,20 @@ def test_two_solids_are_one_part_of_two_solids() -> None:
             "the shape has a tolerance of 0.01 mm, over the 0.001 mm limit",
             id="loose-tolerance",
         ),
+        pytest.param(
+            brep_bytes(inside_out(box(10, 10, 10))),
+            "the shape has solids with a volume of 0 or less, inside out or empty: 0",
+            id="inside-out",
+        ),
+        pytest.param(
+            brep_bytes(compound(box(20, 20, 20), inside_out(box(5, 5, 5, at=(2, 2, 2))))),
+            "the shape has solids with a volume of 0 or less, inside out or empty: 1",
+            id="inside-out-within-a-good-solid",
+        ),
         pytest.param(b"not a BREP", "the BREP cannot be read", id="unreadable"),
     ],
 )
-def test_a_shape_that_is_not_only_solids_is_not_a_part(brep: bytes, reason: str) -> None:
+def test_a_shape_that_is_not_whole_solids_is_not_a_part(brep: bytes, reason: str) -> None:
     found = ingest(brep)
     assert isinstance(found, NotAPart), found
     assert found.reason.startswith(reason), found.reason

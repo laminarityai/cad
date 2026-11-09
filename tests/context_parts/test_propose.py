@@ -34,7 +34,6 @@ def rail(s: Session, created: dict[str, Any], **changed: str) -> dict[str, str]:
 
 
 async def propose(s: Session, created: dict[str, Any], **changed: str) -> str:
-    """Everything the client sees, ok or error."""
     return await s.text("propose_context_part", **rail(s, created, **changed))
 
 

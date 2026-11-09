@@ -47,7 +47,6 @@ NOT_A_PART = b"CASCADE Topology V3, a face and no solid\n"
 
 
 def fake_ingest(brep: bytes) -> Facts | NotAPart:
-    """Stands in for the analysis container: any BREP is the rail except NOT_A_PART."""
     return NotAPart("it has no solid") if brep == NOT_A_PART else RAIL_FACTS
 
 
@@ -162,7 +161,6 @@ class Session:
         return await self.call("ask_to_confirm", project_id=proposed.project_id)
 
     def variant(self, code: str, brep: bytes | None = RAIL) -> str:
-        """Store a variant as build_variant would, without the build sandbox."""
         vid = entry.variant_id(code, image_tag(BUILD))
         built = Build(outcome=Built(), output="")
         failed = Build(outcome=BuildFailed(error="NameError", traceback=""), output="")

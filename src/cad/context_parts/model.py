@@ -21,7 +21,6 @@ class FromVariant(_Frozen):
     variant_id: Annotated[str, Field(pattern=r"^[0-9a-f]{16}$")]
 
 
-# One arm per way a part arrives. Later: an uploaded STEP file, then Onshape and Fusion (#60).
 type PartOrigin = Annotated[FromVariant, Field(discriminator="kind")]
 
 
