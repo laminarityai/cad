@@ -63,8 +63,6 @@ PERSON_ROUTES: Final = (
 
 
 class AgentAccess(AccessToken):
-    """The verified token, which carries its AgentToken to the tool call that serves it."""
-
     agent: AgentToken
 
 

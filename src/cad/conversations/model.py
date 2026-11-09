@@ -8,7 +8,6 @@ from cad.variants.entry import VariantRefused
 
 ConversationId = NewType("ConversationId", str)
 
-# The id names a file, so it is checked here, at the boundary, and nowhere else.
 CONVERSATION_ID: Final = re.compile(r"[A-Za-z0-9_-]{1,64}")
 
 
@@ -30,9 +29,6 @@ class Mode(StrEnum):
 
 
 class Conversation(BaseModel):
-    """What the server holds about a conversation. One never set is in Plan, which comes first for
-    every brief."""
-
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     mode: Mode = Mode.PLAN

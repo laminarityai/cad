@@ -84,8 +84,7 @@ async def agent_call(app: Starlette, token: str, tool: str, **arguments: Any) ->
         return await mcp.call_tool(tool, arguments)
 
 
-def start_run(tenants: Tenants, account: AccountId, cid: ConversationId) -> str:
-    """A running Auto run held by the conversation, with no brief behind it."""
+def start_briefless_run(tenants: Tenants, account: AccountId, cid: ConversationId) -> str:
     tenant = tenants.of(account)
     store.set_mode(tenant, cid, Mode.AUTO)
     run_id = nth_run_id(PROJECT, "b" * 16, 1)
@@ -151,7 +150,7 @@ async def test_one_conversations_mode_does_not_reach_another(
 async def test_leaving_auto_stops_the_run_and_the_agent_cannot_revise_it(
     app: Starlette, local: LocalIssuer, tenants: Tenants
 ) -> None:
-    run_id = start_run(tenants, ALICE, CID)
+    run_id = start_briefless_run(tenants, ALICE, CID)
     assert isinstance(log.read_run(tenants.of(ALICE).roots, run_id).state, Running)
     answered = await put_mode(app, local.mint_person(ALICE), CID, "design")
     assert answered.json() == {"conversation_id": CID, "mode": "design", "auto_run": None}
@@ -174,7 +173,7 @@ async def test_leaving_auto_stops_the_run_and_the_agent_cannot_revise_it(
 async def test_setting_auto_again_keeps_the_run(
     app: Starlette, local: LocalIssuer, tenants: Tenants
 ) -> None:
-    run_id = start_run(tenants, ALICE, CID)
+    run_id = start_briefless_run(tenants, ALICE, CID)
     answered = await put_mode(app, local.mint_person(ALICE), CID, "auto")
     assert answered.json()["auto_run"] == run_id
     assert isinstance(log.read_run(tenants.of(ALICE).roots, run_id).state, Running)
@@ -210,7 +209,7 @@ async def test_a_body_that_is_not_a_mode_is_refused(app: Starlette, local: Local
 async def test_the_person_stops_a_running_run_and_a_replay_records_nothing(
     app: Starlette, local: LocalIssuer, tenants: Tenants
 ) -> None:
-    run_id = start_run(tenants, ALICE, CID)
+    run_id = start_briefless_run(tenants, ALICE, CID)
     person = local.mint_person(ALICE)
     stopped = await stop(app, person, run_id)
     assert stopped.status_code == 200
@@ -225,7 +224,7 @@ async def test_the_person_stops_a_running_run_and_a_replay_records_nothing(
 async def test_an_agent_token_cannot_stop_a_run(
     app: Starlette, local: LocalIssuer, tenants: Tenants
 ) -> None:
-    run_id = start_run(tenants, ALICE, CID)
+    run_id = start_briefless_run(tenants, ALICE, CID)
     refused = await stop(app, local.mint_agent(ALICE, conversation=CID), run_id)
     assert refused.status_code == 401
     assert isinstance(log.read_run(tenants.of(ALICE).roots, run_id).state, Running)
@@ -234,7 +233,7 @@ async def test_an_agent_token_cannot_stop_a_run(
 async def test_another_account_cannot_stop_a_run_it_does_not_hold(
     app: Starlette, local: LocalIssuer, tenants: Tenants
 ) -> None:
-    run_id = start_run(tenants, ALICE, CID)
+    run_id = start_briefless_run(tenants, ALICE, CID)
     refused = await stop(app, local.mint_person("user_bob"), run_id)
     assert refused.status_code == 400
     assert refused.json()["error"].startswith("UnknownRun")

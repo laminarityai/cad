@@ -41,8 +41,6 @@ class AgentToken(_Frozen):
     account: AccountId
     token_id: str
     client_id: str
-    # Only our web backend's token names a conversation. Its mode and Auto run are read from the
-    # conversation's record on every call, so a switch or a Stop reaches the next tool call.
     conversation: ConversationId | None = None
 
 

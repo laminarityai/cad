@@ -13,7 +13,6 @@ from cad.sandbox.meter import AccountLimitReached
 
 
 def gate(tenant: Tenant, brief_id: str | None) -> Running | None:
-    """The conversation's own Auto run gates a build or a score. Auto mode with no run refuses."""
     run_id = tenant.auto_run
     if run_id is None:
         if tenant.mode is Mode.AUTO:

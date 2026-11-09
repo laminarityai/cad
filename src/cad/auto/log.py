@@ -77,7 +77,6 @@ def append_event(roots: Roots, run_id: str, make: Make) -> AutoRun:
 
 
 def stop_by_person(roots: Roots, run_id: str) -> AutoRun:
-    """On a stopped run this appends nothing and returns the existing stop."""
     read_events(roots, run_id)
     return append_event(roots, run_id, lambda _: PersonStopped())
 

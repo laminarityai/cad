@@ -31,9 +31,6 @@ class Tenant:
     desk: Desk
     ingest: Ingest
     meter: Meter
-    # The calling conversation's mode and Auto run, read from its record per call by
-    # conversations.store.bind (ADR-0010). None is an outside client, which has no conversation and
-    # so cannot run Auto. Never store a bound Tenant: Tenants.of caches one per account.
     conversation: ConversationId | None = None
     mode: Mode | None = None
     auto_run: str | None = None

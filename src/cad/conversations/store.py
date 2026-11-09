@@ -1,11 +1,3 @@
-"""A conversation's mode and Auto run, one JSON file each under the account's `conversations/`.
-
-The server reads the record on every call, so a mode switch or a Stop pressed during an agent's turn
-reaches its next tool call (ADR-0010). One data-root lease means one replica, so a process lock
-serializes every change to a record. The Auto run is stopped before the record that drops it is
-written, so a crash between the two retries to the same end state.
-"""
-
 import json
 import os
 import secrets
@@ -30,8 +22,6 @@ def read(directory: Path, cid: ConversationId) -> Conversation:
 
 
 def bind(tenant: Tenant, cid: ConversationId | None) -> Tenant:
-    """A copy of the tenant for one call. It is never stored back: `Tenants.of` caches the account's
-    tenant, which must not carry one conversation's mode into another's call."""
     if cid is None:
         return tenant
     held = read(tenant.conversations, cid)
