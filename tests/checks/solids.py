@@ -100,6 +100,10 @@ def box_face(x: float, y: float, z: float) -> Shape:
     return _ocp("BRepPrimAPI").BRepPrimAPI_MakeBox(x, y, z).BottomFace()
 
 
+def inside_out(solid: Any) -> Solid:
+    return solid.Reversed()
+
+
 def loosened(shape: Shape, tolerance: float) -> Shape:
     _ocp("ShapeFix").ShapeFix_ShapeTolerance().SetTolerance(shape, tolerance)
     return shape
