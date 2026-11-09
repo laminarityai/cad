@@ -17,14 +17,18 @@ from cad.variant_sets.model import (
     Member,
     NotConfirmed,
     NotJoined,
+    Revision,
     SetBuildResult,
     SetBusy,
     SetFull,
     SetKey,
     SetRefused,
+    SlotRefused,
     TamperedSet,
     code_sha256,
+    group,
 )
+from cad.variant_sets.placement import Placement, place
 from cad.variants import store as variants
 from cad.variants.entry import VariantId
 
@@ -32,16 +36,20 @@ MAX_MEMBER_BYTES: Final = signed.MAX_RECORD_BYTES // 2
 LOG = logging.getLogger(__name__)
 
 
-def build_into_set(roots: Roots, variants_root: Path, brief_id: str, code: str) -> SetBuildResult:
+def build_into_set(
+    roots: Roots, variants_root: Path, brief_id: str, code: str, slot: int | None = None
+) -> SetBuildResult:
     root = roots.projects
     key = confirmed_key(roots, brief_id)
-    held = members(root, key)
-    sha256 = code_sha256(code)
-    if len(held) >= MAX_MEMBERS and all(m.code_sha256 != sha256 for m in held):
-        raise _full(key)
-    _record(code, VariantId("0" * 16), key)
+    try:
+        place(members(root, key), code_sha256(code), slot)
+    except SetFull:
+        raise _full(key) from None
+    _record(code, 1, VariantId("0" * 16), key)
     built = variants.build_variant(code, variants_root)
-    joined = join(root, key, code, built.variant_id) if built.outcome == Built() else NotJoined()
+    joined = (
+        join(root, key, code, built.variant_id, slot) if built.outcome == Built() else NotJoined()
+    )
     return SetBuildResult(
         variant_id=built.variant_id, outcome=built.outcome, output=built.output, variant_set=joined
     )
@@ -59,36 +67,45 @@ def confirmed_key(roots: Roots, brief_id: str) -> SetKey:
     return SetKey(state.brief.project, state.brief.id, confirmed.answered.sha256)
 
 
-def join(root: Path, key: SetKey, code: str, built_as: VariantId) -> Joined:
+def join(
+    root: Path, key: SetKey, code: str, built_as: VariantId, slot: int | None = None
+) -> Joined:
+    """Make `code` what `slot` shows, as a new revision. With no slot, new code takes a free one."""
     sha256 = code_sha256(code)
-    record = _record(code, built_as, key)
     directory = _directory(root, key)
-    slot: int | None = None
-    full = False
+    outcome: list[Placement | SetRefused] = []
 
-    def next_member(existing: tuple[bytes, ...]) -> bytes | None:
-        nonlocal slot, full
-        held = [m.code_sha256 for m in _parse(key, directory, existing)]
-        slot = held.index(sha256) + 1 if sha256 in held else None
-        full = slot is None and len(held) >= MAX_MEMBERS
-        return None if slot is not None or full else record
+    def next_revision(existing: tuple[bytes, ...]) -> bytes | None:
+        outcome.clear()
+        try:
+            placed = place(group(_parse(key, directory, existing)), sha256, slot)
+        except SetFull:
+            outcome.append(_full(key, built_as))
+            return None
+        except SlotRefused as error:
+            kept = f"It was built as variant {built_as} and is stored."
+            outcome.append(SlotRefused(f"{error} {kept}"))
+            return None
+        outcome.append(placed)
+        return None if placed.unchanged else _record(code, placed.slot, built_as, key)
 
     with _without_host_paths(key, directory):
         directory.mkdir(parents=True, exist_ok=True)
-        appended = signed.append(project_store(root), directory, _member_slot(key), next_member)
-    if isinstance(appended, signed.Appended):
-        return Joined(slot=appended.number, already_member=False)
-    if full:
-        raise _full(key, built_as)
-    if slot is None:
-        raise TamperedSet(_report(key, directory))
-    return Joined(slot=slot, already_member=True)
+        signed.append(project_store(root), directory, _revision_slot(key), next_revision)
+    [result] = outcome
+    if isinstance(result, SetRefused):
+        raise result
+    return Joined(slot=result.slot, revision=result.revision, already_member=result.unchanged)
 
 
-def _record(code: str, built_as: VariantId, key: SetKey) -> bytes:
+def _record(code: str, slot: int, built_as: VariantId, key: SetKey) -> bytes:
     record = (
-        Member(
-            code=code, code_sha256=code_sha256(code), built_as=built_as, joined_at=datetime.now(UTC)
+        Revision(
+            slot=slot,
+            code=code,
+            code_sha256=code_sha256(code),
+            built_as=built_as,
+            joined_at=datetime.now(UTC),
         )
         .model_dump_json()
         .encode()
@@ -104,19 +121,24 @@ def members(root: Path, key: SetKey) -> tuple[Member, ...]:
         _refuse_the_old_layout(root, key)
         if not signed.is_directory(directory):
             return ()
-        records = signed.read_numbered(project_store(root), directory, _member_slot(key))
+        records = signed.read_numbered(project_store(root), directory, _revision_slot(key))
     if records is None:
         raise TamperedSet(_report(key, directory))
-    return _parse(key, directory, records)
+    return group(_parse(key, directory, records))
 
 
 def _refuse_the_old_layout(root: Path, key: SetKey) -> None:
-    """Sets from before each brief had its own directory sit at <project>/sets/<decision>/members.
+    """Older sets sit at <project>/sets/<decision>/members, or at
+    <project>/sets/<brief>/<decision>/members, one member per record and no slot in it.
 
     This version does not read them, so it refuses rather than ignore them without a word.
     """
     sets = root / key.project / "sets"
-    old = min(sets.glob("*/members"), default=None) if signed.is_directory(sets) else None
+    old = (
+        min((*sets.glob("*/members"), *sets.glob("*/*/members")), default=None)
+        if signed.is_directory(sets)
+        else None
+    )
     if old is None:
         return
     LOG.error("%s holds variant sets in a layout this version does not read", old)
@@ -126,9 +148,9 @@ def _refuse_the_old_layout(root: Path, key: SetKey) -> None:
     )
 
 
-def _parse(key: SetKey, directory: Path, records: tuple[bytes, ...]) -> tuple[Member, ...]:
+def _parse(key: SetKey, directory: Path, records: tuple[bytes, ...]) -> tuple[Revision, ...]:
     try:
-        return tuple(Member.model_validate_json(record) for record in records)
+        return tuple(Revision.model_validate_json(record) for record in records)
     except ValidationError as error:
         raise TamperedSet(_report(key, directory)) from error
 
@@ -152,12 +174,12 @@ def _without_host_paths(key: SetKey, directory: Path) -> Generator[None]:
 
 
 def _directory(root: Path, key: SetKey) -> Path:
-    return root / key.project / "sets" / key.brief_id / key.decision_sha256 / "members"
+    return root / key.project / "sets" / key.brief_id / key.decision_sha256 / "revisions"
 
 
-def _member_slot(key: SetKey) -> Callable[[int], str]:
+def _revision_slot(key: SetKey) -> Callable[[int], str]:
     return lambda number: (
-        f"{key.project}/sets/{key.brief_id}/{key.decision_sha256}/members/{number}"
+        f"{key.project}/sets/{key.brief_id}/{key.decision_sha256}/revisions/{number}"
     )
 
 

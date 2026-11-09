@@ -33,8 +33,16 @@ One candidate design produced for a brief.
 _Avoid_: Option, candidate, design
 
 **Variant set**:
-The variants built for one brief against the requirements the user confirmed, which the user compares side by side. A set holds at most five. Requirements confirmed later start a new set. A variant keeps its place in its set when a server update gives its code a new variant id.
+The variants built for one brief against the requirements the user confirmed, which the user compares side by side. A set holds at most five, one per slot. Requirements confirmed later start a new set. A variant keeps its place in its set when a server update gives its code a new variant id.
 _Avoid_: Design, batch, group, shortlist
+
+**Slot**:
+A place in a variant set, numbered 1 to 5, that keeps its number for as long as the set lives. It shows the latest revision of the variant the user is working on there.
+_Avoid_: Position, index
+
+**Revision**:
+One signed entry in a slot's history, made when new code is built into the slot. A change the user asks for in chat adds a revision to the slot it changes and takes no new slot. Earlier revisions stay readable.
+_Avoid_: Version, edit, draft
 
 **Check**:
 A fixed, deterministic test of a variant against a requirement or an engineering standard, which the agent cannot change.
