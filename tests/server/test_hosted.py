@@ -1,4 +1,4 @@
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -45,7 +45,7 @@ async def app(local: LocalIssuer, tenants: Tenants) -> AsyncIterator[Starlette]:
 
 
 @asynccontextmanager
-async def http(app: Starlette, token: str | None = None) -> AsyncIterator[httpx2.AsyncClient]:
+async def http(app: Starlette, token: str | None = None) -> AsyncGenerator[httpx2.AsyncClient]:
     headers = {} if token is None else {"Authorization": f"Bearer {token}"}
     transport = httpx2.ASGITransport(app=app)
     async with httpx2.AsyncClient(transport=transport, base_url=BASE, headers=headers) as client:
