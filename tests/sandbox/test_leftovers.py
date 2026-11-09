@@ -14,6 +14,7 @@ import pytest
 from cad.sandbox import container
 from cad.sandbox.image import BUILD, current_image, image_tag
 
+pytestmark = pytest.mark.usefixtures("alone_removing_orphans")
 WAIT_SECONDS = 90
 POLL_SECONDS = 0.25
 

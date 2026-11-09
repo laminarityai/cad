@@ -25,6 +25,6 @@ STEPS: tuple[Step, ...] = (
     Step("materials table", (PYTHON, "-m", "cad.tables.validate")),
     Step("protocol models", (PYTHON, str(MODELS / "scripts" / "check_models.py"))),
     Step("sandbox image", (PYTHON, "-m", "cad.sandbox", "build-image")),
-    Step("pytest", (PYTHON, "-m", "pytest", "-q")),
+    Step("pytest", (PYTHON, "-m", "pytest", "-q", "-n", "4", "--dist", "loadfile")),
     Step("app", (PYTHON, "-m", "cad.server.probe"), show_output=True),
 )
