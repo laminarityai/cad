@@ -10,6 +10,7 @@ ALLOWED_ARGUMENTS = {
     "build_variant": {"code", "brief_id", "slot"},
     # own_measurements is the agent's measuring code, shown as not verified, never a verdict.
     "score_variant": {"variant_id", "material_key", "brief_id", "own_measurements"},
+    "scorecard": {"variant_id", "material_key", "brief_id"},
     "list_materials": set[str](),
     "create_brief": {"text", "project_id"},
     "propose_requirements": {"brief_id", "requirements"},

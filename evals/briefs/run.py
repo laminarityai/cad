@@ -27,7 +27,7 @@ from pathlib import Path
 from typing import Final
 
 from brief_set import BriefInput, load_set, prompt_for
-from friction import minutes_to_first_scorecard, read_pages
+from friction import minutes_to_first_result, read_pages
 from outcome import BriefResult, Friction, Trace, is_finished, read_results, write_result
 from session import run_session
 from summary import markdown, summarize
@@ -61,7 +61,7 @@ def run_one(brief: BriefInput, out: Path, model: str, timeout_s: float) -> Brief
     friction = Friction(
         confirmation_pages=pages.shown,
         ask_calls=session.facts.ask_calls,
-        minutes_to_first_scorecard=minutes_to_first_scorecard(
+        minutes_to_first_result=minutes_to_first_result(
             stores / "briefs", stores / "variants", seconds
         ),
     )
@@ -73,7 +73,7 @@ def run_one(brief: BriefInput, out: Path, model: str, timeout_s: float) -> Brief
     elif failed:
         note = session.note
     else:
-        trace = trace_session(home)
+        trace = trace_session(home, directory / "transcript.json")
     if pages.errors:
         note = "; ".join(filter(None, [note, *pages.errors]))
     return BriefResult(

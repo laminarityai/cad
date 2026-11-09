@@ -2,13 +2,14 @@ from pathlib import Path
 
 from outcome import Share, Trace
 from provenance import NotVerified, Stale, Unresolved
-from trace_store import TracedCard, TracedStore, exit_code, tally, trace_root
+from trace_store import TracedStore, exit_code, tally, trace_cards
 from tracking import NoRequirements, track
 from tracking import Share as TrackedShare
+from transcript_cards import read_cards
 
 from cad.records.roots import Roots
 
-NO_CARD = "no scorecard was stored"
+NO_CARD = "no scorecard was returned"
 
 
 def _share(found: TrackedShare) -> Share:
@@ -17,14 +18,12 @@ def _share(found: TrackedShare) -> Share:
     return Share(numerator=found.numerator, denominator=found.denominator)
 
 
-def _latest_stored_card(found: TracedStore) -> TracedCard:
-    return max(found.cards, key=lambda one: one.path.stat().st_mtime)
-
-
-def trace_session(home: Path) -> Trace:
+def trace_session(home: Path, transcript: Path) -> Trace:
     stores = home / ".cad"
-    found: TracedStore = trace_root(
-        stores / "variants", Roots(briefs=stores / "briefs", projects=stores / "projects")
+    found: TracedStore = trace_cards(
+        read_cards(transcript),
+        stores / "variants",
+        Roots(briefs=stores / "briefs", projects=stores / "projects"),
     )
     counts = tally(found.traces)
     untraced: list[str] = []
@@ -46,7 +45,7 @@ def trace_session(home: Path) -> Trace:
         untraced.append(f"{counts.no_brief} card(s) scored with no brief")
     if not counts.cards:
         untraced.append(NO_CARD)
-    tracking = track(_latest_stored_card(found).outcomes if found.cards else ())
+    tracking = track(found.cards[-1].outcomes if found.cards else ())
     return Trace(
         traced=exit_code(counts, require_judged=True) == 0,
         cards=counts.cards,

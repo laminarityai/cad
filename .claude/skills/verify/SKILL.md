@@ -77,7 +77,7 @@ claude --version
 HOME="$CAD_HOME" uv run cad-call <tool> '<json args>'
 ```
 
-It prints the MCP result as JSON and exits 1 when the result is an error and 2 when the arguments are not a JSON object. Tools: `server_info`, `build_variant`, `score_variant`, `list_materials`, `create_brief`, `propose_requirements`, `ask_to_confirm`, `list_requirements`, `search_knowledge`, `submit_research`. `jq -Rs '{code: .}' < <file>.py` turns a build123d file into the arguments `build_variant` takes. The stdio client passes the server only `HOME`, `LOGNAME`, `PATH`, `SHELL`, `TERM` and `USER`.
+It prints the MCP result as JSON and exits 1 when the result is an error and 2 when the arguments are not a JSON object. Tools: `server_info`, `build_variant`, `score_variant`, `scorecard`, `list_materials`, `create_brief`, `propose_requirements`, `ask_to_confirm`, `list_requirements`, `search_knowledge`, `submit_research`. `jq -Rs '{code: .}' < <file>.py` turns a build123d file into the arguments `build_variant` takes. The stdio client passes the server only `HOME`, `LOGNAME`, `PATH`, `SHELL`, `TERM` and `USER`.
 
 ### The confirmation page in a real browser
 
@@ -130,7 +130,7 @@ It runs the type checks, lint, format, file size, materials table, sandbox image
 Everything goes under `$EVIDENCE`: `cad-call` output as `<slug>.json`, transcripts, `$CAD_BROWSER/` (log, ARIA snapshots, screenshots) and `$CAD_HOME/.cad/` (the stores the run wrote).
 
 - Prove the user's path. A claim about what the agent does needs a transcript. A claim about the page needs the browser's screenshots and log, not an HTTP probe.
-- Capture the action and the result, then read the side effect from a second view: `list_requirements` after a page answer, the variant directory after a build, `scorecard.json` after a score.
+- Capture the action and the result, then read the side effect from a second view: `list_requirements` after a page answer, the variant directory after a build, `scorecard` after a score.
 - The spent token must not appear in any transcript: `grep -c "<spent_token>" <transcript>` prints `0`.
 
 ## Cleanup

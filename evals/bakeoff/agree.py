@@ -30,7 +30,7 @@ from inputs import Attempt, as_result_contract, brief_prompt, read_session, stor
 from cad.checks.container.extents import SORTED_NAMES
 from cad.checks.result import CheckResult, StepStored, Verdict
 from cad.sandbox.outcome import Built
-from cad.scorecard import material, score
+from cad.scorecard import score
 from cad.variants import entry, store
 
 HERE: Final = Path(__file__).resolve().parent
@@ -157,12 +157,15 @@ def sha256_of(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def card_side(directory: Path) -> CardSide:
+def card_side(root: Path, variant_id: str) -> CardSide:
     """Raises EvidenceError when the stored files are not the ones the scorecard names."""
-    path = directory / score.SCORECARD
-    if not path.is_file():
+    directory = root / variant_id
+    try:
+        card = score.peek_variant(variant_id, MATERIAL_KEY, root)
+    except score.NotScored:
         return CardSide(UNSCORED, None, None)
-    card = material.STORED.validate_json(path.read_text())
+    except entry.VariantRefused as error:
+        raise EvidenceError(str(error)) from error
     verdict = next(r for r in card.finished if r.check_id == "closed_solid").verdict
     if card.brep_sha256 != sha256_of(directory / entry.BREP):
         raise EvidenceError("result.brep is not the BREP the scorecard measured")
@@ -191,7 +194,7 @@ def evaluate(label: str, part: str, variant_id: str | None, root: Path, seconds:
         return Row(label, None, unscored, GraderSide("not graded", None, None), no_variant, seconds)
     directory = root / variant_id
     try:
-        card = card_side(directory)
+        card = card_side(root, variant_id)
     except EvidenceError as error:
         evidence = Agreement(False, (str(error),))
         return Row(
@@ -205,8 +208,7 @@ def replay_one(attempt: Attempt, root: Path) -> Row:
     started = time.monotonic()
     built = store.build_variant(as_result_contract(attempt.path.read_text()), root)
     if isinstance(built.outcome, Built):
-        scored = score.score_variant(built.variant_id, MATERIAL_KEY, root)
-        score.store(material.reported(scored, None), root)
+        score.score_variant(built.variant_id, MATERIAL_KEY, root)
     return evaluate(attempt.label, attempt.part, built.variant_id, root, time.monotonic() - started)
 
 
