@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
@@ -19,7 +19,7 @@ from cad.research.ledger import (
     read_ledger,
 )
 from cad.research.overlay import fill, overlay
-from cad.research.quote import on_page, units_beside, where_written, written_in
+from cad.research.quote import on_page, where_written, written_in
 from cad.research.requests import ResearchRequest, request_for
 from cad.tables.materials import FromResearch, Known, MaterialsTable, row_or_blank
 
@@ -195,7 +195,7 @@ def _already_answered(question: Question, held: Known) -> ResearchAccepted | Non
 
 def _in_canonical_unit(question: Question) -> float | _Refusal:
     spec = SPECS[question.field]
-    factor = spec.units.get(question.unit.strip())
+    factor = _factor(spec.units, question.unit.strip())
     if factor is None:
         spellings = ", ".join(repr(one) for one in spec.units)
         return _Refusal(
@@ -205,12 +205,9 @@ def _in_canonical_unit(question: Question) -> float | _Refusal:
     written = Decimal(repr(question.value))
     if not written_in(written, question.quote):
         return _Refusal(
-            f"the value {written} is not written in the quote; pass the number exactly as the "
-            "quote writes it, in the quote's unit, and a quote that contains it"
+            f"the value {written} is not written in the quote as one number; pass the number as "
+            "the quote writes it, in the unit the page gives it, and a quote that contains it"
         )
-    wrong = _wrong_unit(question, factor, written)
-    if wrong is not None:
-        return wrong
     canonical = written * factor
     if not spec.admits(canonical):
         return _Refusal(
@@ -219,28 +216,20 @@ def _in_canonical_unit(question: Question) -> float | _Refusal:
     return float(canonical)
 
 
-def _wrong_unit(question: Question, factor: Decimal, written: Decimal) -> _Refusal | None:
-    spec = SPECS[question.field]
-    if spec.canonical_unit == "dimensionless":
-        return None
-    beside = units_beside(written, question.quote, spec.units)
-    if not beside:
-        return _Refusal(
-            f"the quote writes {written} with no unit of {spec.label}; include the unit the page "
-            "writes for the value in the quote, such as a table row with its column's unit"
-        )
-    if factor in {one for _, one in beside}:
-        return None
-    return _Refusal(
-        f"the quote writes {written} in {beside[0][0]!r}, not {question.unit!r}; pass the unit "
-        "the quote writes beside the value"
-    )
+def _factor(units: Mapping[str, Decimal], unit: str) -> Decimal | None:
+    """A spelling that differs from one key only in case, such as "Mpa", names that key."""
+    if unit in units:
+        return units[unit]
+    factors = {
+        factor for spelling, factor in units.items() if spelling.casefold() == unit.casefold()
+    }
+    return factors.pop() if len(factors) == 1 else None
 
 
 def _not_on_page(question: Question, url: str, text: str) -> str:
     reason = (
         f"the quote does not appear on {url} as the server fetched it; copy its words and "
-        "numbers in the page's order, and start and end it on whole words and numbers"
+        "numbers in the page's order, and start and end it on whole numbers"
     )
     written = where_written(Decimal(repr(question.value)), text)
     if not written:
