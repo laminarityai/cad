@@ -38,12 +38,12 @@ Cost: **free** is `cad-call` alone (about 8 s of server start per call). **docke
 | [Agree](./agree.md) | `evals/bakeoff/agree.py`: scorecards against the bake-off grader | docker: replay (60 builds, about 4 min) | live: 10 sessions, about 0.4 USD |
 | [Brief set](./brief-set.md) | `evals/briefs/run.py`: the private brief set, traced numbers, friction | live (one session per brief) | none |
 | [Context parts](./context-parts.md) | `propose_context_part`, the context part item on the confirmation page, and the `fit` check against each confirmed part | free: idempotent, declined, refusals (`tests/context_parts/`). docker: propose a built variant. docker + browser: confirm a part, score fit and clearance | live: the agent proposes a part and the person confirms it |
+| [Hosted MCP and accounts](./hosted-mcp.md) | `cad-http`: `/mcp` over HTTP, the metadata, token kinds per route, tenancy, the lease, the usage cap | free: curl and `cad-call --url` with `cad-token` tokens | operator: `claude mcp login cad` against a Clerk instance |
 
 ## Phase 4 web app: NOT YET BUILT
 
-`docs/design/phase-4.md` designs these surfaces, and none of them exists yet. Each file names the check that §4 Sequencing gives the unit, the proof to write into the map when the unit lands, and the parts of the design it comes from. It names no selector, because the UI does not exist. When a unit lands, replace its file with a real recipe that follows the four-section shape of the files above.
+`docs/design/phase-4.md` designs these surfaces. Unit 3 landed as [Hosted MCP and accounts](./hosted-mcp.md), and the rest do not exist yet. Each file names the check that §4 Sequencing gives the unit, the proof to write into the map when the unit lands, and the parts of the design it comes from. It names no selector, because the UI does not exist. When a unit lands, replace its file with a real recipe that follows the four-section shape of the files above.
 
-- [Hosted MCP and accounts](./phase-4/hosted-mcp.md): `/mcp` over HTTP with Clerk OAuth, tenancy, the lease and the usage cap. Unit 3.
 - [Hosted confirmation](./phase-4/hosted-confirmation.md): the FastAPI page in the signed-in app, opened by URL elicitation. Unit 4.
 - [Web shell](./phase-4/web-shell.md): the viewer, scorecards over SSE, geometry. Units 5 and 6.
 - [Auto mode](./phase-4/auto-mode.md): the server-held Auto run and its stops. Units 7 and 9.

@@ -10,7 +10,9 @@ What a user touches today:
 - **The MCP server over stdio** (`uv run cad-server`). Drive it with `cad-call` (one tool call) or `claude_session.py` (a real Claude Code session).
 - **The confirmation page** that `ask_to_confirm` opens on 127.0.0.1. Drive it in a real browser with `browser.py`.
 
-The phase 4 web app (chat, viewer, live scorecards, Auto mode, hosted `/mcp`) is designed in `docs/design/phase-4.md` and not built. [features/phase-4/](features/phase-4/) names the proof to write when each unit lands.
+- **The MCP server over HTTP** (`uv run cad-http`), with accounts. Drive it with `curl` and `cad-call --url`: [features/hosted-mcp.md](features/hosted-mcp.md).
+
+The rest of the phase 4 web app (chat, viewer, live scorecards, Auto mode) is designed in `docs/design/phase-4.md` and not built. [features/phase-4/](features/phase-4/) names the proof to write when each unit lands.
 
 Run every command from the repo root. Run each command as written, and replace only a `<placeholder>` or a `$VARIABLE` this file sets.
 
