@@ -1,9 +1,10 @@
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
 
 from cad.tables.datasheet_text import citations, cover, quote_problems, render, text_path
-from cad.tables.materials import MaterialsTable, load_materials
+from cad.tables.materials import TABLE_PATH, UNITS, Known, MaterialsTable, load_materials
 
 REGEN = "uv run python tools/regen_datasheet_text.py"
 DENSITY = "Density [g/cm3] 1.24 ISO 1183"
@@ -40,6 +41,36 @@ def test_committed_text_holds_every_quote(table: MaterialsTable) -> None:
 
 def test_a_store_that_holds_every_quote_passes(table: MaterialsTable, store: Path) -> None:
     assert quote_problems(table, store) == []
+
+
+def test_a_value_its_quote_does_not_write_names_the_row(tmp_path: Path) -> None:
+    path = tmp_path / "materials.yaml"
+    text = TABLE_PATH.read_text(encoding="utf-8")
+    path.write_text(text.replace("value: 1.24 g/cm^3", "value: 1.99 g/cm^3", 1), encoding="utf-8")
+    [problem] = quote_problems(load_materials(path))
+    assert problem.startswith("prusament-pla density: 1.99 is not written in its quote")
+
+
+@pytest.mark.parametrize(
+    ("value", "quote"),
+    [
+        ("1.24 g/cm^3", "Densité 1,24 g/cm3"),
+        ("1240 kg/m^3", "Density 1 240 kg/m3"),
+        ("1240 kg/m^3", "Density 1,240 kg/m3"),
+        ("1.2 g/cm^3", "Density 1.20 g/cm3"),
+    ],
+)
+def test_a_value_written_in_another_number_format_passes(
+    table: MaterialsTable, store: Path, value: str, quote: str
+) -> None:
+    pla = table.get_material("prusament-pla")
+    assert isinstance(pla.density, Known)
+    density = Known(UNITS.Quantity(value), replace(pla.density.source, quote=quote))
+    changed = replace(table, materials={**table.materials, pla.key: replace(pla, density=density)})
+    url = pla.density.source.url
+    pages = [c.quote for c in citations(changed) if c.url == url]
+    text_path(url, store).write_text(render(url, pages), encoding="utf-8")
+    assert quote_problems(changed, store) == []
 
 
 def test_a_row_without_stored_text_names_the_row_and_the_regen_script(
