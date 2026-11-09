@@ -10,10 +10,7 @@ from cad.scorecard import score
 if TYPE_CHECKING:
     from conftest import Person, Session
 
-pytestmark = [
-    pytest.mark.anyio,
-    pytest.mark.xfail(strict=True, reason="a project key may shadow a table row"),
-]
+pytestmark = pytest.mark.anyio
 
 PLATE = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
 TEXT = "A plate printed in Prusament PLA under 150 g"

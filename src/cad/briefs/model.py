@@ -30,7 +30,7 @@ from cad.checks.result import Comparator, Measured
 from cad.loads.model import LoadCase
 from cad.loads.words import describe_case
 from cad.projects.model import NEW_PROJECT_ID, NewProjectId, ProjectId, legacy_project
-from cad.tables.materials import KEY_PATTERN, UNITS
+from cad.tables.materials import KEY_PATTERN, PROJECT_PREFIX, UNITS
 
 BriefId = NewType("BriefId", str)
 RequirementId = NewType("RequirementId", str)
@@ -359,7 +359,7 @@ def describe(requirement: Requirement) -> str:
         case Unchecked():
             return target.statement
         case MadeOf():
-            return f"Made of {target.material}"
+            return f"Made of {target.material.removeprefix(PROJECT_PREFIX)}"
         case MinSafetyFactor():
             return f"Safety factor against yield at least {target.factor:g} with " + describe_case(
                 target.load

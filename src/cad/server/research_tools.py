@@ -17,7 +17,7 @@ from cad.sandbox.outcome import SandboxUnavailable
 from cad.scorecard.material import ReportedScorecard
 from cad.sources.fields import MAX_QUOTE_LENGTH
 from cad.sources.fields import Field as MaterialField
-from cad.tables.materials import KEY_PATTERN
+from cad.tables.materials import KEY_PATTERN, KeyInTable
 
 SUBMIT_RESEARCH = (
     "Answer a research request from a score_variant card or a propose_requirements reply. "
@@ -56,7 +56,7 @@ def with_research(
 def research_tools(roots: Roots, fetcher: Fetch = fetch) -> list[Tool]:
     def submit_research(
         brief_id: str,
-        key: Annotated[str, Field(pattern=KEY_PATTERN)],
+        key: Annotated[str, Field(pattern=f"^{KEY_PATTERN.pattern}$")],
         field: MaterialField,
         url: Annotated[str, Field(max_length=2048)],
         quote: Annotated[str, Field(min_length=1, max_length=MAX_QUOTE_LENGTH)],
@@ -66,7 +66,7 @@ def research_tools(roots: Roots, fetcher: Fetch = fetch) -> list[Tool]:
             table = host.materials_table()
             question = Question(brief_id, project, table.row_key(key), field, url, quote)
             return submit(table, roots.projects, question, fetcher=fetcher)
-        except (BriefRefused, ProjectRefused, SandboxUnavailable, StoreUnusable) as error:
+        except (BriefRefused, KeyInTable, ProjectRefused, SandboxUnavailable, StoreUnusable) as error:
             return ResearchRefused(key=key, field=field, reason=f"{type(error).__name__}: {error}")
 
     return [Tool.from_function(submit_research, name=SUBMIT, description=SUBMIT_RESEARCH)]

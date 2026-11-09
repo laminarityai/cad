@@ -97,6 +97,10 @@ class UnknownMaterial(LookupError):
     pass
 
 
+class KeyInTable(ValueError):
+    pass
+
+
 class InvalidTable(ValueError):
     def __init__(self, problems: list[str]) -> None:
         super().__init__("\n".join(problems))
@@ -116,9 +120,12 @@ class MaterialsTable:
         return material
 
     def row_key(self, key: str) -> str:
-        if key in self.materials or key.startswith(PROJECT_PREFIX):
+        if key in self.materials:
             return key
-        return PROJECT_PREFIX + key
+        named = key.removeprefix(PROJECT_PREFIX)
+        if named != key and named in self.materials and not named.startswith(PROJECT_PREFIX):
+            raise KeyInTable(f"{named} is in the materials table; use {named}")
+        return PROJECT_PREFIX + named
 
 
 def load_materials(path: Path = TABLE_PATH) -> MaterialsTable:
