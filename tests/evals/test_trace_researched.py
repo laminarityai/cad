@@ -144,7 +144,6 @@ def test_the_bounds_of_a_research_request_on_a_stored_card_resolve(store: Path) 
     )
 
 
-@pytest.mark.xfail(strict=True, reason="#123: any new record marks every older card stale")
 def test_a_record_for_a_value_the_card_never_read_leaves_the_card_current(
     store: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
