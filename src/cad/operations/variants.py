@@ -2,11 +2,12 @@ from typing import Annotated, Final
 
 from pydantic import Field
 
+from cad.auto.gate import gate, stops_at_the_limit
 from cad.operations.model import Audience, Input, Tenant, operation
-from cad.sandbox import container, host
+from cad.sandbox import container, host, image
 from cad.variant_sets import store as variant_sets
 from cad.variant_sets.model import MAX_MEMBERS, SetBuildResult, SlotRefused
-from cad.variants import store
+from cad.variants import entry, store
 
 MAX_CODE_CHARS: Final = 256 * 1024
 BUILD_VARIANT = (
@@ -28,7 +29,10 @@ BUILD_VARIANT = (
     "code with no slot when every slot is taken, or for code that another slot already shows, "
     "is refused before it starts. If the set changes while a build runs so that it cannot take "
     "the code, the build finishes and is stored, but the error says it joined no set and names "
-    "its variant id. Without brief_id the variant joins no set, and slot is refused."
+    "its variant id. Without brief_id the variant joins no set, and slot is refused. "
+    "Under an Auto run, pass auto_run with its run id and the run's brief_id: the build is "
+    "refused before it starts once the run has stopped, and a build of code the store does not "
+    "hold is charged to the account's usage limit, whose refusal stops the run."
 )
 
 
@@ -36,16 +40,20 @@ class BuildVariantInput(Input):
     code: Annotated[str, Field(max_length=MAX_CODE_CHARS)]
     brief_id: str | None = None
     slot: Annotated[int | None, Field(strict=True)] = None
+    auto_run: str | None = None
 
 
 def build_variant(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResult:
-    if arguments.brief_id is not None:
-        return variant_sets.build_into_set(
-            tenant.roots, tenant.variants, arguments.brief_id, arguments.code, arguments.slot
-        )
-    if arguments.slot is not None:
-        raise SlotRefused("slot names a place in a brief's variant set, so pass brief_id too")
-    built = store.build_variant(arguments.code, tenant.variants)
+    gate(tenant, arguments.auto_run, arguments.brief_id)
+    vid = entry.variant_id(arguments.code, image.image_tag(image.BUILD))
+    with stops_at_the_limit(tenant.roots, arguments.auto_run, vid):
+        if arguments.brief_id is not None:
+            return variant_sets.build_into_set(
+                tenant.roots, tenant.variants, arguments.brief_id, arguments.code, arguments.slot
+            )
+        if arguments.slot is not None:
+            raise SlotRefused("slot names a place in a brief's variant set, so pass brief_id too")
+        built = store.build_variant(arguments.code, tenant.variants)
     return SetBuildResult(variant_id=built.variant_id, outcome=built.outcome, output=built.output)
 
 

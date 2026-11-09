@@ -6,6 +6,7 @@ from cad.accounts.tenants import open_tenant
 from cad.confirmations.ballot import OS_OPEN, WAIT_SECONDS, Opener
 from cad.context_parts.ingest import ingest as read_part
 from cad.context_parts.store import Ingest
+from cad.geometry.store import GEOMETRY_ROOT
 from cad.operations.guidance import INSTRUCTIONS
 from cad.operations.registry import OPERATIONS
 from cad.operations.tools import tools
@@ -19,7 +20,8 @@ def build_server(
     opener: Opener = OS_OPEN,
     wait_seconds: float = WAIT_SECONDS,
     ingest: Ingest = read_part,
+    geometry_root: Path = GEOMETRY_ROOT,
 ) -> MCPServer:
     """The stdio server: one local account in `~/.cad`, metered with no cap."""
-    tenant = open_tenant(roots, variants_root, None, opener, wait_seconds, ingest)
+    tenant = open_tenant(roots, variants_root, geometry_root, None, opener, wait_seconds, ingest)
     return MCPServer("cad", instructions=INSTRUCTIONS, tools=tools(lambda: tenant, OPERATIONS))

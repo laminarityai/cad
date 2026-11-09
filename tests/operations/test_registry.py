@@ -36,7 +36,9 @@ def say(text: str) -> Callable[[Tenant, Nothing], Words]:
 
 def a_tenant(tmp_path: Path) -> TenantOf:
     roots = Roots(briefs=tmp_path / "briefs", projects=tmp_path / "projects")
-    tenant = open_tenant(roots, tmp_path / "variants", None, OS_OPEN, WAIT_SECONDS, ingest)
+    tenant = open_tenant(
+        roots, tmp_path / "variants", tmp_path / "geometry", None, OS_OPEN, WAIT_SECONDS, ingest
+    )
     return lambda: tenant
 
 

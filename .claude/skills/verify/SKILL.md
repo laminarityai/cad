@@ -152,6 +152,7 @@ pgrep -fl "$PWD/.venv/bin/python.*(-m cad\.server|bin/cad-server)"
 
 - `scripts/browser.py start|set|status|stop <dir>` and the opener `<dir>/bin/open <url>`: the person in a real browser. Use it for every proof of the confirmation page.
 - `scripts/human.py <url>`, with `CAD_HUMAN_LOG=<path>`: a headless person over plain HTTP. Use it only where a browser cannot help: the brief-set eval (`evals/briefs/`), which runs many sessions in parallel, and the HTTP probes a browser cannot make, a GET with no or a wrong token and a replayed POST (see [Briefs](features/briefs.md)).
+- `scripts/geometry.py <dir> <part.py>...`: build and score parts through the MCP server, read each mesh through the person-only `geometry` operation, compare its volume with the `mass` check, and screenshot it in three-cad-viewer. See [Geometry](features/geometry.md).
 - `scripts/claude_session.py [--model <alias>] [--opener <program>] [--home <dir> | --real-home] "<prompt>" <transcript.json>`: a headless Claude Code session. `--home` overrides `$CAD_HOME`. `--real-home` uses your own `HOME`, only when the operator asks.
 
 Feature recipes: [features/README.md](features/README.md).
