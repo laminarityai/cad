@@ -24,6 +24,7 @@ BOTH = Audience.AGENT | Audience.PERSON
 class Tenant:
     roots: Roots
     variants: Path
+    geometry: Path
     desk: Desk
     ingest: Ingest
 
