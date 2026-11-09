@@ -6,8 +6,8 @@ The rest is the pages, split by a form feed. A PDF has no one text, so a documen
 pages of every extraction tool that was needed to put each quote on a page.
 
 The check runs offline. A row's quote must be found, by the server's own `on_page`, on a page of
-the stored text of the row's url, and the row's number, in the unit the row writes it in, must be
-written in the quote.
+the stored text of the row's url, the row's number must be written in the quote, and so must the
+row's unit, by its own spelling or one listed in `UNIT_SPELLINGS`, with case kept.
 """
 
 import hashlib
@@ -16,9 +16,13 @@ from collections.abc import Callable, Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
+from typing import Final
+
+import pint
 
 from cad.research.submit import on_page
-from cad.tables.materials import FIELD_UNITS, TABLE_PATH, Known, MaterialsTable
+from cad.sources.tokens import fold
+from cad.tables.materials import FIELD_UNITS, TABLE_PATH, UNITS, Known, MaterialsTable
 
 STORE = TABLE_PATH.parent / "datasheet_text"
 HEADER = "url: "
@@ -27,6 +31,16 @@ REGEN = "uv run python tools/regen_datasheet_text.py"
 
 NUMBER = re.compile(r"(?<![\d.,])\d+(?:[.,]\d+)*")
 SPACE_GROUPED = re.compile(r"(?<![\d.,])\d{1,3}(?: \d{3})+(?![\d.,])")
+
+UNIT_SPELLINGS: Final = {
+    "MPa": ("N/mm2",),
+    "GPa": ("Gpa",),
+    "ksi": (),
+    "g/cm^3": ("g/cm3",),
+    "kg/m^3": ("kg/m3",),
+    "Mg/m^3": ("Mg/m3",),
+    "lb/in^3": ("lbs/in.3",),
+}
 
 type Extraction = Callable[[], Sequence[str]]
 
@@ -39,6 +53,7 @@ class Citation:
     title: str
     quote: str
     value: Decimal
+    unit: pint.Unit
 
 
 def text_path(url: str, store: Path = STORE) -> Path:
@@ -77,8 +92,15 @@ def citations(table: MaterialsTable) -> Iterator[Citation]:
             if isinstance(value, Known):
                 source = value.source
                 number = str(value.quantity.magnitude)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
+                unit = value.quantity.units  # pyright: ignore[reportUnknownMemberType]
                 yield Citation(
-                    material.key, field, source.url, source.title, source.quote, Decimal(number)
+                    material.key,
+                    field,
+                    source.url,
+                    source.title,
+                    source.quote,
+                    Decimal(number),
+                    unit,  # pyright: ignore[reportUnknownArgumentType]
                 )
 
 
@@ -87,6 +109,21 @@ def written_in(value: Decimal, quote: str) -> bool:
     grouping, equals `value`: 1.24 is written in "1,24 g/cm3" and 8960 in "8 960 kg/m3".
     The same rule as `cad.research.quote.written_in`, which reads a few more forms."""
     return any(reading == value for reading in _readings(quote))
+
+
+def unit_written_in(unit: pint.Unit, quote: str) -> bool:
+    """Whether the quote writes `unit`, by the spelling the table uses or one listed with it, on
+    word boundaries and with case kept: MPa is not written in "mPa" and g/cm^3 is written in
+    "g/cm³". A dimensionless value needs no unit."""
+    if unit.dimensionless:
+        return True
+    text = fold(quote)
+    return any(
+        re.search(rf"(?<![A-Za-z]){re.escape(spelling)}(?![A-Za-z0-9])", text)
+        for name, others in UNIT_SPELLINGS.items()
+        if UNITS.Unit(name) == unit
+        for spelling in (name, *others)
+    )
 
 
 def _readings(quote: str) -> Iterator[Decimal]:
@@ -123,6 +160,12 @@ def quote_problems(table: MaterialsTable, store: Path = STORE) -> list[str]:
             problems.append(
                 f"{citation.key} {citation.field}: {citation.value} is not written in its quote"
                 f" {citation.quote!r}. Write the value as the quote prints it, in the quote's unit."
+            )
+        if not unit_written_in(citation.unit, citation.quote):
+            problems.append(
+                f"{citation.key} {citation.field}: its unit {citation.unit:~P} is not written in"
+                f" its quote {citation.quote!r}. Quote the unit the sheet prints with the value,"
+                " or write the value in the unit the quote prints."
             )
     problems.extend(
         f"{path.name}: no row cites its url. Run `{REGEN}` to delete it."

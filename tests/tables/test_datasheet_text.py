@@ -51,6 +51,24 @@ def test_a_value_its_quote_does_not_write_names_the_row(tmp_path: Path) -> None:
     assert problem.startswith("prusament-pla density: 1.99 is not written in its quote")
 
 
+def problems_with_pla(
+    table: MaterialsTable, store: Path, field: str, value: str, quote: str
+) -> list[str]:
+    """The problems once prusament-pla's `field` reads `value` and cites `quote`, with the quote
+    stored in its datasheet's text."""
+    pla = table.get_material("prusament-pla")
+    known = pla.value(field)
+    assert isinstance(known, Known)
+    changed_value = Known(UNITS.Quantity(value), replace(known.source, quote=quote))
+    changed = replace(
+        table, materials={**table.materials, pla.key: replace(pla, **{field: changed_value})}
+    )
+    url = known.source.url
+    pages = [c.quote for c in citations(changed) if c.url == url]
+    text_path(url, store).write_text(render(url, pages), encoding="utf-8")
+    return quote_problems(changed, store)
+
+
 @pytest.mark.parametrize(
     ("value", "quote"),
     [
@@ -63,14 +81,55 @@ def test_a_value_its_quote_does_not_write_names_the_row(tmp_path: Path) -> None:
 def test_a_value_written_in_another_number_format_passes(
     table: MaterialsTable, store: Path, value: str, quote: str
 ) -> None:
-    pla = table.get_material("prusament-pla")
-    assert isinstance(pla.density, Known)
-    density = Known(UNITS.Quantity(value), replace(pla.density.source, quote=quote))
-    changed = replace(table, materials={**table.materials, pla.key: replace(pla, density=density)})
-    url = pla.density.source.url
-    pages = [c.quote for c in citations(changed) if c.url == url]
-    text_path(url, store).write_text(render(url, pages), encoding="utf-8")
-    assert quote_problems(changed, store) == []
+    assert problems_with_pla(table, store, "density", value, quote) == []
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "quote"),
+    [
+        ("density", "1.24 g/cm^3", "Density [g/cm³] 1.24"),
+        ("density", "1.24 g/cm^3", "Density 1.24 g/cm^3"),
+        ("yield_strength", "51 MPa", "Yield strength 51 N/mm2"),
+        ("yield_strength", "51 MPa", "Yield strength [MPa] 51"),
+    ],
+)
+def test_a_unit_written_in_an_equivalent_spelling_passes(
+    table: MaterialsTable, store: Path, field: str, value: str, quote: str
+) -> None:
+    assert problems_with_pla(table, store, field, value, quote) == []
+
+
+@pytest.mark.parametrize(
+    ("value", "quote"),
+    [
+        ("51 MPa", "Yield strength 51 mPa"),
+        ("51 MPa", "Yield strength 51 ksi"),
+        ("51 MPa", "Yield strength 51"),
+        ("51 ksi", "Yield strength 51 MPa"),
+    ],
+)
+def test_a_unit_its_quote_does_not_write_names_the_row(
+    table: MaterialsTable, store: Path, value: str, quote: str
+) -> None:
+    [problem] = problems_with_pla(table, store, "yield_strength", value, quote)
+    assert problem.startswith("prusament-pla yield_strength: its unit")
+    assert "is not written in its quote" in problem
+
+
+def test_changing_a_rows_unit_to_ksi_fails_the_check(tmp_path: Path) -> None:
+    """The mutations that slipped past a check reading only the magnitude: 109.3 MPa read as
+    109.3 ksi is 753.6 MPa."""
+    path = tmp_path / "materials.yaml"
+    text = TABLE_PATH.read_text(encoding="utf-8")
+    for row in ("109.3", "276", "310"):
+        text = text.replace(f"value: {row} MPa\n", f"value: {row} ksi\n", 1)
+    path.write_text(text, encoding="utf-8")
+    problems = quote_problems(load_materials(path))
+    assert [problem.split(" is not written")[0] for problem in problems] == [
+        "kaiser-6061-t6 yield_strength: its unit ksi",
+        "kaiser-6061-t6 tensile_strength: its unit ksi",
+        "polymaker-fiberon-pa6-cf20 tensile_strength: its unit ksi",
+    ]
 
 
 def test_a_row_without_stored_text_names_the_row_and_the_regen_script(
