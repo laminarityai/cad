@@ -121,14 +121,16 @@ def materialize(sources: Sources, root: Path = STAGE_ROOT) -> Path:
             staged.chmod(0o444)
         for directory in sorted((p for p in building.rglob("*") if p.is_dir()), reverse=True):
             directory.chmod(0o555)
-        _discard(target)
+        # Rename before discarding anything: another process may have staged the target and be
+        # mounting it, and the rename fails only when something is already there.
         try:
             building.rename(target)  # macOS refuses to rename a directory it cannot write
         except OSError:
-            if not _holds(target, sources):
-                raise
-        else:
-            target.chmod(0o555)
+            if _holds(target, sources):
+                return target
+            _discard(target)
+            building.rename(target)
+        target.chmod(0o555)
     finally:
         _discard(building)
     return target
