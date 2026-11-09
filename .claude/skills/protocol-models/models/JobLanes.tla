@@ -102,7 +102,7 @@ Settle(p, j, r) ==
 (* Lanes.settle on caller thread t = <<p, c>>: take off fea, then quick,   *)
 (* then land the fea flight.                                               *)
 
-\* _take_off(fea): the _flying lookup, job_store.read, _refusal and the new Future, all in
+\* _take_off(fea): the _flying lookup, job_store.read, _interrupted_too_often and the new Future, all in
 \* one `with self._lock:`.
 FeaTakeOff(t) ==
     LET p == t[1] IN

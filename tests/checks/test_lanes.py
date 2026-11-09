@@ -7,10 +7,11 @@ from pathlib import Path
 import pytest
 
 from cad.checks import job_store
-from cad.checks.jobs import Background, Charge, JobResult, JobSpec, Plan, Quick, Refused
+from cad.checks.jobs import Background, JobResult, JobSpec, Plan, Quick, Refused
 from cad.checks.lanes import INTERRUPTED, Done, Lanes, Pending
 from cad.checks.report import SPECS, build_request, unknown_for_all
 from cad.checks.result import StepMissing
+from cad.sandbox.meter import Kind, Reservation, charged, metered
 from cad.sandbox.outcome import SandboxUnavailable
 from cad.tables.materials import load_materials
 
@@ -248,18 +249,6 @@ def test_a_worker_killed_by_a_base_exception_is_replaced(
     assert settled.background == (Done(ran(job(tmp_path, FEA), 2)),)
 
 
-class Closed:
-    def admit(self, charge: Charge) -> Refused:
-        del charge
-        return Refused("the account has no analysis time left")
-
-
-def test_a_refusing_meter_starts_no_background_job(tmp_path: Path, runner: GatedRunner) -> None:
-    settled = Lanes(runner, Closed()).settle(with_fea(tmp_path), LONG)
-    assert settled.background == (Refused("the account has no analysis time left"),)
-    assert runner.runs == [job(tmp_path).key]
-
-
 def test_the_key_covers_the_shape_the_inputs_and_the_cited_rows(tmp_path: Path) -> None:
     plain = job(tmp_path)
     assert plain.key == job(tmp_path).key
@@ -315,3 +304,27 @@ def test_a_peek_does_not_trust_a_result_signed_for_another_job(
     path = job_store.result_path(job(tmp_path))
     path.write_bytes(path.read_bytes().replace(b'"unknown"', b'"pass"'))
     assert lanes.peek(quick_only(tmp_path)) is None
+
+
+@dataclass
+class Charges:
+    kinds: list[Kind] = field(default_factory=list[Kind])
+
+    def reserve(self, kind: Kind, ceiling_seconds: float) -> Reservation:
+        self.kinds.append(kind)
+        return Reservation(str(len(self.kinds)), "2026-11-09", ceiling_seconds)
+
+    def settle(self, reservation: Reservation, seconds: float) -> None:
+        del reservation, seconds
+
+
+def test_a_background_check_is_charged_to_the_account_that_asked(tmp_path: Path) -> None:
+    def charging(spec: JobSpec) -> JobResult:
+        with charged("check", 1):
+            return ran(spec)
+
+    charges = Charges()
+    with metered(charges):
+        settled = Lanes(charging).settle(with_fea(tmp_path), LONG)
+    assert settled.background == (Done(ran(job(tmp_path, FEA))),)
+    assert charges.kinds == ["check", "check"]

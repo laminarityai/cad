@@ -1,16 +1,16 @@
 import inspect
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Flag, StrEnum, auto
 from pathlib import Path
 from typing import TypeAliasType
 
 from pydantic import BaseModel, ConfigDict
 
-from cad.checks.jobs import Meter, Unmetered
 from cad.confirmations.ballot import Desk
 from cad.context_parts.store import Ingest
 from cad.records.roots import Roots
+from cad.sandbox.meter import Meter
 
 
 class Audience(Flag):
@@ -35,7 +35,7 @@ class Tenant:
     geometry: Path
     desk: Desk
     ingest: Ingest
-    meter: Meter = field(default_factory=Unmetered)
+    meter: Meter
     # The caller's conversation mode, from the AgentToken our web backend builds (ADR-0010, phase
     # 4 unit 8). None is an outside client, which has no conversation and so cannot run Auto.
     mode: Mode | None = None

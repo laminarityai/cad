@@ -4,7 +4,7 @@ from pydantic import Field
 
 from cad.auto import log
 from cad.auto.bounds import bounds_conflicts
-from cad.auto.gate import gate, record_proposals, watermark
+from cad.auto.gate import gate, record_proposals, stops_at_the_limit, watermark
 from cad.auto.model import (
     Asked,
     AutoRun,
@@ -24,10 +24,12 @@ from cad.briefs.model import MAX_NOTE_CHARS, MadeOf
 from cad.operations import scorecards
 from cad.operations.model import Audience, Input, Mode, Tenant, operation
 from cad.operations.variants import MAX_CODE_CHARS
+from cad.sandbox import image
 from cad.sandbox.outcome import Built
 from cad.scorecard import material
 from cad.variant_sets import store as variant_sets
 from cad.variant_sets.model import code_sha256
+from cad.variants import entry
 
 AUTO_START = (
     "Start an Auto run on a brief whose requirements the person confirmed. Only a conversation "
@@ -39,7 +41,8 @@ AUTO_START = (
 STOPS = (
     "The run stops when every checked requirement of the latest revision passes, when a "
     "requirement waits on the person, when requirements are proposed in the run's project, "
-    "when you call auto_ask, or when the account's usage limit refuses a build. Once it has "
+    "when you call auto_ask, or when the account's usage limit refuses a build or a check. Once "
+    "it has "
     "stopped, auto_revise, and build_variant and score_variant with its auto_run, are refused "
     "before anything builds or runs: give the user the stop's report and start nothing more. "
 )
@@ -55,9 +58,9 @@ AUTO_REVISE = (
     'researched value: report it as "passes on researched data". When settling is true, the '
     "latest scorecard still has a pending check and nothing was recorded: call auto_revise "
     "again with the same code to wait for it. Code the run already recorded is not built "
-    "again, and nothing new is recorded. A build of code the store does not hold is charged to "
-    "the account's usage limit. A stopped state holds reason and report: give the user the "
-    "report. " + STOPS
+    "again, and nothing new is recorded. Every build and check container is charged to the "
+    "account's usage limit, and code the store holds is not built again. A stopped state holds "
+    "reason and report: give the user the report. " + STOPS
 )
 AUTO_ASK = (
     "Stop an Auto run because you need the person: you are stuck, or only the person can "
@@ -127,28 +130,34 @@ def auto_start(tenant: Tenant, arguments: StartInput) -> AutoRun:
 def auto_revise(tenant: Tenant, arguments: ReviseInput) -> AutoRun:
     roots, run_id = tenant.roots, arguments.run_id
     brief_id = log.read_run(roots, run_id).state.start.brief_id
-    running = gate(tenant, run_id, brief_id, arguments.code)
+    running = gate(tenant, run_id, brief_id)
     assert running is not None
     sha = code_sha256(arguments.code)
     if _tried(running, sha):
         return AutoRun(run_id=run_id, state=running)
     revision = len(running.history) + 1
-    built = variant_sets.build_into_set(
-        roots, tenant.variants, brief_id, arguments.code, arguments.slot
-    )
-    if built.outcome == Built():
-        scored = scorecards.ScoreVariantInput(
-            variant_id=built.variant_id,
-            material_key=running.start.material_key,
-            brief_id=brief_id,
+    vid = entry.variant_id(arguments.code, image.image_tag(image.BUILD))
+    with stops_at_the_limit(roots, run_id, vid):
+        built = variant_sets.build_into_set(
+            roots, tenant.variants, brief_id, arguments.code, arguments.slot
         )
-        standing = standing_of(scorecards.score_variant(tenant, scored), revision, sha)
-        if isinstance(standing, Unsettled):
-            return AutoRun(run_id=run_id, state=running, settling=True)
-    else:
-        standing = Standing(
-            revision=revision, variant_id=built.variant_id, code_sha256=sha, built=False, marks=()
-        )
+        if built.outcome == Built():
+            scored = scorecards.ScoreVariantInput(
+                variant_id=built.variant_id,
+                material_key=running.start.material_key,
+                brief_id=brief_id,
+            )
+            standing = standing_of(scorecards.score_variant(tenant, scored), revision, sha)
+            if isinstance(standing, Unsettled):
+                return AutoRun(run_id=run_id, state=running, settling=True)
+        else:
+            standing = Standing(
+                revision=revision,
+                variant_id=built.variant_id,
+                code_sha256=sha,
+                built=False,
+                marks=(),
+            )
 
     def make(state: Running) -> Event | None:
         if _tried(state, sha):

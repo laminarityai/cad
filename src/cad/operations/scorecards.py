@@ -4,7 +4,7 @@ from typing import Annotated, Final
 from pydantic import Field
 
 from cad.agent_measurements import run as own
-from cad.auto.gate import gate
+from cad.auto.gate import gate, stops_at_the_limit
 from cad.briefs import store as briefs
 from cad.briefs.store import ConfirmedSet
 from cad.checks import jobs
@@ -91,11 +91,8 @@ SCORE_VARIANT = (
     "variant by its new id gives the same scorecard with rebuilt_from empty. "
     "In Test mode, score only the variant the user picked. "
     "Under an Auto run, pass auto_run with its run id and the run's brief_id: once the run has "
-    "stopped, the scorecard is refused before any check runs. "
-    + OWN_MEASUREMENTS
-    + RULE
-    + " "
-    + NOT_VERIFIED
+    "stopped, the scorecard is refused before any check runs, and a check the account's usage "
+    "limit refuses stops the run. " + OWN_MEASUREMENTS + RULE + " " + NOT_VERIFIED
 )
 
 SCORECARD = (
@@ -164,14 +161,15 @@ def score_variant(tenant: Tenant, arguments: ScoreVariantInput) -> material.Repo
     basis = judged(tenant, arguments.brief_id, arguments.material_key)
     if arguments.own_measurements:
         own.refuse_unless_unchecked(basis.confirmed, arguments.own_measurements)
-    scored = score.score_variant(
-        arguments.variant_id,
-        basis.material_key,
-        tenant.variants,
-        basis.assess,
-        demand=basis.demand,
-        table=basis.table.table,
-    )
+    with stops_at_the_limit(tenant.roots, arguments.auto_run, arguments.variant_id):
+        scored = score.score_variant(
+            arguments.variant_id,
+            basis.material_key,
+            tenant.variants,
+            basis.assess,
+            demand=basis.demand,
+            table=basis.table.table,
+        )
     card = with_research(
         material.reported(scored, basis.confirmed), basis.table, arguments.brief_id
     )

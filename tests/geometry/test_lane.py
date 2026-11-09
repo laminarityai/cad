@@ -1,5 +1,6 @@
 import hashlib
 import threading
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import pytest
@@ -7,6 +8,7 @@ import pytest
 from cad.geometry import job, store
 from cad.geometry.lane import Tessellations
 from cad.geometry.model import TessellationFailed, TessellationPending
+from cad.sandbox.meter import Kind, Reservation, charged, metered
 from cad.sandbox.outcome import SandboxUnavailable
 from cad.variants.entry import Entry, VariantId
 
@@ -82,3 +84,28 @@ def test_the_store_names_a_brep_only_by_its_sha256(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="64 lowercase hex"):
         store.path(tmp_path, "../../etc/passwd")
     assert store.path(tmp_path, SHA) == tmp_path / job.VERSION / f"{SHA}.json"
+
+
+@dataclass
+class Charges:
+    kinds: list[Kind] = field(default_factory=list[Kind])
+
+    def reserve(self, kind: Kind, ceiling_seconds: float) -> Reservation:
+        self.kinds.append(kind)
+        return Reservation(str(len(self.kinds)), "2026-11-09", ceiling_seconds)
+
+    def settle(self, reservation: Reservation, seconds: float) -> None:
+        del reservation, seconds
+
+
+def test_a_tessellation_is_charged_to_the_account_that_asked(tmp_path: Path) -> None:
+    ran = failed("unreadable", lasting=True)
+
+    def charging(brep: bytes, brep_sha256: str) -> job.Ran:
+        with charged("check", 1):
+            return ran
+
+    charges = Charges()
+    with metered(charges):
+        assert Tessellations(charging).read(tmp_path, HELD, wait_seconds=5) == ran.read
+    assert charges.kinds == ["check"]

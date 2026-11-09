@@ -64,7 +64,7 @@ How the model maps to the code:
 
 | Model | Code |
 | --- | --- |
-| `FeaTakeOff`, `QuickTakeOff` | `Lanes._take_off`: flying lookup, `job_store.read`, `_refusal`, new `Future`, all under `_lock` |
+| `FeaTakeOff`, `QuickTakeOff` | `Lanes._take_off`: flying lookup, `job_store.read`, `_interrupted_too_often`, new `Future`, all under `_lock` |
 | `Enqueue`, `StartWorker` | `Lanes._enqueue`: `_queue.put`, then `_start_worker` under `_lock` when `_worker is None` |
 | `RunQuick`, `WriteQuick`, `SettleQuick`, `ReleaseQuick` | `Lanes._fly` on the caller thread for the quick job |
 | `WorkerGet` ... `WorkerRelease` | `Lanes._drain` and `_fly` / `_attempt` on the worker thread: `begin_attempt`, run, `end_attempt` in `finally`, `job_store.write` (skipped on a timeout), settle, `del _flying` |
@@ -77,7 +77,7 @@ How the model maps to the code:
 | `disk`, `attempt` | `job_store` result and `.attempt` files; `Stored(j)` is `job_store.read` with the MAC verified |
 | `cut` (ghost) | fea attempts in a row that a crash really interrupted. An attempt that reaches `end_attempt` resets it, as `end_attempt` resets the file |
 
-The model leaves out the meter, whose refusal, like the cap refusal, is returned and never stored. A run may return a timeout result, which is never stored (see 0f22adb). The phase-3 design said timeouts would be stored; the code deliberately does not store them.
+The model leaves out the account meter. It refuses inside `container.run`, before `docker run`, by raising `AccountLimitReached`, a `SandboxUnavailable`. So a refusal is a run fault, which the model covers, and is never stored. A run may return a timeout result, which is never stored (see 0f22adb). The phase-3 design said timeouts would be stored; the code deliberately does not store them.
 
 ### Answers.tla: the confirmation answer flow
 
@@ -126,7 +126,7 @@ When a check fails, read the trace as a story in code terms: which thread or pro
 `check_models.py` reads the block below. It warns when a covered file changed after the sync commit, and it prints a note instead when the commit is not in the clone (CI checks out shallow). The warning does not fail the run. When you see it, read the diff, update the model if the protocol changed, run the checks and the mutants, and only then move `sync` to the new commit. Use `/maintain-formal-verification-skill` for that work.
 
 ```coverage
-sync: 905e63d
+sync: 748cd20
 JobLanes: src/cad/checks/lanes.py src/cad/checks/job_store.py src/cad/checks/jobs.py src/cad/sandbox/container.py
 Answers: src/cad/confirmations/ballot.py src/cad/confirmations/http.py src/cad/confirmations/page.py src/cad/confirmations/answers.py src/cad/confirmations/items.py src/cad/records/signed.py
 ```
@@ -144,6 +144,6 @@ These are phase-4 plans. Model them when the code exists.
 - Real container behaviour, run time and Docker faults beyond "the run fails" or "the process dies".
 - `OneContainerPerKey` holds per process incarnation only. A crashed server's container keeps running, and a restarted server can start a second container for the same key next to it, because `container.remove_orphans` removes only exited containers whose owner pid is dead. Issue #148 tracks it.
 - The lost update in `job_store.begin_attempt`. It reads `.attempt` and then replaces it, and the model makes that one step. Two servers that begin the same job at once can both write n + 1, so the real count can be lower than the model's, and the cap can allow more reruns across servers than `Cap`.
-- The meter. Its refusal takes the same path as the cap refusal, which is modeled.
+- The account meter. Its refusal is a run fault, which is modeled. Its own file lock and day ledger are covered by `tests/accounts/test_meter.py`.
 - The research ledger (ADR-0009). Its rules (the first record wins, a known value is never replaced) live in the pure `research/overlay.fill`, and tests cover it.
 - Bounds larger than the configs: more callers, more crashes, more revisions. The bugs these models target show up with two actors and one fault, and larger bounds cost minutes.

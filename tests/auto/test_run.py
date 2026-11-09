@@ -13,7 +13,6 @@ from mcp.server import MCPServer
 from cad.auto.log import run_dir
 from cad.auto.model import AccountLimit, NeedsPerson, Running, Stopped
 from cad.briefs.store import read_brief
-from cad.checks.jobs import BuildCharge
 from cad.operations.auto import StartInput, auto_start
 from cad.operations.model import Mode
 from cad.operations.registry import OPERATIONS
@@ -81,7 +80,7 @@ async def test_auto_start_is_refused_outside_an_auto_mode_conversation(
 ) -> None:
     brief_id = await s.confirmed(TEXT, UNDER_150)
     tenant = replace(s.tenant, mode=mode)
-    async with Client(MCPServer("cad", tools=tools(tenant, OPERATIONS))) as client:
+    async with Client(MCPServer("cad", tools=tools(lambda: tenant, OPERATIONS))) as client:
         result = await client.call_tool(
             "auto_start", {"brief_id": brief_id, "material_key": "prusament-pla"}
         )
@@ -128,7 +127,7 @@ async def test_a_conflicting_brief_stops_at_start_with_its_proof_and_builds_noth
     assert bounds.statement.endswith("envelope 8 cm³ = 9.92 g")
     assert bounds.statement in run.state.report
     await refused_everything(s, brief_id, run.run_id, PLATE)
-    assert s.meter.charges == []
+    assert s.meter.asked == []
     assert not s.tenant.variants.exists()
 
 
@@ -144,7 +143,7 @@ async def test_proposing_requirements_under_a_run_stops_it(
     assert isinstance(stopped.state, Stopped)
     reason = stopped.state.reason
     assert isinstance(reason, NeedsPerson) and reason.why == "proposes_requirements"
-    assert s.meter.charges == []
+    assert s.meter.asked == []
 
 
 async def test_auto_ask_stops_the_run_with_the_agents_note_and_nothing_spends_after(
@@ -165,27 +164,53 @@ async def test_auto_ask_stops_the_run_with_the_agents_note_and_nothing_spends_af
     assert again == asked
     monkeypatch.setenv("DOCKER_HOST", NO_DOCKER)
     await refused_everything(s, brief_id, run_id, PLATE)
-    assert s.meter.charges == []
+    assert s.meter.asked == []
     assert records(s, run_id) == 2
 
 
-async def test_a_refused_build_stops_the_run_at_the_account_limit(
-    s: Session, monkeypatch: pytest.MonkeyPatch
+async def test_a_build_the_account_limit_refuses_stops_the_run_and_starts_nothing(
+    s: Session, started: list[str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    s.meter.refuse = "the account's daily build limit is used up"
+    s.meter.spent = True
     brief_id, run_id = await running(s)
-    monkeypatch.setenv("DOCKER_HOST", NO_DOCKER)
     text = await s.refusal("auto_revise", run_id=run_id, code=PLATE)
-    assert "the account's daily build limit is used up" in text
+    assert "the account limit is reached: 600 of 600 container-seconds" in text
     vid = entry.variant_id(PLATE, image_tag(BUILD))
-    assert s.meter.charges == [BuildCharge(vid)]
     run = s.run(run_id)
     assert isinstance(run.state, Stopped)
-    assert run.state.reason == AccountLimit(
-        refused=vid, reason="the account's daily build limit is used up"
-    )
+    reason = run.state.reason
+    assert isinstance(reason, AccountLimit) and reason.refused == vid
+    assert reason.reason.startswith("the account limit is reached: 600 of 600 container-seconds")
+    assert (s.meter.asked, started) == (["build"], [])
+    assert entry.read_manifest(s.tenant.variants, vid) is None
+    monkeypatch.setenv("DOCKER_HOST", NO_DOCKER)
     await refused_everything(s, brief_id, run_id, PLATE)
-    assert len(s.meter.charges) == 1
+    assert s.meter.asked == ["build"]
+
+
+async def test_a_check_the_account_limit_refuses_stops_the_run(s: Session) -> None:
+    brief_id, run_id = await running(s)
+    built = await s.call("build_variant", code=PLATE, brief_id=brief_id, auto_run=run_id)
+    s.meter.spent = True
+    score = {"variant_id": built["variant_id"], "material_key": "prusament-pla"}
+    text = await s.refusal("score_variant", brief_id=brief_id, auto_run=run_id, **score)
+    assert f"RunStopped: auto run {run_id} has stopped" in text
+    run = s.run(run_id)
+    assert isinstance(run.state, Stopped)
+    reason = run.state.reason
+    assert isinstance(reason, AccountLimit) and reason.refused == built["variant_id"]
+    assert s.meter.asked == ["build", "check"]
+
+
+async def test_a_build_the_account_limit_refuses_outside_a_run_stops_no_run(
+    s: Session, started: list[str]
+) -> None:
+    s.meter.spent = True
+    brief_id, run_id = await running(s)
+    text = await s.refusal("build_variant", code=PLATE, brief_id=brief_id)
+    assert "the account limit is reached: 600 of 600 container-seconds" in text
+    assert isinstance(s.run(run_id).state, Running)
+    assert started == []
 
 
 async def test_a_replayed_revision_appends_nothing_and_builds_nothing(
@@ -203,7 +228,7 @@ async def test_a_replayed_revision_appends_nothing_and_builds_nothing(
     again = await s.call("auto_revise", run_id=run_id, code=code)
     assert again == first
     assert records(s, run_id) == 2
-    assert s.meter.charges == []
+    assert s.meter.asked == []
 
 
 async def test_a_run_builds_only_for_its_own_brief(s: Session) -> None:
@@ -211,7 +236,7 @@ async def test_a_run_builds_only_for_its_own_brief(s: Session) -> None:
     other = await s.confirmed(TEXT, UNDER_150)
     text = await s.refusal("build_variant", code=PLATE, brief_id=other, auto_run=run_id)
     assert f"RunRefused: auto run {run_id} builds and scores only for brief" in text
-    assert s.meter.charges == []
+    assert s.meter.asked == []
 
 
 async def test_starting_a_brief_with_a_live_run_returns_that_run(s: Session) -> None:
@@ -237,7 +262,8 @@ async def test_a_revision_that_passes_every_checked_requirement_stops_the_run(
         done = await s.call("auto_revise", run_id=run_id, code=PLATE)
     assert done["state"]["reason"] == {"kind": "all_pass", "researched": [], "unverified": []}
     assert "Every checked requirement passes." in done["state"]["report"]
-    assert s.meter.charges == [BuildCharge(entry.variant_id(PLATE, image_tag(BUILD)))]
+    assert s.meter.asked.count("build") == 1
+    asked = list(s.meter.asked)
     monkeypatch.setenv("DOCKER_HOST", NO_DOCKER)
     await refused_everything(s, brief_id, run_id, PLATE + "\n# thicker\n")
-    assert len(s.meter.charges) == 1
+    assert s.meter.asked == asked

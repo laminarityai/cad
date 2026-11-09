@@ -2,12 +2,12 @@ from typing import Annotated, Final
 
 from pydantic import Field
 
-from cad.auto.gate import gate
+from cad.auto.gate import gate, stops_at_the_limit
 from cad.operations.model import Audience, Input, Tenant, operation
-from cad.sandbox import container, host
+from cad.sandbox import container, host, image
 from cad.variant_sets import store as variant_sets
 from cad.variant_sets.model import MAX_MEMBERS, SetBuildResult, SlotRefused
-from cad.variants import store
+from cad.variants import entry, store
 
 MAX_CODE_CHARS: Final = 256 * 1024
 BUILD_VARIANT = (
@@ -44,14 +44,16 @@ class BuildVariantInput(Input):
 
 
 def build_variant(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResult:
-    gate(tenant, arguments.auto_run, arguments.brief_id, arguments.code)
-    if arguments.brief_id is not None:
-        return variant_sets.build_into_set(
-            tenant.roots, tenant.variants, arguments.brief_id, arguments.code, arguments.slot
-        )
-    if arguments.slot is not None:
-        raise SlotRefused("slot names a place in a brief's variant set, so pass brief_id too")
-    built = store.build_variant(arguments.code, tenant.variants)
+    gate(tenant, arguments.auto_run, arguments.brief_id)
+    vid = entry.variant_id(arguments.code, image.image_tag(image.BUILD))
+    with stops_at_the_limit(tenant.roots, arguments.auto_run, vid):
+        if arguments.brief_id is not None:
+            return variant_sets.build_into_set(
+                tenant.roots, tenant.variants, arguments.brief_id, arguments.code, arguments.slot
+            )
+        if arguments.slot is not None:
+            raise SlotRefused("slot names a place in a brief's variant set, so pass brief_id too")
+        built = store.build_variant(arguments.code, tenant.variants)
     return SetBuildResult(variant_id=built.variant_id, outcome=built.outcome, output=built.output)
 
 

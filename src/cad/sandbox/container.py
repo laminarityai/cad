@@ -7,10 +7,12 @@ from concurrent.futures import ThreadPoolExecutor
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
-from typing import IO, Literal
+from typing import IO
 
 from pydantic import BaseModel, ConfigDict, TypeAdapter, ValidationError
 
+from cad.sandbox import meter
+from cad.sandbox.meter import Kind
 from cad.sandbox.outcome import SandboxUnavailable
 
 WALL_SECONDS = 60
@@ -32,8 +34,6 @@ PID_MAX = 2**31 - 1
 ROW = TypeAdapter(tuple[str, str])
 
 SLOTS = threading.Semaphore(DOCKER_MEMORY_BUDGET_MB // MEMORY_MB)
-
-type Kind = Literal["build", "check"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,9 +120,10 @@ def alive(pid: int) -> bool:
 
 def run(job: Job) -> Ran:
     """Raises `SandboxUnavailable` when Docker is missing, down, or could not start the
-    container."""
+    container, and its subclass `AccountLimitReached`, before anything starts, when the bound
+    meter has nothing left."""
     name = f"cad-{job.kind}-{secrets.token_hex(8)}"
-    with SLOTS:
+    with SLOTS, meter.charged(job.kind, ceiling_seconds(job)):
         try:
             seen = attend(name, run_argv(name, job), job.stdin, job.wall_seconds)
             state = inspect(name)
@@ -132,6 +133,12 @@ def run(job: Job) -> Ran:
             return Ran(seen, state)
         finally:
             docker("rm", "--force", name)
+
+
+def ceiling_seconds(job: Job) -> float:
+    """The longest a container can be charged for: its limit, the in-container kill timer, and
+    the grace `attend` gives `docker kill`."""
+    return job.wall_seconds + ORPHAN_KILL_AFTER_DEADLINE_SECONDS + KILL_GRACE_SECONDS
 
 
 def run_argv(name: str, job: Job) -> tuple[str, ...]:

@@ -19,9 +19,8 @@ import anyio
 from mcp import Client, StdioServerParameters
 from playwright.sync_api import sync_playwright
 
-from cad.confirmations import http
-from cad.confirmations.ballot import OS_OPEN, WAIT_SECONDS, Desk
-from cad.confirmations.registry import kinds
+from cad.accounts.tenants import open_tenant
+from cad.confirmations.ballot import OS_OPEN, WAIT_SECONDS
 from cad.context_parts.ingest import ingest
 from cad.geometry.model import Tessellated, TessellationPending, mesh_volume
 from cad.operations.model import Audience, Tenant
@@ -74,8 +73,9 @@ async def score(home: Path, code: str) -> tuple[str, float]:
 def tenant(home: Path) -> Tenant:
     cad = home / ".cad"
     roots = Roots(cad / "briefs", cad / "projects")
-    desk = Desk(roots, kinds(roots), OS_OPEN, serve=http.serve, wait_seconds=WAIT_SECONDS)
-    return Tenant(roots, cad / "variants", cad / "geometry", desk, ingest)
+    return open_tenant(
+        roots, cad / "variants", cad / "geometry", None, OS_OPEN, WAIT_SECONDS, ingest
+    )
 
 
 def read_geometry(home: Path, variant_id: str) -> Tessellated:

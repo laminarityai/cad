@@ -1,3 +1,4 @@
+import contextvars
 import threading
 from collections.abc import Callable
 from concurrent.futures import Future
@@ -39,8 +40,14 @@ class Tessellations:
                 return flying
             future = Future[job.Ran]()
             self._flying[key] = future
+        # The job runs in a copy of the caller's context, so its container is charged to the
+        # account whose meter that context binds.
+        context = contextvars.copy_context()
         threading.Thread(
-            target=self._fly, args=(root, held, key, future), name="cad-tessellate", daemon=True
+            target=context.run,
+            args=(self._fly, root, held, key, future),
+            name="cad-tessellate",
+            daemon=True,
         ).start()
         return future
 

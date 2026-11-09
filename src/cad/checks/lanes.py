@@ -1,3 +1,4 @@
+import contextvars
 import queue
 import threading
 import time
@@ -9,7 +10,7 @@ from typing import Final
 
 from cad.checks import job_store
 from cad.checks.container.check import Background, Quick
-from cad.checks.jobs import JobResult, JobSpec, Meter, Plan, Refused, Unmetered, run_job
+from cad.checks.jobs import JobResult, JobSpec, Plan, Refused, run_job
 from cad.sandbox.outcome import SandboxUnavailable
 
 WAIT_SECONDS: Final = 20
@@ -41,12 +42,11 @@ class Settled:
 
 
 class Lanes:
-    def __init__(self, run: Run, meter: Meter | None = None) -> None:
+    def __init__(self, run: Run) -> None:
         self._run = run
-        self._meter = meter or Unmetered()
         self._lock = threading.Lock()
         self._flying: dict[Path, Future[JobResult]] = {}
-        self._queue = queue.SimpleQueue[tuple[JobSpec, Future[JobResult]]]()
+        self._queue = queue.SimpleQueue[tuple[contextvars.Context, JobSpec, Future[JobResult]]]()
         self._worker: threading.Thread | None = None
 
     def settle(self, plan: Plan, wait_seconds: float) -> Settled:
@@ -83,9 +83,8 @@ class Lanes:
             stored = job_store.read(job)
             if stored is not None:
                 return Done(stored)
-            refused = self._refusal(job)
-            if refused is not None:
-                return refused
+            if _interrupted_too_often(job):
+                return Refused(INTERRUPTED)
             future = Future[JobResult]()
             self._flying[path] = future
         match job.budget:
@@ -94,14 +93,6 @@ class Lanes:
             case Background():
                 self._enqueue(job, future)
         return future
-
-    def _refusal(self, job: JobSpec) -> Refused | None:
-        if isinstance(job.budget, Quick):
-            return None
-        if job_store.interrupted_runs(job) >= job_store.ATTEMPT_CAP:
-            return Refused(INTERRUPTED)
-        admitted = self._meter.admit(job)
-        return admitted if isinstance(admitted, Refused) else None
 
     def _fly(self, job: JobSpec, future: Future[JobResult]) -> None:
         try:
@@ -127,7 +118,9 @@ class Lanes:
             job_store.end_attempt(job)
 
     def _enqueue(self, job: JobSpec, future: Future[JobResult]) -> None:
-        self._queue.put((job, future))
+        """The job runs in a copy of the caller's context, so its container is charged to the
+        caller's account."""
+        self._queue.put((contextvars.copy_context(), job, future))
         with self._lock:
             if self._worker is None:
                 self._start_worker()
@@ -139,12 +132,20 @@ class Lanes:
     def _drain(self) -> None:
         try:
             while True:
-                self._fly(*self._queue.get())
+                context, job, future = self._queue.get()
+                context.run(self._fly, job, future)
         finally:
             with self._lock:
                 self._worker = None
                 if not self._queue.empty():
                     self._start_worker()
+
+
+def _interrupted_too_often(job: JobSpec) -> bool:
+    return (
+        isinstance(job.budget, Background)
+        and job_store.interrupted_runs(job) >= job_store.ATTEMPT_CAP
+    )
 
 
 def _land(flight: Done | Refused | Future[JobResult], deadline: float) -> Outcome:

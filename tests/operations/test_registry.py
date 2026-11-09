@@ -6,13 +6,12 @@ from mcp import Client
 from mcp.server import MCPServer
 from pydantic import BaseModel
 
-from cad.confirmations import http
-from cad.confirmations.ballot import OS_OPEN, WAIT_SECONDS, Desk
-from cad.confirmations.registry import kinds
+from cad.accounts.tenants import open_tenant
+from cad.confirmations.ballot import OS_OPEN, WAIT_SECONDS
 from cad.context_parts.ingest import ingest
 from cad.operations.model import BOTH, Audience, Input, Tenant, operation
 from cad.operations.registry import OPERATIONS
-from cad.operations.tools import agent_operations, tools
+from cad.operations.tools import TenantOf, agent_operations, tools
 from cad.records.roots import Roots
 from cad.server.app import build_server
 
@@ -35,16 +34,12 @@ def say(text: str) -> Callable[[Tenant, Nothing], Words]:
     return run
 
 
-def a_tenant(tmp_path: Path) -> Tenant:
+def a_tenant(tmp_path: Path) -> TenantOf:
     roots = Roots(briefs=tmp_path / "briefs", projects=tmp_path / "projects")
-    desk = Desk(roots, kinds(roots), OS_OPEN, serve=http.serve, wait_seconds=WAIT_SECONDS)
-    return Tenant(
-        roots=roots,
-        variants=tmp_path / "variants",
-        geometry=tmp_path / "geometry",
-        desk=desk,
-        ingest=ingest,
+    tenant = open_tenant(
+        roots, tmp_path / "variants", tmp_path / "geometry", None, OS_OPEN, WAIT_SECONDS, ingest
     )
+    return lambda: tenant
 
 
 async def listed(server: MCPServer) -> dict[str, str]:

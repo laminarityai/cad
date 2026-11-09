@@ -1,18 +1,17 @@
+from collections.abc import Generator
+from contextlib import contextmanager
+
 from cad.auto.log import append_event, read_run
 from cad.auto.model import AutoRun, Capped, Proposed, Running, RunRefused, RunStopped, Started
 from cad.briefs import store as briefs
-from cad.checks.jobs import BuildCharge, Refused
 from cad.operations.model import Tenant
 from cad.projects.membership import project_briefs
 from cad.projects.model import ProjectId
 from cad.records.roots import Roots
-from cad.sandbox.image import BUILD, image_tag
-from cad.variants import entry
+from cad.sandbox.meter import AccountLimitReached
 
 
-def gate(
-    tenant: Tenant, run_id: str | None, brief_id: str | None, code: str | None = None
-) -> Running | None:
+def gate(tenant: Tenant, run_id: str | None, brief_id: str | None) -> Running | None:
     if run_id is None:
         return None
     run = record_proposals(tenant.roots, run_id)
@@ -24,17 +23,21 @@ def gate(
             f"auto run {run_id} builds and scores only for brief {start.brief_id}; "
             "pass that brief_id"
         )
-    if code is not None:
-        vid = entry.variant_id(code, image_tag(BUILD))
-        if entry.read_manifest(tenant.variants, vid) is None:
-            admitted = tenant.meter.admit(BuildCharge(vid))
-            if isinstance(admitted, Refused):
-                reason = admitted.reason
-                capped = append_event(
-                    tenant.roots, run_id, lambda _: Capped(refused=vid, reason=reason)
-                )
-                raise RunStopped(capped)
     return run.state
+
+
+@contextmanager
+def stops_at_the_limit(roots: Roots, run_id: str | None, variant_id: str) -> Generator[None]:
+    """A container under an Auto run that the account's cap refuses stops the run (ADR-0010). The
+    meter refuses before the container starts, so nothing is stored for the refused variant."""
+    try:
+        yield
+    except AccountLimitReached as limit:
+        if run_id is None:
+            raise
+        reason = str(limit)
+        capped = append_event(roots, run_id, lambda _: Capped(refused=variant_id, reason=reason))
+        raise RunStopped(capped) from limit
 
 
 def record_proposals(roots: Roots, run_id: str) -> AutoRun:
