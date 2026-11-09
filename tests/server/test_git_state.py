@@ -1,7 +1,7 @@
 import subprocess
 from pathlib import Path
 
-from cad.server.app import GitState, git_state
+from cad.operations.server import GitState, git_state
 
 GIT = ("git", "-c", "user.name=t", "-c", "user.email=t@t")
 
