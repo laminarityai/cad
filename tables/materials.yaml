@@ -65,15 +65,7 @@ materials:
 
   - key: polymaker-polylite-abs
     name: Polymaker PolyLite ABS
-    density:
-      value: 1.04 g/cm^3
-      source:
-        url: https://polymaker.com/wp-content/uploads/lana-downloads/TDS_Polymaker_PolyLite-ABS_V5.6_2025-12-30_EN.pdf
-        title: Technical Data Sheet V5.6, PolyLite ABS, Polymaker
-        page: page 1, Physical properties, Density row (ISO1183, GB/T1033), typical value at 23 °C; the sheet prints labels and values in separate columns, so the quote is the value cell, and it prints the unit as g/cm³ with a raised 3 that the PDF text layer keeps apart from g/cm
-        retrieved: 2026-11-05
-        standard: ISO 1183, GB/T 1033
-        quote: 1.04 g/cm at 23°C
+    density: unknown
     yield_strength: unknown
     tensile_strength:
       value: 33.4 MPa
@@ -180,15 +172,7 @@ materials:
         retrieved: 2026-11-05
         standard: null
         quote: UTS, ksi. (MPa) 0.2% YS, ksi. (MPa) Elongation % in 2 in. (50.8 mm) Rockwell Hardness, B Type 304 95 (655) 42 (290) 55 84
-    elastic_modulus:
-      value: 193 GPa
-      source:
-        url: https://www.clevelandcliffs.com/_assets/_7ce3a04c09e74bf31ff5f89fc888db25/clevelandcliffs/db/1190/10510/file/CLF_ProductData_304-304LSS_052021.pdf
-        title: 304/304L Stainless Steel Product Data Bulletin, Cleveland-Cliffs, 2021
-        page: page 4, Physical properties, Modulus of Elasticity in tension (sheet also gives 11.2 x 10^3 ksi in torsion, not used); sheet prints 28.0 x 10^3 ksi (193 x 10^3 MPa), value is the MPa figure written in GPa
-        retrieved: 2026-11-08
-        standard: null
-        quote: Modulus of Elasticity, ksi. (MPa) in tension in torsion 28.0 x 103 (193 x 103)
+    elastic_modulus: unknown
     poisson_ratio:
       value: '0.27'
       source:
@@ -497,15 +481,7 @@ materials:
 
   - key: polymaker-polymax-pc
     name: Polymaker PolyMax PC
-    density:
-      value: 1.19 g/cm^3
-      source:
-        url: https://polymaker.com/wp-content/uploads/TDS_Polymaker_PolyMax-PC_V5.5_2026-01-05_EN.pdf
-        title: Technical Data Sheet V5.5, PolyMax PC, Polymaker (2026-01-05)
-        page: page 1, Physical properties, typical value
-        retrieved: 2026-11-07
-        standard: ISO 1183, GB/T 1033
-        quote: Density ISO1183, GB/T 1033 3 1.19 g/cm at 23°C
+    density: unknown
     yield_strength: unknown
     tensile_strength:
       value: 53.44 MPa
@@ -700,15 +676,7 @@ materials:
         retrieved: 2026-11-07
         standard: null
         quote: UTS, ksi. (MPa) 0.2% YS, ksi. (MPa) Elongation % in 2 in. (50.8 mm) Rockwell Hardness, B 91 (627) 42 (290) 55 79
-    elastic_modulus:
-      value: 193 GPa
-      source:
-        url: https://www.clevelandcliffs.com/_assets/_464c1f648dd1e0c96c45d68cdce1cf31/clevelandcliffs/db/1190/10513/file/CLF_ProductData_316-316LSS_052021.pdf
-        title: 316/316L Stainless Steel Product Data Bulletin, Cleveland-Cliffs, May 2021
-        page: page 4, Physical properties, Modulus of Elasticity in tension (sheet also gives 11.2 x 10^3 ksi in torsion, not used); sheet prints 28.0 x 10^3 ksi (193 x 10^3 MPa), value is the MPa figure written in GPa
-        retrieved: 2026-11-08
-        standard: null
-        quote: Modulus of Elasticity, ksi. (MPa) in tension in torsion 28.0 x 103 (193 x 103)
+    elastic_modulus: unknown
     poisson_ratio:
       value: '0.27'
       source:
@@ -748,15 +716,7 @@ materials:
         retrieved: 2026-11-07
         standard: null
         quote: Quality Designation Description YS UTS % Elong. in 2” Rockwell Hardnessksi. MPa ksi. MPa Commercial Steel (CS T ype B) May be moderately formed. A specimen out in any direction can be bent flat on itself without cracking. 36 248 51 351 37 B61
-    elastic_modulus:
-      value: 200 GPa
-      source:
-        url: https://www.clevelandcliffs.com/_assets/_7ce3a04c09e74bf31ff5f89fc888db25/clevelandcliffs/db/1190/10480/file/CLF_ProductData_HotRolled_062025.pdf
-        title: Hot-Rolled Steels Product Data, Cleveland-Cliffs, June 2025
-        page: page 4, Engineering properties (stated for all hot-rolled steels in the bulletin, not per grade), Young's Modulus of Elasticity at 20 °C; sheet prints 200 x 10^3 MPa, value written in GPa
-        retrieved: 2026-11-08
-        standard: null
-        quote: Young’s Modulus of Elasticity 200 x 103 MPa at 20°C
+    elastic_modulus: unknown
     poisson_ratio: unknown
 
   - key: wieland-z23-r400
