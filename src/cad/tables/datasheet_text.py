@@ -31,6 +31,7 @@ REGEN = "uv run python tools/regen_datasheet_text.py"
 
 NUMBER = re.compile(r"(?<![\d.,])\d+(?:[.,]\d+)*")
 SPACE_GROUPED = re.compile(r"(?<![\d.,])\d{1,3}(?: \d{3})+(?![\d.,])")
+POWER_OF_TEN = re.compile(r"(?<![\d.,])(\d+(?:\.\d+)?) ?[x\u00d7] ?10(\d)(?![\d.,])")
 
 UNIT_SPELLINGS: Final = {
     "MPa": ("N/mm2",),
@@ -107,14 +108,19 @@ def citations(table: MaterialsTable) -> Iterator[Citation]:
 def written_in(value: Decimal, quote: str) -> bool:
     """Whether some number in the quote, read with "." or "," as its decimal mark or as digit
     grouping, equals `value`: 1.24 is written in "1,24 g/cm3" and 8960 in "8 960 kg/m3".
-    The same rule as `cad.research.quote.written_in`, which reads a few more forms."""
-    return any(reading == value for reading in _readings(quote))
+    "193 x 103" is 193000, never 193 or 103: a PDF text layer drops the raise of 10³."""
+    return any(reading == value for reading in _readings(fold(quote)))
 
 
 def unit_written_in(unit: pint.Unit, quote: str) -> bool:
     """Whether the quote writes `unit`, by the spelling the table uses or one listed with it, on
     word boundaries and with case kept: MPa is not written in "mPa" and g/cm^3 is written in
-    "g/cm³". A dimensionless value needs no unit."""
+    "g/cm³". A dimensionless value needs no unit.
+
+    The check cannot tell which unit belongs to which number. A quote that prints two units, as
+    "ksi. (MPa) 28.0 x 103 (193 x 103)" does, passes a row that pairs either number with either
+    unit: 28000 MPa passes as well as 193000 MPa. Only the plausibility ranges in
+    `cad.tables.materials` and a reviewer catch that switch."""
     if unit.dimensionless:
         return True
     text = fold(quote)
@@ -127,6 +133,9 @@ def unit_written_in(unit: pint.Unit, quote: str) -> bool:
 
 
 def _readings(quote: str) -> Iterator[Decimal]:
+    for mantissa, exponent in POWER_OF_TEN.findall(quote):
+        yield Decimal(mantissa).scaleb(int(exponent))
+    quote = POWER_OF_TEN.sub(" ", quote)
     for token in NUMBER.findall(quote):
         head, *rest = re.split(r"[.,]", token)
         if not rest:

@@ -85,6 +85,37 @@ def test_a_value_written_in_another_number_format_passes(
 
 
 @pytest.mark.parametrize(
+    ("value", "quote"),
+    [
+        ("193000 MPa", "Modulus of Elasticity, ksi. (MPa) 28.0 x 103 (193 x 103)"),
+        ("200000 MPa", "Young's Modulus of Elasticity 200 x 10³ MPa at 20°C"),
+        ("193000 MPa", "Modulus of Elasticity (MPa) 193 \u00d7 103"),
+    ],
+)
+def test_a_value_written_with_a_power_of_ten_passes(
+    table: MaterialsTable, store: Path, value: str, quote: str
+) -> None:
+    """A PDF text layer drops the raise of 10³, so "193 x 103" is read as 193 x 10^3."""
+    assert problems_with_pla(table, store, "elastic_modulus", value, quote) == []
+
+
+@pytest.mark.parametrize(
+    ("value", "quote"),
+    [
+        ("193000 MPa", "Modulus of Elasticity (MPa) 193 x 104"),
+        ("193000 MPa", "Modulus of Elasticity (MPa) 193 103"),
+        ("193 MPa", "Modulus of Elasticity (MPa) 193 x 103"),
+    ],
+)
+def test_a_value_its_power_of_ten_does_not_make_names_the_row(
+    table: MaterialsTable, store: Path, value: str, quote: str
+) -> None:
+    [problem] = problems_with_pla(table, store, "elastic_modulus", value, quote)
+    assert problem.startswith("prusament-pla elastic_modulus: ")
+    assert "is not written in its quote" in problem
+
+
+@pytest.mark.parametrize(
     ("field", "value", "quote"),
     [
         ("density", "1.24 g/cm^3", "Density [g/cm³] 1.24"),
