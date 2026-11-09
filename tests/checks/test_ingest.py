@@ -40,12 +40,12 @@ def test_two_solids_are_one_part_of_two_solids() -> None:
         ),
         pytest.param(
             brep_bytes(inside_out(box(10, 10, 10))),
-            "the shape has solids with a volume of 0 or less, so inside out or empty: 0",
+            "the shape has solids with a volume of 0 or less, inside out or empty: 0",
             id="inside-out",
         ),
         pytest.param(
             brep_bytes(compound(box(20, 20, 20), inside_out(box(5, 5, 5, at=(2, 2, 2))))),
-            "the shape has solids with a volume of 0 or less, so inside out or empty: 1",
+            "the shape has solids with a volume of 0 or less, inside out or empty: 1",
             id="inside-out-within-a-good-solid",
         ),
         pytest.param(b"not a BREP", "the BREP cannot be read", id="unreadable"),
