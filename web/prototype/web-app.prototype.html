@@ -62,9 +62,11 @@ button{cursor:pointer}
 .sec .body{padding:10px}
 
 /* scorecard */
-.sc{width:100%;border-collapse:collapse}
-.sc td{padding:6px 8px;border-top:1px solid var(--rule-2);vertical-align:top}
-.sc tr:first-child td{border-top:0}
+.sc{width:100%}
+.scrow{display:grid;grid-template-columns:minmax(120px,150px) minmax(0,1fr) auto;gap:2px 10px;padding:7px 10px;border-top:1px solid var(--rule-2);align-items:start}
+.sc .scrow:first-child{border-top:0}
+.scrow .meas .vs,.scrow .meas>span:first-child{white-space:nowrap}
+.scrow .ghost{white-space:normal}
 .sc .req{font-family:var(--mono);font-size:12px;white-space:nowrap}
 .sc .chk{font-family:var(--mono);font-size:10.5px;color:var(--ink-3)}
 .sc .meas{font-family:var(--mono);font-size:12px;font-variant-numeric:tabular-nums}
@@ -164,7 +166,7 @@ button{cursor:pointer}
 .pill.lift{bottom:120px}
 
 /* ===== A: three-pane ===== */
-.A{display:grid;grid-template-columns:minmax(260px,320px) minmax(0,1fr) minmax(300px,380px);gap:10px;padding:10px 16px 80px;height:calc(100vh - 52px);min-height:620px}
+.A{display:grid;grid-template-columns:minmax(260px,320px) minmax(0,1fr) minmax(340px,420px);gap:10px;padding:10px 16px 80px;height:calc(100vh - 52px);min-height:620px}
 .A .col{display:flex;flex-direction:column;gap:10px;min-height:0;min-width:0}
 .A .chatsec{flex:1;min-height:0;display:flex;flex-direction:column}
 .A .chatsec .chat{flex:1}
@@ -217,8 +219,9 @@ button{cursor:pointer}
   .slots{grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
   .slot{padding:5px 4px}
   .slot .r{font-size:9.5px}
-  .sc td{padding:5px 5px}
-  .sc .req{white-space:normal;overflow-wrap:anywhere}
+  .scrow{grid-template-columns:minmax(0,1fr) auto}
+  .scrow .meas{grid-column:1/-1;grid-row:2}
+  .scrow .v{grid-row:1;grid-column:2}
   .stopbtn{width:100%;justify-content:center}
   .pill span{display:none}
 }
@@ -262,18 +265,17 @@ const initial = {
   research:{flexural_modulus:null},
   waiting:{
     requirements:[
-      {id:'max_deflection', target:'≤ 0.50 mm at 19.6 N', quote:['a wall bracket for a ','2 kg shelf',', PLA, fits in 80×60×40 mm']},
       {id:'min_mass', target:'≥ 50 g', quote:['a wall bracket for a ','2 kg shelf',', PLA, fits in 80×60×40 mm'], conflict:true},
       {id:'unchecked: two screw holes', target:'no check exists', quote:['a ','wall bracket',' for a 2 kg shelf, PLA, fits in 80×60×40 mm']},
     ],
     conflict:{statement:CONFLICT, choice:'drop'},
   },
-  confirmed:['max_envelope','made_of','min_safety_factor'],
+  confirmed:['max_envelope','made_of','min_safety_factor','max_deflection'],
   min_mass_kept:false,
   auto:{status:'idle', slot:null, revision:0, history:[], reason:null, note:null, report:null},
   chat:[
     {who:'you', text:BRIEF},
-    {who:'agent', text:'I stored your brief word for word and proposed requirements, each quoting your words. Three confirmed earlier; three are waiting on you, and one of them conflicts with the envelope.', card:'confirm'},
+    {who:'agent', text:'I stored your brief word for word and proposed requirements, each quoting your words. Four you confirmed earlier; two are waiting on you, and one of them conflicts with the envelope.', card:'confirm'},
     {who:'agent', text:'Built four variants in Design mode. The fixed checks scored them; v2 is selected.', card:'slots'},
     {who:'agent', text:'v2 fails min_safety_factor (1.40 against ≥ 2.00). max_deflection is unknown until PLA\'s flexural modulus is researched.', card:'scorecard'},
   ],
@@ -386,9 +388,9 @@ function buildNew(){
 function confirmAll(){
   act('confirm', n=>{
     const keep = n.waiting.conflict.choice==='keep';
-    n.confirmed.push('max_deflection'); if(keep){ n.confirmed.push('min_mass'); n.min_mass_kept=true; }
+    if(keep){ n.confirmed.push('min_mass'); n.min_mass_kept=true; }
     n.waiting = null;
-    say(n,'sys',`you confirmed max_deflection and the unchecked screw-hole requirement${keep?', and kept min_mass despite the conflict':'; min_mass dropped'}.`);
+    say(n,'sys',`you confirmed the unchecked screw-hole requirement${keep?', and kept min_mass despite the conflict':'; min_mass dropped'}.`);
   });
 }
 let autoTimer = null;
@@ -415,6 +417,7 @@ function tick(){
 }
 function autoAfterSettle(){
   const i = S.auto.slot, s = S.slots[i];
+  if(rows(s,S).some(r=>r.kind==='waiting')){ stopAuto('needs you · a row waits on your confirmation', 'min_mass is proposed but not confirmed, so no revision can pass. Confirm or drop it.'); return; }
   if(allPass(s,S)){ stopAuto('all pass'); return; }
   if(S.auto.revision>=10){ stopAuto('agent asked', 'Ten wall increments brought the safety factor up but the wall now nears the envelope. Should I add a gusset instead, or relax max_deflection?'); return; }
   tick();
@@ -435,6 +438,7 @@ function stopAuto(reason, note){
       'all pass':`Auto stopped: every checked requirement passes on v${a.slot+1}.`,
       'you stopped it':'You stopped the Auto run. Nothing more will build under it.',
       'agent asked':'I stopped the run to ask you something.',
+      'needs you · a row waits on your confirmation':'Auto stopped: a requirement is waiting on your confirmation.',
       'needs you · conflict':'Auto stopped: confirmed targets conflict.',
       'account limit':'Auto stopped: the account usage limit refused the next build.',
     }[reason]||'Auto stopped.');
@@ -483,7 +487,7 @@ function Viewer({s, mini, theme}){
     scene.add(new THREE.HemisphereLight(0xffffff,0x444444,.75));
     const dl = new THREE.DirectionalLight(0xffffff,.7); dl.position.set(80,120,90); scene.add(dl);
     const group = new THREE.Group(); scene.add(group);
-    const o = {theta:0.75, phi:1.12, r: mini?250:230};
+    const o = {theta:0.75, phi:1.12, r: mini?200:175};
     const place = ()=>{ cam.position.set(o.r*Math.sin(o.phi)*Math.sin(o.theta), o.r*Math.cos(o.phi), o.r*Math.sin(o.phi)*Math.cos(o.theta)); cam.lookAt(0,0,0); };
     const render = ()=>{ place(); renderer.render(scene,cam); };
     const size = ()=>{ const w=el.clientWidth,h=el.clientHeight; if(!w||!h) return; renderer.setSize(w,h,false); cam.aspect=w/h; cam.updateProjectionMatrix(); render(); };
@@ -525,18 +529,18 @@ function Scorecard({st, compact}){
   const R = rows(s,st); const main = R.filter(r=>r.kind!=='unverified'); const unv = R.filter(r=>r.kind==='unverified');
   const sd = standing(s,st);
   const row = r=>{ const v=verdict(r);
-    return html`<tr key=${r.id}>
-      <td><div className="req">${r.id}</div><div className="chk">${r.check}</div></td>
-      <td className="meas">${r.kind==='pending'
-          ? html`<span>… <span className="vs">vs ${r.target}</span></span>${r.before && html`<span className="ghost">before ${r.before}</span>`}`
-          : r.kind==='checked' ? html`<span>${r.meas} <span className="vs">vs ${r.target}</span></span>${r.researched && html`<span className="tag-res">${r.ok?'passes on researched data':'fails on researched data'}</span>`}`
-          : html`<span className="vs">${r.target}</span>${r.note && html`<span className="ghost">${r.note}</span>`}`}</td>
-      <td className="v">${v && html`<span className=${'chip '+v}>${{pass:'pass',fail:'fail',wait:'waiting on you',unk:'unknown',pend:'pending'}[v]}</span>`}</td>
-    </tr>`; };
+    return html`<div className="scrow" key=${r.id}>
+      <div className="name"><div className="req">${r.id}</div><div className="chk">${r.check}</div></div>
+      <div className="meas">${r.kind==='pending'
+          ? html`<span>…</span><span className="vs"> vs ${r.target}</span>${r.before && html`<span className="ghost">before ${r.before}</span>`}`
+          : r.kind==='checked' ? html`<span>${r.meas}</span><span className="vs"> vs ${r.target}</span>${r.researched && html`<span className="tag-res">${r.ok?'passes on researched data':'fails on researched data'}</span>`}`
+          : html`<span className="vs">${r.target}</span>${r.note && html`<span className="ghost">${r.note}</span>`}`}</div>
+      <div className="v">${v && html`<span className=${'chip '+v}>${{pass:'pass',fail:'fail',wait:'waiting on you',unk:'unknown',pend:'pending'}[v]}</span>`}</div>
+    </div>`; };
   return html`<div className="sec">
     <h3><span>Scorecard · v${s.slot} r${s.revisions}</span><span className="scsum">${s.pending?'pending':sd.text}</span></h3>
-    <table className="sc"><tbody>${main.map(row)}</tbody></table>
-    ${unv.length>0 && html`<div className="scgroup">Unverified · no check exists</div><table className="sc"><tbody>${unv.map(r=>html`<tr key=${r.id}><td><div className="req">${r.id}</div></td><td className="note">${r.note}</td></tr>`)}</tbody></table>`}
+    <div className="sc">${main.map(row)}</div>
+    ${unv.length>0 && html`<div className="scgroup">Unverified · no check exists, listed apart</div><div className="sc">${unv.map(r=>html`<div className="scrow" key=${r.id}><div className="name"><div className="req">${r.id}</div></div><div className="meas note">${r.note}</div></div>`)}</div>`}
   </div>`;
 }
 function Strip({s, st}){
