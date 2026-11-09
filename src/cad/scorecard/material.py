@@ -1,5 +1,6 @@
 """`cad.scorecard.score` must never import this module: check versions hash what it imports."""
 
+import hashlib
 from typing import Annotated, Final, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
@@ -61,6 +62,18 @@ class ReportedScorecard(Scorecard):
         if self.material.key != self.material_key:
             raise ValueError("material.key must be the key the card was scored with")
         return self
+
+
+class ScorecardSnapshot(ReportedScorecard):
+    """A reported scorecard with its `etag`: a hash of the card's own JSON. Two reads of one card
+    share an etag, and a check result arriving, or a new revision, changes it."""
+
+    etag: str
+
+
+def snapshot(card: ReportedScorecard) -> ScorecardSnapshot:
+    etag = hashlib.sha256(card.model_dump_json(by_alias=True).encode()).hexdigest()
+    return ScorecardSnapshot(**dict(card), etag=etag)
 
 
 def pinned_by(confirmed: ConfirmedSet | None) -> Requirement | None:

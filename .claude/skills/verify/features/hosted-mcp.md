@@ -9,6 +9,7 @@ With no Clerk configuration, `cad-http` trusts a local issuer instead, and only 
 - `http-metadata` serves the Protected Resource Metadata (RFC 9728) at `/.well-known/oauth-protected-resource/mcp`, naming the issuer.
 - `http-cross-route` refuses a session token on `/mcp` and an OAuth token on a web route, each with 401.
 - `http-tenancy` gives tenant B `UnknownVariant` for tenant A's `variant_id`.
+- `http-reads` serves the person's reads under `/v1/`, each built from a registry operation: `GET /v1/projects`, `/v1/projects/<pid>`, `/v1/briefs/<bid>`, `/v1/projects/<pid>/briefs/<bid>/set`, `/v1/variants/<vid>`, `/v1/variants/<vid>/scorecard`, `/v1/variants/<vid>/geometry` and `/v1/geometry/<brep_sha256>.json`.
 - `http-lease` refuses a second server on the same data root.
 - `http-cap` refuses a capped account before any container starts.
 - `http-app-step` reads the SHA over HTTP inside `uv run verify`.
@@ -39,7 +40,8 @@ export AGENT_B=$(uv run cad-token --root "$ROOT" agent user_bob)
 - **Metadata.** Run `curl -s http://127.0.0.1:8765/.well-known/oauth-protected-resource/mcp`. The JSON has `resource` `http://127.0.0.1:8765/mcp` and `authorization_servers` `["http://127.0.0.1/cad-local-issuer"]`. Hosted, it names the Clerk Frontend API URL.
 - **No token.** Run `curl -s -i -X POST http://127.0.0.1:8765/mcp -d '{}'`. Status `401` and a `www-authenticate` header whose `resource_metadata` names the metadata URL.
 - **Session token on /mcp.** Run `curl -s -i -X POST http://127.0.0.1:8765/mcp -H "authorization: Bearer $PERSON_A" -d '{}'`. Status `401`.
-- **OAuth token on a web route.** Run `curl -s -i "http://127.0.0.1:8765/v1/variants/0123456789abcdef/scorecard?material_key=prusament-pla" -H "authorization: Bearer $AGENT_A"`. Status `401` and `{"error":"sign in: this route takes a Clerk session token"}`. The same request with `-H "cookie: __session=$PERSON_A"` gets past sign-in: status `400`, `UnknownVariant`.
+- **OAuth token on a web route.** Run `curl -s -i "http://127.0.0.1:8765/v1/variants/0123456789abcdef/scorecard?material_key=prusament-pla" -H "authorization: Bearer $AGENT_A"`. Status `401` and `{"error":"sign in: this route takes a Clerk session token"}`. The same request with `-H "cookie: __session=$PERSON_A"` gets past sign-in: status `404`, `UnknownVariant`.
+- **Person reads.** With `-H "cookie: __session=$PERSON_A"`, `curl -s http://127.0.0.1:8765/v1/projects` lists alice's projects. The set route takes `?material_key=<key>` and gives each member a `card_etag` once that variant was scored for the key. The mesh route answers `ETag` and `Cache-Control: private, max-age=31536000, immutable`, and a repeat with `-H 'if-none-match: <etag>'` gets `304`. The same ids with `PERSON_B` get `404`, and every one of these routes with `AGENT_A` gets `401`.
 - **Agent call.** Run `uv run cad-call --url http://127.0.0.1:8765/mcp --token "$AGENT_A" server_info '{}'`. Exit code `0` and the head SHA.
 - **Tenancy.** Build a variant as user_alice on a server started without `--cap-seconds 0`, then run `uv run cad-call --url http://127.0.0.1:8765/mcp --token "$AGENT_B" scorecard '{"variant_id": "<alice variant_id>", "material_key": "prusament-pla"}'`. Exit code `1` and `UnknownVariant`. `tests/server/test_hosted.py` proves the same without Docker.
 - **Lease.** While the server runs, run `uv run cad-http --root "$ROOT" --port 8766`. Exit code `1` and `cad-http: <root>/accounts/lease is held by pid <pid>: one server serves a data root, so this one did not start`.

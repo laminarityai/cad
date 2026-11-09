@@ -81,8 +81,10 @@ OPERATIONS: Final[tuple[Operation, ...]]
 ```
 
 - `AGENT`: `build_variant`, `score_variant`, `propose_requirements`, `submit_research`, `ask_to_confirm`, `auto_start`, `auto_revise`, `auto_ask`.
-- `PERSON`: `answer_page`, `set_mode`.
-- Both: `list_projects`, `project`, `brief`, `variant_set`, `scorecard`, `view`, `search_knowledge`, `list_materials`, `server_info`.
+- `PERSON`: `answer_page`, `set_mode`, `list_projects`, `project`, `variant_set`, `view`, `geometry`, `mesh`.
+- Both: `list_requirements` (the brief, its proposals and derived status, served at `GET /v1/briefs/{bid}`), `scorecard`, `search_knowledge`, `list_materials`, `server_info`.
+
+A route exists for each `PERSON` or `BOTH` operation, from the `ROUTES` table beside the registry, and for nothing else. A test fails when the two differ.
 
 `server/app.py` stops building `Tool` objects by hand. The existing tools move into the registry in the same PR, and the hand registration is deleted. A test fails if any MCP tool, HTTP route or generated TypeScript type does not come from a registry entry. The adapters parse a `Principal` at the boundary and pass a `Tenant`, so core code never reads module-level roots such as `entry.VARIANTS_ROOT`.
 
@@ -131,7 +133,7 @@ class AgentToken(_Frozen):
     mode: Mode
 ```
 
-Both kinds of token come from Clerk, so the server tells them apart by Clerk's token type. A person session is a Clerk session token. Clerk's front-end SDK keeps it fresh in the `__session` cookie on our domain. An agent token is a Clerk OAuth access token, sent in an `Authorization: Bearer` header on `/mcp`. Clerk's backend SDK reads the type from the token itself. An OAuth access token is either a JWT whose header `typ` is `at+jwt` or an opaque string that starts with `oat_`, and a session token is neither ([Clerk: verify OAuth tokens](https://clerk.com/docs/guides/configure/auth-strategies/oauth/verify-oauth-tokens), [JWT OAuth access tokens](https://clerk.com/changelog/2026-01-08-jwt-oauth-access-tokens)). The web routes call `authenticate_request` with `accepts_token=["session_token"]`. `/mcp` calls it with `accepts_token=["oauth_token"]`. The Python SDK accepts every type when the list is left out, so each adapter always passes its list, and a test sends each kind of token to the other kind's route and expects 401. Our instance issues OAuth tokens as JWTs, the default for new Clerk applications, so both kinds are JWTs that the server verifies against the instance's JWKS without a network call. Different FastAPI dependencies parse them, and `answer_page` is `PERSON` only, so no MCP tool can answer a page.
+Both kinds of token come from Clerk, so the server tells them apart by Clerk's token type. A person session is a Clerk session token. Clerk's front-end SDK keeps it fresh in the `__session` cookie on our domain. An agent token is a Clerk OAuth access token, sent in an `Authorization: Bearer` header on `/mcp`. Clerk's backend SDK reads the type from the token itself. An OAuth access token is either a JWT whose header `typ` is `at+jwt` or an opaque string that starts with `oat_`, and a session token is neither ([Clerk: verify OAuth tokens](https://clerk.com/docs/guides/configure/auth-strategies/oauth/verify-oauth-tokens), [JWT OAuth access tokens](https://clerk.com/changelog/2026-01-08-jwt-oauth-access-tokens)). The web routes call `authenticate_request` with `accepts_token=["session_token"]`. `/mcp` calls it with `accepts_token=["oauth_token"]`. The Python SDK accepts every type when the list is left out, so each adapter always passes its list, and a test sends each kind of token to the other kind's route and expects 401. Our instance issues OAuth tokens as JWTs, the default for new Clerk applications, so both kinds are JWTs that the server verifies against the instance's JWKS without a network call. Different Starlette route adapters parse them, and `answer_page` is `PERSON` only, so no MCP tool can answer a page.
 
 Our own chat agent needs no token from Clerk. It runs in the server process and reaches the MCP tools through the mcp SDK's in-memory transport, so it gets the same tool list as an outside client (ADR-0002). For each turn the backend builds an `AgentToken` from the person's verified session, with the conversation, the Auto run and the mode. The token never leaves the process, so there is nothing to leak or revoke.
 
@@ -150,9 +152,9 @@ This keeps ADR-0004 and #47. ADR-0004 rejected form-mode elicitation because an 
 
 **Onshape.** The Onshape Confirm button from #47 waits for the Onshape extension panel, which SPEC lists as out of scope. Until then, Onshape users confirm in the web app.
 
-The page keeps the `ItemKind` registry, `answers.py` and its sections unchanged. FastAPI renders it inside the signed-in app in place of the stdlib server. Its form carries a CSRF token bound to the page snapshot, so "an item added after the page opened records nothing" still holds. `PageAnswer` gains `account` and `session_id`, and the projects key still signs it. The stdlib `ThreadingHTTPServer` page and the in-memory `Desk` are deleted.
+The page keeps the `ItemKind` registry, `answers.py` and its sections unchanged. Starlette renders it inside the signed-in app in place of the stdlib server. Its form carries a CSRF token bound to the page snapshot, so "an item added after the page opened records nothing" still holds. `PageAnswer` gains `account` and `session_id`, and the projects key still signs it. The stdlib `ThreadingHTTPServer` page and the in-memory `Desk` are deleted.
 
-Local dev and the eval driver run the same FastAPI app on 127.0.0.1, with no Clerk. With `--opener PROGRAM`, the server mints a local person session and hands its sign-in link only to that program, as it hands the page URL today. A local MCP client on stdio gets a local agent token for the same local account. A local verifier takes the Clerk verifier's place at the boundary, and both produce the same `Principal`, so nothing past the boundary knows which one ran. The server uses the local verifier only when it listens on 127.0.0.1 and has no Clerk keys. One page and one answer record serve both.
+Local dev and the eval driver run the same Starlette app on 127.0.0.1, with no Clerk. With `--opener PROGRAM`, the server mints a local person session and hands its sign-in link only to that program, as it hands the page URL today. A local MCP client on stdio gets a local agent token for the same local account. A local verifier takes the Clerk verifier's place at the boundary, and both produce the same `Principal`, so nothing past the boundary knows which one ran. The server uses the local verifier only when it listens on 127.0.0.1 and has no Clerk keys. One page and one answer record serve both.
 
 ### 2.5 Auto mode (`cad/auto/`, ADR-0010)
 
@@ -255,8 +257,8 @@ src/cad/operations/          NEW   registry, Audience, MCP and HTTP adapters
 src/cad/accounts/            NEW   Clerk token verification, the local verifier, Principal, Tenant, lease, AccountMeter
 src/cad/auto/                NEW   model, step, bounds_conflicts, the run log, auto_* operations
 src/cad/geometry/            NEW   tessellation as an analysis-image job, content-addressed store
-src/cad/web/                 NEW   FastAPI app, SSE, static React build
-src/cad/confirmations/       EDIT  FastAPI page, URL elicitation; http.py and the in-memory Desk deleted
+src/cad/web/                 NEW   Starlette app, SSE, static React build
+src/cad/confirmations/       EDIT  Starlette page, URL elicitation; http.py and the in-memory Desk deleted
 src/cad/variant_sets/        EDIT  revisions in a slot, a read operation
 src/cad/checks/lanes.py      EDIT  peek, notify hook
 src/cad/scorecard/score.py   EDIT  derive from peek; scorecard.json deleted
@@ -272,7 +274,7 @@ Each PR ends green on `uv run verify` and is exercised through MCP or the app, a
 1. **Revisions in a slot.** `build_variant` takes a `slot`, and a member holds its signed revisions. Check: `cad-call` builds twice into slot 2, and the set shows the second variant in slot 2 with the first in its history. New code with no `slot` in a full set is still refused, and a repeated revision starts no container.
 2. **Operations registry and reads.** Move the tools, add `Lanes.peek`, delete `scorecard.json`. Check: the MCP tool list equals the registry's `AGENT` entries, and generating TypeScript from OpenAPI gives no diff.
 3. **Accounts with Clerk, tenancy, the lease, `/mcp` over HTTP, and `AccountMeter`.** Check: Claude Code signs in with `claude mcp login` through Clerk's Google sign-in and consent screen. A Clerk session token on `/mcp` and a Clerk OAuth token on a web route each get 401. The unit also records whether Clerk binds the token's audience to `/mcp` from the `resource` indicator, and the server checks the audience if it does. Tenant B gets `UnknownVariant` for tenant A's id. A second process on the same root refuses to start. A capped account is refused before any container starts. The app step reports the SHA over HTTP.
-4. **Hosted confirmation.** The FastAPI page, URL elicitation, `Desk` deleted. Check: Playwright signs in and confirms with one click. An agent-token POST, a POST with a stale snapshot, a replay and a session from another account are each refused and write no record. `ask_to_confirm` returns no link in its result. In an interactive Claude Code session the URL dialog opens the page, and under `claude -p` the tool returns `waiting in the web app`. The scripted-person eval still passes through `--opener` with the local verifier.
+4. **Hosted confirmation.** The Starlette page, URL elicitation, `Desk` deleted. Check: Playwright signs in and confirms with one click. An agent-token POST, a POST with a stale snapshot, a replay and a session from another account are each refused and write no record. `ask_to_confirm` returns no link in its result. In an interactive Claude Code session the URL dialog opens the page, and under `claude -p` the tool returns `waiting in the web app`. The scripted-person eval still passes through `--opener` with the local verifier.
 5. **Geometry.** Tessellation as an analysis-image job and the geometry route. Check: the mesh volume is within 0.5% of the mass check's volume, and a bake-off part renders in three-cad-viewer (screenshot attached).
 6. **Web shell.** Viewer, scorecards, SSE. Check: Playwright watches a card go from pending to done without a reload, and no pending row ever has a verdict colour.
 7. **Auto core.** `step`, `bounds_conflicts`, the run log and the `auto_*` operations. Check: table tests for all pass, pending not counting toward all pass, proposing requirements stopping the run, `auto_ask` stopping it with the agent's note, and a cap refusal stopping it with `AccountLimit`. A scripted driver that keeps calling after `Stopped` is refused with no container started. An agent measurement cannot change `step`.
@@ -293,7 +295,7 @@ Unit 1 and units 2 to 4 are independent and can run in parallel. Unit 7 needs on
 
 ## 6. Alternatives considered
 
-- **FastAPI wraps the MCP tools.** Every route becomes a pass-through, and person-only actions such as confirming and switching modes become tools an agent can call. The registry hides the same capability behind one list.
+- **Starlette routes wrap the MCP tools.** Every route becomes a pass-through, and person-only actions such as confirming and switching modes become tools an agent can call. The registry hides the same capability behind one list.
 - **Sliders over a `PARAMS` literal.** A template was code with a declared `PARAMS` literal, and the server rewrote the literal for each slider release. The operator approved it as ADR-0010 on 2026-11-08, then withdrew it with sliders the same day. A change asked for in chat needs no parameter convention.
 - **A warm zygote,** with builds forked from a parent that imported build123d once, at about 17 ms per fork. The operator declined it on 2026-11-08 as MVP cost.
 - **A warm pool of single-use containers.** It keeps fresh-container isolation, but each build costs a 2.5 s refill, and every member needs warm containers at 2 GB each.

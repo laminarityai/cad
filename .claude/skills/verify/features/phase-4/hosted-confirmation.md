@@ -1,6 +1,6 @@
 # Hosted confirmation (NOT YET BUILT)
 
-The confirmation page moves into the signed-in web app, rendered by FastAPI. An outside MCP client opens it for the person through URL-mode elicitation. A headless client gets `waiting in the web app`. The stdlib page server, the URL token and the in-memory `Desk` are deleted.
+The confirmation page moves into the signed-in web app, rendered by Starlette. An outside MCP client opens it for the person through URL-mode elicitation. A headless client gets `waiting in the web app`. The stdlib page server, the URL token and the in-memory `Desk` are deleted.
 
 Design: `docs/design/phase-4.md` §2.4 (amends ADR-0004, resolves #47). Unit 4 of §4. Unit 0, the ADR-0004 amendment, needs the operator's approval first.
 

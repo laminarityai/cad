@@ -1,0 +1,207 @@
+import hashlib
+import threading
+import urllib.request
+from pathlib import Path
+from urllib.parse import urlencode, urlsplit
+
+import pytest
+
+from cad.accounts.principal import AccountId
+from cad.accounts.tenants import Tenants
+from cad.briefs.store import UnknownBrief
+from cad.context_parts.ingest import ingest
+from cad.geometry import job, store
+from cad.geometry.model import TessellationFailed, UnknownMesh
+from cad.operations import reads
+from cad.operations.briefs import (
+    CreateBriefInput,
+    ProposeRequirementsInput,
+    RequirementDraft,
+    create_brief,
+    propose_requirements,
+)
+from cad.operations.confirmation import AskToConfirmInput, ask_to_confirm
+from cad.operations.model import Tenant
+from cad.operations.server import NoArguments
+from cad.projects.model import UnknownProject
+from cad.sandbox.image import BUILD, image_tag
+from cad.sandbox.outcome import Build, Built
+from cad.variant_sets import store as variant_sets
+from cad.variants import entry
+from cad.variants.entry import UnknownVariant
+
+pytestmark = pytest.mark.anyio
+
+ALICE, BOB = AccountId("user_alice"), AccountId("user_bob")
+TEXT = "A plate under 150 g"
+UNDER_150 = RequirementDraft.model_validate(
+    {
+        "target": {"kind": "max_mass", "mass": {"magnitude": 150, "unit": "g"}},
+        "quote": "under 150 g",
+    }
+)
+RAIL = b"CASCADE Topology V3, a rail\n"
+
+
+def confirm(url: str) -> None:
+    parts = urlsplit(url)
+    sent = urllib.request.Request(
+        url,
+        data=urlencode({"answer": "confirm", "note": ""}).encode(),
+        headers={
+            "Origin": f"{parts.scheme}://{parts.netloc}",
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+    )
+    threading.Thread(target=lambda: urllib.request.urlopen(sent, timeout=5), daemon=True).start()
+
+
+@pytest.fixture
+def accounts(tmp_path: Path) -> Tenants:
+    return Tenants(tmp_path / "accounts", 60, confirm, 5.0, ingest)
+
+
+@pytest.fixture
+def alice(accounts: Tenants) -> Tenant:
+    return accounts.of(ALICE)
+
+
+@pytest.fixture
+def bob(accounts: Tenants) -> Tenant:
+    return accounts.of(BOB)
+
+
+def proposed(tenant: Tenant, project_id: str | None = None) -> tuple[str, str]:
+    created = create_brief(tenant, CreateBriefInput(text=TEXT, project_id=project_id))
+    propose_requirements(
+        tenant, ProposeRequirementsInput(brief_id=created.brief_id, requirements=[UNDER_150])
+    )
+    return created.project_id, created.brief_id
+
+
+async def confirmed(tenant: Tenant) -> tuple[str, str]:
+    project, brief = proposed(tenant)
+    answer = await ask_to_confirm(tenant, AskToConfirmInput(project_id=project))
+    assert answer.status == "answered"
+    return project, brief
+
+
+def built(tenant: Tenant, code: str) -> str:
+    vid = entry.variant_id(code, image_tag(BUILD))
+    entry.save(tenant.variants, vid, code, Build(outcome=Built(), output=""), RAIL)
+    return vid
+
+
+def joined(tenant: Tenant, brief: str, code: str, slot: int | None = None) -> str:
+    vid = built(tenant, code)
+    key = variant_sets.confirmed_key(tenant.roots, brief)
+    variant_sets.join(tenant.roots.projects, key, code, entry.VariantId(vid), slot)
+    return vid
+
+
+def test_list_projects_names_each_project_with_its_briefs_newest_project_first(
+    alice: Tenant,
+) -> None:
+    assert reads.list_projects(alice, NoArguments()).projects == ()
+    first, first_brief = proposed(alice)
+    _, second_brief = proposed(alice, first)
+    other, other_brief = proposed(alice)
+    listed = reads.list_projects(alice, NoArguments()).projects
+    assert [(one.project_id, one.brief_ids) for one in listed] == [
+        (other, (other_brief,)),
+        (first, (first_brief, second_brief)),
+    ]
+
+
+def test_project_summarises_each_brief_and_says_which_proposal_is_confirmed(alice: Tenant) -> None:
+    project, brief = proposed(alice)
+    view = reads.project(alice, reads.ProjectInput(project_id=project))
+    assert [(one.brief_id, one.proposals, one.confirmed_proposal) for one in view.briefs] == [
+        (brief, 1, None)
+    ]
+
+
+async def test_a_confirmed_proposal_shows_in_the_project(alice: Tenant) -> None:
+    project, _ = await confirmed(alice)
+    [summary] = reads.project(alice, reads.ProjectInput(project_id=project)).briefs
+    assert summary.confirmed_proposal == 1
+
+
+def test_an_unknown_project_is_refused(alice: Tenant) -> None:
+    with pytest.raises(UnknownProject):
+        reads.project(alice, reads.ProjectInput(project_id="p-" + "0" * 16))
+
+
+async def test_the_variant_set_lists_slots_with_their_revisions(alice: Tenant) -> None:
+    project, brief = await confirmed(alice)
+    first = joined(alice, brief, "result = 1")
+    joined(alice, brief, "result = 2")
+    third = joined(alice, brief, "result = 3")
+    revised = joined(alice, brief, "result = 4", slot=1)
+    seen = reads.variant_set(alice, reads.VariantSetInput(project_id=project, brief_id=brief))
+    assert [(one.slot, one.revision, len(one.revisions)) for one in seen.members] == [
+        (1, 2, 2),
+        (2, 1, 1),
+        (3, 1, 1),
+    ]
+    assert seen.members[0].variant_id == revised
+    assert [one.variant_id for one in seen.members[0].revisions] == [first, revised]
+    assert seen.members[2].variant_id == third
+    assert seen.decision_sha256 == variant_sets.confirmed_key(alice.roots, brief).decision_sha256
+
+
+async def test_a_member_never_scored_has_no_card_etag(alice: Tenant) -> None:
+    project, brief = await confirmed(alice)
+    joined(alice, brief, "result = 1")
+    asked = reads.VariantSetInput(project_id=project, brief_id=brief, material_key="prusament-pla")
+    [member] = reads.variant_set(alice, asked).members
+    assert member.card_etag is None
+
+
+async def test_an_unconfirmed_brief_has_an_empty_set(alice: Tenant) -> None:
+    project, brief = proposed(alice)
+    seen = reads.variant_set(alice, reads.VariantSetInput(project_id=project, brief_id=brief))
+    assert (seen.members, seen.decision_sha256) == ((), None)
+
+
+def test_a_brief_outside_the_named_project_has_no_set(alice: Tenant) -> None:
+    _, brief = proposed(alice)
+    with pytest.raises(UnknownProject):
+        reads.variant_set(alice, reads.VariantSetInput(project_id="p-" + "0" * 16, brief_id=brief))
+
+
+def test_view_names_the_brep_and_whether_its_mesh_is_stored(alice: Tenant) -> None:
+    vid = built(alice, "result = 1")
+    sha = hashlib.sha256(RAIL).hexdigest()
+    pending = reads.view(alice, reads.VariantInput(variant_id=vid))
+    assert (pending.brep_sha256, pending.mesh) == (sha, "pending")
+    stored = TessellationFailed(brep_sha256=sha, version=job.VERSION, reason="unreadable")
+    store.write(alice.geometry, stored)
+    assert reads.view(alice, reads.VariantInput(variant_id=vid)).mesh == "failed"
+
+
+def test_mesh_returns_a_stored_mesh_and_refuses_one_that_is_not(alice: Tenant) -> None:
+    sha = hashlib.sha256(RAIL).hexdigest()
+    with pytest.raises(UnknownMesh):
+        reads.mesh(alice, reads.MeshInput(brep_sha256=sha))
+    stored = TessellationFailed(brep_sha256=sha, version=job.VERSION, reason="unreadable")
+    store.write(alice.geometry, stored)
+    assert reads.mesh(alice, reads.MeshInput(brep_sha256=sha)) == stored
+
+
+async def test_another_account_reads_nothing_of_alices(alice: Tenant, bob: Tenant) -> None:
+    project, brief = await confirmed(alice)
+    vid = joined(alice, brief, "result = 1")
+    sha = hashlib.sha256(RAIL).hexdigest()
+    store.write(
+        alice.geometry, TessellationFailed(brep_sha256=sha, version=job.VERSION, reason="x")
+    )
+    assert reads.list_projects(bob, NoArguments()).projects == ()
+    with pytest.raises(UnknownProject):
+        reads.project(bob, reads.ProjectInput(project_id=project))
+    with pytest.raises(UnknownBrief):
+        reads.variant_set(bob, reads.VariantSetInput(project_id=project, brief_id=brief))
+    with pytest.raises(UnknownVariant):
+        reads.view(bob, reads.VariantInput(variant_id=vid))
+    with pytest.raises(UnknownMesh):
+        reads.mesh(bob, reads.MeshInput(brep_sha256=sha))
