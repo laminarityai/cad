@@ -115,7 +115,7 @@ Python on the backend, because the CAD kernel, FEA and slicer wrappers all have 
 | App | FastAPI backend, React front end, job queue for FEA and slicing | Long jobs run in the background and stream results | None needed |
 | Sign-in | [Clerk](https://clerk.com/docs/guides/ai/mcp/connect-mcp-client), with Google sign-in | Clerk is the OAuth 2.1 authorization server for MCP clients, with client registration and a consent screen, so our server only verifies its tokens | Supabase Auth (open source, newer OAuth server); Better Auth, which would need a Node service |
 | Onshape link | Onshape REST API (STEP import, translated into Onshape parts) | You stay in Onshape for the rest of your design | An Onshape extension panel later; it is an iframe inside Onshape, and App Store listing needs OAuth2 |
-| History | Git per design: each variant a branch, each edit a commit | Diffs and undo for free; regression checks run on every commit | None needed |
+| History | A signed log of revisions per variant slot; each chat edit adds one | Enough to show what changed and go back, with no git process per design. Git waits until someone needs a diff the log cannot give | None needed |
 
 ## Build plan
 
