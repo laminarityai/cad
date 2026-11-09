@@ -1,7 +1,9 @@
 """OCP ships no stubs, so its modules come through importlib, as in the kernel."""
 
 import importlib
+import tempfile
 from collections.abc import Callable
+from pathlib import Path
 from types import ModuleType
 from typing import Any
 
@@ -79,3 +81,32 @@ def rotate(transform: Any, vector: Point) -> Point:
 
 def _coords(xyz: Any) -> Point:
     return (float(xyz.X()), float(xyz.Y()), float(xyz.Z()))
+
+
+def compound(*shapes: Shape) -> Shape:
+    builder = _ocp("BRep").BRep_Builder()
+    made = _ocp("TopoDS").TopoDS_Compound()
+    builder.MakeCompound(made)
+    for shape in shapes:
+        builder.Add(made, shape)
+    return made
+
+
+def box_shell(x: float, y: float, z: float) -> Shape:
+    return _ocp("BRepPrimAPI").BRepPrimAPI_MakeBox(x, y, z).Shell()
+
+
+def box_face(x: float, y: float, z: float) -> Shape:
+    return _ocp("BRepPrimAPI").BRepPrimAPI_MakeBox(x, y, z).BottomFace()
+
+
+def loosened(shape: Shape, tolerance: float) -> Shape:
+    _ocp("ShapeFix").ShapeFix_ShapeTolerance().SetTolerance(shape, tolerance)
+    return shape
+
+
+def brep_bytes(shape: Shape) -> bytes:
+    with tempfile.TemporaryDirectory() as directory:
+        path = Path(directory) / "shape.brep"
+        assert _ocp("BRepTools").BRepTools.Write_s(shape, str(path))
+        return path.read_bytes()

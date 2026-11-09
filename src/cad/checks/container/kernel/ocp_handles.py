@@ -78,6 +78,12 @@ class _Box(Protocol):
     def Get(self) -> tuple[float, float, float, float, float, float]: ...
 
 
+class _Tolerance(Protocol):
+    def Tolerance(self, shape: Shape, mode: int) -> float:
+        """A positive mode gives the largest tolerance, 0 the mean, a negative one the smallest."""
+        ...
+
+
 class _Boolean(Protocol):
     def IsDone(self) -> bool: ...
     def Shape(self) -> Shape: ...
@@ -161,6 +167,7 @@ class Ocp:
     new_props: Callable[[], _Props]
     new_box: Callable[[], _Box]
     new_analyzer: Callable[[Shape], _Analyzer]
+    new_tolerance: Callable[[], _Tolerance]
     new_common: Callable[[Shape, Shape], _Boolean]
     new_writer: Callable[[], _Writer]
     new_header: Callable[[_Model], _Header]
@@ -213,6 +220,9 @@ def load_ocp() -> Ocp:
         new_props=cast(Callable[[], _Props], _module("GProp").GProp_GProps),
         new_box=cast(Callable[[], _Box], _module("Bnd").Bnd_Box),
         new_analyzer=cast(Callable[[Shape], _Analyzer], _module("BRepCheck").BRepCheck_Analyzer),
+        new_tolerance=cast(
+            Callable[[], _Tolerance], _module("ShapeAnalysis").ShapeAnalysis_ShapeTolerance
+        ),
         new_common=cast(
             Callable[[Shape, Shape], _Boolean], _module("BRepAlgoAPI").BRepAlgoAPI_Common
         ),

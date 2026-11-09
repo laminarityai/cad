@@ -1,13 +1,11 @@
 import base64
 import json
-import os
-import resource
-import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import cast
 
 from cad.checks.container.calculix import Material, NodalField, NodalLoads, SolveFailed, solve
+from cad.checks.container.channel import serve
 from cad.checks.container.check import Fem, Subject, finding
 from cad.checks.container.inputs import Inputs
 from cad.checks.container.kernel import (
@@ -29,22 +27,13 @@ from cad.checks.container.wire import (
     StepWire,
 )
 
-CPU_KILL_AFTER_SECONDS = 5
-
 
 def main() -> None:
-    # OCCT prints transfer statistics to fd 1 from C++, so fd 1 is moved aside before OCP loads.
-    report_channel = os.dup(1)
-    os.dup2(2, 1)
-    cpu_seconds = int(sys.argv[1])
-    resource.setrlimit(resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds + CPU_KILL_AFTER_SECONDS))
-    request = cast(RequestWire, json.loads(sys.argv[2]))
-    report = run(request, sys.stdin.buffer.read(), ocp_kernel(), int(sys.argv[3]))
-    sys.stdout.flush()
-    sys.stderr.flush()
-    with os.fdopen(report_channel, "wb") as channel:
-        channel.write(json.dumps(report).encode())
-    os._exit(0)
+    serve(
+        lambda args, brep: run(
+            cast(RequestWire, json.loads(args[0])), brep, ocp_kernel(), int(args[1])
+        )
+    )
 
 
 @dataclass(frozen=True, slots=True)
