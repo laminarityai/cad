@@ -5,7 +5,11 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
+from cad.briefs import store as briefs
+from cad.research.fetch import Page
+from cad.research.submit import Question, ResearchAccepted, submit
 from cad.scorecard import score
+from cad.tables.materials import load_materials
 
 if TYPE_CHECKING:
     from conftest import Person, Session
@@ -13,6 +17,7 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.anyio
 
 PLATE = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
+URL = "https://example.org/silk-pla"
 TEXT = "A plate in Prusament PETG under 150 g"
 MADE_OF: dict[str, Any] = {
     "target": {"kind": "made_of", "material": "prusament-petg"},
@@ -45,18 +50,90 @@ def card_path(s: Session, variant_id: str) -> Path:
     return s.roots.briefs.parent / "variants" / variant_id / score.SCORECARD
 
 
-async def test_a_made_of_with_a_key_the_table_lacks_is_refused_and_stores_nothing(
+async def test_a_material_the_table_lacks_is_the_projects_own_row_and_asks_for_research(
     s: Session,
 ) -> None:
     created = await s.call("create_brief", text=TEXT)
-    wrong = {**MADE_OF, "target": {"kind": "made_of", "material": "prusament-petg-ish"}}
-    text = await s.text(
-        "propose_requirements", brief_id=created["brief_id"], requirements=[wrong, UNDER_150]
+    named = {**MADE_OF, "target": {"kind": "made_of", "material": "acme-silk-pla"}}
+    proposed = await s.call(
+        "propose_requirements", brief_id=created["brief_id"], requirements=[named, UNDER_150]
     )
-    assert "BadProposal" in text
-    assert "list_materials" in text
-    listed = await s.call("list_requirements", brief_id=created["brief_id"])
-    assert listed["proposals"] == []
+    pin = proposed["requirements"][0]["requirement"]["target"]
+    assert pin == {"kind": "made_of", "material": "project-acme-silk-pla"}
+    [request] = proposed["research"]
+    assert (request["brief_id"], request["key"], request["field"]) == (
+        created["brief_id"],
+        "project-acme-silk-pla",
+        "density",
+    )
+    assert "submit_research" in request["instruction"]
+
+
+async def test_a_loaded_requirement_asks_for_the_values_fea_reads(s: Session) -> None:
+    created = await s.call("create_brief", text=TEXT)
+    named = {**MADE_OF, "target": {"kind": "made_of", "material": "acme-silk-pla"}}
+    load = {
+        "support": {"kind": "flat_end"},
+        "load": {
+            "kind": "far_end",
+            "force": {"magnitude": 10, "unit": "N"},
+            "direction": {"kind": "any"},
+        },
+    }
+    strong = {"target": {"kind": "min_safety_factor", "load": load, "factor": 2}, "quote": "PETG"}
+    proposed = await s.call(
+        "propose_requirements", brief_id=created["brief_id"], requirements=[named, strong]
+    )
+    assert [one["field"] for one in proposed["research"]] == [
+        "density",
+        "elastic_modulus",
+        "poisson_ratio",
+        "yield_strength",
+    ]
+
+
+async def test_a_material_the_table_cites_asks_for_nothing(s: Session) -> None:
+    created = await s.call("create_brief", text=TEXT)
+    proposed = await s.call(
+        "propose_requirements", brief_id=created["brief_id"], requirements=[MADE_OF, UNDER_150]
+    )
+    assert "research" not in proposed
+
+
+async def test_a_researched_project_row_decides_the_mass_labelled_researched(
+    s: Session, person: Person
+) -> None:
+    named = {**MADE_OF, "target": {"kind": "made_of", "material": "acme-silk-pla"}}
+    brief_id = await confirmed(s, person, named, UNDER_150)
+    variant_id = await built(s)
+    before = await s.call(
+        "score_variant", variant_id=variant_id, material_key="acme-silk-pla", brief_id=brief_id
+    )
+    assert before["material"]["key"] == "project-acme-silk-pla"
+    assert before["material"]["set_by"]["kind"] == "requirement"
+    [request] = before["research"]
+    assert (request["key"], request["field"]) == ("project-acme-silk-pla", "density")
+    assert before["basis"]["requirements"][0]["verdict"] == "unknown"
+
+    quote = "Density 1.24 g/cm3"
+    project = briefs.read_brief(s.roots, brief_id).project
+    question = Question(brief_id, project, "project-acme-silk-pla", "density", URL, quote)
+    fetched = Page(URL, "Silk PLA data", f"Physical properties {quote}", "ab" * 32)
+    answer = submit(load_materials(), s.roots.projects, question, fetcher=lambda _: fetched)
+    assert isinstance(answer, ResearchAccepted)
+
+    after = await s.call(
+        "score_variant", variant_id=variant_id, material_key="acme-silk-pla", brief_id=brief_id
+    )
+    assert "research" not in after
+    assert after["table_version"].endswith(f"+{project}@r1")
+    mass = next(r for r in after["results"] if r["check_id"] == "mass")
+    assert mass["verdict"] == "pass"
+    assert mass["reads"] == [
+        {"kind": "researched", "field": "density", "url": URL, "quote": quote, "sha256": "ab" * 32}
+    ]
+    [judged] = after["basis"]["requirements"]
+    assert (judged["verdict"], judged["basis"]) == ("pass", "researched")
 
 
 async def test_a_second_made_of_is_refused(s: Session) -> None:
@@ -166,3 +243,18 @@ async def test_with_no_made_of_any_key_scores_and_the_card_says_the_agent_chose(
 async def test_a_score_with_no_brief_says_the_agent_chose(s: Session) -> None:
     card = await s.call("score_variant", variant_id=await built(s), material_key="prusament-pla")
     assert card["material"]["set_by"]["kind"] == "agent_argument"
+
+
+async def test_a_score_with_a_key_the_table_lacks_asks_for_research_not_unknown(
+    s: Session,
+) -> None:
+    card = await s.call("score_variant", variant_id=await built(s), material_key="acme-silk-pla")
+    assert card["material_key"] == "project-acme-silk-pla"
+    mass = next(r for r in card["results"] if r["check_id"] == "mass")
+    assert mass["verdict"] == "unknown"
+    [request] = card["research"]
+    assert (request["key"], request["field"], request["brief_id"]) == (
+        "project-acme-silk-pla",
+        "density",
+        None,
+    )

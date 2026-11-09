@@ -20,9 +20,10 @@ from cad.sources.fields import Field as MaterialField
 from cad.tables.materials import KEY_PATTERN
 
 SUBMIT_RESEARCH = (
-    "Answer a research request from a score_variant card. Pass the request's brief_id, key and "
-    "field, the URL of a public https page that states the value, and a quote copied word for "
-    "word from that page, naming the property and giving one value with its unit, such as "
+    "Answer a research request from a score_variant card or a propose_requirements reply. "
+    "Pass the request's brief_id, key and field, the URL of a public https page that states "
+    "the value, and a quote copied word for word from that page, naming the property and "
+    "giving one value with its unit, such as "
     '"Poisson\'s ratio 0.36" or "Tensile modulus 3.5 GPa". Never pass a number of your own: '
     "the server fetches the page, checks that the quote is on it and reads the value itself. "
     "A source for a near material, such as generic PLA for a PLA brand, is allowed. accepted "
@@ -62,8 +63,9 @@ def research_tools(roots: Roots, fetcher: Fetch = fetch) -> list[Tool]:
     ) -> ResearchAnswer:
         try:
             project = briefs.read_brief(roots, brief_id).project
-            question = Question(brief_id, project, key, field, url, quote)
-            return submit(host.materials_table(), roots.projects, question, fetcher=fetcher)
+            table = host.materials_table()
+            question = Question(brief_id, project, table.row_key(key), field, url, quote)
+            return submit(table, roots.projects, question, fetcher=fetcher)
         except (BriefRefused, ProjectRefused, SandboxUnavailable, StoreUnusable) as error:
             return ResearchRefused(key=key, field=field, reason=f"{type(error).__name__}: {error}")
 

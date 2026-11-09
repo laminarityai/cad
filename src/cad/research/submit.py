@@ -21,7 +21,7 @@ from cad.research.requests import ResearchRequest, request_for
 from cad.sources.fields import SPECS, Field
 from cad.sources.quantities import Refusal, one_quantity
 from cad.sources.tokens import fold
-from cad.tables.materials import FromResearch, Known, MaterialsTable
+from cad.tables.materials import FromResearch, Known, MaterialsTable, row
 
 
 class _Frozen(BaseModel):
@@ -78,7 +78,7 @@ def submit(
     ledger = read_ledger(projects, question.project)
     if ledger.problem is not None:
         return ask(ledger.problem, other_source_could_answer=False)
-    material = overlay(git, question.project, ledger).table.materials.get(question.key)
+    material = row(overlay(git, question.project, ledger).table.materials, question.key)
     if material is None:
         return ask(
             f"no row in the materials table has the key {question.key!r}",

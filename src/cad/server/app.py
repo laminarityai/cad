@@ -52,7 +52,9 @@ RULE = (
     "mass, dimension, bounding box or other measured geometry only when a score_variant result "
     "returned it, and name the check. Numbers your own build code printed and arithmetic you did "
     "yourself are not checks: do not report them as measurements or as confirming the scorecard. "
-    "For anything no check measured, say that it was not checked."
+    "When a check is unknown because a material value is missing, answer the card's research "
+    "requests and score again before you report. For anything no check measured after that, "
+    "say that it was not checked."
 )
 RESEARCH = (
     "A material value the table lacks is researched, not left unknown. When a scorecard's "
@@ -73,9 +75,9 @@ TEST_MODE = (
     "that variant, with its brief_id. A scorecard with pending checks is not finished: do not "
     "state a pending check's result, and call score_variant again with the same arguments to "
     "wait for it. Report only what the checks returned, and for a load, the fea verdict and "
-    "its measures. Do not estimate a strength, a deflection or a print time yourself: when no "
-    "check returned it, say it was not checked. When fea is unknown because the table lacks a "
-    "material value, answer the card's research requests and score again before you report."
+    "its measures. When fea is unknown because the table lacks a material value, answer the "
+    "card's research requests and score again before you report. Do not estimate a strength, "
+    "a deflection or a print time yourself: when no check returned it, say it was not checked."
 )
 NOT_VERIFIED = (
     "A scorecard's not_verified list holds measurements your own code made. Report each one as "
@@ -131,8 +133,11 @@ SCORE_VARIANT = (
     "never fail. When you report the scorecard, give every verdict as it states it, with each "
     "check's formula and source, the table version and the basis, and say that every "
     "requirement it did not judge was not checked. "
-    "material_key is a key from list_materials. When the user confirmed a made_of requirement "
-    "for the brief, pass that key: any other material_key is refused and nothing is scored. "
+    "material_key names the material: a key from list_materials when the table lists that same "
+    "material, and otherwise a key of your own that names it. A key the table lacks is scored "
+    "as the project's own row, project- and your key, and the card's research asks for each "
+    "value a check read. When the user confirmed a made_of requirement for the brief, pass "
+    "that key: any other material_key is refused and nothing is scored. "
     "The card's material says which key was used and what set it, the confirmed requirement or "
     "your argument. When your argument set it, say so wherever a result rests on the material. "
     "You cannot change a check or the materials table. "
@@ -148,9 +153,11 @@ SCORE_VARIANT = (
     + NOT_VERIFIED
 )
 LIST_MATERIALS = (
-    "List the material keys that score_variant accepts, each with its name. "
-    "The checks look each value up by exact key. No value is returned, so there is nothing "
-    "to copy. A value the table lacks comes back on the scorecard as a research request."
+    "List the keys of the materials table, each with its name. The checks look each value up "
+    "by exact key. No value is returned, so there is nothing to copy. A material that is not "
+    "listed can still be named in made_of or score_variant: it becomes the project's own row, "
+    "and each value a check needs comes back as a research request, as does a value the table "
+    "lacks."
 )
 
 
@@ -250,8 +257,9 @@ def build_server(
                     assess = requirements.awaiting(brief_id)
                 else:
                     assess, demand = requirements.against(confirmed), requirements.demand(confirmed)
-            material.refuse_other_material(confirmed, material_key)
             table = brief_table(roots, brief_id)
+            material_key = table.table.row_key(material_key)
+            material.refuse_other_material(confirmed, material_key)
             if own_measurements:
                 own.refuse_unless_unchecked(confirmed, own_measurements)
             scored = score.score_variant(

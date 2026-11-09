@@ -135,3 +135,15 @@ def test_an_unreadable_ledger_puts_its_problem_on_the_card_and_asks_for_nothing(
     card = with_research(card_asking(), ProjectTable(GIT, problem=problem), "b-1")
     assert card.research == ()
     assert card.research_problem == problem
+
+
+def test_a_project_key_with_no_row_asks_for_every_value_the_check_read() -> None:
+    key = "project-acme-silk-pla"
+    card = pending(GIT, key)
+    assert all(isinstance(read, ReadMissing) for read in card.reads)
+    requests = requests_on([card], key, GIT, "b-1")
+    assert [(one.key, one.field) for one in requests] == [
+        (key, "elastic_modulus"),
+        (key, "poisson_ratio"),
+        (key, "yield_strength"),
+    ]

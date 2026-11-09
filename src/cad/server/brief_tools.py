@@ -1,4 +1,5 @@
-from typing import Annotated, Literal
+from collections.abc import Sequence
+from typing import Annotated, Final, Literal
 
 from mcp.server.mcpserver.tools import Tool
 from pydantic import BaseModel, ConfigDict, Field
@@ -9,17 +10,25 @@ from cad.briefs.model import (
     MAX_BRIEF_CHARS,
     MAX_REQUIREMENTS,
     MAX_STATEMENT_CHARS,
+    MadeOf,
     Requirement,
     Target,
     deciding_check,
     describe,
 )
 from cad.briefs.store import BriefState, ProposalState, Status
+from cad.checks.report import QUICK, closure
 from cad.projects.membership import project_for_new_brief
 from cad.projects.model import PROJECT_ID, PROJECT_ID_CHARS
 from cad.records.roots import Roots
-from cad.sandbox import host
+from cad.research.overlay import ProjectTable
+from cad.research.requests import ResearchRequest, requests_for
 from cad.server.refusals import agent_facing
+from cad.server.research_tools import brief_table
+
+AFTER_PROPOSAL: Final = (
+    "You may research it while the user confirms: score_variant reads the stored value."
+)
 
 PLAN_MODE = (
     "Plan mode comes first for every brief. Store the user's words with create_brief, unchanged. "
@@ -44,8 +53,11 @@ PROPOSE_REQUIREMENTS = (
     "holds one team check's measure to a limit the user confirms, with check_id, measure, a "
     "comparator (at_most or at_least) and a limit such as {magnitude: 30, unit: cm^3}, and "
     "today the only measure is check_id mass, measure volume, which takes a volume; made_of with a "
-    "material, only when the brief names one, quoting its words and copying the key exactly from "
-    "list_materials (never guess a near match; at most one per brief); min_safety_factor (a "
+    "material, only when the brief names one, quoting its words (at most one per brief): copy "
+    "the key from list_materials when the table lists that same material, and otherwise give "
+    "a key of your own that names it, such as acme-pla-matte. The server stores a material the "
+    "table lacks as the project's own row, project- and your key, and the reply's research "
+    "asks for each value its checks read; answer it with submit_research. min_safety_factor (a "
     "factor, against yield) or max_deflection (a length), each with a load; or unchecked with a "
     "statement, for anything no check decides. A load has a support, which is holes (a count "
     "and an optional bore diameter), largest_flat or flat_end, and a load, which is far_end or "
@@ -98,6 +110,12 @@ class ProposalView(BaseModel):
     requirements: list[RequirementRow]
 
 
+class Proposed(ProposalView):
+    """`research` asks for each value of the made_of material that the table lacks."""
+
+    research: tuple[ResearchRequest, ...] = Field(default=(), exclude_if=lambda one: not one)
+
+
 class BriefView(BaseModel):
     brief_id: str
     project_id: str
@@ -126,6 +144,20 @@ def _view(state: BriefState, proposed: ProposalState) -> ProposalView:
     )
 
 
+def _research(
+    table: ProjectTable, brief_id: str, drafts: Sequence[store.Draft]
+) -> tuple[ResearchRequest, ...]:
+    """Ask now for each value of the named material that the set's checks will read and the
+    table lacks, so it is stored before the first score."""
+    key = next((d.target.material for d in drafts if isinstance(d.target, MadeOf)), None)
+    if key is None or table.problem is not None:
+        return ()
+    checks = [spec.id for spec in QUICK]
+    checks += [check for d in drafts if (check := deciding_check(d.target)) is not None]
+    fields = sorted({str(one) for spec in closure(checks) for one in spec.takes})
+    return requests_for(table.table, key, fields, brief_id, AFTER_PROPOSAL)
+
+
 def _user_edit(proposed: Requirement, confirmed: Requirement) -> UserEdit | None:
     before, after = placeholder(proposed), placeholder(confirmed)
     if proposed.id == confirmed.id or before is None or after is None:
@@ -150,12 +182,15 @@ def brief_tools(roots: Roots) -> list[Tool]:
         requirements: Annotated[
             list[RequirementDraft], Field(min_length=1, max_length=MAX_REQUIREMENTS)
         ],
-    ) -> ProposalView:
-        drafts = [store.Draft(target=r.target, quote=r.quote) for r in requirements]
+    ) -> Proposed:
         with agent_facing():
-            made_of.check_proposed(drafts, host.materials_table().materials)
+            table = brief_table(roots, brief_id)
+            drafts = made_of.resolve(
+                [store.Draft(target=r.target, quote=r.quote) for r in requirements], table.table
+            )
             proposed = store.propose(roots, brief_id, drafts)
-            return _view(store.read_state(roots, brief_id), proposed)
+            view = _view(store.read_state(roots, brief_id), proposed)
+        return Proposed(**dict(view), research=_research(table, brief_id, drafts))
 
     def list_requirements(brief_id: str) -> BriefView:
         with agent_facing():
