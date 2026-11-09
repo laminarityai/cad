@@ -25,16 +25,11 @@ def read_pages(log: Path) -> Pages:
     )
 
 
-def _born(path: Path) -> float:
-    status = path.stat()
-    return getattr(status, "st_birthtime", status.st_mtime)
-
-
 def minutes_to_first_scorecard(
     briefs_root: Path, variants_root: Path, session_seconds: float
 ) -> float | None:
     """`session_seconds` is a monotonic clock, which does not count sleep; file times do."""
-    started = [_born(path) for path in briefs_root.glob("*/*") if path.is_file()]
+    started = [path.stat().st_mtime for path in briefs_root.glob("*/*") if path.is_file()]
     stored = [path.stat().st_mtime for path in variants_root.glob(f"*/{SCORECARD}")]
     if not started or not stored:
         return None

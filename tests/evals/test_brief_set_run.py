@@ -121,11 +121,10 @@ def test_minutes_run_from_the_first_brief_to_the_earliest_scorecard(tmp_path: Pa
     later = variants / VARIANT_ID
     later.mkdir()
     (later / SCORECARD).write_text("{}")
-    started = brief.stat().st_mtime
-    os.utime(later / SCORECARD, (started + 150, started + 150))
+    os.utime(brief, (1000, 1000))
+    os.utime(later / SCORECARD, (1150, 1150))
     kept = home / ".cad" / "briefs"
-    expected = (started + 150 - brief.stat().st_birthtime) / 60
-    assert minutes_to_first_scorecard(kept, variants, 200) == pytest.approx(expected)
+    assert minutes_to_first_scorecard(kept, variants, 200) == pytest.approx(2.5)
     assert minutes_to_first_scorecard(kept, tmp_path / "none", 200) is None
 
 
