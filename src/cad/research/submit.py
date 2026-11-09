@@ -186,14 +186,10 @@ def _already_answered(question: Question, held: Known) -> ResearchAccepted | Non
     )
 
 
-def _plain(text: str) -> str:
-    return fold(text).replace("\u2019", "'")
-
-
 def on_page(quote: str, text: str) -> bool:
     """The quote must sit on boundaries in the page's text, so it never starts or ends partway
     through a number: "960 kg/m3" is not on a page that says "8960 kg/m3"."""
-    needle, hay = _plain(quote).strip(), _plain(text)
+    needle, hay = fold(quote).strip(), fold(text)
     start = hay.find(needle) if needle else -1
     while start != -1:
         if _opens(hay, start) and _closes(hay, start + len(needle)):

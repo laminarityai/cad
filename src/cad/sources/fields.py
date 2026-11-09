@@ -136,4 +136,4 @@ ALL_LABELS: Final = (*GENERIC_LABELS, *(label for spec in SPECS.values() for lab
 
 
 def label_key(text: str) -> str:
-    return " ".join(text.replace("\u2019", "'").casefold().split())
+    return " ".join(text.casefold().split())

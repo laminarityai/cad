@@ -67,10 +67,7 @@ PRESSURE_PATTERN: Final = (
     + "|".join(re.escape(unit) for unit in sorted(PRESSURE_UNITS, key=len, reverse=True))
     + r")(?![A-Za-z0-9^/-])"
 )
-_LABELS: Final = "|".join(
-    re.escape(label).replace("'", "['\u2019]")
-    for label in sorted(ALL_LABELS, key=len, reverse=True)
-)
+_LABELS: Final = "|".join(re.escape(label) for label in sorted(ALL_LABELS, key=len, reverse=True))
 
 _SPELLINGS: Final = sorted(
     (spelling for spellings in STANDARDS.values() for spelling in spellings), key=len, reverse=True
@@ -115,8 +112,9 @@ def is_whitespace(char: str) -> bool:
 
 
 def fold(text: str) -> str:
-    """NFKC, then every whitespace or control character run becomes one space."""
-    normal = unicodedata.normalize("NFKC", text).replace("\u2212", "-")
+    """NFKC, a minus sign becomes "-" and a curly apostrophe "'", then every whitespace or
+    control character run becomes one space."""
+    normal = unicodedata.normalize("NFKC", text).replace("\u2212", "-").replace("\u2019", "'")
     folded: list[str] = []
     for char in normal:
         if not is_whitespace(char):
