@@ -8,6 +8,7 @@ from provenance import BoundStep, CardTrace, ResearchedStep, Resolved, trace_car
 from trace_store import SPEC_BY_ID, main
 
 from cad.briefs import store as briefs
+from cad.briefs.model import Brief
 from cad.checks.result import CheckResult, Measure, ReadCited, ReadResearched, Verdict
 from cad.projects.model import new_project_id
 from cad.records.roots import Roots
@@ -54,14 +55,18 @@ async def test_a_card_the_server_stored_through_score_variant_traces(
     assert "cards unreadable: 0, unbound: 0, incomplete: 0" in lines(capsys)
 
 
-def researched(roots: Roots) -> tuple[str, MaterialsTable]:
-    brief = briefs.create_brief(roots, BRIEF_TEXT, new_project_id())
-    question = Question(brief.id, brief.project, KEY, "poisson_ratio", 0.36, "", URL, QUOTE)
+def research(roots: Roots, brief: Brief, key: str) -> None:
+    question = Question(brief.id, brief.project, key, "poisson_ratio", 0.36, "", URL, QUOTE)
     page = Page(URL, "PLA data", f"Mechanical properties {QUOTE} Density 1.24 g/cm3", "ab" * 32)
     answer = submit(
         table(), roots.projects, question, fetcher=lambda _: page, today=lambda: date(2026, 11, 8)
     )
     assert isinstance(answer, ResearchAccepted)
+
+
+def researched(roots: Roots) -> tuple[str, MaterialsTable]:
+    brief = briefs.create_brief(roots, BRIEF_TEXT, new_project_id())
+    research(roots, brief, KEY)
     return brief.id, project_table(table(), roots.projects, brief.project).table
 
 
@@ -137,3 +142,15 @@ def test_the_bounds_of_a_research_request_on_a_stored_card_resolve(store: Path) 
         isinstance(one.outcome, Resolved) and isinstance(one.outcome.steps[0], BoundStep)
         for one in bounds
     )
+
+
+@pytest.mark.xfail(strict=True, reason="#123: any new record marks every older card stale")
+def test_a_record_for_a_value_the_card_never_read_leaves_the_card_current(
+    store: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    card, _ = stored_researched_card(store)
+    roots = roots_beside(store)
+    assert isinstance(card.basis, AwaitingConfirmation)
+    research(roots, briefs.read_brief(roots, card.basis.brief_id), "bambu-pla-basic")
+    main(arguments_for(store))
+    assert "stale: 0, unresolved: 0" in lines(capsys)
