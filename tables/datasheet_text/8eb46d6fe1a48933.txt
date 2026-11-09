@@ -61,37 +61,37 @@ specimens.
  
  Sheet Coil & Plate Alloy 6061 
 Technical Data 
- 
- 
- 
-www.kaiseraluminum.com  
-Rev. 05/06  
+www.kaiseraluminum.com
+Rev. 05/06
 Continued Page 2 of 2 
-C H E M I C A L  C O M P O S I T I O N  L I M I T S  
- Others 
+C H E M I C A L C O M P O S I T I O N L I M I T S 
+Others 
 Weight % Si Fe Cu Mn Mg Cr Zn Ti Each Total 
 Minimum 0.40 - 0.15 - 0.8 0.04 - - - - 
-Maximum 0.8 0.7 0.40 0.15 1.2 0.35 0.25   0.15 0.05 0.15 
- 
-T Y P I C A L  P H Y S I C A L  P R O P E R T I E S  
- 
- 
-Characteristic  English Metric 
-Nominal Density (68 °F/20 °C)  0.098 lbs./in. 3 2.70 Mg/m 3 
-Melting Range  1080 °F - 1206 °F 582 °C - 652 °C 
-Specific Heat  (212 °F/100 °C)   0.214 BTU/lb. - °F 896 J/kg - °K 
+Maximum 0.8 0.7 0.40 0.15 1.2 0.35 0.25 0.15 0.05 0.15 
+T Y P I C A L P H Y S I C A L P R O P E R T I E S 
+Characteristic English Metric 
+Nominal Density (68 °F/20 °C) 0.098 lbs./in.3
+ 2.70 Mg/m3
+Melting Range 1080 °F - 1206 °F 582 °C - 652 °C 
+Specific Heat (212 °F/100 °C) 0.214 BTU/lb. - °F 896 J/kg - °K 
 Linear 
 68 °F-212 °F 
 20 °C-100 °C 
 13.1 micro in./in.-°F 23.6 micro m/m -°K 
 Coefficient of Thermal Expansion 
 Volumetric 
-68 °F/20 °C 3.93 x 10 -5in. 3/in. 3 -°F 71 x 10 -6m3/m 3 -°K 
+68 °F/20 °C 3.93 x 10-5in.3
+/in.3
+ -°F 71 x 10-6m
+3
+/m3
+ -°K 
 O Temper 104 BTU/ft. - hr. - °F 180 W/m - °K 
-T451 89 BTU/ft. - hr. - °F 154 W/m - °K Thermal Conductivity (68 °F/20 °C) 
+Thermal Conductivity (68 °F/20 °C) T451 89 BTU/ft. - hr. - °F 154 W/m - °K 
 T6, T651 97 BTU/ft. - hr. - °F 167 W/m - °K 
 O Temper 47% IACS 
-T451 40% IACS Equal Volume  
+T451 40% IACS Equal Volume 
 T6, T651 43% IACS 
 O Temper 155% IACS 
 T451 132% IACS 
