@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from email.message import Message
 from html.parser import HTMLParser
 from typing import Final
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import quote, urljoin, urlsplit
 
 MAX_BYTES: Final = 4 * 1024 * 1024
 TIMEOUT_SECONDS: Final = 15.0
@@ -19,6 +19,8 @@ PORT: Final = 443
 USER_AGENT: Final = "cad-research/1 (reads one cited page; https://github.com/laminarityai/cad)"
 TEXT_TYPES: Final = frozenset({"text/html", "application/xhtml+xml", "text/plain"})
 SKIPPED_TAGS: Final = frozenset({"script", "style", "noscript", "template", "svg"})
+# Every character RFC 3986 allows in a path, and "%" so a URL already encoded stays as it is.
+_URL_SAFE: Final = "/%:@!$&'()*+,;=-._~"
 
 _NAT64: Final = ipaddress.IPv6Network("64:ff9b::/96")
 _RESERVED_V6: Final = ipaddress.IPv6Network("::/8")
@@ -103,8 +105,9 @@ def _target(url: str, resolve: Resolve) -> Target:
         raise _Refused(f"the host {host} does not resolve")
     if not all(_public(one) for one in addresses):
         raise _Refused(f"the host {host} resolves to a non-public address")
-    path = parts.path or "/"
-    return Target(host, str(addresses[0]), f"{path}?{parts.query}" if parts.query else path)
+    path = quote(parts.path or "/", safe=_URL_SAFE)
+    query = quote(parts.query, safe=_URL_SAFE + "?")
+    return Target(host, str(addresses[0]), f"{path}?{query}" if query else path)
 
 
 def _address(text: str) -> Address:
