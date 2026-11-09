@@ -222,6 +222,7 @@ COUNTS = Tally(
     resolved=3,
     stale=0,
     unresolved=0,
+    not_verified=0,
 )
 
 
@@ -229,6 +230,7 @@ COUNTS = Tally(
     ("counts", "code"),
     [
         (COUNTS, 0),
+        (replace(COUNTS, numbers=4, not_verified=1), 0),
         (replace(COUNTS, cards=0), 1),
         (replace(COUNTS, numbers=0, resolved=0), 1),
         (replace(COUNTS, unreadable=1), 1),

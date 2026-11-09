@@ -61,9 +61,6 @@ class ReportedScorecard(Scorecard):
         return self
 
 
-STORED: Final = TypeAdapter[ReportedScorecard | Scorecard](ReportedScorecard | Scorecard)
-
-
 def pinned_by(confirmed: ConfirmedSet | None) -> Requirement | None:
     if confirmed is None:
         return None
@@ -92,3 +89,7 @@ def reported(card: Scorecard, confirmed: ConfirmedSet | None) -> ReportedScoreca
     return ReportedScorecard(
         **dict(card), material=MaterialUse(key=card.material_key, set_by=set_by)
     )
+
+
+STORED: Final = TypeAdapter[ReportedScorecard | Scorecard](ReportedScorecard | Scorecard)
+"""A stored card. Cards stored before the server reported the material have no `material`."""

@@ -31,6 +31,7 @@ from provenance import (
     CheckStep,
     ConfirmedStep,
     Incomplete,
+    NotVerified,
     ResearchedStep,
     Resolved,
     Stale,
@@ -49,7 +50,7 @@ from cad.briefs.store import BriefRefused
 from cad.checks.report import SPECS
 from cad.records.roots import HOME_ROOTS, Roots
 from cad.research.overlay import project_table
-from cad.scorecard.material import STORED
+from cad.scorecard import material
 from cad.scorecard.model import AgainstBrief, AwaitingConfirmation, Scorecard
 from cad.scorecard.score import SCORECARD
 from cad.tables.materials import MaterialsTable, load_materials
@@ -75,6 +76,7 @@ class Tally:
     resolved: int
     stale: int
     unresolved: int
+    not_verified: int
 
 
 def tally(traces: Sequence[CardTrace]) -> Tally:
@@ -96,6 +98,7 @@ def tally(traces: Sequence[CardTrace]) -> Tally:
         resolved=sum(isinstance(outcome, Resolved) for outcome in numbers),
         stale=sum(isinstance(outcome, Stale) for outcome in numbers),
         unresolved=sum(isinstance(outcome, Unresolved) for outcome in numbers),
+        not_verified=sum(isinstance(outcome, NotVerified) for outcome in numbers),
     )
 
 
@@ -174,6 +177,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"numbers resolved: {counts.resolved}, stale: {counts.stale}, "
         f"unresolved: {counts.unresolved}"
     )
+    print(f"agent measurements: {counts.not_verified}, not verified")
     print(f"strict pass rate: {describe(tracking.strict_pass_rate)}")
     print(f"requirements covered by reviewed checks: {describe(tracking.reviewed_coverage)}")
     if not counts.cards:
@@ -188,7 +192,7 @@ def _read(
 ) -> tuple[CardTrace, tuple[RequirementOutcome, ...]]:
     name = path.parent.name
     try:
-        card = STORED.validate_json(path.read_text())
+        card = material.STORED.validate_json(path.read_text())
     except (OSError, ValidationError, pint.UndefinedUnitError, ZeroDivisionError) as error:
         return CardTrace(name, (Unreadable(str(error).splitlines()[0]),), ()), ()
     trace = trace_card(card, root, roots, _table_for(card, roots, table), SPEC_BY_ID)
@@ -210,7 +214,7 @@ def _table_for(card: Scorecard, roots: Roots, git: MaterialsTable) -> MaterialsT
 
 
 def _print(trace: CardTrace, steps: bool) -> None:
-    broken = [one for one in trace.numbers if not isinstance(one.outcome, Resolved)]
+    broken = [one for one in trace.numbers if isinstance(one.outcome, Stale | Unresolved)]
     failed = bool(trace.failures or broken)
     print(f"{'FAIL' if failed else 'ok  '} {trace.variant_id}: {len(trace.numbers)} numbers")
     for failure in trace.failures:
@@ -222,7 +226,7 @@ def _print(trace: CardTrace, steps: bool) -> None:
 def _line(one: Traced) -> str:
     head = f"{one.label} = {one.value}"
     outcome = one.outcome
-    if isinstance(outcome, Stale | Unresolved):
+    if isinstance(outcome, Stale | Unresolved | NotVerified):
         return f"{type(outcome).__name__.upper()} {head}: {outcome.reason}"
     chain = " -> ".join(_step(step) for step in outcome.steps)
     return f"{head} -> {chain}"

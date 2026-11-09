@@ -1,4 +1,4 @@
-from typing import Annotated, Literal, Self
+from typing import Annotated, Final, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -116,6 +116,33 @@ class PendingCheck(_Frozen):
     reads: tuple[Read, ...] = Field(default=(), exclude_if=lambda reads: not reads)
 
 
+AGENT_MEASUREMENT: Final = "agent's own measurement, not verified"
+
+
+class AgentValue(_Frozen):
+    """One number the agent's own code reported. It is not a check `Measure`, so nothing written
+    for check results accepts it."""
+
+    name: str
+    value: Measured
+
+
+class AgentMeasurement(_Frozen):
+    """Information only: what the agent's own measuring code reported for an unchecked
+    requirement. It has no verdict, limit or comparator, its requirement stays unverified, and
+    nothing graded may read it. `failed` says why the code gave no values."""
+
+    kind: Literal["agent_measurement"] = "agent_measurement"
+    label: Literal["agent's own measurement, not verified"] = AGENT_MEASUREMENT
+    requirement_id: str
+    title: str
+    code_sha256: str
+    code: str
+    values: tuple[AgentValue, ...]
+    failed: str | None
+    note: str | None = Field(default=None, exclude_if=lambda note: note is None)
+
+
 class Scorecard(BaseModel):
     """All of a variant's check results, each with its formula and source.
 
@@ -124,6 +151,7 @@ class Scorecard(BaseModel):
     and the analysis image that the checks ran in. Each result carries its own check version.
     `basis` says what the card was scored against, and holds the requirements when there are any.
     `pending` names the checks whose results are not in yet.
+    `not_verified` holds the agent's own measurements, which are information and never a verdict.
     `rebuilt_from` names the variant an earlier sandbox stored, when the checks scored its stored
     code rebuilt as `variant_id`.
     """
@@ -140,6 +168,7 @@ class Scorecard(BaseModel):
     results: tuple[CheckResult | PendingCheck, ...]
     pending: tuple[str, ...] = ()
     basis: Basis
+    not_verified: tuple[AgentMeasurement, ...] = Field(default=(), exclude_if=lambda rows: not rows)
 
     @property
     def finished(self) -> tuple[CheckResult, ...]:
