@@ -1,9 +1,3 @@
-"""Conflicts the page warns of: requirements of one brief that no part can satisfy together.
-
-A warning is read-only. It has no answer control and records nothing, and the person still
-confirms or declines each item.
-"""
-
 from dataclasses import dataclass
 from functools import cache
 
@@ -21,8 +15,7 @@ from cad.tables.materials import MaterialsTable, UnknownMaterial, load_materials
 
 
 @cache
-def _git_table() -> MaterialsTable:
-    """The committed table, parsed once: reading its YAML on every page view costs about 50 ms."""
+def _cached_git_table() -> MaterialsTable:
     return load_materials()
 
 
@@ -40,7 +33,6 @@ class Conflict:
 
 
 def conflicts(roots: Roots, project: ProjectId) -> tuple[Conflict, ...]:
-    """Each conflict among the requirements in play for a brief the page asks about."""
     table: MaterialsTable | None = None
     found: list[Conflict] = []
     for brief_id in project_briefs(roots, project):
@@ -48,13 +40,12 @@ def conflicts(roots: Roots, project: ProjectId) -> tuple[Conflict, ...]:
         in_play = _in_play(state)
         if not in_play:
             continue
-        table = table or project_table(_git_table(), roots.projects, project).table
+        table = table or project_table(_cached_git_table(), roots.projects, project).table
         found.extend(_conflict(state, bounds, in_play) for bounds in _bounds(in_play, table))
     return tuple(found)
 
 
 def _in_play(state: BriefState) -> tuple[Requirement, ...]:
-    """The newest confirmed set and the proposal that waits on the person, once each."""
     latest = state.latest
     if latest is None or latest.status is not Status.PROPOSED:
         return ()
