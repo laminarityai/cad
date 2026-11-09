@@ -31,3 +31,4 @@ This directory is the maintained source for verifying what an MCP client sees fr
 - [Agree](./agree.md) covers `evals/bakeoff/agree.py`: scorecards against the bake-off grader, for 10 live Claude Code sessions and for the 60 stored attempts replayed with no model.
 - [Test mode](./test-mode.md) covers the Test mode guidance: a live agent scores only the variant the user picked, proposes a load the user adds, and reports what no check measured as not checked.
 - [Research](./research.md) covers `submit_research` and the research requests on a scorecard: a missing material value asked for, answered from a quote on a real page, and the rescored card labelled researched.
+- [Brief set](./brief-set.md) covers `evals/briefs/run.py`: each brief in the private set through a live session with a scripted person, the tracer with `--require-judged`, and the traced, strict pass rate, coverage and friction numbers it writes outside the repo.

@@ -123,6 +123,34 @@ def exit_code(counts: Tally, *, require_judged: bool = False) -> int:
     return 1 if failed or not counts.cards or not counts.numbers else 0
 
 
+@dataclass(frozen=True, slots=True)
+class TracedCard:
+    path: Path
+    trace: CardTrace
+    outcomes: tuple[RequirementOutcome, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class TracedStore:
+    cards: tuple[TracedCard, ...]
+
+    @property
+    def traces(self) -> tuple[CardTrace, ...]:
+        return tuple(one.trace for one in self.cards)
+
+    @property
+    def outcomes(self) -> tuple[RequirementOutcome, ...]:
+        return tuple(outcome for one in self.cards for outcome in one.outcomes)
+
+
+def trace_root(root: Path, roots: Roots) -> TracedStore:
+    paths = sorted(
+        path for path in root.glob(f"*/{SCORECARD}") if entry.ID_PATTERN.fullmatch(path.parent.name)
+    )
+    table = load_materials()
+    return TracedStore(tuple(TracedCard(path, *_read(path, root, roots, table)) for path in paths))
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="trace_store", description="Trace every number on every stored scorecard."
@@ -144,22 +172,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="fail a card awaiting confirmation or scored with no brief",
     )
     args = parser.parse_args(argv)
-    paths = sorted(
-        path
-        for path in args.root.glob(f"*/{SCORECARD}")
-        if entry.ID_PATTERN.fullmatch(path.parent.name)
-    )
-    table = load_materials()
-    roots = Roots(briefs=args.briefs_root, projects=args.projects_root)
-    traces: list[CardTrace] = []
-    outcomes: list[RequirementOutcome] = []
-    for path in paths:
-        trace, found = _read(path, args.root, roots, table)
+    found = trace_root(args.root, Roots(briefs=args.briefs_root, projects=args.projects_root))
+    for trace in found.traces:
         _print(trace, args.steps)
-        traces.append(trace)
-        outcomes.extend(found)
-    counts = tally(traces)
-    tracking = track(tuple(outcomes))
+    counts = tally(found.traces)
+    tracking = track(found.outcomes)
     print(f"cards: {counts.cards}, numbers: {counts.numbers}")
     print(
         f"cards unreadable: {counts.unreadable}, unbound: {counts.unbound}, "
