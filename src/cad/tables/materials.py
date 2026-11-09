@@ -86,16 +86,10 @@ class Material:
         return cast(Value, getattr(self, field))
 
 
-def blank(key: str) -> Material:
-    """A project's row for a material the git table lacks, before research fills a field."""
-    return Material(key, key, **dict.fromkeys(FIELD_UNITS, Unknown()))
-
-
-def row(materials: Mapping[str, Material], key: str) -> Material | None:
-    """A `project-` key with no row yet is the project's blank row, never a missing one."""
+def row_or_blank(materials: Mapping[str, Material], key: str) -> Material | None:
     found = materials.get(key)
     if found is None and key.startswith(PROJECT_PREFIX):
-        return blank(key)
+        return Material(key, key, **dict.fromkeys(FIELD_UNITS, Unknown()))
     return found
 
 
@@ -115,15 +109,13 @@ class MaterialsTable:
     materials: Mapping[str, Material]
 
     def get_material(self, key: str) -> Material:
-        material = row(self.materials, key)
+        material = row_or_blank(self.materials, key)
         if material is None:
             known = ", ".join(sorted(self.materials))
             raise UnknownMaterial(f"no material with key {key!r}; keys are {known}")
         return material
 
     def row_key(self, key: str) -> str:
-        """The key of the row that holds `key`'s values. A material with no row is the project's
-        own, with the `project-` prefix, so it never shadows a row that git adds later."""
         if key in self.materials or key.startswith(PROJECT_PREFIX):
             return key
         return PROJECT_PREFIX + key

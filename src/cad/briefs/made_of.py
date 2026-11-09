@@ -5,9 +5,7 @@ from cad.briefs.store import BadProposal, Draft
 from cad.tables.materials import PROJECT_PREFIX, MaterialsTable
 
 
-def resolve(drafts: Sequence[Draft], table: MaterialsTable) -> list[Draft]:
-    """The drafts with each made_of key naming its row: a material the table lacks becomes the
-    project's own `project-` row, whose values are researched."""
+def with_row_keys(drafts: Sequence[Draft], table: MaterialsTable) -> list[Draft]:
     if sum(isinstance(d.target, MadeOf) for d in drafts) > 1:
         raise BadProposal(
             "a set holds at most one made_of: a part is made of one material; "

@@ -11,7 +11,7 @@ from cad.tables.materials import (
     Material,
     MaterialsTable,
     Source,
-    row,
+    row_or_blank,
     rule_problems,
 )
 
@@ -55,7 +55,7 @@ def overlay(git: MaterialsTable, project: ProjectId, ledger: Ledger) -> ProjectT
 def fill(
     materials: dict[str, Material], record: ResearchedRecord, number: int
 ) -> Material | list[str]:
-    material = row(materials, record.key)
+    material = row_or_blank(materials, record.key)
     where = f"{record.key}: {record.field}"
     if material is None:
         return [f"{record.key}: no row in the materials table has this key"]

@@ -22,7 +22,7 @@ from cad.projects.membership import project_for_new_brief
 from cad.projects.model import PROJECT_ID, PROJECT_ID_CHARS
 from cad.records.roots import Roots
 from cad.research.overlay import ProjectTable
-from cad.research.requests import ResearchRequest, requests_for
+from cad.research.requests import ResearchRequest, requests_before_scoring
 from cad.server.refusals import agent_facing
 from cad.server.research_tools import brief_table
 
@@ -111,7 +111,8 @@ class ProposalView(BaseModel):
 
 
 class Proposed(ProposalView):
-    """`research` asks for each value of the made_of material that the table lacks."""
+    """`research` asks for each value of the made_of material that the set's checks read and
+    the table lacks."""
 
     research: tuple[ResearchRequest, ...] = Field(default=(), exclude_if=lambda one: not one)
 
@@ -144,18 +145,16 @@ def _view(state: BriefState, proposed: ProposalState) -> ProposalView:
     )
 
 
-def _research(
+def _made_of_requests(
     table: ProjectTable, brief_id: str, drafts: Sequence[store.Draft]
 ) -> tuple[ResearchRequest, ...]:
-    """Ask now for each value of the named material that the set's checks will read and the
-    table lacks, so it is stored before the first score."""
     key = next((d.target.material for d in drafts if isinstance(d.target, MadeOf)), None)
     if key is None or table.problem is not None:
         return ()
     checks = [spec.id for spec in QUICK]
     checks += [check for d in drafts if (check := deciding_check(d.target)) is not None]
     fields = sorted({str(one) for spec in closure(checks) for one in spec.takes})
-    return requests_for(table.table, key, fields, brief_id, AFTER_PROPOSAL)
+    return requests_before_scoring(table.table, key, fields, brief_id, AFTER_PROPOSAL)
 
 
 def _user_edit(proposed: Requirement, confirmed: Requirement) -> UserEdit | None:
@@ -185,12 +184,12 @@ def brief_tools(roots: Roots) -> list[Tool]:
     ) -> Proposed:
         with agent_facing():
             table = brief_table(roots, brief_id)
-            drafts = made_of.resolve(
+            drafts = made_of.with_row_keys(
                 [store.Draft(target=r.target, quote=r.quote) for r in requirements], table.table
             )
             proposed = store.propose(roots, brief_id, drafts)
             view = _view(store.read_state(roots, brief_id), proposed)
-        return Proposed(**dict(view), research=_research(table, brief_id, drafts))
+        return Proposed(**dict(view), research=_made_of_requests(table, brief_id, drafts))
 
     def list_requirements(brief_id: str) -> BriefView:
         with agent_facing():

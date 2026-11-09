@@ -7,7 +7,7 @@ from cad.checks.result import CheckResult, ReadMissing
 from cad.research.overlay import Dropped
 from cad.scorecard.model import PendingCheck
 from cad.sources.fields import SPECS, Field
-from cad.tables.materials import MaterialsTable, Unknown, row
+from cad.tables.materials import MaterialsTable, Unknown, row_or_blank
 
 SUBMIT: Final = "submit_research"
 RESCORE: Final = "Then call score_variant again."
@@ -75,7 +75,7 @@ def requests_on(
     brief_id: str | None,
     dropped: Sequence[Dropped] = (),
 ) -> tuple[ResearchRequest, ...]:
-    material = row(table.materials, material_key)
+    material = row_or_blank(table.materials, material_key)
     if material is None:
         return ()
     problems: dict[str, list[str]] = {}
@@ -93,11 +93,10 @@ def requests_on(
     )
 
 
-def requests_for(
+def requests_before_scoring(
     table: MaterialsTable, key: str, fields: Iterable[str], brief_id: str, then: str
 ) -> tuple[ResearchRequest, ...]:
-    """A request for each of `fields` that `key`'s row lacks, before any check has run."""
-    material = row(table.materials, key)
+    material = row_or_blank(table.materials, key)
     if material is None:
         return ()
     wanted: dict[Field, None] = {
