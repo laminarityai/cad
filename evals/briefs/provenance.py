@@ -37,7 +37,8 @@ import pint
 from binding import Unbound, Unlinked, bind, link
 from confirmation import BasisFailure, Shown, check_basis
 
-from cad.briefs.model import describe, limits
+from cad.briefs.model import limits
+from cad.briefs.words import describe
 from cad.checks.container.check import Quick
 from cad.checks.report import CheckSpec
 from cad.checks.result import CheckResult, Measure

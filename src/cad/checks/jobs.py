@@ -13,6 +13,7 @@ from cad.checks.container.check import Background, Budget, Quick
 from cad.checks.container.wire import LoadCaseWire
 from cad.checks.report import IMAGE_TAG, QUICK, SPECS, CheckSpec, Request, build_request, parse
 from cad.checks.result import CheckResult, Step, StepMissing
+from cad.context_parts.ids import ContextPartId
 from cad.sandbox import container, host, image, stage
 from cad.sandbox.outcome import SandboxUnavailable
 from cad.tables.materials import MaterialsTable
@@ -37,7 +38,7 @@ class Demand:
     context part. Each mapping's key is the result's instance."""
 
     loads: Mapping[str, LoadCaseWire] = field(default_factory=dict[str, LoadCaseWire])
-    parts: Mapping[str, PartBrep] = field(default_factory=dict[str, PartBrep])
+    parts: Mapping[ContextPartId, PartBrep] = field(default_factory=dict[ContextPartId, PartBrep])
 
 
 NO_STEP = "a background job keeps no STEP; the quick job derives it"

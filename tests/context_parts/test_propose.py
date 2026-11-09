@@ -115,3 +115,35 @@ async def test_a_part_whose_geometry_changed_on_disk_is_refused(s: Session) -> N
     brep.symlink_to(s.variants / part.record.source.variant_id / "result.brep")
     with pytest.raises(TamperedProject):
         part_brep(s.roots.projects, part)
+
+
+def clear_of(part: str) -> dict[str, Any]:
+    return {
+        "target": {
+            "kind": "min_clearance",
+            "part": part,
+            "clearance": {"magnitude": 0.2, "unit": "mm"},
+        },
+        "quote": "at least 0.2 mm clear of it",
+    }
+
+
+async def test_a_clearance_names_only_a_part_its_project_stores(s: Session) -> None:
+    created = await brief(s)
+    refused = await s.text(
+        "propose_requirements",
+        brief_id=created["brief_id"],
+        requirements=[clear_of("part-" + "0" * 16)],
+    )
+    assert "is not a context part of this brief's project" in refused
+    part = await s.call("propose_context_part", **rail(s, created))
+    proposed = await s.call(
+        "propose_requirements",
+        brief_id=created["brief_id"],
+        requirements=[clear_of(part["part_id"])],
+    )
+    (row,) = proposed["requirements"]
+    assert (row["check"], row["plain"]) == (
+        "fit",
+        f"At least 0.2 mm clear of context part {part['part_id']}",
+    )

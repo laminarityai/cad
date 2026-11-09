@@ -9,11 +9,13 @@ from pydantic import BaseModel, Field
 
 from cad.agent_measurements import run as own
 from cad.briefs import store as briefs
+from cad.checks import jobs
 from cad.confirmations import http
 from cad.confirmations.ballot import OS_OPEN, WAIT_SECONDS, Desk, Opener
 from cad.confirmations.registry import kinds
+from cad.context_parts.ids import ContextPartId
 from cad.context_parts.ingest import ingest as read_part
-from cad.context_parts.store import Ingest
+from cad.context_parts.store import Ingest, confirmed_parts, part_brep
 from cad.records.roots import HOME_ROOTS, Roots
 from cad.sandbox import container, host
 from cad.scorecard import material, requirements, score
@@ -83,7 +85,10 @@ TEST_MODE = (
 CONTEXT_PARTS = (
     "When the brief says the new part must fit with an existing part that you built as a "
     "variant, propose that variant with propose_context_part before you call ask_to_confirm, "
-    "so the user confirms it on the same page, and build the new part in its frame."
+    "so the user confirms it on the same page, and build the new part in its frame. A "
+    "clearance the brief states is a min_clearance or max_clearance requirement on that part's "
+    "part_id. Scoring with the brief_id then runs the fit check against each confirmed context "
+    "part, and its result carries the part_id as instance."
 )
 NOT_VERIFIED = (
     "A scorecard's not_verified list holds measurements your own code made. Report each one as "
@@ -113,6 +118,12 @@ SCORE_VARIANT = (
     "with pending checks is not finished: do not state a pending check's result, and call "
     "score_variant again with the same arguments to wait for it. fea states its error: a "
     "measure within that error of a confirmed limit leaves the requirement unknown. "
+    "With a brief_id, each context part confirmed in the brief's project also runs the fit "
+    "check in the background, against the variant as built, so build it in the part's frame. "
+    "Its result carries the part_id as instance and measures overlap_volume and "
+    "min_clearance: it fails when the variant overlaps the part, and it decides each "
+    "min_clearance and max_clearance requirement on that part. A clearance requirement whose "
+    "part is not confirmed is unknown. Without brief_id no fit runs. "
     "When an earlier version of the sandbox stored the variant, score_variant rebuilds its "
     "stored code first and scores the new variant: the scorecard's variant_id is the new id, "
     "and rebuilt_from is the id you passed. It rebuilds even when the earlier build failed, "
@@ -213,6 +224,14 @@ def strict_tool(tool: Tool) -> Tool:
     return tool
 
 
+def _context(roots: Roots, brief_id: str) -> dict[ContextPartId, jobs.PartBrep]:
+    project = briefs.read_brief(roots, brief_id).project
+    return {
+        part.record.id: jobs.PartBrep(part.record.brep_sha256, part_brep(roots.projects, part))
+        for part in confirmed_parts(roots.projects, project)
+    }
+
+
 def build_server(
     variants_root: Path = entry.VARIANTS_ROOT,
     roots: Roots = HOME_ROOTS,
@@ -255,10 +274,12 @@ def build_server(
             confirmed = None
             if brief_id is not None:
                 confirmed = briefs.confirmed_requirements(roots, brief_id)
-                if confirmed is None:
-                    assess = requirements.awaiting(brief_id)
-                else:
-                    assess, demand = requirements.against(confirmed), requirements.demand(confirmed)
+                assess = (
+                    requirements.awaiting(brief_id)
+                    if confirmed is None
+                    else requirements.against(confirmed)
+                )
+                demand = requirements.demand(confirmed, _context(roots, brief_id))
             material.refuse_other_material(confirmed, material_key)
             table = brief_table(roots, brief_id)
             if own_measurements:

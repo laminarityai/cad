@@ -3,7 +3,7 @@ from typing import Annotated, Literal
 from mcp.server.mcpserver.tools import Tool
 from pydantic import BaseModel, ConfigDict, Field
 
-from cad.briefs import made_of, store
+from cad.briefs import clearances, made_of, store
 from cad.briefs.edits import placeholder
 from cad.briefs.model import (
     MAX_BRIEF_CHARS,
@@ -12,9 +12,10 @@ from cad.briefs.model import (
     Requirement,
     Target,
     deciding_check,
-    describe,
 )
 from cad.briefs.store import BriefState, ProposalState, Status
+from cad.briefs.words import describe
+from cad.context_parts.store import stored_parts
 from cad.projects.membership import project_for_new_brief
 from cad.projects.model import PROJECT_ID, PROJECT_ID_CHARS
 from cad.records.roots import Roots
@@ -46,8 +47,11 @@ PROPOSE_REQUIREMENTS = (
     "today the only measure is check_id mass, measure volume, which takes a volume; made_of with a "
     "material, only when the brief names one, quoting its words and copying the key exactly from "
     "list_materials (never guess a near match; at most one per brief); min_safety_factor (a "
-    "factor, against yield) or max_deflection (a length), each with a load; or unchecked with a "
-    "statement, for anything no check decides. A load has a support, which is holes (a count "
+    "factor, against yield) or max_deflection (a length), each with a load; min_clearance or "
+    "max_clearance with a part, the part_id propose_context_part returned for this project, "
+    "and a clearance length, which the fit check decides against that part with the variant "
+    "built in the part's frame; or unchecked with a statement, for anything no check decides. "
+    "A load has a support, which is holes (a count "
     "and an optional bore diameter), largest_flat or flat_end, and a load, which is far_end or "
     "on_holes (a count and an optional diameter), each with a force such as {magnitude: 49, "
     "unit: N} and a direction: along or across the long axis or the hole_axis, or any. Propose "
@@ -154,6 +158,9 @@ def brief_tools(roots: Roots) -> list[Tool]:
         drafts = [store.Draft(target=r.target, quote=r.quote) for r in requirements]
         with agent_facing():
             made_of.check_proposed(drafts, host.materials_table().materials)
+            project = store.read_brief(roots, brief_id).project
+            parts = {one.record.id for one in stored_parts(roots.projects, project)}
+            clearances.check_proposed(drafts, parts)
             proposed = store.propose(roots, brief_id, drafts)
             return _view(store.read_state(roots, brief_id), proposed)
 

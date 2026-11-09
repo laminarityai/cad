@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from cad.briefs import store
-from cad.briefs.model import describe
+from cad.briefs.words import describe
 from cad.confirmations import answers, page
 from cad.confirmations.answers import Edit, PageAnswer
 from cad.confirmations.page import DECLINE_EDITS
