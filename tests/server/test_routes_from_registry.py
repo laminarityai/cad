@@ -13,7 +13,7 @@ from cad.accounts.tenants import Tenants
 from cad.confirmations.ballot import OS_OPEN
 from cad.context_parts.ingest import ingest
 from cad.geometry import job, store
-from cad.geometry.model import TessellationFailed
+from cad.geometry.model import Tessellated, TessellationFailed
 from cad.operations.model import Audience, Operation, Tenant
 from cad.operations.registry import OPERATIONS, ROUTES
 from cad.operations.routes import Served, person_routes
@@ -29,6 +29,29 @@ BASE = "http://127.0.0.1:8765"
 RAIL = b"CASCADE Topology V3, a rail\n"
 SHA = hashlib.sha256(RAIL).hexdigest()
 ALICE, BOB = AccountId("user_alice"), AccountId("user_bob")
+
+
+def tessellated(name: str) -> Tessellated:
+    box = {"xmin": 0, "xmax": 1, "ymin": 0, "ymax": 1, "zmin": 0, "zmax": 1}
+    return Tessellated.model_validate(
+        {
+            "brep_sha256": SHA,
+            "version": job.VERSION,
+            "shapes": {
+                "version": 3,
+                "id": "/" + name,
+                "name": name,
+                "parts": [],
+                "loc": [[0, 0, 0], [0, 0, 0, 1]],
+                "normal_len": 0,
+                "bb": box,
+            },
+        }
+    )
+
+
+def mesh_path() -> str:
+    return f"/v1/geometry/{job.VERSION}/{SHA}.json"
 
 
 @pytest.fixture
@@ -99,7 +122,7 @@ def test_no_person_only_operation_is_an_agent_tool() -> None:
         "/v1/projects/p-0123456789abcdef/briefs/0123456789abcdef/set",
         "/v1/variants/0123456789abcdef",
         "/v1/variants/0123456789abcdef/geometry",
-        "/v1/geometry/" + SHA + ".json",
+        f"/v1/geometry/{job.VERSION}/{SHA}.json",
         "/v1/server",
         "/v1/materials",
     ],
@@ -129,9 +152,8 @@ async def test_another_accounts_ids_are_not_found(
     vid = entry.variant_id(code, image_tag(BUILD))
     alice = tenants.of(ALICE)
     entry.save(alice.variants, vid, code, Build(outcome=Built(), output=""), RAIL)
-    stored = TessellationFailed(brep_sha256=SHA, version=job.VERSION, reason="x")
-    store.write(alice.geometry, stored)
-    paths = [f"/v1/variants/{vid}", f"/v1/geometry/{SHA}.json"]
+    store.write(alice.geometry, tessellated("rail"))
+    paths = [f"/v1/variants/{vid}", mesh_path()]
     async with client(app, local.mint_person("user_alice")) as mine:
         reached = [(await mine.get(path)).status_code for path in paths]
     async with client(app, local.mint_person("user_bob")) as theirs:
@@ -144,25 +166,56 @@ async def test_another_accounts_ids_are_not_found(
 async def test_a_mesh_is_immutable_and_a_matching_etag_gets_304(
     app: Starlette, local: LocalIssuer, tenants: Tenants
 ) -> None:
-    store.write(
-        tenants.of(ALICE).geometry,
-        TessellationFailed(brep_sha256=SHA, version=job.VERSION, reason="x"),
-    )
-    path = f"/v1/geometry/{SHA}.json"
+    store.write(tenants.of(ALICE).geometry, tessellated("rail"))
     async with client(app, local.mint_person("user_alice")) as http:
-        first = await http.get(path)
-        again = await http.get(path, headers={"If-None-Match": first.headers["ETag"]})
-        other = await http.get(path, headers={"If-None-Match": '"nope"'})
+        first = await http.get(mesh_path())
+        etag = first.headers["ETag"]
+        asked = [etag, f"W/{etag}", "*", f'"nope", {etag}', '"nope"']
+        again = [await http.get(mesh_path(), headers={"If-None-Match": tag}) for tag in asked]
     assert first.status_code == 200
     assert "immutable" in first.headers["Cache-Control"]
-    assert (again.status_code, again.content) == (304, b"")
-    assert again.headers["ETag"] == first.headers["ETag"]
-    assert other.status_code == 200
+    assert [one.status_code for one in again] == [304, 304, 304, 304, 200]
+    assert {(one.content, one.headers["ETag"]) for one in again[:4]} == {(b"", etag)}
 
 
-async def test_a_mesh_not_stored_is_404(app: Starlette, local: LocalIssuer) -> None:
+async def test_a_mesh_not_stored_or_failed_is_404_and_never_immutable(
+    app: Starlette, local: LocalIssuer, tenants: Tenants
+) -> None:
     async with client(app, local.mint_person("user_alice")) as http:
-        missing = await http.get(f"/v1/geometry/{SHA}.json")
-        malformed = await http.get("/v1/geometry/not-a-hash.json")
-    assert missing.status_code == 404
+        missing = await http.get(mesh_path())
+        store.write(
+            tenants.of(ALICE).geometry,
+            TessellationFailed(brep_sha256=SHA, version=job.VERSION, reason="x"),
+        )
+        failed = await http.get(mesh_path())
+        malformed = await http.get(f"/v1/geometry/{job.VERSION}/not-a-hash.json")
+    assert [missing.status_code, failed.status_code] == [404, 404]
+    assert all("Cache-Control" not in one.headers for one in (missing, failed))
     assert malformed.status_code == 422
+
+
+async def test_a_new_tessellator_version_moves_the_mesh_to_a_new_url(
+    app: Starlette, local: LocalIssuer, tenants: Tenants, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    code = "result = None"
+    vid = entry.variant_id(code, image_tag(BUILD))
+    alice = tenants.of(ALICE)
+    entry.save(alice.variants, vid, code, Build(outcome=Built(), output=""), RAIL)
+    store.write(alice.geometry, tessellated("old"))
+    async with client(app, local.mint_person("user_alice")) as http:
+        old_url = (await http.get(f"/v1/variants/{vid}")).json()["mesh_url"]
+        old = await http.get(old_url)
+        monkeypatch.setattr(job, "VERSION", "b" * 12)
+        stale = await http.get(old_url)
+        pending = (await http.get(f"/v1/variants/{vid}")).json()
+        store.write(alice.geometry, tessellated("new"))
+        new_url = (await http.get(f"/v1/variants/{vid}")).json()["mesh_url"]
+        new = await http.get(new_url)
+        stale_after = await http.get(old_url)
+    assert old_url == f"/v1/geometry/{old.json()['version']}/{SHA}.json"
+    assert (pending["mesh"], pending["mesh_url"]) == ("pending", None)
+    assert new_url == f"/v1/geometry/{'b' * 12}/{SHA}.json" != old_url
+    assert [old.status_code, new.status_code] == [200, 200]
+    assert new.json()["shapes"]["name"] == "new" != old.json()["shapes"]["name"]
+    assert [stale.status_code, stale_after.status_code] == [404, 404]
+    assert all("Cache-Control" not in one.headers for one in (stale, stale_after))

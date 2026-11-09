@@ -9,7 +9,7 @@ With no Clerk configuration, `cad-http` trusts a local issuer instead, and only 
 - `http-metadata` serves the Protected Resource Metadata (RFC 9728) at `/.well-known/oauth-protected-resource/mcp`, naming the issuer.
 - `http-cross-route` refuses a session token on `/mcp` and an OAuth token on a web route, each with 401.
 - `http-tenancy` gives tenant B `UnknownVariant` for tenant A's `variant_id`.
-- `http-reads` serves the person's reads under `/v1/`, each built from a registry operation: `GET /v1/projects`, `/v1/projects/<pid>`, `/v1/briefs/<bid>`, `/v1/projects/<pid>/briefs/<bid>/set`, `/v1/variants/<vid>`, `/v1/variants/<vid>/scorecard`, `/v1/variants/<vid>/geometry` and `/v1/geometry/<brep_sha256>.json`.
+- `http-reads` serves the person's reads under `/v1/`, each built from a registry operation: `GET /v1/projects`, `/v1/projects/<pid>`, `/v1/briefs/<bid>`, `/v1/projects/<pid>/briefs/<bid>/set`, `/v1/variants/<vid>`, `/v1/variants/<vid>/scorecard`, `/v1/variants/<vid>/geometry` and `/v1/geometry/<version>/<brep_sha256>.json`, whose URL `/v1/variants/<vid>` gives as `mesh_url` once the mesh is tessellated.
 - `http-lease` refuses a second server on the same data root.
 - `http-cap` refuses a capped account before any container starts.
 - `http-app-step` reads the SHA over HTTP inside `uv run verify`.

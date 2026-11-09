@@ -65,5 +65,5 @@ ROUTES: Final[Mapping[str, Served]] = {
     "scorecard": Served("/v1/variants/{variant_id}/scorecard"),
     "view": Served("/v1/variants/{variant_id}"),
     "geometry": Served("/v1/variants/{variant_id}/geometry"),
-    "mesh": Served("/v1/geometry/{brep_sha256}.json", immutable=True),
+    "mesh": Served(reads.MESH_PATH, immutable=True),
 }

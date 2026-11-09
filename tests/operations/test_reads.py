@@ -177,16 +177,20 @@ def test_view_names_the_brep_and_whether_its_mesh_is_stored(alice: Tenant) -> No
     assert (pending.brep_sha256, pending.mesh) == (sha, "pending")
     stored = TessellationFailed(brep_sha256=sha, version=job.VERSION, reason="unreadable")
     store.write(alice.geometry, stored)
-    assert reads.view(alice, reads.VariantInput(variant_id=vid)).mesh == "failed"
+    failed = reads.view(alice, reads.VariantInput(variant_id=vid))
+    assert (failed.mesh, failed.mesh_url) == ("failed", None)
 
 
-def test_mesh_returns_a_stored_mesh_and_refuses_one_that_is_not(alice: Tenant) -> None:
+def test_mesh_refuses_a_brep_that_is_not_tessellated(alice: Tenant) -> None:
     sha = hashlib.sha256(RAIL).hexdigest()
+    asked = reads.MeshInput(version=job.VERSION, brep_sha256=sha)
     with pytest.raises(UnknownMesh):
-        reads.mesh(alice, reads.MeshInput(brep_sha256=sha))
-    stored = TessellationFailed(brep_sha256=sha, version=job.VERSION, reason="unreadable")
-    store.write(alice.geometry, stored)
-    assert reads.mesh(alice, reads.MeshInput(brep_sha256=sha)) == stored
+        reads.mesh(alice, asked)
+    store.write(
+        alice.geometry, TessellationFailed(brep_sha256=sha, version=job.VERSION, reason="x")
+    )
+    with pytest.raises(UnknownMesh):
+        reads.mesh(alice, asked)
 
 
 async def test_another_account_reads_nothing_of_alices(alice: Tenant, bob: Tenant) -> None:
@@ -204,4 +208,4 @@ async def test_another_account_reads_nothing_of_alices(alice: Tenant, bob: Tenan
     with pytest.raises(UnknownVariant):
         reads.view(bob, reads.VariantInput(variant_id=vid))
     with pytest.raises(UnknownMesh):
-        reads.mesh(bob, reads.MeshInput(brep_sha256=sha))
+        reads.mesh(bob, reads.MeshInput(version=job.VERSION, brep_sha256=sha))

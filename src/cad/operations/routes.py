@@ -88,7 +88,7 @@ def person_route(served: Served, one: Operation, person_of: PersonOf, tenant_of:
             return Response(body, media_type="application/json")
         etag = f'"{hashlib.sha256(body).hexdigest()}"'
         headers = {"ETag": etag, "Cache-Control": IMMUTABLE}
-        if etag in _asked(request):
+        if _matches(request, etag):
             return Response(status_code=304, headers=headers)
         return Response(body, media_type="application/json", headers=headers)
 
@@ -100,8 +100,14 @@ def _body(one: Operation, result: object) -> bytes:
     return adapter.dump_json(result, by_alias=True)
 
 
-def _asked(request: Request) -> list[str]:
-    return [tag.strip() for tag in request.headers.get("if-none-match", "").split(",")]
+def _matches(request: Request, etag: str) -> bool:
+    """If-None-Match compares weakly (RFC 9110 13.1.2), so `W/"x"` matches `"x"`, and `*` matches
+    any stored body."""
+    asked = [
+        tag.strip().removeprefix("W/")
+        for tag in request.headers.get("if-none-match", "").split(",")
+    ]
+    return "*" in asked or etag in asked
 
 
 def session_token(request: Request) -> str:

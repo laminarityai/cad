@@ -6,8 +6,9 @@ from pydantic import BaseModel, Field
 from cad.briefs import store as briefs
 from cad.briefs.model import MadeOf
 from cad.briefs.store import BriefState
+from cad.geometry import job
 from cad.geometry import store as meshes
-from cad.geometry.model import Stored, UnknownMesh
+from cad.geometry.model import Tessellated, UnknownMesh
 from cad.operations.model import Audience, Input, Tenant, operation
 from cad.operations.research import brief_table
 from cad.operations.scorecards import MaterialKey, ScorecardInput, scorecard
@@ -30,13 +31,15 @@ VARIANT_SET = (
     "an empty set."
 )
 VIEW = (
-    "What the viewer needs for one built variant: the hash that names its BREP, and whether its "
-    "mesh is stored. Fetch a stored mesh with the mesh route for that hash."
+    "What the viewer needs for one built variant: the hash that names its BREP, whether its mesh "
+    "is stored, and once it is tessellated, the mesh_url to fetch it from."
 )
 MESH = (
-    "The stored mesh of one BREP, in three-cad-viewer's shapes format. A BREP's mesh never "
-    "changes, so a client may cache it for good."
+    "The mesh of one BREP made by one tessellator version, in three-cad-viewer's shapes format. "
+    "Those two name the bytes, so a client may cache them for good. A version that is no longer "
+    "current, or a BREP that did not tessellate, is not found, so take the URL from the view."
 )
+MESH_PATH: Final = "/v1/geometry/{version}/{brep_sha256}.json"
 
 
 class ProjectInput(Input):
@@ -54,6 +57,7 @@ class VariantInput(Input):
 
 
 class MeshInput(Input):
+    version: Annotated[str, Field(pattern=r"^[0-9a-f]{12}$")]
     brep_sha256: Annotated[str, Field(pattern=meshes.SHA256.pattern)]
 
 
@@ -106,6 +110,7 @@ class VariantView(BaseModel):
     variant_id: str
     brep_sha256: str
     mesh: Literal["tessellated", "failed", "pending"]
+    mesh_url: str | None
 
 
 def list_projects(tenant: Tenant, arguments: NoArguments) -> ProjectList:
@@ -207,13 +212,18 @@ def view(tenant: Tenant, arguments: VariantInput) -> VariantView:
         variant_id=held.id,
         brep_sha256=held.brep_sha256,
         mesh="pending" if stored is None else stored.kind,
+        mesh_url=MESH_PATH.format(version=job.VERSION, brep_sha256=held.brep_sha256)
+        if isinstance(stored, Tessellated)
+        else None,
     )
 
 
-def mesh(tenant: Tenant, arguments: MeshInput) -> Stored:
+def mesh(tenant: Tenant, arguments: MeshInput) -> Tessellated:
     stored = meshes.read(tenant.geometry, arguments.brep_sha256)
-    if stored is None:
-        raise UnknownMesh(f"no mesh is stored for BREP {arguments.brep_sha256}")
+    if not isinstance(stored, Tessellated) or arguments.version != job.VERSION:
+        raise UnknownMesh(
+            f"no mesh of tessellator {arguments.version} is stored for BREP {arguments.brep_sha256}"
+        )
     return stored
 
 
@@ -255,7 +265,7 @@ OPERATIONS: Final = (
         audience=Audience.PERSON,
         description=MESH,
         input=MeshInput,
-        output=Stored,
+        output=Tessellated,
         run=mesh,
     ),
 )

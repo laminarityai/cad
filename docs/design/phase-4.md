@@ -229,7 +229,7 @@ GET  /v1/briefs/{bid}                               brief, proposals, derived st
 GET  /v1/projects/{pid}/briefs/{bid}/set            VariantSetView: members, revisions, card etags
 GET  /v1/variants/{vid}/scorecard                   ScorecardSnapshot
 GET  /v1/variants/{vid}/events                      SSE
-GET  /v1/geometry/{brep_sha256}.json                three-cad-viewer shapes, immutable, ETag
+GET  /v1/geometry/{version}/{brep_sha256}.json      three-cad-viewer shapes, immutable, ETag
 POST /v1/projects/{pid}/answers                     PersonSession + CSRF
 PUT  /v1/conversations/{cid}/mode                   PersonSession
 GET  /.well-known/oauth-protected-resource          RFC 9728 metadata naming Clerk
