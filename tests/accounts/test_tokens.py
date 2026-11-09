@@ -13,9 +13,10 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from jwt.algorithms import RSAAlgorithm
 
 from cad.accounts.clerk import ClerkMisconfigured, clerk_issuer, frontend_api
-from cad.accounts.local import LocalIssuer
+from cad.accounts.local import LocalIssuer, main
 from cad.accounts.principal import AccountId, AgentToken, PersonSession
 from cad.accounts.tokens import Issuer, Verifier, jwks_keys
+from cad.conversations.model import NotAConversation
 
 BASE = "http://127.0.0.1:8765"
 CLERK = "https://clerk.example.test"
@@ -160,3 +161,27 @@ def test_clerk_is_off_without_a_publishable_key_and_needs_a_public_url() -> None
         "https://well-hagfish-71.clerk.accounts.dev",
         "https://cad.example/mcp",
     )
+
+
+def test_an_agent_token_carries_its_conversation_and_a_malformed_one_is_refused(
+    local: LocalIssuer,
+) -> None:
+    plain = verifier(local).agent(local.mint_agent("user_alice"))
+    held = verifier(local).agent(local.mint_agent("user_alice", conversation="c-1"))
+    assert plain is not None and plain.conversation is None
+    assert held is not None and held.conversation == "c-1"
+    assert verifier(local).agent(local.mint_agent("user_alice", conversation="../x")) is None
+    assert verifier(local).agent(local.mint_agent("user_alice", conversation="")) is None
+
+
+def test_cad_token_names_a_conversation_for_an_agent_token_only(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = ["--root", str(tmp_path)]
+    assert main(["agent", "user_alice", "--conversation", "c-1", *root]) == 0
+    token = capsys.readouterr().out.strip()
+    assert Verifier(LocalIssuer.open(tmp_path, BASE).issuer()).agent(token) is not None
+    with pytest.raises(SystemExit):
+        main(["person", "user_alice", "--conversation", "c-1", *root])
+    with pytest.raises(NotAConversation):
+        main(["agent", "user_alice", "--conversation", "../x", *root])
