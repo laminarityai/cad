@@ -92,7 +92,7 @@ The MCP server is the product ([ADR-0002](docs/adr/0002-mcp-server-is-the-produc
 
 - **Sandbox.** Every variant is Python written by an AI. The server runs it in a locked-down container with no network access and with time and memory limits. This is a security requirement from the first release.
 - **Hosted, with accounts.** The first version is hosted only. The web app and MCP clients both sign in through Clerk with Google, and accounts carry usage limits because FEA and slicing cost compute. Accounts and usage limits ship in phase 4.
-- **Modes travel as guidance.** Outside clients get the tools and the same checks. They also get the modes and stopping rules as guidance, but only our own agent enforces them.
+- **Modes travel as guidance.** Outside clients get the tools and the same checks. They also get the modes and stopping rules as guidance, and the server does not enforce them for those clients. In a web app conversation the server enforces the mode. It also holds each Auto run and refuses to build past a stop ([ADR-0010](docs/adr/0010-the-server-holds-the-auto-run.md)). Auto mode runs only in the web app for now.
 - **Long jobs stream.** FEA and slicing take seconds to minutes, so they run as background jobs and the scorecard fills in as results arrive.
 
 ## Stack

@@ -1,6 +1,6 @@
 # The server holds the Auto run
 
-Status: Accepted. The operator approved this ADR on 2026-11-08, with the stop rules below and no progress rule on the server.
+Status: Accepted. The operator approved this ADR on 2026-11-08, with the stop rules below and no progress rule on the server. On 2026-11-09 the operator decided the last two open points: the server keeps the three stop cases it can see itself, and Auto runs only in the web app for now. Nothing is left open.
 
 In Auto mode the agent revises variants against the checks without stopping, until a stop rule ends the run (SPEC, Modes). ADR-0002 made modes agent behavior. The server ships them as guidance, and only our own agent enforces them. That is not enough for Auto mode in phase 4. Auto mode spends compute on every revision. If the rules live in the web app's driver, a bug in the driver can keep a run going after it should have stopped, and nothing on the server would refuse the next build. SPEC names that risk: "Auto mode relies on the agent to stop." This ADR records where the run lives and what stops it. The design is in `docs/design/phase-4.md` §2.5.
 
@@ -11,7 +11,7 @@ The server holds each Auto run. The web backend runs the LLM turns and calls the
 A run stops in these cases:
 
 - **Every requirement passes.** The server decides this from the signed scorecards of the run. A revision counts only once its scorecard has no pending check, so a run never passes on a pending row. Only `Checked` rows count, so an agent measurement (ADR-0008) cannot make a run pass. A pass that rests on research counts, and the stop report says it "passes on researched data" (ADR-0009). An `Unverified` requirement counts as neither pass nor fail, and the stop report lists it. Otherwise a brief with an unchecked requirement could never end its run.
-- **The agent needs the person.** The agent calls `auto_ask` with a note when it judges that it is stuck, or that it needs a decision only the person can make, such as which of two conflicting requirements to relax. The note says what the agent tried. The server also stops the run in cases it can see itself:
+- **The agent needs the person.** The agent calls `auto_ask` with a note when it judges that it is stuck, or that it needs a decision only the person can make, such as which of two conflicting requirements to relax. The note says what the agent tried. The server also stops the run in three cases it can see itself. The operator decided on 2026-11-09 to keep all three:
   - A tool call under the run proposes requirements, because only the person can confirm them. Changing a requirement the person confirmed always means proposing a new one, so this case covers it too.
   - A scorecard row of the latest revision is waiting on the person's confirmation.
   - `auto_start` finds that the confirmed targets conflict before any build. It proves the conflict with interval arithmetic over targets and table rows read by exact key, such as a minimum mass that a material's density and the envelope volume cannot reach. The confirmation page shows the same conflicts as warnings in Plan mode, before the person confirms.
@@ -27,7 +27,7 @@ The person switches modes, in the web app's chat. `set_mode` is an operation tha
 
 ADR-0002 still holds. The web app's agent reaches the server only through MCP tools that any client can call, with no private shortcut. What changes is one sentence of its consequences: "Modes and Auto mode's stopping rules are agent behavior." In a web app conversation the server enforces the mode, and for a run it holds it enforces the stop rules. The agent still chooses when it is stuck. The server only refuses to build past a stop.
 
-Modes stay guidance for outside clients. An outside client's token names no conversation, so it has no mode the server can read, and it cannot start an Auto run. Its spend is still bounded by the account's usage limit, as for any client.
+Modes stay guidance for outside clients. The operator decided on 2026-11-09 that Auto runs only in the web app for now. An outside client's token has `conversation: None`, so it has no mode the server can read, and it cannot start an Auto run. Its spend is still bounded by the account's usage limit, as for any client.
 
 ## Considered options
 
