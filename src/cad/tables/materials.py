@@ -123,7 +123,7 @@ class MaterialsTable:
         if key in self.materials:
             return key
         named = key.removeprefix(PROJECT_PREFIX)
-        if named != key and named in self.materials and not named.startswith(PROJECT_PREFIX):
+        if named in self.materials:
             raise KeyInTable(f"{named} is in the materials table; use {named}")
         return PROJECT_PREFIX + named
 

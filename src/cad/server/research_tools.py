@@ -66,7 +66,13 @@ def research_tools(roots: Roots, fetcher: Fetch = fetch) -> list[Tool]:
             table = host.materials_table()
             question = Question(brief_id, project, table.row_key(key), field, url, quote)
             return submit(table, roots.projects, question, fetcher=fetcher)
-        except (BriefRefused, KeyInTable, ProjectRefused, SandboxUnavailable, StoreUnusable) as error:
+        except (
+            BriefRefused,
+            KeyInTable,
+            ProjectRefused,
+            SandboxUnavailable,
+            StoreUnusable,
+        ) as error:
             return ResearchRefused(key=key, field=field, reason=f"{type(error).__name__}: {error}")
 
     return [Tool.from_function(submit_research, name=SUBMIT, description=SUBMIT_RESEARCH)]
