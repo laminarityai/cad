@@ -33,11 +33,11 @@ Preconditions:
 Set `ID` from a build, and build in the same checkout and state you check in. Any edit under `src/cad/sandbox/` or `src/cad/variants/` changes every id.
 
 ```
-uv run cad-call build_variant "$(jq -Rs '{code: .}' < tests/sandbox/parts/plate.py)" > "$EVIDENCE/build-plate.json"
+HOME="$CAD_HOME" uv run cad-call build_variant "$(jq -Rs '{code: .}' < tests/sandbox/parts/plate.py)" > "$EVIDENCE/build-plate.json"
 ID=$(jq -r .structuredContent.variant_id "$EVIDENCE/build-plate.json")
 ```
 
-- **Pass.** Run `uv run cad-sandbox run-checks "$ID" prusament-pla > "$EVIDENCE/checks-plate.json"; echo $?`. Exit code `0`. `results` has `closed_solid`, `interference`, `mass` and `extents`, each with `verdict` `pass`, a non-empty `formula` and a non-empty `sources` list. `mass` has a `volume` measure of 29509.72 mm^3 within 0.01 and lists the density datasheet as its last source. `extents` has `extent:x`, `extent:y` and `extent:z` of 100, 50 and 6 mm within 0.002 (the plate lies flat with its long side on x) and sorted extents of 6, 50 and 100 mm. `step` is `{"kind": "stored", "sha256": <hash>}`, and `~/.cad/variants/$ID/result.step` exists.
+- **Pass.** Run `uv run cad-sandbox run-checks "$ID" prusament-pla > "$EVIDENCE/checks-plate.json"; echo $?`. Exit code `0`. `results` has `closed_solid`, `interference`, `mass` and `extents`, each with `verdict` `pass`, a non-empty `formula` and a non-empty `sources` list. `mass` has a `volume` measure of 29509.72 mm^3 within 0.01 and lists the density datasheet as its last source. `extents` has `extent:x`, `extent:y` and `extent:z` of 100, 50 and 6 mm within 0.002 (the plate lies flat with its long side on x) and sorted extents of 6, 50 and 100 mm. `step` is `{"kind": "stored", "sha256": <hash>}`, and `$CAD_HOME/.cad/variants/$ID/result.step` exists.
 - **Closed solid fails.** Build the plate code with `from build123d import Shell` and `result = Shell(result.faces()[:-1])` appended, then run. `closed_solid` is `fail`, its reason starts `found 0 solids` and `solids` is 0. `mass` and `extents` are `unknown` with an empty `measured` list, and their reasons start `closed_solid is fail`. The exit code is still `0`, because the run completed.
 - **Interference fails.** Build `from build123d import *` and `result = Compound([Box(10, 10, 10), Pos(5, 5, 5) * Box(10, 10, 10)])`, then run. `interference` is `fail` with `common_volume:0-1` of 125 mm^3. `mass` is `unknown` with an empty `measured` list, because `closed_solid` fails on 2 solids.
 - **Mass ratio.** Run `prusament-pla` and then `kaiser-6061-t6` on one id. Both `volume` measures match, and the ratio of the two `mass` measures equals the ratio of the two densities in `tables/materials.yaml` to four digits.
@@ -56,7 +56,7 @@ Each run removes its own container. After a run that was killed, list leftovers.
 docker ps -a --filter label=cad.sandbox
 ```
 
-The check sources are staged in `~/.cad/stage/<16 hex digits>/`, read-only, one directory per version of the files `cad.checks.container.runner` imports, package `__init__.py` files included. Old ones are safe to delete.
+The check sources are staged in `$CAD_HOME/.cad/stage/<16 hex digits>/`, read-only, one directory per version of the files `cad.checks.container.runner` imports, package `__init__.py` files included. Old ones are safe to delete.
 
 ## Gotchas
 
