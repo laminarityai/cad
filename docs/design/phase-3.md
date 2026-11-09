@@ -377,6 +377,8 @@ A test that extends the existing one for OCP walks the AST of `checks/container/
 
 ### 2.5 The three new checks
 
+*Deferred indefinitely by the operator on 2026-11-08. The person knows their printer better than we do, many designs are never printed, and the product's job is the design. The section stays as a record. `slice` below needs an orientation from somewhere else before it is built.*
+
 **`printability`** (`Quick`; REQUIRES closed_solid; TAKES NOZZLE, MAX_OVERHANG, MIN_WALL, BED)
 
 - **Orientation is chosen by the check, never by the agent.** Candidates are the model as built, then up to 6 distinct largest planar faces placed down, ordered by (area descending, normal lexicographic). For each candidate the check computes the overhang area. The pick is the one with the least (overhang_area, height, index).
@@ -565,7 +567,7 @@ Can start now without touching phase-2 files:
 After phase 2 merges `briefs/` and `brief_tools.py`:
 
 7. **`fea` check** + `min_safety_factor` / `max_deflection` kinds + demand-driven planning + `Waiting`. End-to-end validation case through MCP.
-8. **`printability`** + `processes.yaml` + `printed_on` + the `list_processes` tool (allowlist test updated).
+8. *Deferred indefinitely (operator, 2026-11-08).* **`printability`** + `processes.yaml` + `printed_on` + the `list_processes` tool (allowlist test updated).
 9. **PrusaSlicer adapter** (`prusa.py`, renaming the `orca.py` row of the adapter lint) + `slice` + `max_print_time` / `max_cost` + filament cost data + determinism test.
 10. **Test mode guidance** in server instructions and tool descriptions, plus a `/verify` headless `claude -p` run of the hook brief in §1a.
 11. **`made_of`**, the card's `material` field, and the `score_variant` refusal of a `material_key` that differs from a confirmed `made_of` (§2.2).
