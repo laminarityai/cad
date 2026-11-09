@@ -41,10 +41,10 @@ RESEARCH = (
 
 TEST_MODE = (
     "Test mode is deeper analysis of one variant the user picks, for example when they ask "
-    "whether it will hold a load or how long it takes to print. If the user states a load, a "
-    "print process or a print time that no confirmed requirement holds, propose it: a load as "
-    "min_safety_factor or max_deflection, which the fea check decides, and anything else as "
-    "unchecked when no check decides it. Have the user confirm before you score. Words "
+    "whether it will hold a load. If the user states a load that no confirmed requirement "
+    "holds, propose it as min_safety_factor or max_deflection, which the fea check decides. "
+    "No check decides a print process or a print time, so propose those as unchecked and say "
+    "that print time is not checked. Have the user confirm before you score. Words "
     "that are not in the brief go into a new brief in the same project first. Then score only "
     "that variant, with its brief_id. A scorecard with pending checks is not finished: do not "
     "state a pending check's result, and call score_variant again with the same arguments to "

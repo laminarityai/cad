@@ -57,7 +57,7 @@ You switch modes in the chat, the way you switch modes in Claude Code.
 - **Plan mode.** The agent asks questions and turns the brief into requirements, without making geometry. It ends when you confirm the requirements.
 - **Design mode** is the default. The agent makes variants, runs checks, shows scorecards, and stops for you to pick a variant or ask for a change.
 - **Auto mode.** The agent revises variants against the checks without stopping. It stops in three cases. The first is that every requirement passes, which the checks decide. The second is that it needs a decision only you can make, such as relaxing one of two conflicting requirements, changing a requirement you confirmed, or using a source it found. The third is that the agent judges it is stuck, in which case it reports what it tried and asks how to proceed. There is no budget. An account's usage limit also ends a run when it refuses a build.
-- **Test mode.** Deeper, slower analysis of one chosen variant, such as full FEA, tolerance stack-ups and slicing.
+- **Test mode.** Deeper, slower analysis of one chosen variant, such as full FEA and tolerance stack-ups.
 
 ### Checks
 
@@ -91,13 +91,13 @@ A number the agent takes from any source, such as a PDF, a web page or your brie
 The MCP server is the product ([ADR-0002](docs/adr/0002-mcp-server-is-the-product.md)). Every capability is an MCP tool: making variants, running checks, reading tables and the knowledge base, and exporting to Onshape. Our web app's agent is the first client and uses the same interface as Claude Code or any other MCP client. Because checks run on the server, any agent that connects can do the engineering but cannot grade its own work.
 
 - **Sandbox.** Every variant is Python written by an AI. The server runs it in a locked-down container with no network access and with time and memory limits. This is a security requirement from the first release.
-- **Hosted, with accounts.** The first version is hosted only. The web app and MCP clients both sign in through Clerk with Google, and accounts carry usage limits because FEA and slicing cost compute. Accounts and usage limits ship in phase 4.
+- **Hosted, with accounts.** The first version is hosted only. The web app and MCP clients both sign in through Clerk with Google, and accounts carry usage limits because FEA costs compute. Accounts and usage limits ship in phase 4.
 - **Modes travel as guidance.** Outside clients get the tools and the same checks. They also get the modes and stopping rules as guidance, but only our own agent enforces them.
-- **Long jobs stream.** FEA and slicing take seconds to minutes, so they run as background jobs and the scorecard fills in as results arrive.
+- **Long jobs stream.** FEA takes seconds to minutes, so it runs as a background job and the scorecard fills in as results arrive.
 
 ## Stack
 
-Python on the backend, because the CAD kernel, FEA and slicer wrappers all have Python APIs. A thin web front end sits on top.
+Python on the backend, because the CAD kernel and FEA wrappers all have Python APIs. A thin web front end sits on top.
 
 | Layer | Pick | Why | Alternatives |
 | --- | --- | --- | --- |
@@ -106,13 +106,13 @@ Python on the backend, because the CAD kernel, FEA and slicer wrappers all have 
 | Engineering calcs | Our own tested Python module + Pint for units | Each calc returns its formula and source, so the scorecard can show its work. Few open libraries exist; shaft, bearing, bolt and belt calcs must be written in-house | [python-gearbox](https://github.com/efirvida/python-gearbox) for gear rating once a gear skill exists (install from a pinned commit) |
 | Materials | Our own YAML table in git, every value cited from manufacturer data sheets | One validated table prevents mass and strength errors | FreeCAD material cards (CC-BY) as a starting point, checked by hand |
 | FEA | [gmsh](https://gmsh.info) + CalculiX, with our own input writer and result reader | CalculiX is a mature solver that engineers recognize; the writer and reader are about 150 lines we review, for the static analysis phase 3 needs ([phase 3 design](docs/design/phase-3.md)) | [pygccx](https://github.com/calculix/pygccx), not used: one maintainer, no commit since February 2025, GPL-3.0; torch-fem, which [Physics-in-the-Loop](https://arxiv.org/html/2605.19717) used |
-| Print cost and time | PrusaSlicer CLI, from Debian, in the analysis image ([ADR-0005](docs/adr/0005-checks-run-in-an-analysis-image.md)) | A real slice gives print time, filament weight and cost. It slices headless and gives the same G-code twice | OrcaSlicer later: its Linux builds need a newer glibc than our Debian base. Volume times density as a fast first pass |
+| Print cost and time | Deferred indefinitely (2026-11-09), with printability. When it returns: PrusaSlicer CLI, from Debian, in the analysis image ([ADR-0005](docs/adr/0005-checks-run-in-an-analysis-image.md)) | A real slice gives print time, filament weight and cost. It slices headless and gives the same G-code twice | OrcaSlicer later: its Linux builds need a newer glibc than our Debian base. Volume times density as a fast first pass |
 | Knowledge store | Source files in git, found by keyword search (phase 2) | The files are reviewed in git like the tables, and the knowledge base never supplies a number a check reads | Postgres + [pgvector](https://github.com/pgvector/pgvector) + Postgres full-text search, fused with reciprocal rank fusion, later; LanceDB |
 | PDF extraction | None in phase 2. The agent quotes the source text, the server reads one quantity out of each quote, and you confirm it | The agent never types a number a check reads; the server reads it from the words you confirm | [Docling](https://github.com/docling-project/docling) (MIT) later, which keeps layout and table structure; MinerU, if table errors show up in testing |
 | Agent tools | Our own MCP server (official Python MCP SDK) | [build123d-mcp](https://pypi.org/project/build123d-mcp/0.3.70/) reports render-and-measure feedback lifting GPT-5.5 from 0.360 to 0.457 on CADGenBench | Fork build123d-mcp or [mcp-build123d](https://jsr.io/@casys/mcp-build123d) as a starting point |
 | LLM | Model-agnostic through MCP | Our bake-off ran Claude Sonnet and Opus at about $0.01 per generated part | Route cheap edits to a small model later |
 | Viewer | three-cad-viewer (the viewer inside [OCP CAD Viewer](https://pypi.org/project/ocp-vscode/4.1.0/)) | Built for build123d B-rep: picking, measuring, part tree | [OCP.wasm](https://github.com/Yeicor/OCP.wasm) (active as of Sep 2026) for in-browser build123d later |
-| App | FastAPI backend, React front end, job queue for FEA and slicing | Long jobs run in the background and stream results | None needed |
+| App | FastAPI backend, React front end, job queue for FEA | Long jobs run in the background and stream results | None needed |
 | Sign-in | [Clerk](https://clerk.com/docs/guides/ai/mcp/connect-mcp-client), with Google sign-in | Clerk is the OAuth 2.1 authorization server for MCP clients, with client registration and a consent screen, so our server only verifies its tokens | Supabase Auth (open source, newer OAuth server); Better Auth, which would need a Node service |
 | Onshape link | Onshape REST API (STEP import, translated into Onshape parts) | You stay in Onshape for the rest of your design | An Onshape extension panel later; it is an iframe inside Onshape, and App Store listing needs OAuth2 |
 | History | A signed log of revisions per variant slot; each chat edit adds one | Enough to show what changed and go back, with no git process per design. Git waits until someone needs a diff the log cannot give | None needed |
@@ -125,7 +125,7 @@ The first version is built in five phases, in this order. Each phase ends when i
    - Exit: Claude Code, connected to the server, produces scorecards for the 10 bake-off parts that agree with the bake-off grader, and the sandbox blocks network access and enforces its limits.
 2. **Briefs, requirements and scorecards.** Plan mode, 3 to 5 variants, scorecards that list unverified requirements, sources and candidate values, the knowledge base, agent-written checks with per-project review, and context parts with the fit check.
    - Exit: on the private brief set, across at least five domains, every number on every scorecard traces to a confirmed source. The one exception is an agent's own measurement, which is counted as not verified.
-3. **Physics and manufacturing.** FEA under stated loads, slicer cost and print time, and Test mode.
+3. **Physics and manufacturing.** FEA under stated loads and Test mode.
    - Exit: FEA results land within a stated error of hand calculations on beam and plate cases with known answers.
 4. **Web app.** Chat, 3D viewer, scorecards, the mode switcher, Auto mode with its stopping rules, and accounts with usage limits.
    - Exit: a change asked for in chat rebuilds the variant and updates its scorecard without a page reload, and Auto mode stops correctly on a brief whose requirements conflict.
@@ -146,6 +146,7 @@ The canonical private brief set is the 20 per-brief files in `~/cad-evals/briefs
 - The Onshape extension panel.
 - Self-hosting the server.
 - Printability checks. You know your printer better than we do, many designs are never printed, and the product's job is the design.
+- Print time and cost from a slicer. Slicing is bound up with printability, because the slice read its print orientation from the printability check, and the same reasons hold. The choice of PrusaSlicer stays recorded in [ADR-0005](docs/adr/0005-checks-run-in-an-analysis-image.md) for when slicing returns.
 - Drawing generation, CNC and sheet-metal quotes, and SolidWorks and Fusion plugins.
 
 ## Risks
@@ -154,9 +155,9 @@ The canonical private brief set is the 20 per-brief files in `~/cad-evals/briefs
 - **Licensed standards.** ASME, ISO, AGMA and DIN documents are paid. We implement formulas and cite the clause, and never ship a standard's text or tables. DIN also forbids AI use of its documents, which matters when users upload standard PDFs.
 - **Silent edit damage.** About 64% of edits that look successful break unrelated features ([BenchCAD](https://arxiv.org/html/2605.10865v1)), so regression checks run on every commit.
 - **Running AI-written code.** Every variant is code an AI wrote, and outside MCP clients can send code too. The sandbox ships in phase 1.
-- **Compute cost.** Any MCP client can trigger FEA and slicing on our servers, so accounts and usage limits ship in phase 4, the phase that hosts the server.
+- **Compute cost.** Any MCP client can trigger FEA on our servers, so accounts and usage limits ship in phase 4, the phase that hosts the server.
 - **Auto mode relies on the agent to stop.** If the agent never judges itself stuck, a run keeps spending until the account's usage limit refuses a build. Watch run lengths and costs from the first Auto run.
-- **Speed.** FEA and slicing take seconds to minutes. The scorecard fills in as results arrive while the viewer stays live.
+- **Speed.** FEA takes seconds to minutes. The scorecard fills in as results arrive while the viewer stays live.
 - **Onshape API limits.** Onshape tracks API usage per user or company. Check the published limits before relying on live sync.
 - **Vendor terms.** Most vendors' data terms are unknown. The data policy above holds until each vendor gives written permission.
 

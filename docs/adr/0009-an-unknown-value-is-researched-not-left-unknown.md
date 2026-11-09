@@ -81,3 +81,7 @@ A researched value can be wrong for the specific grade. For example, a handbook 
 The server makes outbound requests to URLs the agent chooses. They are read-only GETs, with a size cap and a timeout. Pages behind a login, or that block bots, give no value. The data policy in SPEC still applies: opening a specific vendor page and citing it is allowed, and building a catalog from a vendor's site is not.
 
 A source page can change or vanish. The record keeps the quote and a hash of what was fetched, so the scorecard still shows what the check read.
+
+## Amended 2026-11-09
+
+The operator deferred printability on 2026-11-08 and slicing, print time and cost on 2026-11-09, indefinitely. The phase 3 cases above that depend on them wait too: a `printed_on` process with no row, `max_print_time` and `max_cost`, process fields, slicer profiles and filament prices. The rule is unchanged, and applies to them when they return.
