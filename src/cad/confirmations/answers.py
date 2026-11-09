@@ -15,7 +15,7 @@ from cad.records import signed
 from cad.records.roots import project_store
 from cad.variants import key
 
-type ItemKindName = Literal["requirements"]
+type ItemKindName = Literal["requirements", "context_part"]
 MAX_EDIT_CHARS: Final = 200
 ANSWERS: Final = "answers"
 LOG = logging.getLogger(__name__)

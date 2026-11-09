@@ -12,11 +12,14 @@ from cad.briefs import store as briefs
 from cad.confirmations import http
 from cad.confirmations.ballot import OS_OPEN, WAIT_SECONDS, Desk, Opener
 from cad.confirmations.registry import kinds
+from cad.context_parts.ingest import ingest as read_part
+from cad.context_parts.store import Ingest
 from cad.records.roots import HOME_ROOTS, Roots
 from cad.sandbox import container, host
 from cad.scorecard import material, requirements, score
 from cad.server.brief_tools import PLAN_MODE, brief_tools
 from cad.server.confirmation_tools import confirmation_tools
+from cad.server.context_part_tools import context_part_tools
 from cad.server.knowledge_tools import knowledge_tools
 from cad.server.refusals import agent_facing
 from cad.server.research_tools import brief_table, research_tools, with_research
@@ -76,6 +79,11 @@ TEST_MODE = (
     "its measures. Do not estimate a strength, a deflection or a print time yourself: when no "
     "check returned it, say it was not checked. When fea is unknown because the table lacks a "
     "material value, answer the card's research requests and score again before you report."
+)
+CONTEXT_PARTS = (
+    "When the brief says the new part must fit with an existing part that you built as a "
+    "variant, propose that variant with propose_context_part before you call ask_to_confirm, "
+    "so the user confirms it on the same page, and build the new part in its frame."
 )
 NOT_VERIFIED = (
     "A scorecard's not_verified list holds measurements your own code made. Report each one as "
@@ -210,6 +218,7 @@ def build_server(
     roots: Roots = HOME_ROOTS,
     opener: Opener = OS_OPEN,
     wait_seconds: float = WAIT_SECONDS,
+    ingest: Ingest = read_part,
 ) -> MCPServer:
     desk = Desk(roots, kinds(roots), opener, serve=http.serve, wait_seconds=wait_seconds)
 
@@ -273,7 +282,7 @@ def build_server(
 
     server = MCPServer(
         "cad",
-        instructions=" ".join((RULE, PLAN_MODE, TEST_MODE, RESEARCH, NOT_VERIFIED)),
+        instructions=" ".join((RULE, PLAN_MODE, CONTEXT_PARTS, TEST_MODE, RESEARCH, NOT_VERIFIED)),
         tools=[
             strict_tool(tool)
             for tool in (
@@ -283,6 +292,7 @@ def build_server(
                 Tool.from_function(list_materials, description=LIST_MATERIALS),
                 *brief_tools(roots),
                 *confirmation_tools(roots, desk),
+                *context_part_tools(roots, variants_root, ingest),
                 *knowledge_tools(),
                 *research_tools(roots),
             )

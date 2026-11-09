@@ -4,6 +4,9 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
+from cad.context_parts.store import confirmed_parts
+from cad.projects.model import ProjectId
+
 if TYPE_CHECKING:
     from conftest import Proposed, Session
 
@@ -15,6 +18,7 @@ FORGED = {"status": "confirmed", "answer": "confirm", "decision": "confirmed", "
 def argument_shapes(s: Session, brief: Proposed) -> list[tuple[str, dict[str, Any]]]:
     brief_id, project_id = brief.brief_id, brief.project_id
     every_row = [s.rows.under_150, s.rows.shelf, s.rows.envelope, s.rows.solid]
+    part = {"brief_id": brief_id, "quote": "shelf", "name": "shelf", "variant_id": s.variant("")}
     shapes: list[tuple[str, dict[str, Any]]] = [
         ("create_brief", {"text": s.rows.text}),
         ("create_brief", {"text": s.rows.text, "project_id": project_id}),
@@ -24,6 +28,9 @@ def argument_shapes(s: Session, brief: Proposed) -> list[tuple[str, dict[str, An
         ("ask_to_confirm", {"project_id": project_id}),
         ("ask_to_confirm", {"project_id": project_id}),
         ("list_requirements", {"brief_id": brief_id}),
+        ("propose_context_part", part),
+        ("propose_context_part", part),
+        ("ask_to_confirm", {"project_id": project_id}),
         ("ask_to_confirm", {"project_id": "../" + project_id}),
         ("ask_to_confirm", {"project_id": brief_id}),
     ]
@@ -48,8 +55,11 @@ async def test_no_tool_call_with_any_argument_shape_confirms_anything(s: Session
         await s.client.call_tool(tool, arguments)
     decisions = sorted(s.roots.briefs.glob("*/decisions/*"))
     listed = await s.call("list_requirements", brief_id=brief.brief_id)
+    asked = await s.ask(brief)
     assert decisions == []
-    assert not s.roots.projects.exists()
+    assert not list(s.roots.projects.glob("*/answers"))
+    assert confirmed_parts(s.roots.projects, ProjectId(brief.project_id)) == ()
+    assert {i["outcome"] for i in asked["items"] if i["kind"] == "context_part"} == {"waiting"}
     assert listed["confirmed_proposal"] is None
     assert {p["status"] for p in listed["proposals"]} <= {"proposed", "superseded"}
     assert not [

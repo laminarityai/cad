@@ -42,6 +42,7 @@ async def test_server_info_names_the_head_sha_python_and_tools() -> None:
             "create_brief",
             "list_materials",
             "list_requirements",
+            "propose_context_part",
             "propose_requirements",
             "score_variant",
             "search_knowledge",
