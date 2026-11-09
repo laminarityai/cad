@@ -227,6 +227,8 @@ The peak is the maximum over nodes, scaled by |F|. The sign of the load does not
 
 **Stress at supports.** A rigid bore makes the peak stress there unbounded, and that peak depends on the mesh. Judging it would make every bolted part fail at random. So `max_von_mises` and `safety_factor` are read outside a keep-out of 0.5 × bore diameter around each `Holes` support. The keep-out size is a constant in `fea.py`. The peak inside the keep-out is reported as `support_max_von_mises` and is not judged. This leaves a known gap: a thin neck right at a bolt hole is not judged. A later bolt-bearing domain check will cover it. The card's formula text states the gap.
 
+**Stress at a clamped face.** Fixing every node of a flat support face makes the peak stress next to it too high on short, stocky parts, because the clamp adds a stress concentration that a beam does not have. A 40×10×10 steel beam read about 22% above beam theory at its root (investigation in #108). The operator decided on 2026-11-08 to leave the measurement as it is, since the error is on the safe side, and to say so on the card. When any support of the load case is a flat face (`flat_end` or `largest_flat`), a passing fea result's `reason` ends with `CLAMPED_FACE_NOTE` in `fea.py`: "Peak stress next to a clamped face can read high on short parts, so the stress and the safety factor here are conservative." A support through holes does not carry the note. No number changes, and the 7% stress bound in §2.9 holds for the validation cases, not for a short part.
+
 **Gates.** Each gate gives `unknown` for that load case. The other cases still report.
 
 - The mesh fails, or the fine mesh exceeds 150k nodes.
