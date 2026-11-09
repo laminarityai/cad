@@ -57,11 +57,13 @@ ERROR_BOUNDS: Final = {spec.id: spec.error_bounds for spec in SPECS}
 
 
 def demand(confirmed: ConfirmedSet) -> Demand:
-    return {
-        one.target.load.id: one.target.load.wire()
-        for one in confirmed.requirements
-        if isinstance(one.target, MinSafetyFactor | MaxDeflection)
-    }
+    return Demand(
+        loads={
+            one.target.load.id: one.target.load.wire()
+            for one in confirmed.requirements
+            if isinstance(one.target, MinSafetyFactor | MaxDeflection)
+        }
+    )
 
 
 def instance(target: Target) -> str:

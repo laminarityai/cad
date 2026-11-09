@@ -151,6 +151,8 @@ def build_request(
     table: MaterialsTable,
     checks: Sequence[CheckSpec] = QUICK,
     load_cases: Sequence[LoadCaseWire] = (),
+    *,
+    context_bytes: int = 0,
 ) -> Request:
     ids = [spec.id for spec in checks]
     taken = sorted(set[Input]().union(*(spec.takes for spec in closure(ids))))
@@ -158,13 +160,14 @@ def build_request(
         material = table.get_material(material_key)
     except UnknownMaterial as error:
         missing: ValueWire = {"kind": "unknown", "reason": str(error)}
-        wire = _wire(ids, dict.fromkeys(taken, missing), load_cases)
+        wire = _wire(ids, dict.fromkeys(taken, missing), load_cases, context_bytes)
         return Request(wire, material_key, {}, table.version)
     reads = {wanted: read for wanted in taken if (read := _read(material, wanted)) is not None}
     values: dict[str, ValueWire] = {
         wanted: _value(material, wanted, reads.get(wanted)) for wanted in taken
     }
-    return Request(_wire(ids, values, load_cases), material_key, reads, table.version)
+    wire = _wire(ids, values, load_cases, context_bytes)
+    return Request(wire, material_key, reads, table.version)
 
 
 def _read(material: Material, wanted: Input) -> TableRead | None:
@@ -201,9 +204,17 @@ def reads_of(spec: CheckSpec, request: Request) -> tuple[Read, ...]:
 
 
 def _wire(
-    ids: list[str], values: dict[str, ValueWire], load_cases: Sequence[LoadCaseWire]
+    ids: list[str],
+    values: dict[str, ValueWire],
+    load_cases: Sequence[LoadCaseWire],
+    context_bytes: int,
 ) -> RequestWire:
-    return {"checks": ids, "values": values, "load_cases": list(load_cases), "context_bytes": 0}
+    return {
+        "checks": ids,
+        "values": values,
+        "load_cases": list(load_cases),
+        "context_bytes": context_bytes,
+    }
 
 
 @dataclass(frozen=True, slots=True)

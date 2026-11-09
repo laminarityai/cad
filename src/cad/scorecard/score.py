@@ -3,7 +3,6 @@ import secrets
 import stat
 from collections.abc import Callable
 from pathlib import Path
-from types import MappingProxyType
 from typing import Final
 
 from cad.checks import jobs
@@ -22,7 +21,7 @@ SCORECARD: Final = "scorecard.json"
 type Results = tuple[CheckResult | PendingCheck, ...]
 type Assess = Callable[[Results], Basis]
 
-NO_DEMAND: Final[jobs.Demand] = MappingProxyType({})
+NO_DEMAND: Final = jobs.Demand()
 
 
 def no_brief(results: Results) -> Basis:

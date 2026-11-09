@@ -67,13 +67,23 @@ def test_the_cantilever_deflection_verdicts_match_the_hand_calc(
     case = TypeAdapter(LoadCase).validate_python(CASE)
     lanes = Lanes(jobs.run_job)
     card = score.score_variant(
-        built.variant_id, KEY, tmp_path, assess, lanes, demand={case.id: case.wire()}
+        built.variant_id,
+        KEY,
+        tmp_path,
+        assess,
+        lanes,
+        demand=jobs.Demand(loads={case.id: case.wire()}),
     )
     for _ in range(40):
         if not card.pending:
             break
         card = score.score_variant(
-            built.variant_id, KEY, tmp_path, assess, lanes, demand={case.id: case.wire()}
+            built.variant_id,
+            KEY,
+            tmp_path,
+            assess,
+            lanes,
+            demand=jobs.Demand(loads={case.id: case.wire()}),
         )
     assert card.pending == ()
     found = fea_result(card)
