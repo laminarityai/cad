@@ -28,7 +28,8 @@ VARIABLES
     pages,      \* the pages the person opened with a GET: page -> [server, rev]
     posts,      \* each POST request so far: a sequence of request records
     faults,
-    stale       \* ghost: an answer was linked for a revision that was no longer the newest
+    stale       \* ghost: an answer was linked for a revision the agent replaced after
+                \* answer_page's pending check had passed
 
 vars == <<newest, ledger, ballot, pages, posts, faults, stale>>
 
@@ -75,7 +76,8 @@ Ask(s) ==
 Post(g) ==
     /\ Len(posts) < MaxPosts
     /\ posts' = Append(posts, [page |-> g, server |-> pages[g].server, rev |-> pages[g].rev,
-                               pc |-> "find", seen |-> 0, tries |-> 0, told |-> "nothing"])
+                               pc |-> "find", seen |-> 0, tries |-> 0, told |-> "nothing",
+                               at |-> 0])
     /\ UNCHANGED <<newest, ledger, ballot, pages, faults, stale>>
 
 Live(q) == ballot[q.server].page = q.page /\ ballot[q.server].state = "open"
@@ -108,10 +110,11 @@ CheckLedger(k) ==
     /\ IF Answered(q.rev) THEN Tell(k, q, "already answered") ELSE Go(k, q, "pending")
     /\ UNCHANGED <<newest, ledger, ballot, pages, faults, stale>>
 
-\* answer_page: `pending(kinds, ballot.project) != ballot.items`.
+\* answer_page: `pending(kinds, ballot.project) != ballot.items`. The ghost field `at` keeps the
+\* newest revision as this check saw it.
 CheckPending(k) ==
-    LET q == posts[k] IN
-    /\ q.pc = "pending"
+    LET q == [posts[k] EXCEPT !.at = newest] IN
+    /\ posts[k].pc = "pending"
     /\ IF Pending = {q.rev} THEN Go(k, q, "read") ELSE Tell(k, q, "changed")
     /\ UNCHANGED <<newest, ledger, ballot, pages, faults, stale>>
 
@@ -139,7 +142,7 @@ Publish(k) ==
     /\ q.pc = "publish"
     /\ \/ /\ Len(ledger) = q.seen
           /\ ledger' = Append(ledger, [rev |-> q.rev, page |-> q.page])
-          /\ stale' = (stale \/ q.rev # newest)
+          /\ stale' = (stale \/ (q.at = q.rev /\ q.rev # newest))
           /\ Tell(k, q, "recorded")
           /\ UNCHANGED <<ballot, faults>>
        \/ /\ Len(ledger) # q.seen
@@ -192,6 +195,19 @@ RecordedIsKept ==
 AnswersWhatThePageShowed ==
     \A i \in 1..Len(ledger) : ledger[i].rev = pages[ledger[i].page].rev
 
-\* A POST whose item the agent replaced before the answer was stored writes nothing.
+\* A POST whose item the agent had replaced when answer_page checked what is pending records
+\* nothing: the page says Changed.
+ChangedWritesNothing ==
+    \A k \in 1..Len(posts) : posts[k].told = "recorded" => posts[k].at = posts[k].rev
+
+\* Desk.spend lets one request per page into answer_page at a time. A second POST of the page,
+\* a double click or a replay, is refused until the first gives the ballot back.
+InAnswerPage(k) == posts[k].pc \in {"ledger", "pending", "read", "publish"}
+OneRequestPerPage ==
+    \A i, j \in 1..Len(posts) :
+        i # j /\ posts[i].page = posts[j].page => ~(InAnswerPage(i) /\ InAnswerPage(j))
+
+\* A POST whose item the agent replaced after answer_page's pending check passed, and before the
+\* answer was linked into place, writes nothing. The known finding: it does write.
 StaleWritesNothing == ~stale
 =============================================================================

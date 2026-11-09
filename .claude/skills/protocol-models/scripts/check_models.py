@@ -38,6 +38,8 @@ VIOLATION: Final = re.compile(
     re.MULTILINE,
 )
 STATES: Final = re.compile(r"([\d,]+) distinct states found")
+DOWNLOAD_WAITS: Final = (2, 8, None)
+"""Seconds to wait after each failed download before the next try; None means give up."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,6 +64,7 @@ CHECKS: Final = (
         "JobLanesTwoServersRefusal.cfg",
         finding="InterruptedMeansInterrupted",
     ),
+    Check("JobLanesPeek", "JobLanes.tla", "JobLanesPeek.cfg", finding="PeekMeansInterrupted"),
     ANSWERS,
     Check("AnswersStale", "Answers.tla", "AnswersStale.cfg", finding="StaleWritesNothing"),
 )
@@ -120,6 +123,25 @@ MUTANTS: Final = (
         "Temporal",
     ),
     Mutant(
+        "no-cap-refusal",
+        "_refusal stops refusing fea at the attempt cap",
+        JOB_LANES_CAP,
+        (
+            (
+                'ELSE IF attempt["fea"] >= Cap THEN\n            /\\ cfea',
+                "ELSE IF FALSE THEN\n            /\\ cfea",
+            ),
+        ),
+        "CapStopsReruns",
+    ),
+    Mutant(
+        "no-begin-attempt",
+        "_attempt stops calling job_store.begin_attempt, so no crash is ever counted",
+        JOB_LANES_CAP,
+        (("/\\ attempt' = [attempt EXCEPT ![wjob[p]] = @ + 1]", "/\\ attempt' = attempt"),),
+        "CapStopsReruns",
+    ),
+    Mutant(
         "dead-worker-kept",
         "_drain's finally leaves _worker set, the bug 0f22adb fixed",
         JOB_LANES_CAP,
@@ -147,6 +169,25 @@ MUTANTS: Final = (
         ),
         "RecordedIsKept",
     ),
+    Mutant(
+        "no-changed-check",
+        "answer_page stops returning Changed when the pending items no longer match the page",
+        ANSWERS,
+        (("IF Pending = {q.rev} THEN", "IF TRUE THEN"),),
+        "ChangedWritesNothing",
+    ),
+    Mutant(
+        "no-spend",
+        "Desk.spend stops marking the ballot spent, so a second POST of the page gets through",
+        ANSWERS,
+        (
+            (
+                """THEN /\\ ballot' = [ballot EXCEPT ![q.server].state = "spent"]""",
+                "THEN /\\ ballot' = ballot",
+            ),
+        ),
+        "OneRequestPerPage",
+    ),
 )
 
 
@@ -155,9 +196,7 @@ def jar() -> Path:
     path = cache / f"tla2tools-{TLA_VERSION}.jar"
     if path.is_file() and _sha256(path.read_bytes()) == JAR_SHA256:
         return path
-    print(f"downloading TLA+ tools {TLA_VERSION} to {path}", flush=True)
-    with urllib.request.urlopen(JAR_URL, timeout=60) as response:
-        data: bytes = response.read()
+    data = _download(JAR_URL, path)
     if _sha256(data) != JAR_SHA256:
         raise SystemExit(f"{JAR_URL} does not have sha256 {JAR_SHA256}; not running it")
     cache.mkdir(parents=True, exist_ok=True)
@@ -165,6 +204,31 @@ def jar() -> Path:
     temporary.write_bytes(data)
     os.replace(temporary, path)
     return path
+
+
+def _download(url: str, path: Path) -> bytes:
+    for wait in DOWNLOAD_WAITS:
+        print(f"downloading TLA+ tools {TLA_VERSION} to {path}", flush=True)
+        try:
+            with urllib.request.urlopen(url, timeout=60) as response:
+                data: bytes = response.read()
+        except OSError as error:
+            if wait is None:
+                raise SystemExit(f"cannot download {url}: {error}") from error
+            print(f"download failed ({error}); retrying in {wait} s", flush=True)
+            time.sleep(wait)
+        else:
+            return data
+    raise AssertionError("DOWNLOAD_WAITS ends with None")
+
+
+def java_or_none() -> str | None:
+    """The java on PATH when it runs. macOS ships a /usr/bin/java stub that only fails."""
+    java = shutil.which("java")
+    if java is None:
+        return None
+    probe = subprocess.run([java, "-version"], capture_output=True, check=False)
+    return java if probe.returncode == 0 else None
 
 
 def tlc(check: Check, models: Path, tools: Path, java: str) -> tuple[str, float]:
@@ -260,9 +324,13 @@ def main(argv: Sequence[str]) -> int:
     if unknown:
         print(f"nothing is named {', '.join(unknown)}; the names are {', '.join(sorted(known))}")
         return 2
-    java = shutil.which("java")
+    java = java_or_none()
     if java is None:
-        print("java is not on PATH; TLC needs Java 11 or later (macOS: brew install temurin)")
+        print(
+            "no working java on PATH; TLC needs Java 11 or later. On macOS /usr/bin/java is a stub"
+            " until a JDK is installed: brew install --cask temurin. On Debian or Ubuntu:"
+            " apt install default-jre-headless."
+        )
         return 1
     drift()
     tools = jar()

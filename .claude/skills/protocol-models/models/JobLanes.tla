@@ -10,6 +10,12 @@
 (* Each action is one step that no other thread can see half done: one     *)
 (* `with self._lock:` block, one os.replace, one unlink, one container     *)
 (* run, or one Future call. SKILL.md maps every action to its code.        *)
+(*                                                                         *)
+(* One exception: WorkerBegin is one step, but job_store.begin_attempt     *)
+(* reads the .attempt count and then replaces the file, two steps. Two     *)
+(* servers that begin the same job at once can both read n and both write *)
+(* n + 1, so the real count can be lower than the model's. The model does *)
+(* not cover that lost update.                                             *)
 (***************************************************************************)
 EXTENDS Naturals, Sequences, FiniteSets
 
@@ -19,7 +25,9 @@ CONSTANTS
     Cap,         \* job_store.ATTEMPT_CAP
     MaxCrashes,  \* how many times a server may die
     MaxFaults,   \* how many container runs may time out or fail
-    MaxTampers   \* how many times someone without the key may overwrite a result
+    MaxTampers,  \* how many times someone without the key may overwrite a result
+    Peeks        \* TRUE when callers also read the store with Lanes.peek. It writes only peeked,
+                 \* so the configs that check neither peeked nor its finding leave it off.
 
 Jobs == {"quick", "fea"}
 Results == {"ok", "timeout", "unavailable", "killed"}
@@ -37,11 +45,13 @@ VARIABLES
     wpc, wjob, wres,          \* the background worker thread of each process
     cpc, cfea, cquick, cres,  \* each caller thread inside Lanes.settle
     seen,        \* what each caller's last settle returned for fea
+    peeked,      \* what each caller's last peek returned for fea
     crashes, faults, tampers,
-    cut          \* ghost: fea attempts a crash ended between begin_attempt and end_attempt
+    cut          \* ghost: fea attempts in a row that a crash ended between begin_attempt and
+                 \* end_attempt; an attempt that reaches end_attempt resets it
 
 vars == <<disk, attempt, flying, queue, worker, wpc, wjob, wres,
-          cpc, cfea, cquick, cres, seen, crashes, faults, tampers, cut>>
+          cpc, cfea, cquick, cres, seen, peeked, crashes, faults, tampers, cut>>
 
 Threads == Procs \X Callers
 Nothing == [kind |-> "none"]
@@ -60,6 +70,7 @@ Init ==
     /\ cquick = [t \in Threads |-> "none"]
     /\ cres = [t \in Threads |-> "ok"]
     /\ seen = [t \in Threads |-> Nothing]
+    /\ peeked = [t \in Threads |-> Nothing]
     /\ crashes = 0 /\ faults = 0 /\ tampers = 0
     /\ cut = 0
 
@@ -225,6 +236,19 @@ Land(t) ==
     /\ UNCHANGED <<disk, attempt, flying, queue, worker, wpc, wjob, wres,
                    cquick, cres, crashes, faults, tampers, cut>>
 
+\* Lanes.peek, for the scorecard operation: job_store.read of quick and fea, then
+\* interrupted_runs against the cap. No lock, no wait, and no job started.
+Peek(t) ==
+    /\ Peeks
+    /\ cpc[t] = "idle"
+    /\ Stored("quick")
+    /\ peeked' = [peeked EXCEPT ![t] =
+                 IF Stored("fea") THEN [kind |-> "done", value |-> disk["fea"]]
+                 ELSE IF attempt["fea"] >= Cap THEN [kind |-> "refused", why |-> "interrupted"]
+                 ELSE [kind |-> "pending"]]
+    /\ UNCHANGED <<disk, attempt, flying, queue, worker, wpc, wjob, wres,
+                   cpc, cfea, cquick, cres, seen, crashes, faults, tampers, cut>>
+
 -----------------------------------------------------------------------------
 (* Lanes._drain, the background worker thread of process p.                *)
 
@@ -260,9 +284,10 @@ WorkerRun(p) ==
 WorkerEnd(p) ==
     /\ wpc[p] = "end"
     /\ attempt' = [attempt EXCEPT ![wjob[p]] = 0]
+    /\ cut' = IF wjob[p] = "fea" THEN 0 ELSE cut
     /\ wpc' = [wpc EXCEPT ![p] = IF wres[p] = "ok" THEN "write" ELSE "settle"]
     /\ UNCHANGED <<disk, flying, queue, worker, wjob, wres, cpc, cfea, cquick, cres,
-                   seen, crashes, faults, tampers, cut>>
+                   seen, crashes, faults, tampers>>
 
 \* _fly: job_store.write. A raised run skips it, and job_store.write skips a timed-out one.
 WorkerWrite(p) ==
@@ -302,8 +327,9 @@ WorkerExit(p) ==
 -----------------------------------------------------------------------------
 (* What the world does.                                                    *)
 
-\* The server process dies. Its futures, queue and worker are gone, and
-\* container.remove_orphans kills its containers. The store keeps every file.
+\* The server process dies. Its futures, queue and worker are gone, and the store keeps every
+\* file. Its container is taken to stop with it. In the code it keeps running until it exits:
+\* container.remove_orphans removes only exited containers whose owner pid is dead (#148).
 Crash(p) ==
     /\ crashes < MaxCrashes
     /\ crashes' = crashes + 1
@@ -319,6 +345,7 @@ Crash(p) ==
     /\ cquick' = [t \in Threads |-> IF t[1] = p THEN "none" ELSE cquick[t]]
     /\ cres' = [t \in Threads |-> IF t[1] = p THEN "ok" ELSE cres[t]]
     /\ seen' = [t \in Threads |-> IF t[1] = p THEN Nothing ELSE seen[t]]
+    /\ peeked' = [t \in Threads |-> IF t[1] = p THEN Nothing ELSE peeked[t]]
     /\ UNCHANGED <<disk, attempt, faults, tampers>>
 
 \* Someone without the store key overwrites a result file.
@@ -327,22 +354,26 @@ Tamper(j) ==
     /\ tampers' = tampers + 1
     /\ disk' = [disk EXCEPT ![j] = "forged"]
     /\ UNCHANGED <<attempt, flying, queue, worker, wpc, wjob, wres,
-                   cpc, cfea, cquick, cres, seen, crashes, faults, cut>>
+                   cpc, cfea, cquick, cres, seen, peeked, crashes, faults, cut>>
 
+\* Only Peek and Crash change peeked.
 CallerStep(t) ==
-    \/ FeaTakeOff(t) \/ Enqueue(t) \/ StartWorker(t) \/ QuickTakeOff(t) \/ RunQuick(t)
-    \/ WriteQuick(t) \/ SettleQuick(t) \/ ReleaseQuick(t) \/ WaitQuick(t) \/ Land(t)
+    /\ \/ FeaTakeOff(t) \/ Enqueue(t) \/ StartWorker(t) \/ QuickTakeOff(t) \/ RunQuick(t)
+       \/ WriteQuick(t) \/ SettleQuick(t) \/ ReleaseQuick(t) \/ WaitQuick(t) \/ Land(t)
+    /\ UNCHANGED peeked
 
 WorkerStep(p) ==
-    \/ WorkerGet(p) \/ WorkerBegin(p) \/ WorkerRun(p) \/ WorkerEnd(p) \/ WorkerWrite(p)
-    \/ WorkerSettle(p) \/ WorkerRelease(p) \/ WorkerExit(p)
+    /\ \/ WorkerGet(p) \/ WorkerBegin(p) \/ WorkerRun(p) \/ WorkerEnd(p) \/ WorkerWrite(p)
+       \/ WorkerSettle(p) \/ WorkerRelease(p) \/ WorkerExit(p)
+    /\ UNCHANGED peeked
 
 Next ==
-    \/ \E t \in Threads : CallerStep(t)
+    \/ \E t \in Threads : CallerStep(t) \/ Peek(t)
     \/ \E p \in Procs : WorkerStep(p) \/ Crash(p)
     \/ \E j \in Jobs : Tamper(j)
 
 \* Callers keep polling, as the server instructions tell the agent to while a check is pending.
+\* Peek has no fairness: a scorecard read is optional, and settle is what moves a job.
 Fairness ==
     /\ \A t \in Threads : WF_vars(CallerStep(t))
     /\ \A p \in Procs : WF_vars(WorkerStep(p))
@@ -352,10 +383,31 @@ Spec == Init /\ [][Next]_vars /\ Fairness
 -----------------------------------------------------------------------------
 (* Properties.                                                             *)
 
+Handles ==
+    {Nothing, [kind |-> "pending"]}
+      \cup [kind : {"future"}, st : FutureStates]
+      \cup [kind : {"done"}, value : {"honest", "forged"}]
+      \cup [kind : {"refused"}, why : {"interrupted", "unavailable"}]
+
 TypeOK ==
     /\ disk \in [Jobs -> {"none", "honest", "forged"}]
+    /\ attempt \in [Jobs -> Nat]
     /\ flying \in [Procs -> [Jobs -> FutureStates]]
+    /\ DOMAIN queue = Procs /\ \A p \in Procs : queue[p] \in Seq({"fea"})
+    /\ worker \in [Procs -> BOOLEAN]
+    /\ wpc \in [Procs -> {"gone", "get", "begin", "run", "end", "write", "settle", "release",
+                          "exit"}]
+    /\ wjob \in [Procs -> Jobs]
+    /\ wres \in [Procs -> Results]
+    /\ cpc \in [Threads -> {"idle", "enqueue", "startworker", "quick", "runquick", "writequick",
+                            "settlequick", "releasequick", "waitquick", "land"}]
+    /\ cfea \in [Threads -> Handles]
     /\ cquick \in [Threads -> FutureStates]
+    /\ cres \in [Threads -> Results]
+    /\ seen \in [Threads -> Handles]
+    /\ peeked \in [Threads -> Handles]
+    /\ crashes \in 0..MaxCrashes /\ faults \in 0..MaxFaults /\ tampers \in 0..MaxTampers
+    /\ cut \in 0..MaxCrashes
 
 \* No duplicate container: within one process, at most one container runs per job key.
 RunningIn(p, j) ==
@@ -367,11 +419,21 @@ OneContainerPerKey == \A p \in Procs, j \in Jobs : RunningIn(p, j) <= 1
 NeverTrustForged ==
     \A t \in Threads :
         /\ seen[t].kind = "done" => seen[t].value = "honest"
+        /\ peeked[t].kind = "done" => peeked[t].value = "honest"
         /\ cfea[t].kind = "done" => cfea[t].value = "honest"
 
-\* A job is refused as interrupted only after Cap of its attempts really were cut off.
+\* A job is refused as interrupted only after Cap of its attempts in a row really were cut off.
 InterruptedMeansInterrupted ==
     \A t \in Threads : seen[t] = [kind |-> "refused", why |-> "interrupted"] => cut >= Cap
+
+\* The same for Lanes.peek: it reports fea refused only after Cap attempts in a row were cut off.
+PeekMeansInterrupted ==
+    \A t \in Threads : peeked[t] = [kind |-> "refused", why |-> "interrupted"] => cut >= Cap
+
+\* The cap does its job: once Cap fea attempts in a row were cut off by a crash, no fea
+\* container runs again, so a job that kills the server is not rerun forever.
+CapStopsReruns ==
+    \A p \in Procs : wpc[p] = "run" /\ wjob[p] = "fea" => cut < Cap
 
 \* Convergence: whatever crashed, failed or was tampered with, the quick job ends stored with an
 \* honest result, and the fea job ends stored or refused by the attempt cap.
