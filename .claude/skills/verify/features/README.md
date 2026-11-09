@@ -38,6 +38,7 @@ Cost: **free** is `cad-call` alone (about 8 s of server start per call). **docke
 | [Agree](./agree.md) | `evals/bakeoff/agree.py`: scorecards against the bake-off grader | docker: replay (60 builds, about 4 min) | live: 10 sessions, about 0.4 USD |
 | [Brief set](./brief-set.md) | `evals/briefs/run.py`: the private brief set, traced numbers, friction | live (one session per brief) | none |
 | [Context parts](./context-parts.md) | `propose_context_part`, the context part item on the confirmation page, and the `fit` check against each confirmed part | free: idempotent, declined, refusals (`tests/context_parts/`). docker: propose a built variant. docker + browser: confirm a part, score fit and clearance | live: the agent proposes a part and the person confirms it |
+| [Geometry](./geometry.md) | the person-only `geometry` operation: the mesh of a variant from the analysis image, for three-cad-viewer | free: pending, stored, retried (`tests/geometry/test_lane.py`). docker: the mesh volume against the `mass` check, and a screenshot in three-cad-viewer (`scripts/geometry.py`) | none: no agent reaches it |
 
 ## Phase 4 web app: NOT YET BUILT
 
@@ -45,7 +46,7 @@ Cost: **free** is `cad-call` alone (about 8 s of server start per call). **docke
 
 - [Hosted MCP and accounts](./phase-4/hosted-mcp.md): `/mcp` over HTTP with Clerk OAuth, tenancy, the lease and the usage cap. Unit 3.
 - [Hosted confirmation](./phase-4/hosted-confirmation.md): the FastAPI page in the signed-in app, opened by URL elicitation. Unit 4.
-- [Web shell](./phase-4/web-shell.md): the viewer, scorecards over SSE, geometry. Units 5 and 6.
+- [Web shell](./phase-4/web-shell.md): the viewer and scorecards over SSE. Unit 6. Unit 5, geometry, is built: see [Geometry](./geometry.md).
 - [Auto mode](./phase-4/auto-mode.md): the server-held Auto run and its stops. Units 7 and 9.
 - [Chat](./phase-4/chat.md): the chat runtime and mode switcher. Unit 8.
 
