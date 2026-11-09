@@ -14,6 +14,8 @@ from cad.research.quote import on_page, written_in
         ("Poisson's ratio 0.3", "Poisson's ratio 0.35"),
         ("Poisson's ratio 0", "Poisson's ratio 0.35"),
         ("34 g/cm3", "Density .34 g/cm3"),
+        ("24 g/cm3", "Density 1.20-1.24 g/cm3"),
+        ("Poisson's ratio 0.38", "Poisson's ratio \u03bd 0.38"),
         ("960 kg/m3", "Density 8,960 kg/m3"),
     ],
 )
@@ -33,6 +35,12 @@ def test_a_quote_that_starts_or_ends_inside_a_number_is_not_on_the_page(
         ("Poisson's ratio 0.35", "Poisson's ratio 0.3 and Poisson's ratio 0.35"),
         ("DENSITY 1.21 G/CM3", "Density\u00a01.21 g/cm\u00b3"),
         ("Poisson\u2019s ratio 0.35", "Poisson's   ratio\n0.35"),
+        ("Density 1250 kg/m3", "Density 1250 kg/m 3 Mechanical properties"),
+        ("Density | 1.25 g/cm3 at 23\u00b0C", "Density 1.25 g/cm3 at 23 \u00b0C"),
+        ("Density (\u03c1): 2.70 g/cm3", "Density ( \u03c1 ) 2.70 g/cm 3 [ 1 ]"),
+        ("1.24 g/cm3", "Density 1.20-1.24 g/cm3"),
+        ("of at least 240 MPa (35 ksi).", "of at least 240 MPa (35 ksi) [3] ."),
+        ("Table 3. It can be seen", "given in Table 3 . It can be seen"),
     ],
 )
 def test_a_quote_bounded_by_the_text_or_punctuation_is_on_the_page(quote: str, text: str) -> None:

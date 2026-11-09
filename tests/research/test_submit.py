@@ -81,10 +81,20 @@ def test_a_quote_on_the_page_fills_the_unknown_field_for_that_project_only(roots
 def test_a_quote_not_on_the_page_is_refused_with_a_new_request(roots: Roots) -> None:
     answer = ask(roots, "Poisson's ratio 0.30", value=0.3)
     assert isinstance(answer, ResearchRefused)
-    assert "does not appear word for word" in answer.reason
+    assert "does not appear on" in answer.reason
     assert answer.request is not None
     assert answer.request.field == "poisson_ratio"
     assert answer.request.problems == (answer.reason,)
+
+
+def test_a_quote_not_on_the_page_is_refused_with_where_the_page_writes_the_value(
+    roots: Roots,
+) -> None:
+    text = "Young's modulus E 2-2.6 GPa Poisson's ratio \u03bd 0.38 Yield strength 35 MPa"
+    answer = ask(roots, "Poisson's ratio 0.38", value=0.38, fetcher=page(text))
+    assert isinstance(answer, ResearchRefused)
+    assert "the page writes 0.38 here" in answer.reason
+    assert "poisson's ratio \u03bd 0.38" in answer.reason
 
 
 def test_whitespace_and_apostrophe_style_do_not_hide_a_quote(roots: Roots) -> None:
@@ -246,7 +256,7 @@ def test_a_ledger_the_store_did_not_sign_gives_no_values_and_says_why(roots: Roo
 def test_a_quote_cut_from_a_longer_number_is_refused(roots: Roots) -> None:
     answer = ask(roots, "Poisson's ratio 0.3", value=0.3, fetcher=page("Poisson's ratio 0.35"))
     assert isinstance(answer, ResearchRefused)
-    assert "does not appear word for word" in answer.reason
+    assert "does not appear on" in answer.reason
 
 
 @pytest.mark.parametrize("value", ["0", "0.5"])

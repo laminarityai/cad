@@ -19,7 +19,7 @@ from cad.research.ledger import (
     read_ledger,
 )
 from cad.research.overlay import fill, overlay
-from cad.research.quote import on_page, written_in
+from cad.research.quote import on_page, where_written, written_in
 from cad.research.requests import ResearchRequest, request_for
 from cad.tables.materials import FromResearch, Known, MaterialsTable
 
@@ -105,11 +105,7 @@ def submit(
     if isinstance(page, FetchFailed):
         return ask(page.reason)
     if not on_page(question.quote, page.text):
-        return ask(
-            f"the quote does not appear word for word on {page.url}, starting and ending where "
-            "the page's words and numbers do; copy it exactly from the page as the server "
-            "fetched it, without the page's markup"
-        )
+        return ask(_not_on_page(question, page.url, page.text))
     record = ResearchedRecord(
         project=question.project,
         key=question.key,
@@ -212,3 +208,16 @@ def _canonical(question: Question) -> float | str:
     if not spec.admits(canonical):
         return f"{spec.label} {canonical:g} {spec.canonical_unit} is outside {spec.accepts}"
     return float(canonical)
+
+
+def _not_on_page(question: Question, url: str, text: str) -> str:
+    reason = (
+        f"the quote does not appear on {url} as the server fetched it; copy its words and "
+        "numbers in the page's order, and start and end it on whole numbers"
+    )
+    written = where_written(Decimal(repr(question.value)), text)
+    if not written:
+        return f"{reason}; the page does not write {question.value!r} anywhere"
+    return f"{reason}; the page writes {question.value!r} here: " + " | ".join(
+        repr(one) for one in written
+    )
