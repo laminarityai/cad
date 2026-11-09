@@ -100,5 +100,5 @@ The default mode. The agent makes variants, runs checks, shows scorecards, and s
 The agent revises variants against the checks without stopping, until every requirement passes, it needs a decision from the user, or it judges that it is stuck. An account's usage limit also ends a run when it refuses a build.
 
 **Test mode**:
-Deeper, slower analysis of one chosen variant, such as full FEA, tolerance stack-ups and slicing.
+Deeper, slower analysis of one chosen variant, such as full FEA and tolerance stack-ups.
 _Avoid_: Verify mode, analysis mode

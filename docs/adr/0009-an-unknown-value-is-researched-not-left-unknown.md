@@ -99,3 +99,7 @@ This replaces the parts of this ADR that say the server reads the quantity with 
 - A table value is `cited` or `researched`. The `confirmed` kind this ADR lists is dropped, as the ADR-0006 amendment records, so a researched value is replaced only by a reviewed value in git.
 
 The quote reader in `cad.sources` is deleted, because research was its only user.
+
+## Amended 2026-11-09
+
+The operator deferred printability on 2026-11-08 and slicing, print time and cost on 2026-11-09, indefinitely. The phase 3 cases above that depend on them wait too: a `printed_on` process with no row, `max_print_time` and `max_cost`, process fields, slicer profiles and filament prices. The rule is unchanged, and applies to them when they return.

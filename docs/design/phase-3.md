@@ -2,13 +2,15 @@
 
 Status: the operator approved this design on 2026-11-07. It is a sketch, and nothing in it is built yet. It was written against commit 1a3dee2. Terms follow GLOSSARY.md. Each phase 3 PR is one numbered unit of §4. §7 lists the questions that are still open.
 
+On 2026-11-08 the operator deferred printability indefinitely, and on 2026-11-09 slicing, print time and cost with it. The slice read its print orientation from printability, so the two go together. Phase 3 is FEA under stated loads and Test mode. Every mention below of printability, `slice`, a print process, print time or cost is a record of deferred work. It is not built, and no unit of §4 builds it.
+
 ## Central decisions
 
 1. **The words fix the load case, fixed check code fixes the faces, and any freedom left over goes to the worst case.** A load case is part of a requirement that the person already confirms in one click on the existing page. It names *anchors* (for example "the bores of exactly 2 holes of 5.5 mm" or "the end farthest from the supports"), never a face. The `fea` check turns anchors into mesh regions with rules that do not depend on the model's coordinate frame. Where the words leave a choice open, the check takes the worst case: an unstated direction is solved exactly by superposing 3 unit loads, and tied candidate faces are each solved, with the worst one kept. A count that does not match gives `unknown`. Nobody picks faces, so there is nothing to bias and no extra confirmation step. ADR-0007 records this decision.
 2. **Slow checks are demand-driven background jobs, and the signed result store is the queue.** A job is (variant, the checks it runs, the exact inputs they read). Its key is a hash of those three. Its result is a signed file. Missing result plus no in-flight future means "run it". That makes a crash or restart safe with no queue to persist. `score_variant` keeps its signature. It waits up to 20 s, like `confirm_requirements`, and otherwise returns a card that shows `pending`. You poll by calling it again.
 3. **Two images.** Agent code builds in the unchanged build image, so variant ids stay stable. Every check runs in a new analysis image layered `FROM` the build image's digest, with gmsh, CalculiX and PrusaSlicer added (ADR-0005). That image's tag goes into check versions and onto the card, not into variant ids.
-4. **Test mode has no server-side state.** Every check that decides a requirement runs at one fidelity, whatever the mode. Test mode is agent guidance: pick one variant, propose the requirements that make the slow checks run (load, print process), get one confirmation, score, and wait. The server's only part is metering.
-5. **Each engine has one adapter file, and hand calculations are the exit condition.** The adapters are `kernel/` for OCP, `mesher.py` for gmsh, `calculix.py` for CalculiX and `prusa.py` for PrusaSlicer. `calculix.py` is our own CalculiX input writer and result reader, not pygccx. The operator decided this on 2026-11-07, and §6 gives the reasons. The FEA math, which is consistent nodal loads and the worst direction from eigenvalues, is pure stdlib and has unit tests. The exit condition is a validation suite of 5 hand-calculation cases with stated tolerances, and `uv run verify` runs it.
+4. **Test mode has no server-side state.** Every check that decides a requirement runs at one fidelity, whatever the mode. Test mode is agent guidance: pick one variant, propose the requirements that make the slow checks run (a load), get one confirmation, score, and wait. The server's only part is metering.
+5. **Each engine has one adapter file, and hand calculations are the exit condition.** The adapters are `kernel/` for OCP, `mesher.py` for gmsh, `calculix.py` for CalculiX and `prusa.py` for PrusaSlicer, which is deferred. `calculix.py` is our own CalculiX input writer and result reader, not pygccx. The operator decided this on 2026-11-07, and §6 gives the reasons. The FEA math, which is consistent nodal loads and the worst direction from eigenvalues, is pure stdlib and has unit tests. The exit condition is a validation suite of 5 hand-calculation cases with stated tolerances, and `uv run verify` runs it.
 6. **The material is not always a requirement.** `material_key` stays a scoring argument. When the brief names a material, an optional confirmed `made_of` requirement pins it, and the card says which of the two set the material (§2.2).
 
 ---
@@ -16,6 +18,8 @@ Status: the operator approved this design on 2026-11-07. It is a sketch, and not
 ## 1. Usage (caller's view)
 
 ### 1a. The agent, end to end over MCP
+
+*Deferred (2026-11-09): the `printed_on` and `max_print_time` requirements and the `slice` result in this example. Phase 3 ships the load and `made_of` parts. The brief's printer and print-time words become unverified requirements.*
 
 Brief: *"A wall hook for a 5 kg bag. It screws to the wall through two M5 holes. Printed in Bambu PLA Basic on my P1S. Under 2 hours to print."*
 
@@ -240,6 +244,8 @@ The peak is the maximum over nodes, scaled by |F|. The sign of the load does not
 
 ### 2.2 New requirement kinds (`briefs/model.py`, after phase 2 lands)
 
+*`printed_on` is deferred (2026-11-08). `max_print_time` and `max_cost` are deferred (2026-11-09). Their rows and the process and money bullets below stay as a record.*
+
 | Kind | Target | `deciding_check` | `limits(target)` |
 |---|---|---|---|
 | `min_safety_factor` | `MinSafetyFactor{load: LoadCase, factor: float ≥ 1}` | `fea` at instance `load.id` | `Limit("safety_factor", AT_LEAST, factor·dimensionless)` |
@@ -263,6 +269,8 @@ The peak is the maximum over nodes, scaled by |F|. The sign of the load does not
 - **Safety factor default.** The `PROPOSE_REQUIREMENTS` text says: "propose factor 2 unless the brief states one". It is still the person's number. The page shows it, and one click confirms it.
 
 ### 2.3 Table data
+
+*Deferred (2026-11-09): `filament_cost`, `slicer_filament` and the PrusaSlicer profiles. `processes.yaml` goes with the printability deferral (2026-11-08). They stay below as a record.*
 
 **`tables/materials.yaml`** gets new optional fields per row. Each one is `unknown` or `{value, source}`, as today:
 
@@ -363,6 +371,8 @@ class Subject:
 | `calculix.py` | CalculiX `ccx` | our own .inp writer and .frd reader, which runs `ccx`. `solve(mesh, material, fixed: Region, unit_loads: tuple[NodalLoads, …]) -> tuple[NodalField, …] \| SolveFailed` |
 | `prusa.py` | prusa-slicer CLI | `slice(stl: bytes, profiles) -> SliceStats \| SliceFailed` (print seconds, filament grams from the G-code header) |
 
+*The `prusa.py` row is deferred (2026-11-09). The analysis image still installs PrusaSlicer, and the adapter is written when slicing returns.*
+
 A test that extends the existing one for OCP walks the AST of `checks/container/*` and fails when any file outside its adapter names `OCP`, `gmsh`, `ccx` or `prusa-slicer`.
 
 **Versioning.** `check_version` also hashes the analysis image tag. The engines' binaries are not Python sources in the closure, so this is the only honest place to cover them. When the image changes, every check version changes, and the reason is that the image really did change.
@@ -377,7 +387,7 @@ A test that extends the existing one for OCP walks the AST of `checks/container/
 
 ### 2.5 The three new checks
 
-*Deferred indefinitely by the operator on 2026-11-08. The person knows their printer better than we do, many designs are never printed, and the product's job is the design. The section stays as a record. `slice` below needs an orientation from somewhere else before it is built.*
+*`printability` was deferred indefinitely by the operator on 2026-11-08. The person knows their printer better than we do, many designs are never printed, and the product's job is the design. `slice` was deferred indefinitely on 2026-11-09, because it read its print orientation from `printability`, and it needs an orientation from somewhere else before it is built. Both stay below as a record. Phase 3 builds `fea` only.*
 
 **`printability`** (`Quick`; REQUIRES closed_solid; TAKES NOZZLE, MAX_OVERHANG, MIN_WALL, BED)
 
@@ -399,7 +409,7 @@ It requires printability because it reads `print_down:*` from `subject.reported`
 - **Measures:** `print_time s`, `filament_mass g`, `filament_cost USD`, and the READS echo `filament_cost_per_kg USD/kg`.
 - **Cost is ours:** grams × table price. The slicer's own cost setting is never used.
 
-`suite.CHECKS = (closed_solid, interference, mass, extents, printability, fea, slice)`. The existing REQUIRES-order rule still holds.
+`suite.CHECKS = (closed_solid, interference, mass, extents, printability, fea, slice)`. The existing REQUIRES-order rule still holds. With the two deferred checks left out, phase 3 ships `(closed_solid, interference, mass, extents, fea)`.
 
 ### 2.6 Jobs, the store, background lanes and the scorecard
 
@@ -495,7 +505,7 @@ Per-job limits come from `BUDGET`:
 
 - Quick: 60 s, 2048 MB, tmpfs 256 MB.
 - fea: 600 s, 2048 MB, tmpfs 768 MB, which counts against memory, so the node cap is sized for it.
-- slice: 300 s, 2048 MB, tmpfs 512 MB.
+- slice (deferred): 300 s, 2048 MB, tmpfs 512 MB.
 
 `Job` gains `memory_mb` and `tmpfs_mb`, and `run_argv` reads them. That edit is in `sandbox/container.py`, which `TRUST_DIGEST` covers. **So PR 3 changes every variant id once**, and each stored variant is rebuilt from its signed code the next time it is scored (ADR-0003 amendment). We accept that one-time churn and state it in ADR-0005. All other new host code (`checks/jobs.py`, `checks/job_store.py`, `checks/lanes.py`, `loads/`) stays outside `sandbox/` and `variants/`, so it causes no further churn. Everything else stays as today: `--network none`, read-only, cap-drop ALL, uid 65534. `cad-sandbox build-image` builds both images. The `sandbox image` verify step checks both.
 
@@ -568,8 +578,8 @@ After phase 2 merges `briefs/` and `brief_tools.py`:
 
 7. **`fea` check** + `min_safety_factor` / `max_deflection` kinds + demand-driven planning + `Waiting`. End-to-end validation case through MCP.
 8. *Deferred indefinitely (operator, 2026-11-08).* **`printability`** + `processes.yaml` + `printed_on` + the `list_processes` tool (allowlist test updated).
-9. **PrusaSlicer adapter** (`prusa.py`, renaming the `orca.py` row of the adapter lint) + `slice` + `max_print_time` / `max_cost` + filament cost data + determinism test.
-10. **Test mode guidance** in server instructions and tool descriptions, plus a `/verify` headless `claude -p` run of the hook brief in §1a.
+9. *Deferred indefinitely (operator, 2026-11-09), with printability.* **PrusaSlicer adapter** (`prusa.py`, renaming the `orca.py` row of the adapter lint) + `slice` + `max_print_time` / `max_cost` + filament cost data + determinism test.
+10. **Test mode guidance** in server instructions and tool descriptions, plus a `/verify` headless `claude -p` run of the hook brief in §1a, without its print process and print time. The guidance says print time is not checked.
 11. **`made_of`**, the card's `material` field, and the `score_variant` refusal of a `material_key` that differs from a confirmed `made_of` (§2.2).
 
 ## 5. Tradeoffs accepted
