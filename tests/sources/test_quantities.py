@@ -3,7 +3,7 @@ import time
 import pytest
 
 from cad.sources.quantities import Quantity, Reason, Refusal, one_quantity
-from cad.tables.materials import Cited, load_materials
+from cad.tables.materials import Known, load_materials
 
 
 def kg_per_m3(quote: str) -> float:
@@ -310,7 +310,7 @@ def test_every_density_quote_in_the_table_parses_to_the_table_value_or_is_refuse
     parsed = 0
     for material in load_materials().materials.values():
         cited = material.density
-        if not isinstance(cited, Cited):
+        if not isinstance(cited, Known):
             continue
         result = one_quantity(cited.source.quote, "density")
         if isinstance(result, Refusal):
@@ -335,14 +335,14 @@ def test_every_density_quote_in_the_table_parses_to_the_table_value_or_is_refuse
 )
 def test_refuses_the_table_quotes_that_do_not_state_one_value(key: str, reason: Reason) -> None:
     density = load_materials().materials[key].density
-    assert isinstance(density, Cited)
+    assert isinstance(density, Known)
     assert refusal(density.source.quote).reason is reason
 
 
 @pytest.mark.parametrize("key", ["kaiser-6061-t6", "aurubis-c11000-h02", "polymaker-polymax-pc"])
 def test_refuses_the_table_quotes_with_detached_units_or_exponents(key: str) -> None:
     density = load_materials().materials[key].density
-    assert isinstance(density, Cited)
+    assert isinstance(density, Known)
     assert isinstance(one_quantity(density.source.quote, "density"), Refusal)
 
 
@@ -365,6 +365,6 @@ def test_refuses_the_table_quotes_with_detached_units_or_exponents(key: str) -> 
 )
 def test_reads_the_table_quotes_with_a_number_right_after_a_listed_standard(key: str) -> None:
     density = load_materials().materials[key].density
-    assert isinstance(density, Cited)
+    assert isinstance(density, Known)
     expected = density.magnitude_in("kg/m^3")
     assert kg_per_m3(density.source.quote) == pytest.approx(expected, rel=5e-3)

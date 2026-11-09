@@ -18,12 +18,30 @@ from cad.checks.container.wire import (
     SourceLiteral,
     ValueWire,
 )
-from cad.checks.result import CheckResult, Measure, StepMissing, Verdict
+from cad.checks.result import (
+    CheckResult,
+    Measure,
+    Read,
+    ReadCited,
+    ReadMissing,
+    ReadResearched,
+    StepMissing,
+    Verdict,
+)
 from cad.sandbox import container
 from cad.sandbox.container import Job, Ran, TooMuchOutput
 from cad.sandbox.image import ANALYSIS, image_tag
 from cad.sandbox.stage import CONTAINER_ENTRY, PACKAGE_PATH, Sources, read_sources
-from cad.tables.materials import UNITS, Cited, Material, MaterialsTable, Source, UnknownMaterial
+from cad.tables.materials import (
+    UNITS,
+    Basis,
+    FromResearch,
+    Known,
+    Material,
+    MaterialsTable,
+    Source,
+    UnknownMaterial,
+)
 
 REASON_CAP = 1024
 SCORER: Final = "cad.scorecard.score"
@@ -117,6 +135,7 @@ def closure(check_ids: Sequence[str]) -> tuple[CheckSpec, ...]:
 class TableRead:
     magnitude: float
     source: Source
+    basis: Basis
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,10 +168,10 @@ def build_request(
 
 
 def _read(material: Material, wanted: Input) -> TableRead | None:
-    cited = material.value(wanted)
-    if not isinstance(cited, Cited):
+    known = material.value(wanted)
+    if not isinstance(known, Known):
         return None
-    return TableRead(cited.magnitude_in(WIRE_UNITS[wanted]), cited.source)
+    return TableRead(known.magnitude_in(WIRE_UNITS[wanted]), known.source, known.basis)
 
 
 def _value(material: Material, wanted: Input, read: TableRead | None) -> ValueWire:
@@ -160,6 +179,25 @@ def _value(material: Material, wanted: Input, read: TableRead | None) -> ValueWi
         reason = f"the materials table has no {wanted} for {material.key}: it says unknown"
         return {"kind": "unknown", "reason": reason}
     return {"kind": "known", "magnitude": read.magnitude}
+
+
+def reads_of(spec: CheckSpec, request: Request) -> tuple[Read, ...]:
+    reads: list[Read] = []
+    for wanted in sorted(spec.takes):
+        read = request.reads.get(wanted)
+        value = request.wire["values"].get(wanted)
+        if read is not None and isinstance(read.basis, FromResearch):
+            source = read.source
+            reads.append(
+                ReadResearched(
+                    field=wanted, url=source.url, quote=source.quote, sha256=read.basis.sha256
+                )
+            )
+        elif read is not None:
+            reads.append(ReadCited(field=wanted))
+        elif value is not None and value["kind"] == "unknown":
+            reads.append(ReadMissing(field=wanted, reason=value["reason"]))
+    return tuple(reads)
 
 
 def _wire(
@@ -264,6 +302,7 @@ def _result(spec: CheckSpec, wire: ResultWire, request: Request) -> CheckResult:
         reason=_one_line(wire["reason"]),
         sources=(*spec.sources, *rows),
         version=spec.version,
+        reads=reads_of(spec, request),
     )
 
 

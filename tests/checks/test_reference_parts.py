@@ -9,7 +9,7 @@ import pytest
 from cad.checks.result import CheckRun, StepStored, Verdict
 from cad.sandbox.host import run_checks
 from cad.sandbox.outcome import Built
-from cad.tables.materials import Cited, load_materials
+from cad.tables.materials import Known, load_materials
 from cad.variants.store import BuildResult, build_variant
 
 PARTS = {
@@ -59,7 +59,7 @@ def test_every_check_passes_and_the_volume_matches_grade_py(
     mass = run.result("mass")
     assert abs(mass.number("volume", "mm^3") - GRADE_PY_142404A_VOLUMES_MM3[part]) < TOLERANCE_MM3
     density = load_materials().get_material("prusament-pla").density
-    assert isinstance(density, Cited)
+    assert isinstance(density, Known)
     assert mass.sources[-1] == density.source
 
 
@@ -77,7 +77,7 @@ def test_the_same_variant_checked_twice_serializes_to_the_same_bytes(
 
 def table_density(key: str) -> float:
     density = load_materials().get_material(key).density
-    assert isinstance(density, Cited)
+    assert isinstance(density, Known)
     return density.magnitude_in("kg/m^3")
 
 

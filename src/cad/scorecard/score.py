@@ -8,11 +8,12 @@ from typing import Final
 
 from cad.checks import jobs
 from cad.checks.lanes import LANES, WAIT_SECONDS, Done, Lanes, Pending, Settled
-from cad.checks.report import SPECS, CheckSpec, Request, build_request, unknown_for_all
+from cad.checks.report import SPECS, CheckSpec, Request, build_request, reads_of, unknown_for_all
 from cad.checks.result import CheckResult
 from cad.sandbox import host, image
 from cad.sandbox.outcome import Built, SandboxUnavailable
 from cad.scorecard.model import Basis, NoBrief, PendingCheck, Scorecard
+from cad.tables.materials import MaterialsTable
 from cad.variants import entry
 from cad.variants import store as variants
 
@@ -36,9 +37,10 @@ def score_variant(
     assess: Assess = no_brief,
     lanes: Lanes = LANES,
     demand: jobs.Demand = NO_DEMAND,
+    table: MaterialsTable | None = None,
 ) -> Scorecard:
     held, rebuilt_from = open_or_rebuild(variant_id, root)
-    table = host.materials_table()
+    table = table or host.materials_table()
     request = build_request(material_key, table)
     plan = jobs.plan(root, held, request, table, demand)
     card = scorecard_of(plan, request, lanes.settle(plan, WAIT_SECONDS), assess, rebuilt_from)
@@ -72,7 +74,7 @@ def scorecard_of(
             case Done(result):
                 found: Results = result.results
             case Pending():
-                found = tuple(_pending(one, job.instance) for one in job.checks)
+                found = tuple(_pending(one, job) for one in job.checks)
             case jobs.Refused(reason):
                 found = tuple(
                     one.model_copy(update={"instance": job.instance})
@@ -95,13 +97,14 @@ def scorecard_of(
     )
 
 
-def _pending(spec: CheckSpec, instance: str) -> PendingCheck:
+def _pending(spec: CheckSpec, job: jobs.JobSpec) -> PendingCheck:
     return PendingCheck(
         check_id=spec.id,
         formula=spec.formula,
         sources=spec.sources,
         version=spec.version,
-        instance=instance,
+        instance=job.instance,
+        reads=reads_of(spec, job.request),
     )
 
 

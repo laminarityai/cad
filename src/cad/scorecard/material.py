@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from cad.briefs.model import MadeOf, Requirement, describe
 from cad.briefs.store import BriefRefused, ConfirmedSet
+from cad.research.requests import ResearchRequest
 from cad.scorecard.model import Scorecard
 
 AGENT_CHOSE: Final = (
@@ -44,9 +45,14 @@ class MaterialUse(_Frozen):
 
 
 class ReportedScorecard(Scorecard):
-    """A scorecard as the server returns it: the card and what set its material."""
+    """A scorecard as the server returns it: the card, what set its material, and a research
+    request for each material value a check needed that the table lacks. `research_problem`
+    says why the project's researched values cannot be read; while it is set, no request is
+    made, because no answer could be stored."""
 
     material: MaterialUse
+    research: tuple[ResearchRequest, ...] = Field(default=(), exclude_if=lambda one: not one)
+    research_problem: str | None = Field(default=None, exclude_if=lambda one: one is None)
 
     @model_validator(mode="after")
     def _names_the_scored_material(self) -> Self:

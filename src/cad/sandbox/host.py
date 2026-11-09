@@ -77,8 +77,18 @@ def run_checks(
     never `pass`. A STEP too large for the report is left out, and the results stand. A material
     key that is not in the table makes `mass` `unknown`.
     """
-    held = entry.open_entry(root, variant_id, image.image_tag(image.BUILD))
     request = build_request(material_key, materials_table())
+    return run_request(variant_id, request, root, wall_seconds=wall_seconds)
+
+
+def run_request(
+    variant_id: str,
+    request: Request,
+    root: Path = entry.VARIANTS_ROOT,
+    *,
+    wall_seconds: int = container.WALL_SECONDS,
+) -> CheckRun:
+    held = entry.open_entry(root, variant_id, image.image_tag(image.BUILD))
     image_id = image.current_image(IMAGE_TAG)
     try:
         job = check_job(held.brep, image_id, request, wall_seconds)
@@ -100,7 +110,7 @@ def run_checks(
         ) from error
     return CheckRun(
         variant_id=held.id,
-        material_key=material_key,
+        material_key=request.material_key,
         table_version=request.table_version,
         check_image_tag=IMAGE_TAG,
         check_image_digest=image_id,

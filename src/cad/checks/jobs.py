@@ -38,7 +38,7 @@ class JobSpec:
     @property
     def key(self) -> JobKey:
         reads = {
-            name: [read.magnitude, dataclasses.asdict(read.source)]
+            name: [read.magnitude, dataclasses.asdict(read.source), dataclasses.asdict(read.basis)]
             for name, read in sorted(self.request.reads.items())
         }
         versions = [one.version for one in self.checks]
@@ -93,11 +93,7 @@ def run_job(spec: JobSpec) -> JobResult:
 
 
 def _run_quick(spec: JobSpec) -> JobResult:
-    run = host.run_checks(spec.variant_id, spec.request.material_key, spec.root)
-    if run.table_version != spec.request.table_version:
-        raise SandboxUnavailable(
-            "the materials table changed while the checks ran; score the variant again"
-        )
+    run = host.run_request(spec.variant_id, spec.request, spec.root)
     return JobResult(
         check_image_digest=run.check_image_digest,
         step=run.step,

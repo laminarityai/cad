@@ -38,9 +38,24 @@ class Source:
 
 
 @dataclass(frozen=True, slots=True)
-class Cited:
+class FromTable:
+    pass
+
+
+@dataclass(frozen=True, slots=True)
+class FromResearch:
+    sha256: str
+    record: int
+
+
+type Basis = FromTable | FromResearch
+
+
+@dataclass(frozen=True, slots=True)
+class Known:
     quantity: pint.Quantity
     source: Source
+    basis: Basis = FromTable()
 
     def magnitude_in(self, unit: str) -> float:
         return magnitude(self.quantity, unit)
@@ -51,7 +66,7 @@ class Unknown:
     pass
 
 
-type Value = Cited | Unknown
+type Value = Known | Unknown
 
 
 @dataclass(frozen=True, slots=True)
@@ -148,7 +163,7 @@ def _parse_material(row: Raw, problems: list[str]) -> Material | None:
     if len(problems) > start:
         return None
     material = Material(key, name, **values)
-    problems.extend(_rule_problems(material))
+    problems.extend(rule_problems(material))
     return material
 
 
@@ -173,7 +188,7 @@ def _parse_value(key: str, field: str, raw: object, problems: list[str]) -> Valu
         problems.append(f"{key}: {field} {text!r}: {error}")
         return Unknown()
     source = _parse_source(key, field, mapping.get("source"), problems)
-    return Unknown() if source is None else Cited(quantity, source)
+    return Unknown() if source is None else Known(quantity, source)
 
 
 def _parse_source(key: str, field: str, raw: object, problems: list[str]) -> Source | None:
@@ -196,19 +211,19 @@ def _parse_source(key: str, field: str, raw: object, problems: list[str]) -> Sou
     return Source(url, title, page, cast(date, retrieved), cast(str | None, standard), quote)
 
 
-def _rule_problems(material: Material) -> list[str]:
+def rule_problems(material: Material) -> list[str]:
     problems: list[str] = []
     density = material.density
     low, high = DENSITY_RANGE_KG_PER_M3
-    if isinstance(density, Cited) and not low <= density.magnitude_in("kg/m^3") <= high:
+    if isinstance(density, Known) and not low <= density.magnitude_in("kg/m^3") <= high:
         problems.append(
             f"{material.key}: density {density.quantity:g~P} is outside the plausible range"
             f" {low:g} to {high:g} kg/m³"
         )
     yield_strength, tensile_strength = material.yield_strength, material.tensile_strength
     if (
-        isinstance(yield_strength, Cited)
-        and isinstance(tensile_strength, Cited)
+        isinstance(yield_strength, Known)
+        and isinstance(tensile_strength, Known)
         and yield_strength.magnitude_in("MPa") > tensile_strength.magnitude_in("MPa")
     ):
         problems.append(
@@ -217,19 +232,19 @@ def _rule_problems(material: Material) -> list[str]:
         )
     modulus, poisson = material.elastic_modulus, material.poisson_ratio
     low, high = ELASTIC_MODULUS_RANGE_GPA
-    if isinstance(modulus, Cited) and not low <= modulus.magnitude_in("GPa") <= high:
+    if isinstance(modulus, Known) and not low <= modulus.magnitude_in("GPa") <= high:
         problems.append(
             f"{material.key}: elastic_modulus {modulus.quantity:g~P} is outside the plausible"
             f" range {low:g} to {high:g} GPa"
         )
-    if isinstance(poisson, Cited) and not 0 < poisson.magnitude_in("dimensionless") < 0.5:
+    if isinstance(poisson, Known) and not 0 < poisson.magnitude_in("dimensionless") < 0.5:
         problems.append(
             f"{material.key}: poisson_ratio {poisson.magnitude_in('dimensionless'):g} is not"
             " above 0 and below 0.5"
         )
     if (
-        isinstance(yield_strength, Cited)
-        and isinstance(modulus, Cited)
+        isinstance(yield_strength, Known)
+        and isinstance(modulus, Known)
         and yield_strength.magnitude_in("MPa") >= MAX_YIELD_STRAIN * modulus.magnitude_in("MPa")
     ):
         problems.append(

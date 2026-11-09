@@ -25,7 +25,7 @@ from trace_store import SPEC_BY_ID
 from cad.checks.report import SPECS
 from cad.checks.result import CheckResult, Measure, Measured, Verdict
 from cad.scorecard.model import Scorecard
-from cad.tables.materials import UNITS, Cited, MaterialsTable, Unknown
+from cad.tables.materials import UNITS, Known, MaterialsTable, Unknown
 
 
 def test_a_genuine_scorecard_resolves_every_number_and_has_no_failure(store: Path) -> None:
@@ -49,7 +49,7 @@ def test_a_density_walks_from_the_check_to_the_table_row_and_its_source(store: P
     assert isinstance(row, TableStep)
     assert (row.material_key, row.field) == (KEY, "density")
     cited = table().get_material(KEY).density
-    assert isinstance(cited, Cited)
+    assert isinstance(cited, Known)
     assert row.source == cited.source
 
 

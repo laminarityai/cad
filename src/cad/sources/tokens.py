@@ -4,11 +4,12 @@
                 quote, or a separator
     unlisted_standard = ISO, ASTM, DIN, GB/T or JIS and a number, when no listed spelling fits
     condition = "at" or "@" and a temperature or a pressure, or "% RH"
-    unit      = a mass over a volume, such as g/cm3, kg/m^3 or lbs./in.3
+    unit      = a mass over a volume, such as g/cm3, kg/m^3 or lbs./in.3, or a pressure from
+                the list in `units`, such as MPa or GPa
     number    = digits with "." or "," marks, or digit groups split by single spaces
     tolerance = ±, +/- or +-
     percent   = %
-    label     = density, typical, nominal, value, and the word for density in a few languages
+    label     = typical, nominal, value, and every field's own labels in `fields`
     separator = , ; : ( ) = [ ]
     mark      = a dash, ~, / or "..." (only ever part of a range or a negative sign)
     word      = any other run of text that starts with a letter
@@ -24,7 +25,9 @@ import unicodedata
 from dataclasses import dataclass
 from typing import Final, Literal
 
+from cad.sources.fields import ALL_LABELS
 from cad.sources.standards import STANDARDS
+from cad.sources.units import PRESSURE_UNITS
 
 type Kind = Literal[
     "standard",
@@ -59,6 +62,15 @@ UNIT_PATTERN: Final = (
     r"(?![A-Za-z0-9^/-])"
 )
 _UNNAMED_UNIT = re.sub(r"\(\?P<\w+>", "(?:", UNIT_PATTERN)
+PRESSURE_PATTERN: Final = (
+    r"(?<![A-Za-z])(?:"
+    + "|".join(re.escape(unit) for unit in sorted(PRESSURE_UNITS, key=len, reverse=True))
+    + r")(?![A-Za-z0-9^/-])"
+)
+_LABELS: Final = "|".join(
+    re.escape(label).replace("'", "['\u2019]")
+    for label in sorted(ALL_LABELS, key=len, reverse=True)
+)
 
 _SPELLINGS: Final = sorted(
     (spelling for spellings in STANDARDS.values() for spelling in spellings), key=len, reverse=True
@@ -83,16 +95,11 @@ _SOURCES: Final[tuple[tuple[Kind, str, int], ...]] = (
         rf"|{_PLAIN_NUMBER} ?% ?RH(?![A-Za-z])",
         re.ASCII,
     ),
-    ("unit", _UNNAMED_UNIT, re.ASCII),
+    ("unit", rf"{_UNNAMED_UNIT}|{PRESSURE_PATTERN}", re.ASCII),
     ("number", rf"\d{{1,3}}(?: \d{{3}})+(?!\d)(?:[.,]\d+)?|{_PLAIN_NUMBER}", re.ASCII),
     ("tolerance", r"±|\+/-|\+-", re.ASCII),
     ("percent", r"%", re.ASCII),
-    (
-        "label",
-        r"(?<![A-Za-z])(?i:mass density|density|typical|nominal|value|densidad|dichte"
-        r"|densité)(?![A-Za-z])|\u03c1",
-        re.ASCII,
-    ),
+    ("label", rf"(?<![A-Za-z])(?i:{_LABELS})(?![A-Za-z])", re.ASCII),
     ("separator", r"[,;:()=\[\]]", re.ASCII),
     ("mark", r"\.{2,}|[-\u2010-―~/]", re.ASCII),
     ("word", r"[^\W\d_][^ ,;:()=\[\]]*", 0),

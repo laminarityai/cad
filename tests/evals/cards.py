@@ -27,7 +27,7 @@ from cad.records.roots import Roots
 from cad.scorecard.model import Basis, NoBrief, Scorecard
 from cad.scorecard.requirements import against
 from cad.scorecard.score import SCORECARD
-from cad.tables.materials import UNITS, Cited, MaterialsTable, load_materials
+from cad.tables.materials import UNITS, Known, MaterialsTable, load_materials
 
 KEY = "prusament-pla"
 VARIANT_ID = "0123456789abcdef"
@@ -44,7 +44,7 @@ def table() -> MaterialsTable:
 
 def table_number(field: str, unit: str) -> pint.Quantity:
     cited = getattr(table().get_material(KEY), field)
-    assert isinstance(cited, Cited)
+    assert isinstance(cited, Known)
     return UNITS.Quantity(cited.magnitude_in(unit), unit)
 
 

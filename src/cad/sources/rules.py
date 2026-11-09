@@ -9,7 +9,7 @@ from itertools import pairwise
 from typing import Final
 
 from cad.sources.conditions import several_conditions
-from cad.sources.fields import FieldSpec
+from cad.sources.fields import GENERIC_LABELS, FieldSpec, label_key
 from cad.sources.refusal import Reason, Refusal
 from cad.sources.scan import DASHES, Value, is_negative, unlisted_unit
 from cad.sources.tokens import Token
@@ -30,6 +30,7 @@ def refuse(
     found_values = [item for item in items if isinstance(item, Value)]
     leftovers = [item for item in items if isinstance(item, int)]
     for check in (
+        _other_quantity(found, spec),
         _standard_number(text, found, spec),
         _condition_ends(text, found),
         _range(text, found, items, spec),
@@ -41,6 +42,7 @@ def refuse(
         _touching(text, found, early=False),
         _unrecognised(found, leftovers, spec),
         several_conditions(found, spec),
+        _unlabelled(found, spec) if found_values else None,
     ):
         if check is not None:
             return check
@@ -71,7 +73,7 @@ def _standard_number(text: str, found: list[Token], spec: FieldSpec) -> Refusal 
             reached += 1
         number = found[reached] if reached < len(found) else None
         if token.kind == "unlisted_standard" and index + 1 < len(found):
-            refusal = _unlisted(text, token, found[index + 1], number)
+            refusal = _unlisted(text, token, found[index + 1], number, spec)
             if refusal is not None:
                 return refusal
         if number is not None and number.kind == "number" and number.text.isdigit():
@@ -90,23 +92,25 @@ def _joins(token: Token) -> bool:
     return token.kind == "mark" or (token.kind == "separator" and token.text not in ")]")
 
 
-def _unlisted(text: str, token: Token, after: Token, number: Token | None) -> Refusal | None:
+def _unlisted(
+    text: str, token: Token, after: Token, number: Token | None, spec: FieldSpec
+) -> Refusal | None:
     if after.kind == "unit":
         digits = re.findall(r"\d+", token.text)[-1]
         detail = (
-            f"{token.text!r} is not on this reader's list of density test standards, and "
+            f"{token.text!r} is not on this reader's list of {spec.label} test standards, and "
             f"its last digits {digits!r} sit right before the unit {after.text!r}, so they "
             "could be the value or part of the standard, such as its edition year"
         )
     elif not after.spaced and after.kind != "separator":
         rest = text[after.start :].split(" ")[0]
         detail = (
-            f"{token.text + rest!r} is not on this reader's list of density test standards, "
+            f"{token.text + rest!r} is not on this reader's list of {spec.label} test standards, "
             "so it is unclear where the standard's number ends"
         )
     elif number is not None and number.kind == "number":
         detail = (
-            f"the standard {token.text!r} is not on this reader's list of density test "
+            f"the standard {token.text!r} is not on this reader's list of {spec.label} test "
             f"standards, so it is unclear where its number ends and the value {number.text!r} "
             "starts"
         )
@@ -220,7 +224,7 @@ def _unit_text(found: list[Token], leftovers: list[int], spec: FieldSpec) -> Ref
             return Refusal(
                 Reason.UNKNOWN_UNIT,
                 f"'{word.text} 3' has its exponent apart from the unit",
-                f"the unit of the {spec.label} on the page, written as g/cm3 or kg/m3",
+                f"the unit of the {spec.label} on the page, written as {spec.unit_hint}",
             )
         return unlisted_unit(word.text, spec)
     return None
@@ -299,6 +303,31 @@ def _unrecognised(found: list[Token], leftovers: list[int], spec: FieldSpec) -> 
         return Refusal(
             Reason.UNRECOGNISED_TEXT,
             f"{shown} is not a {spec.label} value, label, standard or condition",
-            f"a quote of just the {spec.label} value and its unit, such as 1.24 g/cm3",
+            f"a quote of just the {spec.label} value and its unit, written as {spec.unit_hint}",
         )
     return None
+
+
+def _other_quantity(found: list[Token], spec: FieldSpec) -> Refusal | None:
+    own = {label_key(label) for label in (*spec.labels, *GENERIC_LABELS)}
+    for token in found:
+        if token.kind == "label" and label_key(token.text) not in own:
+            return Refusal(
+                Reason.OTHER_QUANTITY,
+                f"the quote names {token.text!r}, which is not the {spec.label}",
+                f"a quote that names the {spec.label} itself, such as {spec.labels[0]!r}",
+            )
+    return None
+
+
+def _unlabelled(found: list[Token], spec: FieldSpec) -> Refusal | None:
+    if not spec.needs_label:
+        return None
+    own = {label_key(label) for label in spec.labels}
+    if any(token.kind == "label" and label_key(token.text) in own for token in found):
+        return None
+    return Refusal(
+        Reason.NO_LABEL,
+        f"the quote does not name the {spec.label}, so the number could be another quantity",
+        f"a quote that names the {spec.label}, such as {spec.labels[0]!r}, next to its value",
+    )
