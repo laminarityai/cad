@@ -99,7 +99,7 @@ def _opens_urls(ctx: Context[Any, Any]) -> bool:
     return (
         declared is not None
         and declared.elicitation is not None
-        and (declared.elicitation.url is not None)
+        and declared.elicitation.url is not None
     )
 
 
