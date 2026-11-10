@@ -46,6 +46,24 @@ class Said(BaseModel):
     text: str = Field(min_length=1, max_length=MAX_MESSAGE_CHARS)
 
 
+class ConversationCreated(BaseModel):
+    conversation_id: str
+    mode: Mode
+
+
+class MessageSent(BaseModel):
+    seq: int
+
+
+class Follow(BaseModel):
+    """`after` and the `Last-Event-ID` header both name the last event seen. A browser's
+    EventSource sends the header by itself when it reconnects, and the header wins."""
+
+    conversation_id: str
+    after: int = 0
+    follow: bool = True
+
+
 @dataclass
 class Chat:
     model: Model
@@ -103,7 +121,7 @@ def chat_routes(person_of: PersonOf, chat: Chat) -> list[Route]:
             return _error(415, "send application/json")
         cid = conversation_id(f"c_{secrets.token_hex(8)}")
         held = store.set_mode(chat.tenants.of(who.account), cid, Mode.PLAN)
-        return JSONResponse({"conversation_id": cid, "mode": held.mode}, 201)
+        return _json(ConversationCreated(conversation_id=cid, mode=held.mode), 201)
 
     async def send(request: Request) -> Response:
         who = person(request)
@@ -122,7 +140,7 @@ def chat_routes(person_of: PersonOf, chat: Chat) -> list[Route]:
         seq = chat.start(who, cid, channel, said.text)
         if seq is None:
             return _error(409, "the agent is still answering the last message")
-        return JSONResponse({"seq": seq}, 202)
+        return _json(MessageSent(seq=seq), 202)
 
     async def stream(request: Request) -> Response:
         who = person(request)
@@ -133,12 +151,13 @@ def chat_routes(person_of: PersonOf, chat: Chat) -> list[Route]:
             return found
         _, channel = found
         try:
-            seen = int(request.headers.get("last-event-id") or request.query_params.get("after", 0))
-        except ValueError:
-            return _error(422, "after and Last-Event-ID are event numbers")
-        follow = request.query_params.get("follow", "true") != "false"
+            asked = Follow.model_validate({**request.query_params, **request.path_params})
+            header = request.headers.get("last-event-id")
+            seen = int(header) if header else asked.after
+        except (ValidationError, ValueError):
+            return _error(422, "after and Last-Event-ID are event numbers, follow is a boolean")
         return StreamingResponse(
-            _events(channel, max(seen, 0), follow),
+            _events(channel, max(seen, 0), asked.follow),
             media_type="text/event-stream",
             headers=STREAM_HEADERS,
         )
@@ -174,6 +193,10 @@ def _is_json(request: Request) -> bool:
     return request.headers.get("content-type", "").split(";")[0].strip().lower() == (
         "application/json"
     )
+
+
+def _json(body: BaseModel, status: int) -> Response:
+    return Response(body.model_dump_json(), status, media_type="application/json")
 
 
 def _error(status: int, message: str, headers: dict[str, str] | None = None) -> Response:

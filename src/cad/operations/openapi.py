@@ -5,7 +5,7 @@ from typing import Final, TypeAliasType, cast
 
 from pydantic import BaseModel, TypeAdapter
 from pydantic.json_schema import GenerateJsonSchema, JsonSchemaMode
-from pydantic_core import CoreSchema
+from pydantic_core import CoreSchema, core_schema
 
 from cad.operations.model import Audience, Operation
 from cad.operations.routes import Served
@@ -31,6 +31,17 @@ class Untitled(GenerateJsonSchema):
         del schema
         return False
 
+    def field_is_required(
+        self,
+        field: core_schema.ModelField | core_schema.DataclassField | core_schema.TypedDictField,
+        total: bool,
+    ) -> bool:
+        """A body the server sends holds every field, defaulted or not, except one whose
+        `exclude_if` held, which may be absent."""
+        if self.mode == "serialization":
+            return field.get("serialization_exclude_if") is None
+        return super().field_is_required(field, total)
+
 
 REGISTRY_FAILURES: Final = (400, 401, 404, 422, 503)
 
@@ -44,7 +55,7 @@ class Described:
     output: type[BaseModel] | TypeAliasType
     immutable: bool = False
     status: int = 200
-    stream: bool = False
+    events: str = ""
     requires_json_body: bool = False
     failures: tuple[int, ...] = REGISTRY_FAILURES
 
@@ -186,13 +197,8 @@ def _parameter(name: str, where: str, required: bool, schema: Json) -> Json:
 
 
 def _responses(one: Described, output: Json) -> Json:
-    media = "text/event-stream" if one.stream else "application/json"
-    what = (
-        "server-sent events: id is the sequence number, event is the kind, data is one event"
-        if one.stream
-        else "the result"
-    )
-    ok: Json = {"description": what, "content": {media: {"schema": output}}}
+    media = "text/event-stream" if one.events else "application/json"
+    ok: Json = {"description": one.events or "the result", "content": {media: {"schema": output}}}
     responses: Json = {str(one.status): ok}
     if one.immutable:
         ok["headers"] = {
