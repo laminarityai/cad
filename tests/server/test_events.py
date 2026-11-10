@@ -115,7 +115,7 @@ class StreamedResponse:
 
 @asynccontextmanager
 async def opened(
-    app: Starlette, token: str = "ok", path: str = PATH
+    app: Starlette, token: str = "ok", path: str = PATH, query: bytes = QUERY
 ) -> AsyncGenerator[StreamedResponse]:
     sent, received = anyio.create_memory_object_stream[MutableMapping[str, Any]](100)
     gone = anyio.Event()
@@ -133,7 +133,7 @@ async def opened(
         "path": path,
         "raw_path": path.encode(),
         "root_path": "",
-        "query_string": QUERY,
+        "query_string": query,
         "headers": [(b"cookie", f"__session={token}".encode()), (b"host", b"127.0.0.1")],
         "server": ("127.0.0.1", 8765),
         "client": ("127.0.0.1", 50000),
@@ -322,6 +322,19 @@ async def test_a_variant_of_another_account_is_not_found_and_sends_no_card(
         assert stream.status == 404
         body = await stream.whole()
     assert "UnknownVariant" in body
+    assert "event: scorecard" not in body
+    assert lanes.listeners == []
+
+
+async def test_a_material_key_no_table_row_names_is_refused_as_the_scorecard_route_refuses(
+    tenant: Tenant,
+) -> None:
+    lanes = Announcer()
+    unknown = b"material_key=unobtanium"
+    async with opened(app_of(tenant, lanes, FakeScorecard()), query=unknown) as stream:
+        assert stream.status == 400
+        body = await stream.whole()
+    assert "NotScored" in body
     assert "event: scorecard" not in body
     assert lanes.listeners == []
 

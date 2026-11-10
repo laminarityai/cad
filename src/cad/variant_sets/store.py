@@ -66,11 +66,12 @@ def build_into_set(
 def _drop_replaced(
     root: Path, key: SetKey, variants_root: Path, joined: Joined, lanes: Lanes
 ) -> None:
-    member = next((m for m in members(root, key) if m.slot == joined.slot), None)
+    held = members(root, key)
+    member = next((m for m in held if m.slot == joined.slot), None)
     if member is None or len(member.revisions) < 2:
         return
-    current = member.latest.built_as
-    for replaced in {revision.built_as for revision in member.revisions[:-1]} - {current}:
+    shown = {m.latest.built_as for m in held}
+    for replaced in {revision.built_as for revision in member.revisions[:-1]} - shown:
         lanes.drop_unstarted(variants_root, replaced)
 
 

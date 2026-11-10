@@ -5,7 +5,8 @@ event is a whole `ScorecardSnapshot` that differs from the one before. Each job 
 result wakes the stream, so a card turns from pending to done at once. A slower store read runs
 beside it, for what no job announces (a confirmation, a researched value), and as the only path
 when the hook is switched off. A variant nobody has scored yet is not refused: the stream stays
-open and sends nothing until its first check stores a result.
+open and sends nothing until its first check stores a result. A material_key that names no row of
+the brief's table, and no material the user confirmed, gets the scorecard route's refusal instead.
 """
 
 import asyncio
@@ -31,7 +32,7 @@ from cad.operations.routes import (
     refuse,
     session_token,
 )
-from cad.operations.scorecards import ScorecardInput, scorecard
+from cad.operations.scorecards import ScorecardInput, names_a_material, scorecard
 from cad.operations.tools import REFUSALS, UNAVAILABLE
 from cad.sandbox.meter import metered
 from cad.scorecard.material import ScorecardSnapshot
@@ -95,7 +96,9 @@ def events_route(
                     with metered(tenant.meter):
                         return snapshot_of(tenant, arguments)
                 except NotScored:
-                    return None
+                    if names_a_material(tenant, arguments):
+                        return None
+                    raise
 
             return await anyio.to_thread.run_sync(run)
 
