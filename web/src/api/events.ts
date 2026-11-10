@@ -1,5 +1,4 @@
-import { restore, type SnapshotOnTheWire } from "./snapshot";
-import type { ScorecardSnapshot } from "./types";
+import { restore, type Scorecard, type SnapshotOnTheWire } from "./snapshot";
 
 export type Connection = "connecting" | "live" | "reconnecting" | "closed";
 
@@ -10,7 +9,7 @@ export interface CardQuery {
 }
 
 export interface CardHandlers {
-  onSnapshot(snapshot: ScorecardSnapshot): void;
+  onSnapshot(snapshot: Scorecard): void;
   onConnection(connection: Connection): void;
   onRefused(reason: string): void;
 }
@@ -26,7 +25,7 @@ export function eventsUrl(query: CardQuery): string {
 }
 
 /** The server's `GET /v1/variants/{variant_id}/events`: each `scorecard` event is a whole
- * `ScorecardSnapshot`, the stream ends with a `refused` event, and the browser reconnects on its own. */
+ * `Scorecard`, the stream ends with a `refused` event, and the browser reconnects on its own. */
 export const serverEvents: ScorecardEvents = {
   open(query, handlers) {
     const source = new EventSource(eventsUrl(query), { withCredentials: true });

@@ -1,12 +1,10 @@
 import type {
-  CheckResult,
   Comparison,
   Measured,
-  PendingCheck,
   RequirementResult,
-  ScorecardSnapshot,
   Verdict,
 } from "@/api/types";
+import type { DoneCheck, RunningCheck, Scorecard } from "@/api/snapshot";
 
 /** A row of the scorecard. Only a settled row carries a verdict, so no pending row can be drawn
  * in a verdict colour. */
@@ -24,7 +22,7 @@ export type Row =
     }
   | { kind: "unverified"; key: string; label: string };
 
-const isPending = (one: CheckResult | PendingCheck): one is PendingCheck => "kind" in one;
+const isPending = (one: DoneCheck | RunningCheck): one is RunningCheck => "kind" in one;
 
 export interface Rows {
   requirements: Row[];
@@ -37,7 +35,7 @@ export function formatQuantity(quantity: Measured): string {
 
 const COMPARATOR = { at_most: "≤", at_least: "≥" } as const;
 
-function measureOf(results: ScorecardSnapshot["results"], checkId: string, name: string) {
+function measureOf(results: Scorecard["results"], checkId: string, name: string) {
   for (const result of results) {
     if (isPending(result) || result.check_id !== checkId) continue;
     const found = result.measured.find((one) => one.name === name);
@@ -46,13 +44,13 @@ function measureOf(results: ScorecardSnapshot["results"], checkId: string, name:
   return null;
 }
 
-function comparisonText(results: ScorecardSnapshot["results"], checkId: string, one: Comparison) {
+function comparisonText(results: Scorecard["results"], checkId: string, one: Comparison) {
   const measured = measureOf(results, checkId, one.measure);
   const limit = `${COMPARATOR[one.comparator]} ${formatQuantity(one.limit)}`;
   return measured ? `${one.measure} ${formatQuantity(measured)} ${limit}` : `${one.measure} ${limit}`;
 }
 
-function requirementRow(results: ScorecardSnapshot["results"], one: RequirementResult): Row {
+function requirementRow(results: Scorecard["results"], one: RequirementResult): Row {
   const key = `req:${one.requirement_id}`;
   switch (one.kind) {
     case "waiting":
@@ -73,7 +71,7 @@ function requirementRow(results: ScorecardSnapshot["results"], one: RequirementR
   }
 }
 
-function checkRow(one: CheckResult | PendingCheck): Row {
+function checkRow(one: DoneCheck | RunningCheck): Row {
   const label = one.instance ? `${one.check_id} ${one.instance}` : one.check_id;
   const key = `check:${one.check_id}:${one.instance}`;
   if (isPending(one)) return { kind: "pending", key, label, check: one.check_id };
@@ -89,7 +87,7 @@ function checkRow(one: CheckResult | PendingCheck): Row {
   };
 }
 
-export function rowsOf(snapshot: ScorecardSnapshot): Rows {
+export function rowsOf(snapshot: Scorecard): Rows {
   const against = snapshot.basis.kind === "against_brief" ? snapshot.basis : null;
   return {
     requirements: against ? against.requirements.map((one) => requirementRow(snapshot.results, one)) : [],
@@ -102,7 +100,7 @@ export function ghostOf(row: Row): string | null {
   return row.kind === "settled" && row.measures.length > 0 ? row.measures.join("; ") : null;
 }
 
-export function ghostsOf(snapshot: ScorecardSnapshot | null): Record<string, string> {
+export function ghostsOf(snapshot: Scorecard | null): Record<string, string> {
   if (!snapshot) return {};
   const found: Record<string, string> = {};
   const { requirements, checks } = rowsOf(snapshot);

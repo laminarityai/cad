@@ -1,13 +1,11 @@
 import type {
   BriefView,
   Checked,
-  CheckResult,
-  PendingCheck,
   RequirementResult,
-  ScorecardSnapshot,
   Verdict,
   Waiting,
 } from "@/api/types";
+import type { DoneCheck, RunningCheck, Scorecard } from "@/api/snapshot";
 
 export const mass = (verdict: Verdict): Checked => ({
   kind: "checked",
@@ -35,7 +33,7 @@ export const deflectionDone = (): Checked => ({
   check_id: "fea",
 });
 
-export const massResult = (grams = 41.2): CheckResult => ({
+export const massResult = (grams = 41.2): DoneCheck => ({
   check_id: "mass",
   verdict: "pass",
   measured: [{ name: "mass", value: { magnitude: grams, unit: "g" } }],
@@ -47,7 +45,7 @@ export const massResult = (grams = 41.2): CheckResult => ({
   reads: [],
 });
 
-export const feaPending = (): PendingCheck => ({
+export const feaPending = (): RunningCheck => ({
   kind: "pending",
   check_id: "fea",
   formula: "linear static",
@@ -60,9 +58,9 @@ export const feaPending = (): PendingCheck => ({
 export function snapshot(
   variantId: string,
   requirements: RequirementResult[],
-  results: ScorecardSnapshot["results"],
+  results: Scorecard["results"],
   etag = variantId,
-): ScorecardSnapshot {
+): Scorecard {
   return {
     variant_id: variantId,
     rebuilt_from: null,

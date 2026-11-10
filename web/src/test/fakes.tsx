@@ -1,7 +1,8 @@
 import { vi } from "vitest";
 import type { Api } from "@/api/client";
 import type { CardHandlers, CardQuery, ScorecardEvents } from "@/api/events";
-import type { ScorecardSnapshot, Tessellated, VariantSetView } from "@/api/types";
+import type { Scorecard } from "@/api/snapshot";
+import type { Tessellated, VariantSetView } from "@/api/types";
 import type { Shapes, ViewerEngine } from "@/features/viewer/engine";
 import { brief } from "./fixtures";
 
@@ -67,7 +68,7 @@ export class FakeEvents implements ScorecardEvents {
     };
   }
 
-  push(snapshot: ScorecardSnapshot): void {
+  push(snapshot: Scorecard): void {
     const open = this.opened.filter((one) => one.query.variantId === snapshot.variant_id && !one.closed);
     for (const one of open) one.handlers.onSnapshot(snapshot);
   }

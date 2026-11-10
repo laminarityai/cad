@@ -1,13 +1,13 @@
 import type { Connection } from "@/api/events";
-import type { ScorecardSnapshot } from "@/api/types";
+import type { Scorecard } from "@/api/snapshot";
 
 /** One slot's card. `previous` is the last snapshot of the slot's earlier revision, kept so the
  * rows of a rebuilt revision can show the number they had before. */
 export interface CardState {
   variantId: string;
   connection: Connection;
-  snapshot: ScorecardSnapshot | null;
-  previous: ScorecardSnapshot | null;
+  snapshot: Scorecard | null;
+  previous: Scorecard | null;
   refused: string | null;
 }
 
@@ -15,7 +15,7 @@ export type CardsState = Readonly<Record<number, CardState>>;
 
 export type CardsAction =
   | { type: "retarget"; slot: number; variantId: string }
-  | { type: "snapshot"; slot: number; snapshot: ScorecardSnapshot }
+  | { type: "snapshot"; slot: number; snapshot: Scorecard }
   | { type: "connection"; slot: number; variantId: string; connection: Connection }
   | { type: "refused"; slot: number; variantId: string; reason: string }
   | { type: "drop"; keep: readonly number[] };
