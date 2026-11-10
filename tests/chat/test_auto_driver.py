@@ -48,7 +48,6 @@ def auto(chat: Chat, cid: str) -> None:
 
 
 def run_of(chat: Chat, cid: str) -> Any:
-    """The run auto_start returned in this conversation, since a stop clears the held run."""
     tenant = chat.tenants.of(AccountId(ALICE))
     channel = chat.app.state.chat.channels.of(
         AccountId(ALICE), tenant.conversations, ConversationId(cid)

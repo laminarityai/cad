@@ -60,8 +60,7 @@ class AutoDriver:
             self.run_id, self.reported, self.nudges = run_id, False, 0
 
     def ending(self) -> StopReport | TurnFailed | None:
-        """The report of a stop this conversation has not yet seen, read from the signed run log,
-        or a failure that names the run when its log fails the signature check."""
+        """A stop's report this conversation has not yet seen, read from the signed run log."""
         if self.reported:
             return None
         try:
