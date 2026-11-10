@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "Local MCP server where an agent builds CAD variants in a sandbox and fixed checks score them."
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "anthropic>=1,<2",
     "mcp==2.3.0",
     "packaging>=24",
     "pint>=0.24",

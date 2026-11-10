@@ -47,18 +47,20 @@ AUTO_START = (
     "conversation, and after the person moves the conversation out of Auto mode. A "
     "conversation holds one run at a time: while its run has not stopped, starting another "
     "brief's run is refused until you stop that run with auto_ask. In Auto mode, "
-    "build_variant and score_variant are refused until a run is started. The person can "
-    "stop the run from the web app, which also moves the conversation to Design mode."
+    "build_variant and score_variant are refused until a run is started. Every stop of a "
+    "run, whatever its reason, moves the conversation to Design mode, so auto_start is "
+    "refused until the person switches the conversation to Auto mode again."
 )
 STOPS = (
     "The run stops when every checked requirement of the latest revision passes, when a "
     "requirement waits on the person, when requirements are proposed in the run's project, "
     "when you call auto_ask, when the person stops it, or when the account's usage limit "
     "refuses a build or a check. Once it has "
-    "stopped, auto_revise, build_variant and score_variant are refused before anything builds "
-    "or runs: give the user the stop's report and start nothing more. The person can also stop "
-    "the run with the Stop button in the web app. build_variant and score_variant take the run "
-    "from the conversation, so they have no auto_run argument. "
+    "stopped, the conversation is in Design mode: auto_start, auto_revise and auto_ask are "
+    "refused, and build_variant and score_variant follow Design mode, not the run. Give the "
+    "user the stop's report and start nothing more. The person can also stop the run with the "
+    "Stop button in the web app. build_variant and score_variant take the run from the "
+    "conversation, so they have no auto_run argument. "
 )
 AUTO_REVISE = (
     "Build and score one revision of the design under an Auto run the person started. Pass "
@@ -80,15 +82,16 @@ AUTO_ASK = (
     "Stop an Auto run because you need the person: you are stuck, or only the person can "
     "decide, such as which of two conflicting requirements to relax. note says what you tried "
     "and what the person must decide, and names each requirement it is about. The stop's "
-    "report gives the note as you wrote it. Returns the stopped run. On a run that has "
-    "already stopped, nothing is recorded and the existing stop is returned."
+    "report gives the note as you wrote it. Returns the stopped run, and the conversation "
+    "moves to Design mode. A run that has already stopped is no longer held, so nothing is "
+    "recorded and the call is refused."
 )
 AUTO_STOP = (
     "Stop an Auto run for the person, who pressed Stop in the web app. When the run is its "
-    "conversation's current run, the conversation also leaves Auto mode for Design, the same "
-    "way a switch of mode does, so the agent cannot start Auto again until the person picks "
-    "Auto. On a run that has already stopped, nothing more is recorded. Returns the stopped run "
-    "and the conversation's mode."
+    "conversation's current run, the conversation also leaves Auto mode for Design, as it does "
+    "after every stop, so the agent cannot start Auto again until the person picks Auto. On a "
+    "run that has already stopped, nothing more is recorded. Returns the stopped run and the "
+    "conversation's mode."
 )
 
 
@@ -154,7 +157,7 @@ def auto_start(tenant: Tenant, arguments: StartInput) -> AutoRun:
             fresh = not log.exists(roots, run_id)
             if fresh:
                 log.create_run(roots, run_id, started)
-            run = record_proposals(roots, run_id)
+            run = record_proposals(tenant, run_id)
             if fresh or isinstance(run.state, Running):
                 if run.state.start.conversation != cid:
                     raise RunNotHeld(
@@ -178,7 +181,7 @@ def auto_revise(tenant: Tenant, arguments: ReviseInput) -> AutoRun:
         return AutoRun(run_id=run_id, state=running)
     revision = len(running.history) + 1
     vid = entry.variant_id(arguments.code, image.image_tag(image.BUILD))
-    with stops_at_the_limit(roots, run_id, vid):
+    with stops_at_the_limit(tenant, vid):
         built = variant_sets.build_into_set(
             roots, tenant.variants, brief_id, arguments.code, arguments.slot
         )
@@ -205,7 +208,7 @@ def auto_revise(tenant: Tenant, arguments: ReviseInput) -> AutoRun:
             return None
         return Revised(standing=standing.model_copy(update={"revision": len(state.history) + 1}))
 
-    return log.append_event(roots, run_id, make)
+    return conversations.record_event(tenant, run_id, make)
 
 
 def _tried(state: AutoState, sha: str) -> bool:
@@ -230,8 +233,10 @@ def auto_stop(tenant: Tenant, arguments: StopInput) -> PersonStop:
 
 def auto_ask(tenant: Tenant, arguments: AskInput) -> AutoRun:
     _refuse_unless_held(tenant, arguments.run_id)
-    record_proposals(tenant.roots, arguments.run_id)
-    return log.append_event(tenant.roots, arguments.run_id, lambda _: Asked(note=arguments.note))
+    record_proposals(tenant, arguments.run_id)
+    return conversations.record_event(
+        tenant, arguments.run_id, lambda _: Asked(note=arguments.note)
+    )
 
 
 OPERATIONS: Final = (

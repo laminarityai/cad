@@ -160,7 +160,7 @@ def score_variant(tenant: Tenant, arguments: ScoreVariantInput) -> material.Repo
     basis = judged(tenant, arguments.brief_id, arguments.material_key)
     if arguments.own_measurements:
         own.refuse_unless_unchecked(basis.confirmed, arguments.own_measurements)
-    with stops_at_the_limit(tenant.roots, tenant.auto_run, arguments.variant_id):
+    with stops_at_the_limit(tenant, arguments.variant_id):
         scored = score.score_variant(
             arguments.variant_id,
             basis.material_key,

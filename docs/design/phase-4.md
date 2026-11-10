@@ -215,7 +215,7 @@ A revision counts only once its scorecard has no pending check. The server waits
 
 State lives in an append-only signed log at `projects/<pid>/auto/<run>/NNNN.signed`. `AutoState` is a fold over that log, never a stored field, as brief status already is. Replaying `auto_revise` with the same code gives the same variant id, which is already in the log, so it returns the same state without appending.
 
-**Modes** are conversation state. `set_mode` is `PERSON` only. The `AgentToken` carries only the conversation (§2.4). The server reads the mode from the conversation store at each call. Under Plan mode the server refuses `build_variant` for that conversation. Switching to Auto mode is the person's act, and `auto_start` in a conversation whose mode is not Auto is refused. A run's start record names the conversation that started it, and only that conversation, while in Auto mode, can revise, ask or restart it (ADR-0010, amendment). The person's Stop moves the conversation to Design.
+**Modes** are conversation state. `set_mode` is `PERSON` only. The `AgentToken` carries only the conversation (§2.4). The server reads the mode from the conversation store at each call. Under Plan mode the server refuses `build_variant` for that conversation. Switching to Auto mode is the person's act, and `auto_start` in a conversation whose mode is not Auto is refused. A run's start record names the conversation that started it, and only that conversation, while in Auto mode, can revise, ask or restart it (ADR-0010, amendment). Every stop of a run, not only the person's Stop, moves its conversation to Design.
 
 ### 2.6 Reads and streaming
 

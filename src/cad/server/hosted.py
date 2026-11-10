@@ -39,6 +39,8 @@ from cad.accounts.local import LocalIssuer
 from cad.accounts.principal import AgentToken
 from cad.accounts.tenants import ACCOUNTS, Tenants
 from cad.accounts.tokens import Issuer, Verifier
+from cad.chat.model import Model, from_environment
+from cad.chat.routes import Chat, chat_routes
 from cad.confirmations.ballot import Opener, program_opener
 from cad.context_parts.ingest import ingest as read_part
 from cad.context_parts.store import Ingest
@@ -84,8 +86,14 @@ class AgentTokens:
         )
 
 
-def build_app(issuer: Issuer, tenants: Tenants, hooked: bool = True) -> Starlette:
+def build_app(
+    issuer: Issuer, tenants: Tenants, model: Model | None = None, hooked: bool = True
+) -> Starlette:
+    """`model` runs the chat agent. None reads `CAD_CHAT_MODEL`, so a server with no model
+    configured still starts and answers every call but a chat message. `hooked` wakes the
+    scorecard events stream from the job queue instead of polling."""
     verifier = Verifier(issuer)
+    chat = Chat(model or from_environment(os.environ), tenants)
 
     def tenant_of_token() -> Tenant:
         token = get_access_token()
@@ -114,6 +122,8 @@ def build_app(issuer: Issuer, tenants: Tenants, hooked: bool = True) -> Starlett
     app.router.routes.insert(0, _resource_metadata(issuer))
     app.router.routes.extend(person_routes(OPERATIONS, ROUTES, verifier.person, tenants.of))
     app.router.routes.append(events_route(verifier.person, tenants.of, hooked=hooked))
+    app.router.routes.extend(chat_routes(verifier.person, chat))
+    app.state.chat = chat
     return app
 
 
@@ -178,7 +188,7 @@ def serve(
     logging.getLogger(__name__).info("serving %s, tokens from %s", issuer.resource, issuer.url)
     with held:
         uvicorn.run(
-            build_app(issuer, tenants, hooked),
+            build_app(issuer, tenants, hooked=hooked),
             host=host,
             port=port,
             log_level="warning",

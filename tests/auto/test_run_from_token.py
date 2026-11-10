@@ -7,11 +7,12 @@ import pytest
 from mcp import Client
 from mcp.server import MCPServer
 
-from cad.auto.model import Running, Stopped, StoppedByPerson
+from cad.auto.model import Running, RunStopped, Stopped, StoppedByPerson
 from cad.conversations import store
 from cad.conversations.model import ConversationId, Mode
 from cad.operations.registry import OPERATIONS
 from cad.operations.tools import tools
+from cad.operations.variants import BuildVariantInput, build_variant
 
 if TYPE_CHECKING:
     from auto.conftest import Session
@@ -42,15 +43,15 @@ async def refusal_in(s: Session, cid: ConversationId, tool: str, **arguments: ob
     return result.content[0].model_dump()["text"]
 
 
-async def test_the_conversations_run_gates_a_build_and_a_stopped_run_starts_nothing(
+async def test_a_call_bound_before_the_stop_is_refused_and_starts_nothing(
     s: Session, started: list[str]
 ) -> None:
     brief_id, run_id = await running(s)
-    store.set_mode(s.tenant, s.conversation, Mode.AUTO)
+    before_the_stop = s.bound
     stopped = await s.call("auto_ask", run_id=run_id, note="stuck")
     assert stopped["state"]["kind"] == "stopped"
-    text = await s.refusal("build_variant", code=PLATE, brief_id=brief_id)
-    assert f"RunStopped: auto run {run_id} has stopped" in text
+    with pytest.raises(RunStopped):
+        build_variant(before_the_stop, BuildVariantInput(code=PLATE, brief_id=brief_id))
     assert (started, s.meter.asked) == ([], [])
 
 
