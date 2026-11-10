@@ -45,6 +45,7 @@ from cad.confirmations.ballot import Opener, program_opener
 from cad.context_parts.ingest import ingest as read_part
 from cad.context_parts.store import Ingest
 from cad.conversations import store
+from cad.operations.events import events_route
 from cad.operations.guidance import INSTRUCTIONS
 from cad.operations.model import Tenant
 from cad.operations.registry import OPERATIONS, ROUTES
@@ -85,9 +86,12 @@ class AgentTokens:
         )
 
 
-def build_app(issuer: Issuer, tenants: Tenants, model: Model | None = None) -> Starlette:
+def build_app(
+    issuer: Issuer, tenants: Tenants, model: Model | None = None, hooked: bool = True
+) -> Starlette:
     """`model` runs the chat agent. None reads `CAD_CHAT_MODEL`, so a server with no model
-    configured still starts and answers every call but a chat message."""
+    configured still starts and answers every call but a chat message. `hooked` wakes the
+    scorecard events stream from the job queue instead of polling."""
     verifier = Verifier(issuer)
     chat = Chat(model or from_environment(os.environ), tenants)
 
@@ -117,6 +121,7 @@ def build_app(issuer: Issuer, tenants: Tenants, model: Model | None = None) -> S
     )
     app.router.routes.insert(0, _resource_metadata(issuer))
     app.router.routes.extend(person_routes(OPERATIONS, ROUTES, verifier.person, tenants.of))
+    app.router.routes.append(events_route(verifier.person, tenants.of, hooked=hooked))
     app.router.routes.extend(chat_routes(verifier.person, chat))
     app.state.chat = chat
     return app
@@ -169,6 +174,7 @@ def serve(
     opener: Opener,
     ingest: Ingest = read_part,
     environ: Mapping[str, str] = os.environ,
+    hooked: bool = True,
 ) -> None:
     issuer = choose_issuer(root, host, port, environ)
     try:
@@ -182,7 +188,7 @@ def serve(
     logging.getLogger(__name__).info("serving %s, tokens from %s", issuer.resource, issuer.url)
     with held:
         uvicorn.run(
-            build_app(issuer, tenants),
+            build_app(issuer, tenants, hooked=hooked),
             host=host,
             port=port,
             log_level="warning",
@@ -202,9 +208,21 @@ def main(argv: Sequence[str] | None = None) -> int:
         help=f"container-seconds each account may use per UTC day (default {DAILY_CAP_SECONDS})",
     )
     parser.add_argument("--opener", default="open", metavar="PROGRAM")
+    parser.add_argument(
+        "--poll-events",
+        action="store_true",
+        help="serve scorecard events from a 500 ms store read only, as if no job announced itself",
+    )
     args = parser.parse_args(argv)
     logging.basicConfig(stream=sys.stderr, level=logging.INFO)
-    serve(args.root, args.host, args.port, args.cap_seconds, program_opener(args.opener))
+    serve(
+        args.root,
+        args.host,
+        args.port,
+        args.cap_seconds,
+        program_opener(args.opener),
+        hooked=not args.poll_events,
+    )
     return 0
 
 

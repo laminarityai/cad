@@ -15,6 +15,7 @@ from cad.confirmations.ballot import OS_OPEN
 from cad.context_parts.ingest import ingest
 from cad.geometry import job, store
 from cad.geometry.model import Tessellated, TessellationFailed
+from cad.operations.events import EVENTS_PATH
 from cad.operations.model import Audience, Operation, Tenant
 from cad.operations.registry import OPERATIONS, ROUTES
 from cad.operations.routes import Served, person_routes
@@ -30,6 +31,7 @@ BASE = "http://127.0.0.1:8765"
 RAIL = b"CASCADE Topology V3, a rail\n"
 SHA = hashlib.sha256(RAIL).hexdigest()
 ALICE, BOB = AccountId("user_alice"), AccountId("user_bob")
+OUTSIDE_REGISTRY = CHAT_ROUTES | {("scorecard_events", EVENTS_PATH)}
 
 
 def tessellated(name: str) -> Tessellated:
@@ -87,13 +89,21 @@ def web_routes(app: Starlette) -> dict[str, str]:
         for route in app.router.routes
         if isinstance(route, Route)
         and route.path.startswith("/v1/")
-        and (route.name, route.path) not in CHAT_ROUTES
+        and (route.name, route.path) not in OUTSIDE_REGISTRY
     }
 
 
-async def test_a_stray_route_named_like_a_chat_route_is_not_exempt(app: Starlette) -> None:
-    app.router.routes.append(Route("/v1/stray", endpoint=Starlette(), name="message"))
-    assert web_routes(app)["message"] == "/v1/stray"
+@pytest.mark.parametrize("name", sorted(name for name, _ in OUTSIDE_REGISTRY))
+async def test_a_stray_route_named_like_an_exempt_route_is_not_exempt(
+    app: Starlette, name: str
+) -> None:
+    app.router.routes.append(Route("/v1/stray", endpoint=Starlette(), name=name))
+    assert web_routes(app)[name] == "/v1/stray"
+
+
+async def test_every_exempt_route_is_served(app: Starlette) -> None:
+    served = {(r.name, r.path) for r in app.router.routes if isinstance(r, Route)}
+    assert served >= OUTSIDE_REGISTRY
 
 
 async def test_every_web_route_comes_from_a_registry_operation(app: Starlette) -> None:
@@ -130,6 +140,7 @@ def test_no_person_only_operation_is_an_agent_tool() -> None:
         "/v1/projects/p-0123456789abcdef/briefs/0123456789abcdef/set",
         "/v1/variants/0123456789abcdef",
         "/v1/variants/0123456789abcdef/geometry",
+        "/v1/variants/0123456789abcdef/events",
         f"/v1/geometry/{job.VERSION}/{SHA}.json",
         "/v1/server",
         "/v1/materials",
