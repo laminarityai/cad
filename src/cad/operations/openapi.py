@@ -1,10 +1,3 @@
-"""The OpenAPI description of the person's routes, built from the same table that mounts them.
-
-`tools/gen_ts.py` turns this document into `web/src/api/types.ts`, and the `api types` verify step
-fails when the committed file differs. A route that has no description, or a description that has
-no route, is therefore a build failure and not a drift nobody sees.
-"""
-
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
@@ -14,7 +7,7 @@ from pydantic import BaseModel, TypeAdapter
 from pydantic.json_schema import GenerateJsonSchema, JsonSchemaMode
 from pydantic_core import CoreSchema
 
-from cad.operations.model import Audience, Input, Operation
+from cad.operations.model import Audience, Operation
 from cad.operations.routes import Served
 
 type Json = dict[str, object]
@@ -25,18 +18,21 @@ ERROR: Final = "Error"
 FAILURES: Final = {
     400: ("Refused", "the server refused the request"),
     401: ("SignedOut", "no signed-in person: send a Clerk session token"),
-    404: ("NotFound", "the named variant, brief or project is not stored"),
+    404: ("NotFound", "the named variant, brief, project or conversation is not stored"),
+    409: ("Busy", "the agent is still answering the last message"),
+    415: ("NotJson", "the request is not application/json"),
     422: ("Malformed", "an argument is missing, unknown or malformed"),
     503: ("Unavailable", "a service the call needs is not available"),
 }
 
 
 class Untitled(GenerateJsonSchema):
-    """Pydantic titles every field with its own name in capitals, which only adds noise."""
-
     def field_title_should_be_set(self, schema: object) -> bool:
         del schema
         return False
+
+
+REGISTRY_FAILURES: Final = (400, 401, 404, 422, 503)
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,14 +40,16 @@ class Described:
     name: str
     path: str
     method: str
-    input: type[Input]
+    input: type[BaseModel]
     output: type[BaseModel] | TypeAliasType
     immutable: bool = False
+    status: int = 200
+    stream: bool = False
+    requires_json_body: bool = False
+    failures: tuple[int, ...] = REGISTRY_FAILURES
 
 
 def from_registry(operations: Iterable[Operation], routes: Mapping[str, Served]) -> list[Described]:
-    """One entry for each operation the person can call. A route and an operation must pair up,
-    exactly as `person_routes` requires when it mounts them."""
     reachable = [one for one in operations if Audience.PERSON in one.audience]
     if {one.name for one in reachable} != set(routes):
         raise ValueError("the routes table and the person operations differ")
@@ -90,7 +88,7 @@ def document(described: Sequence[Described]) -> Json:
             _input_fields(made[(one.name, "validation")], schemas),
             made[(one.name, "serialization")],
         )
-    used = _reachable(paths, schemas) | {ERROR}
+    used = _schemas_named_by(paths, schemas) | {ERROR}
     return {
         "openapi": "3.1.0",
         "info": {"title": "cad", "version": "v1"},
@@ -113,9 +111,7 @@ def document(described: Sequence[Described]) -> Json:
     }
 
 
-def _reachable(paths: Mapping[str, object], schemas: Mapping[str, object]) -> set[str]:
-    """The schemas some route names, directly or through another schema. The input models stay out,
-    because a route spells its arguments as parameters and a body."""
+def _schemas_named_by(paths: Mapping[str, object], schemas: Mapping[str, object]) -> set[str]:
     found: set[str] = set()
     pending: list[object] = [paths]
     while pending:
@@ -146,7 +142,6 @@ def _error_schema() -> Json:
 
 
 def _input_fields(schema: Json, schemas: Mapping[str, object]) -> Json:
-    """The object schema behind an input model, with its `$ref` followed."""
     ref = schema.get("$ref")
     if isinstance(ref, str):
         schema = cast(Json, schemas[ref.removeprefix(SCHEMAS)])
@@ -166,9 +161,9 @@ def _operation(one: Described, fields: Json, output: Json) -> Json:
         parameters += [
             _parameter(name, "query", name in required, properties[name]) for name in rest
         ]
-    elif rest:
+    elif rest or one.requires_json_body:
         result["requestBody"] = {
-            "required": bool(required - templated),
+            "required": bool(required - templated) or one.requires_json_body,
             "content": {
                 "application/json": {
                     "schema": {
@@ -191,17 +186,20 @@ def _parameter(name: str, where: str, required: bool, schema: Json) -> Json:
 
 
 def _responses(one: Described, output: Json) -> Json:
-    ok: Json = {
-        "description": "the result",
-        "content": {"application/json": {"schema": output}},
-    }
-    responses: Json = {"200": ok}
+    media = "text/event-stream" if one.stream else "application/json"
+    what = (
+        "server-sent events: id is the sequence number, event is the kind, data is one event"
+        if one.stream
+        else "the result"
+    )
+    ok: Json = {"description": what, "content": {media: {"schema": output}}}
+    responses: Json = {str(one.status): ok}
     if one.immutable:
         ok["headers"] = {
             "ETag": {"schema": {"type": "string"}},
             "Cache-Control": {"schema": {"type": "string"}},
         }
         responses["304"] = {"description": "the client's copy, named by If-None-Match, is current"}
-    for status, (name, _) in FAILURES.items():
-        responses[str(status)] = {"$ref": f"#/components/responses/{name}"}
+    for status in one.failures:
+        responses[str(status)] = {"$ref": f"#/components/responses/{FAILURES[status][0]}"}
     return dict(sorted(responses.items()))
