@@ -79,6 +79,7 @@ def _requirement(grader: dict[str, Any]) -> dict[str, Any]:
 
 def _target(grader: dict[str, Any]) -> dict[str, Any]:
     kind, number, unit = grader["kind"], grader.get("target"), grader.get("unit")
+    edges = cast("list[Any]", number) if kind == "envelope" else []
     match kind:
         case "closed_solid":
             return {"kind": kind}
@@ -87,7 +88,7 @@ def _target(grader: dict[str, Any]) -> dict[str, Any]:
         case "envelope":
             return {
                 "kind": kind,
-                "edges": [{"magnitude": edge, "unit": unit} for edge in number],
+                "edges": [{"magnitude": edge, "unit": unit} for edge in edges],
             }
         case "made_of":
             return {"kind": kind, "material": grader["material"]}
