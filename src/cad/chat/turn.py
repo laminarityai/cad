@@ -100,8 +100,14 @@ async def _converse(model: Model, tenants: Tenants, token: AgentToken, channel: 
             )
             for one in (await client.list_tools()).tools
         ]
-        messages = messages_of(channel.events())
-        driver = AutoDriver.resume(tenant_of())
+        events = channel.events()
+        messages = messages_of(events)
+        driver = AutoDriver.resume(tenant_of(), events)
+        missed = driver.ending()
+        if missed is not None:
+            channel.append(missed)
+            if isinstance(missed, TurnFailed):
+                return
         for _ in range(MAX_STEPS):
             try:
                 reply = await model.reply(_system(tenant_of()), messages, specs)
@@ -111,26 +117,26 @@ async def _converse(model: Model, tenants: Tenants, token: AgentToken, channel: 
             messages.append(reply)
             _say(channel, reply)
             calls = reply.calls
+            if calls:
+                results: list[ToolResult] = []
+                for call in calls:
+                    result = await _call(client, call)
+                    channel.append(
+                        ToolReturned(call_id=call.id, text=result.text, is_error=result.is_error)
+                    )
+                    driver.observe(call, result)
+                    results.append(result)
+                messages.append(Message(role="user", blocks=tuple(results)))
+            ending = driver.ending()
+            if ending is not None:
+                channel.append(ending)
+                return
             if not calls:
                 nudge = driver.nudge()
                 if nudge is None:
                     return
                 channel.append(DriverSaid(text=nudge))
                 messages.append(Message(role="user", blocks=(Text(text=nudge),)))
-                continue
-            results: list[ToolResult] = []
-            for call in calls:
-                result = await _call(client, call)
-                channel.append(
-                    ToolReturned(call_id=call.id, text=result.text, is_error=result.is_error)
-                )
-                driver.observe(call, result)
-                results.append(result)
-            messages.append(Message(role="user", blocks=tuple(results)))
-            report = driver.stop_report()
-            if report is not None:
-                channel.append(report)
-                return
         channel.append(
             TurnFailed(message=f"the turn used its {MAX_STEPS} steps; send a message to continue")
         )

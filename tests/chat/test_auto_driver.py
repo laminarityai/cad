@@ -1,3 +1,4 @@
+import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -6,7 +7,7 @@ from typing import Any, Final
 import pytest
 
 from cad.accounts.principal import AccountId
-from cad.auto.log import read_run
+from cad.auto.log import read_run, run_dir
 from cad.auto.model import Running, Stopped
 from cad.chat.model import Message, Model, ToolSpec
 from cad.chat.scripted import Step
@@ -47,10 +48,15 @@ def auto(chat: Chat, cid: str) -> None:
 
 
 def run_of(chat: Chat, cid: str) -> Any:
+    """The run auto_start returned in this conversation, since a stop clears the held run."""
     tenant = chat.tenants.of(AccountId(ALICE))
-    held = store.read(tenant.conversations, ConversationId(cid))
-    assert held.auto_run is not None
-    return read_run(tenant.roots, held.auto_run)
+    channel = chat.app.state.chat.channels.of(
+        AccountId(ALICE), tenant.conversations, ConversationId(cid)
+    )
+    events = channel.events()
+    started = next(one.call_id for one in events if getattr(one, "name", None) == "auto_start")
+    returned = next(one for one in events if one.kind == "tool_result" and one.call_id == started)
+    return read_run(tenant.roots, json.loads(returned.text)["run_id"])
 
 
 def kinds(events: Sequence[Any]) -> list[str]:
@@ -201,3 +207,95 @@ async def test_design_mode_gets_no_reminder_and_no_report(chat: Chat) -> None:
         await chat.finish()
         events = await chat.events(client, cid)
     assert kinds(events) == ["user", "agent", "turn_ended"]
+
+
+def stop(chat: Chat, cid: str) -> None:
+    tenant = chat.tenants.of(AccountId(ALICE))
+    held = store.read(tenant.conversations, ConversationId(cid))
+    assert held.auto_run is not None
+    store.stop_by_person(tenant, held.auto_run)
+
+
+async def test_the_persons_stop_during_a_text_only_reply_is_reported_once(chat: Chat) -> None:
+    async with chat.client() as client:
+        cid = await chat.conversation(client)
+        auto(chat, cid)
+        chat.app.state.chat.model = PressesStop(
+            script(*confirmed(), step("All good, done."), step("Hello again.")), chat, cid, after=4
+        )
+        await chat.say(client, cid, "build me a plate")
+        await chat.finish()
+        first = await chat.events(client, cid)
+        await chat.say(client, cid, "thanks")
+        await chat.finish()
+        events = await chat.events(client, cid)
+    assert kinds(first)[-3:] == ["agent", "stop_report", "turn_ended"]
+    assert first[-2]["reason"] == "stopped_by_person"
+    assert kinds(events).count("stop_report") == 1
+
+
+async def test_a_stop_pressed_between_turns_is_reported_when_the_next_turn_starts(
+    chat: Chat,
+) -> None:
+    chat.app.state.chat.model = script(
+        *confirmed(), *[step(f"Waiting {n}.") for n in range(4)], step("Hello."), step("Again.")
+    )
+    async with chat.client() as client:
+        cid = await chat.conversation(client)
+        auto(chat, cid)
+        await chat.say(client, cid, "build me a plate")
+        await chat.finish()
+        assert "stop_report" not in kinds(await chat.events(client, cid))
+        run_id = run_of(chat, cid).run_id
+        stop(chat, cid)
+        seen = await chat.say(client, cid, "what happened?")
+        await chat.finish()
+        second = await chat.events(client, cid, after=seen)
+        await chat.say(client, cid, "and now?")
+        await chat.finish()
+        events = await chat.events(client, cid)
+    assert kinds(second)[0] == "stop_report"
+    assert (second[0]["run_id"], second[0]["reason"]) == (run_id, "stopped_by_person")
+    assert kinds(events).count("stop_report") == 1
+
+
+async def test_a_run_of_another_conversation_is_never_reported_here(chat: Chat) -> None:
+    async with chat.client() as client:
+        theirs = await chat.conversation(client)
+        auto(chat, theirs)
+        await chat.say(client, theirs, "build me a plate")
+        await chat.finish()
+        run = run_of(chat, theirs)
+        assert isinstance(run.state, Stopped)
+        chat.app.state.chat.model = script(
+            step("Driving it.", call("auto_revise", run_id=run.run_id, code=PLATE)),
+            step("It was refused."),
+        )
+        mine = await chat.conversation(client)
+        await chat.say(client, mine, "revise that run")
+        await chat.finish()
+        events = await chat.events(client, mine)
+    assert [one["is_error"] for one in events if one["kind"] == "tool_result"] == [True]
+    assert "stop_report" not in kinds(events)
+
+
+async def test_a_tampered_run_log_fails_the_turn_with_a_message_that_names_it(
+    chat: Chat,
+) -> None:
+    chat.app.state.chat.model = script(*confirmed(), *[step(f"Waiting {n}.") for n in range(4)])
+    async with chat.client() as client:
+        cid = await chat.conversation(client)
+        auto(chat, cid)
+        await chat.say(client, cid, "build me a plate")
+        await chat.finish()
+        tenant = chat.tenants.of(AccountId(ALICE))
+        run_id = run_of(chat, cid).run_id
+        for record in sorted(run_dir(tenant.roots, run_id).iterdir()):
+            if record.is_file():
+                record.write_bytes(record.read_bytes() + b"tampered")
+        seen = await chat.say(client, cid, "go on")
+        await chat.finish()
+        events = await chat.events(client, cid, after=seen)
+    assert kinds(events) == ["turn_failed", "turn_ended"]
+    assert run_id in events[0]["message"]
+    assert "cannot be read" in events[0]["message"]

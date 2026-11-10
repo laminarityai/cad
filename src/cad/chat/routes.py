@@ -30,7 +30,13 @@ from cad.operations.routes import CHALLENGE, PersonOf, session_token
 
 MAX_MESSAGE_CHARS: Final = 20_000
 KEEPALIVE_SECONDS: Final = 15.0
-CHAT_ROUTES: Final = frozenset({"create_conversation", "message", "stream"})
+CHAT_ROUTES: Final = frozenset(
+    {
+        ("create_conversation", "/v1/conversations"),
+        ("message", "/v1/conversations/{conversation_id}/messages"),
+        ("stream", "/v1/conversations/{conversation_id}/stream"),
+    }
+)
 STREAM_HEADERS: Final = {"Cache-Control": "no-store", "X-Accel-Buffering": "no"}
 
 
