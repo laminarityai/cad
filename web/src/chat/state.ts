@@ -7,8 +7,6 @@ export type Line =
   | { seq: number; kind: "stop_report"; runId: string; reason: string; report: string }
   | { seq: number; kind: "failed"; message: string };
 
-/** The transcript as the stream has told it. Mode and run are not here: the server holds them, and
- * the page reads them from it, so a change made in another tab shows in this one. */
 export interface ChatState {
   conversationId: string | null;
   lines: readonly Line[];

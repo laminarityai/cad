@@ -29,7 +29,7 @@ const MAKING = "p-3 font-mono text-xs text-ink-3";
 function Mesh({ variantId, slot }: { variantId: string; slot: number }) {
   const mesh = useMesh(variantId);
   if (mesh.status === "failed") return <p className="p-3 font-mono text-xs text-fail">{mesh.reason}</p>;
-  const shapes = mesh.status === "ready" ? mesh.shapes : mesh.previous;
+  const shapes = mesh.status === "ready" ? mesh.shapes : mesh.lastDrawn;
   if (shapes === null) return <p className={MAKING}>Making the mesh…</p>;
   return (
     <div data-mesh={mesh.status} className="relative h-full">

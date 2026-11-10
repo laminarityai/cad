@@ -9,16 +9,15 @@ export interface Follower {
   onLink(link: Link): void;
 }
 
+export type Unfollow = () => void;
+
 export interface ChatApi {
-  /** A conversation about one brief, so the agent knows the project and brief the page shows. */
   create(projectId: string, briefId: string): Promise<ConversationCreated>;
-  /** The conversation's mode and latest Auto run, as the server holds them. */
   read(conversationId: string): Promise<ConversationView>;
   send(conversationId: string, text: string): Promise<MessageSent>;
   setMode(conversationId: string, mode: Mode): Promise<ConversationState>;
   stop(runId: string): Promise<PersonStop>;
-  /** Replays the conversation's transcript and follows it. Returns the function that closes it. */
-  follow(conversationId: string, handlers: Follower): () => void;
+  follow(conversationId: string, handlers: Follower): Unfollow;
 }
 
 const enc = encodeURIComponent;

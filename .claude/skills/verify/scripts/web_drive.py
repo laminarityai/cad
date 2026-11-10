@@ -226,9 +226,6 @@ SLOT_LOG = """
 
 
 def swap_seconds(page: Page, revision_before: int) -> float:
-    """From slot 1 first naming its next revision (its card pending) to the end of the next draw in
-    its viewer, from the page's own 16 ms log, so a draw that blocks the main thread is counted.
-    When one blocked tick saw both, the swap is timed from the tick before it: an upper bound."""
     log: list[dict[str, float]] = page.evaluate("window.__slotLog")
     old = [one for one in log if one["rev"] == revision_before]
     new = [one for one in log if one["rev"] > revision_before]
@@ -237,8 +234,14 @@ def swap_seconds(page: Page, revision_before: int) -> float:
     drawn = next((one for one in new if one["draws"] > old[-1]["draws"]), None)
     if drawn is None:
         return 0.0
-    start = old[-1] if drawn is new[0] else new[0]
-    return round((drawn["at"] - start["at"]) / 1000, 3)
+    return round((drawn["at"] - swap_start(old, new, drawn)["at"]) / 1000, 3)
+
+
+def swap_start(
+    old: list[dict[str, float]], new: list[dict[str, float]], drawn: dict[str, float]
+) -> dict[str, float]:
+    one_blocked_tick_saw_both = drawn is new[0]
+    return old[-1] if one_blocked_tick_saw_both else new[0]
 
 
 def tiles(page: Page) -> dict[str, Any]:
@@ -287,8 +290,6 @@ def turn_finished(page: Page, seconds: float) -> bool:
 
 
 def stop_in_another_tab(page: Page, run: Path, name: str) -> dict[str, Any]:
-    """Press Stop in a second tab on the same conversation, leaving `page` alone, so what `page`
-    shows next it can only have learned from the server."""
     other = page.context.new_page()
     other.goto(page.url)
     open_tab(other, "Chat")

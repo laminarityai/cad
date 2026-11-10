@@ -106,7 +106,6 @@ export class FakeChat implements ChatApi {
 
   create = vi.fn<ChatApi["create"]>(() => Promise.resolve({ conversation_id: "c_new", mode: this.mode }));
 
-  /** What the server holds: the mode and the latest run, current or stopped. */
   read = vi.fn(
     (conversationId: string): Promise<ConversationView> =>
       Promise.resolve({
@@ -151,7 +150,6 @@ export class FakeChat implements ChatApi {
     };
   }
 
-  /** The server stopping the run on its own: the record moves to Design, then the report is said. */
   stopsItself(reason: Exclude<StopReason["kind"], "stopped_by_person">, report: string): void {
     const runId = this.autoRun?.run_id ?? "run_1";
     this.autoRun = stoppedRun(runId, reason, report);

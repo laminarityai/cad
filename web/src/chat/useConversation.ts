@@ -10,14 +10,11 @@ import { chatReducer, chatStart, type ChatState } from "./state";
 
 export const REBUILDS: ReadonlySet<string> = new Set(["build_variant", "auto_revise"]);
 
-/** How long after one read of the conversation the page reads it again, so a stop pressed in
- * another tab shows here within a few seconds. */
 export const CONVERSATION_FOLLOW_MS = 3000;
 
 export interface Conversation {
   state: ChatState;
   mode: Mode | null;
-  /** The run to show: the current one, or in Design and Plan the one that stopped last. */
   run: RunView | null;
   send(text: string): Promise<boolean>;
   pick(mode: Mode): Promise<boolean>;
@@ -27,8 +24,7 @@ export interface Conversation {
 
 const said = (error: unknown) => (error instanceof Error ? error.message : "the request failed");
 
-/** Picking Auto after a run stopped starts fresh: the stopped run belongs to the Design that followed it. */
-function shown(view: ConversationView | null): RunView | null {
+function runToShow(view: ConversationView | null): RunView | null {
   if (view?.run == null) return null;
   const run = viewOf(view.run);
   return view.mode === "auto" && run.status === "stopped" ? null : run;
@@ -46,7 +42,7 @@ export function useConversation(projectId: string, briefId: string, onRebuilt: (
   );
   const view = resource.status === "ok" ? resource.data : null;
   const mode = view?.mode ?? null;
-  const run = shown(view);
+  const run = runToShow(view);
   const rebuilt = useRef(onRebuilt);
   const held = useRef({ mode, run });
   useEffect(() => {

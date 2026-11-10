@@ -63,7 +63,7 @@ describe("useMesh", () => {
     await waitFor(() => {
       expect(geometry).toHaveBeenCalledWith("v2");
     });
-    expect(result.current).toEqual({ status: "loading", previous: drawn });
+    expect(result.current).toEqual({ status: "loading", lastDrawn: drawn });
   });
 
   it("says why a mesh failed", async () => {

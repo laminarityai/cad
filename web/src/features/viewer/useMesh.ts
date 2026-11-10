@@ -3,10 +3,8 @@ import { useServices } from "@/app/context";
 import type { GeometryRead } from "@/api/types";
 import type { Shapes } from "./engine";
 
-/** `previous` is the mesh drawn before this variant's, kept on screen while this one is made. A state
- * is held with the variant it belongs to, so a new variant never reads as the old one's ready mesh. */
 export type MeshState =
-  | { status: "loading"; previous: Shapes | null }
+  | { status: "loading"; lastDrawn: Shapes | null }
   | { status: "ready"; shapes: Shapes }
   | { status: "failed"; reason: string };
 
@@ -18,18 +16,18 @@ interface Held {
 }
 
 const onScreen = (state: MeshState): Shapes | null =>
-  state.status === "ready" ? state.shapes : state.status === "loading" ? state.previous : null;
+  state.status === "ready" ? state.shapes : state.status === "loading" ? state.lastDrawn : null;
 
 function reduce(held: Held, next: Held): Held {
-  return next.state.status === "loading" ? { variantId: next.variantId, state: { status: "loading", previous: onScreen(held.state) } } : next;
+  return next.state.status === "loading" ? { variantId: next.variantId, state: { status: "loading", lastDrawn: onScreen(held.state) } } : next;
 }
 
 /** Read one variant's mesh. The view says whether it is stored: a stored mesh is fetched once from its
  * immutable URL. Otherwise the geometry route starts the tessellation and answers pending until it is
- * done, so it is asked again every quarter second. */
+ * done, so it is asked again every POLL_MS. */
 export function useMesh(variantId: string): MeshState {
   const { api } = useServices();
-  const [held, put] = useReducer(reduce, { variantId, state: { status: "loading", previous: null } });
+  const [held, put] = useReducer(reduce, { variantId, state: { status: "loading", lastDrawn: null } });
   useEffect(() => {
     const run = { live: true };
     const live = () => run.live;
@@ -37,7 +35,7 @@ export function useMesh(variantId: string): MeshState {
       put({ variantId, state });
     };
     let timer: ReturnType<typeof setTimeout> | undefined;
-    set({ status: "loading", previous: null });
+    set({ status: "loading", lastDrawn: null });
     const settle = (read: GeometryRead) => {
       if (read.kind === "tessellated") set({ status: "ready", shapes: read.shapes });
       else if (read.kind === "failed") set({ status: "failed", reason: read.reason });
@@ -76,5 +74,5 @@ export function useMesh(variantId: string): MeshState {
       clearTimeout(timer);
     };
   }, [api, variantId]);
-  return held.variantId === variantId ? held.state : { status: "loading", previous: onScreen(held.state) };
+  return held.variantId === variantId ? held.state : { status: "loading", lastDrawn: onScreen(held.state) };
 }

@@ -8,15 +8,13 @@ function currentTheme(): Theme {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-/** One viewer for the life of the element. New `shapes` are drawn into it, not into a new one. */
 export function ViewerCanvas({ shapes, label }: { shapes: Shapes; label: string }) {
   const { viewer } = useServices();
   const host = useRef<HTMLDivElement>(null);
   const mounted = useRef<{ view: Mounted; shapes: Shapes } | null>(null);
   const latest = useRef(shapes);
   const [problem, setProblem] = useState<string | null>(null);
-  /** `data-draws` counts the meshes drawn, set after each draw ends, so a drive can time the swap. */
-  const drew = (into: HTMLElement) => {
+  const countDraw = (into: HTMLElement) => {
     into.dataset.draws = String(Number(into.dataset.draws ?? "0") + 1);
   };
   useEffect(() => {
@@ -25,7 +23,7 @@ export function ViewerCanvas({ shapes, label }: { shapes: Shapes; label: string 
     if (held && held.shapes !== shapes) {
       held.view.show(shapes);
       held.shapes = shapes;
-      if (host.current) drew(host.current);
+      if (host.current) countDraw(host.current);
     }
   }, [shapes]);
   useEffect(() => {
@@ -44,7 +42,7 @@ export function ViewerCanvas({ shapes, label }: { shapes: Shapes; label: string 
           view.show(latest.current);
           mounted.current.shapes = latest.current;
         }
-        drew(element);
+        countDraw(element);
       },
       (error: unknown) => {
         if (live) setProblem(error instanceof Error ? error.message : "The viewer did not start.");

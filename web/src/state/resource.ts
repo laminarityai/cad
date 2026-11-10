@@ -41,7 +41,6 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export interface Loaded<T> {
   resource: Resource<T>;
-  /** Read again now. Calls that land while a read is out make one more read after it, not one each. */
   reload: () => void;
 }
 
@@ -69,7 +68,7 @@ export function useResource<T>(load: () => Promise<T>, key: string, followMs?: n
         if (final(error)) run.ended = true;
       }
     };
-    const reread = async () => {
+    const readCoalesced = async () => {
       if (!live()) return;
       if (run.reading) {
         run.queued = true;
@@ -82,20 +81,20 @@ export function useResource<T>(load: () => Promise<T>, key: string, followMs?: n
       } while (live() && queued());
       run.reading = false;
     };
-    again.current = () => void reread();
+    again.current = () => void readCoalesced();
     const follow = async () => {
       dispatch({ type: "loading" });
       run.reading = true;
       await once(true);
       run.reading = false;
-      if (queued()) await reread();
+      if (queued()) await readCoalesced();
       while (live() && followMs !== undefined) {
         await sleep(followMs);
-        if (live() && !document.hidden) await reread();
+        if (live() && !document.hidden) await readCoalesced();
       }
     };
     const visible = () => {
-      if (!document.hidden && followMs !== undefined) void reread();
+      if (!document.hidden && followMs !== undefined) void readCoalesced();
     };
     document.addEventListener("visibilitychange", visible);
     void follow();

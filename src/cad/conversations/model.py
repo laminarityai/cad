@@ -29,11 +29,6 @@ class Mode(StrEnum):
 
 
 class Conversation(BaseModel):
-    """`project_id` and `brief_id` name what the person had open when the conversation started,
-    so the agent can find the brief and its slots without being told. `auto_run` is the run that
-    is going on now, and every stop clears it; `last_run` is the latest run the conversation
-    started, kept after it stops so the page can show why it stopped."""
-
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     mode: Mode = Mode.PLAN

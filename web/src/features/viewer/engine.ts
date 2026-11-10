@@ -3,15 +3,11 @@ import type { Tessellated } from "@/api/types";
 export type Theme = "light" | "dark";
 export type Shapes = Tessellated["shapes"];
 
-/** A viewer drawing into one element. `show` swaps the mesh in place: a new viewer costs a WebGL
- * context and a shader compile, seconds on a software renderer, so a rebuilt slot keeps its own. */
 export interface Mounted {
   show(shapes: Shapes): void;
   stop(): void;
 }
 
-/** What the app needs of a 3D viewer: draw a mesh into an element. The one real implementation
- * wraps three-cad-viewer, and a test passes a fake. */
 export interface ViewerEngine {
   mount(element: HTMLElement, shapes: Shapes, theme: Theme): Promise<Mounted>;
 }
