@@ -8,6 +8,7 @@ from typing import Final
 from pydantic import ValidationError
 
 from cad.briefs import store as briefs
+from cad.checks.lanes import LANES, Lanes
 from cad.records import signed
 from cad.records.roots import Roots, project_store
 from cad.sandbox.outcome import Built
@@ -37,7 +38,12 @@ LOG = logging.getLogger(__name__)
 
 
 def build_into_set(
-    roots: Roots, variants_root: Path, brief_id: str, code: str, slot: int | None = None
+    roots: Roots,
+    variants_root: Path,
+    brief_id: str,
+    code: str,
+    slot: int | None = None,
+    lanes: Lanes = LANES,
 ) -> SetBuildResult:
     root = roots.projects
     key = confirmed_key(roots, brief_id)
@@ -50,9 +56,23 @@ def build_into_set(
     joined = (
         join(root, key, code, built.variant_id, slot) if built.outcome == Built() else NotJoined()
     )
+    if isinstance(joined, Joined) and not joined.already_member:
+        _drop_replaced(root, key, variants_root, joined, lanes)
     return SetBuildResult(
         variant_id=built.variant_id, outcome=built.outcome, output=built.output, variant_set=joined
     )
+
+
+def _drop_replaced(
+    root: Path, key: SetKey, variants_root: Path, joined: Joined, lanes: Lanes
+) -> None:
+    held = members(root, key)
+    member = next((m for m in held if m.slot == joined.slot), None)
+    if member is None or len(member.revisions) < 2:
+        return
+    shown = {m.latest.built_as for m in held}
+    for replaced in {revision.built_as for revision in member.revisions[:-1]} - shown:
+        lanes.drop_unstarted(variants_root, replaced)
 
 
 def confirmed_key(roots: Roots, brief_id: str) -> SetKey:

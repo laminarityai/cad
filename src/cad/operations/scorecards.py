@@ -193,6 +193,16 @@ def scorecard(tenant: Tenant, arguments: ScorecardInput) -> material.ScorecardSn
     )
 
 
+def names_a_material(tenant: Tenant, arguments: ScorecardInput) -> bool:
+    """Whether material_key names a row of the brief's table, or the material the user confirmed,
+    so a card nobody scored yet may still come."""
+    basis = judged(tenant, arguments.brief_id, arguments.material_key)
+    return (
+        basis.material_key in basis.table.table.materials
+        or material.pinned_by(basis.confirmed) is not None
+    )
+
+
 OPERATIONS: Final = (
     operation(
         name="score_variant",
