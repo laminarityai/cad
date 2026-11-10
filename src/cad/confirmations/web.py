@@ -75,7 +75,44 @@ LOCAL_SIGN_IN: Final = (
     "Sign in with the link the server handed its opener. Ask the agent to call ask_to_confirm "
     "again for a new one."
 )
-CLERK_JS: Final = "/npm/@clerk/clerk-js@5/dist/clerk.browser.js"
+CLERK_JS: Final = "/npm/@clerk/clerk-js@5.128.1/dist/clerk.browser.js"
+# Clerk's CSP guide names these hosts for clerk-js: bot protection and fraud protection.
+CLERK_CHALLENGES: Final = "https://challenges.cloudflare.com https://*.protect.clerk.com"
+# A signed-in person goes back to the page by GET, so a POST that met an expired token is never
+# sent again by a reload.
+SIGN_IN_SCRIPT: Final = (
+    "(async () => { await Clerk.load(); if (Clerk.user) { location.replace(location.href); } "
+    "else { Clerk.mountSignIn(document.getElementById('sign-in'), "
+    "{ forceRedirectUrl: location.href }); } })();"
+)
+# A Clerk session token lasts about a minute. Loaded Clerk keeps `__session` fresh while the page
+# is open, and the form takes a fresh token before it posts. The fields are kept in the tab's
+# sessionStorage under the snapshot's items, so a POST that still meets an expired session goes
+# through sign-in and back to the same items with the person's edits in place.
+KEEP_SESSION_SCRIPT: Final = (
+    "const ready = Promise.resolve().then(() => Clerk.load());"
+    "const form = document.getElementById('page');"
+    "const key = 'cad-draft:' + form.elements.snapshot.value.split('.')[0];"
+    "const fields = () => [...form.elements].filter((one) =>"
+    " one.name && one.name !== 'snapshot' && one.type !== 'submit');"
+    "const keep = () => { try { sessionStorage.setItem(key, JSON.stringify(Object.fromEntries("
+    "fields().map((one) => [one.name, one.type === 'checkbox' ? one.checked : one.value])))); }"
+    " catch {} };"
+    "try { const kept = JSON.parse(sessionStorage.getItem(key) || '{}');"
+    " for (const one of fields()) { if (!(one.name in kept)) { continue; }"
+    " if (one.type === 'checkbox') { one.checked = kept[one.name]; }"
+    " else { one.value = kept[one.name]; } } } catch {}"
+    "document.addEventListener('input', keep);"
+    "document.addEventListener('change', keep);"
+    "form.addEventListener('submit', async (event) => {"
+    " keep();"
+    " if (form.dataset.fresh) { return; }"
+    " event.preventDefault();"
+    " await ready.then(() => Clerk.session?.getToken({ skipCache: true })).catch(() => null);"
+    " form.dataset.fresh = 'yes';"
+    " form.requestSubmit(event.submitter);"
+    "});"
+)
 LOG = logging.getLogger(__name__)
 
 type TenantOf = Callable[[AccountId], Tenant]
@@ -118,7 +155,7 @@ def confirm_routes(
         if isinstance(found, Response):
             return found
         try:
-            return await anyio.to_thread.run_sync(_show, *found)
+            return await anyio.to_thread.run_sync(_show, *found, sign_in)
         except STORE_FAILURES as error:
             LOG.error("the confirmation page could not be shown: %s", type(error).__name__)
             return _plain(500, REFUSED)
@@ -166,7 +203,7 @@ def confirm_routes(
     return routes
 
 
-def _show(person: PersonSession, tenant: Tenant, project: ProjectId) -> Response:
+def _show(person: PersonSession, tenant: Tenant, project: ProjectId, sign_in: SignIn) -> Response:
     if not project_briefs(tenant.roots, project):
         return _plain(404, NO_PROJECT)
     every = kinds(tenant.roots)
@@ -174,7 +211,10 @@ def _show(person: PersonSession, tenant: Tenant, project: ProjectId) -> Response
     if not items:
         return _plain(200, NOTHING_WAITS)
     sealed = snapshot.seal(tenant.roots.projects, person, project, items)
-    return _html(200, page.view(tenant.roots, every, project, items, sealed))
+    if isinstance(sign_in, LocalSignIn):
+        return _html(200, page.view(tenant.roots, every, project, items, sealed, ""))
+    scripts, policy = _clerk(sign_in, KEEP_SESSION_SCRIPT)
+    return _html(200, page.view(tenant.roots, every, project, items, sealed, scripts), policy)
 
 
 def _local_sign_in(verifier: Verifier) -> Callable[[Request], Response]:
@@ -208,24 +248,32 @@ async def _body(request: Request) -> bytes | None:
 def _sign_in_page(sign_in: SignIn) -> Response:
     if isinstance(sign_in, LocalSignIn):
         return _plain(401, LOCAL_SIGN_IN)
-    nonce = secrets.token_urlsafe(16)
-    api = sign_in.frontend_api
+    scripts, policy = _clerk(sign_in, SIGN_IN_SCRIPT)
     body = (
         "<!doctype html><html lang=en><head><meta charset=utf-8><title>Sign in</title>"
         f"<style>{STYLE}</style></head><body>"
         "<p>Sign in to see what the agent asks you to confirm.</p><div id=sign-in></div>"
+        f"{scripts}</body></html>"
+    )
+    return _html(401, body.encode(), policy)
+
+
+def _clerk(sign_in: ClerkSignIn, inline: str) -> tuple[str, dict[str, str]]:
+    """Clerk's pinned script and an inline one, with a CSP that opens only Clerk's own hosts."""
+    nonce = secrets.token_urlsafe(16)
+    api = sign_in.frontend_api
+    scripts = (
         f'<script nonce="{nonce}" crossorigin="anonymous" '
         f'data-clerk-publishable-key="{html.escape(sign_in.publishable_key)}" '
         f'src="{html.escape(api + CLERK_JS)}"></script>'
-        f'<script nonce="{nonce}">(async () => {{ await Clerk.load(); if (Clerk.user) '
-        "{ location.reload(); } else { Clerk.mountSignIn(document.getElementById('sign-in'), "
-        "{ forceRedirectUrl: location.href }); } })();</script></body></html>"
+        f'<script nonce="{nonce}">{inline}</script>'
     )
     policy = (
-        f"{CSP}; script-src {api} 'nonce-{nonce}'; connect-src {api}; "
-        f"img-src {api} https://img.clerk.com; frame-src {api}"
+        f"{CSP}; script-src {api} {CLERK_CHALLENGES} 'nonce-{nonce}'; "
+        f"connect-src {api} https://*.protect.clerk.com:*; img-src {api} https://img.clerk.com; "
+        f"worker-src 'self' blob:; frame-src {api} {CLERK_CHALLENGES}"
     )
-    return _html(401, body.encode(), {"Content-Security-Policy": policy})
+    return scripts, {"Content-Security-Policy": policy}
 
 
 def _plain(status: int, message: str, *more: str) -> Response:

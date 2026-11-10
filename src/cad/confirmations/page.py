@@ -155,10 +155,16 @@ def _label(index: int) -> str:
 
 
 def view(
-    roots: Roots, kinds: Kinds, project: ProjectId, items: Sequence[ItemRef], snapshot: str
+    roots: Roots,
+    kinds: Kinds,
+    project: ProjectId,
+    items: Sequence[ItemRef],
+    snapshot: str,
+    scripts: str,
 ) -> bytes:
     sections = [kinds[ref.kind].section(ref) for ref in items]
-    return render(sections, f"/projects/{project}/confirm", snapshot, conflicts(roots, project))
+    action = f"/projects/{project}/confirm"
+    return render(sections, action, snapshot, conflicts(roots, project), scripts)
 
 
 def answer_page(
@@ -193,7 +199,11 @@ def answer_page(
 
 
 def render(
-    sections: Sequence[Section], action: str, snapshot: str, warnings: Sequence[Conflict]
+    sections: Sequence[Section],
+    action: str,
+    snapshot: str,
+    warnings: Sequence[Conflict],
+    scripts: str,
 ) -> bytes:
     each = _declinable(len(sections))
     items = "".join(
@@ -218,7 +228,7 @@ def render(
         f'<textarea id="note" name="note" maxlength="{MAX_NOTE_CHARS}"></textarea>'
         '<button name="answer" value="confirm">Confirm</button>'
         '<button name="answer" value="decline">Decline all</button>'
-        "</form></body></html>"
+        f"</form>{scripts}</body></html>"
     ).encode()
 
 

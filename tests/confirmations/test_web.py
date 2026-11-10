@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+import re
 import socket
 import threading
 import time
 import urllib.error
 import urllib.request
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Callable, Iterator
 from dataclasses import dataclass
 from email.message import Message
 from pathlib import Path
@@ -23,7 +24,7 @@ from cad.accounts.principal import AccountId
 from cad.accounts.tenants import Tenants
 from cad.confirmations import answers
 from cad.confirmations.waiting import Door, page_address
-from cad.confirmations.web import LocalSignIn
+from cad.confirmations.web import CLERK_CHALLENGES, CLERK_JS, ClerkSignIn, LocalSignIn, SignIn
 from cad.projects.model import ProjectId
 from cad.server.hosted import build_app
 
@@ -33,6 +34,8 @@ if TYPE_CHECKING:
 pytestmark = pytest.mark.anyio
 ALICE = AccountId("user_alice")
 BOB = AccountId("user_bob")
+CLERK_API = "https://clerk.cad.example"
+NONCE = re.compile(r"'nonce-([^']+)'")
 TEXT = "A wall bracket under 150 g that also holds a 2 kg shelf"
 UNDER_150 = {
     "target": {"kind": "max_mass", "mass": {"magnitude": 150, "unit": "g"}},
@@ -96,13 +99,23 @@ class Hosted:
 
 @pytest.fixture
 def hosted(tmp_path: Path) -> Iterator[Hosted]:
+    yield from serve(tmp_path, LocalSignIn)
+
+
+@pytest.fixture
+def clerk_page(tmp_path: Path) -> Iterator[Hosted]:
+    """Serves the page Clerk signs in to, while the local issuer still mints the session tokens."""
+    yield from serve(tmp_path, lambda _: ClerkSignIn(CLERK_API, "pk_test_Y2xlcmsuY2FkLmV4YW1wbGUk"))
+
+
+def serve(tmp_path: Path, sign_in: Callable[[LocalIssuer], SignIn]) -> Iterator[Hosted]:
     listening = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     listening.bind(("127.0.0.1", 0))
     base = f"http://127.0.0.1:{listening.getsockname()[1]}"
     local = LocalIssuer.open(tmp_path, base)
     door = Door(page_url=page_address(base), wait_seconds=0.3)
     tenants = Tenants(tmp_path / "accounts", 60, door, lambda _: pytest.fail("no part is read"))
-    app = build_app(local.issuer(), tenants, LocalSignIn(local))
+    app = build_app(local.issuer(), tenants, sign_in(local))
     server = uvicorn.Server(uvicorn.Config(app, log_level="warning", access_log=False))
     thread = threading.Thread(target=server.run, args=([listening],), daemon=True)
     thread.start()
@@ -217,3 +230,60 @@ async def test_the_page_answers_with_its_security_headers(alice: Person) -> None
     assert headers["Referrer-Policy"] == "same-origin"
     assert headers["X-Content-Type-Options"] == "nosniff"
     assert "frame-ancestors 'none'" in policy and "form-action 'self'" in policy
+
+
+async def test_the_local_page_loads_no_script(alice: Person) -> None:
+    assert alice.cookie is not None
+    status, headers = exchange(alice.url, Cookie=alice.cookie)
+    _, body = alice.get(alice.url)
+    assert status == 200
+    assert "script-src" not in headers["Content-Security-Policy"]
+    assert "<script" not in body
+
+
+async def test_the_hosted_page_loads_pinned_clerk_from_its_frontend_api(
+    clerk_page: Hosted, browser: type[Person]
+) -> None:
+    url = page_of(clerk_page, await clerk_page.proposed(ALICE))
+    cookie = f"__session={clerk_page.local.mint_person(ALICE)}"
+    status, headers = exchange(url, Cookie=cookie)
+    _, body = browser(cookie=cookie).get(url)
+    policy = headers["Content-Security-Policy"]
+    nonce = NONCE.search(policy)
+    assert status == 200 and nonce is not None
+    assert policy == (
+        "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; "
+        f"frame-ancestors 'none'; script-src {CLERK_API} {CLERK_CHALLENGES} "
+        f"'nonce-{nonce.group(1)}'; connect-src {CLERK_API} https://*.protect.clerk.com:*; "
+        f"img-src {CLERK_API} https://img.clerk.com; worker-src 'self' blob:; "
+        f"frame-src {CLERK_API} {CLERK_CHALLENGES}"
+    )
+    assert "@5.128.1/" in CLERK_JS
+    assert f'src="{CLERK_API}{CLERK_JS}"' in body
+    [loader, inline] = re.findall(r'<script nonce="([^"]+)"', body)
+    assert loader == inline
+    assert "getToken({ skipCache: true })" in body
+    assert "sessionStorage" in body
+
+
+@pytest.mark.parametrize("stale", [False, True])
+async def test_a_refreshed_session_answers_a_page_opened_before_its_token_expired(
+    clerk_page: Hosted, browser: type[Person], stale: bool
+) -> None:
+    project_id = await clerk_page.proposed(ALICE)
+    url = page_of(clerk_page, project_id)
+    session = "sess_read_for_a_long_time"
+    person = browser(cookie=f"__session={clerk_page.local.mint_person(ALICE, session=session)}")
+    assert person.get(url)[0] == 200
+    if stale:
+        await clerk_page.proposed(ALICE, project_id)
+    person.cookie = f"__session={clerk_page.local.mint_person(ALICE, -60, session)}"
+    expired = person.post(url, "confirm")[0]
+    person.cookie = f"__session={clerk_page.local.mint_person(ALICE, session=session)}"
+    refreshed = person.post(url, "confirm")[0]
+    assert (expired, refreshed) == (401, 409 if stale else 200)
+    assert len(clerk_page.answered(ALICE, project_id)) == (0 if stale else 1)
+
+
+def page_of(hosted: Hosted, project_id: str) -> str:
+    return f"{hosted.base}/projects/{project_id}/confirm"

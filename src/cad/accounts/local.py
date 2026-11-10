@@ -87,10 +87,11 @@ class LocalIssuer:
             claims["conversation"] = conversation
         return self._sign(claims, "at+jwt", ttl)
 
-    def mint_person(self, account: str, ttl: int = TTL_SECONDS) -> str:
+    def mint_person(self, account: str, ttl: int = TTL_SECONDS, session: str | None = None) -> str:
+        """Clerk refreshes a session's token under the same `sid`; pass `session` to do the same."""
         claims = {
             "sub": account,
-            "sid": f"sess_{secrets.token_hex(12)}",
+            "sid": session or f"sess_{secrets.token_hex(12)}",
             "azp": self.origin,
             "jti": secrets.token_hex(10),
             "v": 2,
