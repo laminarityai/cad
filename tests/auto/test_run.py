@@ -86,6 +86,7 @@ async def test_two_concurrent_starts_of_one_brief_make_one_run(s: Session) -> No
     brief_id = await s.confirmed(TEXT, UNDER_150)
     arguments = StartInput(brief_id=brief_id, material_key="prusament-pla")
     other = ConversationId("c-other")
+    store.create(s.tenant, other)
     store.set_mode(s.tenant, other, Mode.AUTO)
     callers = [s.bound, s.bound, store.bind(s.tenant, other)]
     with ThreadPoolExecutor(3) as pool:

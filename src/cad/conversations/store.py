@@ -9,23 +9,34 @@ from typing import Final
 
 from cad.auto import log
 from cad.auto.model import AutoRun, PersonStopped, Running, RunRefused, Stopped, UnknownRun
-from cad.conversations.model import Conversation, ConversationId, Mode
+from cad.conversations.model import Conversation, ConversationId, Mode, UnknownConversation
 from cad.operations.model import Tenant
 
 _LOCK: Final = threading.RLock()
 
 
 def read(directory: Path, cid: ConversationId) -> Conversation:
+    """The one lookup of a conversation. `directory` is one account's partition, so another
+    account's conversation id is unknown here, the same as an id nobody made."""
     try:
         return Conversation.model_validate_json((directory / f"{cid}.json").read_bytes())
     except FileNotFoundError:
-        return Conversation()
+        raise UnknownConversation(f"no conversation {cid} in this account") from None
+
+
+def create(tenant: Tenant, cid: ConversationId) -> Conversation:
+    with _LOCK:
+        return _write(tenant.conversations, cid, Conversation())
 
 
 def bind(tenant: Tenant, cid: ConversationId | None) -> Tenant:
+    """An agent token's conversation with no record binds as Plan, which builds nothing."""
     if cid is None:
         return tenant
-    held = read(tenant.conversations, cid)
+    try:
+        held = read(tenant.conversations, cid)
+    except UnknownConversation:
+        held = Conversation()
     return replace(
         tenant,
         conversation=cid,

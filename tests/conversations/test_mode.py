@@ -87,6 +87,7 @@ async def agent_call(app: Starlette, token: str, tool: str, **arguments: Any) ->
 
 def start_briefless_run(tenants: Tenants, account: AccountId, cid: ConversationId) -> str:
     tenant = tenants.of(account)
+    store.create(tenant, cid)
     store.set_mode(tenant, cid, Mode.AUTO)
     run_id = nth_run_id(PROJECT, "b" * 16, 1)
     started = Started(
@@ -114,6 +115,7 @@ def records(tenants: Tenants, account: AccountId, run_id: str) -> int:
 async def test_the_person_switches_a_conversation_to_each_mode(
     app: Starlette, local: LocalIssuer, tenants: Tenants, mode: str
 ) -> None:
+    store.create(tenants.of(ALICE), CID)
     answered = await put_mode(app, local.mint_person(ALICE), CID, mode)
     assert answered.status_code == 200
     assert answered.json() == {"conversation_id": CID, "mode": mode, "auto_run": None}
@@ -131,8 +133,9 @@ async def test_a_new_conversation_is_in_plan_so_it_builds_nothing(
 
 
 async def test_the_mode_the_person_sets_reaches_the_agents_next_call(
-    app: Starlette, local: LocalIssuer
+    app: Starlette, local: LocalIssuer, tenants: Tenants
 ) -> None:
+    store.create(tenants.of(ALICE), CID)
     person, agent = local.mint_person(ALICE), local.mint_agent(ALICE, conversation=CID)
     await put_mode(app, person, CID, "auto")
     in_auto = await agent_call(app, agent, "build_variant", code="result = None")
@@ -144,8 +147,9 @@ async def test_the_mode_the_person_sets_reaches_the_agents_next_call(
 
 
 async def test_one_conversations_mode_does_not_reach_another(
-    app: Starlette, local: LocalIssuer
+    app: Starlette, local: LocalIssuer, tenants: Tenants
 ) -> None:
+    store.create(tenants.of(ALICE), ConversationId("c-design"))
     await put_mode(app, local.mint_person(ALICE), "c-design", "design")
     other = local.mint_agent(ALICE, conversation="c-other")
     refused = await agent_call(app, other, "build_variant", code="result = None")
@@ -187,6 +191,7 @@ async def test_setting_auto_again_keeps_the_run(
 async def test_an_agent_token_cannot_set_the_mode(
     app: Starlette, local: LocalIssuer, tenants: Tenants
 ) -> None:
+    store.create(tenants.of(ALICE), CID)
     refused = await put_mode(app, local.mint_agent(ALICE, conversation=CID), CID, "design")
     assert refused.status_code == 401
     assert store.read(tenants.of(ALICE).conversations, CID).mode is Mode.PLAN
@@ -279,8 +284,8 @@ async def test_another_account_cannot_stop_a_run_it_does_not_hold(
     app: Starlette, local: LocalIssuer, tenants: Tenants
 ) -> None:
     run_id = start_briefless_run(tenants, ALICE, CID)
-    refused = await stop(app, local.mint_person("user_bob"), run_id)
-    assert refused.status_code == 400
+    refused = await stop(app, local.mint_person(BOB), run_id)
+    assert refused.status_code == 404
     assert refused.json()["error"].startswith("UnknownRun")
     assert isinstance(log.read_run(tenants.of(ALICE).roots, run_id).state, Running)
 

@@ -160,6 +160,7 @@ async def s(tmp_path: Path, meter: Ledger) -> AsyncIterator[Session]:
         meter=meter,
     )
     cid = ConversationId("c1")
+    store.create(tenant, cid)
     store.set_mode(tenant, cid, Mode.AUTO)
     served = tools(lambda: store.bind(tenant, cid), OPERATIONS)
     async with Client(MCPServer("cad", tools=served)) as client:
