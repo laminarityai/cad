@@ -53,7 +53,7 @@ def build_variant(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResul
         )
     gate(tenant, arguments.brief_id)
     vid = entry.variant_id(arguments.code, image.image_tag(image.BUILD))
-    with stops_at_the_limit(tenant.roots, tenant.auto_run, vid):
+    with stops_at_the_limit(tenant, vid):
         if arguments.brief_id is not None:
             return variant_sets.build_into_set(
                 tenant.roots, tenant.variants, arguments.brief_id, arguments.code, arguments.slot
