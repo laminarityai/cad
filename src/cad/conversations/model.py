@@ -29,11 +29,23 @@ class Mode(StrEnum):
 
 
 class Conversation(BaseModel):
+    """`project_id` and `brief_id` name what the person had open when the conversation started,
+    so the agent can find the brief and its slots without being told."""
+
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     mode: Mode = Mode.PLAN
     auto_run: str | None = None
+    project_id: str | None = None
+    brief_id: str | None = None
+
+    def moved(self, mode: Mode, auto_run: str | None = None) -> "Conversation":
+        return self.model_copy(update={"mode": mode, "auto_run": auto_run})
 
 
 class ModeRefused(VariantRefused):
+    pass
+
+
+class UnknownConversation(ModeRefused):
     pass

@@ -100,6 +100,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/conversations/{conversation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["conversation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/conversations/{conversation_id}/mode": {
         parameters: {
             query?: never;
@@ -542,6 +558,15 @@ export interface components {
             conversation_id: string;
             mode: components["schemas"]["Mode"];
             auto_run: string | null;
+        };
+        /** ConversationView */
+        ConversationView: {
+            conversation_id: string;
+            mode: components["schemas"]["Mode"];
+            auto_run: string | null;
+            project_id: string | null;
+            brief_id: string | null;
+            run: components["schemas"]["AutoRun"] | null;
         };
         Direction: components["schemas"]["Along"] | components["schemas"]["Across"] | components["schemas"]["AnyWay"];
         /**
@@ -1481,6 +1506,7 @@ export type Comparator = components['schemas']['Comparator'];
 export type Comparison = components['schemas']['Comparison'];
 export type ConversationCreated = components['schemas']['ConversationCreated'];
 export type ConversationState = components['schemas']['ConversationState'];
+export type ConversationView = components['schemas']['ConversationView'];
 export type Direction = components['schemas']['Direction'];
 export type DriverSaid = components['schemas']['DriverSaid'];
 export type Envelope = components['schemas']['Envelope'];
@@ -1748,6 +1774,33 @@ export interface operations {
             503: components["responses"]["Unavailable"];
         };
     };
+    conversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description the result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationView"];
+                };
+            };
+            400: components["responses"]["Refused"];
+            401: components["responses"]["SignedOut"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Malformed"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
     set_mode: {
         parameters: {
             query?: never;
@@ -1963,7 +2016,12 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": Record<string, never>;
+                "application/json": {
+                    /** @default null */
+                    project_id?: string | null;
+                    /** @default null */
+                    brief_id?: string | null;
+                };
             };
         };
         responses: {
@@ -1977,7 +2035,9 @@ export interface operations {
                 };
             };
             401: components["responses"]["SignedOut"];
+            404: components["responses"]["NotFound"];
             415: components["responses"]["NotJson"];
+            422: components["responses"]["Malformed"];
         };
     };
     message: {

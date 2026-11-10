@@ -68,6 +68,7 @@ ROUTES: Final[Mapping[str, Served]] = {
     "view": Served("/v1/variants/{variant_id}"),
     "geometry": Served("/v1/variants/{variant_id}/geometry"),
     "mesh": Served(reads.MESH_PATH, immutable=True),
+    "conversation": Served("/v1/conversations/{conversation_id}"),
     "set_mode": Served("/v1/conversations/{conversation_id}/mode", method="PUT"),
     "auto_stop": Served("/v1/auto/{run_id}/stop", method="POST"),
 }
