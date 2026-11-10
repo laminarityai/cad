@@ -32,7 +32,7 @@ VARIANT_SET = (
 )
 VIEW = (
     "What the viewer needs for one built variant: the hash that names its BREP, whether its mesh "
-    "is stored, and once it is tessellated, the mesh_url to fetch it from."
+    "is tessellated, failed or pending, and once it is tessellated, the mesh_url to fetch it from."
 )
 MESH = (
     "The mesh of one BREP made by one tessellator version, in three-cad-viewer's shapes format. "
