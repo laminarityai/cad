@@ -25,7 +25,10 @@ BUILD_VARIANT = (
     "in its own slot. To change a variant the user asked about, such as making a wall thicker, "
     f"build the edited code with brief_id and that variant's slot, 1 to {MAX_MEMBERS}: it becomes "
     "the slot's next revision, and the set shows it in place of the old one, which stays in the "
-    "slot's history. Without slot, code already shown in a slot keeps that slot, and new code "
+    "slot's history. A built variant has no verdicts until you score it: call score_variant "
+    "with its variant_id, the brief_id and the material the brief's made_of requirement "
+    "confirms, and the person's scorecard shows pending until you do. "
+    "Without slot, code already shown in a slot keeps that slot, and new code "
     "takes the lowest free slot. A build for a brief with no confirmed requirements, for new "
     "code with no slot when every slot is taken, or for code that another slot already shows, "
     "is refused before it starts. If the set changes while a build runs so that it cannot take "
@@ -42,7 +45,8 @@ BUILD_VARIANT = (
 VARIANT_CODE = (
     "The build123d code a stored variant was built from. To change a slot the user names, read "
     "the slot's variant_id from variant_set, read its code here, edit it, and build the edited "
-    "code with build_variant, the brief_id and that slot."
+    "code with build_variant, the brief_id and that slot, then score the new variant with "
+    "score_variant."
 )
 
 
