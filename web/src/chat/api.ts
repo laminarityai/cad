@@ -41,7 +41,7 @@ const sleep = (ms: number, signal: AbortSignal) =>
   });
 
 /** Not `EventSource`: it hides the status, and the page must tell a conversation that is not in the
- * account (404) from a stream that dropped. After a drop it resumes from the last event seen. */
+ * account (404) from a stream that dropped. */
 async function follow(conversationId: string, handlers: Follower, signal: AbortSignal): Promise<void> {
   let after = 0;
   const closed = () => signal.aborted;

@@ -8,10 +8,6 @@ export type Line =
   | { seq: number; kind: "stop_report"; runId: string; reason: string; report: string }
   | { seq: number; kind: "failed"; message: string };
 
-/** What the page holds of one conversation. The server has no read of a conversation's mode or run,
- * so `mode` and `run` are kept here, saved per conversation, and changed only by what the person
- * does and by events after `settled`. Events up to `settled` are the history a reload replays: they
- * build `lines` and change nothing else. */
 export interface ChatState {
   conversationId: string | null;
   lines: readonly Line[];
@@ -73,8 +69,7 @@ function withEvent(lines: readonly Line[], seq: number, event: Event): readonly 
   }
 }
 
-/** Every stop of a run moves its conversation from Auto to Design (ADR-0010). Only a conversation
- * the page knows is in Auto moves: after the person leaves Auto, a late stop report changes nothing. */
+/** ADR-0010: every stop of a run moves its conversation from Auto to Design. */
 function afterStop(state: ChatState, run: RunView): Pick<ChatState, "mode" | "run"> {
   return { mode: state.mode === "auto" ? "design" : state.mode, run };
 }

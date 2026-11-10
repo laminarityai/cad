@@ -66,7 +66,6 @@ function Composer({ chat }: { chat: Conversation }) {
   );
 }
 
-/** The chat column: the transcript the server streams, and the input with the mode picker. */
 export function ChatPanel({ chat }: { chat: Conversation }) {
   const { state } = chat;
   const end = useRef<HTMLDivElement>(null);

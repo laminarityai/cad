@@ -4,8 +4,7 @@ export interface Frame {
   data: string;
 }
 
-/** Splits a server-sent event stream into frames. Comment lines (the server's keepalive) make no
- * frame. Feed it chunks as they arrive: `push` returns every frame a chunk completed. */
+/** Lines that start with `:` are server-sent event comments (the server's keepalive) and make no frame. */
 export class FrameReader {
   private held = "";
 

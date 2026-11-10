@@ -41,9 +41,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Load once per `key`. With `followMs`, load again that long after each load ends, while the tab is
  * visible, so the data on screen follows the server. A follow-up load that fails for any reason but
- * sign-out or not-found keeps the data on screen, so a server restart does not blank the page.
- * Each change of `refresh` loads again at once, so a caller that knows the data changed need not
- * wait for the next follow-up. Only the newest load to start may change what is on screen. */
+ * sign-out or not-found keeps the data on screen, so a server restart does not blank the page. */
 export function useResource<T>(load: () => Promise<T>, key: string, followMs?: number, refresh = 0): Resource<T> {
   const [state, dispatch] = useReducer(reduce<T>, { status: "loading" });
   const newest = useRef(0);

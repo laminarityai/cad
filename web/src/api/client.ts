@@ -46,8 +46,6 @@ export interface Api {
 
 export type { GeometryRead };
 
-/** One JSON request to the server. A 401 is `SignedOut`, a 404 is `NotFound`, any other failure is
- * `Refused` with the server's own words. */
 export async function requestJson<T>(method: string, path: string, body?: unknown): Promise<T> {
   const response = await fetch(path, {
     method,

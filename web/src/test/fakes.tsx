@@ -87,7 +87,6 @@ export class FakeViewer implements ViewerEngine {
   }
 }
 
-/** A server's chat routes for tests. `say` appends an event to the transcript and tells every open follower. */
 export class FakeChat implements ChatApi {
   readonly transcript: { seq: number; event: Event }[] = [];
   readonly sent: string[] = [];

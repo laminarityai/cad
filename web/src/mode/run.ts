@@ -12,7 +12,6 @@ const STOP_KINDS: ReadonlySet<string> = new Set<StopKind>(["all_pass", "needs_pe
 
 export const isStopKind = (kind: string): kind is StopKind => STOP_KINDS.has(kind);
 
-/** What the status line says about why a run stopped. */
 export function reasonText(kind: StopKind): string {
   switch (kind) {
     case "all_pass":
@@ -41,7 +40,6 @@ export function viewOf(run: AutoRun): RunView {
   };
 }
 
-/** The `AutoRun` an auto tool returned, or null for text that is not one. */
 export function autoRunOf(text: string): AutoRun | null {
   try {
     const found = JSON.parse(text) as Partial<AutoRun> | null;

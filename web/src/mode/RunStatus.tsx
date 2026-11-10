@@ -4,8 +4,6 @@ import { reasonText, type RunView } from "./run";
 
 const WORD = "font-mono text-[10.5px] uppercase tracking-wider text-ink-2";
 
-/** The Auto run: running with a Stop button, or stopped with the reason and the server's report.
- * It shows nothing until the conversation is in Auto mode or has had a run. */
 export function RunStatus(props: { mode: Mode | null; run: RunView | null; onStop: () => void }) {
   const { mode, run, onStop } = props;
   if (run === null && mode !== "auto") return null;

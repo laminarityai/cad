@@ -11,7 +11,6 @@ import {
 import { cn } from "@/lib/utils";
 import { PICKABLE, labelOf } from "./modes";
 
-/** The mode switcher, under the chat input. Shift+Tab in the input moves to the next mode. */
 export function ModePicker(props: { mode: Mode | null; disabled?: boolean; onPick: (mode: Mode) => void }) {
   const { mode, disabled, onPick } = props;
   return (

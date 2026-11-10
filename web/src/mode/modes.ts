@@ -6,7 +6,6 @@ export interface ModeInfo {
   hint: string;
 }
 
-/** The modes the person picks. Test mode exists on the server but has no entry here. */
 export const PICKABLE: readonly ModeInfo[] = [
   { mode: "plan", label: "Plan", hint: "Turns your words into requirements. Nothing builds." },
   { mode: "design", label: "Design", hint: "Builds and revises when you ask." },
@@ -18,7 +17,6 @@ export function labelOf(mode: Mode | null): string {
   return PICKABLE.find((one) => one.mode === mode)?.label ?? `${mode.slice(0, 1).toUpperCase()}${mode.slice(1)}`;
 }
 
-/** The mode Shift+Tab moves to: the next one in the list, wrapping around. */
 export function nextMode(mode: Mode | null): Mode {
   const at = PICKABLE.findIndex((one) => one.mode === mode);
   return PICKABLE[(at + 1) % PICKABLE.length]?.mode ?? "plan";

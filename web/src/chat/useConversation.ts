@@ -6,7 +6,6 @@ import { nextMode } from "@/mode/modes";
 import { lastConversation, loadSaved, rememberConversation, save } from "./saved";
 import { chatReducer, chatStart, type ChatState } from "./state";
 
-/** A tool whose result means a variant was rebuilt, so the set on screen is out of date. */
 export const REBUILDS: ReadonlySet<string> = new Set(["build_variant", "auto_revise"]);
 
 export interface Conversation {
@@ -19,9 +18,6 @@ export interface Conversation {
 
 const said = (error: unknown) => (error instanceof Error ? error.message : "the request failed");
 
-/** One conversation for one brief. Its id is in the page's `?chat=` so a reload or a shared link
- * finds it. The server makes the conversation when the person first writes or picks a mode.
- * `onRebuilt` runs each time a live `build_variant` or `auto_revise` result arrives. */
 export function useConversation(projectId: string, briefId: string, onRebuilt: () => void): Conversation {
   const { chat } = useServices();
   const [params, setParams] = useSearchParams();

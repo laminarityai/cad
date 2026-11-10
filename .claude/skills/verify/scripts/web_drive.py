@@ -244,8 +244,7 @@ def wait_for(page: Page, probe: str, seconds: float) -> bool:
     return True
 
 
-def idle(page: Page, seconds: float) -> bool:
-    """The turn that was just sent started and then ended."""
+def turn_finished(page: Page, seconds: float) -> bool:
     working = "() => document.body.innerText.includes('Working…')"
     wait_for(page, working, 30)
     page.wait_for_timeout(500)
@@ -271,7 +270,7 @@ def chat(run: Path, path: str, name: str, given: dict[str, str]) -> int:
         found["plan_picked"] = mode_of(page) == "plan"
         say(page, given["ask"])
         if live:
-            found["plan_refused"] = idle(page, 180)
+            found["plan_refused"] = turn_finished(page, 180)
         else:
             found["plan_refused"] = wait_for(
                 page, "() => document.body.innerText.includes('Plan mode')", 60
@@ -325,7 +324,7 @@ def chat(run: Path, path: str, name: str, given: dict[str, str]) -> int:
         page.screenshot(path=str(run / f"{name}-after.png"))
         open_tab(page, "Chat")
         if live:
-            found["agent_replied"] = idle(page, 240)
+            found["agent_replied"] = turn_finished(page, 240)
         else:
             found["agent_replied"] = wait_for(
                 page, "() => /Slot 1 now has a 4 mm wall/.test(document.body.innerText)", 90
