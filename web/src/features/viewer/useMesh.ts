@@ -4,27 +4,38 @@ import type { GeometryRead } from "@/api/types";
 import type { Shapes } from "./engine";
 
 export type MeshState =
-  | { status: "loading" }
+  | { status: "loading"; lastDrawn: Shapes | null }
   | { status: "ready"; shapes: Shapes }
   | { status: "failed"; reason: string };
 
-const POLL_MS = 1000;
+const POLL_MS = 250;
 
-function reduce(_: MeshState, next: MeshState): MeshState {
-  return next;
+interface Held {
+  variantId: string;
+  state: MeshState;
+}
+
+const onScreen = (state: MeshState): Shapes | null =>
+  state.status === "ready" ? state.shapes : state.status === "loading" ? state.lastDrawn : null;
+
+function reduce(held: Held, next: Held): Held {
+  return next.state.status === "loading" ? { variantId: next.variantId, state: { status: "loading", lastDrawn: onScreen(held.state) } } : next;
 }
 
 /** Read one variant's mesh. The view says whether it is stored: a stored mesh is fetched once from its
  * immutable URL. Otherwise the geometry route starts the tessellation and answers pending until it is
- * done, so it is asked again every second. */
+ * done, so it is asked again every POLL_MS. */
 export function useMesh(variantId: string): MeshState {
   const { api } = useServices();
-  const [state, set] = useReducer(reduce, { status: "loading" });
+  const [held, put] = useReducer(reduce, { variantId, state: { status: "loading", lastDrawn: null } });
   useEffect(() => {
     const run = { live: true };
     const live = () => run.live;
+    const set = (state: MeshState) => {
+      put({ variantId, state });
+    };
     let timer: ReturnType<typeof setTimeout> | undefined;
-    set({ status: "loading" });
+    set({ status: "loading", lastDrawn: null });
     const settle = (read: GeometryRead) => {
       if (read.kind === "tessellated") set({ status: "ready", shapes: read.shapes });
       else if (read.kind === "failed") set({ status: "failed", reason: read.reason });
@@ -63,5 +74,5 @@ export function useMesh(variantId: string): MeshState {
       clearTimeout(timer);
     };
   }, [api, variantId]);
-  return state;
+  return held.variantId === variantId ? held.state : { status: "loading", lastDrawn: onScreen(held.state) };
 }

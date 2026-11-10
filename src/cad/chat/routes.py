@@ -20,6 +20,8 @@ from starlette.routing import Route
 
 from cad.accounts.principal import PersonSession
 from cad.accounts.tenants import Tenants
+from cad.briefs import store as briefs
+from cad.briefs.store import BriefRefused
 from cad.chat import log
 from cad.chat.log import Channel, Channels, UserSaid
 from cad.chat.model import Model
@@ -32,6 +34,7 @@ from cad.conversations.model import (
     UnknownConversation,
     conversation_id,
 )
+from cad.operations.model import Tenant
 from cad.operations.routes import CHALLENGE, PersonOf, session_token
 
 MAX_MESSAGE_CHARS: Final = 20_000
@@ -50,6 +53,15 @@ class Said(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     text: str = Field(min_length=1, max_length=MAX_MESSAGE_CHARS)
+
+
+class Start(BaseModel):
+    """The project and brief the page shows, which the agent reads to find the slots."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    project_id: str | None = None
+    brief_id: str | None = None
 
 
 class ConversationCreated(BaseModel):
@@ -127,8 +139,17 @@ def chat_routes(person_of: PersonOf, chat: Chat) -> list[Route]:
             return who
         if not _is_json(request):
             return _error(415, "send application/json")
+        try:
+            start = Start.model_validate_json(await request.body())
+        except ValidationError as error:
+            return _error(422, str(error))
+        tenant = chat.tenants.of(who.account)
+        if (start.project_id is None) != (start.brief_id is None):
+            return _error(422, "send project_id and brief_id together, or neither")
+        if start.brief_id is not None and not _holds(tenant, start.project_id, start.brief_id):
+            return _error(404, f"no brief {start.brief_id} in project {start.project_id}")
         cid = conversation_id(f"c_{secrets.token_hex(8)}")
-        held = store.create(chat.tenants.of(who.account), cid)
+        held = store.create(tenant, cid, start.project_id, start.brief_id)
         return _json(ConversationCreated(conversation_id=cid, mode=held.mode), 201)
 
     async def send(request: Request) -> Response:
@@ -195,6 +216,13 @@ async def _events(channel: Channel, seen: int, follow: bool) -> AsyncIterator[st
             await asyncio.wait_for(channel.wait_after(seen), KEEPALIVE_SECONDS)
         except TimeoutError:
             yield ": keepalive\n\n"
+
+
+def _holds(tenant: Tenant, project_id: str | None, brief_id: str) -> bool:
+    try:
+        return briefs.read_brief(tenant.roots, brief_id).project == project_id
+    except BriefRefused:
+        return False
 
 
 def _is_json(request: Request) -> bool:

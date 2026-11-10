@@ -63,6 +63,17 @@ MODE_NOTES: Final[Mapping[Mode, str]] = {
     ),
 }
 
+OPEN_BRIEF: Final = (
+    "The person started this conversation on project {project_id}, brief {brief_id}, which "
+    "their page shows. A slot they name is a slot of this brief's variant set: call variant_set "
+    "with this project_id and brief_id for each slot's variant_id and revision, and variant_code "
+    "for the code a variant was built from. To change a slot, edit that code and build it with "
+    "build_variant, this brief_id and that slot. Then score the new variant with score_variant, "
+    "this brief_id and the material the brief's made_of requirement confirms (list_requirements "
+    "shows it): only that runs the checks, and the person's scorecard waits on it. Do not ask the "
+    "person for code, a brief, a material or an id that these tools return."
+)
+
 _LOG = logging.getLogger(__name__)
 
 
@@ -143,7 +154,12 @@ async def _converse(model: Model, tenants: Tenants, token: AgentToken, channel: 
 
 
 def _system(tenant: Tenant) -> str:
-    return f"{INSTRUCTIONS}\n\n{MODE_NOTES[tenant.mode or Mode.PLAN]}"
+    parts = [INSTRUCTIONS, MODE_NOTES[tenant.mode or Mode.PLAN]]
+    if tenant.conversation is not None:
+        held = store.read(tenant.conversations, tenant.conversation)
+        if held.project_id is not None and held.brief_id is not None:
+            parts.append(OPEN_BRIEF.format(project_id=held.project_id, brief_id=held.brief_id))
+    return "\n\n".join(parts)
 
 
 def _say(channel: Channel, reply: Message) -> None:

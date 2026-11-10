@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useServices } from "@/app/context";
+import { ChatPanel } from "@/chat/ChatPanel";
+import { useConversation } from "@/chat/useConversation";
+import { RunStatus } from "@/mode/RunStatus";
 import { Gate } from "@/components/Gate";
 import { TopBar } from "@/components/TopBar";
 import { useResource } from "@/state/resource";
@@ -14,7 +17,7 @@ export const FOLLOW_MS = 2000;
 export function SetPage() {
   const { api } = useServices();
   const { projectId = "", briefId = "" } = useParams();
-  const loaded = useResource(async () => {
+  const { resource: loaded, reload } = useResource(async () => {
     const [set, brief, materials] = await Promise.all([
       api.variantSet(projectId, briefId),
       api.brief(briefId),
@@ -22,6 +25,7 @@ export function SetPage() {
     ]);
     return { set, brief, materials: materials.materials };
   }, `set:${projectId}:${briefId}`, FOLLOW_MS);
+  const chat = useConversation(projectId, briefId, reload);
   const [picked, pick] = useState<string | null>(null);
   return (
     <>
@@ -52,6 +56,8 @@ export function SetPage() {
               material={material}
               chosenBy={pinned !== null ? "brief" : picked !== null ? "person" : "default"}
               onPick={pick}
+              run={<RunStatus mode={chat.mode} run={chat.run} onStop={() => void chat.stop()} />}
+              chat={<ChatPanel chat={chat} />}
             />
           );
         }}

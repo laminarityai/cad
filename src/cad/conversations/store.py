@@ -24,9 +24,12 @@ def read(directory: Path, cid: ConversationId) -> Conversation:
         raise UnknownConversation(f"no conversation {cid} in this account") from None
 
 
-def create(tenant: Tenant, cid: ConversationId) -> Conversation:
+def create(
+    tenant: Tenant, cid: ConversationId, project_id: str | None = None, brief_id: str | None = None
+) -> Conversation:
     with _LOCK:
-        return _write(tenant.conversations, cid, Conversation())
+        held = Conversation(project_id=project_id, brief_id=brief_id)
+        return _write(tenant.conversations, cid, held)
 
 
 def bind(tenant: Tenant, cid: ConversationId | None) -> Tenant:
@@ -59,8 +62,9 @@ def record_event(tenant: Tenant, run_id: str, make: log.Make) -> AutoRun:
         run = log.append_event(tenant.roots, run_id, make)
         if isinstance(run.state, Stopped):
             cid = run.state.start.conversation
-            if read(tenant.conversations, cid).auto_run == run_id:
-                _write(tenant.conversations, cid, Conversation(mode=Mode.DESIGN))
+            held = read(tenant.conversations, cid)
+            if held.auto_run == run_id:
+                _write(tenant.conversations, cid, held.moved(Mode.DESIGN))
         return run
 
 
@@ -78,7 +82,7 @@ def start_run(
             raise RunRefused(f"the person switched this conversation to {held.mode} mode")
         current = None if held.auto_run is None else _read_if_known(tenant, held.auto_run)
         if current is not None and isinstance(current.state, Stopped):
-            _write(tenant.conversations, cid, Conversation(mode=Mode.DESIGN))
+            _write(tenant.conversations, cid, held.moved(Mode.DESIGN))
             raise RunRefused(
                 f"auto run {current.run_id} has stopped, so this conversation moved to Design "
                 "mode; only the person can start a new Auto run"
@@ -93,13 +97,14 @@ def start_run(
                 f"{current.state.start.brief_id}; call auto_ask to stop it first"
             )
         run = open_under_lock()
-        held = (
-            Conversation(mode=Mode.AUTO, auto_run=run.run_id)
-            if isinstance(run.state, Running)
-            else Conversation(mode=Mode.DESIGN)
-        )
-        _write(tenant.conversations, cid, held)
+        running = isinstance(run.state, Running)
+        moved = held.moved(Mode.AUTO, run.run_id) if running else held.moved(Mode.DESIGN)
+        _write(tenant.conversations, cid, moved.model_copy(update={"last_run": run.run_id}))
         return run
+
+
+def last_run(tenant: Tenant, held: Conversation) -> AutoRun | None:
+    return None if held.last_run is None else _read_if_known(tenant, held.last_run)
 
 
 def _switch(tenant: Tenant, cid: ConversationId, mode: Mode) -> Conversation:
@@ -108,7 +113,7 @@ def _switch(tenant: Tenant, cid: ConversationId, mode: Mode) -> Conversation:
         return held
     if held.auto_run is not None and _read_if_known(tenant, held.auto_run) is not None:
         log.stop_by_person(tenant.roots, held.auto_run)
-    return _write(tenant.conversations, cid, Conversation(mode=mode))
+    return _write(tenant.conversations, cid, held.moved(mode))
 
 
 def _read_if_known(tenant: Tenant, run_id: str) -> AutoRun | None:

@@ -9,7 +9,7 @@ from cad.briefs.store import BriefState
 from cad.geometry import job
 from cad.geometry import store as meshes
 from cad.geometry.model import Tessellated, UnknownMesh
-from cad.operations.model import Audience, Input, Tenant, operation
+from cad.operations.model import BOTH, Audience, Input, Tenant, operation
 from cad.operations.research import brief_table
 from cad.operations.scorecards import MaterialKey, ScorecardInput, scorecard
 from cad.operations.server import NoArguments
@@ -246,7 +246,7 @@ OPERATIONS: Final = (
     ),
     operation(
         name="variant_set",
-        audience=Audience.PERSON,
+        audience=BOTH,
         description=VARIANT_SET,
         input=VariantSetInput,
         output=VariantSetView,

@@ -53,6 +53,8 @@ async def test_server_info_names_the_head_sha_python_and_tools() -> None:
             "search_knowledge",
             "server_info",
             "submit_research",
+            "variant_code",
+            "variant_set",
         ],
     }
 

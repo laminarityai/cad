@@ -1,4 +1,4 @@
-import { useEffect, useReducer } from "react";
+import { useCallback, useEffect, useReducer, useRef } from "react";
 import { NotFound, SignedOut } from "@/api/client";
 
 export type Resource<T> =
@@ -39,40 +39,73 @@ const final = (error: unknown) => error instanceof SignedOut || error instanceof
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** Load once per `key`. With `followMs`, load again that long after each load ends, while the tab is
- * visible, so the data on screen follows the server. A follow-up load that fails for any reason but
- * sign-out or not-found keeps the data on screen, so a server restart does not blank the page. */
-export function useResource<T>(load: () => Promise<T>, key: string, followMs?: number): Resource<T> {
-  const [state, dispatch] = useReducer(reduce<T>, { status: "loading" });
+export interface Loaded<T> {
+  resource: Resource<T>;
+  reload: () => void;
+}
+
+/** Load once per `key`. With `followMs`, load again that long after each load ends while the tab is
+ * visible, and again the moment it becomes visible, so the data on screen follows the server. A
+ * follow-up load that fails for any reason but sign-out or not-found keeps the data on screen, so a
+ * server restart does not blank the page. */
+export function useResource<T>(load: () => Promise<T>, key: string, followMs?: number): Loaded<T> {
+  const [resource, dispatch] = useReducer(reduce<T>, { status: "loading" });
+  const latest = useRef(load);
+  const again = useRef<() => void>(() => undefined);
   useEffect(() => {
-    const run = { live: true };
-    const live = () => run.live;
-    const follow = async () => {
-      dispatch({ type: "loading" });
+    latest.current = load;
+  });
+  useEffect(() => {
+    const run = { live: true, ended: false, reading: false, queued: false };
+    const live = () => run.live && !run.ended;
+    const queued = () => run.queued;
+    const once = async (first: boolean) => {
       try {
-        const data = await load();
+        const data = await latest.current();
         if (live()) dispatch({ type: "done", data });
       } catch (error) {
-        if (live()) dispatch({ type: "failed", error });
-        if (final(error)) return;
-      }
-      while (live() && followMs !== undefined) {
-        await sleep(followMs);
-        if (!live() || document.hidden) continue;
-        try {
-          const data = await load();
-          if (live()) dispatch({ type: "done", data });
-        } catch (error) {
-          if (live()) dispatch({ type: "refresh_failed", error });
-          if (final(error)) return;
-        }
+        if (live()) dispatch(first ? { type: "failed", error } : { type: "refresh_failed", error });
+        if (final(error)) run.ended = true;
       }
     };
+    const readCoalesced = async () => {
+      if (!live()) return;
+      if (run.reading) {
+        run.queued = true;
+        return;
+      }
+      run.reading = true;
+      do {
+        run.queued = false;
+        await once(false);
+      } while (live() && queued());
+      run.reading = false;
+    };
+    again.current = () => void readCoalesced();
+    const follow = async () => {
+      dispatch({ type: "loading" });
+      run.reading = true;
+      await once(true);
+      run.reading = false;
+      if (queued()) await readCoalesced();
+      while (live() && followMs !== undefined) {
+        await sleep(followMs);
+        if (live() && !document.hidden) await readCoalesced();
+      }
+    };
+    const visible = () => {
+      if (!document.hidden && followMs !== undefined) void readCoalesced();
+    };
+    document.addEventListener("visibilitychange", visible);
     void follow();
     return () => {
       run.live = false;
+      again.current = () => undefined;
+      document.removeEventListener("visibilitychange", visible);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` names what `load` closes over
   }, [key, followMs]);
-  return state;
+  const reload = useCallback(() => {
+    again.current();
+  }, []);
+  return { resource, reload };
 }

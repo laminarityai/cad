@@ -13,7 +13,7 @@ from cad.auto.model import AutoRun
 from cad.confirmations.waiting import Bell, Door
 from cad.context_parts.ingest import ingest
 from cad.conversations import store
-from cad.conversations.model import Conversation, ConversationId, Mode
+from cad.conversations.model import ConversationId, Mode
 from cad.operations.model import Tenant
 from cad.operations.registry import OPERATIONS
 from cad.operations.tools import tools
@@ -73,9 +73,8 @@ class Session:
     async def left_auto(self, brief_id: str, run_id: str) -> None:
         """The run stopped, so the conversation is in Design, and the agent cannot start another
         run on the brief, or drive the stopped one, until the person picks Auto."""
-        assert store.read(self.tenant.conversations, self.conversation) == Conversation(
-            mode=Mode.DESIGN
-        )
+        held = store.read(self.tenant.conversations, self.conversation)
+        assert (held.mode, held.auto_run) == (Mode.DESIGN, None)
         for _ in range(2):
             text = await self.refusal("auto_start", brief_id=brief_id, material_key="prusament-pla")
             assert "this caller's mode is design" in text, text

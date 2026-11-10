@@ -33,6 +33,12 @@ class Conversation(BaseModel):
 
     mode: Mode = Mode.PLAN
     auto_run: str | None = None
+    project_id: str | None = None
+    brief_id: str | None = None
+    last_run: str | None = None
+
+    def moved(self, mode: Mode, auto_run: str | None = None) -> "Conversation":
+        return self.model_copy(update={"mode": mode, "auto_run": auto_run})
 
 
 class ModeRefused(VariantRefused):

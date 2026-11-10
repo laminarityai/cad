@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useServices } from "@/app/context";
-import type { Shapes, Theme } from "./engine";
+import type { Mounted, Shapes, Theme } from "./engine";
 
 function currentTheme(): Theme {
   const forced = document.documentElement.dataset.theme;
@@ -11,16 +11,38 @@ function currentTheme(): Theme {
 export function ViewerCanvas({ shapes, label }: { shapes: Shapes; label: string }) {
   const { viewer } = useServices();
   const host = useRef<HTMLDivElement>(null);
+  const mounted = useRef<{ view: Mounted; shapes: Shapes } | null>(null);
+  const latest = useRef(shapes);
   const [problem, setProblem] = useState<string | null>(null);
+  const countDraw = (into: HTMLElement) => {
+    into.dataset.draws = String(Number(into.dataset.draws ?? "0") + 1);
+  };
+  useEffect(() => {
+    latest.current = shapes;
+    const held = mounted.current;
+    if (held && held.shapes !== shapes) {
+      held.view.show(shapes);
+      held.shapes = shapes;
+      if (host.current) countDraw(host.current);
+    }
+  }, [shapes]);
   useEffect(() => {
     const element = host.current;
     if (!element) return;
-    let stop: (() => void) | undefined;
     let live = true;
-    viewer.mount(element, shapes, currentTheme()).then(
-      (unmount) => {
-        if (live) stop = unmount;
-        else unmount();
+    const first = latest.current;
+    viewer.mount(element, first, currentTheme()).then(
+      (view) => {
+        if (!live) {
+          view.stop();
+          return;
+        }
+        mounted.current = { view, shapes: first };
+        if (latest.current !== first) {
+          view.show(latest.current);
+          mounted.current.shapes = latest.current;
+        }
+        countDraw(element);
       },
       (error: unknown) => {
         if (live) setProblem(error instanceof Error ? error.message : "The viewer did not start.");
@@ -28,9 +50,10 @@ export function ViewerCanvas({ shapes, label }: { shapes: Shapes; label: string 
     );
     return () => {
       live = false;
-      stop?.();
+      mounted.current?.view.stop();
+      mounted.current = null;
     };
-  }, [viewer, shapes]);
+  }, [viewer]);
   return (
     <div role="img" aria-label={label} data-viewer="ready" className="relative h-full min-h-[240px] w-full overflow-hidden bg-panel-2">
       <div ref={host} className="absolute inset-0 [&_canvas]:block" />

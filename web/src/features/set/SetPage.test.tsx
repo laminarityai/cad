@@ -5,14 +5,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ServicesProvider } from "@/app/context";
 import { Refused, SignedOut } from "@/api/client";
 import { deflection, deflectionDone, feaPending, mass, massResult, snapshot } from "@/test/fixtures";
-import { FakeEvents, FakeViewer, fakeApi, setOf } from "@/test/fakes";
+import { FakeChat, FakeEvents, FakeViewer, fakeApi, setOf } from "@/test/fakes";
 import { FOLLOW_MS, SetPage } from "./SetPage";
 
-function mountSet(api = fakeApi(["v1", "v2"])) {
+function mountSet(api = fakeApi(["v1", "v2"]), chat = new FakeChat()) {
   const events = new FakeEvents();
   const viewer = new FakeViewer();
   const view = render(
-    <ServicesProvider services={{ api, events, viewer }}>
+    <ServicesProvider services={{ api, events, viewer, chat }}>
       <MemoryRouter initialEntries={["/projects/p1/briefs/b1"]}>
         <Routes>
           <Route path="projects/:projectId/briefs/:briefId" element={<SetPage />} />
@@ -20,7 +20,7 @@ function mountSet(api = fakeApi(["v1", "v2"])) {
       </MemoryRouter>
     </ServicesProvider>,
   );
-  return { events, viewer, api, view };
+  return { events, viewer, api, chat, view };
 }
 
 const pending = () => snapshot("v1", [mass("pass"), deflection()], [massResult(), feaPending()]);
@@ -107,7 +107,7 @@ describe("SetPage", () => {
       vi.useRealTimers();
     });
 
-    it("moves a rebuilt slot to its new variant without a reload, and keeps the page through a failed read", async () => {
+    it("moves a rebuilt slot to its new variant without a reload, draws it into the same viewer, and keeps the page through a failed read", async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
       const rebuilt = setOf(["v1b"]);
       const reads = [setOf(["v1"]), null, { ...rebuilt, members: rebuilt.members.map((one) => ({ ...one, revision: 2 })) }];
@@ -139,8 +139,10 @@ describe("SetPage", () => {
       expect(card.querySelector("[data-key='req:r1']")).toHaveAttribute("data-row", "pending");
       expect(card.querySelector("[data-ghost]")).toHaveTextContent("before: mass 41.2 g ≤ 50 g");
       await waitFor(() => {
-        expect(viewer.mounted).toHaveLength(2);
+        expect(viewer.shown).toHaveLength(1);
       });
+      expect(viewer.mounted).toHaveLength(1);
+      expect(viewer.stopped).toBe(0);
     });
   });
 });

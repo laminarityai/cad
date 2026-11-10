@@ -24,11 +24,19 @@ function strip(card: CardState | undefined): Row[] {
   return rows.requirements.length > 0 ? rows.requirements : rows.checks;
 }
 
+const MAKING = "p-3 font-mono text-xs text-ink-3";
+
 function Mesh({ variantId, slot }: { variantId: string; slot: number }) {
   const mesh = useMesh(variantId);
-  if (mesh.status === "loading") return <p className="p-3 font-mono text-xs text-ink-3">Making the mesh…</p>;
   if (mesh.status === "failed") return <p className="p-3 font-mono text-xs text-fail">{mesh.reason}</p>;
-  return <ViewerCanvas shapes={mesh.shapes} label={`Slot ${String(slot)} model`} />;
+  const shapes = mesh.status === "ready" ? mesh.shapes : mesh.lastDrawn;
+  if (shapes === null) return <p className={MAKING}>Making the mesh…</p>;
+  return (
+    <div data-mesh={mesh.status} className="relative h-full">
+      <ViewerCanvas shapes={shapes} label={`Slot ${String(slot)} model`} />
+      {mesh.status === "loading" ? <p className={cn(MAKING, "absolute inset-x-0 top-0")}>Making the new mesh…</p> : null}
+    </div>
+  );
 }
 
 export function MemberTile(props: {

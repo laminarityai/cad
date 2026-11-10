@@ -2,6 +2,7 @@
 
     uv run python .claude/skills/verify/scripts/browser.py web shot <run> <path> <name> [options]
     uv run python .claude/skills/verify/scripts/browser.py web watch <run> <path> <name> [options]
+    uv run python .claude/skills/verify/scripts/browser.py web chat <run> <path> <name> [options]
 
 <run> is the data root of a local `cad-http` (its `local-issuer.pem` signs the sign-in token),
 <path> is a route of the app such as `/projects/<id>/briefs/<id>`, and <name> is the prefix of the
@@ -16,6 +17,8 @@ something else scores the variants. It writes <name>-pending.png when it first s
 <name>-done.png once none is left, and <name>.sse.jsonl (every scorecard event the page received,
 and when) and <name>.rows.jsonl (every change of a row). It exits 1 when a pending row ever wears a
 verdict, or when no row went from pending to a verdict without a navigation.
+
+`chat` drives the chat panel: see web_chat.py.
 """
 
 from __future__ import annotations
@@ -67,6 +70,11 @@ def options(argv: list[str]) -> tuple[list[str], dict[str, str]]:
         "seconds": "120",
         "material": "",
         "tab": "",
+        "ask": "make the wall 4 mm",
+        "video": "",
+        "live": "",
+        "stop": "button",
+        "auto_ask": "Optimise it for me.",
     }
     rest: list[str] = []
     it = iter(argv)
@@ -80,15 +88,17 @@ def options(argv: list[str]) -> tuple[list[str], dict[str, str]]:
 
 def open_page(playwright: Any, run: Path, path: str, given: dict[str, str]) -> tuple[Any, Page]:
     token = LocalIssuer.open(run / "home", given["url"]).mint_person(given["account"])
-    browser = playwright.chromium.launch(args=ARGS)
-    context = browser.new_context(
-        viewport={"width": int(given["width"]), "height": int(given["height"])},
-        color_scheme=given["scheme"],
+    size = {"width": int(given["width"]), "height": int(given["height"])}
+    recording: dict[str, Any] = (
+        {"record_video_dir": given["video"], "record_video_size": size} if given["video"] else {}
     )
+    browser = playwright.chromium.launch(args=ARGS)
+    context = browser.new_context(viewport=size, color_scheme=given["scheme"], **recording)
     context.add_cookies([{"name": COOKIE, "value": token, "url": given["url"]}])
     context.add_init_script(TAP)
     page = context.new_page()
     page.goto(f"{given['url']}/app{path}")
+    page.evaluate("window.__alive = true")
     return browser, page
 
 
@@ -192,6 +202,10 @@ def main(argv: list[str]) -> int:
             return shot(Path(run), path, name, given)
         case ["watch", run, path, name]:
             return watch(Path(run), path, name, given)
+        case ["chat", run, path, name]:
+            from web_chat import chat
+
+            return chat(Path(run), path, name, given)
         case _:
             print(__doc__)
             return 2

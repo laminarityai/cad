@@ -1,9 +1,7 @@
 from typing import Final
 
-from pydantic import BaseModel
-
 from cad.chat.log import Event
-from cad.chat.routes import CHAT_ROUTES, ConversationCreated, Follow, MessageSent, Said
+from cad.chat.routes import CHAT_ROUTES, ConversationCreated, Follow, MessageSent, Said, Start
 from cad.operations.events import EVENTS_PATH
 from cad.operations.openapi import Described, from_registry
 from cad.operations.registry import OPERATIONS, ROUTES
@@ -11,10 +9,6 @@ from cad.operations.scorecards import ScorecardInput
 from cad.scorecard.material import ScorecardSnapshot
 
 CHAT_PATHS: Final = dict(CHAT_ROUTES)
-
-
-class NoFields(BaseModel):
-    pass
 
 
 class Send(Said):
@@ -26,11 +20,11 @@ HAND_DESCRIBED: Final = (
         name="create_conversation",
         path=CHAT_PATHS["create_conversation"],
         method="POST",
-        input=NoFields,
+        input=Start,
         output=ConversationCreated,
         status=201,
         requires_json_body=True,
-        failures=(401, 415),
+        failures=(401, 404, 415, 422),
     ),
     Described(
         name="message",
