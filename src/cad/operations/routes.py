@@ -17,7 +17,9 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 from cad.accounts.principal import AccountId, PersonSession
+from cad.auto.model import UnknownRun
 from cad.briefs.store import UnknownBrief
+from cad.conversations.model import UnknownConversation
 from cad.operations.model import Audience, Operation, Tenant
 from cad.operations.tools import REFUSALS, UNAVAILABLE
 from cad.projects.model import UnknownProject
@@ -26,7 +28,7 @@ from cad.variants.entry import UnknownVariant
 
 SESSION_COOKIE: Final = "__session"
 CHALLENGE: Final = {"WWW-Authenticate": 'Bearer realm="cad", error="invalid_token"'}
-NOT_FOUND: Final = (UnknownVariant, UnknownBrief, UnknownProject)
+NOT_FOUND: Final = (UnknownVariant, UnknownBrief, UnknownProject, UnknownConversation, UnknownRun)
 IMMUTABLE: Final = "private, max-age=31536000, immutable"
 
 type PersonOf = Callable[[str], PersonSession | None]

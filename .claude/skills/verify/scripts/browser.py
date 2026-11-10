@@ -1,7 +1,7 @@
 """A person in a real browser on the confirmation page, with one Chromium for a whole run.
 
     uv run python .claude/skills/verify/scripts/browser.py start <dir>    once per run
-    <dir>/bin/open <url>                                                   the opener
+    <dir>/bin/open <sign-in link>                                          the opener
     uv run python .claude/skills/verify/scripts/browser.py set <dir> [answer=.] [edit=.] [delay=.]
     uv run python .claude/skills/verify/scripts/browser.py status <dir>
     uv run python .claude/skills/verify/scripts/browser.py stop <dir>
@@ -9,9 +9,10 @@
         (see web_drive.py)
 
 `start` launches one headless Chromium behind a daemon on 127.0.0.1 and returns once it answers.
-It writes `<dir>/bin/open`, which hands a page URL to that daemon, so pass it as
-`cad-server --opener`, or put `<dir>/bin` first on PATH for `cad-call`, whose server runs `open`.
-Each page gets its own browser context, a page number n, `<dir>/page-<n>.aria.yml`,
+It writes `<dir>/bin/open`, which hands the server's sign-in link to that daemon, so pass it as
+`cad-server --opener` or `cad-http --opener`, or put `<dir>/bin` first on PATH for `cad-call`,
+whose server runs `open`. Each link gets its own browser context, which follows the link's
+redirect to the page and keeps the session cookie, a page number n, `<dir>/page-<n>.aria.yml`,
 `<dir>/page-<n>-before.png` (just before the click) and `<dir>/page-<n>-after.png` (the reply),
 and JSON lines in `<dir>/browser.jsonl`. How the person answers is answer (confirm or decline),
 edit ("<shown>=<typed>": type <typed> into each Change to field whose placeholder is <shown>) and
@@ -35,7 +36,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, cast
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlsplit
 
 if TYPE_CHECKING:
     from playwright.async_api import Browser, Page
@@ -219,8 +220,8 @@ async def serve(run: Path) -> None:
 
 
 async def drive(browser: Browser, run: Path, n: int, visit: Visit) -> str | None:
-    """Drive one page. None on success, else the failure, with the page token left out."""
-    token = urlsplit(visit.url).path.rpartition("/")[2]
+    """Drive one page. None on success, else the failure, with the person JWT left out."""
+    token = next(iter(parse_qs(urlsplit(visit.url).query).get("token", [])), "")
 
     def log(entry: Entry) -> None:
         append(run, {"page": n, **entry})
@@ -239,6 +240,7 @@ async def drive(browser: Browser, run: Path, n: int, visit: Visit) -> str | None
             {
                 "step": "page",
                 "status": status,
+                "path": urlsplit(page.url).path,
                 "heading": await heading.inner_text() if await heading.count() else None,
                 "sections": sections,
                 "quotes_in_brief": bool(sections) and all(s["quotes_in_brief"] for s in sections),

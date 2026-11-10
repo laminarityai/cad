@@ -9,7 +9,8 @@ from starlette.applications import Starlette
 from cad.accounts.local import LocalIssuer
 from cad.accounts.principal import AccountId
 from cad.accounts.tenants import Tenants
-from cad.confirmations.ballot import OS_OPEN
+from cad.confirmations.waiting import Door
+from cad.confirmations.web import LocalSignIn
 from cad.context_parts.ingest import ingest
 from cad.operations.scorecards import ScoreVariantInput, score_variant
 from cad.operations.variants import BuildVariantInput, build_variant
@@ -28,8 +29,8 @@ UNSTORED = "0123456789abcdef"
 @pytest.fixture
 async def app(tmp_path: Path) -> AsyncIterator[tuple[Starlette, LocalIssuer, Tenants]]:
     local = LocalIssuer.open(tmp_path, BASE)
-    tenants = Tenants(tmp_path / "accounts", 60, OS_OPEN, 0.3, ingest)
-    made = build_app(local.issuer(), tenants)
+    tenants = Tenants(tmp_path / "accounts", 60, Door(wait_seconds=0.3), ingest)
+    made = build_app(local.issuer(), tenants, LocalSignIn(local))
     async with made.router.lifespan_context(made):
         yield made, local, tenants
 

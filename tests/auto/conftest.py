@@ -1,11 +1,8 @@
-import threading
-import urllib.request
 from collections.abc import AsyncIterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
-from urllib.parse import urlencode, urlsplit
+from typing import TYPE_CHECKING, Any
 
 import pytest
 from mcp import Client
@@ -13,9 +10,7 @@ from mcp.server import MCPServer
 
 from cad.auto.log import read_run
 from cad.auto.model import AutoRun
-from cad.confirmations import http
-from cad.confirmations.ballot import Desk
-from cad.confirmations.registry import kinds
+from cad.confirmations.waiting import Bell, Door
 from cad.context_parts.ingest import ingest
 from cad.conversations import store
 from cad.conversations.model import Conversation, ConversationId, Mode
@@ -27,20 +22,11 @@ from cad.sandbox import container
 from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.meter import AccountLimitReached, Kind, Reservation
 from cad.sandbox.outcome import Build, BuildFailed
+from cad.server.app import LOCAL, LocalPage
 from cad.variants import entry
 
-
-def confirm(url: str) -> None:
-    parts = urlsplit(url)
-    sent = urllib.request.Request(
-        url,
-        data=urlencode({"answer": "confirm", "note": ""}).encode(),
-        headers={
-            "Origin": f"{parts.scheme}://{parts.netloc}",
-            "Content-Type": "application/x-www-form-urlencoded",
-        },
-    )
-    threading.Thread(target=lambda: urllib.request.urlopen(sent, timeout=5), daemon=True).start()
+if TYPE_CHECKING:
+    from conftest import Person
 
 
 @dataclass
@@ -147,19 +133,23 @@ def meter() -> Ledger:
 
 
 @pytest.fixture
-async def s(tmp_path: Path, meter: Ledger) -> AsyncIterator[Session]:
+async def s(tmp_path: Path, meter: Ledger, person: "Person") -> AsyncIterator[Session]:
+    person.answer = "confirm"
     roots = Roots(tmp_path / "briefs", tmp_path / "projects")
-    desk = Desk(roots, kinds(roots), confirm, serve=http.serve, wait_seconds=5)
+    page = LocalPage(person, lambda: tenant)
     tenant = Tenant(
+        account=LOCAL,
         roots=roots,
         variants=tmp_path / "variants",
         geometry=tmp_path / "geometry",
         conversations=tmp_path / "conversations",
-        desk=desk,
+        bell=Bell(),
+        door=Door(open_page=page.open, wait_seconds=5),
         ingest=ingest,
         meter=meter,
     )
     cid = ConversationId("c1")
+    store.create(tenant, cid)
     store.set_mode(tenant, cid, Mode.AUTO)
     served = tools(lambda: store.bind(tenant, cid), OPERATIONS)
     async with Client(MCPServer("cad", tools=served)) as client:

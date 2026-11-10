@@ -8,7 +8,7 @@ description: Drive the cad MCP server the way a client does (one scripted stdio 
 What a user touches today:
 
 - **The MCP server over stdio** (`uv run cad-server`). Drive it with `cad-call` (one tool call) or `claude_session.py` (a real Claude Code session).
-- **The confirmation page** that `ask_to_confirm` opens on 127.0.0.1. Drive it in a real browser with `browser.py`.
+- **The confirmation page** in the signed-in web app. `ask_to_confirm` hands the server's opener a local sign-in link, which lands on `/projects/<project_id>/confirm` with a session cookie. Drive it in a real browser with `browser.py`, and its refusals with `human.py` and `curl`: [features/phase-4/hosted-confirmation.md](features/phase-4/hosted-confirmation.md).
 
 - **The MCP server over HTTP** (`uv run cad-http`), with accounts. Drive it with `curl` and `cad-call --url`: [features/hosted-mcp.md](features/hosted-mcp.md).
 
@@ -83,13 +83,13 @@ It prints the MCP result as JSON and exits 1 when the result is an error and 2 w
 
 ### The confirmation page in a real browser
 
-`browser.py start` writes `$CAD_BROWSER/bin/open`, the opener. The server runs it with the page URL, and it hands the URL to the one running Chromium. For each page n, the browser reads every section by its heading, saves `page-<n>.aria.yml` (the ARIA snapshot), types an edit if one is set, saves `page-<n>-before.png`, presses `Confirm` or `Decline all`, and saves `page-<n>-after.png` (the reply page). It appends JSON lines to `$CAD_BROWSER/browser.jsonl`:
+`browser.py start` writes `$CAD_BROWSER/bin/open`, the opener. The server runs it with the sign-in link, and it hands the link to the one running Chromium, which follows the link's redirect and keeps the session cookie. For each page n, the browser reads every section by its heading, saves `page-<n>.aria.yml` (the ARIA snapshot), types an edit if one is set, saves `page-<n>-before.png`, presses `Confirm` or `Decline all`, and saves `page-<n>-after.png` (the reply page). It appends JSON lines to `$CAD_BROWSER/browser.jsonl`:
 
-- `{"page": n, "step": "page", "status": 200, "heading": ..., "sections": [{"heading", "brief", "quotes", "quotes_in_brief"}], "quotes_in_brief": true}`
+- `{"page": n, "step": "page", "status": 200, "path": "/projects/<project_id>/confirm", "heading": ..., "sections": [{"heading", "brief", "quotes", "quotes_in_brief"}], "quotes_in_brief": true}`
 - `{"page": n, "step": "edit", "shown": "150 g", "typed": "120 g", "fields": 1}`, only when an edit is set
 - `{"page": n, "step": "confirm" | "decline", "status": 200, "said": "Recorded. You confirmed 1 and declined 0 on this page. ..."}`
-- `{"page": n, "spent_token": "<token>"}`
-- `{"page": n, "error": "..."}` for any failure, because the server discards the opener's output
+- `{"page": n, "spent_token": "<person JWT>"}`
+- `{"page": n, "error": "..."}` for any failure, with the JWT replaced by `<token>`, because the server discards the opener's output
 
 Set how the person answers. The settings hold for every later page:
 
@@ -133,7 +133,7 @@ Everything goes under `$EVIDENCE`: `cad-call` output as `<slug>.json`, transcrip
 
 - Prove the user's path. A claim about what the agent does needs a transcript. A claim about the page needs the browser's screenshots and log, not an HTTP probe.
 - Capture the action and the result, then read the side effect from a second view: `list_requirements` after a page answer, the variant directory after a build, `scorecard` after a score.
-- The spent token must not appear in any transcript: `grep -c "<spent_token>" <transcript>` prints `0`.
+- The person JWT from `spent_token` must not appear in any transcript: `grep -c "<spent_token>" <transcript>` prints `0`.
 
 ## Cleanup
 
@@ -151,7 +151,7 @@ pgrep -fl "$PWD/.venv/bin/python.*(-m cad\.server|bin/cad-server)"
 ## Helpers
 
 - `scripts/browser.py start|set|status|stop <dir>` and the opener `<dir>/bin/open <url>`: the person in a real browser. Use it for every proof of the confirmation page.
-- `scripts/human.py <url>`, with `CAD_HUMAN_LOG=<path>`: a headless person over plain HTTP. Use it only where a browser cannot help: the brief-set eval (`evals/briefs/`), which runs many sessions in parallel, and the HTTP probes a browser cannot make, a GET with no or a wrong token and a replayed POST (see [Briefs](features/briefs.md)).
+- `scripts/human.py <sign-in link>`, with `CAD_HUMAN_LOG=<path>`: a headless person over plain HTTP, with a cookie jar. Use it only where a browser cannot help: the brief-set eval (`evals/briefs/`), which runs many sessions in parallel, and the HTTP probes a browser cannot make, a GET with no session and a replayed POST (see [Briefs](features/briefs.md)). Other refusals are `curl` probes: [Hosted confirmation](features/phase-4/hosted-confirmation.md).
 - `scripts/geometry.py <dir> <part.py>...`: build and score parts through the MCP server, read each mesh through the person-only `geometry` operation, compare its volume with the `mass` check, and screenshot it in three-cad-viewer. See [Geometry](features/geometry.md).
 - `scripts/claude_session.py [--model <alias>] [--opener <program>] [--home <dir> | --real-home] "<prompt>" <transcript.json>`: a headless Claude Code session. `--home` overrides `$CAD_HOME`. `--real-home` uses your own `HOME`, only when the operator asks.
 

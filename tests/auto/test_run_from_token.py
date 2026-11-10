@@ -98,6 +98,8 @@ async def test_two_conversations_of_one_account_never_leak_a_mode(
     s: Session, started: list[str]
 ) -> None:
     planning, designing = ConversationId("c-plan"), ConversationId("c-design")
+    store.create(s.tenant, planning)
+    store.create(s.tenant, designing)
     store.set_mode(s.tenant, planning, Mode.PLAN)
     store.set_mode(s.tenant, designing, Mode.DESIGN)
     for round_ in range(5):
@@ -113,6 +115,7 @@ async def test_auto_mode_with_no_run_refuses_a_build_and_a_score(
     s: Session, started: list[str]
 ) -> None:
     fresh = ConversationId("c-fresh")
+    store.create(s.tenant, fresh)
     store.set_mode(s.tenant, fresh, Mode.AUTO)
     score = {"variant_id": "0" * 16, "material_key": "prusament-pla"}
     for text in (
@@ -144,6 +147,7 @@ async def test_only_the_conversation_that_started_a_run_can_revise_or_ask(
 ) -> None:
     _, run_id = await running(s)
     designing = ConversationId("c2")
+    store.create(s.tenant, designing)
     store.set_mode(s.tenant, designing, Mode.DESIGN)
     revise = {"run_id": run_id, "code": PLATE}
     ask = {"run_id": run_id, "note": "not mine"}
@@ -163,6 +167,7 @@ async def test_another_auto_conversation_cannot_take_a_running_run_on_its_brief(
 ) -> None:
     brief_id, run_id = await running(s)
     third = ConversationId("c3")
+    store.create(s.tenant, third)
     store.set_mode(s.tenant, third, Mode.AUTO)
     start = {"brief_id": brief_id, "material_key": "prusament-pla"}
     text = await refusal_in(s, third, "auto_start", **start)
@@ -177,6 +182,7 @@ async def test_a_run_another_conversation_stopped_leaves_its_brief_free(s: Sessi
     brief_id, run_id = await running(s)
     await s.call("auto_ask", run_id=run_id, note="stuck")
     third = ConversationId("c3")
+    store.create(s.tenant, third)
     store.set_mode(s.tenant, third, Mode.AUTO)
     served = tools(lambda: store.bind(s.tenant, third), OPERATIONS)
     async with Client(MCPServer("cad", tools=served)) as client:
