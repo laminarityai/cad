@@ -30,14 +30,14 @@ materials:
         standard: ISO 527-1
         quote: Tensile Modulus [GPa] 2.3 ± 0.1 2.4 ± 0.1 ISO 527-1
     poisson_ratio:
-      value: '0.35'
+      value: '0.34'
       source:
-        url: https://pmc.ncbi.nlm.nih.gov/articles/PMC10096656/
-        title: Gaweł A. et al., Examination of Low-Cyclic Fatigue Tests and Poisson's Ratio Depending on the Different Infill Density of Polylactide (PLA) Produced by the Fused Deposition Modeling Method, Polymers 2023, 15(7), 1651, doi:10.3390/polym15071651, CC BY 4.0 (PubMed Central copy)
+        url: https://spiral.imperial.ac.uk/bitstreams/c34d2e00-a3ba-486b-8d40-77599a169575/download
+        title: Song Y. et al., Measurements of the mechanical response of unidirectional 3D-printed PLA, Materials & Design 123 (2017) 154-164 (Imperial College London open copy)
         retrieved: 2026-11-10
         standard: null
-        page: section 3.4, Table 1. Comparison of material factors calculated on the basis of Young's modulus and Poisson's ratio, row '100' (infill density, %); family value for plain PLA, measured on FDM-printed specimens (Spectrum PLA filament, 100% infill, EN ISO 3167 shape), not on Prusament PLA; no maker datasheet (Prusament, Bambu, NatureWorks) states a Poisson's ratio, and Machinery's Handbook Table 1 has no PLA row
-        quote: Poisson’s Ratio v Bulk Modulus K [MPa] Shear Modulus G [MPa] 100 2553 0.35
+        page: page 32, Appendix B, Table 6, Summary of engineering lamina constants, column nu12; the in-plane Poisson's ratio for loading along the printed filament (subscript 1 is the extrusion direction), used as the isotropic stand-in because the paper calls the elastic response of the 3D-printed PLA nearly isotropic (section 3.3, section 3.4) and gives no single isotropic value, and nu12 is the in-plane value, nu23 being 0.37; family value for plain PLA, measured on printed unidirectional specimens, not on Prusament PLA; no maker datasheet (Prusament, Bambu, NatureWorks) states a Poisson's ratio, and Machinery's Handbook Table 1 has no PLA row
+        quote: 3.98 GPa 4.04 GPa 0.34 0.37 1.50 GPa 1.47 GPa
 
   - key: prusament-petg
     name: Prusament PETG

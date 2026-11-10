@@ -1,0 +1,57 @@
+url: https://spiral.imperial.ac.uk/bitstreams/c34d2e00-a3ba-486b-8d40-77599a169575/download
+32 
+APPENDIX B  
+Calibration of an elastoplastic constitutive model 
+We suggest below a constitutive modelling strategy for the 3D -printed material loaded in the 
+xy plane. Table 6 summarises the elastic properties of the orthotropic 3D-printed layers, where 
+the subscripts 1,2 refer to directions x,y, respectively. The shear modulus of the layer 
+12G  was 
+calculated from the stiffness of the 45° specimens, as in [37] 
+ 
+ 12 12
+45 22 1
+1
+1
+4 1 1 12G
+E E E
+
+
+      (2) 
+while the transverse shear modulus can be obtained as 
+ 23 22 23 21/GE   , upon assuming 
+a transversely isotropic elastic response of the material.  
+ 
+Table 6. Summary of engineering lamina constants (subscript 1 denotes the extrusion direction). 
+11E
+ 
+22E  
+12  
+23  
+12G  
+23G  
+3.98 GPa 4.04 GPa 0.34 0.37 1.50 GPa 1.47 GPa 
+ 
+Beyond its elastic limit the 3D-printed material displays a ductile orthotropic plastic response, 
+characterised by a strong tension/compression asymmetry. In presence of only tensile (or only 
+compressive) stress components, such response can be modelled as incompressible anisotropic 
+plasticity, for example following the anisotropic yield criterion proposed by Hill [38]. The 
+Hill’s quadratic condition for yielding, in a Cartesian reference system aligned with the 
+principal material’s direction, reads as 
+ 
+     
+o2 2 2 2 2 2 0
+22 33 33 11 11 22 23 31 12 2 2 2 YF G H L M N                    (3) 
+where the material constants F to N must be determined from experiments and 
+o0
+Y  is the yield 
+stress in direction x. Using direction 1 ( x) as the reference direction, and assuming a state of 
+plane-stress (
+33 23 31 0     ) and transverse-isotropy (
+GH ), the yield condition reads 
+ 
+ 
+o22 2 0
+22 11 11 2
+2
+122 2 YFG NH          (4) 
+and one can relate the material parameters to the measured strength in different directions as 
