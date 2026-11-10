@@ -23,6 +23,9 @@ ALLOWED_ARGUMENTS = {
     "auto_start": {"brief_id", "material_key"},
     "auto_revise": {"run_id", "code", "slot"},
     "auto_ask": {"run_id", "note"},
+    # Reads, so the agent finds the slots and their code itself and never asks the person.
+    "variant_set": {"project_id", "brief_id", "material_key"},
+    "variant_code": {"variant_id"},
 }
 
 

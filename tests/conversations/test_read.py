@@ -3,6 +3,7 @@ from starlette.applications import Starlette
 
 from cad.accounts.local import LocalIssuer
 from cad.accounts.tenants import Tenants
+from cad.confirmations.web import LocalSignIn
 from cad.server.hosted import build_app
 from tests.conversations.test_mode import (
     ALICE,
@@ -28,7 +29,7 @@ async def test_a_stop_from_another_tab_shows_in_the_read_after_a_restart(
     async with http(app, tab_a) as client:
         running = (await client.get(f"/v1/conversations/{CID}")).json()
     await stop(app, tab_b, run_id)
-    restarted = build_app(local.issuer(), tenants)
+    restarted = build_app(local.issuer(), tenants, LocalSignIn(local))
     async with restarted.router.lifespan_context(restarted), http(restarted, tab_a) as client:
         stopped = (await client.get(f"/v1/conversations/{CID}")).json()
     assert (running["mode"], running["run"]["state"]["kind"]) == ("auto", "running")

@@ -7,13 +7,13 @@ from mcp.server import MCPServer
 from pydantic import BaseModel
 
 from cad.accounts.tenants import open_tenant
-from cad.confirmations.ballot import OS_OPEN, WAIT_SECONDS
+from cad.confirmations.waiting import Door
 from cad.context_parts.ingest import ingest
 from cad.operations.model import BOTH, Audience, Input, Tenant, operation
 from cad.operations.registry import OPERATIONS
 from cad.operations.tools import TenantOf, agent_operations, tools
 from cad.records.roots import Roots
-from cad.server.app import build_server
+from cad.server.app import LOCAL, build_server
 
 pytestmark = pytest.mark.anyio
 
@@ -37,7 +37,7 @@ def say(text: str) -> Callable[[Tenant, Nothing], Words]:
 def a_tenant(tmp_path: Path) -> TenantOf:
     roots = Roots(briefs=tmp_path / "briefs", projects=tmp_path / "projects")
     tenant = open_tenant(
-        roots, tmp_path / "variants", tmp_path / "geometry", None, OS_OPEN, WAIT_SECONDS, ingest
+        LOCAL, roots, tmp_path / "variants", tmp_path / "geometry", None, Door(), ingest
     )
     return lambda: tenant
 

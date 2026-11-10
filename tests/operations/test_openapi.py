@@ -9,7 +9,8 @@ from starlette.routing import Route
 
 from cad.accounts.local import LocalIssuer
 from cad.accounts.tenants import Tenants
-from cad.confirmations.ballot import OS_OPEN
+from cad.confirmations.waiting import Door
+from cad.confirmations.web import LocalSignIn
 from cad.context_parts.ingest import ingest
 from cad.operations.model import Audience
 from cad.operations.openapi import Described, Json, document, from_registry
@@ -49,9 +50,11 @@ def test_each_path_has_the_method_and_template_its_route_has() -> None:
 
 
 def test_every_web_route_the_app_mounts_is_described(tmp_path: Path) -> None:
+    local = LocalIssuer.open(tmp_path, "http://127.0.0.1:8765")
     app = build_app(
-        LocalIssuer.open(tmp_path, "http://127.0.0.1:8765").issuer(),
-        Tenants(tmp_path / "accounts", 60, OS_OPEN, 0.3, ingest),
+        local.issuer(),
+        Tenants(tmp_path / "accounts", 60, Door(wait_seconds=0.3), ingest),
+        LocalSignIn(local),
     )
     mounted = {
         (method, route.path)

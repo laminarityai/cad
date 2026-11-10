@@ -1,6 +1,6 @@
 # cad verification map
 
-This directory is the maintained source for verifying what a user of cad sees: the MCP tools through a client, and the confirmation page in a browser. Read this index, then use the matching feature file as the recipe.
+This directory is the maintained source for verifying what a user of cad sees: the MCP tools through a client, and the signed-in confirmation page in a browser. Read this index, then use the matching feature file as the recipe.
 
 ## Baseline preconditions
 
@@ -28,7 +28,7 @@ Cost: **free** is `cad-call` alone (about 8 s of server start per call). **docke
 | Feature | Covers | Cheapest proof | Costlier proofs |
 |---|---|---|---|
 | [Server info](./server-info.md) | `server_info`, bad calls, the `app` verify step | free | live: the Claude Code call |
-| [Briefs](./briefs.md) | `create_brief`, `propose_requirements`, `ask_to_confirm`, `list_requirements`, the confirmation page, refusals | free: refusals, projects. browser: confirm, edit, decline, one page | live: the agent's flow, the adversary |
+| [Briefs](./briefs.md) | `create_brief`, `propose_requirements`, `ask_to_confirm`, `list_requirements`, the confirmation page and its sign-in link, refusals | free: refusals, projects. browser: confirm, edit, decline, one page | live: the agent's flow, the adversary |
 | [Build variant](./build-variant.md) | `build_variant` outcomes, the store, Docker down, variant sets | docker | live: the Claude Code call |
 | [Run checks](./run-checks.md) | `cad-sandbox run-checks`: the four geometric checks, `result.step`, stale variants | docker | none |
 | [Score variant](./score-variant.md) | `score_variant`, `scorecard` read-back, `list_materials`, `basis`, `made_of`, the allowlist | docker, plus browser for a confirmed brief | live: build and score, override |
@@ -38,14 +38,14 @@ Cost: **free** is `cad-call` alone (about 8 s of server start per call). **docke
 | [Agree](./agree.md) | `evals/bakeoff/agree.py`: scorecards against the bake-off grader | docker: replay (60 builds, about 4 min) | live: 10 sessions, about 0.4 USD |
 | [Brief set](./brief-set.md) | `evals/briefs/run.py`: the private brief set, traced numbers, friction | live (one session per brief) | none |
 | [Context parts](./context-parts.md) | `propose_context_part`, the context part item on the confirmation page, and the `fit` check against each confirmed part | free: idempotent, declined, refusals (`tests/context_parts/`). docker: propose a built variant. docker + browser: confirm a part, score fit and clearance | live: the agent proposes a part and the person confirms it |
+| [Hosted confirmation](./phase-4/hosted-confirmation.md) | the confirmation page in the signed-in app: the local sign-in link, who may read and answer it, the 401, 403 and 409 refusals, `ask_to_confirm` over HTTP | free: curl with `cad-token` tokens. browser: `browser.py` through `cad-http --opener` | live: the agent's flow. operator: the Claude Code URL dialog |
 | [Hosted MCP and accounts](./hosted-mcp.md) | `cad-http`: `/mcp` over HTTP, the metadata, token kinds per route, tenancy, the lease, the usage cap | free: curl and `cad-call --url` with `cad-token` tokens | operator: `claude mcp login cad` against a Clerk instance |
 | [Geometry](./geometry.md) | the person-only `geometry` operation: the mesh of a variant from the analysis image, for three-cad-viewer | free: pending, stored, retried (`tests/geometry/test_lane.py`). docker: the mesh volume against the `mass` check, and a screenshot in three-cad-viewer (`scripts/geometry.py`) | none: no agent reaches it |
 
 ## Phase 4 web app: NOT YET BUILT
 
-`docs/design/phase-4.md` designs these surfaces. Unit 3 landed as [Hosted MCP and accounts](./hosted-mcp.md) and unit 5 as [Geometry](./geometry.md), and the rest do not exist yet. Each file names the check that §4 Sequencing gives the unit, the proof to write into the map when the unit lands, and the parts of the design it comes from. It names no selector, because the UI does not exist. When a unit lands, replace its file with a real recipe that follows the four-section shape of the files above.
+`docs/design/phase-4.md` designs these surfaces. Unit 3 landed as [Hosted MCP and accounts](./hosted-mcp.md), unit 4 as [Hosted confirmation](./phase-4/hosted-confirmation.md) and unit 5 as [Geometry](./geometry.md), and the rest do not exist yet. Each file names the check that §4 Sequencing gives the unit, the proof to write into the map when the unit lands, and the parts of the design it comes from. It names no selector, because the UI does not exist. When a unit lands, replace its file with a real recipe that follows the four-section shape of the files above.
 
-- [Hosted confirmation](./phase-4/hosted-confirmation.md): the Starlette page in the signed-in app, opened by URL elicitation. Unit 4.
 - [Web shell](./phase-4/web-shell.md): the viewer and scorecards over SSE. Unit 6. Unit 5, geometry, is built: see [Geometry](./geometry.md).
 - [Auto mode](./phase-4/auto-mode.md): the server-held Auto run and its stops. Units 7 and 9.
 - [Chat](./phase-4/chat.md): the chat runtime and mode switcher. Unit 8.

@@ -77,3 +77,5 @@ The title of this ADR records the phase 2 decision. The file keeps its name so t
 - **A link to the page in the tool result.** Rejected in #47. The agent could open the link.
 - **A notification to the signed-in account, by email or in the app's inbox, with a link that requires sign-in.** It works with any client, but it is a scheme of our own. URL-mode elicitation is the standard way a remote MCP server sends a person to a page.
 - **A passkey touch for each confirmation.** Declined by the operator on 2026-11-08. It closes the signed-in-browser gap, but it adds WebAuthn, enrolment and recovery for a gap the operator already accepted.
+
+The operator approved this amendment on 2026-11-09.

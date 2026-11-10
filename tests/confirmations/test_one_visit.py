@@ -159,7 +159,7 @@ async def test_an_answer_whose_link_is_written_is_recorded_even_if_cleanup_fails
 
     monkeypatch.setattr(Path, "unlink", stuck)
     assert s.post(s.person.url, "confirm")[0] == 200
-    assert [s.get(s.person.url)[0], s.post(s.person.url, "confirm")[0]] == [403, 403]
+    assert [s.get(s.person.url)[0], s.post(s.person.url, "confirm")[0]] == [200, 409]
     slots = [f.name for f in answer_files(s, brief.project_id) if not f.name.startswith(".")]
     assert slots == [signed.slot_file(1)]
     assert [i["outcome"] for i in (await s.ask(brief))["items"]] == ["confirmed"]

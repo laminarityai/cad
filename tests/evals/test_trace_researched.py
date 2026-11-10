@@ -5,7 +5,6 @@ from pathlib import Path
 import pytest
 from cards import (
     BRIEF_TEXT,
-    KEY,
     genuine_card,
     lines,
     roots_beside,
@@ -33,6 +32,7 @@ from cad.tables.materials import UNITS, Known, MaterialsTable
 
 PLATE = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
 URL = "https://example.org/pla"
+KEY = "prusament-petg"
 QUOTE = "Poisson's ratio 0.36"
 
 
@@ -112,8 +112,9 @@ def stored_researched_card(store: Path) -> tuple[material.ReportedScorecard, Mat
     roots = roots_beside(store)
     brief_id, scored = researched(roots)
     card = genuine_card(
+        KEY,
         table_version=scored.version,
-        results=(*genuine_card().results, fea_result(scored)),
+        results=(*genuine_card(KEY).results, fea_result(scored)),
         basis=AwaitingConfirmation(brief_id=brief_id),
     )
     reported = material.reported(card, None)

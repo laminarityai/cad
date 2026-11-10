@@ -1,14 +1,13 @@
 import hashlib
-import threading
-import urllib.request
 from pathlib import Path
-from urllib.parse import urlencode, urlsplit
+from typing import TYPE_CHECKING
 
 import pytest
 
 from cad.accounts.principal import AccountId
 from cad.accounts.tenants import Tenants
 from cad.briefs.store import UnknownBrief
+from cad.confirmations.waiting import Door
 from cad.context_parts.ingest import ingest
 from cad.geometry import job, store
 from cad.geometry.model import TessellationFailed, UnknownMesh
@@ -29,6 +28,10 @@ from cad.sandbox.outcome import Build, Built
 from cad.variant_sets import store as variant_sets
 from cad.variants import entry
 from cad.variants.entry import UnknownVariant
+from tests.conftest import local_pages
+
+if TYPE_CHECKING:
+    from conftest import Person
 
 pytestmark = pytest.mark.anyio
 
@@ -43,22 +46,12 @@ UNDER_150 = RequirementDraft.model_validate(
 RAIL = b"CASCADE Topology V3, a rail\n"
 
 
-def confirm(url: str) -> None:
-    parts = urlsplit(url)
-    sent = urllib.request.Request(
-        url,
-        data=urlencode({"answer": "confirm", "note": ""}).encode(),
-        headers={
-            "Origin": f"{parts.scheme}://{parts.netloc}",
-            "Content-Type": "application/x-www-form-urlencoded",
-        },
-    )
-    threading.Thread(target=lambda: urllib.request.urlopen(sent, timeout=5), daemon=True).start()
-
-
 @pytest.fixture
-def accounts(tmp_path: Path) -> Tenants:
-    return Tenants(tmp_path / "accounts", 60, confirm, 5.0, ingest)
+def accounts(tmp_path: Path, person: "Person") -> Tenants:
+    person.answer = "confirm"
+    door = Door(open_page=local_pages(person, lambda account: tenants.of(account)), wait_seconds=5)
+    tenants = Tenants(tmp_path / "accounts", 60, door, ingest)
+    return tenants
 
 
 @pytest.fixture

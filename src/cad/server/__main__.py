@@ -3,7 +3,7 @@ import logging
 import sys
 from contextlib import suppress
 
-from cad.confirmations.ballot import program_opener
+from cad.confirmations.waiting import program_opener
 from cad.sandbox import container
 from cad.sandbox.outcome import SandboxUnavailable
 from cad.server.app import build_server
@@ -15,7 +15,7 @@ def main() -> None:
         "--opener",
         default="open",
         metavar="PROGRAM",
-        help="program the server runs with the confirmation page URL (default: open)",
+        help="program the server runs with each sign-in link to the page (default: open)",
     )
     args = parser.parse_args()
     logging.basicConfig(stream=sys.stderr, level=logging.INFO)

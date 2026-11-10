@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from cad.accounts.tenants import open_tenant
-from cad.confirmations.ballot import OS_OPEN, WAIT_SECONDS
+from cad.confirmations.waiting import Door
 from cad.context_parts.ingest import ingest
 from cad.geometry.lane import Tessellations
 from cad.geometry.model import Tessellated, TessellationFailed, mesh_volume
@@ -12,6 +12,7 @@ from cad.records.roots import Roots
 from cad.sandbox import image
 from cad.sandbox.host import run_checks
 from cad.sandbox.outcome import Built
+from cad.server.app import LOCAL
 from cad.variants import entry
 from cad.variants.entry import UnknownVariant
 from cad.variants.store import build_variant
@@ -49,7 +50,7 @@ def test_a_brep_the_kernel_cannot_read_fails_and_is_stored(tmp_path: Path) -> No
 def test_the_geometry_of_an_unknown_variant_is_refused(tmp_path: Path) -> None:
     roots = Roots(tmp_path / "briefs", tmp_path / "projects")
     tenant = open_tenant(
-        roots, tmp_path / "variants", tmp_path / "geometry", None, OS_OPEN, WAIT_SECONDS, ingest
+        LOCAL, roots, tmp_path / "variants", tmp_path / "geometry", None, Door(), ingest
     )
     with pytest.raises(UnknownVariant, match="0123456789abcdef"):
         geometry(tenant, GeometryInput(variant_id="0123456789abcdef"))
