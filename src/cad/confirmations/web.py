@@ -148,6 +148,8 @@ def confirm_routes(
         try:
             reply = await anyio.to_thread.run_sync(run)
         except Exception as error:
+            # Nothing past the answer's link into place raises, so nothing was recorded and the
+            # same form can be sent again.
             LOG.error("the confirmation page could not record an answer: %r", error)
             return _plain(500, REFUSED)
         assert isinstance(reply, PageReply)

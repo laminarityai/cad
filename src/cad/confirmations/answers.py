@@ -48,6 +48,7 @@ class PageAnswer(_Frozen):
     answers: Annotated[tuple[ItemAnswer, ...], Field(min_length=1)]
     note: Annotated[str, Field(max_length=MAX_NOTE_CHARS)] = ""
     decided_at: datetime
+    # None only on an answer stored before the page moved into the signed-in app.
     account: AccountId | None = None
     session_id: str | None = None
 

@@ -61,6 +61,9 @@ class Door:
 
 
 class Bell:
+    """One per tenant. A recorded answer rings it; the wait also polls, so an answer another
+    process recorded is seen within `POLL_SECONDS`."""
+
     def __init__(self) -> None:
         self._rung = threading.Condition()
         self._rings = 0

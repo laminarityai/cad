@@ -30,6 +30,10 @@ LOOPBACK: Final = "127.0.0.1"
 
 
 class LocalPage:
+    """The stdio server's confirmation page: the web app's page routes on 127.0.0.1, on a port
+    the system picks, started when the first page opens. Its issuer's key lives only in this
+    process, so only the link handed to the opener signs the person in."""
+
     def __init__(self, opener: Opener, tenant: Callable[[], Tenant]) -> None:
         self._opener = opener
         self._tenant = tenant

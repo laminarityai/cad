@@ -1,3 +1,11 @@
+"""The page's snapshot: the items it showed, sealed for one session and one project.
+
+The form carries `<base64url of the items JSON>.<mac>`. The projects key signs it under the
+slot `<project>/page`, apart from the answer slots `<project>/answer/<n>`, over the account,
+the session and the items. Nothing is kept in memory, so it survives a restart, and another
+account's key or another session cannot open it.
+"""
+
 import base64
 import binascii
 import json
