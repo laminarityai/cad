@@ -37,6 +37,12 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: api-types
+        name: api types
+        entry: uv run verify --only "api types"
+        language: system
+        pass_filenames: false
+        files: ^(src/cad/|tools/gen_ts\.py|web/(package-lock\.json|src/api/))
       - id: protocol-models
         name: protocol models
         entry: uv run verify --only "protocol models"
