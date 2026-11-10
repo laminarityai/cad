@@ -11,7 +11,7 @@ from collections.abc import AsyncIterator, Callable, Iterator
 from dataclasses import dataclass
 from email.message import Message
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 from urllib.parse import urlencode
 
 import httpx2
@@ -356,3 +356,26 @@ async def test_a_second_click_while_the_first_answer_is_on_its_way_sends_nothing
 
 def page_of(hosted: Hosted, project_id: str) -> str:
     return f"{hosted.base}/projects/{project_id}/confirm"
+
+
+@pytest.mark.parametrize(
+    ("scheme", "background"), [("dark", "rgb(13, 16, 18)"), ("light", "rgb(250, 250, 250)")]
+)
+async def test_the_page_and_its_notices_follow_the_persons_color_scheme(
+    hosted: Hosted, scheme: Literal["dark", "light"], background: str
+) -> None:
+    project_id = await hosted.proposed(ALICE)
+    seen: list[str] = []
+    async with async_playwright() as playwright:
+        browser = await chrome(playwright)
+        try:
+            context = await browser.new_context(color_scheme=scheme)
+            token = hosted.local.mint_person(ALICE)
+            await context.add_cookies([{"name": "__session", "value": token, "url": hosted.base}])
+            page = await context.new_page()
+            for project in (project_id, "p-nosuchproject"):
+                await page.goto(page_of(hosted, project))
+                seen.append(await page.evaluate("getComputedStyle(document.body).backgroundColor"))
+        finally:
+            await browser.close()
+    assert seen == [background, background]
