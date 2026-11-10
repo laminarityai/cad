@@ -107,6 +107,35 @@ describe("SetPage", () => {
       vi.useRealTimers();
     });
 
+    it("shows what another brief of the project waits on, without a reload, and links to the confirmation page", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      const lid = {
+        project_id: "p1",
+        items: [
+          {
+            kind: "requirements" as const,
+            brief_id: "b2",
+            brief_text: "Add a lid that clears the box by 0.3 mm.",
+            title: "Requirements for your brief (proposal 1)",
+            rows: [{ headline: "Clearance at least 0.3 mm", quote: "clears the box by 0.3 mm" }],
+          },
+        ],
+      };
+      let at = 0;
+      mountSet(fakeApi(["v1"], { waiting: vi.fn(() => Promise.resolve(at++ === 0 ? { project_id: "p1", items: [] } : lid)) }));
+      const panel = await screen.findByRole("region", { name: "Waiting on you" });
+      await waitFor(() => {
+        expect(panel).toHaveTextContent("Nothing waits on you.");
+      });
+      expect(within(panel).queryByRole("link", { name: "Review and confirm" })).toBeNull();
+      await act(() => vi.advanceTimersByTimeAsync(FOLLOW_MS));
+      await waitFor(() => {
+        expect(within(panel).getByText("clears the box by 0.3 mm")).toBeInTheDocument();
+      });
+      expect(within(panel).getByRole("link", { name: /brief b2/i })).toHaveAttribute("href", "/projects/p1/briefs/b2");
+      expect(within(panel).getByRole("link", { name: "Review and confirm" })).toHaveAttribute("href", "/projects/p1/confirm");
+    });
+
     it("moves a rebuilt slot to its new variant without a reload, draws it into the same viewer, and keeps the page through a failed read", async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
       const rebuilt = setOf(["v1b"]);

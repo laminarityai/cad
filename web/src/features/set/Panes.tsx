@@ -1,5 +1,5 @@
 import { useEffect, useReducer, useState, type ReactNode } from "react";
-import type { BriefView, MaterialListings, VariantSetView } from "@/api/types";
+import type { MaterialListings, VariantSetView, WaitingView } from "@/api/types";
 import { Scorecard } from "@/features/scorecard/Scorecard";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cardsReducer, cardsStart } from "@/state/cards";
@@ -49,7 +49,7 @@ function MaterialPicker(props: {
 
 export function Panes(props: {
   projectId: string;
-  brief: BriefView;
+  waiting: WaitingView;
   set: VariantSetView;
   materials: MaterialListings["materials"];
   material: string | null;
@@ -58,7 +58,7 @@ export function Panes(props: {
   run: ReactNode;
   chat: ReactNode;
 }) {
-  const { projectId, brief, set, materials, material, chosenBy, onPick, run, chat } = props;
+  const { projectId, waiting, set, materials, material, chosenBy, onPick, run, chat } = props;
   const narrow = useNarrow();
   const [cards, dispatch] = useReducer(cardsReducer, cardsStart);
   const [chosen, choose] = useState<number | null>(null);
@@ -99,7 +99,7 @@ export function Panes(props: {
 
   const side: ReactNode = (
     <div className="flex flex-col gap-2.5">
-      <WaitingPanel brief={brief} projectId={projectId} />
+      <WaitingPanel waiting={waiting} briefId={set.brief_id} projectId={projectId} />
       {chosenBy !== "brief" && materials.length > 0 ? (
         <MaterialPicker materials={materials} value={material} chosenBy={chosenBy} onChange={onPick} />
       ) : null}

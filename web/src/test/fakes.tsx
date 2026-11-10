@@ -35,6 +35,7 @@ export function fakeApi(variants: string[], overrides: Partial<Api> = {}): Api {
     projects: vi.fn(() => Promise.resolve({ projects: [] })),
     project: vi.fn(() => Promise.resolve({ project_id: "p1", briefs: [] })),
     brief: vi.fn(() => Promise.resolve(brief(true))),
+    waiting: vi.fn(() => Promise.resolve({ project_id: "p1", items: [] })),
     variantSet: vi.fn(() => Promise.resolve(setOf(variants))),
     materials: vi.fn(() => Promise.resolve({ materials: [{ key: "prusament-pla", name: "Prusament PLA" }] })),
     view: vi.fn((variantId: string) =>

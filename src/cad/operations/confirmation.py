@@ -9,6 +9,7 @@ from cad.briefs import store
 from cad.briefs.model import Declined
 from cad.briefs.store import BriefState, Status
 from cad.confirmations import page, snapshot
+from cad.confirmations.answers import ItemKindName
 from cad.confirmations.items import Refused, pending
 from cad.confirmations.page import AlreadyAnswered, Changed, Recorded
 from cad.confirmations.registry import kinds
@@ -32,6 +33,10 @@ ASK_TO_CONFIRM = (
     "open a page for the user is asked to open it. Waits up to about 20 seconds, then returns "
     "each brief's newest proposal and each context part as waiting, confirmed, or declined with "
     "the user's note. waiting is not an answer. This tool never confirms anything."
+)
+WAITING = (
+    "Everything in a project waiting on the signed-in person, as the project's confirmation "
+    "page lists it: each item with the brief it belongs to and the rows the page will ask about."
 )
 ANSWER_PAGE = "Record the signed-in person's answer to a project's confirmation page."
 NEXT: Final = {
@@ -162,6 +167,44 @@ async def ask_to_confirm(tenant: Tenant, arguments: AskToConfirmInput) -> AskRes
     )
 
 
+class WaitingRow(BaseModel):
+    headline: str
+    quote: str
+
+
+class WaitingItem(BaseModel):
+    kind: ItemKindName
+    brief_id: str
+    brief_text: str
+    title: str
+    rows: tuple[WaitingRow, ...]
+
+
+class WaitingView(BaseModel):
+    project_id: str
+    items: tuple[WaitingItem, ...]
+
+
+def waiting(tenant: Tenant, arguments: AskToConfirmInput) -> WaitingView:
+    project, _ = _known(tenant, arguments)
+    every = kinds(tenant.roots)
+    items: list[WaitingItem] = []
+    for ref in pending(every, project):
+        section = every[ref.kind].section(ref)
+        items.append(
+            WaitingItem(
+                kind=ref.kind,
+                brief_id=section.brief_id,
+                brief_text=section.context,
+                title=section.title,
+                rows=tuple(
+                    WaitingRow(headline=row.headline, quote=row.quote) for row in section.rows
+                ),
+            )
+        )
+    return WaitingView(project_id=project, items=tuple(items))
+
+
 FORBIDDEN: Final = "This page is not yours to answer. Open it again from the web app."
 CHANGED: Final = (
     "The agent added or changed something since this page opened. Nothing was recorded. "
@@ -219,6 +262,14 @@ OPERATIONS: Final = (
         output=AskResult,
         run=ask_to_confirm,
         page=confirm_page,
+    ),
+    operation(
+        name="waiting",
+        audience=Audience.PERSON,
+        description=WAITING,
+        input=AskToConfirmInput,
+        output=WaitingView,
+        run=waiting,
     ),
     operation(
         name="answer_page",

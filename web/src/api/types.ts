@@ -68,6 +68,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/projects/{project_id}/waiting": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["waiting"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/knowledge": {
         parameters: {
             query?: never;
@@ -649,6 +665,8 @@ export interface components {
             /** @default null */
             diameter: components["schemas"]["Length"] | null;
         };
+        /** @enum {string} */
+        ItemKindName: "requirements" | "context_part";
         /** KnowledgeHit */
         KnowledgeHit: {
             id: string;
@@ -1399,6 +1417,24 @@ export interface components {
             statement: string;
             check_id: string;
         };
+        /** WaitingItem */
+        WaitingItem: {
+            kind: components["schemas"]["ItemKindName"];
+            brief_id: string;
+            brief_text: string;
+            title: string;
+            rows: components["schemas"]["WaitingRow"][];
+        };
+        /** WaitingRow */
+        WaitingRow: {
+            headline: string;
+            quote: string;
+        };
+        /** WaitingView */
+        WaitingView: {
+            project_id: string;
+            items: components["schemas"]["WaitingItem"][];
+        };
         /** Read */
         cad__auto__model__Read: {
             material_key: string;
@@ -1519,6 +1555,7 @@ export type Force = components['schemas']['Force'];
 export type GeometryRead = components['schemas']['GeometryRead'];
 export type HoleCount = components['schemas']['HoleCount'];
 export type Holes = components['schemas']['Holes'];
+export type ItemKindName = components['schemas']['ItemKindName'];
 export type KnowledgeHit = components['schemas']['KnowledgeHit'];
 export type KnowledgeHits = components['schemas']['KnowledgeHits'];
 export type LargestFlat = components['schemas']['LargestFlat'];
@@ -1601,6 +1638,9 @@ export type VariantSetView = components['schemas']['VariantSetView'];
 export type VariantView = components['schemas']['VariantView'];
 export type Verdict = components['schemas']['Verdict'];
 export type Waiting = components['schemas']['Waiting'];
+export type WaitingItem = components['schemas']['WaitingItem'];
+export type WaitingRow = components['schemas']['WaitingRow'];
+export type WaitingView = components['schemas']['WaitingView'];
 export type CadAutoModelRead = components['schemas']['cad__auto__model__Read'];
 export type CadChecksResultRead = components['schemas']['cad__checks__result__Read'];
 export type ResponseRefused = components['responses']['Refused'];
@@ -1710,6 +1750,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BriefView"];
+                };
+            };
+            400: components["responses"]["Refused"];
+            401: components["responses"]["SignedOut"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Malformed"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    waiting: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description the result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WaitingView"];
                 };
             };
             400: components["responses"]["Refused"];

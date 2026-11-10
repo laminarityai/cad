@@ -18,12 +18,13 @@ export function SetPage() {
   const { api } = useServices();
   const { projectId = "", briefId = "" } = useParams();
   const { resource: loaded, reload } = useResource(async () => {
-    const [set, brief, materials] = await Promise.all([
+    const [set, brief, materials, waiting] = await Promise.all([
       api.variantSet(projectId, briefId),
       api.brief(briefId),
       api.materials(),
+      api.waiting(projectId),
     ]);
-    return { set, brief, materials: materials.materials };
+    return { set, brief, materials: materials.materials, waiting };
   }, `set:${projectId}:${briefId}`, FOLLOW_MS);
   const chat = useConversation(projectId, briefId, reload);
   const [picked, pick] = useState<string | null>(null);
@@ -43,14 +44,14 @@ export function SetPage() {
         ) : null}
       </TopBar>
       <Gate resource={loaded}>
-        {({ set, brief, materials }) => {
+        {({ set, brief, materials, waiting }) => {
           const pinned = pinnedMaterial(brief, materials.map((one) => one.key));
           const material = pinned ?? picked ?? materials[0]?.key ?? null;
           return (
             <Panes
               key={material ?? ""}
               projectId={projectId}
-              brief={brief}
+              waiting={waiting}
               set={set}
               materials={materials}
               material={material}
