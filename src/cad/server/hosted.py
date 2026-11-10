@@ -56,6 +56,7 @@ from cad.operations.tools import tools
 from cad.records.roots import DATA_ROOT
 from cad.sandbox import container, meter
 from cad.sandbox.outcome import SandboxUnavailable
+from cad.web.static import DIST, web_routes
 
 DAILY_CAP_SECONDS: Final = 3600
 PORT: Final = 8765
@@ -93,10 +94,12 @@ def build_app(
     sign_in: SignIn,
     model: Model | None = None,
     hooked: bool = True,
+    web: Path = DIST,
 ) -> Starlette:
     """`model` runs the chat agent. None reads `CAD_CHAT_MODEL`, so a server with no model
     configured still starts and answers every call but a chat message. `hooked` wakes the
-    scorecard events stream from the job queue instead of polling."""
+    scorecard events stream from the job queue instead of polling. `web` is the built web
+    app that `/app` serves."""
     verifier = Verifier(issuer)
     chat = Chat(model or from_environment(os.environ), tenants)
 
@@ -127,6 +130,7 @@ def build_app(
     app.router.routes.extend(confirm_routes(verifier, tenants.of, origin(issuer), sign_in))
     app.router.routes.append(events_route(verifier.person, tenants.of, hooked=hooked))
     app.router.routes.extend(chat_routes(verifier.person, chat))
+    app.router.routes.extend(web_routes(web))
     app.state.chat = chat
     return app
 
