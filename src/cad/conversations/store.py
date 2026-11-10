@@ -66,6 +66,12 @@ def start_run(
         if held.mode is not Mode.AUTO:
             raise RunRefused(f"the person switched this conversation to {held.mode} mode")
         current = None if held.auto_run is None else _read_if_known(tenant, held.auto_run)
+        if current is not None and isinstance(current.state, Stopped):
+            _write(tenant.conversations, cid, Conversation(mode=Mode.DESIGN))
+            raise RunRefused(
+                f"auto run {current.run_id} has stopped, so this conversation moved to Design "
+                "mode; only the person can start a new Auto run"
+            )
         if (
             current is not None
             and isinstance(current.state, Running)

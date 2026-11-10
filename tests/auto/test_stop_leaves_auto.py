@@ -68,3 +68,24 @@ async def test_a_stop_recorded_before_the_conversation_moved_is_finished_by_the_
     assert store.read(s.tenant.conversations, s.conversation).mode is Mode.AUTO
     store.record_event(s.tenant, run_id, asked)
     await s.left_auto(brief_id, run_id)
+
+
+async def test_a_start_after_a_stop_recorded_before_the_conversation_moved_is_refused(
+    s: Session,
+) -> None:
+    brief_id, run_id = await running(s)
+    log.append_event(s.roots, run_id, asked)
+    text = await s.refusal("auto_start", brief_id=brief_id, material_key="prusament-pla")
+    assert f"auto run {run_id} has stopped" in text, text
+    await s.left_auto(brief_id, run_id)
+
+
+async def test_a_conversation_left_in_auto_on_a_stopped_run_refuses_a_start(s: Session) -> None:
+    brief_id, run_id = await running(s)
+    log.append_event(s.roots, run_id, asked)
+    stuck = Conversation(mode=Mode.AUTO, auto_run=run_id)
+    (s.tenant.conversations / f"{s.conversation}.json").write_text(stuck.model_dump_json())
+    store.set_mode(s.tenant, s.conversation, Mode.AUTO)
+    text = await s.refusal("auto_start", brief_id=brief_id, material_key="prusament-pla")
+    assert f"auto run {run_id} has stopped" in text, text
+    await s.left_auto(brief_id, run_id)
