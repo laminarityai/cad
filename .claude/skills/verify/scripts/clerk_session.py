@@ -1,11 +1,13 @@
 """Clerk session expiry repro for the hosted confirmation page.
 
-    uv run python .claude/skills/verify/scripts/clerk_session.py <out dir> expired|signed-out
+    uv run python .claude/skills/verify/scripts/clerk_session.py <out> expired|signed-out|double
 
 `expired` lets the token lapse while the person types, then confirms. `signed-out` also ends the
 Clerk session, so the POST meets sign-in, signs in again under a new session, and confirms the
-restored edits. Each case writes `<case>.json` and screenshots into the out dir. Run it from an
-older checkout with `PYTHONPATH=<that checkout>/src` for a baseline.
+restored edits. `double` clicks Confirm and then Decline while the pre-submit token refresh is
+still pending, and records how many answers the browser posted. Each case writes `<case>.json`
+and screenshots into the out dir. Run it from an older checkout with
+`PYTHONPATH=<that checkout>/src` for a baseline.
 """
 
 import asyncio
@@ -25,6 +27,7 @@ from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import PlainTextResponse, Response
 from starlette.routing import Route
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from cad.accounts.local import LocalIssuer
 from cad.accounts.principal import AccountId
@@ -81,7 +84,7 @@ def port() -> socket.socket:
     return listening
 
 
-def serve(app: Starlette, listening: socket.socket) -> None:
+def serve(app: ASGIApp, listening: socket.socket) -> None:
     server = uvicorn.Server(uvicorn.Config(app, log_level="warning", access_log=False))
     threading.Thread(target=server.run, args=([listening],), daemon=True).start()
     while not server.started:
@@ -95,13 +98,14 @@ async def main(out: Path, case: str) -> int:
     base = f"http://127.0.0.1:{app_port.getsockname()[1]}"
     fapi = f"http://127.0.0.1:{fapi_port.getsockname()[1]}"
     local = LocalIssuer.open(root, base)
-    state = {"signed_in": True, "session": "sess_reads_for_a_long_time", "minted": 0}
+    state = {"signed_in": True, "session": "sess_reads_for_a_long_time", "minted": 0, "slow": 0.0}
 
     def token(_: Request) -> Response:
         cors = {"Access-Control-Allow-Origin": base}
         if not state["signed_in"]:
             return PlainTextResponse("signed out", 401, headers=cors)
         state["minted"] = int(state["minted"]) + 1
+        time.sleep(float(state["slow"]))
         if "session" in inspect.signature(local.mint_person).parameters:
             minted = local.mint_person(ALICE, TTL, str(state["session"]))
         else:
@@ -129,7 +133,14 @@ async def main(out: Path, case: str) -> int:
         fapi_port,
     )
     tenants = Tenants(root / "accounts", 60, Door(wait_seconds=0.3), ingest)
-    serve(build_app(local.issuer(), tenants, ClerkSignIn(fapi, "pk_test_stand_in")), app_port)
+    hosted = build_app(local.issuer(), tenants, ClerkSignIn(fapi, "pk_test_stand_in"))
+
+    async def slow_posts(scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http" and scope["method"] == "POST":
+            await asyncio.sleep(float(state["slow"]))
+        await hosted(scope, receive, send)
+
+    serve(slow_posts, app_port)
     alice = tenants.of(ALICE)
     brief = create_brief(alice, CreateBriefInput(text="A wall hook under 150 g, printed in PLA."))
     draft = RequirementDraft.model_validate(
@@ -148,6 +159,14 @@ async def main(out: Path, case: str) -> int:
         page = await browser.new_page()
         page.on("console", lambda message: log.append({"console": message.text}))
         page.on(
+            "request",
+            lambda sent: (
+                log.append({"sent": sent.method, "url": sent.url})
+                if sent.method == "POST"
+                else None
+            ),
+        )
+        page.on(
             "response",
             lambda response: log.append(
                 {"status": response.status, "url": response.url, "method": response.request.method}
@@ -160,9 +179,16 @@ async def main(out: Path, case: str) -> int:
         await page.fill("#note", "kept through the expiry")
         if case == "signed-out":
             state["signed_in"] = False
-        await asyncio.sleep(TTL + 5)
-        async with page.expect_navigation():
+        if case == "double":
+            state["slow"] = 1.5
             await page.click("button[value=confirm]")
+            await asyncio.sleep(0.5)
+            await page.click("button[value=decline]")
+            await asyncio.sleep(5)
+        else:
+            await asyncio.sleep(TTL + 5)
+            async with page.expect_navigation():
+                await page.click("button[value=confirm]")
         if case == "signed-out":
             await page.screenshot(path=str(out / f"{case}-sign-in.png"))
             await page.click("#fake-sign-in")
@@ -196,7 +222,7 @@ async def main(out: Path, case: str) -> int:
             if "status" in e and "127.0.0.1" in str(e["url"]) and "/projects/" in str(e["url"])
         ]
     )
-    print([e for e in log if "restored" in e or "console" in e])
+    print([e for e in log if "restored" in e or "console" in e or "sent" in e])
     return 0
 
 

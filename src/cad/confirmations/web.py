@@ -86,9 +86,12 @@ SIGN_IN_SCRIPT: Final = (
     "{ forceRedirectUrl: location.href }); } })();"
 )
 # A Clerk session token lasts about a minute. Loaded Clerk keeps `__session` fresh while the page
-# is open.
+# is open. Only one answer leaves a page: a second click while the first refreshes its token or
+# posts would send a second form, which the server refuses after the first is recorded.
 KEEP_SESSION_SCRIPT: Final = (
     "const ready = Promise.resolve().then(() => Clerk.load());"
+    "let answer = 'open';"
+    "addEventListener('pageshow', (event) => { if (event.persisted) { answer = 'open'; } });"
     "const form = document.getElementById('page');"
     "const key = 'cad-draft:' + form.elements.snapshot.value.split('.')[0];"
     "const fields = () => [...form.elements].filter((one) =>"
@@ -104,11 +107,14 @@ KEEP_SESSION_SCRIPT: Final = (
     "document.addEventListener('change', keep);"
     "form.addEventListener('submit', async (event) => {"
     " keep();"
-    " if (form.dataset.fresh) { return; }"
+    " if (answer === 'sending') { return; }"
     " event.preventDefault();"
+    " if (answer !== 'open') { return; }"
+    " answer = 'refreshing';"
     " await ready.then(() => Clerk.session?.getToken({ skipCache: true })).catch(() => null);"
-    " form.dataset.fresh = 'yes';"
+    " answer = 'sending';"
     " form.requestSubmit(event.submitter);"
+    " answer = 'sent';"
     "});"
 )
 LOG = logging.getLogger(__name__)

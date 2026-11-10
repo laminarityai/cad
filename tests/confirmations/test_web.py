@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import re
 import socket
 import threading
@@ -18,6 +19,7 @@ import pytest
 import uvicorn
 from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
+from playwright.async_api import Browser, Error, Playwright, Route, async_playwright
 
 from cad.accounts.local import LocalIssuer
 from cad.accounts.principal import AccountId
@@ -282,6 +284,74 @@ async def test_a_refreshed_session_answers_a_page_opened_before_its_token_expire
     refreshed = person.post(url, "confirm")[0]
     assert (expired, refreshed) == (401, 409 if stale else 200)
     assert len(clerk_page.answered(ALICE, project_id)) == (0 if stale else 1)
+
+
+# Clerk is loaded and signed in; each getToken waits until the test calls `window.mint()`, which
+# then clicks Decline while the answer posts: Playwright cannot act on a page mid-navigation.
+HELD_CLERK = """
+window.held = [];
+window.mint = () => {
+  window.held.splice(0).forEach((resolve) => resolve('token'));
+  setTimeout(() => document.querySelector('button[value=decline]').click(), 100);
+};
+window.Clerk = {
+  user: {},
+  session: { getToken: () => new Promise((resolve) => window.held.push(resolve)) },
+  async load() {},
+};
+"""
+
+
+async def chrome(playwright: Playwright) -> Browser:
+    """The runner's installed Chrome, else Playwright's own Chromium."""
+    try:
+        return await playwright.chromium.launch(channel="chrome")
+    except Error:
+        return await playwright.chromium.launch()
+
+
+async def test_a_second_click_while_the_first_answer_is_on_its_way_sends_nothing(
+    clerk_page: Hosted,
+) -> None:
+    project_id = await clerk_page.proposed(ALICE)
+    url = page_of(clerk_page, project_id)
+    posts: list[Route] = []
+    posted = asyncio.Event()
+
+    async def hold_posts(route: Route) -> None:
+        if route.request.method == "POST":
+            posts.append(route)
+            posted.set()
+        else:
+            await route.continue_()
+
+    async def held_clerk(route: Route) -> None:
+        await route.fulfill(body=HELD_CLERK, content_type="text/javascript")
+
+    async with async_playwright() as playwright:
+        browser = await chrome(playwright)
+        try:
+            context = await browser.new_context()
+            token = clerk_page.local.mint_person(ALICE)
+            await context.add_cookies([{"name": "__session", "value": token, "url": url}])
+            page = await context.new_page()
+            await page.route(f"{CLERK_API}{CLERK_JS}", held_clerk)
+            await page.route(url, hold_posts)
+            await page.goto(url)
+            await page.click("button[value=confirm]")
+            await page.click("button[value=decline]")
+            refreshing = await page.evaluate("window.held.length")
+            await page.evaluate("window.mint()")
+            await asyncio.wait_for(posted.wait(), 10)
+            await asyncio.sleep(0.5)
+            assert (refreshing, len(posts)) == (1, 1)
+            async with page.expect_navigation():
+                await posts[0].continue_()
+            said = await page.inner_text("body")
+        finally:
+            await browser.close()
+    assert said.startswith("Recorded. You confirmed 1 and declined 0")
+    assert len(clerk_page.answered(ALICE, project_id)) == 1
 
 
 def page_of(hosted: Hosted, project_id: str) -> str:
