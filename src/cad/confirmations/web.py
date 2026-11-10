@@ -86,9 +86,7 @@ SIGN_IN_SCRIPT: Final = (
     "{ forceRedirectUrl: location.href }); } })();"
 )
 # A Clerk session token lasts about a minute. Loaded Clerk keeps `__session` fresh while the page
-# is open, and the form takes a fresh token before it posts. The fields are kept in the tab's
-# sessionStorage under the snapshot's items, so a POST that still meets an expired session goes
-# through sign-in and back to the same items with the person's edits in place.
+# is open.
 KEEP_SESSION_SCRIPT: Final = (
     "const ready = Promise.resolve().then(() => Clerk.load());"
     "const form = document.getElementById('page');"
@@ -213,7 +211,7 @@ def _show(person: PersonSession, tenant: Tenant, project: ProjectId, sign_in: Si
     sealed = snapshot.seal(tenant.roots.projects, person, project, items)
     if isinstance(sign_in, LocalSignIn):
         return _html(200, page.view(tenant.roots, every, project, items, sealed, ""))
-    scripts, policy = _clerk(sign_in, KEEP_SESSION_SCRIPT)
+    scripts, policy = _clerk_scripts_and_policy(sign_in, KEEP_SESSION_SCRIPT)
     return _html(200, page.view(tenant.roots, every, project, items, sealed, scripts), policy)
 
 
@@ -248,7 +246,7 @@ async def _body(request: Request) -> bytes | None:
 def _sign_in_page(sign_in: SignIn) -> Response:
     if isinstance(sign_in, LocalSignIn):
         return _plain(401, LOCAL_SIGN_IN)
-    scripts, policy = _clerk(sign_in, SIGN_IN_SCRIPT)
+    scripts, policy = _clerk_scripts_and_policy(sign_in, SIGN_IN_SCRIPT)
     body = (
         "<!doctype html><html lang=en><head><meta charset=utf-8><title>Sign in</title>"
         f"<style>{STYLE}</style></head><body>"
@@ -258,8 +256,7 @@ def _sign_in_page(sign_in: SignIn) -> Response:
     return _html(401, body.encode(), policy)
 
 
-def _clerk(sign_in: ClerkSignIn, inline: str) -> tuple[str, dict[str, str]]:
-    """Clerk's pinned script and an inline one, with a CSP that opens only Clerk's own hosts."""
+def _clerk_scripts_and_policy(sign_in: ClerkSignIn, inline: str) -> tuple[str, dict[str, str]]:
     nonce = secrets.token_urlsafe(16)
     api = sign_in.frontend_api
     scripts = (

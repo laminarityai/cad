@@ -1,10 +1,5 @@
 """Clerk session expiry repro for the hosted confirmation page.
 
-A stand-in Clerk Frontend API on its own port serves `clerk.browser.js` and mints person tokens
-from the local issuer with a 10 s TTL and one Clerk session id, the way Clerk refreshes a
-session. Nothing refreshes on a timer, so only the page's own pre-submit refresh can keep the
-POST signed in.
-
     uv run python .claude/skills/verify/scripts/clerk_session.py <out dir> expired|signed-out
 
 `expired` lets the token lapse while the person types, then confirms. `signed-out` also ends the
@@ -14,6 +9,7 @@ older checkout with `PYTHONPATH=<that checkout>/src` for a baseline.
 """
 
 import asyncio
+import inspect
 import json
 import shutil
 import socket
@@ -106,9 +102,9 @@ async def main(out: Path, case: str) -> int:
         if not state["signed_in"]:
             return PlainTextResponse("signed out", 401, headers=cors)
         state["minted"] = int(state["minted"]) + 1
-        try:
+        if "session" in inspect.signature(local.mint_person).parameters:
             minted = local.mint_person(ALICE, TTL, str(state["session"]))
-        except TypeError:  # the PR head before this round mints a new session id each time
+        else:
             minted = local.mint_person(ALICE, TTL)
         return PlainTextResponse(minted, headers=cors)
 

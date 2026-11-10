@@ -18,8 +18,6 @@ from cad.sandbox.meter import Meter
 class Audience(Flag):
     AGENT = auto()
     PERSON = auto()
-    # The person through the confirmation page's form, which only confirmations.web serves: no
-    # MCP tool and no JSON route, so the page's Origin and snapshot checks guard every answer.
     PAGE = auto()
 
 

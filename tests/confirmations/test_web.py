@@ -104,7 +104,6 @@ def hosted(tmp_path: Path) -> Iterator[Hosted]:
 
 @pytest.fixture
 def clerk_page(tmp_path: Path) -> Iterator[Hosted]:
-    """Serves the page Clerk signs in to, while the local issuer still mints the session tokens."""
     yield from serve(tmp_path, lambda _: ClerkSignIn(CLERK_API, "pk_test_Y2xlcmsuY2FkLmV4YW1wbGUk"))
 
 
