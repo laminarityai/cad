@@ -62,7 +62,7 @@ def person_route(served: Served, one: Operation, person_of: PersonOf, tenant_of:
     async def endpoint(request: Request) -> Response:
         person = person_of(session_token(request))
         if person is None:
-            return _error(401, "sign in: this route takes a Clerk session token", CHALLENGE)
+            return refuse(401, "sign in: this route takes a Clerk session token", CHALLENGE)
         tenant = tenant_of(person.account)
         sent = (
             await _request_body(request) if served.method != "GET" else dict(request.query_params)
@@ -72,7 +72,7 @@ def person_route(served: Served, one: Operation, person_of: PersonOf, tenant_of:
         try:
             arguments = one.input.model_validate({**sent, **request.path_params})
         except ValidationError as error:
-            return _error(422, str(error))
+            return refuse(422, str(error))
 
         def run() -> object:
             with metered(tenant.meter):
@@ -85,11 +85,11 @@ def person_route(served: Served, one: Operation, person_of: PersonOf, tenant_of:
             else:
                 result = await anyio.to_thread.run_sync(run)
         except NOT_FOUND as error:
-            return _error(404, f"{type(error).__name__}: {error}")
+            return refuse(404, f"{type(error).__name__}: {error}")
         except REFUSALS as error:
-            return _error(400, f"{type(error).__name__}: {error}")
+            return refuse(400, f"{type(error).__name__}: {error}")
         except UNAVAILABLE as error:
-            return _error(503, str(error))
+            return refuse(503, str(error))
         body = _body(one, result)
         if not served.immutable:
             return Response(body, media_type="application/json")
@@ -135,5 +135,5 @@ def session_token(request: Request) -> str:
     return request.cookies.get(SESSION_COOKIE, "")
 
 
-def _error(status: int, message: str, headers: dict[str, str] | None = None) -> Response:
+def refuse(status: int, message: str, headers: dict[str, str] | None = None) -> Response:
     return JSONResponse({"error": message}, status, headers=headers)

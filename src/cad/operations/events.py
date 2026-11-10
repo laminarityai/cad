@@ -1,0 +1,156 @@
+"""GET /v1/variants/{variant_id}/events: one variant's scorecard as server-sent events.
+
+The first event is the card as the signed results hold it when the stream opens, and every later
+event is a whole `ScorecardSnapshot` that differs from the one before. Each job that stores a
+result wakes the stream, so a card turns from pending to done at once. A slower store read runs
+beside it, for what no job announces (a confirmation, a researched value), and as the only path
+when the hook is switched off. A variant nobody has scored yet is not refused: the stream stays
+open and sends nothing until its first check stores a result.
+
+The route is the scorecard operation's read, kept open. It is not a registry operation, because
+an operation returns once.
+"""
+
+import asyncio
+import time
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import suppress
+from typing import Final, Protocol
+
+import anyio
+from pydantic import TypeAdapter, ValidationError
+from starlette.requests import Request
+from starlette.responses import Response, StreamingResponse
+from starlette.routing import Route
+
+from cad.checks.jobs import JobSpec
+from cad.checks.lanes import LANES, Listener
+from cad.operations.model import Tenant
+from cad.operations.routes import (
+    CHALLENGE,
+    NOT_FOUND,
+    PersonOf,
+    TenantOf,
+    refuse,
+    session_token,
+)
+from cad.operations.scorecards import ScorecardInput, scorecard
+from cad.operations.tools import REFUSALS, UNAVAILABLE
+from cad.sandbox.meter import metered
+from cad.scorecard.material import ScorecardSnapshot
+from cad.scorecard.score import NotScored
+
+EVENTS_PATH: Final = "/v1/variants/{variant_id}/events"
+POLL_SECONDS: Final = 0.5
+SAFETY_SECONDS: Final = 5.0
+HEARTBEAT_SECONDS: Final = 15.0
+HEADERS: Final = {"Cache-Control": "no-store", "X-Accel-Buffering": "no"}
+
+type SnapshotOf = Callable[[Tenant, ScorecardInput], ScorecardSnapshot]
+
+
+class Announces(Protocol):
+    def subscribe(self, listener: Listener) -> Callable[[], None]: ...
+
+
+class Wake:
+    """One open stream's bell, rung by `Lanes` from the thread that ran a job."""
+
+    def __init__(self, tenant: Tenant, variant_id: str) -> None:
+        self._loop = asyncio.get_running_loop()
+        self._bell = asyncio.Event()
+        self._tenant, self._variant_id = tenant, variant_id
+
+    def __call__(self, job: JobSpec) -> None:
+        if (job.root, job.variant_id) == (self._tenant.variants, self._variant_id):
+            with suppress(RuntimeError):
+                self._loop.call_soon_threadsafe(self._bell.set)
+
+    def reset(self) -> None:
+        self._bell.clear()
+
+    async def rung(self, within: float) -> None:
+        with suppress(TimeoutError):
+            await asyncio.wait_for(self._bell.wait(), within)
+
+
+def events_route(
+    person_of: PersonOf,
+    tenant_of: TenantOf,
+    lanes: Announces = LANES,
+    snapshot_of: SnapshotOf = scorecard,
+    hooked: bool = True,
+) -> Route:
+    async def endpoint(request: Request) -> Response:
+        person = person_of(session_token(request))
+        if person is None:
+            return refuse(401, "sign in: this route takes a Clerk session token", CHALLENGE)
+        tenant = tenant_of(person.account)
+        try:
+            arguments = ScorecardInput.model_validate(
+                {**request.query_params, **request.path_params}
+            )
+        except ValidationError as invalid:
+            return refuse(422, str(invalid))
+
+        async def read() -> ScorecardSnapshot | None:
+            def run() -> ScorecardSnapshot | None:
+                try:
+                    with metered(tenant.meter):
+                        return snapshot_of(tenant, arguments)
+                except NotScored:
+                    return None
+
+            return await anyio.to_thread.run_sync(run)
+
+        try:
+            first = await read()
+        except NOT_FOUND as refused:
+            return refuse(404, f"{type(refused).__name__}: {refused}")
+        except REFUSALS as refused:
+            return refuse(400, f"{type(refused).__name__}: {refused}")
+        except UNAVAILABLE as refused:
+            return refuse(503, str(refused))
+        wake = Wake(tenant, arguments.variant_id)
+        unsubscribe = lanes.subscribe(wake) if hooked else None
+        return StreamingResponse(
+            _events(read, wake, first, SAFETY_SECONDS if hooked else POLL_SECONDS, unsubscribe),
+            media_type="text/event-stream",
+            headers=HEADERS,
+        )
+
+    return Route(EVENTS_PATH, endpoint, methods=["GET"], name="scorecard_events")
+
+
+async def _events(
+    read: Callable[[], Awaitable[ScorecardSnapshot | None]],
+    wake: Wake,
+    first: ScorecardSnapshot | None,
+    interval: float,
+    unsubscribe: Callable[[], None] | None,
+) -> AsyncIterator[str]:
+    sent, quiet = "", time.monotonic()
+    card = first
+    try:
+        while True:
+            if card is not None and card.etag != sent:
+                sent, quiet = card.etag, time.monotonic()
+                yield _frame(card)
+            elif time.monotonic() - quiet >= HEARTBEAT_SECONDS:
+                quiet = time.monotonic()
+                yield ": keep-alive\n\n"
+            await wake.rung(interval)
+            wake.reset()
+            try:
+                card = await read()
+            except (*NOT_FOUND, *REFUSALS, *UNAVAILABLE) as refused:
+                yield f"event: refused\ndata: {type(refused).__name__}\n\n"
+                return
+    finally:
+        if unsubscribe is not None:
+            unsubscribe()
+
+
+def _frame(card: ScorecardSnapshot) -> str:
+    body = TypeAdapter(ScorecardSnapshot).dump_json(card, by_alias=True).decode()
+    return f"id: {card.etag}\nevent: scorecard\ndata: {body}\n\n"

@@ -14,6 +14,7 @@ from cad.confirmations.ballot import OS_OPEN
 from cad.context_parts.ingest import ingest
 from cad.geometry import job, store
 from cad.geometry.model import Tessellated, TessellationFailed
+from cad.operations.events import EVENTS_PATH
 from cad.operations.model import Audience, Operation, Tenant
 from cad.operations.registry import OPERATIONS, ROUTES
 from cad.operations.routes import Served, person_routes
@@ -90,8 +91,11 @@ def web_routes(app: Starlette) -> dict[str, str]:
 
 async def test_every_web_route_comes_from_a_registry_operation(app: Starlette) -> None:
     reachable = {one.name for one in OPERATIONS if Audience.PERSON in one.audience}
-    assert web_routes(app) == {name: served.path for name, served in ROUTES.items()}
-    assert set(web_routes(app)) == reachable
+    assert web_routes(app) == {
+        **{name: served.path for name, served in ROUTES.items()},
+        "scorecard_events": EVENTS_PATH,
+    }
+    assert set(web_routes(app)) - {"scorecard_events"} == reachable
 
 
 def no_tenant(account: AccountId) -> Tenant:
@@ -122,6 +126,7 @@ def test_no_person_only_operation_is_an_agent_tool() -> None:
         "/v1/projects/p-0123456789abcdef/briefs/0123456789abcdef/set",
         "/v1/variants/0123456789abcdef",
         "/v1/variants/0123456789abcdef/geometry",
+        "/v1/variants/0123456789abcdef/events",
         f"/v1/geometry/{job.VERSION}/{SHA}.json",
         "/v1/server",
         "/v1/materials",
