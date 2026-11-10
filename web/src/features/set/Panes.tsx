@@ -47,17 +47,6 @@ function MaterialPicker(props: {
   );
 }
 
-function ChatColumn() {
-  return (
-    <section aria-label="Chat" className="flex h-full min-h-[200px] flex-col border border-border bg-panel">
-      <h3 className="border-b border-rule-2 px-2.5 py-1.5">
-        <span className={SECTION}>Chat</span>
-      </h3>
-      <p className="p-3 text-xs text-ink-2">The chat with the agent opens here.</p>
-    </section>
-  );
-}
-
 export function Panes(props: {
   projectId: string;
   brief: BriefView;
@@ -66,8 +55,10 @@ export function Panes(props: {
   material: string | null;
   chosenBy: ChosenBy;
   onPick: (key: string) => void;
+  run: ReactNode;
+  chat: ReactNode;
 }) {
-  const { projectId, brief, set, materials, material, chosenBy, onPick } = props;
+  const { projectId, brief, set, materials, material, chosenBy, onPick, run, chat } = props;
   const narrow = useNarrow();
   const [cards, dispatch] = useReducer(cardsReducer, cardsStart);
   const [chosen, choose] = useState<number | null>(null);
@@ -78,7 +69,7 @@ export function Panes(props: {
   }, [slotsKey]);
   const selected = set.members.find((one) => one.slot === chosen) ?? set.members[0];
 
-  const model: ReactNode =
+  const members: ReactNode =
     set.members.length === 0 ? (
       <p className="border border-border bg-panel p-4 text-ink-2">
         No variants yet. Once you confirm the requirements, the agent builds them here.
@@ -98,6 +89,13 @@ export function Panes(props: {
         ))}
       </div>
     );
+
+  const model = (
+    <div className="flex flex-col gap-2.5">
+      {run}
+      {members}
+    </div>
+  );
 
   const side: ReactNode = (
     <div className="flex flex-col gap-2.5">
@@ -136,7 +134,7 @@ export function Panes(props: {
             <TabsTrigger value="scorecard">Scorecard</TabsTrigger>
           </TabsList>
           <TabsContent value="chat" className="p-2.5">
-            <ChatColumn />
+            {chat}
           </TabsContent>
           <TabsContent value="model" className="p-2.5">
             {model}
@@ -154,9 +152,7 @@ export function Panes(props: {
       <div className="grid h-[calc(100vh-38px)] min-h-[620px] grid-cols-[minmax(320px,420px)_minmax(0,1fr)_minmax(280px,360px)] gap-2.5 p-2.5">
         <div className="min-h-0 overflow-y-auto">{side}</div>
         <div className="min-h-0 overflow-y-auto">{model}</div>
-        <div className="min-h-0">
-          <ChatColumn />
-        </div>
+        <div className="min-h-0">{chat}</div>
       </div>
     </>
   );

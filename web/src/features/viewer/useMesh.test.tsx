@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ServicesProvider } from "@/app/context";
 import type { VariantView } from "@/api/types";
-import { FakeEvents, FakeViewer, fakeApi, meshOf } from "@/test/fakes";
+import { FakeChat, FakeEvents, FakeViewer, fakeApi, meshOf } from "@/test/fakes";
 import { useMesh } from "./useMesh";
 
 const pendingView = (variantId: string): VariantView => ({
@@ -15,7 +15,7 @@ const pendingView = (variantId: string): VariantView => ({
 
 function mount(api: ReturnType<typeof fakeApi>) {
   const wrapper = ({ children }: { children: ReactNode }) => (
-    <ServicesProvider services={{ api, events: new FakeEvents(), viewer: new FakeViewer() }}>
+    <ServicesProvider services={{ api, events: new FakeEvents(), viewer: new FakeViewer(), chat: new FakeChat() }}>
       {children}
     </ServicesProvider>
   );

@@ -46,10 +46,14 @@ export interface Api {
 
 export type { GeometryRead };
 
-async function getJson<T>(path: string): Promise<T> {
+/** One JSON request to the server. A 401 is `SignedOut`, a 404 is `NotFound`, any other failure is
+ * `Refused` with the server's own words. */
+export async function requestJson<T>(method: string, path: string, body?: unknown): Promise<T> {
   const response = await fetch(path, {
+    method,
     credentials: "same-origin",
-    headers: { accept: "application/json" },
+    headers: body === undefined ? { accept: "application/json" } : { accept: "application/json", "content-type": "application/json" },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   if (response.status === 401) throw new SignedOut();
   if (response.status === 404) throw new NotFound(path);
@@ -59,6 +63,8 @@ async function getJson<T>(path: string): Promise<T> {
   }
   return (await response.json()) as T;
 }
+
+const getJson = <T>(path: string) => requestJson<T>("GET", path);
 
 const enc = encodeURIComponent;
 

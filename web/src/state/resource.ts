@@ -1,4 +1,4 @@
-import { useEffect, useReducer } from "react";
+import { useEffect, useReducer, useRef } from "react";
 import { NotFound, SignedOut } from "@/api/client";
 
 export type Resource<T> =
@@ -41,17 +41,41 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** Load once per `key`. With `followMs`, load again that long after each load ends, while the tab is
  * visible, so the data on screen follows the server. A follow-up load that fails for any reason but
- * sign-out or not-found keeps the data on screen, so a server restart does not blank the page. */
-export function useResource<T>(load: () => Promise<T>, key: string, followMs?: number): Resource<T> {
+ * sign-out or not-found keeps the data on screen, so a server restart does not blank the page.
+ * Each change of `refresh` loads again at once, so a caller that knows the data changed need not
+ * wait for the next follow-up. Only the newest load to start may change what is on screen. */
+export function useResource<T>(load: () => Promise<T>, key: string, followMs?: number, refresh = 0): Resource<T> {
   const [state, dispatch] = useReducer(reduce<T>, { status: "loading" });
+  const newest = useRef(0);
+  const latest = useRef(load);
+  useEffect(() => {
+    latest.current = load;
+  });
+  useEffect(() => {
+    if (refresh === 0) return;
+    const ticket = ++newest.current;
+    latest.current().then(
+      (data) => {
+        if (ticket === newest.current) dispatch({ type: "done", data });
+      },
+      (error: unknown) => {
+        if (ticket === newest.current) dispatch({ type: "refresh_failed", error });
+      },
+    );
+  }, [refresh]);
   useEffect(() => {
     const run = { live: true };
     const live = () => run.live;
+    const read = async () => {
+      const ticket = ++newest.current;
+      const data = await load();
+      return ticket === newest.current ? { data } : null;
+    };
     const follow = async () => {
       dispatch({ type: "loading" });
       try {
-        const data = await load();
-        if (live()) dispatch({ type: "done", data });
+        const got = await read();
+        if (live() && got) dispatch({ type: "done", data: got.data });
       } catch (error) {
         if (live()) dispatch({ type: "failed", error });
         if (final(error)) return;
@@ -60,8 +84,8 @@ export function useResource<T>(load: () => Promise<T>, key: string, followMs?: n
         await sleep(followMs);
         if (!live() || document.hidden) continue;
         try {
-          const data = await load();
-          if (live()) dispatch({ type: "done", data });
+          const got = await read();
+          if (live() && got) dispatch({ type: "done", data: got.data });
         } catch (error) {
           if (live()) dispatch({ type: "refresh_failed", error });
           if (final(error)) return;

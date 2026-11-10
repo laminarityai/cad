@@ -4,6 +4,7 @@ import { afterEach, vi } from "vitest";
 
 afterEach(() => {
   cleanup();
+  localStorage.clear();
 });
 
 vi.stubGlobal("matchMedia", (query: string) => ({
@@ -12,3 +13,5 @@ vi.stubGlobal("matchMedia", (query: string) => ({
   addEventListener: () => undefined,
   removeEventListener: () => undefined,
 }));
+
+Element.prototype.scrollIntoView = vi.fn();

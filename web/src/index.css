@@ -25,6 +25,7 @@
   --unk: #5d666a;
   --unk-bg: #e3e6e5;
   --stop: #c0261c;
+  --stop-ink: #ffffff;
   color-scheme: light;
 }
 
@@ -51,6 +52,7 @@
     --unk: #9aa4a8;
     --unk-bg: #1d2326;
     --stop: #ff5a4c;
+    --stop-ink: #1a0503;
     color-scheme: dark;
   }
 }
@@ -77,6 +79,7 @@
   --unk: #9aa4a8;
   --unk-bg: #1d2326;
   --stop: #ff5a4c;
+  --stop-ink: #1a0503;
   color-scheme: dark;
 }
 
@@ -138,6 +141,7 @@
   --color-unk: var(--unk);
   --color-unk-bg: var(--unk-bg);
   --color-stop: var(--stop);
+  --color-stop-ink: var(--stop-ink);
   --font-sans: "IBM Plex Sans Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --radius-sm: 0;

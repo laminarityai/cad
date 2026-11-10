@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useServices } from "@/app/context";
+import { ChatPanel } from "@/chat/ChatPanel";
+import { useConversation } from "@/chat/useConversation";
+import { RunStatus } from "@/mode/RunStatus";
 import { Gate } from "@/components/Gate";
 import { TopBar } from "@/components/TopBar";
 import { useResource } from "@/state/resource";
@@ -14,6 +17,10 @@ export const FOLLOW_MS = 2000;
 export function SetPage() {
   const { api } = useServices();
   const { projectId = "", briefId = "" } = useParams();
+  const [rebuilds, rebuilt] = useState(0);
+  const chat = useConversation(projectId, briefId, () => {
+    rebuilt((n) => n + 1);
+  });
   const loaded = useResource(async () => {
     const [set, brief, materials] = await Promise.all([
       api.variantSet(projectId, briefId),
@@ -21,7 +28,7 @@ export function SetPage() {
       api.materials(),
     ]);
     return { set, brief, materials: materials.materials };
-  }, `set:${projectId}:${briefId}`, FOLLOW_MS);
+  }, `set:${projectId}:${briefId}`, FOLLOW_MS, rebuilds);
   const [picked, pick] = useState<string | null>(null);
   return (
     <>
@@ -52,6 +59,8 @@ export function SetPage() {
               material={material}
               chosenBy={pinned !== null ? "brief" : picked !== null ? "person" : "default"}
               onPick={pick}
+              run={<RunStatus mode={chat.state.mode} run={chat.state.run} onStop={() => void chat.stop()} />}
+              chat={<ChatPanel chat={chat} />}
             />
           );
         }}

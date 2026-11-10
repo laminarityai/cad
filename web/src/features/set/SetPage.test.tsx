@@ -5,14 +5,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ServicesProvider } from "@/app/context";
 import { Refused, SignedOut } from "@/api/client";
 import { deflection, deflectionDone, feaPending, mass, massResult, snapshot } from "@/test/fixtures";
-import { FakeEvents, FakeViewer, fakeApi, setOf } from "@/test/fakes";
+import { FakeChat, FakeEvents, FakeViewer, fakeApi, setOf } from "@/test/fakes";
 import { FOLLOW_MS, SetPage } from "./SetPage";
 
-function mountSet(api = fakeApi(["v1", "v2"])) {
+function mountSet(api = fakeApi(["v1", "v2"]), chat = new FakeChat()) {
   const events = new FakeEvents();
   const viewer = new FakeViewer();
   const view = render(
-    <ServicesProvider services={{ api, events, viewer }}>
+    <ServicesProvider services={{ api, events, viewer, chat }}>
       <MemoryRouter initialEntries={["/projects/p1/briefs/b1"]}>
         <Routes>
           <Route path="projects/:projectId/briefs/:briefId" element={<SetPage />} />
@@ -20,7 +20,7 @@ function mountSet(api = fakeApi(["v1", "v2"])) {
       </MemoryRouter>
     </ServicesProvider>,
   );
-  return { events, viewer, api, view };
+  return { events, viewer, api, chat, view };
 }
 
 const pending = () => snapshot("v1", [mass("pass"), deflection()], [massResult(), feaPending()]);
