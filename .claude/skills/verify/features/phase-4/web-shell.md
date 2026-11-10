@@ -2,7 +2,7 @@
 
 A React app (`web/`) served by `src/cad/web/`. The person sees each variant of a set in three-cad-viewer and its scorecard, which updates over SSE as check jobs finish, with no reload. Each SSE event carries a whole `ScorecardSnapshot`. The mesh comes from the person-only `geometry` operation, which unit 5 built: see [Geometry](../geometry.md).
 
-Design: `docs/design/phase-4.md` §2.3 (tessellation as an analysis-image job), §2.6 (reads and streaming, the route table, `GET /v1/variants/{vid}/events`, `GET /v1/geometry/{brep_sha256}.json`) and §3 (`src/cad/web/`, `src/cad/geometry/`, `web/`). Units 5 and 6 of §4. Unit 2 deletes `scorecard.json`, so the [Score variant](../score-variant.md) recipes that diff it change then.
+Design: `docs/design/phase-4.md` §2.3 (tessellation as an analysis-image job), §2.6 (reads and streaming, the route table, `GET /v1/variants/{vid}/events`, `GET /v1/geometry/{version}/{brep_sha256}.json`) and §3 (`src/cad/web/`, `src/cad/geometry/`, `web/`). Units 5 and 6 of §4. Unit 2 deletes `scorecard.json`, so the [Score variant](../score-variant.md) recipes that diff it change then.
 
 ## The checks §4 gives units 5 and 6
 

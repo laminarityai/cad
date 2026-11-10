@@ -77,12 +77,12 @@ class Lanes:
     def _take_off(self, job: JobSpec) -> Done | Refused | Future[JobResult]:
         path = job_store.result_path(job)
         with self._lock:
-            flying = self._flying.get(path)
-            if flying is not None:
-                return flying
             stored = job_store.read(job)
             if stored is not None:
                 return Done(stored)
+            flying = self._flying.get(path)
+            if flying is not None:
+                return flying
             if _interrupted_too_often(job):
                 return Refused(INTERRUPTED)
             future = Future[JobResult]()
@@ -95,18 +95,21 @@ class Lanes:
         return future
 
     def _fly(self, job: JobSpec, future: Future[JobResult]) -> None:
+        """The Future leaves _flying in the same lock that settles it, so a caller woken by it
+        never takes it off again: a failed job then runs again, and a done one reads the store."""
         try:
             result = self._attempt(job)
             job_store.write(job, result)
         except BaseException as error:
-            future.set_exception(error)
+            with self._lock:
+                del self._flying[job_store.result_path(job)]
+                future.set_exception(error)
             if not isinstance(error, Exception):
                 raise
         else:
-            future.set_result(result)
-        finally:
             with self._lock:
                 del self._flying[job_store.result_path(job)]
+                future.set_result(result)
 
     def _attempt(self, job: JobSpec) -> JobResult:
         if isinstance(job.budget, Quick):

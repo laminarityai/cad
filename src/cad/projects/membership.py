@@ -15,17 +15,24 @@ from cad.records.roots import Roots
 LOG = logging.getLogger(__name__)
 
 
-def project_briefs(roots: Roots, project: ProjectId) -> tuple[BriefId, ...]:
-    members: list[Brief] = []
+def stored_projects(roots: Roots) -> dict[ProjectId, tuple[Brief, ...]]:
+    members: dict[ProjectId, list[Brief]] = {}
     for brief_id in store.stored_briefs(roots):
         try:
             brief = store.read_brief(roots, brief_id)
         except store.TamperedBrief:
-            LOG.warning("brief %s is unreadable, so project %s leaves it out", brief_id, project)
+            LOG.warning("brief %s is unreadable, so its project leaves it out", brief_id)
             continue
-        if brief.project == project:
-            members.append(brief)
-    return tuple(b.id for b in sorted(members, key=lambda b: b.created_at))
+        members.setdefault(brief.project, []).append(brief)
+    projects = {
+        project: tuple(sorted(briefs, key=lambda b: b.created_at))
+        for project, briefs in members.items()
+    }
+    return dict(sorted(projects.items(), key=lambda one: one[1][-1].created_at, reverse=True))
+
+
+def project_briefs(roots: Roots, project: ProjectId) -> tuple[BriefId, ...]:
+    return tuple(b.id for b in stored_projects(roots).get(project, ()))
 
 
 def project_for_new_brief(roots: Roots, raw: str | None) -> NewProjectId:

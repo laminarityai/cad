@@ -44,8 +44,8 @@ from cad.context_parts.ingest import ingest as read_part
 from cad.context_parts.store import Ingest
 from cad.operations.guidance import INSTRUCTIONS
 from cad.operations.model import Tenant
-from cad.operations.registry import OPERATIONS
-from cad.operations.routes import person_route
+from cad.operations.registry import OPERATIONS, ROUTES
+from cad.operations.routes import person_routes
 from cad.operations.tools import tools
 from cad.records.roots import DATA_ROOT
 from cad.sandbox import container, meter
@@ -104,10 +104,7 @@ def build_app(issuer: Issuer, tenants: Tenants) -> Starlette:
         )
     )
     app.router.routes.insert(0, _resource_metadata(issuer))
-    scorecard = next(one for one in OPERATIONS if one.name == "scorecard")
-    app.router.routes.append(
-        person_route("/v1/variants/{variant_id}/scorecard", scorecard, verifier.person, tenants.of)
-    )
+    app.router.routes.extend(person_routes(OPERATIONS, ROUTES, verifier.person, tenants.of))
     return app
 
 

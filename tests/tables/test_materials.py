@@ -199,3 +199,14 @@ def test_a_material_the_table_lacks_is_named_as_the_projects_own_row() -> None:
     assert table.row_key("project-project-prusament-pla") == "prusament-pla"
     blank = table.get_material("project-acme-silk-pla")
     assert {blank.value(field) for field in FIELD_UNITS} == {Unknown()}
+
+
+def test_a_second_load_reuses_the_parse_and_an_edited_table_is_read_again(tmp_path: Path) -> None:
+    first = load_materials()
+    assert load_materials() is first
+    edited = load_materials(
+        write_edited_table(tmp_path, "prusament-pla", lambda row: row.update(name="renamed"))
+    )
+    assert edited.version != first.version
+    assert edited.materials["prusament-pla"].name == "renamed"
+    assert load_materials().materials["prusament-pla"].name == first.materials["prusament-pla"].name
