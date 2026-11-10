@@ -139,4 +139,19 @@ describe("Auto run status", () => {
     await choose("Auto");
     expect(chat.modes).toEqual(["auto"]);
   });
+
+  it("shows the run and its Stop button on the chat tab of a narrow screen", async () => {
+    const real = window.matchMedia.bind(window);
+    window.matchMedia = (query: string) => Object.assign(real(query), { matches: true });
+    try {
+      const chat = new FakeChat();
+      mount(chat, "auto");
+      autoRunning(chat);
+      await userEvent.click(await screen.findByRole("tab", { name: "Chat" }));
+      await userEvent.click(await screen.findByRole("button", { name: "Stop" }));
+      expect(chat.stops).toHaveLength(1);
+    } finally {
+      window.matchMedia = real;
+    }
+  });
 });

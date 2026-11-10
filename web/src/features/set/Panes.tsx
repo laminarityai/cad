@@ -133,7 +133,8 @@ export function Panes(props: {
             <TabsTrigger value="model">Model</TabsTrigger>
             <TabsTrigger value="scorecard">Scorecard</TabsTrigger>
           </TabsList>
-          <TabsContent value="chat" className="p-2.5">
+          <TabsContent value="chat" className="flex flex-col gap-2.5 p-2.5">
+            {run}
             {chat}
           </TabsContent>
           <TabsContent value="model" className="p-2.5">

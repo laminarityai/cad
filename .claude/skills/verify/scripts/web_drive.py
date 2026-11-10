@@ -2,6 +2,7 @@
 
     uv run python .claude/skills/verify/scripts/browser.py web shot <run> <path> <name> [options]
     uv run python .claude/skills/verify/scripts/browser.py web watch <run> <path> <name> [options]
+    uv run python .claude/skills/verify/scripts/browser.py web chat <run> <path> <name> [options]
 
 <run> is the data root of a local `cad-http` (its `local-issuer.pem` signs the sign-in token),
 <path> is a route of the app such as `/projects/<id>/briefs/<id>`, and <name> is the prefix of the
@@ -16,6 +17,19 @@ something else scores the variants. It writes <name>-pending.png when it first s
 <name>-done.png once none is left, and <name>.sse.jsonl (every scorecard event the page received,
 and when) and <name>.rows.jsonl (every change of a row). It exits 1 when a pending row ever wears a
 verdict, or when no row went from pending to a verdict without a navigation.
+
+`chat` drives the chat panel against a server whose model is a script (`CAD_CHAT_MODEL`), and
+records a video of it in <name>.webm. It picks Plan and asks for a change (the server refuses
+the build), picks Design and asks again, and times how long slot 1 takes to show revision 2, to
+go all pending and to wear verdicts again, with no navigation. Then it picks Auto, sends a
+message, waits for the run status, presses Stop, and checks that the picker reads Design and a
+stopped report shows. It writes <name>-plan.png, -before.png, -after.png, -auto.png,
+-stopped.png, <name>.aria.yml and <name>.chat.json (the timings), and exits 1 when a step did
+not happen. Options for `chat` only: --ask (the message to type for the change, default "make
+the wall 4 mm"), --auto_ask (the message that starts Auto), --video (a directory, to record
+into, default off), and --live true for a real model: it waits for each turn to end instead of
+for the script's words, and does not require the Plan refusal. --stop switch leaves Auto with
+the mode picker instead of the Stop button, which stops the run the same way.
 """
 
 from __future__ import annotations
@@ -67,6 +81,11 @@ def options(argv: list[str]) -> tuple[list[str], dict[str, str]]:
         "seconds": "120",
         "material": "",
         "tab": "",
+        "ask": "make the wall 4 mm",
+        "video": "",
+        "live": "",
+        "stop": "button",
+        "auto_ask": "Optimise it for me.",
     }
     rest: list[str] = []
     it = iter(argv)
@@ -80,15 +99,17 @@ def options(argv: list[str]) -> tuple[list[str], dict[str, str]]:
 
 def open_page(playwright: Any, run: Path, path: str, given: dict[str, str]) -> tuple[Any, Page]:
     token = LocalIssuer.open(run / "home", given["url"]).mint_person(given["account"])
-    browser = playwright.chromium.launch(args=ARGS)
-    context = browser.new_context(
-        viewport={"width": int(given["width"]), "height": int(given["height"])},
-        color_scheme=given["scheme"],
+    size = {"width": int(given["width"]), "height": int(given["height"])}
+    recording: dict[str, Any] = (
+        {"record_video_dir": given["video"], "record_video_size": size} if given["video"] else {}
     )
+    browser = playwright.chromium.launch(args=ARGS)
+    context = browser.new_context(viewport=size, color_scheme=given["scheme"], **recording)
     context.add_cookies([{"name": COOKIE, "value": token, "url": given["url"]}])
     context.add_init_script(TAP)
     page = context.new_page()
     page.goto(f"{given['url']}/app{path}")
+    page.evaluate("window.__alive = true")
     return browser, page
 
 
@@ -185,6 +206,177 @@ def watch(run: Path, path: str, name: str, given: dict[str, str]) -> int:
     return 0 if replaced and not wearing and not navigations else 1
 
 
+def tiles(page: Page) -> dict[str, Any]:
+    return page.evaluate(
+        "() => { const t = document.querySelector('[data-slot-tile=\"1\"]');"
+        " if (!t) return {revision: 0, tones: []};"
+        " const m = /revision (\\d+)/.exec(t.textContent || '');"
+        " return {revision: m ? Number(m[1]) : 0,"
+        " tones: [...t.querySelectorAll('[data-tone]')].map((i) => i.dataset.tone)}; }"
+    )
+
+
+def mode_of(page: Page) -> str:
+    return page.locator("[data-mode]").first.get_attribute("data-mode") or ""
+
+
+def pick_mode(page: Page, label: str) -> None:
+    page.locator("[data-mode]").first.click()
+    page.get_by_role("menuitemradio", name=label).click()
+    page.wait_for_timeout(600)
+
+
+def say(page: Page, text: str) -> None:
+    box = page.get_by_label("Message to the agent")
+    box.fill(text)
+    box.press("Enter")
+
+
+def run_status(page: Page) -> str:
+    return page.locator("[data-run]").first.get_attribute("data-run") or "none"
+
+
+def wait_for(page: Page, probe: str, seconds: float) -> bool:
+    try:
+        page.wait_for_function(probe, timeout=seconds * 1000, polling=100)
+    except Exception:
+        return False
+    return True
+
+
+def idle(page: Page, seconds: float) -> bool:
+    """The turn that was just sent started and then ended."""
+    working = "() => document.body.innerText.includes('Working…')"
+    wait_for(page, working, 30)
+    page.wait_for_timeout(500)
+    return wait_for(page, f"() => !({working[6:]})", seconds)
+
+
+def chat(run: Path, path: str, name: str, given: dict[str, str]) -> int:
+    live = given["live"] == "true"
+    found: dict[str, Any] = {"live": live}
+    meshes: list[float] = []
+    with sync_playwright() as playwright:
+        browser, page = open_page(playwright, run, path, given)
+        drawn(page)
+        pick_material(page, given)
+        page.on(
+            "response",
+            lambda r: meshes.append(time.time()) if "/v1/geometry/" in r.url and r.ok else None,
+        )
+        open_tab(page, "Model")
+        page.locator("[data-slot-tile='1'] button").first.click()
+        open_tab(page, "Chat")
+        pick_mode(page, "Plan")
+        found["plan_picked"] = mode_of(page) == "plan"
+        say(page, given["ask"])
+        if live:
+            found["plan_refused"] = idle(page, 180)
+        else:
+            found["plan_refused"] = wait_for(
+                page, "() => document.body.innerText.includes('Plan mode')", 60
+            ) and wait_for(page, "() => /Switch to Design/.test(document.body.innerText)", 60)
+        page.screenshot(path=str(run / f"{name}-plan.png"))
+        open_tab(page, "Model")
+        before = tiles(page)
+        found["revision_before"] = before["revision"]
+        found["slot_untouched_in_plan"] = before["tones"] != [] and "pending" not in before["tones"]
+        page.screenshot(path=str(run / f"{name}-before.png"))
+        open_tab(page, "Chat")
+        pick_mode(page, "Design")
+        found["design_picked"] = mode_of(page) == "design"
+        started = time.time()
+        say(page, given["ask"])
+        open_tab(page, "Model")
+        trail: list[tuple[float, int, tuple[str, ...]]] = []
+        shot_pending = False
+        t_revision = t_pending = t_verdict = t_blank = t_mesh = 0.0
+        while time.time() - started < 240 and not (t_verdict and t_mesh):
+            now = tiles(page)
+            at = time.time() - started
+            tones = tuple(now["tones"])
+            if not trail or trail[-1][1:] != (now["revision"], tones):
+                trail.append((round(at, 2), now["revision"], tones))
+            if now["revision"] > before["revision"] and not t_revision:
+                t_revision = at
+            if t_revision and tones and set(tones) == {"pending"} and not t_pending:
+                t_pending = at
+            if t_pending and tones and "pending" not in tones:
+                t_verdict = at
+            if t_revision:
+                canvas = page.locator("[data-slot-tile='1'] canvas").count() > 0
+                if not canvas and not t_blank:
+                    t_blank = at
+                if canvas and t_blank and not t_mesh:
+                    t_mesh = at
+            if t_pending and not shot_pending:
+                shot_pending = True
+                page.screenshot(path=str(run / f"{name}-pending.png"))
+            page.wait_for_timeout(50)
+        found.update(
+            seconds_to_revision=round(t_revision, 2),
+            seconds_to_pending=round(t_pending, 2),
+            seconds_to_verdicts=round(t_verdict, 2),
+            seconds_mesh_blank=round(t_blank, 2),
+            seconds_to_mesh=round(t_mesh, 2),
+            mesh_requests_after_rebuild=sum(1 for at in meshes if at >= started + t_revision),
+            slot_trail=trail,
+        )
+        page.screenshot(path=str(run / f"{name}-after.png"))
+        open_tab(page, "Chat")
+        if live:
+            found["agent_replied"] = idle(page, 240)
+        else:
+            found["agent_replied"] = wait_for(
+                page, "() => /Slot 1 now has a 4 mm wall/.test(document.body.innerText)", 90
+            )
+        open_tab(page, "Chat")
+        pick_mode(page, "Auto")
+        found["auto_picked"] = mode_of(page) == "auto"
+        say(page, given["auto_ask"])
+        found["run_started"] = wait_for(
+            page, "() => document.querySelector('[data-run=running]') !== null", 90
+        )
+        page.wait_for_timeout(500)
+        page.screenshot(path=str(run / f"{name}-auto.png"))
+        found["revisions_while_running"] = page.locator("[data-run]").first.inner_text()
+        stop = page.get_by_role("button", name="Stop")
+        found["stop_visible"] = stop.count() > 0
+        if given["stop"] == "switch":
+            pick_mode(page, "Design")
+            page.screenshot(path=str(run / f"{name}-switch.png"))
+        elif stop.count():
+            stop.first.click()
+        found["moved_to_design"] = wait_for(
+            page, "() => document.querySelector('[data-mode=design]') !== null", 30
+        )
+        found["stopped_report"] = wait_for(
+            page, "() => document.querySelector('[data-run=stopped]') !== null", 90
+        )
+        page.wait_for_timeout(500)
+        report = page.locator("[data-run] summary")
+        if report.count():
+            report.first.click()
+        page.screenshot(path=str(run / f"{name}-stopped.png"))
+        found["status_after_stop"] = page.locator("[data-run]").first.inner_text()
+        found["no_reload"] = bool(page.evaluate("window.__alive === true"))
+        (run / f"{name}.aria.yml").write_text(page.locator("body").aria_snapshot())
+        video = page.video
+        page.close()
+        if video is not None and given["video"]:
+            video.save_as(str(run / f"{name}.webm"))
+        browser.close()
+    (run / f"{name}.chat.json").write_text(json.dumps(found, indent=1))
+    print(json.dumps(found))
+    needed = [
+        "plan_picked", "plan_refused", "slot_untouched_in_plan", "design_picked", "no_reload",
+        "agent_replied", "auto_picked", "run_started", "stop_visible", "moved_to_design",
+        "stopped_report",
+    ]  # fmt: skip
+    ok = all(found.get(key) for key in needed) and bool(found["seconds_to_verdicts"])
+    return 0 if ok else 1
+
+
 def main(argv: list[str]) -> int:
     rest, given = options(argv)
     match rest:
@@ -192,6 +384,8 @@ def main(argv: list[str]) -> int:
             return shot(Path(run), path, name, given)
         case ["watch", run, path, name]:
             return watch(Path(run), path, name, given)
+        case ["chat", run, path, name]:
+            return chat(Path(run), path, name, given)
         case _:
             print(__doc__)
             return 2

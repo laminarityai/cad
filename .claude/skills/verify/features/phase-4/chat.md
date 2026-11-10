@@ -39,6 +39,23 @@ export PERSON_B=$(uv run cad-token --root "$ROOT" person user_bob)
 
 `uv run pytest tests/chat -q`: a turn with a tool call, a refused tool, the token built from the session, the agent tool list equal to the registry's agent list, 401, 404, 409, 415 and 422, a stream that resumes, a transcript that survives a restart, and a model that fails ending the turn with a message.
 
-## Not built yet
+## The web half
 
-A Playwright check that a change asked for in chat becomes the slot's next revision and the viewer and scorecard update without a reload. It waits for the web page and `build_variant`'s `slot`.
+The set view's chat column (`web/src/chat/`) follows the stream with `fetch` (so it can send the cookie and resume with `?after=N`), posts messages, and shows each tool call. A Radix dropdown under the input switches Plan, Design and Auto, and Shift+Tab in the input cycles them. The Auto run shows above the variants (`web/src/mode/`): `Running`, with a red Stop button, or `Stopped`, with the reason and the server's report. Every stop moves the picker to Design, and a new run starts only when the person picks Auto. A `tool_result` of `build_variant` or `auto_revise` makes the page read the set at once, and the 2 s re-read stays as the fallback.
+
+The conversation id is in the page's `?chat=` query, with a copy in `localStorage` as the fallback. The server has no read route for a conversation's mode or run, so the page keeps its last known mode and run in `localStorage` under the conversation id, and the server's answer to each `PUT` and the stream's stop reports win over it.
+
+Seed a server with a brief, three scored variants and a script, then drive it. The brief holds a `max_deflection` requirement on `polymaker-polylite-abs`, which has a Poisson's ratio, so `fea` runs and a card shows pending for a while. Start `cad-http` with the browser daemon's opener first, run `chat_seed.py <run> <account> <port>` (it prints the project and brief ids and writes `<run>/seed/script/script.json`), restart `cad-http` with `CAD_CHAT_MODEL=scripted:<run>/seed/script/script.json`, then:
+
+```
+uv run python .claude/skills/verify/scripts/browser.py web chat "$RUN" /projects/<project_id>/briefs/<brief_id> name --url http://127.0.0.1:8791 --account <account> --video "$RUN/vid" [--width 400] [--scheme dark]
+```
+
+The script for the model runs one conversation: step 0 and 1 are a `build_variant` the Plan mode refuses and a reply, steps 2 to 4 rebuild slot 1 with `build_variant` and `score_variant`, and the steps after start an Auto run (`auto_start`, then `auto_revise` with `slot` 2). `chat` picks Plan and types the change, picks Design and types it again, and times slot 1: revision 2, all pending, then verdicts, with no navigation. It then picks Auto, waits for `Running`, presses Stop, and waits for `Stopped` with the picker on Design. It writes `<name>-plan.png`, `-before.png`, `-after.png`, `-auto.png`, `-stopped.png`, `<name>.webm`, `<name>.aria.yml` and `<name>.chat.json`, and exits 1 when a step did not happen.
+
+- **Plan refuses.** The transcript shows `build_variant` in red with `refused in Plan mode`, and slot 1 still reads revision 1.
+- **Rebuild without a reload.** `<name>.chat.json` has `no_reload` true, `seconds_to_revision`, `seconds_to_pending` and `seconds_to_verdicts` for slot 1, and `seconds_to_mesh` for the new mesh.
+- **Stop.** The picker reads Design and the run status reads `Stopped · you stopped it`.
+- **Live model.** Run the same drive with `CAD_CHAT_MODEL=claude-haiku-4-5-20251001` and the key loaded as above, typing a change in words and not the script's.
+
+Free proofs: `npm run test` in `web/` (`chat/Chat.test.tsx`, `mode/Mode.test.tsx`).
