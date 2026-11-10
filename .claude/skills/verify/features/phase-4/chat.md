@@ -16,7 +16,7 @@ Events are `user`, `agent`, `tool_call`, `tool_result`, `driver` (the reminder b
 
 ## The model
 
-`CAD_CHAT_MODEL` picks it. `scripted:<path>` replays a JSON script (see `src/cad/chat/scripted.py`), and any other value is an Anthropic model id. Unset, it is `claude-sonnet-5-5`, and the server needs `ANTHROPIC_API_KEY` only when a turn runs. Every live lane sets `CAD_CHAT_MODEL=claude-haiku-4-5-20251001`. Load the key with `set -a; . ~/.config/cad/anthropic.env; set +a`, and never print it.
+`CAD_CHAT_MODEL` picks it. `scripted:<path>` replays a JSON script (see `src/cad/chat/scripted.py`), and any other value is an Anthropic model id. Unset, it is `claude-sonnet-5-5`, and the server needs `ANTHROPIC_API_KEY` only when a turn runs. Live lanes set `CAD_CHAT_MODEL=claude-haiku-4-5-20251001`, except the exit 1 lane, which sets `claude-sonnet-5-5`. Haiku rebuilds the slot but skips `score_variant`, so its card stays pending. Load the key with `set -a; . ~/.config/cad/anthropic.env; set +a`, and never print it.
 
 ## How to get to it
 
