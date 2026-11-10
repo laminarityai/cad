@@ -1,14 +1,13 @@
 import hashlib
-import threading
-import urllib.request
 from pathlib import Path
-from urllib.parse import urlencode, urlsplit
+from typing import TYPE_CHECKING
 
 import pytest
 
 from cad.accounts.principal import AccountId
 from cad.accounts.tenants import Tenants
 from cad.briefs.store import UnknownBrief
+from cad.confirmations.waiting import Door
 from cad.context_parts.ingest import ingest
 from cad.geometry import job, store
 from cad.geometry.model import TessellationFailed, UnknownMesh
@@ -23,12 +22,16 @@ from cad.operations.briefs import (
 from cad.operations.confirmation import AskToConfirmInput, ask_to_confirm
 from cad.operations.model import Tenant
 from cad.operations.server import NoArguments
-from cad.projects.model import UnknownProject
+from cad.projects.model import ProjectId, UnknownProject
 from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.outcome import Build, Built
+from cad.server.app import LocalPage
 from cad.variant_sets import store as variant_sets
 from cad.variants import entry
 from cad.variants.entry import UnknownVariant
+
+if TYPE_CHECKING:
+    from conftest import Person
 
 pytestmark = pytest.mark.anyio
 
@@ -43,22 +46,17 @@ UNDER_150 = RequirementDraft.model_validate(
 RAIL = b"CASCADE Topology V3, a rail\n"
 
 
-def confirm(url: str) -> None:
-    parts = urlsplit(url)
-    sent = urllib.request.Request(
-        url,
-        data=urlencode({"answer": "confirm", "note": ""}).encode(),
-        headers={
-            "Origin": f"{parts.scheme}://{parts.netloc}",
-            "Content-Type": "application/x-www-form-urlencoded",
-        },
-    )
-    threading.Thread(target=lambda: urllib.request.urlopen(sent, timeout=5), daemon=True).start()
-
-
 @pytest.fixture
-def accounts(tmp_path: Path) -> Tenants:
-    return Tenants(tmp_path / "accounts", 60, confirm, 5.0, ingest)
+def accounts(tmp_path: Path, person: "Person") -> Tenants:
+    person.answer = "confirm"
+    pages: dict[AccountId, LocalPage] = {}
+
+    def open_page(account: AccountId, project: ProjectId) -> None:
+        page = pages.setdefault(account, LocalPage(person, lambda: tenants.of(account)))
+        page.open(account, project)
+
+    tenants = Tenants(tmp_path / "accounts", 60, Door(open_page=open_page, wait_seconds=5), ingest)
+    return tenants
 
 
 @pytest.fixture
