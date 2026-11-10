@@ -24,6 +24,7 @@ cad-sandbox = "cad.sandbox.__main__:main"
 dev = [
     "basedpyright>=1.40,<1.41",
     "cadquery-ocp-novtk==7.9.3.1.1",
+    "jsonschema>=4.26.0",
     "pdfminer-six>=20250506",
     "playwright>=1.64.1",
     "pypdf>=5",
@@ -31,6 +32,7 @@ dev = [
     "pytest>=8",
     "pytest-xdist>=3.8.0",
     "ruff==0.17.4",
+    "types-jsonschema>=4.26.0.20261006",
     "types-pyyaml>=6.0.12.20261103",
 ]
 

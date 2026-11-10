@@ -3,10 +3,12 @@ from typing import Final
 from pydantic import BaseModel
 
 from cad.chat.log import Event
-from cad.chat.routes import CHAT_ROUTES, Said
-from cad.conversations.model import Mode
+from cad.chat.routes import CHAT_ROUTES, ConversationCreated, Follow, MessageSent, Said
+from cad.operations.events import EVENTS_PATH
 from cad.operations.openapi import Described, from_registry
 from cad.operations.registry import OPERATIONS, ROUTES
+from cad.operations.scorecards import ScorecardInput
+from cad.scorecard.material import ScorecardSnapshot
 
 CHAT_PATHS: Final = dict(CHAT_ROUTES)
 
@@ -15,26 +17,8 @@ class NoFields(BaseModel):
     pass
 
 
-class ConversationCreated(BaseModel):
-    conversation_id: str
-    mode: Mode
-
-
 class Send(Said):
     conversation_id: str
-
-
-class MessageSent(BaseModel):
-    seq: int
-
-
-class Follow(BaseModel):
-    """`after` and the `Last-Event-ID` header both name the last event seen. A browser's
-    EventSource sends the header by itself when it reconnects."""
-
-    conversation_id: str
-    after: int = 0
-    follow: bool = True
 
 
 HAND_DESCRIBED: Final = (
@@ -63,8 +47,19 @@ HAND_DESCRIBED: Final = (
         method="GET",
         input=Follow,
         output=Event,
-        stream=True,
+        events="server-sent events: id is the sequence number, event is the kind, data is one "
+        "transcript event",
         failures=(401, 404, 422),
+    ),
+    Described(
+        name="scorecard_events",
+        path=EVENTS_PATH,
+        method="GET",
+        input=ScorecardInput,
+        output=ScorecardSnapshot,
+        events="server-sent events: id is the card's etag, and event `scorecard` carries the whole "
+        "card as data each time it changes. Event `refused` carries the refusal's name as plain "
+        "text and ends the stream.",
     ),
 )
 

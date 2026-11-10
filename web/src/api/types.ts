@@ -260,6 +260,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/variants/{variant_id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["scorecard_events"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -327,7 +343,7 @@ export interface components {
             values: components["schemas"]["AgentValue"][];
             failed: string | null;
             /** @default null */
-            note: string | null;
+            note?: string | null;
         };
         /** AgentSaid */
         AgentSaid: {
@@ -457,9 +473,9 @@ export interface components {
             sources: components["schemas"]["Source"][];
             version: string;
             /** @default  */
-            instance: string;
+            instance?: string;
             /** @default [] */
-            reads: components["schemas"]["cad__checks__result__Read"][];
+            reads?: components["schemas"]["cad__checks__result__Read"][];
         };
         /**
          * Checked
@@ -488,7 +504,7 @@ export interface components {
              */
             basis: "checks" | "researched";
             /** @default [] */
-            researched: components["schemas"]["ReadResearched"][];
+            researched?: components["schemas"]["ReadResearched"][];
         };
         /** ClosedSolid */
         ClosedSolid: {
@@ -894,9 +910,9 @@ export interface components {
             sources: components["schemas"]["Source"][];
             version: string;
             /** @default  */
-            instance: string;
+            instance?: string;
             /** @default [] */
-            reads: components["schemas"]["cad__checks__result__Read"][];
+            reads?: components["schemas"]["cad__checks__result__Read"][];
         };
         /** PersonStop */
         PersonStop: {
@@ -1041,12 +1057,12 @@ export interface components {
             pending: string[];
             basis: components["schemas"]["Basis"];
             /** @default [] */
-            not_verified: components["schemas"]["AgentMeasurement"][];
+            not_verified?: components["schemas"]["AgentMeasurement"][];
             material: components["schemas"]["MaterialUse"];
             /** @default [] */
-            research: components["schemas"]["ResearchRequest"][];
+            research?: components["schemas"]["ResearchRequest"][];
             /** @default null */
-            research_problem: string | null;
+            research_problem?: string | null;
             etag: string;
         };
         /** ServerInfo */
@@ -2011,7 +2027,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description server-sent events: id is the sequence number, event is the kind, data is one event */
+            /** @description server-sent events: id is the sequence number, event is the kind, data is one transcript event */
             200: {
                 headers: {
                     [name: string]: unknown;
@@ -2023,6 +2039,36 @@ export interface operations {
             401: components["responses"]["SignedOut"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["Malformed"];
+        };
+    };
+    scorecard_events: {
+        parameters: {
+            query: {
+                material_key: components["schemas"]["MaterialKey"];
+                brief_id?: string | null;
+            };
+            header?: never;
+            path: {
+                variant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description server-sent events: id is the card's etag, and event `scorecard` carries the whole card as data each time it changes. Event `refused` carries the refusal's name as plain text and ends the stream. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["ScorecardSnapshot"];
+                };
+            };
+            400: components["responses"]["Refused"];
+            401: components["responses"]["SignedOut"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Malformed"];
+            503: components["responses"]["Unavailable"];
         };
     };
 }

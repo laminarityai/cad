@@ -52,6 +52,8 @@ def generate(into: Path) -> None:
                 str(described),
                 "--root-types",
                 "--root-types-no-schema-prefix",
+                "--default-non-nullable",
+                "false",
                 "--output",
                 str(into),
             ],
