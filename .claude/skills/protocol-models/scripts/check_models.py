@@ -162,8 +162,9 @@ MUTANTS: Final = (
         (
             ("/\\ Len(ledger) = q.seen\n", "/\\ Len(ledger) >= q.seen\n"),
             (
-                "ledger' = Append(ledger, [rev |-> q.rev, page |-> q.page])",
-                "ledger' = SubSeq(ledger, 1, q.seen) \\o <<[rev |-> q.rev, page |-> q.page]>>"
+                "ledger' = Append(ledger, [rev |-> q.rev, page |-> q.page, by |-> q.by])",
+                "ledger' = SubSeq(ledger, 1, q.seen)"
+                " \\o <<[rev |-> q.rev, page |-> q.page, by |-> q.by]>>"
                 " \\o SubSeq(ledger, q.seen + 2, Len(ledger))",
             ),
         ),
@@ -177,16 +178,37 @@ MUTANTS: Final = (
         "ChangedWritesNothing",
     ),
     Mutant(
-        "no-spend",
-        "Desk.spend stops marking the ballot spent, so a second POST of the page gets through",
+        "agent-answers",
+        "verifier.person accepts an agent's access token, so the agent opens and posts the page",
+        ANSWERS,
+        (("Callers == Persons \\cup Others", "Callers == Persons \\cup Others \\cup Agents"),),
+        "OnlyTenantPersonsAnswer",
+    ),
+    Mutant(
+        "seal-ignores-session",
+        "snapshot.seal stops binding the session, so another session's leaked form records",
+        ANSWERS,
+        (("/\\ q.by = pages[q.page].person\n", "/\\ TRUE\n"),),
+        "AnsweredByTheOpener",
+    ),
+    Mutant(
+        "snapshot-unbound",
+        "answer_page drops its account check and the seal stops binding the session, so a form"
+        " that leaked to another account records",
         ANSWERS,
         (
             (
-                """THEN /\\ ballot' = [ballot EXCEPT ![q.server].state = "spent"]""",
-                "THEN /\\ ballot' = ballot",
+                "IF /\\ Account(q.by) = Tenant\n          /\\ q.by = pages[q.page].person\n",
+                "IF TRUE\n",
+            ),
+            # Another session of the tenant's account could also post the leaked form, which
+            # breaks AnsweredByTheOpener at the same depth; masking it keeps the verdict stable.
+            (
+                "    \\A i \\in 1..Len(ledger) : ledger[i].by = pages[ledger[i].page].person\n",
+                "    TRUE\n",
             ),
         ),
-        "OneRequestPerPage",
+        "OnlyTenantPersonsAnswer",
     ),
 )
 

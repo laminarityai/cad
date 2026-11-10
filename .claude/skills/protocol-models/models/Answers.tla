@@ -1,44 +1,54 @@
 ------------------------------ MODULE Answers ------------------------------
 (***************************************************************************)
-(* The confirmation answer flow for one project with one brief:            *)
-(* src/cad/confirmations/ballot.py (Desk), http.py (do_POST), page.py      *)
-(* (answer_page), answers.py (append_answer) and records/signed.py         *)
-(* (append, publish). Each server process has its own Desk, so two         *)
-(* sessions can each open a page for the same item. The answers directory  *)
-(* is shared and append-only: slot n is taken with os.link, which fails    *)
-(* when another writer already holds it.                                   *)
+(* The confirmation answer flow for one project with one brief, in the     *)
+(* signed-in web app: src/cad/confirmations/web.py (show, record),         *)
+(* operations/confirmation.py (answer_page), snapshot.py (seal, unseal),   *)
+(* page.py (answer_page), answers.py (append_answer) and records/signed.py *)
+(* (append, publish).                                                      *)
+(*                                                                         *)
+(* A GET mints a snapshot: the pending items, sealed with the projects key *)
+(* over the account and the session that asked. Nothing about a page is    *)
+(* kept in memory, so which server process a request reaches does not     *)
+(* matter, and the model has no server. The answers directory is shared    *)
+(* and append-only: slot n is taken with os.link, which fails when another *)
+(* writer already holds it.                                                *)
 (*                                                                         *)
 (* An item is a revision of the brief's proposal (ItemRef.sha256). The     *)
-(* agent can propose a new revision at any time; only the page appends.    *)
+(* agent can propose a new revision at any time; only a person's POST      *)
+(* appends.                                                                *)
 (***************************************************************************)
-EXTENDS Naturals, Sequences, FiniteSets
+EXTENDS Naturals, Sequences, FiniteSets, TLC
 
 CONSTANTS
-    Servers,      \* server processes, each with its own Desk and page server
+    Persons,      \* person sessions of the tenant's account
+    Others,       \* person sessions of another account
+    Agents,       \* agent principals of the tenant's account
     MaxRevisions, \* how many proposals the agent may make
-    MaxPages,     \* how many ballots (tokens) may be opened in all
-    MaxPosts,     \* how many POSTs the person's browser may send in all
+    MaxPages,     \* how many distinct snapshots may be minted in all
+    MaxPosts,     \* how many POSTs may be sent in all
     MaxFaults,    \* how many appends may fail with a store error
     Attempts      \* signed.ATTEMPTS
 
 VARIABLES
     newest,     \* the latest proposal revision of the brief
-    ledger,     \* answers/<n>.signed: a sequence of [rev, page]
-    ballot,     \* Desk._ballots[project] per server: [page, rev, state]
-    pages,      \* the pages the person opened with a GET: page -> [server, rev]
+    ledger,     \* answers/<n>.signed: a sequence of [rev, page, by]
+    pages,      \* the snapshots minted by a GET: page -> [person, rev]
     posts,      \* each POST request so far: a sequence of request records
     faults,
     stale       \* ghost: an answer was linked for a revision the agent replaced after
                 \* answer_page's pending check had passed
 
-vars == <<newest, ledger, ballot, pages, posts, faults, stale>>
+vars == <<newest, ledger, pages, posts, faults, stale>>
 
-NoBallot == [page |-> 0, rev |-> 0, state |-> "none"]
+Tenant == "tenant"
+Account(p) == IF p \in Others THEN "other" ELSE Tenant
+
+\* The principals verifier.person accepts. An agent's access token is not a person session.
+Callers == Persons \cup Others
 
 Init ==
     /\ newest = 1
     /\ ledger = <<>>
-    /\ ballot = [s \in Servers |-> NoBallot]
     /\ pages = <<>>
     /\ posts = <<>>
     /\ faults = 0
@@ -52,114 +62,101 @@ Pending == IF Answered(newest) THEN {} ELSE {newest}
 -----------------------------------------------------------------------------
 (* The agent.                                                              *)
 
-\* propose_requirements: a new revision, which makes the page's item stale.
+\* propose_requirements: a new revision, which makes every minted snapshot stale.
 Propose ==
     /\ newest < MaxRevisions
     /\ newest' = newest + 1
-    /\ UNCHANGED <<ledger, ballot, pages, posts, faults, stale>>
-
-\* ask_to_confirm -> Desk._open: keep the open ballot for the same items, else retire it and
-\* open a new one with a new token. The person's browser then GETs the page (do_GET + view).
-Ask(s) ==
-    /\ Pending # {}
-    /\ IF ballot[s].state = "open" /\ ballot[s].rev = newest
-         THEN UNCHANGED <<ballot, pages>>
-         ELSE /\ Len(pages) < MaxPages
-              /\ ballot' = [ballot EXCEPT ![s] =
-                                [page |-> Len(pages) + 1, rev |-> newest, state |-> "open"]]
-              /\ pages' = Append(pages, [server |-> s, rev |-> newest])
-    /\ UNCHANGED <<newest, ledger, posts, faults, stale>>
+    /\ UNCHANGED <<ledger, pages, posts, faults, stale>>
 
 -----------------------------------------------------------------------------
-(* The person's browser and do_POST.                                       *)
+(* The browser, web.py and answer_page.                                    *)
 
-Post(g) ==
+\* web.py show: snapshot.seal over the caller's session and the pending items. The seal is an
+\* HMAC, so the same session and items give the same snapshot again. Another account's person
+\* reaches its own tenant, so it never mints a snapshot of this store.
+Get(p) ==
+    LET shown == [person |-> p, rev |-> newest] IN
+    /\ Account(p) = Tenant
+    /\ Pending # {}
+    /\ shown \notin {pages[g] : g \in 1..Len(pages)}
+    /\ Len(pages) < MaxPages
+    /\ pages' = Append(pages, shown)
+    /\ UNCHANGED <<newest, ledger, posts, faults, stale>>
+
+\* web.py record: any caller may send any minted snapshot, its own or one that leaked, again
+\* and again. Two POSTs of one form both run; nothing is spent.
+Post(p, g) ==
     /\ Len(posts) < MaxPosts
-    /\ posts' = Append(posts, [page |-> g, server |-> pages[g].server, rev |-> pages[g].rev,
-                               pc |-> "find", seen |-> 0, tries |-> 0, told |-> "nothing",
+    /\ posts' = Append(posts, [page |-> g, by |-> p, rev |-> pages[g].rev,
+                               pc |-> "unseal", seen |-> 0, tries |-> 0, told |-> "nothing",
                                at |-> 0])
-    /\ UNCHANGED <<newest, ledger, ballot, pages, faults, stale>>
-
-Live(q) == ballot[q.server].page = q.page /\ ballot[q.server].state = "open"
+    /\ UNCHANGED <<newest, ledger, pages, faults, stale>>
 
 Tell(k, q, what) == posts' = [posts EXCEPT ![k] = [q EXCEPT !.pc = "done", !.told = what]]
 Go(k, q, pc) == posts' = [posts EXCEPT ![k] = [q EXCEPT !.pc = pc]]
 
-\* do_POST: self._desk.find(token), with its own lock.
-Find(k) ==
+\* operations/confirmation.answer_page: refuse when person.account != tenant.account, else
+\* snapshot.unseal, which verifies the MAC over the caller's own account and session.
+Unseal(k) ==
     LET q == posts[k] IN
-    /\ q.pc = "find"
-    /\ IF Live(q) THEN Go(k, q, "spend") ELSE Tell(k, q, "forbidden")
-    /\ UNCHANGED <<newest, ledger, ballot, pages, faults, stale>>
-
-\* do_POST: `self._desk.spend(token) is not ballot`. Of two concurrent POSTs, one spends it.
-Spend(k) ==
-    LET q == posts[k] IN
-    /\ q.pc = "spend"
-    /\ IF Live(q)
-         THEN /\ ballot' = [ballot EXCEPT ![q.server].state = "spent"]
-              /\ Go(k, q, "ledger")
-         ELSE /\ Tell(k, q, "forbidden")
-              /\ UNCHANGED ballot
+    /\ q.pc = "unseal"
+    /\ IF /\ Account(q.by) = Tenant
+          /\ q.by = pages[q.page].person
+         THEN Go(k, q, "ledger")
+         ELSE Tell(k, q, "forbidden")
     /\ UNCHANGED <<newest, ledger, pages, faults, stale>>
 
-\* answer_page: read_ledger, then `any(ledger.of(ref) ...)`.
+\* page.answer_page: read_ledger, then `any(ledger.of(ref) ...)`.
 CheckLedger(k) ==
     LET q == posts[k] IN
     /\ q.pc = "ledger"
     /\ IF Answered(q.rev) THEN Tell(k, q, "already answered") ELSE Go(k, q, "pending")
-    /\ UNCHANGED <<newest, ledger, ballot, pages, faults, stale>>
+    /\ UNCHANGED <<newest, ledger, pages, faults, stale>>
 
-\* answer_page: `pending(kinds, ballot.project) != ballot.items`. The ghost field `at` keeps the
-\* newest revision as this check saw it.
+\* page.answer_page: `pending(kinds, project) != items`. The ghost field `at` keeps the newest
+\* revision as this check saw it.
 CheckPending(k) ==
     LET q == [posts[k] EXCEPT !.at = newest] IN
     /\ posts[k].pc = "pending"
     /\ IF Pending = {q.rev} THEN Go(k, q, "read") ELSE Tell(k, q, "changed")
-    /\ UNCHANGED <<newest, ledger, ballot, pages, faults, stale>>
+    /\ UNCHANGED <<newest, ledger, pages, faults, stale>>
 
 \* signed.append: read_numbered, then append_answer's record_for, which returns None when a
-\* stored answer lists one of this page's items.
+\* stored answer lists one of this page's items; answer_page then says AlreadyAnswered.
 ReadSlots(k) ==
     LET q == posts[k] IN
     /\ q.pc = "read"
     /\ IF Answered(q.rev)
          THEN Tell(k, q, "already answered")
          ELSE posts' = [posts EXCEPT ![k] = [q EXCEPT !.pc = "publish", !.seen = Len(ledger)]]
-    /\ UNCHANGED <<newest, ledger, ballot, pages, faults, stale>>
+    /\ UNCHANGED <<newest, ledger, pages, faults, stale>>
 
 \* signed.publish: os.link to slot seen + 1. FileExistsError means another writer won the
-\* slot, and append reads again, up to Attempts times, then raises Contended. A store error
-\* (StoreUnusable, ProjectBusy) makes do_POST give the ballot back: Desk.give_back.
-GiveBack(k, q) ==
-    /\ ballot' = IF ballot[q.server].page = q.page /\ ballot[q.server].state = "spent"
-                   THEN [ballot EXCEPT ![q.server].state = "open"] ELSE ballot
-    /\ Tell(k, q, "not recorded")
-    /\ UNCHANGED <<ledger, stale>>
-
+\* slot, and append reads again, up to Attempts times, then raises Contended (ProjectBusy). A
+\* store error or ProjectBusy makes record answer 500: nothing recorded, send the form again.
 Publish(k) ==
     LET q == posts[k] IN
     /\ q.pc = "publish"
     /\ \/ /\ Len(ledger) = q.seen
-          /\ ledger' = Append(ledger, [rev |-> q.rev, page |-> q.page])
+          /\ ledger' = Append(ledger, [rev |-> q.rev, page |-> q.page, by |-> q.by])
           /\ stale' = (stale \/ (q.at = q.rev /\ q.rev # newest))
           /\ Tell(k, q, "recorded")
-          /\ UNCHANGED <<ballot, faults>>
+          /\ UNCHANGED faults
        \/ /\ Len(ledger) # q.seen
           /\ q.tries + 1 < Attempts
           /\ posts' = [posts EXCEPT ![k] = [q EXCEPT !.pc = "read", !.tries = @ + 1]]
-          /\ UNCHANGED <<ledger, ballot, faults, stale>>
+          /\ UNCHANGED <<ledger, faults, stale>>
        \/ /\ Len(ledger) # q.seen
           /\ q.tries + 1 >= Attempts
-          /\ GiveBack(k, q)
-          /\ UNCHANGED faults
+          /\ Tell(k, q, "not recorded")
+          /\ UNCHANGED <<ledger, faults, stale>>
        \/ /\ faults < MaxFaults
           /\ faults' = faults + 1
-          /\ GiveBack(k, q)
+          /\ Tell(k, q, "not recorded")
+          /\ UNCHANGED <<ledger, stale>>
     /\ UNCHANGED <<newest, pages>>
 
-Request(k) == Find(k) \/ Spend(k) \/ CheckLedger(k) \/ CheckPending(k) \/ ReadSlots(k)
-              \/ Publish(k)
+Request(k) == Unseal(k) \/ CheckLedger(k) \/ CheckPending(k) \/ ReadSlots(k) \/ Publish(k)
 
 \* Nothing is left to do: no step changes the state from here.
 Finished ==
@@ -168,12 +165,15 @@ Finished ==
 
 Next ==
     \/ Propose
-    \/ \E s \in Servers : Ask(s)
-    \/ \E g \in 1..Len(pages) : Post(g)
+    \/ \E p \in Callers : Get(p)
+    \/ \E p \in Callers, g \in 1..Len(pages) : Post(p, g)
     \/ \E k \in 1..Len(posts) : Request(k)
     \/ Finished
 
 Spec == Init /\ [][Next]_vars
+
+\* The tenant's sessions are interchangeable: no property names one.
+Sessions == Permutations(Persons)
 
 -----------------------------------------------------------------------------
 (* Properties.                                                             *)
@@ -182,9 +182,19 @@ Spec == Init /\ [][Next]_vars
 OneAnswerPerItem ==
     \A i, j \in 1..Len(ledger) : i # j => ledger[i].rev # ledger[j].rev
 
-\* One signed answer per page: a replayed or concurrent POST on a page writes nothing more.
+\* One signed answer per snapshot: a replayed or concurrent POST of a form writes nothing more.
 OneAnswerPerPage ==
     \A i, j \in 1..Len(ledger) : i # j => ledger[i].page # ledger[j].page
+
+\* Every stored answer was given by a person session of the tenant's account: never an agent,
+\* never another account.
+OnlyTenantPersonsAnswer ==
+    \A i \in 1..Len(ledger) : ledger[i].by \in Persons /\ Account(ledger[i].by) = Tenant
+
+\* Every stored answer was given by the session the snapshot was sealed for, so a form that
+\* leaked to another session of the account records nothing.
+AnsweredByTheOpener ==
+    \A i \in 1..Len(ledger) : ledger[i].by = pages[ledger[i].page].person
 
 \* Every POST the page told "Recorded" has its answer in the ledger.
 RecordedIsKept ==
@@ -199,13 +209,6 @@ AnswersWhatThePageShowed ==
 \* nothing: the page says Changed.
 ChangedWritesNothing ==
     \A k \in 1..Len(posts) : posts[k].told = "recorded" => posts[k].at = posts[k].rev
-
-\* Desk.spend lets one request per page into answer_page at a time. A second POST of the page,
-\* a double click or a replay, is refused until the first gives the ballot back.
-InAnswerPage(k) == posts[k].pc \in {"ledger", "pending", "read", "publish"}
-OneRequestPerPage ==
-    \A i, j \in 1..Len(posts) :
-        i # j /\ posts[i].page = posts[j].page => ~(InAnswerPage(i) /\ InAnswerPage(j))
 
 \* A POST whose item the agent replaced after answer_page's pending check passed, and before the
 \* answer was linked into place, writes nothing. The known finding: it does write.

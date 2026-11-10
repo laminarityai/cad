@@ -1,11 +1,11 @@
 ---
 name: protocol-models
-description: Model-check the check job queue (src/cad/checks/lanes.py, job_store.py, including Lanes.peek) and the confirmation answer flow (src/cad/confirmations/, records/signed.py) with TLA+. Use when you change how jobs take off, run, are stored or refused, how a worker starts or dies, or how a POST spends a ballot and appends an answer; when `verify` warns that covered code changed; or when a race, a crash, or a second session could break one of these flows.
+description: Model-check the check job queue (src/cad/checks/lanes.py, job_store.py, including Lanes.peek) and the confirmation answer flow (src/cad/confirmations/, operations/confirmation.py, records/signed.py) with TLA+. Use when you change how jobs take off, run, are stored or refused, how a worker starts or dies, or who may post the confirmation page, how its snapshot is sealed, or how an answer is appended; when `verify` warns that covered code changed; or when a race, a crash, or a second session could break one of these flows.
 ---
 
 # Protocol models
 
-Unit tests run one interleaving per test. These models run every interleaving, within small bounds, of the threads, server processes, crashes, store errors and agent actions that touch two flows: the check job queue and the confirmation answer flow. A bug in either is expensive and rarely shows up in a test. The queue can run a container twice, leave a check pending forever, or trust a forged result. The answer flow can record an answer twice, lose one it reported as recorded, or record an answer for an item the page never showed.
+Unit tests run one interleaving per test. These models run every interleaving, within small bounds, of the threads, server processes, crashes, store errors and agent actions that touch two flows: the check job queue and the confirmation answer flow. A bug in either is expensive and rarely shows up in a test. The queue can run a container twice, leave a check pending forever, or trust a forged result. The answer flow can record an answer twice, lose one it reported as recorded, record an answer for an item the page never showed, or record one that the agent or another account gave.
 
 ## Run
 
@@ -84,37 +84,39 @@ The model leaves out the account meter. It refuses inside `container.run`, befor
 | Property | The harm it rules out |
 | --- | --- |
 | `OneAnswerPerItem` | Two signed answers for one item, for example from two sessions' pages or a replayed POST. |
-| `OneAnswerPerPage` | One page's token records more than one answer. |
+| `OneAnswerPerPage` | One snapshot records more than one answer, for example from a double click or a replayed form. |
+| `OnlyTenantPersonsAnswer` | A stored answer was given by an agent or by a person of another account. Every stored answer comes from a person session, and its account is the tenant's. |
+| `AnsweredByTheOpener` | A form that leaked to another session of the account records an answer. The snapshot is sealed for one session. |
 | `RecordedIsKept` | The page tells the person "Recorded" but the answer is not in the ledger. |
 | `AnswersWhatThePageShowed` | A stored answer is for a revision other than the one the page showed. |
-| `ChangedWritesNothing` | The agent proposed a new revision before the POST reached `answer_page`'s pending check, and the old page's answer is recorded anyway. This is what the Changed guard (`page.py`, `pending(...) != ballot.items`) is for. |
-| `OneRequestPerPage` | Two POSTs of one page, a double click or a replay, are inside `answer_page` at once. This is what `Desk.spend` is for. |
+| `ChangedWritesNothing` | The agent proposed a new revision before the POST reached `answer_page`'s pending check, and the old page's answer is recorded anyway. This is what the Changed guard (`page.py`, `pending(...) != items`) is for. |
 
-The ledger alone already keeps a replayed POST from storing a second answer: `answer_page`'s ledger check, `record_for` and `os.link` each refuse it. So `OneAnswerPerItem` and `OneAnswerPerPage` still hold when `Desk.spend` is broken. `OneRequestPerPage` is the property that checks `Desk.spend` itself.
+A GET mints a snapshot and keeps nothing in memory. So the model has no server process: a POST behaves the same whichever process it reaches, and every process shares one answers directory. Two POSTs of one form both reach `page.answer_page`. Nothing spends a ballot, so `OneRequestPerPage` is gone with `Desk.spend`. The ledger alone stops a replay: `answer_page`'s ledger check, `record_for` and `os.link` each refuse a second answer.
 
-`Answers.cfg` uses 2 server processes, each with its own `Desk`, on one answers directory, with 2 proposal revisions, 2 pages, 3 POSTs, 1 store error and `Attempts = 2`. It finds about 48k states in about 3 s. Its deadlock check is real: the `Finished` step is enabled only when every POST is done, so a POST that can take no further step is reported as a deadlock.
+The principals are the tenant's person sessions (`Persons`), a person of another account (`Others`) and the tenant's agents (`Agents`). Any person may post any minted snapshot, its own or a leaked one. An agent has no `Get` or `Post` step, because `verifier.person` refuses its access token. Another account's person never mints a snapshot of this store, because web.py serves it its own tenant. The model lets it post this store's forms anyway, which is more than the code allows, and `Unseal` refuses it. Three guards stop it: web.py serves only the person's own tenant, `answer_page` refuses `person.account != tenant.account`, and the seal binds the account and the session. Any one of them is enough, so the `snapshot-unbound` mutant drops both modeled guards.
+
+`Answers.cfg` uses 2 tenant sessions, 1 session of another account, 1 agent, 2 proposal revisions, 2 snapshots, 3 POSTs, 1 store error and `Attempts = 2`, with a symmetry set over the tenant's sessions. It finds about 83k states in about 5 s. Its deadlock check is real: the `Finished` step is enabled only when every POST is done, so a POST that can take no further step is reported as a deadlock.
 
 | Model | Code |
 | --- | --- |
-| `Propose` | `propose_requirements` makes a new revision, so the shown item goes stale |
-| `Ask(s)` | `ask_to_confirm`, `Desk._open`: keep the open ballot for the same items, else open a new token |
-| `Post(g)` | the person's browser POSTs page `g`, possibly again or from a stale page |
-| `Find`, `Spend` | `do_POST`: `Desk.find`, then `Desk.spend(token) is not ballot` |
-| `CheckLedger`, `CheckPending` | `answer_page`: AlreadyAnswered, then Changed when `pending != ballot.items`. The ghost field `at` keeps the newest revision as `CheckPending` saw it |
-| `ReadSlots`, `Publish` | `signed.append`: `read_numbered`, `record_for`, `publish` by `os.link`, retry on FileExistsError, Contended |
-| `GiveBack` | a store error or Contended makes `do_POST` call `Desk.give_back` |
+| `Propose` | `propose_requirements` makes a new revision, so every minted snapshot goes stale. `ask_to_confirm` writes nothing, so it has no step |
+| `Get(p)` | web.py `show`: `verifier.person`, the person's own tenant, `pending`, then `snapshot.seal` over the account, the session and the items |
+| `Post(p, g)` | web.py `record`: a person session POSTs snapshot `g`, possibly again, from a stale page, or one that leaked |
+| `Unseal` | `operations/confirmation.answer_page`: the account check, then `snapshot.unseal` with the caller's account and session. The Origin check, `parse_form` and `read_edits` refuse before any write, so the model leaves them out |
+| `CheckLedger`, `CheckPending` | `page.answer_page`: AlreadyAnswered, then Changed when `pending != items`. The ghost field `at` keeps the newest revision as `CheckPending` saw it |
+| `ReadSlots`, `Publish` | `signed.append`: `read_numbered`, `record_for`, `publish` by `os.link`, retry on FileExistsError, then Contended. A store error or ProjectBusy is a 500 that records nothing, and the person may send the form again |
 
 ## Known findings
 
 Each finding is a check that must keep finding its violation. When the code is fixed, the check fails with "wanted exactly X", and the fix is to move that property into the passing config and delete the finding check.
 
 1. `JobLanesTwoServersRefusal` (`InterruptedMeansInterrupted`). Two server processes on one store, for example two Claude Code sessions on `~/.cad`, share `.attempt` files. Server A dies once while fea runs, so `.attempt` is 1. Server B starts the same fea job and `begin_attempt` makes it 2. A restarts, and `score_variant` refuses fea as "interrupted 2 times" while B's healthy run is still going. It clears once B stores its result. It is transient and low severity. The phase-4 one-replica lease would remove it.
-2. `AnswersStale` (`StaleWritesNothing`). `answer_page` checks that the pending items still match the page, then appends. If the agent proposes a new revision between the two, the answer is still recorded. It binds to the exact item sha the page showed, so `AnswersWhatThePageShowed` holds, and the newer revision stays pending. Low severity. The trace is 10 states: the POST passes CheckPending, `Propose`, then `Publish` links the answer. `StaleWritesNothing` counts only that order (the `stale` ghost requires `at = rev`, so the pending check passed), so this check cannot pass on a stale answer that got past a broken Changed guard. `ChangedWritesNothing` in `Answers.cfg` catches that one.
+2. `AnswersStale` (`StaleWritesNothing`). `answer_page` checks that the pending items still match the page, then appends. If the agent proposes a new revision between the two, the answer is still recorded. It binds to the exact item sha the page showed, so `AnswersWhatThePageShowed` holds, and the newer revision stays pending. Low severity. The trace is 9 states: `Get`, `Post`, the POST passes `Unseal`, `CheckLedger` and `CheckPending`, then `ReadSlots`, `Propose`, and `Publish` links the answer. `StaleWritesNothing` counts only that order (the `stale` ghost requires `at = rev`, so the pending check passed), so this check cannot pass on a stale answer that got past a broken Changed guard. `ChangedWritesNothing` in `Answers.cfg` catches that one.
 3. `JobLanesPeek` (`PeekMeansInterrupted`). One server, one crash. The server dies once while fea runs, so `.attempt` is 1. It restarts, `score_variant` starts a healthy rerun, and `begin_attempt` makes `.attempt` 2. While that run is going, `Lanes.peek` (the scorecard operation) reports fea refused as "interrupted 2 times". `settle` does not, because `_take_off` looks in `_flying` first, and `peek` does not. It clears once the run stores its result. Transient and low severity, but it needs only one server, unlike finding 1. Reproduced against the real code: `job_store.begin_attempt` once, then `Lanes.settle` with a gated background runner, then `Lanes.peek` returns `Refused(INTERRUPTED)` while `.attempt` is 2.
 
 ## A failure: real bug or modeling error
 
-When a check fails, read the trace as a story in code terms: which thread or process acted, in which function, and on which state. Then try to reproduce it against the real code, with two `Lanes` instances or two `Desk`s on one temp store and gated runners as in `tests/checks/test_lanes.py`.
+When a check fails, read the trace as a story in code terms: which thread or process acted, in which function, and on which state. Then try to reproduce it against the real code, with two `Lanes` instances or two concurrent `answer_page` calls on one temp store and gated runners as in `tests/checks/test_lanes.py`.
 
 - If the code does the same thing, it is a real bug. Stop and report it with the trace, and do not weaken the property to make it pass.
 - If the code cannot do what the trace does, the model is wrong. The usual causes are a ghost variable updated at the wrong step, two code steps merged into one atomic action, or a missing fairness condition. Fix the model, then run the mutants.
@@ -126,9 +128,9 @@ When a check fails, read the trace as a story in code terms: which thread or pro
 `check_models.py` reads the block below. It warns when a covered file changed after the sync commit, and it prints a note instead when the commit is not in the clone (CI checks out shallow). The warning does not fail the run. When you see it, read the diff, update the model if the protocol changed, run the checks and the mutants, and only then move `sync` to the new commit. Use `/maintain-formal-verification-skill` for that work.
 
 ```coverage
-sync: 748cd20
+sync: d14f793
 JobLanes: src/cad/checks/lanes.py src/cad/checks/job_store.py src/cad/checks/jobs.py src/cad/sandbox/container.py
-Answers: src/cad/confirmations/ballot.py src/cad/confirmations/http.py src/cad/confirmations/page.py src/cad/confirmations/answers.py src/cad/confirmations/items.py src/cad/records/signed.py
+Answers: src/cad/confirmations/web.py src/cad/confirmations/snapshot.py src/cad/operations/confirmation.py src/cad/confirmations/page.py src/cad/confirmations/answers.py src/cad/confirmations/items.py src/cad/records/signed.py
 ```
 
 ## Planned targets, not built yet
