@@ -19,7 +19,7 @@ from cad.operations.briefs import (
     create_brief,
     propose_requirements,
 )
-from cad.operations.confirmation import AskToConfirmInput, ask_to_confirm
+from cad.operations.confirmation import AskToConfirmInput, ask_to_confirm, waiting
 from cad.operations.model import Tenant
 from cad.operations.server import NoArguments
 from cad.projects.model import UnknownProject
@@ -123,6 +123,19 @@ async def test_a_confirmed_proposal_shows_in_the_project(alice: Tenant) -> None:
 def test_an_unknown_project_is_refused(alice: Tenant) -> None:
     with pytest.raises(UnknownProject):
         reads.project(alice, reads.ProjectInput(project_id="p-" + "0" * 16))
+    with pytest.raises(UnknownProject):
+        waiting(alice, AskToConfirmInput(project_id="p-" + "0" * 16))
+
+
+async def test_waiting_lists_what_another_brief_of_the_project_waits_on(alice: Tenant) -> None:
+    project, _ = await confirmed(alice)
+    assert waiting(alice, AskToConfirmInput(project_id=project)).items == ()
+    _, second = proposed(alice, project)
+    [item] = waiting(alice, AskToConfirmInput(project_id=project)).items
+    assert (item.kind, item.brief_id, item.brief_text) == ("requirements", second, TEXT)
+    assert [(row.headline, row.quote) for row in item.rows] == [
+        ("Mass at most 150 g", "under 150 g")
+    ]
 
 
 async def test_the_variant_set_lists_slots_with_their_revisions(alice: Tenant) -> None:

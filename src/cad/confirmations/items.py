@@ -36,6 +36,7 @@ class Row:
 @dataclass(frozen=True, slots=True)
 class Section:
     title: str
+    brief_id: str
     context: str
     rows: tuple[Row, ...]
 

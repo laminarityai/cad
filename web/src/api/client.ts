@@ -7,6 +7,7 @@ import type {
   Tessellated,
   VariantSetView,
   VariantView,
+  WaitingView,
 } from "./types";
 
 export class SignedOut extends Error {
@@ -37,6 +38,7 @@ export interface Api {
   projects(): Promise<ProjectList>;
   project(projectId: string): Promise<ProjectView>;
   brief(briefId: string): Promise<BriefView>;
+  waiting(projectId: string): Promise<WaitingView>;
   variantSet(projectId: string, briefId: string, materialKey?: string): Promise<VariantSetView>;
   materials(): Promise<MaterialListings>;
   view(variantId: string): Promise<VariantView>;
@@ -70,6 +72,7 @@ export const httpApi: Api = {
   projects: () => getJson("/v1/projects"),
   project: (projectId) => getJson(`/v1/projects/${enc(projectId)}`),
   brief: (briefId) => getJson(`/v1/briefs/${enc(briefId)}`),
+  waiting: (projectId) => getJson(`/v1/projects/${enc(projectId)}/waiting`),
   variantSet: (projectId, briefId, materialKey) =>
     getJson(
       `/v1/projects/${enc(projectId)}/briefs/${enc(briefId)}/set` +

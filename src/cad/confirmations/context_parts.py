@@ -45,7 +45,7 @@ class ContextParts:
             quote=brief.text[record.origin.start : record.origin.end],
             decides=DECIDES,
         )
-        return Section(title=TITLE, context=brief.text, rows=(row,))
+        return Section(title=TITLE, brief_id=brief.id, context=brief.text, rows=(row,))
 
     def edit(self, ref: ItemRef, edits: Sequence[Edit]) -> Refused | Changes:
         return Refused(NO_EDIT)

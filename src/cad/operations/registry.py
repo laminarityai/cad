@@ -63,6 +63,7 @@ ROUTES: Final[Mapping[str, Served]] = {
     "list_requirements": Served("/v1/briefs/{brief_id}"),
     "list_projects": Served("/v1/projects"),
     "project": Served("/v1/projects/{project_id}"),
+    "waiting": Served("/v1/projects/{project_id}/waiting"),
     "variant_set": Served("/v1/projects/{project_id}/briefs/{brief_id}/set"),
     "scorecard": Served("/v1/variants/{variant_id}/scorecard"),
     "view": Served("/v1/variants/{variant_id}"),

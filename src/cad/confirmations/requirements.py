@@ -45,7 +45,7 @@ class Requirements:
             for r in shown.proposal.requirements
         )
         title = f"Requirements for your brief (proposal {shown.proposal.number})"
-        return Section(title=title, context=text, rows=rows)
+        return Section(title=title, brief_id=shown.proposal.brief_id, context=text, rows=rows)
 
     def edit(self, ref: ItemRef, edits: Sequence[Edit]) -> Refused | Changes:
         proposed = self._shown(ref)[1].proposal.requirements
