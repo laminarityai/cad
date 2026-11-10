@@ -204,9 +204,12 @@ async def test_a_revision_drops_the_unstarted_checks_of_the_one_it_replaced_and_
     s: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     dropped: list[tuple[Path, str]] = []
-    monkeypatch.setattr(
-        LANES, "drop_unstarted", lambda root, variant_id: dropped.append((root, variant_id)) or 0
-    )
+
+    def record(root: Path, variant_id: str) -> int:
+        dropped.append((root, variant_id))
+        return 0
+
+    monkeypatch.setattr(LANES, "drop_unstarted", record)
     brief_id = await s.confirmed_brief()
     first = await s.call("build_variant", code=PLATE, brief_id=brief_id)
     assert dropped == []
