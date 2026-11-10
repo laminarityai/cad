@@ -39,6 +39,8 @@ from cad.accounts.local import LocalIssuer
 from cad.accounts.principal import AgentToken
 from cad.accounts.tenants import ACCOUNTS, Tenants
 from cad.accounts.tokens import Issuer, Verifier
+from cad.chat.model import Model, from_environment
+from cad.chat.routes import Chat, chat_routes
 from cad.confirmations.ballot import Opener, program_opener
 from cad.context_parts.ingest import ingest as read_part
 from cad.context_parts.store import Ingest
@@ -87,8 +89,11 @@ class AgentTokens:
         )
 
 
-def build_app(issuer: Issuer, tenants: Tenants) -> Starlette:
+def build_app(issuer: Issuer, tenants: Tenants, model: Model | None = None) -> Starlette:
+    """`model` runs the chat agent. None reads `CAD_CHAT_MODEL`, so a server with no model
+    configured still starts and answers every call but a chat message."""
     verifier = Verifier(issuer)
+    chat = Chat(model or from_environment(os.environ), tenants)
 
     def tenant_of_token() -> Tenant:
         token = get_access_token()
@@ -120,6 +125,8 @@ def build_app(issuer: Issuer, tenants: Tenants) -> Starlette:
         person_route(path, operations[name], verifier.person, tenants.of, method)
         for path, name, method in PERSON_ROUTES
     )
+    app.router.routes.extend(chat_routes(verifier.person, chat))
+    app.state.chat = chat
     return app
 
 
