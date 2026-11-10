@@ -25,7 +25,13 @@ from cad.chat.log import Channel, Channels, UserSaid
 from cad.chat.model import Model
 from cad.chat.turn import agent_token, run_turn
 from cad.conversations import store
-from cad.conversations.model import ConversationId, Mode, NotAConversation, conversation_id
+from cad.conversations.model import (
+    ConversationId,
+    Mode,
+    NotAConversation,
+    UnknownConversation,
+    conversation_id,
+)
 from cad.operations.routes import CHALLENGE, PersonOf, session_token
 
 MAX_MESSAGE_CHARS: Final = 20_000
@@ -73,7 +79,9 @@ class Chat:
 
     def channel(self, person: PersonSession, cid: ConversationId) -> Channel | None:
         conversations = self.tenants.of(person.account).conversations
-        if not log.exists(conversations, cid):
+        try:
+            store.read(conversations, cid)
+        except UnknownConversation:
             return None
         return self.channels.of(person.account, conversations, cid)
 
@@ -120,7 +128,7 @@ def chat_routes(person_of: PersonOf, chat: Chat) -> list[Route]:
         if not _is_json(request):
             return _error(415, "send application/json")
         cid = conversation_id(f"c_{secrets.token_hex(8)}")
-        held = store.set_mode(chat.tenants.of(who.account), cid, Mode.PLAN)
+        held = store.create(chat.tenants.of(who.account), cid)
         return _json(ConversationCreated(conversation_id=cid, mode=held.mode), 201)
 
     async def send(request: Request) -> Response:

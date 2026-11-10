@@ -37,3 +37,7 @@ class Conversation(BaseModel):
 
 class ModeRefused(VariantRefused):
     pass
+
+
+class UnknownConversation(ModeRefused):
+    pass
