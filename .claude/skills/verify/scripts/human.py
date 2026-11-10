@@ -25,7 +25,9 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from http.client import HTTPResponse
 from pathlib import Path
+from typing import cast
 from urllib.parse import parse_qs, urlencode, urlsplit
 
 SECTION = re.compile(r'<section class="item">(.*?)</section>', re.DOTALL)
@@ -45,7 +47,7 @@ def fetch(
 ) -> tuple[int, str, str]:
     sent = urllib.request.Request(url, data=body, headers=headers or {})
     try:
-        with opener.open(sent, timeout=10) as response:
+        with cast(HTTPResponse, opener.open(sent, timeout=10)) as response:
             return response.status, response.read().decode(), urlsplit(response.url).path
     except urllib.error.HTTPError as error:
         return error.code, error.read().decode(), urlsplit(error.url).path
