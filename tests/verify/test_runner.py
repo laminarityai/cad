@@ -18,6 +18,7 @@ def test_steps_run_in_the_documented_order() -> None:
         "ruff format",
         "file size",
         "materials table",
+        "api types",
         "protocol models",
         "sandbox image",
         "pytest",
