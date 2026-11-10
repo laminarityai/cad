@@ -41,11 +41,13 @@ from cad.auto.model import NeedsPerson, Stopped
 from cad.chat.anthropic_model import KEY_VARIABLE, AnthropicModel
 from cad.chat.model import Model
 from cad.chat.scripted import Scripted
-from cad.confirmations.ballot import Opener, program_opener
+from cad.confirmations.waiting import WAIT_SECONDS, Door, Opener, PageUrl, program_opener
+from cad.confirmations.web import LocalSignIn
 from cad.context_parts.ingest import ingest
 from cad.conversations import store
 from cad.conversations.model import ConversationId
-from cad.server.hosted import DAILY_CAP_SECONDS, WAIT_SECONDS, build_app
+from cad.server.app import LocalPage
+from cad.server.hosted import DAILY_CAP_SECONDS, build_app
 
 SCRIPTED: Final = "scripted"
 ACCOUNT: Final = "user_eval"
@@ -78,7 +80,7 @@ def scripted_person(log_path: Path) -> Opener:
     environ = {k: os.environ[k] for k in PERSON_ENV if k in os.environ}
     environ["CAD_HUMAN_LOG"] = str(log_path)
 
-    def open_page(url: str) -> None:
+    def open_page(url: PageUrl) -> None:
         child = subprocess.Popen(
             [sys.executable, str(HUMAN), url],
             env=environ,
@@ -119,7 +121,7 @@ def variant_count(base: Path) -> int:
 async def converse(
     brief: BriefInput, model: Model, local: LocalIssuer, tenants: Tenants, timeout_s: float
 ) -> list[dict[str, Any]]:
-    app = build_app(local.issuer(), tenants, model)
+    app = build_app(local.issuer(), tenants, LocalSignIn(local), model)
     async with app.router.lifespan_context(app):
         transport = httpx2.ASGITransport(app=app)
         async with httpx2.AsyncClient(transport=transport, base_url=BASE) as client:
@@ -152,7 +154,9 @@ def run_brief(
     human_log = directory / HUMAN_LOG
     opener = program_opener(opener_program) if opener_program else scripted_person(human_log)
     local = LocalIssuer.open(home, BASE)
-    tenants = Tenants(home / ACCOUNTS, DAILY_CAP_SECONDS, opener, WAIT_SECONDS, ingest)
+    page = LocalPage(opener, lambda: tenants.of(AccountId(ACCOUNT)))
+    door = Door(open_page=page.open, wait_seconds=WAIT_SECONDS)
+    tenants = Tenants(home / ACCOUNTS, DAILY_CAP_SECONDS, door, ingest)
     started = time.monotonic()
     try:
         events = asyncio.run(converse(brief, model_for(name, brief), local, tenants, timeout_s))

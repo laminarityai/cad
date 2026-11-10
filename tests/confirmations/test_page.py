@@ -7,19 +7,14 @@ import time
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
-from urllib.parse import urlsplit
+from urllib.parse import parse_qs, urlencode, urlsplit
 
 import pytest
-from pydantic import TypeAdapter
 
 from cad.briefs import store
-from cad.briefs.model import Target
-from cad.confirmations import answers, http
+from cad.confirmations import answers, page
 from cad.confirmations.answers import ItemAnswer, PageAnswer
-from cad.confirmations.ballot import Desk, PageUrl
-from cad.confirmations.registry import kinds
-from cad.projects.model import ProjectId, new_project_id
-from cad.records.roots import Roots
+from cad.projects.model import ProjectId
 
 if TYPE_CHECKING:
     from conftest import Person, Proposed, Session
@@ -30,6 +25,23 @@ ROW = "0123456789abcdef"
 
 def answer_files(s: Session, project_id: str) -> list[Path]:
     return sorted((s.roots.projects / project_id / answers.ANSWERS).glob("*"))
+
+
+def page_form(fields: dict[str, str]) -> bytes:
+    return urlencode({"answer": "confirm", "note": "", **fields}).encode()
+
+
+def form_only(url: str) -> dict[str, str]:
+    parts = urlsplit(url)
+    return {
+        "Origin": f"{parts.scheme}://{parts.netloc}",
+        "Content-Type": "application/x-www-form-urlencoded",
+    }
+
+
+def cookie(s: Session) -> str:
+    assert s.person.cookie is not None
+    return s.person.cookie
 
 
 async def test_the_post_answers_exactly_the_snapshot(s: Session) -> None:
@@ -46,8 +58,9 @@ async def test_the_post_answers_exactly_the_snapshot(s: Session) -> None:
     late = await s.proposed(s.rows.envelope, project_id=project)
     assert s.post(opened, "confirm")[0] == 409
     assert answer_files(s, project) == []
+    stale = s.person.snapshots[opened]
     await s.ask(first)
-    assert s.person.url != opened
+    assert s.person.url == opened and s.person.snapshots[opened] != stale
     assert s.get(s.person.url)[1].count('<section class="item">') == 4
     assert s.post(s.person.url, "confirm")[0] == 200
     briefs = [first, *others, late]
@@ -162,50 +175,58 @@ async def test_the_page_escapes_the_brief_text(s: Session) -> None:
     assert "&lt;script&gt;" in body
 
 
-async def test_the_page_refuses_every_request_without_its_live_token(s: Session) -> None:
+async def test_the_page_refuses_every_request_without_a_session_or_from_another_origin(
+    s: Session,
+) -> None:
     brief = await s.proposed(s.rows.under_150)
     await s.ask(brief)
     url = s.person.url
-    base = url.rsplit("/", 1)[0]
-    port = urlsplit(url).port
-    refused = {
-        "no token GET": s.get(base + "/"),
-        "no token POST": s.post(base + "/", "confirm"),
-        "wrong token GET": s.get(base + "/" + "A" * 43),
-        "wrong token POST": s.post(base + "/" + "A" * 43, "confirm"),
-        "wrong Host GET": s.get(url, Host=f"localhost:{port}"),
-        "wrong Host POST": s.post(url, "confirm", Host=f"evil.example:{port}"),
+    sealed = {"snapshot": s.person.snapshots[url]}
+    signed_out = {
+        "no session GET": s.request(url),
+        "no session POST": s.request(url, page_form(sealed), form_only(url)),
+    }
+    cross = {
         "wrong Origin POST": s.post(url, "confirm", Origin="http://evil.example"),
         "null Origin POST": s.post(url, "confirm", Origin="null"),
         "no Origin POST": s.request(
-            url, b"answer=confirm", {"Content-Type": "application/x-www-form-urlencoded"}
+            url,
+            page_form(sealed),
+            {"Content-Type": "application/x-www-form-urlencoded", "Cookie": cookie(s)},
         ),
     }
     listed = await s.call("list_requirements", brief_id=brief.brief_id)
-    assert {name: status for name, (status, _) in refused.items()} == dict.fromkeys(refused, 403)
-    assert len({body for _, body in refused.values()}) == 1
+    assert {name: status for name, (status, _) in signed_out.items()} == dict.fromkeys(
+        signed_out, 401
+    )
+    assert {name: status for name, (status, _) in cross.items()} == dict.fromkeys(cross, 403)
+    assert len({body for _, body in cross.values()}) == 1
     assert listed["proposals"][0]["status"] == "proposed"
+    assert answer_files(s, brief.project_id) == []
     assert s.get(url)[0] == 200
 
 
-async def test_a_spent_token_opens_nothing(s: Session) -> None:
+async def test_an_answered_page_shows_nothing_and_takes_no_second_answer(s: Session) -> None:
     brief = await s.proposed(s.rows.under_150)
     await s.ask(brief)
     url = s.person.url
     assert s.get(url)[0] == 200
     assert s.post(url, "decline", "no")[0] == 200
-    replayed = [s.get(url)[0], s.post(url, "confirm")[0]]
+    replayed = s.post(url, "confirm")[0]
+    status, body = s.get(url)
     listed = await s.call("list_requirements", brief_id=brief.brief_id)
-    assert replayed == [403, 403]
+    assert replayed == 409
+    assert (status, "Nothing in this project waits on you." in body) == (200, True)
     assert listed["proposals"][0]["status"] == "declined"
+    assert len(answer_files(s, brief.project_id)) == 1
 
 
-async def test_a_malformed_answer_or_an_edit_does_not_spend_the_ballot(s: Session) -> None:
+async def test_a_malformed_answer_or_an_edit_leaves_the_page_answerable(s: Session) -> None:
     await s.ask(await s.proposed(s.rows.under_150))
     url = s.person.url
     malformed = [
         s.post(url, "yes")[0],
-        s.post(url, "confirm", "x" * 9000)[0],
+        s.post(url, "confirm", "x" * 70000)[0],
         s.post(url, "confirm", "", None, **{"Content-Type": "text/plain"})[0],
         s.post(url, "confirm", fields={f"edit-1-{ROW}": "x"})[0],
         s.post(url, "confirm", fields={f"edit-00-{ROW}": "x"})[0],
@@ -222,11 +243,13 @@ async def test_a_newer_proposal_retires_the_old_page(s: Session) -> None:
     await s.ask(brief)
     old = s.person.url
     await s.call("propose_requirements", brief_id=brief.brief_id, requirements=[s.rows.shelf])
-    retired = [s.get(old)[0], s.get(old)[0], s.post(old, "confirm")[0]]
+    stale = s.post(old, "confirm")[0]
     await s.ask(brief)
+    body = s.get(old)[1]
     listed = await s.call("list_requirements", brief_id=brief.brief_id)
-    assert retired == [409, 403, 403]
-    assert s.person.url != old
+    assert stale == 409
+    assert answer_files(s, brief.project_id) == []
+    assert html.escape(s.rows.shelf["quote"]) in body
     assert [p["status"] for p in listed["proposals"]] == ["superseded", "proposed"]
 
 
@@ -244,27 +267,9 @@ async def test_an_answer_another_process_recorded_first_wins(s: Session) -> None
     assert answers.append_answer(s.roots.projects, project, elsewhere)
     conflict = s.post(s.person.url, "confirm")
     answered = await s.ask(brief)
-    assert conflict == (409, http.plain("This page was already answered.").decode())
+    assert conflict == (409, page.plain("This page was already answered.").decode())
     assert [(i["outcome"], i["note"]) for i in answered["items"]] == [("declined", "elsewhere")]
     assert len(answer_files(s, project)) == 1
-
-
-async def test_an_expired_ballot_is_refused_and_replaced(s: Session, tmp_path: Path) -> None:
-    now = [0.0]
-    urls: list[PageUrl] = []
-    roots = Roots(tmp_path / "expiring", tmp_path / "expiring-projects")
-    brief = store.create_brief(roots, s.rows.text, new_project_id())
-    target = TypeAdapter[Target](Target).validate_python(s.rows.under_150["target"])
-    store.propose(roots, brief.id, [store.Draft(target=target, quote="under 150 g")])
-    desk = Desk(
-        roots, kinds(roots), urls.append, http.serve, wait_seconds=0.01, clock=lambda: now[0]
-    )
-    await desk.ask(brief.project)
-    now[0] += 31 * 60
-    assert s.get(urls[0])[0] == 403
-    await desk.ask(brief.project)
-    assert urls[0] != urls[1]
-    assert s.get(urls[1])[0] == 200
 
 
 @pytest.mark.parametrize("tamper", ["edit a byte", "copy from another project"])
@@ -283,22 +288,23 @@ async def test_a_tampered_answer_is_refused_naming_no_host_path(s: Session, tamp
     assert str(s.roots.projects) not in text
 
 
-async def test_no_tool_result_or_log_record_carries_the_token_or_port(
+async def test_no_tool_result_or_log_record_carries_the_sign_in_token_or_port(
     s: Session, caplog: pytest.LogCaptureFixture
 ) -> None:
     caplog.set_level(logging.DEBUG)
     brief: Proposed = await s.proposed(s.rows.under_150)
     texts = [await s.text("ask_to_confirm", project_id=brief.project_id)]
     s.get(s.person.url)
-    s.get(s.person.url.rsplit("/", 1)[0] + "/wrong")
+    s.request(s.person.url)
     s.post(s.person.url, "confirm")
     s.post(s.person.url, "confirm")
     time.sleep(0.05)
     texts.append(await s.text("ask_to_confirm", project_id=brief.project_id))
     texts.append(await s.text("list_requirements", brief_id=brief.brief_id))
     texts.append(await s.text("ask_to_confirm", project_id="p-" + "0" * 15))
-    parts = urlsplit(s.person.url)
-    secrets = [parts.path.rsplit("/", 1)[1], f":{parts.port}", "127.0.0.1"]
+    sign_in = urlsplit(s.person.sign_ins[0])
+    [token] = parse_qs(sign_in.query)["token"]
+    secrets = [token, f":{sign_in.port}", "127.0.0.1"]
     logged = [record.getMessage() for record in caplog.records]
     assert logged
     for secret in secrets:

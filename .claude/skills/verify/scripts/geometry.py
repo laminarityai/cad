@@ -20,12 +20,13 @@ from mcp import Client, StdioServerParameters
 from playwright.sync_api import sync_playwright
 
 from cad.accounts.tenants import open_tenant
-from cad.confirmations.ballot import OS_OPEN, WAIT_SECONDS
+from cad.confirmations.waiting import Door
 from cad.context_parts.ingest import ingest
 from cad.geometry.model import Tessellated, TessellationPending, mesh_volume
 from cad.operations.model import Audience, Tenant
 from cad.operations.registry import OPERATIONS
 from cad.records.roots import Roots
+from cad.server.app import LOCAL
 
 AGREEMENT = 0.005
 VIEWER = "https://cdn.jsdelivr.net/npm/three-cad-viewer@5.1.3/dist"
@@ -73,9 +74,7 @@ async def score(home: Path, code: str) -> tuple[str, float]:
 def tenant(home: Path) -> Tenant:
     cad = home / ".cad"
     roots = Roots(cad / "briefs", cad / "projects")
-    return open_tenant(
-        roots, cad / "variants", cad / "geometry", None, OS_OPEN, WAIT_SECONDS, ingest
-    )
+    return open_tenant(LOCAL, roots, cad / "variants", cad / "geometry", None, Door(), ingest)
 
 
 def read_geometry(home: Path, variant_id: str) -> Tessellated:

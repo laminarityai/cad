@@ -14,7 +14,8 @@ from cad.accounts.principal import AccountId
 from cad.accounts.tenants import Tenants
 from cad.auto import log
 from cad.auto.model import AutoRun, Running, Started, Stopped, StoppedByPerson, nth_run_id
-from cad.confirmations.ballot import OS_OPEN
+from cad.confirmations.waiting import Door
+from cad.confirmations.web import LocalSignIn
 from cad.context_parts.ingest import ingest
 from cad.conversations import store
 from cad.conversations.model import ConversationId, Mode
@@ -48,12 +49,12 @@ def local(tmp_path: Path) -> LocalIssuer:
 
 @pytest.fixture
 def tenants(tmp_path: Path) -> Tenants:
-    return Tenants(tmp_path / "accounts", 60, OS_OPEN, 0.3, ingest)
+    return Tenants(tmp_path / "accounts", 60, Door(wait_seconds=0.3), ingest)
 
 
 @pytest.fixture
 async def app(local: LocalIssuer, tenants: Tenants) -> AsyncIterator[Starlette]:
-    app = build_app(local.issuer(), tenants)
+    app = build_app(local.issuer(), tenants, LocalSignIn(local))
     async with app.router.lifespan_context(app):
         yield app
 
