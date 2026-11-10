@@ -107,7 +107,7 @@ describe("SetPage", () => {
       vi.useRealTimers();
     });
 
-    it("moves a rebuilt slot to its new variant without a reload, and keeps the page through a failed read", async () => {
+    it("moves a rebuilt slot to its new variant without a reload, draws it into the same viewer, and keeps the page through a failed read", async () => {
       vi.useFakeTimers({ shouldAdvanceTime: true });
       const rebuilt = setOf(["v1b"]);
       const reads = [setOf(["v1"]), null, { ...rebuilt, members: rebuilt.members.map((one) => ({ ...one, revision: 2 })) }];
@@ -139,8 +139,10 @@ describe("SetPage", () => {
       expect(card.querySelector("[data-key='req:r1']")).toHaveAttribute("data-row", "pending");
       expect(card.querySelector("[data-ghost]")).toHaveTextContent("before: mass 41.2 g ≤ 50 g");
       await waitFor(() => {
-        expect(viewer.mounted).toHaveLength(2);
+        expect(viewer.shown).toHaveLength(1);
       });
+      expect(viewer.mounted).toHaveLength(1);
+      expect(viewer.stopped).toBe(0);
     });
   });
 });

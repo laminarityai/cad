@@ -4,7 +4,7 @@ import type { CardHandlers, CardQuery, ScorecardEvents } from "@/api/events";
 import type { Scorecard } from "@/api/snapshot";
 import type { ChatApi, Follower } from "@/chat/api";
 import type { AutoRun, ConversationState, Event, Mode, PersonStop, Tessellated, VariantSetView } from "@/api/types";
-import type { Shapes, ViewerEngine } from "@/features/viewer/engine";
+import type { Mounted, Shapes, ViewerEngine } from "@/features/viewer/engine";
 import { brief } from "./fixtures";
 
 export function setOf(variants: string[]): VariantSetView {
@@ -77,12 +77,18 @@ export class FakeEvents implements ScorecardEvents {
 
 export class FakeViewer implements ViewerEngine {
   readonly mounted: Shapes[] = [];
+  readonly shown: Shapes[] = [];
   stopped = 0;
 
-  mount(_element: HTMLElement, shapes: Shapes): Promise<() => void> {
+  mount(_element: HTMLElement, shapes: Shapes): Promise<Mounted> {
     this.mounted.push(shapes);
-    return Promise.resolve(() => {
-      this.stopped += 1;
+    return Promise.resolve({
+      show: (next: Shapes) => {
+        this.shown.push(next);
+      },
+      stop: () => {
+        this.stopped += 1;
+      },
     });
   }
 }

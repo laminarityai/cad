@@ -3,28 +3,30 @@ import { useServices } from "@/app/context";
 import type { GeometryRead } from "@/api/types";
 import type { Shapes } from "./engine";
 
+/** `previous` is the mesh drawn before this variant's, kept on screen while this one is made. */
 export type MeshState =
-  | { status: "loading" }
+  | { status: "loading"; previous: Shapes | null }
   | { status: "ready"; shapes: Shapes }
   | { status: "failed"; reason: string };
 
-const POLL_MS = 1000;
+const POLL_MS = 250;
 
-function reduce(_: MeshState, next: MeshState): MeshState {
-  return next;
+function reduce(state: MeshState, next: MeshState): MeshState {
+  if (next.status !== "loading") return next;
+  return { status: "loading", previous: state.status === "ready" ? state.shapes : state.status === "loading" ? state.previous : null };
 }
 
 /** Read one variant's mesh. The view says whether it is stored: a stored mesh is fetched once from its
  * immutable URL. Otherwise the geometry route starts the tessellation and answers pending until it is
- * done, so it is asked again every second. */
+ * done, so it is asked again every quarter second. */
 export function useMesh(variantId: string): MeshState {
   const { api } = useServices();
-  const [state, set] = useReducer(reduce, { status: "loading" });
+  const [state, set] = useReducer(reduce, { status: "loading", previous: null });
   useEffect(() => {
     const run = { live: true };
     const live = () => run.live;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    set({ status: "loading" });
+    set({ status: "loading", previous: null });
     const settle = (read: GeometryRead) => {
       if (read.kind === "tessellated") set({ status: "ready", shapes: read.shapes });
       else if (read.kind === "failed") set({ status: "failed", reason: read.reason });

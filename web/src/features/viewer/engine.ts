@@ -3,10 +3,17 @@ import type { Tessellated } from "@/api/types";
 export type Theme = "light" | "dark";
 export type Shapes = Tessellated["shapes"];
 
-/** What the app needs of a 3D viewer: draw a mesh into an element, and stop. The one real
- * implementation wraps three-cad-viewer, and a test passes a fake. */
+/** A viewer drawing into one element. `show` swaps the mesh in place: a new viewer costs a WebGL
+ * context and a shader compile, seconds on a software renderer, so a rebuilt slot keeps its own. */
+export interface Mounted {
+  show(shapes: Shapes): void;
+  stop(): void;
+}
+
+/** What the app needs of a 3D viewer: draw a mesh into an element. The one real implementation
+ * wraps three-cad-viewer, and a test passes a fake. */
 export interface ViewerEngine {
-  mount(element: HTMLElement, shapes: Shapes, theme: Theme): Promise<() => void>;
+  mount(element: HTMLElement, shapes: Shapes, theme: Theme): Promise<Mounted>;
 }
 
 const EDGE: Record<Theme, number> = { light: 0x2a3236, dark: 0xb9c1be };
@@ -34,24 +41,33 @@ export const threeCadViewer: ViewerEngine = {
       studioTool: false,
     });
     const viewer = new lib.Viewer(display, { up: "Z" }, () => undefined);
-    viewer.render(
-      shapes as unknown as Parameters<typeof viewer.render>[0],
-      { edgeColor: EDGE[theme], defaultOpacity: 1, normalLen: 0 },
-      { up: "Z", axes: false, grid: [false, false, false], ortho: true },
-    );
-    display.showTools(false);
-    display.showInfo(false);
     const fit = () => {
       const now = box();
       viewer.resizeCadView(now.width, 0, now.height, true);
     };
-    fit();
+    const draw = (next: Shapes) => {
+      viewer.render(
+        next as unknown as Parameters<typeof viewer.render>[0],
+        { edgeColor: EDGE[theme], defaultOpacity: 1, normalLen: 0 },
+        { up: "Z", axes: false, grid: [false, false, false], ortho: true },
+      );
+      display.showTools(false);
+      display.showInfo(false);
+      fit();
+    };
+    draw(shapes);
     const resize = new ResizeObserver(fit);
     resize.observe(element);
-    return () => {
-      resize.disconnect();
-      viewer.dispose();
-      display.dispose();
+    return {
+      show(next) {
+        viewer.clear();
+        draw(next);
+      },
+      stop() {
+        resize.disconnect();
+        viewer.dispose();
+        display.dispose();
+      },
     };
   },
 };

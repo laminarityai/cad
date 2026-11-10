@@ -19,7 +19,7 @@ function mount(api: ReturnType<typeof fakeApi>) {
       {children}
     </ServicesProvider>
   );
-  return renderHook(() => useMesh("v1"), { wrapper });
+  return renderHook(({ variantId }: { variantId: string }) => useMesh(variantId), { wrapper, initialProps: { variantId: "v1" } });
 }
 
 describe("useMesh", () => {
@@ -49,6 +49,21 @@ describe("useMesh", () => {
       { timeout: 3000 },
     );
     expect(geometry).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the drawn mesh on screen while the next variant's mesh is made", async () => {
+    const view = (variantId: string) => Promise.resolve(variantId === "v1" ? { ...pendingView("v1"), mesh: "tessellated" as const, mesh_url: "/v1/geometry/0123456789ab/v1.json" } : pendingView(variantId));
+    const geometry = vi.fn(() => Promise.resolve({ kind: "pending" as const, brep_sha256: "b".repeat(64) }));
+    const { result, rerender } = mount(fakeApi(["v1"], { view, geometry }));
+    await waitFor(() => {
+      expect(result.current.status).toBe("ready");
+    });
+    const drawn = result.current.status === "ready" ? result.current.shapes : null;
+    rerender({ variantId: "v2" });
+    await waitFor(() => {
+      expect(geometry).toHaveBeenCalledWith("v2");
+    });
+    expect(result.current).toEqual({ status: "loading", previous: drawn });
   });
 
   it("says why a mesh failed", async () => {
