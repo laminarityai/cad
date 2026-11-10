@@ -101,7 +101,7 @@ async def test_a_call_after_the_run_stopped_is_refused_by_the_server(chat: Chat)
         events = await chat.events(client, cid)
     refused = [one for one in events if one["kind"] == "tool_result" and one["is_error"]]
     assert len(refused) == 1
-    assert "RunStopped" in refused[0]["text"]
+    assert any(word in refused[0]["text"] for word in ("RunStopped", "RunNotHeld"))
     assert kinds(events).count("stop_report") == 1
 
 

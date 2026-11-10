@@ -47,8 +47,8 @@ from cad.context_parts.store import Ingest
 from cad.conversations import store
 from cad.operations.guidance import INSTRUCTIONS
 from cad.operations.model import Tenant
-from cad.operations.registry import OPERATIONS
-from cad.operations.routes import person_route
+from cad.operations.registry import OPERATIONS, ROUTES
+from cad.operations.routes import person_routes
 from cad.operations.tools import tools
 from cad.records.roots import DATA_ROOT
 from cad.sandbox import container, meter
@@ -57,11 +57,6 @@ from cad.sandbox.outcome import SandboxUnavailable
 DAILY_CAP_SECONDS: Final = 3600
 PORT: Final = 8765
 WAIT_SECONDS: Final = 20.0
-PERSON_ROUTES: Final = (
-    ("/v1/variants/{variant_id}/scorecard", "scorecard", "GET"),
-    ("/v1/conversations/{conversation_id}/mode", "set_mode", "PUT"),
-    ("/v1/auto/{run_id}/stop", "auto_stop", "POST"),
-)
 
 
 class AgentAccess(AccessToken):
@@ -120,11 +115,7 @@ def build_app(issuer: Issuer, tenants: Tenants, model: Model | None = None) -> S
         )
     )
     app.router.routes.insert(0, _resource_metadata(issuer))
-    operations = {one.name: one for one in OPERATIONS}
-    app.router.routes.extend(
-        person_route(path, operations[name], verifier.person, tenants.of, method)
-        for path, name, method in PERSON_ROUTES
-    )
+    app.router.routes.extend(person_routes(OPERATIONS, ROUTES, verifier.person, tenants.of))
     app.router.routes.extend(chat_routes(verifier.person, chat))
     app.state.chat = chat
     return app

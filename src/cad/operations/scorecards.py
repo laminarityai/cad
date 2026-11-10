@@ -178,7 +178,7 @@ def score_variant(tenant: Tenant, arguments: ScoreVariantInput) -> material.Repo
     return card
 
 
-def scorecard(tenant: Tenant, arguments: ScorecardInput) -> material.ReportedScorecard:
+def scorecard(tenant: Tenant, arguments: ScorecardInput) -> material.ScorecardSnapshot:
     basis = judged(tenant, arguments.brief_id, arguments.material_key)
     peeked = score.peek_variant(
         arguments.variant_id,
@@ -188,8 +188,8 @@ def scorecard(tenant: Tenant, arguments: ScorecardInput) -> material.ReportedSco
         demand=basis.demand,
         table=basis.table.table,
     )
-    return with_research(
-        material.reported(peeked, basis.confirmed), basis.table, arguments.brief_id
+    return material.snapshot(
+        with_research(material.reported(peeked, basis.confirmed), basis.table, arguments.brief_id)
     )
 
 
@@ -207,7 +207,7 @@ OPERATIONS: Final = (
         audience=BOTH,
         description=SCORECARD,
         input=ScorecardInput,
-        output=material.ReportedScorecard,
+        output=material.ScorecardSnapshot,
         run=scorecard,
     ),
 )

@@ -6,7 +6,7 @@ from typing import Final
 
 from pydantic import TypeAdapter, ValidationError
 
-from cad.geometry.job import VERSION
+from cad.geometry import job
 from cad.geometry.model import Stored
 from cad.sandbox.outcome import SandboxUnavailable
 
@@ -20,7 +20,7 @@ def path(root: Path, brep_sha256: str) -> Path:
     tessellator or analysis image tessellates every BREP again."""
     if SHA256.fullmatch(brep_sha256) is None:
         raise ValueError(f"a BREP hash is 64 lowercase hex digits, not {brep_sha256!r}")
-    return root / VERSION / f"{brep_sha256}.json"
+    return root / job.VERSION / f"{brep_sha256}.json"
 
 
 def read(root: Path, brep_sha256: str) -> Stored | None:

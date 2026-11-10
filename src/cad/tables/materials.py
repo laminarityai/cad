@@ -3,6 +3,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
+from functools import lru_cache
 from pathlib import Path
 from typing import cast
 
@@ -126,7 +127,11 @@ class MaterialsTable:
 
 
 def load_materials(path: Path = TABLE_PATH) -> MaterialsTable:
-    data = path.read_bytes()
+    return _parsed(path.read_bytes())
+
+
+@lru_cache(maxsize=4)
+def _parsed(data: bytes) -> MaterialsTable:
     problems: list[str] = []
     materials: dict[str, Material] = {}
     for row in _rows(yaml.safe_load(data), problems):
