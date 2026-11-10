@@ -38,8 +38,9 @@ CREATE_BRIEF = (
     "stays in the project it was created in. " + PLAN_MODE
 )
 PROPOSE_REQUIREMENTS = (
-    "Propose the whole set of requirements for a brief. Each has a target and a quote copied "
-    "exactly from the brief. The target kind is closed_solid; max_mass or min_mass with a mass "
+    "If the brief names a material, call list_materials before you propose. Propose the whole "
+    "set of requirements for a brief. Each has a target and a quote copied exactly from the "
+    "brief. The target kind is closed_solid; max_mass or min_mass with a mass "
     "such as {magnitude: 150, unit: g}; envelope with three edge lengths; measure_limit, which "
     "holds one team check's measure to a limit the user confirms, with check_id, measure, a "
     "comparator (at_most or at_least) and a limit such as {magnitude: 30, unit: cm^3}, and "
