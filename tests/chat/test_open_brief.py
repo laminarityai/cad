@@ -62,7 +62,7 @@ async def test_a_conversation_started_on_a_brief_names_it_to_the_agent(
     }
     system = recording.systems[0]
     assert f"project {made.project_id}, brief {made.brief_id}" in system
-    assert "variant_set" in system and "variant_code" in system
+    assert all(tool in system for tool in ("variant_set", "variant_code", "score_variant"))
 
 
 async def test_a_conversation_without_a_brief_names_none(chat: Chat, recording: Recording) -> None:
