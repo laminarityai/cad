@@ -64,10 +64,10 @@ How the model maps to the code:
 
 | Model | Code |
 | --- | --- |
-| `FeaTakeOff`, `QuickTakeOff` | `Lanes._take_off`: flying lookup, `job_store.read`, `_interrupted_too_often`, new `Future`, all under `_lock` |
+| `FeaTakeOff`, `QuickTakeOff` | `Lanes._take_off`: `job_store.read`, flying lookup, `_interrupted_too_often`, new `Future`, all under `_lock` |
 | `Enqueue`, `StartWorker` | `Lanes._enqueue`: `_queue.put`, then `_start_worker` under `_lock` when `_worker is None` |
-| `RunQuick`, `WriteQuick`, `SettleQuick`, `ReleaseQuick` | `Lanes._fly` on the caller thread for the quick job |
-| `WorkerGet` ... `WorkerRelease` | `Lanes._drain` and `_fly` / `_attempt` on the worker thread: `begin_attempt`, run, `end_attempt` in `finally`, `job_store.write` (skipped on a timeout), settle, `del _flying` |
+| `RunQuick`, `WriteQuick`, `SettleQuick` | `Lanes._fly` on the caller thread for the quick job |
+| `WorkerGet` ... `WorkerSettle` | `Lanes._drain` and `_fly` / `_attempt` on the worker thread: `begin_attempt`, run, `end_attempt` in `finally`, `job_store.write` (skipped on a timeout), then `del _flying` and settle in one lock |
 | `WorkerBegin` | `job_store.begin_attempt`, modeled as one step. The code reads the count and then replaces the file, which is two steps (see Not covered) |
 | `Peek` | `Lanes.peek` and `_look`: `job_store.read`, then `interrupted_runs >= ATTEMPT_CAP`, with no lock and no `_flying` lookup |
 | `WorkerExit` | `_drain`'s `finally`: clear `_worker`, restart it when the queue is not empty |
