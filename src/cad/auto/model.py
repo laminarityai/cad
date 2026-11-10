@@ -6,6 +6,7 @@ from typing import Annotated, Final, Literal, Self
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from cad.briefs.model import MAX_NOTE_CHARS
+from cad.conversations.model import ConversationId
 from cad.projects.model import ProjectId
 from cad.variants.entry import VariantRefused
 
@@ -17,6 +18,10 @@ class RunRefused(VariantRefused):
 
 
 class UnknownRun(RunRefused):
+    pass
+
+
+class RunNotHeld(RunRefused):
     pass
 
 
@@ -113,6 +118,7 @@ type StopReason = Annotated[
 
 class Started(_Frozen):
     kind: Literal["started"] = "started"
+    conversation: ConversationId
     brief_id: str
     project: str
     decision_sha256: str

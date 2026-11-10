@@ -1,7 +1,6 @@
-from dataclasses import replace
 from typing import Annotated, Final
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from cad.auto import log
 from cad.auto.bounds import bounds_conflicts
@@ -13,6 +12,7 @@ from cad.auto.model import (
     Event,
     Revised,
     Running,
+    RunNotHeld,
     RunRefused,
     Standing,
     Started,
@@ -25,6 +25,7 @@ from cad.briefs.model import MAX_NOTE_CHARS, MadeOf
 from cad.conversations import store as conversations
 from cad.conversations.model import Mode
 from cad.operations import scorecards
+from cad.operations.conversations import ConversationState
 from cad.operations.model import Audience, Input, Tenant, operation
 from cad.operations.variants import MAX_CODE_CHARS
 from cad.sandbox import image
@@ -39,11 +40,15 @@ AUTO_START = (
     "the person switched to Auto mode in the web app can start one; any other caller is "
     "refused. The run uses the confirmed made_of material, or material_key when no requirement "
     "names one. When the confirmed targets conflict, the run stops at once with the proof and "
-    "builds nothing. A brief that already has a run that has not stopped returns that run. A "
+    "builds nothing. When this conversation's run on the brief has not stopped, auto_start "
+    "returns that run. A run belongs to the conversation that started it: while it has not "
+    "stopped, auto_start on its brief from another conversation is refused, and auto_revise "
+    "and auto_ask on it are refused from any other conversation, from a client with no "
+    "conversation, and after the person moves the conversation out of Auto mode. A "
     "conversation holds one run at a time: while its run has not stopped, starting another "
     "brief's run is refused until you stop that run with auto_ask. In Auto mode, "
     "build_variant and score_variant are refused until a run is started. The person can "
-    "stop the run from the web app."
+    "stop the run from the web app, which also moves the conversation to Design mode."
 )
 STOPS = (
     "The run stops when every checked requirement of the latest revision passes, when a "
@@ -79,8 +84,11 @@ AUTO_ASK = (
     "already stopped, nothing is recorded and the existing stop is returned."
 )
 AUTO_STOP = (
-    "Stop an Auto run for the person, who pressed Stop in the web app. On a run that has already "
-    "stopped, nothing is recorded and the existing stop is returned. Returns the stopped run."
+    "Stop an Auto run for the person, who pressed Stop in the web app. When the run is its "
+    "conversation's current run, the conversation also leaves Auto mode for Design, the same "
+    "way a switch of mode does, so the agent cannot start Auto again until the person picks "
+    "Auto. On a run that has already stopped, nothing more is recorded. Returns the stopped run "
+    "and the conversation's mode."
 )
 
 
@@ -104,8 +112,14 @@ class StopInput(Input):
     run_id: str
 
 
+class PersonStop(BaseModel):
+    run: AutoRun
+    conversation: ConversationState
+
+
 def auto_start(tenant: Tenant, arguments: StartInput) -> AutoRun:
-    if tenant.mode is not Mode.AUTO or tenant.conversation is None:
+    cid = tenant.conversation
+    if tenant.mode is not Mode.AUTO or cid is None:
         raise RunRefused(
             "auto_start needs a web app conversation the person switched to Auto mode; "
             f"this caller's mode is {tenant.mode or 'none'}"
@@ -124,6 +138,7 @@ def auto_start(tenant: Tenant, arguments: StartInput) -> AutoRun:
     basis = scorecards.judged(tenant, arguments.brief_id, key)
     project = briefs.read_brief(roots, arguments.brief_id).project
     started = Started(
+        conversation=cid,
         brief_id=confirmed.brief_id,
         project=project,
         decision_sha256=confirmed.decision_sha256,
@@ -131,24 +146,32 @@ def auto_start(tenant: Tenant, arguments: StartInput) -> AutoRun:
         watermark=watermark(roots, project),
         conflicts=bounds_conflicts(confirmed.requirements, basis.table.table),
     )
-    number = 1
-    while True:
-        run_id = nth_run_id(project, confirmed.brief_id, number)
-        existed = log.exists(roots, run_id)
-        if not existed:
-            log.create_run(roots, run_id, started)
-        run = record_proposals(roots, run_id)
-        # A start that lost the create to a concurrent one returns the winner's run.
-        if isinstance(run.state, Running) or not existed:
-            return conversations.attach_run(tenant, tenant.conversation, run_id)
-        number += 1
+
+    def open_under_lock() -> AutoRun:
+        number = 1
+        while True:
+            run_id = nth_run_id(project, confirmed.brief_id, number)
+            fresh = not log.exists(roots, run_id)
+            if fresh:
+                log.create_run(roots, run_id, started)
+            run = record_proposals(roots, run_id)
+            if fresh or isinstance(run.state, Running):
+                if run.state.start.conversation != cid:
+                    raise RunNotHeld(
+                        f"brief {confirmed.brief_id} has Auto run {run_id} in another "
+                        "conversation, which has not stopped; it is not this conversation's run"
+                    )
+                return run
+            number += 1
+
+    return conversations.start_run(tenant, cid, confirmed.brief_id, open_under_lock)
 
 
 def auto_revise(tenant: Tenant, arguments: ReviseInput) -> AutoRun:
     roots, run_id = tenant.roots, arguments.run_id
+    _refuse_unless_held(tenant, run_id)
     brief_id = log.read_run(roots, run_id).state.start.brief_id
-    bound = replace(tenant, auto_run=run_id)
-    running = gate(bound, brief_id)
+    running = gate(tenant, brief_id)
     assert running is not None
     sha = code_sha256(arguments.code)
     if _tried(running, sha):
@@ -165,7 +188,7 @@ def auto_revise(tenant: Tenant, arguments: ReviseInput) -> AutoRun:
                 material_key=running.start.material_key,
                 brief_id=brief_id,
             )
-            standing = standing_of(scorecards.score_variant(bound, scored), revision, sha)
+            standing = standing_of(scorecards.score_variant(tenant, scored), revision, sha)
             if isinstance(standing, Unsettled):
                 return AutoRun(run_id=run_id, state=running, settling=True)
         else:
@@ -189,11 +212,24 @@ def _tried(state: AutoState, sha: str) -> bool:
     return any(one.code_sha256 == sha for one in state.history)
 
 
-def auto_stop(tenant: Tenant, arguments: StopInput) -> AutoRun:
-    return log.stop_by_person(tenant.roots, arguments.run_id)
+def _refuse_unless_held(tenant: Tenant, run_id: str) -> None:
+    if tenant.auto_run != run_id:
+        raise RunNotHeld(
+            f"auto run {run_id} is not this conversation's Auto run; only the web app "
+            "conversation that started it can drive it, while the person keeps it in Auto mode"
+        )
+
+
+def auto_stop(tenant: Tenant, arguments: StopInput) -> PersonStop:
+    run, held = conversations.stop_by_person(tenant, arguments.run_id)
+    conversation = ConversationState(
+        conversation_id=run.state.start.conversation, mode=held.mode, auto_run=held.auto_run
+    )
+    return PersonStop(run=run, conversation=conversation)
 
 
 def auto_ask(tenant: Tenant, arguments: AskInput) -> AutoRun:
+    _refuse_unless_held(tenant, arguments.run_id)
     record_proposals(tenant.roots, arguments.run_id)
     return log.append_event(tenant.roots, arguments.run_id, lambda _: Asked(note=arguments.note))
 
@@ -228,7 +264,7 @@ OPERATIONS: Final = (
         audience=Audience.PERSON,
         description=AUTO_STOP,
         input=StopInput,
-        output=AutoRun,
+        output=PersonStop,
         run=auto_stop,
     ),
 )

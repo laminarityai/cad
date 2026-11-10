@@ -1,23 +1,21 @@
 from __future__ import annotations
 
-import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Final
 
 import pytest
 from mcp import Client
 from mcp.server import MCPServer
 
 from cad.auto.log import run_dir
-from cad.auto.model import AccountLimit, NeedsPerson, Running, Stopped
+from cad.auto.model import AccountLimit, NeedsPerson, Running, RunNotHeld, Stopped
 from cad.briefs.store import read_brief
 from cad.conversations import store
-from cad.conversations.model import Mode
+from cad.conversations.model import ConversationId, Mode
 from cad.operations.auto import StartInput, auto_start
 from cad.operations.registry import OPERATIONS
 from cad.operations.tools import tools
-from cad.records import signed
 from cad.sandbox.image import BUILD, image_tag
 from cad.variants import entry
 
@@ -95,24 +93,20 @@ async def test_auto_start_is_refused_outside_an_auto_mode_conversation(
     assert not (s.roots.projects / project / "auto").exists()
 
 
-async def test_two_concurrent_starts_of_one_brief_make_one_run(
-    s: Session, monkeypatch: pytest.MonkeyPatch
-) -> None:
+async def test_two_concurrent_starts_of_one_brief_make_one_run(s: Session) -> None:
     brief_id = await s.confirmed(TEXT, UNDER_150)
-    both_at_create = threading.Barrier(2, timeout=5)
-    create_entry = signed.create_entry
-
-    def racing(*arguments: Any) -> bool:
-        both_at_create.wait()
-        return create_entry(*arguments)
-
-    monkeypatch.setattr(signed, "create_entry", racing)
     arguments = StartInput(brief_id=brief_id, material_key="prusament-pla")
-    with ThreadPoolExecutor(2) as pool:
-        racers = [pool.submit(auto_start, s.bound, arguments) for _ in range(2)]
-        runs = [racer.result() for racer in racers]
-    [run_id] = {run.run_id for run in runs}
-    assert all(isinstance(run.state, Running) for run in runs)
+    other = ConversationId("c-other")
+    store.set_mode(s.tenant, other, Mode.AUTO)
+    callers = [s.bound, s.bound, store.bind(s.tenant, other)]
+    with ThreadPoolExecutor(3) as pool:
+        racers = [(caller, pool.submit(auto_start, caller, arguments)) for caller in callers]
+        outcomes = [(caller.conversation, racer.exception()) for caller, racer in racers]
+    [run_id] = {racer.result().run_id for _, racer in racers if racer.exception() is None}
+    owner = s.run(run_id).state.start.conversation
+    for conversation, refused in outcomes:
+        assert (conversation == owner) == (refused is None)
+        assert refused is None or isinstance(refused, RunNotHeld)
     stored = run_dir(s.roots, run_id).parent.iterdir()
     assert [path.name for path in stored if not path.name.startswith(".")] == [run_id]
 

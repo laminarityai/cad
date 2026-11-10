@@ -2,6 +2,7 @@ import json
 import os
 import secrets
 import threading
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import Path
 from typing import Final
@@ -35,28 +36,49 @@ def bind(tenant: Tenant, cid: ConversationId | None) -> Tenant:
 
 def set_mode(tenant: Tenant, cid: ConversationId, mode: Mode) -> Conversation:
     with _LOCK:
+        return _switch(tenant, cid, mode)
+
+
+def stop_by_person(tenant: Tenant, run_id: str) -> tuple[AutoRun, Conversation]:
+    cid = log.read_run(tenant.roots, run_id).state.start.conversation
+    with _LOCK:
         held = read(tenant.conversations, cid)
-        if mode is Mode.AUTO and held.mode is Mode.AUTO:
-            return held
-        if held.auto_run is not None and _read_if_known(tenant, held.auto_run) is not None:
-            log.stop_by_person(tenant.roots, held.auto_run)
-        return _write(tenant.conversations, cid, Conversation(mode=mode))
+        if held.auto_run == run_id:
+            held = _switch(tenant, cid, Mode.DESIGN)
+        else:
+            log.stop_by_person(tenant.roots, run_id)
+    return log.read_run(tenant.roots, run_id), held
 
 
-def attach_run(tenant: Tenant, cid: ConversationId, run_id: str) -> AutoRun:
+def start_run(
+    tenant: Tenant, cid: ConversationId, brief_id: str, open_under_lock: Callable[[], AutoRun]
+) -> AutoRun:
     with _LOCK:
         held = read(tenant.conversations, cid)
         if held.mode is not Mode.AUTO:
-            return log.stop_by_person(tenant.roots, run_id)
-        if held.auto_run is not None and held.auto_run != run_id:
-            other = _read_if_known(tenant, held.auto_run)
-            if other is not None and isinstance(other.state, Running):
-                raise RunRefused(
-                    f"this conversation already has Auto run {other.run_id} on brief "
-                    f"{other.state.start.brief_id}; call auto_ask to stop it first"
-                )
-        _write(tenant.conversations, cid, Conversation(mode=Mode.AUTO, auto_run=run_id))
-        return log.read_run(tenant.roots, run_id)
+            raise RunRefused(f"the person switched this conversation to {held.mode} mode")
+        current = None if held.auto_run is None else _read_if_known(tenant, held.auto_run)
+        if (
+            current is not None
+            and isinstance(current.state, Running)
+            and current.state.start.brief_id != brief_id
+        ):
+            raise RunRefused(
+                f"this conversation already has Auto run {current.run_id} on brief "
+                f"{current.state.start.brief_id}; call auto_ask to stop it first"
+            )
+        run = open_under_lock()
+        _write(tenant.conversations, cid, Conversation(mode=Mode.AUTO, auto_run=run.run_id))
+        return run
+
+
+def _switch(tenant: Tenant, cid: ConversationId, mode: Mode) -> Conversation:
+    held = read(tenant.conversations, cid)
+    if mode is Mode.AUTO and held.mode is Mode.AUTO:
+        return held
+    if held.auto_run is not None and _read_if_known(tenant, held.auto_run) is not None:
+        log.stop_by_person(tenant.roots, held.auto_run)
+    return _write(tenant.conversations, cid, Conversation(mode=mode))
 
 
 def _read_if_known(tenant: Tenant, run_id: str) -> AutoRun | None:

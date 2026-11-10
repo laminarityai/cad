@@ -22,6 +22,7 @@ from cad.auto.model import (
 )
 from cad.auto.step import fold, standing_of
 from cad.checks.result import ReadResearched, StepMissing, Verdict
+from cad.conversations.model import ConversationId
 from cad.scorecard.model import (
     AgainstBrief,
     AgentMeasurement,
@@ -35,6 +36,7 @@ from cad.scorecard.requirements import UNCONFIRMED_PART
 from cad.scorecard.waiting import Waiting
 
 START: Final = Started(
+    conversation=ConversationId("c1"),
     brief_id="b" * 16,
     project="p-" + "0" * 16,
     decision_sha256="d" * 64,

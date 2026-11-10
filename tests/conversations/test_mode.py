@@ -13,7 +13,7 @@ from cad.accounts.local import LocalIssuer
 from cad.accounts.principal import AccountId
 from cad.accounts.tenants import Tenants
 from cad.auto import log
-from cad.auto.model import Running, Started, Stopped, StoppedByPerson, nth_run_id
+from cad.auto.model import AutoRun, Running, Started, Stopped, StoppedByPerson, nth_run_id
 from cad.confirmations.ballot import OS_OPEN
 from cad.context_parts.ingest import ingest
 from cad.conversations import store
@@ -89,6 +89,7 @@ def start_briefless_run(tenants: Tenants, account: AccountId, cid: ConversationI
     store.set_mode(tenant, cid, Mode.AUTO)
     run_id = nth_run_id(PROJECT, "b" * 16, 1)
     started = Started(
+        conversation=cid,
         brief_id="b" * 16,
         project=PROJECT,
         decision_sha256="d" * 64,
@@ -96,9 +97,12 @@ def start_briefless_run(tenants: Tenants, account: AccountId, cid: ConversationI
         watermark=(),
         conflicts=(),
     )
-    log.create_run(tenant.roots, run_id, started)
-    store.attach_run(tenant, cid, run_id)
-    return run_id
+
+    def open_under_lock() -> AutoRun:
+        log.create_run(tenant.roots, run_id, started)
+        return log.read_run(tenant.roots, run_id)
+
+    return store.start_run(tenant, cid, started.brief_id, open_under_lock).run_id
 
 
 def records(tenants: Tenants, account: AccountId, run_id: str) -> int:
@@ -166,7 +170,7 @@ async def test_leaving_auto_stops_the_run_and_the_agent_cannot_revise_it(
         code="result = None",
     )
     assert refused.is_error
-    assert f"RunStopped: auto run {run_id} has stopped" in refused.content[0].text
+    assert f"RunNotHeld: auto run {run_id} is not" in refused.content[0].text
     assert not tenants.of(ALICE).variants.exists()
 
 
@@ -213,12 +217,43 @@ async def test_the_person_stops_a_running_run_and_a_replay_records_nothing(
     person = local.mint_person(ALICE)
     stopped = await stop(app, person, run_id)
     assert stopped.status_code == 200
-    assert stopped.json()["state"]["reason"] == {"kind": "stopped_by_person"}
-    assert "The person stopped the run." in stopped.json()["state"]["report"]
+    assert stopped.json()["run"]["state"]["reason"] == {"kind": "stopped_by_person"}
+    assert "The person stopped the run." in stopped.json()["run"]["state"]["report"]
     assert records(tenants, ALICE, run_id) == 2
     again = await stop(app, person, run_id)
     assert again.json() == stopped.json()
     assert records(tenants, ALICE, run_id) == 2
+
+
+async def test_the_persons_stop_moves_the_conversation_to_design_so_the_agent_cannot_restart(
+    app: Starlette, local: LocalIssuer, tenants: Tenants
+) -> None:
+    run_id = start_briefless_run(tenants, ALICE, CID)
+    stopped = await stop(app, local.mint_person(ALICE), run_id)
+    assert stopped.json()["conversation"] == {
+        "conversation_id": CID,
+        "mode": "design",
+        "auto_run": None,
+    }
+    assert store.read(tenants.of(ALICE).conversations, CID).mode is Mode.DESIGN
+    agent = local.mint_agent(ALICE, conversation=CID)
+    restarted = await agent_call(app, agent, "auto_start", brief_id="b" * 16)
+    assert restarted.is_error
+    assert "this caller's mode is design" in restarted.content[0].text
+    project_runs = log.run_dir(tenants.of(ALICE).roots, run_id).parent.iterdir()
+    assert [path.name for path in project_runs if not path.name.startswith(".")] == [run_id]
+
+
+async def test_the_persons_stop_of_an_earlier_run_leaves_the_conversations_mode(
+    app: Starlette, local: LocalIssuer, tenants: Tenants
+) -> None:
+    run_id = start_briefless_run(tenants, ALICE, CID)
+    tenant = tenants.of(ALICE)
+    store.set_mode(tenant, CID, Mode.DESIGN)
+    store.set_mode(tenant, CID, Mode.AUTO)
+    stopped = await stop(app, local.mint_person(ALICE), run_id)
+    assert stopped.json()["conversation"]["mode"] == "auto"
+    assert store.read(tenant.conversations, CID).mode is Mode.AUTO
 
 
 async def test_an_agent_token_cannot_stop_a_run(

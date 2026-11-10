@@ -69,7 +69,8 @@ async def test_the_person_leaving_auto_stops_the_next_build(s: Session, started:
     run = s.run(run_id)
     assert isinstance(run.state, Stopped)
     assert isinstance(run.state.reason, StoppedByPerson)
-    await s.call("auto_ask", run_id=run_id, note="ignored: the run already stopped")
+    text = await s.refusal("auto_ask", run_id=run_id, note="ignored: the run already stopped")
+    assert f"RunNotHeld: auto run {run_id} is not" in text
     assert s.run(run_id) == run
     assert (started, s.meter.asked) == ([], [])
 
@@ -128,3 +129,61 @@ async def test_build_variant_takes_no_auto_run_argument(s: Session) -> None:
         "score_variant", variant_id="0" * 16, material_key="prusament-pla", auto_run="x"
     )
     assert "Extra inputs are not permitted" in text
+
+
+async def outside(s: Session, tool: str, **arguments: object) -> str:
+    async with Client(MCPServer("cad", tools=tools(lambda: s.tenant, OPERATIONS))) as client:
+        result = await client.call_tool(tool, dict(arguments))
+    assert result.is_error, result.structured_content
+    return result.content[0].model_dump()["text"]
+
+
+async def test_only_the_conversation_that_started_a_run_can_revise_or_ask(
+    s: Session, started: list[str]
+) -> None:
+    _, run_id = await running(s)
+    designing = ConversationId("c2")
+    store.set_mode(s.tenant, designing, Mode.DESIGN)
+    revise = {"run_id": run_id, "code": PLATE}
+    ask = {"run_id": run_id, "note": "not mine"}
+    for text in (
+        await refusal_in(s, designing, "auto_revise", **revise),
+        await refusal_in(s, designing, "auto_ask", **ask),
+        await outside(s, "auto_revise", **revise),
+        await outside(s, "auto_ask", **ask),
+    ):
+        assert f"RunNotHeld: auto run {run_id} is not this conversation's" in text
+    assert isinstance(s.run(run_id).state, Running)
+    assert (started, s.meter.asked) == ([], [])
+
+
+async def test_another_auto_conversation_cannot_take_a_running_run_on_its_brief(
+    s: Session,
+) -> None:
+    brief_id, run_id = await running(s)
+    third = ConversationId("c3")
+    store.set_mode(s.tenant, third, Mode.AUTO)
+    start = {"brief_id": brief_id, "material_key": "prusament-pla"}
+    text = await refusal_in(s, third, "auto_start", **start)
+    assert f"RunNotHeld: brief {brief_id} has Auto run {run_id} in another" in text
+    assert store.read(s.tenant.conversations, third).auto_run is None
+    store.set_mode(s.tenant, third, Mode.PLAN)
+    assert isinstance(s.run(run_id).state, Running)
+    assert store.read(s.tenant.conversations, s.conversation).auto_run == run_id
+
+
+async def test_a_run_another_conversation_stopped_leaves_its_brief_free(s: Session) -> None:
+    brief_id, run_id = await running(s)
+    await s.call("auto_ask", run_id=run_id, note="stuck")
+    third = ConversationId("c3")
+    store.set_mode(s.tenant, third, Mode.AUTO)
+    served = tools(lambda: store.bind(s.tenant, third), OPERATIONS)
+    async with Client(MCPServer("cad", tools=served)) as client:
+        result = await client.call_tool(
+            "auto_start", {"brief_id": brief_id, "material_key": "prusament-pla"}
+        )
+    assert not result.is_error, result.content
+    assert result.structured_content is not None
+    fresh = result.structured_content["run_id"]
+    assert fresh != run_id
+    assert store.read(s.tenant.conversations, third).auto_run == fresh
