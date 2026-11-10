@@ -37,20 +37,19 @@ def conflicts(roots: Roots, project: ProjectId) -> tuple[Conflict, ...]:
     found: list[Conflict] = []
     for brief_id in project_briefs(roots, project):
         state = store.read_state(roots, brief_id)
-        in_play = _in_play(state)
-        if not in_play:
+        waiting = _waiting(state)
+        if not waiting:
             continue
         table = table or project_table(_cached_git_table(), roots.projects, project).table
-        found.extend(_conflict(state, bounds, in_play) for bounds in _bounds(in_play, table))
+        found.extend(_conflict(state, bounds, waiting) for bounds in _bounds(waiting, table))
     return tuple(found)
 
 
-def _in_play(state: BriefState) -> tuple[Requirement, ...]:
+def _waiting(state: BriefState) -> tuple[Requirement, ...]:
     latest = state.latest
     if latest is None or latest.status is not Status.PROPOSED:
         return ()
-    confirmed = state.confirmed.requirements if state.confirmed is not None else ()
-    return tuple({one.id: one for one in (*confirmed, *latest.requirements)}.values())
+    return latest.requirements
 
 
 def _bounds(requirements: tuple[Requirement, ...], table: MaterialsTable) -> tuple[Bounds, ...]:
