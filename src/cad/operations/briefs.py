@@ -38,14 +38,17 @@ CREATE_BRIEF = (
     "stays in the project it was created in. " + PLAN_MODE
 )
 PROPOSE_REQUIREMENTS = (
-    "Propose the whole set of requirements for a brief. Each has a target and a quote copied "
-    "exactly from the brief. The target kind is closed_solid; max_mass or min_mass with a mass "
+    "If the brief names a material, call list_materials before you propose. Propose the whole "
+    "set of requirements for a brief. Each has a target and a quote copied exactly from the "
+    "brief. The target kind is closed_solid; max_mass or min_mass with a mass "
     "such as {magnitude: 150, unit: g}; envelope with three edge lengths; measure_limit, which "
     "holds one team check's measure to a limit the user confirms, with check_id, measure, a "
     "comparator (at_most or at_least) and a limit such as {magnitude: 30, unit: cm^3}, and "
     "today the only measure is check_id mass, measure volume, which takes a volume; made_of with a "
-    "material, only when the brief names one, quoting its words (at most one per brief): copy "
-    "the key from list_materials when the table lists that same material, and otherwise give "
+    "material, only when the brief names one, quoting its words (at most one per brief): call "
+    "list_materials first, and copy the key of the table's row for that material when it lists "
+    "one; for a generic name such as PLA or PETG use the row for that polymer, and the person "
+    "confirms the choice on the page. Otherwise give "
     "a key of your own that names it, such as acme-pla-matte. The server stores a material the "
     "table lacks as the project's own row, project- and your key, and the reply's research "
     "asks for each value its checks read; answer it with submit_research. min_safety_factor (a "

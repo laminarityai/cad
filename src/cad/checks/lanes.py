@@ -1,9 +1,11 @@
 import contextvars
-import queue
+import logging
 import threading
 import time
+from collections import deque
 from collections.abc import Callable
 from concurrent.futures import Future
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
@@ -19,7 +21,19 @@ INTERRUPTED: Final = (
     "the operator can delete its .attempt file to retry it"
 )
 
+SUPERSEDED: Final = (
+    "a newer revision replaced this variant in its slot before this analysis started, so it was "
+    "dropped; score the variant again to run it"
+)
+LOG: Final = logging.getLogger(__name__)
+
 type Run = Callable[[JobSpec], JobResult]
+type Listener = Callable[[JobSpec], None]
+type Queued = tuple[contextvars.Context, JobSpec, Future[JobResult]]
+
+
+class Superseded(Exception):
+    pass
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,9 +59,11 @@ class Lanes:
     def __init__(self, run: Run) -> None:
         self._run = run
         self._lock = threading.Lock()
+        self._wake = threading.Condition(self._lock)
         self._flying: dict[Path, Future[JobResult]] = {}
-        self._queue = queue.SimpleQueue[tuple[contextvars.Context, JobSpec, Future[JobResult]]]()
+        self._queue = deque[Queued]()
         self._worker: threading.Thread | None = None
+        self._listeners: list[Listener] = []
 
     def settle(self, plan: Plan, wait_seconds: float) -> Settled:
         deadline = time.monotonic() + wait_seconds
@@ -65,6 +81,35 @@ class Lanes:
         if quick is None:
             return None
         return Settled(quick, tuple(self._look(job) for job in plan.background))
+
+    def subscribe(self, listener: Listener) -> Callable[[], None]:
+        """Call `listener(job)` after each job of this process stores its result, on the thread
+        that ran it. A listener that raises is logged and does not stop the job's callers, the
+        worker or the other listeners. The returned function removes it."""
+        with self._lock:
+            self._listeners.append(listener)
+
+        def unsubscribe() -> None:
+            with self._lock, suppress(ValueError):
+                self._listeners.remove(listener)
+
+        return unsubscribe
+
+    def drop_unstarted(self, root: Path, variant_id: str) -> int:
+        """Drop the queued background jobs of a variant that a newer revision replaced. A job a
+        worker already took runs on and is stored. A caller waiting on a dropped job is refused.
+        Returns how many were dropped."""
+        with self._lock:
+            kept = deque[Queued]()
+            dropped = deque[Queued]()
+            for item in self._queue:
+                _, job, _ = item
+                (dropped if (job.root, job.variant_id) == (root, variant_id) else kept).append(item)
+            self._queue = kept
+            for _, job, future in dropped:
+                del self._flying[job_store.result_path(job)]
+                future.set_exception(Superseded(SUPERSEDED))
+        return len(dropped)
 
     def _look(self, job: JobSpec) -> Outcome:
         stored = job_store.read(job)
@@ -87,11 +132,10 @@ class Lanes:
                 return Refused(INTERRUPTED)
             future = Future[JobResult]()
             self._flying[path] = future
-        match job.budget:
-            case Quick():
-                self._fly(job, future)
-            case Background():
-                self._enqueue(job, future)
+            if isinstance(job.budget, Background):
+                self._enqueue_locked(job, future)
+        if isinstance(job.budget, Quick):
+            self._fly(job, future)
         return future
 
     def _fly(self, job: JobSpec, future: Future[JobResult]) -> None:
@@ -110,6 +154,12 @@ class Lanes:
             with self._lock:
                 del self._flying[job_store.result_path(job)]
                 future.set_result(result)
+                listeners = tuple(self._listeners)
+            for listener in listeners:
+                try:
+                    listener(job)
+                except Exception:
+                    LOG.exception("a completion listener raised for variant %s", job.variant_id)
 
     def _attempt(self, job: JobSpec) -> JobResult:
         if isinstance(job.budget, Quick):
@@ -120,13 +170,13 @@ class Lanes:
         finally:
             job_store.end_attempt(job)
 
-    def _enqueue(self, job: JobSpec, future: Future[JobResult]) -> None:
+    def _enqueue_locked(self, job: JobSpec, future: Future[JobResult]) -> None:
         """The job runs in a copy of the caller's context, so its container is charged to the
         caller's account."""
-        self._queue.put((contextvars.copy_context(), job, future))
-        with self._lock:
-            if self._worker is None:
-                self._start_worker()
+        self._queue.append((contextvars.copy_context(), job, future))
+        self._wake.notify()
+        if self._worker is None:
+            self._start_worker()
 
     def _start_worker(self) -> None:
         self._worker = threading.Thread(target=self._drain, name="cad-background", daemon=True)
@@ -135,12 +185,15 @@ class Lanes:
     def _drain(self) -> None:
         try:
             while True:
-                context, job, future = self._queue.get()
+                with self._lock:
+                    while not self._queue:
+                        self._wake.wait()
+                    context, job, future = self._queue.popleft()
                 context.run(self._fly, job, future)
         finally:
             with self._lock:
                 self._worker = None
-                if not self._queue.empty():
+                if self._queue:
                     self._start_worker()
 
 
@@ -158,7 +211,7 @@ def _land(flight: Done | Refused | Future[JobResult], deadline: float) -> Outcom
         return Done(flight.result(timeout=max(0.0, deadline - time.monotonic())))
     except TimeoutError:
         return Pending()
-    except SandboxUnavailable as error:
+    except (SandboxUnavailable, Superseded) as error:
         return Refused(str(error))
 
 

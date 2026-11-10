@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, cast
 
@@ -10,6 +11,7 @@ class BriefInput:
     id: str
     domain: str
     text: str
+    grader: Mapping[str, Any] = field(default_factory=dict[str, Any])
 
 
 def load_set(directory: Path) -> tuple[list[BriefInput], list[str]]:
@@ -21,7 +23,13 @@ def load_set(directory: Path) -> tuple[list[BriefInput], list[str]]:
             skipped.append(path.name)
             continue
         fields = cast(dict[str, Any], loaded)
-        found = BriefInput(str(fields["id"]), str(fields["domain"]), str(fields["brief"]).strip())
+        grader = fields.get("grader")
+        found = BriefInput(
+            str(fields["id"]),
+            str(fields["domain"]),
+            str(fields["brief"]).strip(),
+            cast(dict[str, Any], grader) if isinstance(grader, dict) else {},
+        )
         if found.id != path.stem:
             raise ValueError(f"{path.name} holds brief {found.id}: name the file <id>.yaml")
         briefs.append(found)
