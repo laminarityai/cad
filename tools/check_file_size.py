@@ -6,14 +6,28 @@ from pathlib import Path
 MAX_LINES = 400
 
 
-def tracked_python_files() -> list[Path]:
+GENERATED = {Path("web/src/api/types.ts")}
+
+
+def tracked_source_files() -> list[Path]:
     listed = subprocess.run(
-        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "*.py", "*.pyi"],
+        [
+            "git",
+            "ls-files",
+            "-z",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "*.py",
+            "*.pyi",
+            "*.ts",
+            "*.tsx",
+        ],
         capture_output=True,
         check=True,
     )
     paths = (Path(os.fsdecode(name)) for name in listed.stdout.split(b"\0") if name)
-    return [path for path in paths if path.is_file()]
+    return [path for path in paths if path.is_file() and path not in GENERATED]
 
 
 def line_count(path: Path) -> int:
@@ -22,7 +36,7 @@ def line_count(path: Path) -> int:
 
 
 def main(argv: list[str]) -> int:
-    paths = [Path(arg) for arg in argv] or tracked_python_files()
+    paths = [Path(arg) for arg in argv] or tracked_source_files()
     counts = [(path, line_count(path)) for path in paths]
     failures = [(path, count) for path, count in counts if count > MAX_LINES]
     for path, count in failures:

@@ -51,6 +51,7 @@ from cad.operations.tools import tools
 from cad.records.roots import DATA_ROOT
 from cad.sandbox import container, meter
 from cad.sandbox.outcome import SandboxUnavailable
+from cad.web.static import DIST, web_routes
 
 DAILY_CAP_SECONDS: Final = 3600
 PORT: Final = 8765
@@ -82,7 +83,7 @@ class AgentTokens:
         )
 
 
-def build_app(issuer: Issuer, tenants: Tenants) -> Starlette:
+def build_app(issuer: Issuer, tenants: Tenants, web: Path = DIST) -> Starlette:
     verifier = Verifier(issuer)
 
     def tenant_of_token() -> Tenant:
@@ -111,6 +112,7 @@ def build_app(issuer: Issuer, tenants: Tenants) -> Starlette:
     )
     app.router.routes.insert(0, _resource_metadata(issuer))
     app.router.routes.extend(person_routes(OPERATIONS, ROUTES, verifier.person, tenants.of))
+    app.router.routes.extend(web_routes(web))
     return app
 
 

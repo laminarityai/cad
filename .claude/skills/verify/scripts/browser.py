@@ -5,6 +5,8 @@
     uv run python .claude/skills/verify/scripts/browser.py set <dir> [answer=.] [edit=.] [delay=.]
     uv run python .claude/skills/verify/scripts/browser.py status <dir>
     uv run python .claude/skills/verify/scripts/browser.py stop <dir>
+    uv run python .claude/skills/verify/scripts/browser.py web shot|watch <run> <path> <name>
+        (see web_drive.py)
 
 `start` launches one headless Chromium behind a daemon on 127.0.0.1 and returns once it answers.
 It writes `<dir>/bin/open`, which hands a page URL to that daemon, so pass it as
@@ -321,6 +323,10 @@ def main(argv: list[str]) -> int:
             return 0 if reply else 1
         case ["stop", run]:
             return stop(Path(run))
+        case ["web", *rest]:
+            import web_drive
+
+            return web_drive.main(rest)
         case _:
             print(__doc__)
             return 2

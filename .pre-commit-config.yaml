@@ -43,6 +43,24 @@ repos:
         language: system
         pass_filenames: false
         files: ^(src/cad/|tools/gen_ts\.py|web/(package-lock\.json|src/api/))
+      - id: web-lint
+        name: web lint
+        entry: uv run verify --only "web lint"
+        language: system
+        pass_filenames: false
+        files: ^(web/|tools/(web|gen_ts)\.py)
+      - id: web-test
+        name: web test
+        entry: uv run verify --only "web test"
+        language: system
+        pass_filenames: false
+        files: ^(web/|tools/(web|gen_ts)\.py)
+      - id: web-build
+        name: web build
+        entry: uv run verify --only "web build"
+        language: system
+        pass_filenames: false
+        files: ^(web/|tools/(web|gen_ts)\.py)
       - id: protocol-models
         name: protocol models
         entry: uv run verify --only "protocol models"

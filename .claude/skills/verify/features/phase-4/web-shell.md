@@ -1,21 +1,43 @@
-# Web shell: viewer and live scorecards (NOT YET BUILT)
+# Web shell: viewer and live scorecards
 
-A React app (`web/`) served by `src/cad/web/`. The person sees each variant of a set in three-cad-viewer and its scorecard, which updates over SSE as check jobs finish, with no reload. Each SSE event carries a whole `ScorecardSnapshot`. The mesh comes from the person-only `geometry` operation, which unit 5 built: see [Geometry](../geometry.md).
+A React app in `web/`, served by `src/cad/web/static.py` under `/app`. The signed-in person sees their projects, and for a brief the set of variants: one three-cad-viewer per member, and a scorecard that updates over server-sent events with no reload. A row that is waiting on a check is drawn as pending, with no verdict colour, until its result arrives.
 
-Design: `docs/design/phase-4.md` §2.3 (tessellation as an analysis-image job), §2.6 (reads and streaming, the route table, `GET /v1/variants/{vid}/events`, `GET /v1/geometry/{version}/{brep_sha256}.json`) and §3 (`src/cad/web/`, `src/cad/geometry/`, `web/`). Units 5 and 6 of §4. Unit 2 deletes `scorecard.json`, so the [Score variant](../score-variant.md) recipes that diff it change then.
+Design: `docs/design/phase-4.md` §2.3 (tessellation), §2.6 (reads and streaming) and §3.
 
-## The checks §4 gives units 5 and 6
+## Sub-features
 
-- Unit 5, geometry: the mesh volume is within 0.5% of the mass check's volume, and a bake-off part renders in three-cad-viewer (screenshot attached).
-- Unit 6, web shell: Playwright watches a card go from pending to done without a reload, and no pending row ever has a verdict colour.
+- `web-shell-static` serves `web/dist` at `/app`. A path with a file extension is an asset or 404, any other path is the page, assets are cached for good and the page is not, `/` redirects to `/app/`, and an unbuilt app answers 503 with the command that builds it. `tests/web/` covers it.
+- `web-shell-set` is the set view at `/app/projects/<project_id>/briefs/<brief_id>`. Three panes on a wide screen (waiting and scorecard, the viewers, the chat placeholder), and tabs (chat, model, scorecard) at 860 px and under.
+- `web-shell-live-card` opens one `GET /v1/variants/<id>/events` stream per member and replaces the card on every event. Needs the scorecard events route (`feat/scorecard-events`).
+- `web-shell-viewer` reads the mesh: the `view` route says whether it is stored, then the `geometry` route starts the tessellation and answers pending until it is done, and the immutable mesh URL serves a stored one.
+- `web-shell-signed-out` shows a Sign in link to the confirmation page's sign-in (`web/src/api/confirmation.ts` is the one file that knows its URL) when a route answers 401.
 
-## Proof to write when it lands
+The page's own tests are `npm run test` in `web/`: Vitest with fakes for the API, the event stream and the viewer. `uv run verify` runs `web lint`, `web test` and `web build`.
 
-- Geometry: mount the `geometry` operation as a route, and point [Geometry](../geometry.md)'s script at the route in place of the registry call.
-- Web shell: a Playwright recipe that opens the set view, triggers a score, and waits for the card's rows to change from pending to a verdict on the same page, with no navigation. Record the before and after screenshots and the SSE events from the network log. Assert from the page that no pending row has a verdict colour. Cost: docker + browser.
-- Reuse `browser.py`'s one-Chromium-per-run daemon rather than launching a browser per recipe. Add a drive for the web app next to the confirmation page drive.
-- Write the selectors from the built app's ARIA roles and names. None exist yet.
+## How to get to it (person POV)
 
-## Until then
+1. Build the page once: `cd web && npm ci && npm run build`.
+2. Start a local server on its own port and data root, with the browser daemon as the person for confirmation pages:
 
-Scorecards are proved through `cad-call` and `claude_session.py` in [Score variant](../score-variant.md). Nothing renders geometry.
+   ```
+   export RUN=$(mktemp -d)
+   uv run python .claude/skills/verify/scripts/browser.py start $RUN
+   uv run cad-http --port 8791 --root $RUN/home --opener $RUN/bin/open
+   ```
+
+3. Make a confirmed brief with three built variants, as an agent would, through `/mcp` with `cad-token agent <account> --url http://127.0.0.1:8791 --root $RUN/home` (`create_brief`, `propose_requirements`, `ask_to_confirm`, then `build_variant` three times with the `brief_id`). A `max_deflection` requirement makes the `fea` check run for a few seconds, which is the pending state. The material must have an elastic modulus and a Poisson's ratio in `tables/materials.yaml` (`polymaker-polylite-abs` has both) or `fea` is unknown at once.
+4. Open the set view as that account: `uv run python .claude/skills/verify/scripts/browser.py web shot $RUN /projects/<project_id>/briefs/<brief_id> name --url http://127.0.0.1:8791 --account <account> [--width 400] [--scheme dark]`. It writes `$RUN/name.png` and `$RUN/name.aria.yml`.
+5. Watch a card go from pending to done: start `browser.py web watch $RUN <path> name --url ... --account ... --material polymaker-polylite-abs` in the background, then call `score_variant` for each variant with that `material_key` and the `brief_id`. It writes `name-pending.png`, `name-done.png`, `name.sse.jsonl` (each event the page received) and `name.rows.jsonl`, and exits 1 when a pending row ever wore a verdict, when no row went from pending to a verdict, or when the page navigated.
+
+## Checks
+
+- Every pending row has only the `pending` tone: `watch` asserts it on every poll.
+- The card changes without a navigation: `watch` records `framenavigated` after the first load and fails on any.
+- The page signs in with the `__session` cookie that `cad-token person` mints, so the local drive needs no Clerk and no confirmation-page sign-in.
+
+## Gotchas
+
+- Headless Chromium needs `--enable-unsafe-swiftshader` for WebGL, which `web_drive.py` passes. Without it the viewers fail to start.
+- The server leaves an empty `reads`, an empty `instance`, an empty `research`, an empty `not_verified` and a null `research_problem` out of a scorecard, though `web/src/api/types.ts` lists them as required. `web/src/api/snapshot.ts` puts them back at the one place an event enters the page.
+- `view` never starts a tessellation. Only the `geometry` route does, so a page that read `view` alone would wait for ever.
+- A browser allows six connections per host on HTTP/1.1, and the set view holds one event stream per member, five at most.
