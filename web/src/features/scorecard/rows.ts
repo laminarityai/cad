@@ -50,8 +50,14 @@ function comparisonText(results: Scorecard["results"], checkId: string, one: Com
   return measured ? `${one.measure} ${formatQuantity(measured)} ${limit}` : `${one.measure} ${limit}`;
 }
 
+/** A verdict this page does not know reads as unknown, so it still counts and is drawn. */
+function verdictOf(verdict: string): Verdict {
+  return verdict === "pass" || verdict === "fail" ? verdict : "unknown";
+}
+
 function requirementRow(results: Scorecard["results"], one: RequirementResult): Row {
   const key = `req:${one.requirement_id}`;
+  const kind: string = one.kind;
   switch (one.kind) {
     case "waiting":
       return { kind: "pending", key, label: one.statement, check: one.check_id };
@@ -63,10 +69,21 @@ function requirementRow(results: Scorecard["results"], one: RequirementResult): 
         key,
         label: one.statement,
         check: one.check_id,
-        verdict: one.verdict,
+        verdict: verdictOf(one.verdict),
         researched: one.basis === "researched",
         measures: one.comparisons.map((c) => comparisonText(results, one.check_id, c)),
         note: one.reason,
+      };
+    default:
+      return {
+        kind: "settled",
+        key,
+        label: (one as { statement?: string }).statement ?? key,
+        check: "",
+        verdict: "unknown",
+        researched: false,
+        measures: [],
+        note: `This page does not know a requirement result of kind ${kind}.`,
       };
   }
 }
@@ -80,7 +97,7 @@ function checkRow(one: DoneCheck | RunningCheck): Row {
     key,
     label,
     check: one.check_id,
-    verdict: one.verdict,
+    verdict: verdictOf(one.verdict),
     researched: one.reads.some((read) => read.kind === "researched"),
     measures: one.measured.map((m) => `${m.name} ${formatQuantity(m.value)}`),
     note: one.reason,

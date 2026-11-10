@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { RequirementResult } from "@/api/types";
 import { deflection, feaPending, mass, massResult, snapshot } from "@/test/fixtures";
 import { ghostsOf, pendingFrom, rowsOf, tally } from "./rows";
 
@@ -28,5 +29,20 @@ describe("pendingFrom", () => {
     expect(rows.requirements.every((one) => one.kind === "pending")).toBe(true);
     expect(rows.checks.every((one) => one.kind === "pending")).toBe(true);
     expect(ghostsOf(before)["req:r1"]).toBe("mass 61 g ≤ 50 g");
+  });
+});
+
+describe("a result this page does not know", () => {
+  it("draws a requirement of an unknown kind as one unknown row and keeps the others", () => {
+    const strange = { kind: "deferred", requirement_id: "r9", statement: "fit the bracket" } as unknown as RequirementResult;
+    const rows = rowsOf(snapshot("v1", [mass("pass"), strange], [massResult()])).requirements;
+    expect(rows.map((one) => one.kind)).toEqual(["settled", "settled"]);
+    expect(rows[1]).toMatchObject({ key: "req:r9", label: "fit the bracket", verdict: "unknown" });
+  });
+
+  it("counts a verdict it does not know as unknown", () => {
+    const strange = { ...mass("pass"), verdict: "inconclusive" } as unknown as RequirementResult;
+    const rows = rowsOf(snapshot("v1", [strange], [massResult()])).requirements;
+    expect(tally(rows)).toMatchObject({ pass: 0, fail: 0, unknown: 1, pending: 0 });
   });
 });

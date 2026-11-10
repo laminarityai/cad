@@ -10,28 +10,40 @@ import { useNarrow } from "./useNarrow";
 
 const SECTION = "font-mono text-[10.5px] uppercase tracking-wider text-ink-2";
 
+/** Who chose the material the scorecards are for: the brief's confirmed made_of requirement, the
+ * person with the picker, or nobody, when the page fell back to the first row of the table. */
+export type ChosenBy = "brief" | "person" | "default";
+
 function MaterialPicker(props: {
   materials: MaterialListings["materials"];
   value: string | null;
+  chosenBy: Exclude<ChosenBy, "brief">;
   onChange: (key: string) => void;
 }) {
   return (
-    <label className="flex items-center justify-between gap-2 border border-border bg-panel px-2.5 py-1.5">
-      <span className={SECTION}>Material</span>
-      <select
-        value={props.value ?? ""}
-        onChange={(event) => {
-          props.onChange(event.target.value);
-        }}
-        className="min-w-0 border border-border bg-panel-2 px-1.5 py-1 font-mono text-xs"
-      >
-        {props.materials.map((one) => (
-          <option key={one.key} value={one.key}>
-            {one.name}
-          </option>
-        ))}
-      </select>
-    </label>
+    <div className="border border-border bg-panel px-2.5 py-1.5">
+      <label className="flex items-center justify-between gap-2">
+        <span className={SECTION}>Material</span>
+        <select
+          value={props.value ?? ""}
+          onChange={(event) => {
+            props.onChange(event.target.value);
+          }}
+          className="min-w-0 border border-border bg-panel-2 px-1.5 py-1 font-mono text-xs"
+        >
+          {props.materials.map((one) => (
+            <option key={one.key} value={one.key}>
+              {one.name}
+            </option>
+          ))}
+        </select>
+      </label>
+      {props.chosenBy === "default" ? (
+        <p data-material-default className="pt-1.5 text-xs text-wait">
+          The brief confirms no material, so these scorecards use the first one in the table. Pick the one you mean.
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -52,10 +64,10 @@ export function Panes(props: {
   set: VariantSetView;
   materials: MaterialListings["materials"];
   material: string | null;
-  pinned: boolean;
+  chosenBy: ChosenBy;
   onPick: (key: string) => void;
 }) {
-  const { projectId, brief, set, materials, material, pinned, onPick } = props;
+  const { projectId, brief, set, materials, material, chosenBy, onPick } = props;
   const narrow = useNarrow();
   const [cards, dispatch] = useReducer(cardsReducer, cardsStart);
   const [chosen, choose] = useState<number | null>(null);
@@ -90,7 +102,9 @@ export function Panes(props: {
   const side: ReactNode = (
     <div className="flex flex-col gap-2.5">
       <WaitingPanel brief={brief} projectId={projectId} />
-      {!pinned && materials.length > 0 ? <MaterialPicker materials={materials} value={material} onChange={onPick} /> : null}
+      {chosenBy !== "brief" && materials.length > 0 ? (
+        <MaterialPicker materials={materials} value={material} chosenBy={chosenBy} onChange={onPick} />
+      ) : null}
       <Scorecard
         card={selected ? cards[selected.slot] : undefined}
         heading={selected ? `Scorecard · slot ${String(selected.slot)} · revision ${String(selected.revision)}` : "Scorecard"}

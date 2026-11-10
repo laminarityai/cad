@@ -10,7 +10,7 @@ const ROW = "grid gap-1 border-t border-rule-2 px-4 py-3 first:border-t-0 hover:
 
 export function ProjectsPage() {
   const { api } = useServices();
-  const [projects] = useResource(() => api.projects(), "projects");
+  const projects = useResource(() => api.projects(), "projects");
   return (
     <>
       <TopBar />
@@ -46,7 +46,7 @@ export function ProjectsPage() {
 export function ProjectPage() {
   const { api } = useServices();
   const { projectId = "" } = useParams();
-  const [project] = useResource(() => api.project(projectId), `project:${projectId}`);
+  const project = useResource(() => api.project(projectId), `project:${projectId}`);
   return (
     <>
       <TopBar
