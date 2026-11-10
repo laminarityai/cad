@@ -15,12 +15,17 @@ export function ViewerCanvas({ shapes, label }: { shapes: Shapes; label: string 
   const mounted = useRef<{ view: Mounted; shapes: Shapes } | null>(null);
   const latest = useRef(shapes);
   const [problem, setProblem] = useState<string | null>(null);
+  /** `data-draws` counts the meshes drawn, set after each draw ends, so a drive can time the swap. */
+  const drew = (into: HTMLElement) => {
+    into.dataset.draws = String(Number(into.dataset.draws ?? "0") + 1);
+  };
   useEffect(() => {
     latest.current = shapes;
     const held = mounted.current;
     if (held && held.shapes !== shapes) {
       held.view.show(shapes);
       held.shapes = shapes;
+      if (host.current) drew(host.current);
     }
   }, [shapes]);
   useEffect(() => {
@@ -39,6 +44,7 @@ export function ViewerCanvas({ shapes, label }: { shapes: Shapes; label: string 
           view.show(latest.current);
           mounted.current.shapes = latest.current;
         }
+        drew(element);
       },
       (error: unknown) => {
         if (live) setProblem(error instanceof Error ? error.message : "The viewer did not start.");

@@ -206,6 +206,41 @@ def watch(run: Path, path: str, name: str, given: dict[str, str]) -> int:
     return 0 if replaced and not wearing and not navigations else 1
 
 
+SLOT_LOG = """
+() => {
+  window.__slotLog = [];
+  const read = () => {
+    const t = document.querySelector("[data-slot-tile='1']");
+    const m = t && /revision (\\d+)/.exec(t.textContent || "");
+    const host = t && t.querySelector("[data-draws]");
+    return { rev: m ? Number(m[1]) : 0, draws: host ? Number(host.dataset.draws) : 0 };
+  };
+  let last = "";
+  setInterval(() => {
+    const now = read();
+    const key = JSON.stringify(now);
+    if (key !== last) { last = key; window.__slotLog.push({ at: performance.now(), ...now }); }
+  }, 16);
+}
+"""
+
+
+def swap_seconds(page: Page, revision_before: int) -> float:
+    """From slot 1 first naming its next revision (its card pending) to the end of the next draw in
+    its viewer, from the page's own 16 ms log, so a draw that blocks the main thread is counted.
+    When one blocked tick saw both, the swap is timed from the tick before it: an upper bound."""
+    log: list[dict[str, float]] = page.evaluate("window.__slotLog")
+    old = [one for one in log if one["rev"] == revision_before]
+    new = [one for one in log if one["rev"] > revision_before]
+    if not old or not new:
+        return 0.0
+    drawn = next((one for one in new if one["draws"] > old[-1]["draws"]), None)
+    if drawn is None:
+        return 0.0
+    start = old[-1] if drawn is new[0] else new[0]
+    return round((drawn["at"] - start["at"]) / 1000, 3)
+
+
 def tiles(page: Page) -> dict[str, Any]:
     return page.evaluate(
         "() => { const t = document.querySelector('[data-slot-tile=\"1\"]');"
@@ -251,6 +286,22 @@ def turn_finished(page: Page, seconds: float) -> bool:
     return wait_for(page, f"() => !({working[6:]})", seconds)
 
 
+def stop_in_another_tab(page: Page, run: Path, name: str) -> dict[str, Any]:
+    """Press Stop in a second tab on the same conversation, leaving `page` alone, so what `page`
+    shows next it can only have learned from the server."""
+    other = page.context.new_page()
+    other.goto(page.url)
+    open_tab(other, "Chat")
+    button = other.get_by_role("button", name="Stop")
+    button.first.wait_for(timeout=30_000)
+    button.first.click()
+    stopped = wait_for(other, "() => document.querySelector('[data-run=stopped]') !== null", 30)
+    other.screenshot(path=str(run / f"{name}-other-tab.png"))
+    other.close()
+    page.bring_to_front()
+    return {"other_tab_stopped": stopped}
+
+
 def chat(run: Path, path: str, name: str, given: dict[str, str]) -> int:
     live = given["live"] == "true"
     found: dict[str, Any] = {"live": live}
@@ -284,12 +335,13 @@ def chat(run: Path, path: str, name: str, given: dict[str, str]) -> int:
         open_tab(page, "Chat")
         pick_mode(page, "Design")
         found["design_picked"] = mode_of(page) == "design"
+        page.evaluate(SLOT_LOG)
         started = time.time()
         say(page, given["ask"])
         open_tab(page, "Model")
         trail: list[tuple[float, int, tuple[str, ...]]] = []
         shot_pending = False
-        t_revision = t_pending = t_verdict = t_blank = t_mesh = 0.0
+        t_revision = t_pending = t_verdict = t_mesh = 0.0
         while time.time() - started < 240 and not (t_verdict and t_mesh):
             now = tiles(page)
             at = time.time() - started
@@ -302,21 +354,19 @@ def chat(run: Path, path: str, name: str, given: dict[str, str]) -> int:
                 t_pending = at
             if t_pending and tones and "pending" not in tones:
                 t_verdict = at
-            if t_revision:
-                canvas = page.locator("[data-slot-tile='1'] canvas").count() > 0
-                if not canvas and not t_blank:
-                    t_blank = at
-                if canvas and t_blank and not t_mesh:
-                    t_mesh = at
+            ready = "[data-slot-tile='1'] [data-mesh=ready] canvas"
+            if t_revision and not t_mesh and page.locator(ready).count():
+                t_mesh = at
             if t_pending and not shot_pending:
                 shot_pending = True
                 page.screenshot(path=str(run / f"{name}-pending.png"))
             page.wait_for_timeout(50)
+        swap = swap_seconds(page, before["revision"])
         found.update(
+            seconds_pending_to_mesh=swap,
             seconds_to_revision=round(t_revision, 2),
             seconds_to_pending=round(t_pending, 2),
             seconds_to_verdicts=round(t_verdict, 2),
-            seconds_mesh_blank=round(t_blank, 2),
             seconds_to_mesh=round(t_mesh, 2),
             mesh_requests_after_rebuild=sum(1 for at in meshes if at >= started + t_revision),
             slot_trail=trail,
@@ -341,9 +391,12 @@ def chat(run: Path, path: str, name: str, given: dict[str, str]) -> int:
         found["revisions_while_running"] = page.locator("[data-run]").first.inner_text()
         stop = page.get_by_role("button", name="Stop")
         found["stop_visible"] = stop.count() > 0
+        pressed = time.time()
         if given["stop"] == "switch":
             pick_mode(page, "Design")
             page.screenshot(path=str(run / f"{name}-switch.png"))
+        elif given["stop"] == "elsewhere":
+            found.update(stop_in_another_tab(page, run, name))
         elif stop.count():
             stop.first.click()
         found["moved_to_design"] = wait_for(
@@ -352,6 +405,7 @@ def chat(run: Path, path: str, name: str, given: dict[str, str]) -> int:
         found["stopped_report"] = wait_for(
             page, "() => document.querySelector('[data-run=stopped]') !== null", 90
         )
+        found["seconds_stop_to_shown"] = round(time.time() - pressed, 2)
         page.wait_for_timeout(500)
         report = page.locator("[data-run] summary")
         if report.count():
