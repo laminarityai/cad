@@ -6,6 +6,7 @@ from typing import Annotated, Final, Literal, Self
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from cad.briefs.model import MAX_NOTE_CHARS
+from cad.conversations.model import ConversationId
 from cad.projects.model import ProjectId
 from cad.variants.entry import VariantRefused
 
@@ -17,6 +18,10 @@ class RunRefused(VariantRefused):
 
 
 class UnknownRun(RunRefused):
+    pass
+
+
+class RunNotHeld(RunRefused):
     pass
 
 
@@ -102,11 +107,18 @@ class AccountLimit(_Frozen):
     reason: str
 
 
-type StopReason = Annotated[AllPass | NeedsPerson | AccountLimit, Field(discriminator="kind")]
+class StoppedByPerson(_Frozen):
+    kind: Literal["stopped_by_person"] = "stopped_by_person"
+
+
+type StopReason = Annotated[
+    AllPass | NeedsPerson | AccountLimit | StoppedByPerson, Field(discriminator="kind")
+]
 
 
 class Started(_Frozen):
     kind: Literal["started"] = "started"
+    conversation: ConversationId
     brief_id: str
     project: str
     decision_sha256: str
@@ -136,7 +148,13 @@ class Capped(_Frozen):
     reason: str
 
 
-type Event = Annotated[Started | Revised | Proposed | Asked | Capped, Field(discriminator="kind")]
+class PersonStopped(_Frozen):
+    kind: Literal["person_stopped"] = "person_stopped"
+
+
+type Event = Annotated[
+    Started | Revised | Proposed | Asked | Capped | PersonStopped, Field(discriminator="kind")
+]
 
 
 class Running(_Frozen):

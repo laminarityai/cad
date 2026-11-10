@@ -36,12 +36,13 @@ from starlette.routing import Route
 from cad.accounts import lease
 from cad.accounts.clerk import PUBLIC_URL, PUBLISHABLE_KEY, clerk_issuer
 from cad.accounts.local import LocalIssuer
-from cad.accounts.principal import account_id
+from cad.accounts.principal import AgentToken
 from cad.accounts.tenants import ACCOUNTS, Tenants
 from cad.accounts.tokens import Issuer, Verifier
 from cad.confirmations.ballot import Opener, program_opener
 from cad.context_parts.ingest import ingest as read_part
 from cad.context_parts.store import Ingest
+from cad.conversations import store
 from cad.operations.guidance import INSTRUCTIONS
 from cad.operations.model import Tenant
 from cad.operations.registry import OPERATIONS, ROUTES
@@ -56,6 +57,10 @@ PORT: Final = 8765
 WAIT_SECONDS: Final = 20.0
 
 
+class AgentAccess(AccessToken):
+    agent: AgentToken
+
+
 @dataclass(frozen=True, slots=True)
 class AgentTokens:
     """The SDK's `TokenVerifier` for `/mcp`: only a Clerk OAuth access token whose `aud` includes
@@ -67,12 +72,13 @@ class AgentTokens:
         agent = self.verifier.agent(token)
         if agent is None:
             return None
-        return AccessToken(
+        return AgentAccess(
             token=token,
             client_id=agent.client_id,
             scopes=[],
             resource=self.verifier.issuer.resource,
             subject=agent.account,
+            agent=agent,
         )
 
 
@@ -81,9 +87,9 @@ def build_app(issuer: Issuer, tenants: Tenants) -> Starlette:
 
     def tenant_of_token() -> Tenant:
         token = get_access_token()
-        if token is None or token.subject is None:
+        if not isinstance(token, AgentAccess):
             raise PermissionError("an MCP call reached a tool with no verified agent token")
-        return tenants.of(account_id(token.subject))
+        return store.bind(tenants.of(token.agent.account), token.agent.conversation)
 
     server = MCPServer(
         "cad",

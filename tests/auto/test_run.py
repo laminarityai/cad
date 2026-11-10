@@ -1,23 +1,21 @@
 from __future__ import annotations
 
-import threading
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import replace
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Final
 
 import pytest
 from mcp import Client
 from mcp.server import MCPServer
 
 from cad.auto.log import run_dir
-from cad.auto.model import AccountLimit, NeedsPerson, Running, Stopped
+from cad.auto.model import AccountLimit, NeedsPerson, Running, RunNotHeld, Stopped
 from cad.briefs.store import read_brief
+from cad.conversations import store
+from cad.conversations.model import ConversationId, Mode
 from cad.operations.auto import StartInput, auto_start
-from cad.operations.model import Mode
 from cad.operations.registry import OPERATIONS
 from cad.operations.tools import tools
-from cad.records import signed
 from cad.sandbox.image import BUILD, image_tag
 from cad.variants import entry
 
@@ -63,8 +61,8 @@ async def refused_everything(s: Session, brief_id: str, run_id: str, code: str) 
     for _ in range(3):
         for text in (
             await s.refusal("auto_revise", run_id=run_id, code=code),
-            await s.refusal("build_variant", code=code, brief_id=brief_id, auto_run=run_id),
-            await s.refusal("score_variant", auto_run=run_id, **score),
+            await s.refusal("build_variant", code=code, brief_id=brief_id),
+            await s.refusal("score_variant", **score),
         ):
             assert f"RunStopped: auto run {run_id} has stopped" in text, text
 
@@ -79,8 +77,12 @@ async def test_auto_start_is_refused_outside_an_auto_mode_conversation(
     s: Session, mode: Mode | None
 ) -> None:
     brief_id = await s.confirmed(TEXT, UNDER_150)
-    tenant = replace(s.tenant, mode=mode)
-    async with Client(MCPServer("cad", tools=tools(lambda: tenant, OPERATIONS))) as client:
+    if mode is None:
+        served = tools(lambda: s.tenant, OPERATIONS)
+    else:
+        store.set_mode(s.tenant, s.conversation, mode)
+        served = tools(lambda: s.bound, OPERATIONS)
+    async with Client(MCPServer("cad", tools=served)) as client:
         result = await client.call_tool(
             "auto_start", {"brief_id": brief_id, "material_key": "prusament-pla"}
         )
@@ -91,24 +93,20 @@ async def test_auto_start_is_refused_outside_an_auto_mode_conversation(
     assert not (s.roots.projects / project / "auto").exists()
 
 
-async def test_two_concurrent_starts_of_one_brief_make_one_run(
-    s: Session, monkeypatch: pytest.MonkeyPatch
-) -> None:
+async def test_two_concurrent_starts_of_one_brief_make_one_run(s: Session) -> None:
     brief_id = await s.confirmed(TEXT, UNDER_150)
-    both_at_create = threading.Barrier(2, timeout=5)
-    create_entry = signed.create_entry
-
-    def racing(*arguments: Any) -> bool:
-        both_at_create.wait()
-        return create_entry(*arguments)
-
-    monkeypatch.setattr(signed, "create_entry", racing)
     arguments = StartInput(brief_id=brief_id, material_key="prusament-pla")
-    with ThreadPoolExecutor(2) as pool:
-        racers = [pool.submit(auto_start, s.tenant, arguments) for _ in range(2)]
-        runs = [racer.result() for racer in racers]
-    [run_id] = {run.run_id for run in runs}
-    assert all(isinstance(run.state, Running) for run in runs)
+    other = ConversationId("c-other")
+    store.set_mode(s.tenant, other, Mode.AUTO)
+    callers = [s.bound, s.bound, store.bind(s.tenant, other)]
+    with ThreadPoolExecutor(3) as pool:
+        racers = [(caller, pool.submit(auto_start, caller, arguments)) for caller in callers]
+        outcomes = [(caller.conversation, racer.exception()) for caller, racer in racers]
+    [run_id] = {racer.result().run_id for _, racer in racers if racer.exception() is None}
+    owner = s.run(run_id).state.start.conversation
+    for conversation, refused in outcomes:
+        assert (conversation == owner) == (refused is None)
+        assert refused is None or isinstance(refused, RunNotHeld)
     stored = run_dir(s.roots, run_id).parent.iterdir()
     assert [path.name for path in stored if not path.name.startswith(".")] == [run_id]
 
@@ -137,7 +135,7 @@ async def test_proposing_requirements_under_a_run_stops_it(
     brief_id, run_id = await running(s)
     await s.propose(brief_id, UNDER_150)
     monkeypatch.setenv("DOCKER_HOST", NO_DOCKER)
-    text = await s.refusal("build_variant", code=PLATE, brief_id=brief_id, auto_run=run_id)
+    text = await s.refusal("build_variant", code=PLATE, brief_id=brief_id)
     assert "New requirements were proposed, and only the person can confirm them" in text
     stopped = s.run(run_id)
     assert isinstance(stopped.state, Stopped)
@@ -190,10 +188,10 @@ async def test_a_build_the_account_limit_refuses_stops_the_run_and_starts_nothin
 
 async def test_a_check_the_account_limit_refuses_stops_the_run(s: Session) -> None:
     brief_id, run_id = await running(s)
-    built = await s.call("build_variant", code=PLATE, brief_id=brief_id, auto_run=run_id)
+    built = await s.call("build_variant", code=PLATE, brief_id=brief_id)
     s.meter.spent = True
     score = {"variant_id": built["variant_id"], "material_key": "prusament-pla"}
-    text = await s.refusal("score_variant", brief_id=brief_id, auto_run=run_id, **score)
+    text = await s.refusal("score_variant", brief_id=brief_id, **score)
     assert f"RunStopped: auto run {run_id} has stopped" in text
     run = s.run(run_id)
     assert isinstance(run.state, Stopped)
@@ -202,13 +200,15 @@ async def test_a_check_the_account_limit_refuses_stops_the_run(s: Session) -> No
     assert s.meter.asked == ["build", "check"]
 
 
-async def test_a_build_the_account_limit_refuses_outside_a_run_stops_no_run(
+async def test_a_build_the_account_limit_refuses_for_an_outside_client_stops_no_run(
     s: Session, started: list[str]
 ) -> None:
     s.meter.spent = True
     brief_id, run_id = await running(s)
-    text = await s.refusal("build_variant", code=PLATE, brief_id=brief_id)
-    assert "the account limit is reached: 600 of 600 container-seconds" in text
+    async with Client(MCPServer("cad", tools=tools(lambda: s.tenant, OPERATIONS))) as outside:
+        result = await outside.call_tool("build_variant", {"code": PLATE, "brief_id": brief_id})
+    assert result.is_error
+    assert "the account limit is reached: 600 of 600 container-seconds" in str(result.content)
     assert isinstance(s.run(run_id).state, Running)
     assert started == []
 
@@ -234,7 +234,7 @@ async def test_a_replayed_revision_appends_nothing_and_builds_nothing(
 async def test_a_run_builds_only_for_its_own_brief(s: Session) -> None:
     _, run_id = await running(s)
     other = await s.confirmed(TEXT, UNDER_150)
-    text = await s.refusal("build_variant", code=PLATE, brief_id=other, auto_run=run_id)
+    text = await s.refusal("build_variant", code=PLATE, brief_id=other)
     assert f"RunRefused: auto run {run_id} builds and scores only for brief" in text
     assert s.meter.asked == []
 

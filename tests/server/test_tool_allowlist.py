@@ -7,10 +7,9 @@ pytestmark = pytest.mark.anyio
 
 ALLOWED_ARGUMENTS = {
     "server_info": set[str](),
-    # auto_run names an Auto run; under it a call can only be refused.
-    "build_variant": {"code", "brief_id", "slot", "auto_run"},
+    "build_variant": {"code", "brief_id", "slot"},
     # own_measurements is the agent's measuring code, shown as not verified, never a verdict.
-    "score_variant": {"variant_id", "material_key", "brief_id", "own_measurements", "auto_run"},
+    "score_variant": {"variant_id", "material_key", "brief_id", "own_measurements"},
     "scorecard": {"variant_id", "material_key", "brief_id"},
     "list_materials": set[str](),
     "create_brief": {"text", "project_id"},

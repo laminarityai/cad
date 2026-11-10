@@ -128,14 +128,13 @@ class AgentToken(_Frozen):
     kind: Literal["agent"] = "agent"
     account: AccountId
     token_id: str  # the Clerk OAuth token's id, or our chat agent's turn id
-    conversation: ConversationId | None
-    auto_run: AutoRunId | None
-    mode: Mode
+    client_id: str
+    conversation: ConversationId | None = None
 ```
 
 Both kinds of token come from Clerk, so the server tells them apart by Clerk's token type. A person session is a Clerk session token. Clerk's front-end SDK keeps it fresh in the `__session` cookie on our domain. An agent token is a Clerk OAuth access token, sent in an `Authorization: Bearer` header on `/mcp`. Clerk's backend SDK reads the type from the token itself. An OAuth access token is either a JWT whose header `typ` is `at+jwt` or an opaque string that starts with `oat_`, and a session token is neither ([Clerk: verify OAuth tokens](https://clerk.com/docs/guides/configure/auth-strategies/oauth/verify-oauth-tokens), [JWT OAuth access tokens](https://clerk.com/changelog/2026-01-08-jwt-oauth-access-tokens)). The web routes call `authenticate_request` with `accepts_token=["session_token"]`. `/mcp` calls it with `accepts_token=["oauth_token"]`. The Python SDK accepts every type when the list is left out, so each adapter always passes its list, and a test sends each kind of token to the other kind's route and expects 401. Our instance issues OAuth tokens as JWTs, the default for new Clerk applications, so both kinds are JWTs that the server verifies against the instance's JWKS without a network call. Different Starlette route adapters parse them, and `answer_page` is `PERSON` only, so no MCP tool can answer a page.
 
-Our own chat agent needs no token from Clerk. It runs in the server process and reaches the MCP tools through the mcp SDK's in-memory transport, so it gets the same tool list as an outside client (ADR-0002). For each turn the backend builds an `AgentToken` from the person's verified session, with the conversation, the Auto run and the mode. The token never leaves the process, so there is nothing to leak or revoke.
+Our own chat agent needs no token from Clerk. It runs in the server process and reaches the MCP tools through the mcp SDK's in-memory transport, so it gets the same tool list as an outside client (ADR-0002). For each turn the backend builds an `AgentToken` from the person's verified session, with the conversation only. The token carries no mode and no Auto run. At each tool call the server reads the conversation's mode and Auto run from the account's conversation store, so a person's switch of mode or press of Stop takes effect on the agent's next call, even in the middle of a turn. A token with no conversation, such as a Clerk OAuth token from an outside client, has no mode and no Auto run. The token never leaves the process, so there is nothing to leak or revoke.
 
 **How an outside client reaches the page.** The operator wants a person in Claude Code, or any MCP client, to reach the confirmation as with any other remote MCP server. Two parts of the MCP spec do that, and phase 4 uses both.
 
@@ -216,7 +215,7 @@ A revision counts only once its scorecard has no pending check. The server waits
 
 State lives in an append-only signed log at `projects/<pid>/auto/<run>/NNNN.signed`. `AutoState` is a fold over that log, never a stored field, as brief status already is. Replaying `auto_revise` with the same code gives the same variant id, which is already in the log, so it returns the same state without appending.
 
-**Modes** are conversation state. `set_mode` is `PERSON` only. The `AgentToken` our backend builds for each turn carries the mode (§2.4). Under Plan mode the server refuses `build_variant` for that conversation. Switching to Auto mode is the person's act, and `auto_start` under a token whose mode is not Auto is refused.
+**Modes** are conversation state. `set_mode` is `PERSON` only. The `AgentToken` carries only the conversation (§2.4). The server reads the mode from the conversation store at each call. Under Plan mode the server refuses `build_variant` for that conversation. Switching to Auto mode is the person's act, and `auto_start` in a conversation whose mode is not Auto is refused. A run's start record names the conversation that started it, and only that conversation, while in Auto mode, can revise, ask or restart it (ADR-0010, amendment). The person's Stop moves the conversation to Design.
 
 ### 2.6 Reads and streaming
 
@@ -232,6 +231,7 @@ GET  /v1/variants/{vid}/events                      SSE
 GET  /v1/geometry/{version}/{brep_sha256}.json      three-cad-viewer shapes, immutable, ETag
 POST /v1/projects/{pid}/answers                     PersonSession + CSRF
 PUT  /v1/conversations/{cid}/mode                   PersonSession
+POST /v1/auto/{run}/stop                            PersonSession; the run and the conversation's mode
 GET  /.well-known/oauth-protected-resource          RFC 9728 metadata naming Clerk
 POST /mcp                                           streamable HTTP MCP, AgentToken from a Clerk OAuth token
 ```

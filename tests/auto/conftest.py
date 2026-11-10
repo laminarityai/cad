@@ -17,7 +17,9 @@ from cad.confirmations import http
 from cad.confirmations.ballot import Desk
 from cad.confirmations.registry import kinds
 from cad.context_parts.ingest import ingest
-from cad.operations.model import Mode, Tenant
+from cad.conversations import store
+from cad.conversations.model import ConversationId, Mode
+from cad.operations.model import Tenant
 from cad.operations.registry import OPERATIONS
 from cad.operations.tools import tools
 from cad.records.roots import Roots
@@ -63,6 +65,7 @@ class Session:
     client: Client
     tenant: Tenant
     meter: Ledger
+    conversation: ConversationId
 
     async def call(self, tool: str, **arguments: Any) -> dict[str, Any]:
         result = await self.client.call_tool(tool, arguments)
@@ -99,6 +102,10 @@ class Session:
         return vid
 
     @property
+    def bound(self) -> Tenant:
+        return store.bind(self.tenant, self.conversation)
+
+    @property
     def roots(self) -> Roots:
         return self.tenant.roots
 
@@ -130,10 +137,13 @@ async def s(tmp_path: Path, meter: Ledger) -> AsyncIterator[Session]:
         roots=roots,
         variants=tmp_path / "variants",
         geometry=tmp_path / "geometry",
+        conversations=tmp_path / "conversations",
         desk=desk,
         ingest=ingest,
         meter=meter,
-        mode=Mode.AUTO,
     )
-    async with Client(MCPServer("cad", tools=tools(lambda: tenant, OPERATIONS))) as client:
-        yield Session(client, tenant, meter)
+    cid = ConversationId("c1")
+    store.set_mode(tenant, cid, Mode.AUTO)
+    served = tools(lambda: store.bind(tenant, cid), OPERATIONS)
+    async with Client(MCPServer("cad", tools=served)) as client:
+        yield Session(client, tenant, meter, cid)

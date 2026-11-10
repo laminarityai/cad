@@ -5,6 +5,7 @@ Bearer` header, so an agent's OAuth access token gets 401 here, as a session tok
 """
 
 import hashlib
+import json
 from collections.abc import Awaitable, Callable, Iterable, Mapping
 from dataclasses import dataclass
 from typing import Final, cast
@@ -36,6 +37,7 @@ type TenantOf = Callable[[AccountId], Tenant]
 class Served:
     path: str
     immutable: bool = False
+    method: str = "GET"
 
 
 def person_routes(
@@ -62,8 +64,13 @@ def person_route(served: Served, one: Operation, person_of: PersonOf, tenant_of:
         if person is None:
             return _error(401, "sign in: this route takes a Clerk session token", CHALLENGE)
         tenant = tenant_of(person.account)
+        sent = (
+            await _request_body(request) if served.method != "GET" else dict(request.query_params)
+        )
+        if sent is None:
+            return _error(422, "the request body is not a JSON object")
         try:
-            arguments = one.input.model_validate({**request.query_params, **request.path_params})
+            arguments = one.input.model_validate({**sent, **request.path_params})
         except ValidationError as error:
             return _error(422, str(error))
 
@@ -92,7 +99,7 @@ def person_route(served: Served, one: Operation, person_of: PersonOf, tenant_of:
             return Response(status_code=304, headers=headers)
         return Response(body, media_type="application/json", headers=headers)
 
-    return Route(served.path, endpoint, methods=["GET"], name=one.name)
+    return Route(served.path, endpoint, methods=[served.method], name=one.name)
 
 
 def _body(one: Operation, result: object) -> bytes:
@@ -108,6 +115,17 @@ def _matches(request: Request, etag: str) -> bool:
         for tag in request.headers.get("if-none-match", "").split(",")
     ]
     return "*" in asked or etag in asked
+
+
+async def _request_body(request: Request) -> dict[str, object] | None:
+    raw = await request.body()
+    if not raw.strip():
+        return {}
+    try:
+        parsed: object = json.loads(raw)
+    except ValueError:
+        return None
+    return cast(dict[str, object], parsed) if isinstance(parsed, dict) else None
 
 
 def session_token(request: Request) -> str:
