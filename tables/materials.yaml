@@ -29,7 +29,15 @@ materials:
         retrieved: 2026-11-08
         standard: ISO 527-1
         quote: Tensile Modulus [GPa] 2.3 ± 0.1 2.4 ± 0.1 ISO 527-1
-    poisson_ratio: unknown
+    poisson_ratio:
+      value: '0.35'
+      source:
+        url: https://pmc.ncbi.nlm.nih.gov/articles/PMC10096656/
+        title: Gaweł A. et al., Examination of Low-Cyclic Fatigue Tests and Poisson's Ratio Depending on the Different Infill Density of Polylactide (PLA) Produced by the Fused Deposition Modeling Method, Polymers 2023, 15(7), 1651, doi:10.3390/polym15071651, CC BY 4.0 (PubMed Central copy)
+        retrieved: 2026-11-10
+        standard: null
+        page: section 3.4, Table 1. Comparison of material factors calculated on the basis of Young's modulus and Poisson's ratio, row '100' (infill density, %); family value for plain PLA, measured on FDM-printed specimens (Spectrum PLA filament, 100% infill, EN ISO 3167 shape), not on Prusament PLA; no maker datasheet (Prusament, Bambu, NatureWorks) states a Poisson's ratio, and Machinery's Handbook Table 1 has no PLA row
+        quote: Poisson’s Ratio v Bulk Modulus K [MPa] Shear Modulus G [MPa] 100 2553 0.35
 
   - key: prusament-petg
     name: Prusament PETG

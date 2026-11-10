@@ -19,7 +19,7 @@ URL = "https://example.org/pla"
 QUOTE = "Poisson's ratio 0.36"
 
 
-def researched(key: str = "prusament-pla") -> MaterialsTable:
+def researched(key: str = "prusament-petg") -> MaterialsTable:
     record = ResearchedRecord(
         project="p-1",
         key=key,
@@ -35,7 +35,7 @@ def researched(key: str = "prusament-pla") -> MaterialsTable:
     return overlay(GIT, ProjectId("p-1"), Ledger((record,))).table
 
 
-def pending(table: MaterialsTable, key: str = "prusament-pla") -> PendingCheck:
+def pending(table: MaterialsTable, key: str = "prusament-petg") -> PendingCheck:
     reads = reads_of(FEA, build_request(key, table, (FEA,)))
     return PendingCheck(
         check_id="fea", formula=FEA.formula, sources=FEA.sources, version=FEA.version, reads=reads
@@ -46,12 +46,12 @@ def test_a_missing_material_value_on_a_pending_fea_asks_for_research() -> None:
     card = pending(GIT)
     assert card.reads[1] == ReadMissing(
         field="poisson_ratio",
-        reason="the materials table has no poisson_ratio for prusament-pla: it says unknown",
+        reason="the materials table has no poisson_ratio for prusament-petg: it says unknown",
     )
-    [request] = requests_on([card], "prusament-pla", GIT, "b-1")
+    [request] = requests_on([card], "prusament-petg", GIT, "b-1")
     assert (request.brief_id, request.key, request.field) == (
         "b-1",
-        "prusament-pla",
+        "prusament-petg",
         "poisson_ratio",
     )
     assert (request.unit, request.low, request.high) == ("dimensionless", 0.0, 0.5)
@@ -69,11 +69,11 @@ def test_a_researched_value_is_read_with_its_source_and_asks_for_nothing() -> No
         ReadResearched(field="poisson_ratio", url=URL, quote=QUOTE, sha256="ab" * 32),
         ReadCited(field="yield_strength"),
     )
-    assert requests_on([card], "prusament-pla", table, "b-1") == ()
+    assert requests_on([card], "prusament-petg", table, "b-1") == ()
 
 
 def test_without_a_brief_the_request_says_to_score_with_one() -> None:
-    [request] = requests_on([pending(GIT)], "prusament-pla", GIT, None)
+    [request] = requests_on([pending(GIT)], "prusament-petg", GIT, None)
     assert request.brief_id is None
     assert request.instruction.startswith("Score the variant again with a brief_id first")
 
@@ -110,7 +110,7 @@ def test_the_research_code_stays_out_of_every_check_version() -> None:
 def card_asking() -> ReportedScorecard:
     card = Scorecard(
         variant_id="0123456789abcdef",
-        material_key="prusament-pla",
+        material_key="prusament-petg",
         table_version=GIT.version,
         check_image_digest="sha256:" + "i" * 64,
         brep_sha256="b" * 64,

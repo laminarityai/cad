@@ -43,17 +43,17 @@ def table() -> MaterialsTable:
     return load_materials()
 
 
-def table_number(field: str, unit: str) -> pint.Quantity:
-    cited = getattr(table().get_material(KEY), field)
+def table_number(field: str, unit: str, key: str = KEY) -> pint.Quantity:
+    cited = getattr(table().get_material(key), field)
     assert isinstance(cited, Known)
     return UNITS.Quantity(cited.magnitude_in(unit), unit)
 
 
-def measures_of(spec: CheckSpec) -> tuple[Measure, ...]:
+def measures_of(spec: CheckSpec, key: str = KEY) -> tuple[Measure, ...]:
     return tuple(
         Measure(
             name=name,
-            value=table_number(spec.reads[name], unit)
+            value=table_number(spec.reads[name], unit, key)
             if name in spec.reads
             else UNITS.Quantity(1.0, unit),
         )
@@ -61,12 +61,12 @@ def measures_of(spec: CheckSpec) -> tuple[Measure, ...]:
     )
 
 
-def genuine_result(spec: CheckSpec) -> CheckResult:
-    rows = tuple(getattr(table().get_material(KEY), field).source for field in spec.reads.values())
+def genuine_result(spec: CheckSpec, key: str = KEY) -> CheckResult:
+    rows = tuple(getattr(table().get_material(key), field).source for field in spec.reads.values())
     return CheckResult(
         check_id=spec.id,
         verdict=Verdict.PASS,
-        measured=measures_of(spec),
+        measured=measures_of(spec, key),
         formula=spec.formula,
         reason="ok",
         sources=(*spec.sources, *rows),
@@ -74,15 +74,15 @@ def genuine_result(spec: CheckSpec) -> CheckResult:
     )
 
 
-def genuine_card(**changes: object) -> Scorecard:
+def genuine_card(key: str = KEY, **changes: object) -> Scorecard:
     card = Scorecard(
         variant_id=VARIANT_ID,
-        material_key=KEY,
+        material_key=key,
         table_version=table().version,
         check_image_digest="sha256:" + "i" * 64,
         brep_sha256=BREP_SHA,
         step=StepStored(sha256=STEP_SHA),
-        results=tuple(genuine_result(spec) for spec in QUICK),
+        results=tuple(genuine_result(spec, key) for spec in QUICK),
         basis=NoBrief(),
     )
     return card.model_copy(update=changes)
