@@ -18,7 +18,7 @@ from cad.confirmations.ballot import Desk
 from cad.confirmations.registry import kinds
 from cad.context_parts.ingest import ingest
 from cad.conversations import store
-from cad.conversations.model import ConversationId, Mode
+from cad.conversations.model import Conversation, ConversationId, Mode
 from cad.operations.model import Tenant
 from cad.operations.registry import OPERATIONS
 from cad.operations.tools import tools
@@ -83,6 +83,23 @@ class Session:
 
     def run(self, run_id: str) -> AutoRun:
         return read_run(self.roots, run_id)
+
+    async def left_auto(self, brief_id: str, run_id: str) -> None:
+        """The run stopped, so the conversation is in Design, and the agent cannot start another
+        run on the brief, or drive the stopped one, until the person picks Auto."""
+        assert store.read(self.tenant.conversations, self.conversation) == Conversation(
+            mode=Mode.DESIGN
+        )
+        for _ in range(2):
+            text = await self.refusal("auto_start", brief_id=brief_id, material_key="prusament-pla")
+            assert "this caller's mode is design" in text, text
+            text = await self.refusal("auto_revise", run_id=run_id, code="result = None")
+            assert f"RunNotHeld: auto run {run_id} is not this conversation's" in text, text
+            text = await self.refusal("auto_ask", run_id=run_id, note="again")
+            assert f"RunNotHeld: auto run {run_id} is not this conversation's" in text, text
+        store.set_mode(self.tenant, self.conversation, Mode.AUTO)
+        again = await self.start(brief_id=brief_id, material_key="prusament-pla")
+        assert again.run_id != run_id
 
     async def confirmed(self, text: str, *requirements: dict[str, Any]) -> str:
         brief = await self.call("create_brief", text=text)

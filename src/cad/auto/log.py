@@ -62,6 +62,9 @@ def create_run(roots: Roots, run_id: str, started: Started) -> None:
 
 
 def append_event(roots: Roots, run_id: str, make: Make) -> AutoRun:
+    if not exists(roots, run_id):
+        raise UnknownRun(f"no auto run {run_id} is stored")
+
     def record_for(existing: tuple[bytes, ...]) -> bytes | None:
         events = _parse(existing)
         if events is None:
@@ -77,7 +80,6 @@ def append_event(roots: Roots, run_id: str, make: Make) -> AutoRun:
 
 
 def stop_by_person(roots: Roots, run_id: str) -> AutoRun:
-    read_events(roots, run_id)
     return append_event(roots, run_id, lambda _: PersonStopped())
 
 
