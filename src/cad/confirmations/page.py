@@ -44,6 +44,14 @@ STYLE: Final = (
     "button{font-size:1rem;margin:.5rem .5rem 0 0;padding:.5rem 1.25rem;border-radius:6px;"
     "border:1px solid #888;background:#fff}button[value=confirm]{background:#1d6f42;color:#fff;"
     "border-color:#1d6f42}.decline{margin:-.75rem 0 1.25rem 1.25rem}"
+    "@media (prefers-color-scheme:dark){:root{color-scheme:dark}"
+    "body{color:#dfe5e3;background:#0d1012}.lead,.check{color:#a3adb0}"
+    ".item{background:#14181b;border-color:#2c3438}"
+    "blockquote{background:#191e22;border-left-color:#6c777b}"
+    ".warning{background:#2b2210;border-color:#f0b44a}"
+    "textarea,.change input{color:#dfe5e3;background:#14181b;border:1px solid #6c777b}"
+    "button{color:#dfe5e3;background:#191e22;border-color:#6c777b}"
+    "button[value=confirm]{background:#5cc68b;color:#0d1012;border-color:#5cc68b}}"
 )
 
 
