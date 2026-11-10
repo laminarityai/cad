@@ -66,7 +66,6 @@ def build_into_set(
 def _drop_replaced(
     root: Path, key: SetKey, variants_root: Path, joined: Joined, lanes: Lanes
 ) -> None:
-    """The revision this one replaced no longer needs its checks, so its queued jobs are dropped."""
     member = next((m for m in members(root, key) if m.slot == joined.slot), None)
     if member is None or len(member.revisions) < 2:
         return

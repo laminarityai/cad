@@ -17,8 +17,6 @@ OTHER = "fedcba9876543210"
 
 
 class Heard:
-    """What a listener sees: each job that finished, and whether its result was already stored."""
-
     def __init__(self) -> None:
         self.jobs: list[JobSpec] = []
         self.stored: list[bool] = []
@@ -117,7 +115,6 @@ def test_an_unsubscribed_listener_hears_nothing_more_and_unsubscribing_twice_is_
 def queue_behind_a_running_job(
     tmp_path: Path, runner: GatedRunner, lanes: Lanes
 ) -> tuple[JobSpec, JobSpec]:
-    """The worker holds the first background job at its gate, so the second waits in the queue."""
     runner.background.gate.clear()
     first, second = job(tmp_path, FEA), other_variant(tmp_path)
     lanes.settle(Plan(quick=job(tmp_path), background=(first,)), 0)

@@ -43,9 +43,7 @@ QUERY = b"material_key=prusament-pla"
 SOON = 2.0
 
 
-class Lanes:
-    """Stands in for `Lanes`: the test rings the bell a finished job would ring."""
-
+class Announcer:
     def __init__(self) -> None:
         self.listeners: list[Listener] = []
 
@@ -58,9 +56,7 @@ class Lanes:
             listener(job)
 
 
-class Store:
-    """What the scorecard operation would read: a card that the test replaces."""
-
+class FakeScorecard:
     def __init__(self) -> None:
         self.card: ScorecardSnapshot | Exception = NotScored(VID)
         self.reads = 0
@@ -76,9 +72,7 @@ class Store:
         return self.card
 
 
-class Open:
-    """One response read off the ASGI app as it is sent."""
-
+class StreamedResponse:
     def __init__(self, messages: anyio.abc.ObjectReceiveStream[MutableMapping[str, Any]]) -> None:
         self._messages = messages
         self._text = ""
@@ -92,7 +86,6 @@ class Open:
         self.headers = {k.decode(): v.decode() for k, v in start["headers"]}
 
     async def frame(self, within: float = SOON) -> str | None:
-        """The next frame, or None when none arrives within `within` seconds."""
         with anyio.move_on_after(within):
             while "\n\n" not in self._text:
                 message = await self._messages.receive()
@@ -102,7 +95,6 @@ class Open:
         return None
 
     async def whole(self) -> str:
-        """The body of a response that ends, as a refusal does."""
         with anyio.fail_after(SOON):
             while True:
                 message = await self._messages.receive()
@@ -122,7 +114,9 @@ class Open:
 
 
 @asynccontextmanager
-async def opened(app: Starlette, token: str = "ok", path: str = PATH) -> AsyncGenerator[Open]:
+async def opened(
+    app: Starlette, token: str = "ok", path: str = PATH
+) -> AsyncGenerator[StreamedResponse]:
     sent, received = anyio.create_memory_object_stream[MutableMapping[str, Any]](100)
     gone = anyio.Event()
 
@@ -146,7 +140,7 @@ async def opened(app: Starlette, token: str = "ok", path: str = PATH) -> AsyncGe
     }
     async with anyio.create_task_group() as group:
         group.start_soon(app, scope, receive, sent.send)
-        response = Open(received)
+        response = StreamedResponse(received)
         await response.start()
         try:
             yield response
@@ -171,7 +165,11 @@ def tenant(tmp_path: Path) -> Tenant:
 
 
 def app_of(
-    tenant: Tenant, lanes: Lanes, store: Store, hooked: bool = True, signed_in: str = "ok"
+    tenant: Tenant,
+    lanes: Announcer,
+    store: FakeScorecard,
+    hooked: bool = True,
+    signed_in: str = "ok",
 ) -> Starlette:
     def person(token: str) -> PersonSession | None:
         return PersonSession(account=ALICE, session_id="sess") if token == signed_in else None
@@ -183,9 +181,9 @@ def app_of(
 async def test_a_stream_opens_with_the_card_as_it_stands_and_the_etag_as_its_id(
     tenant: Tenant,
 ) -> None:
-    store = Store()
+    store = FakeScorecard()
     first = store.becomes("prusament-pla")
-    async with opened(app_of(tenant, Lanes(), store)) as stream:
+    async with opened(app_of(tenant, Announcer(), store)) as stream:
         assert stream.status == 200
         assert stream.headers["content-type"].startswith("text/event-stream")
         assert stream.headers["cache-control"] == "no-store"
@@ -196,7 +194,7 @@ async def test_a_stream_opens_with_the_card_as_it_stands_and_the_etag_as_its_id(
 async def test_each_job_that_stores_a_result_sends_the_whole_card_it_changed(
     tenant: Tenant,
 ) -> None:
-    store, lanes = Store(), Lanes()
+    store, lanes = FakeScorecard(), Announcer()
     pending = store.becomes("prusament-pla")
     async with opened(app_of(tenant, lanes, store)) as stream:
         assert (await stream.card()) is not None
@@ -209,7 +207,7 @@ async def test_each_job_that_stores_a_result_sends_the_whole_card_it_changed(
 
 
 async def test_a_finished_job_that_changed_nothing_sends_no_second_copy(tenant: Tenant) -> None:
-    store, lanes = Store(), Lanes()
+    store, lanes = FakeScorecard(), Announcer()
     store.becomes("prusament-pla")
     async with opened(app_of(tenant, lanes, store)) as stream:
         assert (await stream.card()) is not None
@@ -220,7 +218,7 @@ async def test_a_finished_job_that_changed_nothing_sends_no_second_copy(tenant: 
 async def test_a_job_of_another_variant_or_another_account_does_not_wake_the_stream(
     tenant: Tenant, tmp_path: Path
 ) -> None:
-    store, lanes = Store(), Lanes()
+    store, lanes = FakeScorecard(), Announcer()
     store.becomes("prusament-pla")
     async with opened(app_of(tenant, lanes, store)) as stream:
         assert (await stream.card()) is not None
@@ -235,7 +233,7 @@ async def test_a_job_of_another_variant_or_another_account_does_not_wake_the_str
 async def test_a_variant_nobody_scored_yet_holds_the_stream_open_and_sends_its_first_card(
     tenant: Tenant,
 ) -> None:
-    store, lanes = Store(), Lanes()
+    store, lanes = FakeScorecard(), Announcer()
     async with opened(app_of(tenant, lanes, store)) as stream:
         assert stream.status == 200
         assert await stream.frame(0.3) is None
@@ -249,7 +247,7 @@ async def test_a_variant_nobody_scored_yet_holds_the_stream_open_and_sends_its_f
 async def test_with_the_hook_off_the_card_still_arrives_by_the_half_second_read(
     tenant: Tenant,
 ) -> None:
-    store, lanes = Store(), Lanes()
+    store, lanes = FakeScorecard(), Announcer()
     store.becomes("prusament-pla")
     async with opened(app_of(tenant, lanes, store, hooked=False)) as stream:
         assert (await stream.card()) is not None
@@ -261,7 +259,7 @@ async def test_with_the_hook_off_the_card_still_arrives_by_the_half_second_read(
 
 
 async def test_the_stream_stops_listening_when_the_client_goes(tenant: Tenant) -> None:
-    store, lanes = Store(), Lanes()
+    store, lanes = FakeScorecard(), Announcer()
     store.becomes("prusament-pla")
     async with opened(app_of(tenant, lanes, store)) as stream:
         assert (await stream.card()) is not None
@@ -274,7 +272,7 @@ async def test_the_stream_stops_listening_when_the_client_goes(tenant: Tenant) -
 async def test_a_variant_of_another_account_is_not_found_and_sends_no_card(
     tenant: Tenant,
 ) -> None:
-    store, lanes = Store(), Lanes()
+    store, lanes = FakeScorecard(), Announcer()
     store.card = UnknownVariant(VID)
     async with opened(app_of(tenant, lanes, store)) as stream:
         assert stream.status == 404
@@ -287,8 +285,8 @@ async def test_a_variant_of_another_account_is_not_found_and_sends_no_card(
 async def test_a_request_without_a_person_session_is_refused_before_anything_is_read(
     tenant: Tenant,
 ) -> None:
-    store = Store()
-    async with opened(app_of(tenant, Lanes(), store), token="an agent token") as stream:
+    store = FakeScorecard()
+    async with opened(app_of(tenant, Announcer(), store), token="an agent token") as stream:
         assert stream.status == 401
         assert "sign in" in await stream.whole()
     assert store.reads == 0
@@ -297,7 +295,7 @@ async def test_a_request_without_a_person_session_is_refused_before_anything_is_
 async def test_a_card_whose_variant_turns_out_unreadable_ends_the_stream_with_a_refusal(
     tenant: Tenant,
 ) -> None:
-    store, lanes = Store(), Lanes()
+    store, lanes = FakeScorecard(), Announcer()
     store.becomes("prusament-pla")
     async with opened(app_of(tenant, lanes, store)) as stream:
         assert (await stream.card()) is not None

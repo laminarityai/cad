@@ -133,15 +133,14 @@ class Lanes:
             future = Future[JobResult]()
             self._flying[path] = future
             if isinstance(job.budget, Background):
-                self._enqueue(job, future)
+                self._enqueue_locked(job, future)
         if isinstance(job.budget, Quick):
             self._fly(job, future)
         return future
 
     def _fly(self, job: JobSpec, future: Future[JobResult]) -> None:
         """The Future leaves _flying in the same lock that settles it, so a caller woken by it
-        never takes it off again: a failed job then runs again, and a done one reads the store.
-        Listeners hear of a job after its result is stored and its Future is settled."""
+        never takes it off again: a failed job then runs again, and a done one reads the store."""
         try:
             result = self._attempt(job)
             job_store.write(job, result)
@@ -171,10 +170,9 @@ class Lanes:
         finally:
             job_store.end_attempt(job)
 
-    def _enqueue(self, job: JobSpec, future: Future[JobResult]) -> None:
-        """Called with the lock held, in the lock that put the job in _flying, so a drop never
-        sees a flying job that is not yet queued. The job runs in a copy of the caller's context,
-        so its container is charged to the caller's account."""
+    def _enqueue_locked(self, job: JobSpec, future: Future[JobResult]) -> None:
+        """The job runs in a copy of the caller's context, so its container is charged to the
+        caller's account."""
         self._queue.append((contextvars.copy_context(), job, future))
         self._wake.notify()
         if self._worker is None:

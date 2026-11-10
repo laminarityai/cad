@@ -116,7 +116,7 @@ Settle(p, j, r) ==
 
 \* _take_off(fea): job_store.read, the _flying lookup, _interrupted_too_often, the new Future, the
 \* _queue append and the `_worker is None` check, all in one `with self._lock:`. The queued job
-\* carries the number of replacements so far, which is what Replace and QueuedIsCurrent compare.
+\* carries the number of replacements so far, which QueuedIsCurrent compares with replaces.
 FeaTakeOff(t) ==
     LET p == t[1] IN
     /\ cpc[t] = "idle"
@@ -197,7 +197,7 @@ SettleQuick(t) ==
                    seen, crashes, faults, tampers, cut, replaces, told>>
 
 \* _fly: the listeners, after `with self._lock:` and outside it, on the thread that ran the job.
-\* They see the store as it is then. A listener that raises is swallowed, so it changes nothing.
+\* They see the store as it is then. A listener that raises is logged, so it changes nothing.
 \* A failed run skips them (SettleQuick sends it to idle).
 NotifyQuick(t) ==
     LET p == t[1] IN

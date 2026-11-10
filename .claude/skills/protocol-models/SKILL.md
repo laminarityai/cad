@@ -67,7 +67,7 @@ How the model maps to the code:
 | Model | Code |
 | --- | --- |
 | `FeaTakeOff`, `QuickTakeOff` | `Lanes._take_off`: `job_store.read`, flying lookup, `_interrupted_too_often`, new `Future`, all under `_lock` |
-| `FeaTakeOff` (queue branch) | `Lanes._enqueue`, called inside the take-off lock: `_queue.append`, `_wake.notify`, and `_start_worker` when `_worker is None`. The model has no separate enqueue step, because the code has none: a drop cannot fall between take-off and append |
+| `FeaTakeOff` (queue branch) | `Lanes._enqueue_locked`, called inside the take-off lock: `_queue.append`, `_wake.notify`, and `_start_worker` when `_worker is None`. The model has no separate enqueue step, because the code has none: a drop cannot fall between take-off and append |
 | `Replace(p)` | `Lanes.drop_unstarted`, which `build_into_set` calls when a newer revision takes a variant's slot: under `_lock`, every queued job of the variant leaves `_queue` and `_flying`, and its `Future` gets `Superseded`. A job a worker already took is not in the queue and runs on. `replaces[p]` is ghost: each queued job carries the count at take-off, which `QueuedIsCurrent` compares. It is per process because a drop reaches only its own process's queue |
 | `NotifyQuick`, `WorkerNotify` | `Lanes._fly` after `set_result`: the listeners run on the thread that ran the job, outside `_lock`. A listener that raises is logged and swallowed, so the model has no step for it. `told` is ghost: what the listener saw of the store |
 | `RunQuick`, `WriteQuick`, `SettleQuick` | `Lanes._fly` on the caller thread for the quick job |

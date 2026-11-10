@@ -6,9 +6,6 @@ result wakes the stream, so a card turns from pending to done at once. A slower 
 beside it, for what no job announces (a confirmation, a researched value), and as the only path
 when the hook is switched off. A variant nobody has scored yet is not refused: the stream stays
 open and sends nothing until its first check stores a result.
-
-The route is the scorecard operation's read, kept open. It is not a registry operation, because
-an operation returns once.
 """
 
 import asyncio
@@ -54,8 +51,6 @@ class Announces(Protocol):
 
 
 class Wake:
-    """One open stream's bell, rung by `Lanes` from the thread that ran a job."""
-
     def __init__(self, tenant: Tenant, variant_id: str) -> None:
         self._loop = asyncio.get_running_loop()
         self._bell = asyncio.Event()
