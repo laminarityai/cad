@@ -46,7 +46,7 @@ def ask(
     *,
     value: float = 0.36,
     unit: str = "",
-    key: str = "prusament-pla",
+    key: str = "prusament-petg",
     field: Field = "poisson_ratio",
     fetcher: Fetch | None = None,
     project: ProjectId | None = None,
@@ -69,12 +69,12 @@ def test_a_quote_on_the_page_fills_the_unknown_field_for_that_project_only(roots
     assert isinstance(answer, ResearchAccepted)
     assert (answer.value, answer.record) == (0.36, 1)
     filled = table_of(roots, pid)
-    value = filled.get_material("prusament-pla").poisson_ratio
+    value = filled.get_material("prusament-petg").poisson_ratio
     assert isinstance(value, Known)
     assert value.basis == FromResearch("ab" * 32, 1)
     assert (value.source.url, value.source.quote) == (URL, "Poisson's ratio 0.36")
     assert filled.version == f"{GIT.version}+{pid}@r1"
-    assert isinstance(table_of(roots, other).get_material("prusament-pla").poisson_ratio, Unknown)
+    assert isinstance(table_of(roots, other).get_material("prusament-petg").poisson_ratio, Unknown)
     assert table_of(roots, other).version == GIT.version
 
 
@@ -209,7 +209,7 @@ def test_a_researched_value_is_never_replaced_by_another_reading(roots: Roots) -
     assert isinstance(again, ResearchRefused)
     assert "already has a researched poisson_ratio" in again.reason
     assert again.request is None
-    held = table_of(roots, pid).get_material("prusament-pla").poisson_ratio
+    held = table_of(roots, pid).get_material("prusament-petg").poisson_ratio
     assert isinstance(held, Known)
     assert held.magnitude_in("dimensionless") == 0.36
 

@@ -18,7 +18,7 @@ from cad.scorecard.model import Basis, NoBrief, PendingCheck, Scorecard
 from cad.tables.materials import load_materials
 from cad.variants.entry import Entry, VariantId
 
-POISSON_UNKNOWN = "the materials table has no poisson_ratio for prusament-pla: it says unknown"
+POISSON_UNKNOWN = "the materials table has no poisson_ratio for prusament-petg: it says unknown"
 
 PLATE = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
 PLATE_SHELL = PLATE + "from build123d import Shell\nresult = Shell(result.faces()[:-1])\n"
@@ -88,7 +88,7 @@ def background_plan(root: Path) -> Plan:
     held = Entry(VariantId("0123456789abcdef"), root, b"brep", "b" * 64)
     table = load_materials()
     demand = jobs.Demand(loads={"c1": CASE})
-    return jobs.plan(root, held, build_request("prusament-pla", table), table, demand)
+    return jobs.plan(root, held, build_request("prusament-petg", table), table, demand)
 
 
 def quick_result() -> JobResult:
