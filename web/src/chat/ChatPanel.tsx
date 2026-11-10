@@ -49,7 +49,7 @@ function Composer({ chat }: { chat: Conversation }) {
         aria-label="Message to the agent"
         value={text}
         rows={2}
-        placeholder={state.mode === "plan" ? "Describe what you need" : "Ask for a change, such as: make the wall 4 mm"}
+        placeholder={chat.mode === "plan" ? "Describe what you need" : "Ask for a change, such as: make the wall 4 mm"}
         onChange={(event) => {
           setText(event.target.value);
         }}
@@ -57,7 +57,7 @@ function Composer({ chat }: { chat: Conversation }) {
         className="w-full resize-none border border-border bg-panel-2 px-2.5 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
       />
       <div className="flex items-center justify-between gap-2">
-        <ModePicker mode={state.mode} onPick={(mode) => void chat.pick(mode)} />
+        <ModePicker mode={chat.mode} onPick={(mode) => void chat.pick(mode)} />
         <Button type="submit" variant="accent" size="sm" disabled={blocked || text.trim() === ""}>
           Send
         </Button>
@@ -89,7 +89,7 @@ export function ChatPanel({ chat }: { chat: Conversation }) {
         <div role="log" aria-live="polite" aria-label="Conversation" className="flex min-h-0 flex-1 flex-col gap-2.5 overflow-y-auto p-2.5 text-[13px]">
           {state.lines.length === 0 ? (
             <p className="text-xs text-ink-2">
-              {state.mode === "plan" || state.mode === null
+              {chat.mode === "plan" || chat.mode === null
                 ? "Start in Plan: say what you need and the agent proposes requirements for you to confirm."
                 : "Ask for a change and the agent rebuilds the variant here."}
             </p>

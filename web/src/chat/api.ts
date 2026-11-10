@@ -1,5 +1,5 @@
 import { requestJson } from "@/api/client";
-import type { ConversationCreated, ConversationState, Event, Mode, MessageSent, PersonStop } from "@/api/types";
+import type { ConversationCreated, ConversationState, ConversationView, Event, Mode, MessageSent, PersonStop } from "@/api/types";
 import { FrameReader } from "./sse";
 
 export type Link = "connecting" | "live" | "reconnecting" | "signed_out" | "not_found";
@@ -10,7 +10,10 @@ export interface Follower {
 }
 
 export interface ChatApi {
-  create(): Promise<ConversationCreated>;
+  /** A conversation about one brief, so the agent knows the project and brief the page shows. */
+  create(projectId: string, briefId: string): Promise<ConversationCreated>;
+  /** The conversation's mode and latest Auto run, as the server holds them. */
+  read(conversationId: string): Promise<ConversationView>;
   send(conversationId: string, text: string): Promise<MessageSent>;
   setMode(conversationId: string, mode: Mode): Promise<ConversationState>;
   stop(runId: string): Promise<PersonStop>;
@@ -80,7 +83,8 @@ async function follow(conversationId: string, handlers: Follower, signal: AbortS
 }
 
 export const httpChat: ChatApi = {
-  create: () => requestJson("POST", "/v1/conversations", {}),
+  create: (projectId, briefId) => requestJson("POST", "/v1/conversations", { project_id: projectId, brief_id: briefId }),
+  read: (conversationId) => requestJson("GET", `/v1/conversations/${enc(conversationId)}`),
   send: (conversationId, text) => requestJson("POST", `/v1/conversations/${enc(conversationId)}/messages`, { text }),
   setMode: (conversationId, mode) => requestJson("PUT", `/v1/conversations/${enc(conversationId)}/mode`, { mode }),
   stop: (runId) => requestJson("POST", `/v1/auto/${enc(runId)}/stop`),

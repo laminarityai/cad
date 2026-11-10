@@ -17,18 +17,15 @@ export const FOLLOW_MS = 2000;
 export function SetPage() {
   const { api } = useServices();
   const { projectId = "", briefId = "" } = useParams();
-  const [rebuilds, rebuilt] = useState(0);
-  const chat = useConversation(projectId, briefId, () => {
-    rebuilt((n) => n + 1);
-  });
-  const loaded = useResource(async () => {
+  const { resource: loaded, reload } = useResource(async () => {
     const [set, brief, materials] = await Promise.all([
       api.variantSet(projectId, briefId),
       api.brief(briefId),
       api.materials(),
     ]);
     return { set, brief, materials: materials.materials };
-  }, `set:${projectId}:${briefId}`, FOLLOW_MS, rebuilds);
+  }, `set:${projectId}:${briefId}`, FOLLOW_MS);
+  const chat = useConversation(projectId, briefId, reload);
   const [picked, pick] = useState<string | null>(null);
   return (
     <>
@@ -59,7 +56,7 @@ export function SetPage() {
               material={material}
               chosenBy={pinned !== null ? "brief" : picked !== null ? "person" : "default"}
               onPick={pick}
-              run={<RunStatus mode={chat.state.mode} run={chat.state.run} onStop={() => void chat.stop()} />}
+              run={<RunStatus mode={chat.mode} run={chat.run} onStop={() => void chat.stop()} />}
               chat={<ChatPanel chat={chat} />}
             />
           );

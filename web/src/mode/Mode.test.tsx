@@ -1,16 +1,16 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ServicesProvider } from "@/app/context";
-import { save } from "@/chat/saved";
 import { SetPage } from "@/features/set/SetPage";
-import { FakeChat, FakeEvents, FakeViewer, fakeApi, runningRun } from "@/test/fakes";
+import { CONVERSATION_FOLLOW_MS } from "@/chat/useConversation";
+import { FakeChat, FakeEvents, FakeViewer, fakeApi, runningRun, stoppedRun } from "@/test/fakes";
 import type { Mode } from "@/api/types";
 import { nextMode } from "./modes";
 
 function mount(chat: FakeChat, mode: Mode | null = null) {
-  if (mode !== null) save("c_new", { mode, run: null, seen: 0 });
+  if (mode !== null) chat.mode = mode;
   return render(
     <ServicesProvider services={{ api: fakeApi(["v1"]), events: new FakeEvents(), viewer: new FakeViewer(), chat }}>
       <MemoryRouter initialEntries={["/projects/p1/briefs/b1?chat=c_new"]}>
@@ -31,6 +31,7 @@ async function choose(label: "Plan" | "Design" | "Auto") {
 
 function autoRunning(chat: FakeChat) {
   chat.mode = "auto";
+  chat.autoRun = runningRun(2);
   chat.say({ kind: "tool_call", call_id: "a", name: "auto_start", input: {} });
   chat.say({ kind: "tool_result", call_id: "a", text: JSON.stringify(runningRun(2)), is_error: false });
 }
@@ -48,9 +49,12 @@ describe("mode switcher", () => {
     });
   });
 
-  it("shows the mode the server answered, not the one asked for", async () => {
+  it("shows the mode the server holds, not the one asked for", async () => {
     const chat = new FakeChat();
-    chat.setMode.mockResolvedValueOnce({ conversation_id: "c_new", mode: "design", auto_run: null });
+    chat.setMode.mockImplementationOnce((conversationId: string) => {
+      chat.mode = "design";
+      return Promise.resolve({ conversation_id: conversationId, mode: "design", auto_run: null });
+    });
     mount(chat);
     await choose("Auto");
     await waitFor(async () => {
@@ -112,7 +116,7 @@ describe("Auto run status", () => {
     autoRunning(chat);
     mount(chat, "auto");
     await screen.findByRole("button", { name: "Stop" });
-    chat.say({ kind: "stop_report", run_id: "run_1", reason: "all_pass", report: "Every checked requirement passes." });
+    chat.stopsItself("all_pass", "Every checked requirement passes.");
     await waitFor(() => {
       expect(screen.getByRole("region", { name: "Auto run" })).toHaveTextContent("Stopped · every checked requirement passes");
     });
@@ -125,7 +129,7 @@ describe("Auto run status", () => {
     const first = mount(chat, "auto");
     autoRunning(chat);
     await screen.findByRole("button", { name: "Stop" });
-    chat.say({ kind: "stop_report", run_id: "run_1", reason: "needs_person", report: "A requirement waits on you." });
+    chat.stopsItself("needs_person", "A requirement waits on you.");
     await waitFor(async () => {
       expect(await picker()).toHaveAttribute("data-mode", "design");
     });
@@ -138,6 +142,29 @@ describe("Auto run status", () => {
     expect(screen.getByRole("region", { name: "Auto run" })).toHaveTextContent("Stopped · it needs you");
     await choose("Auto");
     expect(chat.modes).toEqual(["auto"]);
+    await waitFor(() => {
+      expect(screen.getByRole("region", { name: "Auto run" })).toHaveTextContent("No run yet");
+    });
+  });
+
+  it("shows a stop pressed in another tab within one follow, with no reload", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const chat = new FakeChat();
+      autoRunning(chat);
+      mount(chat, "auto");
+      await screen.findByRole("button", { name: "Stop" });
+      chat.mode = "design";
+      chat.autoRun = stoppedRun("run_1", "stopped_by_person", "You stopped the run.");
+      await act(() => vi.advanceTimersByTimeAsync(CONVERSATION_FOLLOW_MS));
+      await waitFor(() => {
+        expect(screen.getByRole("region", { name: "Auto run" })).toHaveTextContent("Stopped · you stopped it");
+      });
+      expect(await picker()).toHaveAttribute("data-mode", "design");
+      expect(screen.queryByRole("button", { name: "Stop" })).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("shows the run and its Stop button on the chat tab of a narrow screen", async () => {

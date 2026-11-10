@@ -79,9 +79,11 @@ describe("chat on the set page", () => {
   it("makes the conversation on the first message and puts its id in the address", async () => {
     const { chat } = mount();
     await userEvent.setup().type(await screen.findByRole("textbox", { name: /message/i }), "hi{Enter}");
-    expect(chat.create).toHaveBeenCalledTimes(1);
+    expect(chat.create).toHaveBeenCalledExactlyOnceWith("p1", "b1");
     expect(chat.send).toHaveBeenCalledWith("c_new", "hi");
-    expect(screen.getByTestId("where")).toHaveTextContent("?chat=c_new");
+    await waitFor(() => {
+      expect(screen.getByTestId("where")).toHaveTextContent("?chat=c_new");
+    });
     expect(await screen.findByText("hi")).toBeInTheDocument();
   });
 
