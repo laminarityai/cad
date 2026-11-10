@@ -8,11 +8,11 @@ from pathlib import Path
 from typing import Final
 
 from cad.auto import log
-from cad.auto.model import AutoRun, Running, RunRefused, UnknownRun
+from cad.auto.model import AutoRun, PersonStopped, Running, RunRefused, Stopped, UnknownRun
 from cad.conversations.model import Conversation, ConversationId, Mode
 from cad.operations.model import Tenant
 
-_LOCK: Final = threading.Lock()
+_LOCK: Final = threading.RLock()
 
 
 def read(directory: Path, cid: ConversationId) -> Conversation:
@@ -39,15 +39,23 @@ def set_mode(tenant: Tenant, cid: ConversationId, mode: Mode) -> Conversation:
         return _switch(tenant, cid, mode)
 
 
-def stop_by_person(tenant: Tenant, run_id: str) -> tuple[AutoRun, Conversation]:
-    cid = log.read_run(tenant.roots, run_id).state.start.conversation
+def record_event(tenant: Tenant, run_id: str, make: log.Make) -> AutoRun:
+    """Every record of a run goes through here. A run that is stopped after it, by any reason,
+    takes its conversation out of Auto mode, to Design, when it is the conversation's current
+    run (ADR-0010). It also does so for a run already stopped, so a crash between the stop and
+    the write heals on the next call. A stopped earlier run leaves a conversation that moved on."""
     with _LOCK:
-        held = read(tenant.conversations, cid)
-        if held.auto_run == run_id:
-            held = _switch(tenant, cid, Mode.DESIGN)
-        else:
-            log.stop_by_person(tenant.roots, run_id)
-    return log.read_run(tenant.roots, run_id), held
+        run = log.append_event(tenant.roots, run_id, make)
+        if isinstance(run.state, Stopped):
+            cid = run.state.start.conversation
+            if read(tenant.conversations, cid).auto_run == run_id:
+                _write(tenant.conversations, cid, Conversation(mode=Mode.DESIGN))
+        return run
+
+
+def stop_by_person(tenant: Tenant, run_id: str) -> tuple[AutoRun, Conversation]:
+    run = record_event(tenant, run_id, lambda _: PersonStopped())
+    return run, read(tenant.conversations, run.state.start.conversation)
 
 
 def start_run(
@@ -58,6 +66,12 @@ def start_run(
         if held.mode is not Mode.AUTO:
             raise RunRefused(f"the person switched this conversation to {held.mode} mode")
         current = None if held.auto_run is None else _read_if_known(tenant, held.auto_run)
+        if current is not None and isinstance(current.state, Stopped):
+            _write(tenant.conversations, cid, Conversation(mode=Mode.DESIGN))
+            raise RunRefused(
+                f"auto run {current.run_id} has stopped, so this conversation moved to Design "
+                "mode; only the person can start a new Auto run"
+            )
         if (
             current is not None
             and isinstance(current.state, Running)
@@ -68,7 +82,12 @@ def start_run(
                 f"{current.state.start.brief_id}; call auto_ask to stop it first"
             )
         run = open_under_lock()
-        _write(tenant.conversations, cid, Conversation(mode=Mode.AUTO, auto_run=run.run_id))
+        held = (
+            Conversation(mode=Mode.AUTO, auto_run=run.run_id)
+            if isinstance(run.state, Running)
+            else Conversation(mode=Mode.DESIGN)
+        )
+        _write(tenant.conversations, cid, held)
         return run
 
 
