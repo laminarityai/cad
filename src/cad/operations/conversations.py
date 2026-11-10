@@ -22,8 +22,9 @@ SET_MODE = (
 
 CONVERSATION = (
     "One conversation of the signed-in person: its mode, the project and brief it was started "
-    "on, and its Auto run while it is in Auto mode. The web app reads it on load, when the tab "
-    "comes back into view and after each turn, so a Stop pressed in another tab shows here."
+    "on, and the latest Auto run it started, running or stopped with its reason. The web app "
+    "reads it on load, when the tab comes back into view, after each turn and every few seconds "
+    "while it is open, so a Stop pressed in another tab shows here."
 )
 
 
@@ -64,7 +65,7 @@ def conversation(tenant: Tenant, arguments: ConversationInput) -> ConversationVi
         auto_run=held.auto_run,
         project_id=held.project_id,
         brief_id=held.brief_id,
-        run=store.current_run(tenant, held),
+        run=store.last_run(tenant, held),
     )
 
 

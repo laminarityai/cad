@@ -65,9 +65,7 @@ async def test_a_conversation_started_on_a_brief_names_it_to_the_agent(
     assert "variant_set" in system and "variant_code" in system
 
 
-async def test_a_conversation_without_a_brief_names_none(
-    chat: Chat, recording: Recording
-) -> None:
+async def test_a_conversation_without_a_brief_names_none(chat: Chat, recording: Recording) -> None:
     async with chat.client() as client:
         cid = await chat.conversation(client)
         await chat.say(client, cid, "hi")

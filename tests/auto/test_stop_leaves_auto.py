@@ -25,7 +25,7 @@ async def test_the_persons_stop_leaves_auto_like_every_other_stop(s: Session) ->
     brief_id, run_id = await running(s)
     stopped, held = store.stop_by_person(s.tenant, run_id)
     assert isinstance(stopped.state, Stopped)
-    assert held == Conversation(mode=Mode.DESIGN)
+    assert (held.mode, held.auto_run, held.last_run) == (Mode.DESIGN, None, run_id)
     await s.left_auto(brief_id, run_id)
 
 
@@ -38,7 +38,8 @@ async def test_a_replayed_stop_records_nothing_and_leaves_the_mode(s: Session) -
         store.record_event(s.tenant, run_id, asked)
         store.record_event(s.tenant, run_id, lambda _: PersonStopped())
     assert len(log.read_events(s.roots, run_id)) == before
-    assert store.read(s.tenant.conversations, s.conversation) == Conversation(mode=Mode.AUTO)
+    held = store.read(s.tenant.conversations, s.conversation)
+    assert (held.mode, held.auto_run) == (Mode.AUTO, None)
 
 
 async def test_the_stop_of_an_earlier_run_does_not_change_a_conversation_that_moved_on(
@@ -53,9 +54,8 @@ async def test_the_stop_of_an_earlier_run_does_not_change_a_conversation_that_mo
     assert isinstance(s.run(earlier).state, Stopped)
     store.record_event(s.tenant, earlier, asked)
     store.stop_by_person(s.tenant, earlier)
-    assert store.read(s.tenant.conversations, s.conversation) == Conversation(
-        mode=Mode.AUTO, auto_run=current
-    )
+    held = store.read(s.tenant.conversations, s.conversation)
+    assert (held.mode, held.auto_run, held.last_run) == (Mode.AUTO, current, current)
     assert isinstance(s.run(current).state, Running)
     assert brief_id != other
 

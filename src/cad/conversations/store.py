@@ -80,7 +80,7 @@ def start_run(
         held = read(tenant.conversations, cid)
         if held.mode is not Mode.AUTO:
             raise RunRefused(f"the person switched this conversation to {held.mode} mode")
-        current = current_run(tenant, held)
+        current = None if held.auto_run is None else _read_if_known(tenant, held.auto_run)
         if current is not None and isinstance(current.state, Stopped):
             _write(tenant.conversations, cid, held.moved(Mode.DESIGN))
             raise RunRefused(
@@ -99,12 +99,12 @@ def start_run(
         run = open_under_lock()
         running = isinstance(run.state, Running)
         moved = held.moved(Mode.AUTO, run.run_id) if running else held.moved(Mode.DESIGN)
-        _write(tenant.conversations, cid, moved)
+        _write(tenant.conversations, cid, moved.model_copy(update={"last_run": run.run_id}))
         return run
 
 
-def current_run(tenant: Tenant, held: Conversation) -> AutoRun | None:
-    return None if held.auto_run is None else _read_if_known(tenant, held.auto_run)
+def last_run(tenant: Tenant, held: Conversation) -> AutoRun | None:
+    return None if held.last_run is None else _read_if_known(tenant, held.last_run)
 
 
 def _switch(tenant: Tenant, cid: ConversationId, mode: Mode) -> Conversation:
