@@ -1,4 +1,5 @@
-import { restore, type Scorecard, type SnapshotOnTheWire } from "./snapshot";
+import { restore, type Scorecard } from "./snapshot";
+import type { ScorecardSnapshot } from "./types";
 
 export type Connection = "connecting" | "live" | "reconnecting" | "closed";
 
@@ -37,7 +38,7 @@ export const serverEvents: ScorecardEvents = {
       handlers.onConnection(source.readyState === EventSource.CLOSED ? "closed" : "reconnecting");
     };
     source.addEventListener("scorecard", (event) => {
-      handlers.onSnapshot(restore(JSON.parse((event as MessageEvent<string>).data) as SnapshotOnTheWire));
+      handlers.onSnapshot(restore(JSON.parse((event as MessageEvent<string>).data) as ScorecardSnapshot));
     });
     source.addEventListener("refused", (event) => {
       source.close();
