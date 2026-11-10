@@ -4,6 +4,10 @@
 
 Per brief it starts `claude_session.py` with `--opener .claude/skills/verify/scripts/human.py` and a fresh `--home` under `<out>/<id>/home`, so the server's briefs, projects and variants stay in that run's own directory. The session sees only the `brief` field of the YAML, never the `grader` block, and the prompt adds one sentence of framing. Afterwards it runs the tracer (`evals/briefs/trace_store.py`) over that run's transcript and home with `--require-judged` semantics, and writes `<out>/<id>/result.json`.
 
+## The in-process driver
+
+`--driver inprocess` runs the chat agent in the runner's process, the way the web app does, and stops at the Auto stop instead of tracing scorecards. It writes `<out>/<id>/auto.json` (the stop, its `Bounds`, the revisions, the conversation's mode, the variants and the container runs the account's meter holds), `events.json` (the stream) and `human.jsonl`, and `<out>/auto-summary.json`. `--model scripted` (the default) plays the grader's requirements and builds nothing, so every brief stops with `agent_asked` or `conflict` in about a second. `--model <anthropic id>` runs a live agent that sees only the brief. A grader's `expect` block (`stop`, `within_revisions`, `names`) says what a brief must do, and a brief without one passes when its run stops. Recipe: [Auto mode](phase-4/auto-mode.md).
+
 ## Sub-features
 
 - `brief-set-run` runs the set, up to `--jobs` briefs at once (default 3), and prints one line per brief and then the summary.

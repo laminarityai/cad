@@ -40,11 +40,14 @@ from cad.accounts.local import LocalIssuer
 from cad.accounts.principal import AgentToken
 from cad.accounts.tenants import ACCOUNTS, Tenants
 from cad.accounts.tokens import Issuer, Verifier
+from cad.chat.model import Model, from_environment
+from cad.chat.routes import Chat, chat_routes
 from cad.confirmations.waiting import Door, Opener, page_address, program_opener, sign_in_opener
 from cad.confirmations.web import ClerkSignIn, LocalSignIn, SignIn, confirm_routes
 from cad.context_parts.ingest import ingest as read_part
 from cad.context_parts.store import Ingest
 from cad.conversations import store
+from cad.operations.events import events_route
 from cad.operations.guidance import INSTRUCTIONS
 from cad.operations.model import Tenant
 from cad.operations.registry import OPERATIONS, ROUTES
@@ -56,6 +59,7 @@ from cad.sandbox.outcome import SandboxUnavailable
 
 DAILY_CAP_SECONDS: Final = 3600
 PORT: Final = 8765
+GRACEFUL_SHUTDOWN_SECONDS: Final = 3
 
 
 class AgentAccess(AccessToken):
@@ -83,8 +87,18 @@ class AgentTokens:
         )
 
 
-def build_app(issuer: Issuer, tenants: Tenants, sign_in: SignIn) -> Starlette:
+def build_app(
+    issuer: Issuer,
+    tenants: Tenants,
+    sign_in: SignIn,
+    model: Model | None = None,
+    hooked: bool = True,
+) -> Starlette:
+    """`model` runs the chat agent. None reads `CAD_CHAT_MODEL`, so a server with no model
+    configured still starts and answers every call but a chat message. `hooked` wakes the
+    scorecard events stream from the job queue instead of polling."""
     verifier = Verifier(issuer)
+    chat = Chat(model or from_environment(os.environ), tenants)
 
     def tenant_of_token() -> Tenant:
         token = get_access_token()
@@ -111,6 +125,9 @@ def build_app(issuer: Issuer, tenants: Tenants, sign_in: SignIn) -> Starlette:
     app.router.routes.insert(0, _resource_metadata(issuer))
     app.router.routes.extend(person_routes(OPERATIONS, ROUTES, verifier.person, tenants.of))
     app.router.routes.extend(confirm_routes(verifier, tenants.of, origin(issuer), sign_in))
+    app.router.routes.append(events_route(verifier.person, tenants.of, hooked=hooked))
+    app.router.routes.extend(chat_routes(verifier.person, chat))
+    app.state.chat = chat
     return app
 
 
@@ -173,6 +190,7 @@ def serve(
     opener: Opener | None,
     ingest: Ingest = read_part,
     environ: Mapping[str, str] = os.environ,
+    hooked: bool = True,
 ) -> None:
     issuer, local, sign_in = _trust(root, host, port, environ)
     if opener is not None and local is None:
@@ -191,7 +209,13 @@ def serve(
     tenants = Tenants(root / ACCOUNTS, cap_seconds, door, ingest)
     logging.getLogger(__name__).info("serving %s, tokens from %s", issuer.resource, issuer.url)
     with held:
-        uvicorn.run(build_app(issuer, tenants, sign_in), host=host, port=port, log_level="warning")
+        uvicorn.run(
+            build_app(issuer, tenants, sign_in, hooked=hooked),
+            host=host,
+            port=port,
+            log_level="warning",
+            timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_SECONDS,
+        )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -210,10 +234,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         metavar="PROGRAM",
         help="local issuer only: program the server runs with each sign-in link to the page",
     )
+    parser.add_argument(
+        "--poll-events",
+        action="store_true",
+        help="serve scorecard events from a 500 ms store read only, as if no job announced itself",
+    )
     args = parser.parse_args(argv)
     logging.basicConfig(stream=sys.stderr, level=logging.INFO)
     opener = None if args.opener is None else program_opener(args.opener)
-    serve(args.root, args.host, args.port, args.cap_seconds, opener)
+    serve(args.root, args.host, args.port, args.cap_seconds, opener, hooked=not args.poll_events)
     return 0
 
 

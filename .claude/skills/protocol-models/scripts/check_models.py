@@ -109,18 +109,60 @@ MUTANTS: Final = (
         "InterruptedMeansInterrupted",
     ),
     Mutant(
-        "worker-started-before-put",
-        "_enqueue checks for a worker before it puts the job on the queue",
+        "enqueue-starts-no-worker",
+        "_take_off puts the job on the queue but never starts a worker for it",
         JOB_LANES_CAP,
         (
-            ("""= "startworker"]""", """= "quick"]"""),
-            ("""= "enqueue"]""", """= "startworker"]"""),
             (
-                """<<worker, wpc>>\n    /\\ cpc' = [cpc EXCEPT ![t] = "quick"]""",
-                """<<worker, wpc>>\n    /\\ cpc' = [cpc EXCEPT ![t] = "enqueue"]""",
+                "IF ~worker[p]\n                 THEN /\\ worker'",
+                "IF FALSE\n                 THEN /\\ worker'",
             ),
         ),
         "Temporal",
+    ),
+    Mutant(
+        "drop-leaves-queue",
+        "drop_unstarted gives the callers Superseded but leaves the job on the queue",
+        JOB_LANES,
+        (
+            (
+                "@ + 1]\n    /\\ queue' = [queue EXCEPT ![p] = <<>>]",
+                "@ + 1]\n    /\\ queue' = queue",
+            ),
+        ),
+        "QueuedIsCurrent",
+    ),
+    Mutant(
+        "drop-keeps-flying",
+        "drop_unstarted leaves the job in _flying, so a later settle waits on a Future nobody ends",
+        JOB_LANES_CAP,
+        (
+            (
+                'THEN /\\ flying\' = [flying EXCEPT ![p]["fea"] = "none"]',
+                "THEN /\\ flying' = flying",
+            ),
+        ),
+        "Temporal",
+    ),
+    Mutant(
+        "notify-before-write",
+        "_fly calls the listeners before job_store.write, so a snapshot then misses the result",
+        JOB_LANES,
+        (
+            (
+                '"writequick" ELSE "settlequick"]',
+                '"notifyquick" ELSE "settlequick"]',
+            ),
+            (
+                '"ok"]\n    /\\ cpc\' = [cpc EXCEPT ![t] = "land"]',
+                '"ok"]\n    /\\ cpc\' = [cpc EXCEPT ![t] = "writequick"]',
+            ),
+            (
+                'IF cres[t] \\in {"ok", "timeout"} THEN "notifyquick" ELSE "idle"]',
+                'IF cres[t] \\in {"ok", "timeout"} THEN "land" ELSE "idle"]',
+            ),
+        ),
+        "NotifiedAfterStore",
     ),
     Mutant(
         "no-cap-refusal",

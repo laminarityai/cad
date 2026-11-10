@@ -9,7 +9,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
-from collections.abc import AsyncIterator, Iterator, Mapping
+from collections.abc import AsyncIterator, Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from email.message import Message
 from pathlib import Path
@@ -19,13 +19,17 @@ from urllib.parse import urlencode, urlsplit
 import pytest
 from mcp import Client
 
+from cad.accounts.principal import AccountId
+from cad.confirmations.waiting import OpenPage
 from cad.context_parts.ingest import Facts, NotAPart
 from cad.knowledge.corpus import Corpus
 from cad.knowledge.search import Index
+from cad.operations.model import Tenant
+from cad.projects.model import ProjectId
 from cad.records.roots import Roots
 from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.outcome import Build, BuildFailed, Built
-from cad.server.app import build_server
+from cad.server.app import LocalPage, build_server
 from cad.variants import entry
 
 TEXT = "A wall bracket for a 2 kg shelf, under 150 g, fits in 120 x 80 x 40 mm, printable in PETG"
@@ -150,6 +154,17 @@ class Person:
         sealed = {"snapshot": self.snapshots[url]} if url in self.snapshots else {}
         body = form(answer, note, {**sealed, **(fields or {})})
         return request(url, body, self.signed_in(form_headers(url, **headers)))
+
+
+def local_pages(person: Person, tenant_of: Callable[[AccountId], Tenant]) -> OpenPage:
+    """Opens each account's confirmation page on its own loopback server, for `person`."""
+    pages: dict[AccountId, LocalPage] = {}
+
+    def open_page(account: AccountId, project: ProjectId) -> None:
+        page = pages.setdefault(account, LocalPage(person, lambda: tenant_of(account)))
+        page.open(account, project)
+
+    return open_page
 
 
 @dataclass(frozen=True)

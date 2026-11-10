@@ -22,13 +22,13 @@ from cad.operations.briefs import (
 from cad.operations.confirmation import AskToConfirmInput, ask_to_confirm
 from cad.operations.model import Tenant
 from cad.operations.server import NoArguments
-from cad.projects.model import ProjectId, UnknownProject
+from cad.projects.model import UnknownProject
 from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.outcome import Build, Built
-from cad.server.app import LocalPage
 from cad.variant_sets import store as variant_sets
 from cad.variants import entry
 from cad.variants.entry import UnknownVariant
+from tests.conftest import local_pages
 
 if TYPE_CHECKING:
     from conftest import Person
@@ -49,13 +49,8 @@ RAIL = b"CASCADE Topology V3, a rail\n"
 @pytest.fixture
 def accounts(tmp_path: Path, person: "Person") -> Tenants:
     person.answer = "confirm"
-    pages: dict[AccountId, LocalPage] = {}
-
-    def open_page(account: AccountId, project: ProjectId) -> None:
-        page = pages.setdefault(account, LocalPage(person, lambda: tenants.of(account)))
-        page.open(account, project)
-
-    tenants = Tenants(tmp_path / "accounts", 60, Door(open_page=open_page, wait_seconds=5), ingest)
+    door = Door(open_page=local_pages(person, lambda account: tenants.of(account)), wait_seconds=5)
+    tenants = Tenants(tmp_path / "accounts", 60, door, ingest)
     return tenants
 
 
