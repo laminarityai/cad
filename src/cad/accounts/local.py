@@ -52,7 +52,6 @@ class LocalIssuer:
 
     @staticmethod
     def in_memory(base_url: str) -> "LocalIssuer":
-        """A key no file holds, for the stdio server's own page: no other process can mint."""
         base = base_url.rstrip("/")
         key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         return LocalIssuer(key, f"{base}/mcp", base)

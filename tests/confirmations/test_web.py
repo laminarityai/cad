@@ -1,5 +1,3 @@
-"""The confirmation page on cad-http, over real HTTP: who may open it and what a POST records."""
-
 from __future__ import annotations
 
 import socket
@@ -78,7 +76,6 @@ class Hosted:
         return result.structured_content
 
     async def proposed(self, account: AccountId, project_id: str | None = None) -> str:
-        """A new project with one proposal, or a second brief proposed into `project_id`."""
         joined = {} if project_id is None else {"project_id": project_id}
         created = await self.call(account, "create_brief", text=TEXT, **joined)
         requirements = [UNDER_150] if project_id is None else [SHELF]

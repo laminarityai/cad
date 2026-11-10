@@ -1,10 +1,3 @@
-"""How `ask_to_confirm` reaches the person and waits for their answer.
-
-A `Door` names the ways the page can reach the person: its ordinary address, which a client
-that declared URL elicitation is asked to open, and, locally, an opener program that gets a
-sign-in link. A `Bell` wakes the waiting call when the page records an answer.
-"""
-
 import logging
 import subprocess
 import threading
@@ -28,8 +21,6 @@ LOG = logging.getLogger(__name__)
 
 
 def program_opener(program: str) -> Opener:
-    """Run `program <url>` detached, as `open` does on macOS. The server never waits for it."""
-
     def open_page(url: PageUrl) -> None:
         try:
             child = subprocess.Popen(
@@ -51,8 +42,6 @@ OS_OPEN: Final = program_opener("open")
 
 
 def sign_in_opener(issuer: LocalIssuer, opener: Opener) -> OpenPage:
-    """Hand the opener a link that signs the account in and lands on the project's page."""
-
     def open_page(account: AccountId, project: ProjectId) -> None:
         query = urlencode({"token": issuer.mint_person(account), "project": project})
         opener(PageUrl(f"{issuer.origin}/local/sign-in?{query}"))
@@ -66,17 +55,12 @@ def page_address(origin: str) -> PageAddress:
 
 @dataclass(frozen=True, slots=True)
 class Door:
-    """`page_url` is None on stdio, where the opener covers it. `open_page` is None hosted."""
-
     page_url: PageAddress | None = None
     open_page: OpenPage | None = None
     wait_seconds: float = WAIT_SECONDS
 
 
 class Bell:
-    """One per tenant. A recorded answer rings it; the wait also polls, so an answer another
-    process recorded is seen within `POLL_SECONDS`."""
-
     def __init__(self) -> None:
         self._rung = threading.Condition()
         self._rings = 0

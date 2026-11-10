@@ -171,8 +171,6 @@ def serve(
     ingest: Ingest = read_part,
     environ: Mapping[str, str] = os.environ,
 ) -> None:
-    """`opener`, the scripted person's program, gets a sign-in link from the local issuer, so it
-    is refused once Clerk signs people in."""
     issuer, local, sign_in = _trust(root, host, port, environ)
     if opener is not None and local is None:
         raise SystemExit("cad-http: --opener needs the local issuer; Clerk signs people in here")

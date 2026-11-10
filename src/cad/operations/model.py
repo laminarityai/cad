@@ -57,7 +57,6 @@ class Operation:
     output: type[BaseModel] | TypeAliasType
     run: Callable[[Tenant, Input], object]
     is_async: bool
-    # The page this call asks the person's client to open first, if any.
     page: Callable[[Tenant, Input], str | None] | None = None
 
 

@@ -124,7 +124,6 @@ def _known(tenant: Tenant, arguments: AskToConfirmInput) -> tuple[ProjectId, tup
 
 
 def confirm_page(tenant: Tenant, arguments: AskToConfirmInput) -> str | None:
-    """The page's ordinary address while anything in the project waits on the person."""
     project, _ = _known(tenant, arguments)
     if tenant.door.page_url is None or not pending(kinds(tenant.roots), project):
         return None
@@ -183,7 +182,6 @@ class PageReply(BaseModel):
 
 
 def answer_page(tenant: Tenant, arguments: AnswerPageInput) -> PageReply:
-    """Only the account of the tenant may answer, and only the items its sealed snapshot shows."""
     project = parse_project_id(arguments.project_id)
     person = arguments.person
     sealed = page.sealed_snapshot(arguments.form)

@@ -43,7 +43,6 @@ def fetch(
     body: bytes | None = None,
     headers: dict[str, str] | None = None,
 ) -> tuple[int, str, str]:
-    """The status, the body and the path the response came from, after any redirect."""
     sent = urllib.request.Request(url, data=body, headers=headers or {})
     try:
         with opener.open(sent, timeout=10) as response:
@@ -113,7 +112,7 @@ def main(link: str, log: Path) -> None:
         record({"step": answer, "status": fetch(jar, address, form, headers)[0]})
         record({"step": "replay", "status": fetch(jar, address, form, headers)[0]})
         record({"spent_token": token})
-    except Exception as error:  # the server discards this process's output, so log every failure
+    except Exception as error:
         failure = f"{type(error).__name__}: {error}"
         record({"error": failure.replace(token, "<token>") if token else failure})
         raise

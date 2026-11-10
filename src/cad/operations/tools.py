@@ -72,8 +72,6 @@ def _call(tenant_of: TenantOf, one: Operation) -> Call:
 
 
 def _asking(tenant_of: TenantOf, one: Operation) -> Call:
-    """Before it runs, the call asks a client that declared URL elicitation to open the page.
-    The client's accept, decline or cancel is never an answer: only the page records one."""
     page = one.page
     assert page is not None and one.is_async
 

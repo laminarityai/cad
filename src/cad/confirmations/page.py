@@ -82,7 +82,6 @@ def _fields(body: bytes) -> dict[str, list[str]] | None:
 
 
 def parse_form(body: bytes, size: int) -> Form | None:
-    """The answer the form gives. Its snapshot is read apart, by `sealed_snapshot`."""
     fields = _fields(body)
     if fields is None:
         return None

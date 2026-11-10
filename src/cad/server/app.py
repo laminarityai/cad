@@ -30,10 +30,6 @@ LOOPBACK: Final = "127.0.0.1"
 
 
 class LocalPage:
-    """The stdio server's confirmation page: the web app's page routes on 127.0.0.1, on a port
-    the system picks, started when the first page opens. Its issuer's key lives only in this
-    process, so only the link handed to the opener signs the person in."""
-
     def __init__(self, opener: Opener, tenant: Callable[[], Tenant]) -> None:
         self._opener = opener
         self._tenant = tenant
@@ -73,8 +69,7 @@ def build_server(
     ingest: Ingest = read_part,
     geometry_root: Path = GEOMETRY_ROOT,
 ) -> MCPServer:
-    """The stdio server: one local account in `~/.cad`, metered with no cap. The opener gets a
-    sign-in link to the page, since a stdio client has no web app to open."""
+    """The stdio server: one local account in `~/.cad`, metered with no cap."""
     page = LocalPage(opener, lambda: tenant)
     door = Door(open_page=page.open, wait_seconds=wait_seconds)
     tenant = open_tenant(LOCAL, roots, variants_root, geometry_root, None, door, ingest)

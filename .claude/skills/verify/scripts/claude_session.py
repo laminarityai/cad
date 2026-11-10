@@ -106,7 +106,9 @@ def main(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model")
-    parser.add_argument("--opener", help="program the cad server runs with each sign-in link to the page")
+    parser.add_argument(
+        "--opener", help="program the cad server runs with each sign-in link to the page"
+    )
     homes = parser.add_mutually_exclusive_group()
     homes.add_argument(
         "--home", type=Path, help="HOME for the server, kept across sessions (default $CAD_HOME)"

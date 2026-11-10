@@ -182,17 +182,12 @@ Sessions == Permutations(Persons)
 OneAnswerPerItem ==
     \A i, j \in 1..Len(ledger) : i # j => ledger[i].rev # ledger[j].rev
 
-\* One signed answer per snapshot: a replayed or concurrent POST of a form writes nothing more.
 OneAnswerPerPage ==
     \A i, j \in 1..Len(ledger) : i # j => ledger[i].page # ledger[j].page
 
-\* Every stored answer was given by a person session of the tenant's account: never an agent,
-\* never another account.
 OnlyTenantPersonsAnswer ==
     \A i \in 1..Len(ledger) : ledger[i].by \in Persons /\ Account(ledger[i].by) = Tenant
 
-\* Every stored answer was given by the session the snapshot was sealed for, so a form that
-\* leaked to another session of the account records nothing.
 AnsweredByTheOpener ==
     \A i \in 1..Len(ledger) : ledger[i].by = pages[ledger[i].page].person
 

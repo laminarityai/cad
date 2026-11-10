@@ -147,8 +147,6 @@ class Person:
         fields: dict[str, str] | None = None,
         **headers: str,
     ) -> tuple[int, str]:
-        """Sends the snapshot of the page this person last saw at `url`, unless `fields` names
-        one."""
         sealed = {"snapshot": self.snapshots[url]} if url in self.snapshots else {}
         body = form(answer, note, {**sealed, **(fields or {})})
         return request(url, body, self.signed_in(form_headers(url, **headers)))
@@ -243,7 +241,6 @@ def person() -> Person:
 
 @pytest.fixture
 def browser() -> type[Person]:
-    """Makes more people, each with a browser of their own."""
     return Person
 
 

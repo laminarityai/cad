@@ -1,6 +1,3 @@
-"""ask_to_confirm hands the page's address only to the client, as a URL elicitation, and never
-to the agent through a tool result."""
-
 import json
 from pathlib import Path
 from typing import Any, Literal
