@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from cad.checks.lanes import LANES
 from cad.sandbox.image import BUILD, image_tag
 from cad.variant_sets import store
 from cad.variant_sets.model import MAX_MEMBERS
@@ -197,6 +198,26 @@ async def test_a_change_to_slot_2_becomes_its_next_revision_and_the_old_one_stay
     assert again["variant_id"] == changed["variant_id"]
     assert (again["variant_set"]["revision"], again["variant_set"]["already_member"]) == (2, True)
     assert len(held(s, brief_id)[1].revisions) == 2
+
+
+async def test_a_revision_drops_the_unstarted_checks_of_the_one_it_replaced_and_nothing_else(
+    s: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dropped: list[tuple[Path, str]] = []
+    monkeypatch.setattr(
+        LANES, "drop_unstarted", lambda root, variant_id: dropped.append((root, variant_id)) or 0
+    )
+    brief_id = await s.confirmed_brief()
+    first = await s.call("build_variant", code=PLATE, brief_id=brief_id)
+    assert dropped == []
+    await s.call("build_variant", code=PLATE, brief_id=brief_id)
+    await s.call("build_variant", code=BRACKET, brief_id=brief_id)
+    assert dropped == []
+    second = await s.call("build_variant", code=THICKER, brief_id=brief_id, slot=1)
+    assert dropped == [(s.tmp / "variants", first["variant_id"])]
+    await s.call("build_variant", code="x = 1\n", brief_id=brief_id, slot=1)
+    assert len(dropped) == 1
+    assert second["variant_id"] not in {variant for _, variant in dropped}
 
 
 async def test_a_full_set_takes_a_revision_in_a_slot_and_refuses_new_code_without_one(

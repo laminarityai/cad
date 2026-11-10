@@ -1,6 +1,6 @@
 ---
 name: protocol-models
-description: Model-check the check job queue (src/cad/checks/lanes.py, job_store.py, including Lanes.peek) and the confirmation answer flow (src/cad/confirmations/, records/signed.py) with TLA+. Use when you change how jobs take off, run, are stored or refused, how a worker starts or dies, or how a POST spends a ballot and appends an answer; when `verify` warns that covered code changed; or when a race, a crash, or a second session could break one of these flows.
+description: Model-check the check job queue (src/cad/checks/lanes.py, job_store.py, including Lanes.peek, the completion listeners and drop_unstarted) and the confirmation answer flow (src/cad/confirmations/, records/signed.py) with TLA+. Use when you change how jobs take off, run, are stored or refused, how a worker starts or dies, or how a POST spends a ballot and appends an answer; when `verify` warns that covered code changed; or when a race, a crash, or a second session could break one of these flows.
 ---
 
 # Protocol models
@@ -41,6 +41,8 @@ The properties are about the order in which threads, processes and crashes act o
 | `NeverTrustForged` | invariant | A result file someone edited by hand is used as a check result. |
 | `InterruptedMeansInterrupted` | invariant | `settle` refuses a check as "interrupted 2 times" when fewer than 2 attempts in a row were cut off by a crash. |
 | `CapStopsReruns` | invariant | An fea job that kills the server every time it runs is started again and again. Once `Cap` attempts in a row were cut off, no fea container runs again. |
+| `QueuedIsCurrent` | invariant | A background job queued before a newer revision replaced its variant is still queued afterwards, so a container starts for a revision nobody wants. |
+| `NotifiedAfterStore` | invariant | A completion listener runs before the result is on disk, so the snapshot it takes misses the result it was told about. |
 | `PeekMeansInterrupted` | invariant | The same as `InterruptedMeansInterrupted`, for what `Lanes.peek` reports. It fails today: see known finding 3. |
 | `Converges` | temporal | After crashes, store faults and tampering, a job never ends up stored. The run must end with each job stored, or with fea refused at the attempt cap. |
 | `PendingEnds` | temporal | A caller who saw a check pending can poll forever without getting a verdict or a refusal. |
@@ -52,9 +54,9 @@ TLC's deadlock check is on but proves nothing for this model. A caller can alway
 
 | Config | Bounds | Checks |
 | --- | --- | --- |
-| `JobLanes.cfg` | 1 process, 2 callers, 1 crash, 1 run fault, 1 tamper | invariants |
+| `JobLanes.cfg` | 1 process, 2 callers, 1 crash, 1 run fault, 1 tamper, 1 replacement | invariants |
 | `JobLanesCap.cfg` | 1 process, 1 caller, 3 crashes, 1 fault, 1 tamper, with `peek` | invariants and both temporal properties |
-| `JobLanesTwoServers.cfg` | 2 processes on one store, 1 caller, 1 crash | invariants (minus known finding 1) and both temporal properties |
+| `JobLanesTwoServers.cfg` | 2 processes on one store, 1 caller, 1 crash, 1 replacement per process | invariants (minus known finding 1) and both temporal properties |
 | `JobLanesTwoServersRefusal.cfg` | the same | known finding 1, which must still be found |
 | `JobLanesPeek.cfg` | 1 process, 1 caller, 1 crash, with `peek` | known finding 3, which must still be found |
 
@@ -65,13 +67,15 @@ How the model maps to the code:
 | Model | Code |
 | --- | --- |
 | `FeaTakeOff`, `QuickTakeOff` | `Lanes._take_off`: `job_store.read`, flying lookup, `_interrupted_too_often`, new `Future`, all under `_lock` |
-| `Enqueue`, `StartWorker` | `Lanes._enqueue`: `_queue.put`, then `_start_worker` under `_lock` when `_worker is None` |
+| `FeaTakeOff` (queue branch) | `Lanes._enqueue`, called inside the take-off lock: `_queue.append`, `_wake.notify`, and `_start_worker` when `_worker is None`. The model has no separate enqueue step, because the code has none: a drop cannot fall between take-off and append |
+| `Replace(p)` | `Lanes.drop_unstarted`, which `build_into_set` calls when a newer revision takes a variant's slot: under `_lock`, every queued job of the variant leaves `_queue` and `_flying`, and its `Future` gets `Superseded`. A job a worker already took is not in the queue and runs on. `replaces[p]` is ghost: each queued job carries the count at take-off, which `QueuedIsCurrent` compares. It is per process because a drop reaches only its own process's queue |
+| `NotifyQuick`, `WorkerNotify` | `Lanes._fly` after `set_result`: the listeners run on the thread that ran the job, outside `_lock`. A listener that raises is logged and swallowed, so the model has no step for it. `told` is ghost: what the listener saw of the store |
 | `RunQuick`, `WriteQuick`, `SettleQuick` | `Lanes._fly` on the caller thread for the quick job |
-| `WorkerGet` ... `WorkerSettle` | `Lanes._drain` and `_fly` / `_attempt` on the worker thread: `begin_attempt`, run, `end_attempt` in `finally`, `job_store.write` (skipped on a timeout), then `del _flying` and settle in one lock |
+| `WorkerGet` ... `WorkerSettle` | `Lanes._drain` (`_wake.wait` and `popleft` under `_lock`), then `_fly` / `_attempt` on the worker thread: `begin_attempt`, run, `end_attempt` in `finally`, `job_store.write` (skipped on a timeout), then `del _flying` and settle in one lock |
 | `WorkerBegin` | `job_store.begin_attempt`, modeled as one step. The code reads the count and then replaces the file, which is two steps (see Not covered) |
 | `Peek` | `Lanes.peek` and `_look`: `job_store.read`, then `interrupted_runs >= ATTEMPT_CAP`, with no lock and no `_flying` lookup |
 | `WorkerExit` | `_drain`'s `finally`: clear `_worker`, restart it when the queue is not empty |
-| `WaitQuick`, `Land` | `settle`'s `quick.result()` and `_land`: Done, Pending on a timeout, Refused on `SandboxUnavailable` |
+| `WaitQuick`, `Land` | `settle`'s `quick.result()` and `_land`: Done, Pending on a timeout, Refused on `SandboxUnavailable` or `Superseded` |
 | `Crash(p)` | the server process dies: memory is lost, and `.attempt` and result files stay. The model stops its container with it. The code does not: `container.remove_orphans` removes only exited containers whose owner pid is dead (#148) |
 | `Tamper(j)` | a person edits a stored result file, so its MAC no longer matches |
 | `disk`, `attempt` | `job_store` result and `.attempt` files; `Stored(j)` is `job_store.read` with the MAC verified |
@@ -126,7 +130,7 @@ When a check fails, read the trace as a story in code terms: which thread or pro
 `check_models.py` reads the block below. It warns when a covered file changed after the sync commit, and it prints a note instead when the commit is not in the clone (CI checks out shallow). The warning does not fail the run. When you see it, read the diff, update the model if the protocol changed, run the checks and the mutants, and only then move `sync` to the new commit. Use `/maintain-formal-verification-skill` for that work.
 
 ```coverage
-sync: 8f03280
+sync: 47a4c08
 JobLanes: src/cad/checks/lanes.py src/cad/checks/job_store.py src/cad/checks/jobs.py src/cad/sandbox/container.py
 Answers: src/cad/confirmations/ballot.py src/cad/confirmations/http.py src/cad/confirmations/page.py src/cad/confirmations/answers.py src/cad/confirmations/items.py src/cad/records/signed.py
 ```
@@ -135,7 +139,6 @@ Answers: src/cad/confirmations/ballot.py src/cad/confirmations/http.py src/cad/c
 
 These are phase-4 plans. Model them when the code exists.
 
-- **Superseded jobs are dropped.** A background job that has not started for a revision the agent has since replaced is dropped from the queue and never runs. Extend `JobLanes.tla` with revisions. The property is that no container starts for a superseded revision's job once the replacement has taken off.
 - **One replica, enforced by a lease.** When the lease exists, `JobLanesTwoServers` should pass `InterruptedMeansInterrupted`, and the first known finding goes away.
 - **Auto mode `step` and its stopping rules** (phase-4 section 2.5). A new model with the agent, the scorecard and the person as actors. Each rule becomes a property: stop when bounds conflict, when all checks pass, when the person is needed, when the agent asks, and at the account limit. Never pass on a pending row. Agent measurements never make a run pass (ADR-0008).
 
