@@ -31,7 +31,7 @@ def test_only_the_page_builds_or_appends_an_answer() -> None:
 
 
 def test_only_the_transport_calls_the_page_answer() -> None:
-    assert files_where(lambda n: named(n) == "answer_page") == {"cad/confirmations/http.py"}
+    assert files_where(lambda n: named(n) == "answer_page") == {"cad/operations/confirmation.py"}
 
 
 def test_only_the_part_store_makes_a_confirmed_part() -> None:

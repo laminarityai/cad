@@ -4,7 +4,7 @@ import pytest
 
 from cad.accounts.principal import AccountId
 from cad.accounts.tenants import Tenants
-from cad.confirmations.ballot import OS_OPEN
+from cad.confirmations.waiting import Door
 from cad.context_parts.ingest import ingest
 from cad.operations.registry import OPERATIONS
 from cad.operations.scorecards import ScorecardInput
@@ -18,7 +18,7 @@ RAIL = b"CASCADE Topology V3, a rail\n"
 
 
 def tenants(root: Path) -> Tenants:
-    return Tenants(root / "accounts", 60, OS_OPEN, 0.3, ingest)
+    return Tenants(root / "accounts", 60, Door(wait_seconds=0.3), ingest)
 
 
 def test_each_account_has_its_own_partition(tmp_path: Path) -> None:

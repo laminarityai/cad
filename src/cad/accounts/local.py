@@ -51,6 +51,12 @@ class LocalIssuer:
         base = base_url.rstrip("/")
         return LocalIssuer(loaded, f"{base}/mcp", base)
 
+    @staticmethod
+    def in_memory(base_url: str) -> "LocalIssuer":
+        base = base_url.rstrip("/")
+        key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        return LocalIssuer(key, f"{base}/mcp", base)
+
     @property
     def kid(self) -> str:
         der = self.private_key.public_key().public_bytes(
@@ -81,10 +87,11 @@ class LocalIssuer:
             claims["conversation"] = conversation
         return self._sign(claims, "at+jwt", ttl)
 
-    def mint_person(self, account: str, ttl: int = TTL_SECONDS) -> str:
+    def mint_person(self, account: str, ttl: int = TTL_SECONDS, session: str | None = None) -> str:
+        """Clerk refreshes a session's token under the same `sid`; pass `session` to do the same."""
         claims = {
             "sub": account,
-            "sid": f"sess_{secrets.token_hex(12)}",
+            "sid": session or f"sess_{secrets.token_hex(12)}",
             "azp": self.origin,
             "jti": secrets.token_hex(10),
             "v": 2,

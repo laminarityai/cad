@@ -1,10 +1,7 @@
 import json
-import threading
-import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from urllib.parse import urlencode, urlsplit
 
 import httpx2
 from starlette.applications import Starlette
@@ -22,19 +19,6 @@ UNDER_150 = {
     "target": {"kind": "max_mass", "mass": {"magnitude": 150, "unit": "g"}},
     "quote": "under 150 g",
 }
-
-
-def confirm(url: str) -> None:
-    parts = urlsplit(url)
-    sent = urllib.request.Request(
-        url,
-        data=urlencode({"answer": "confirm", "note": ""}).encode(),
-        headers={
-            "Origin": f"{parts.scheme}://{parts.netloc}",
-            "Content-Type": "application/x-www-form-urlencoded",
-        },
-    )
-    threading.Thread(target=lambda: urllib.request.urlopen(sent, timeout=5), daemon=True).start()
 
 
 def script(*steps: Step) -> Scripted:

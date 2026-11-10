@@ -15,9 +15,7 @@ from typing import Final
 
 from cad.accounts.meter import USAGE, AccountMeter
 from cad.accounts.principal import AccountId
-from cad.confirmations import http
-from cad.confirmations.ballot import Desk, Opener
-from cad.confirmations.registry import kinds
+from cad.confirmations.waiting import Bell, Door
 from cad.context_parts.store import Ingest
 from cad.operations.model import Tenant
 from cad.records.roots import Roots
@@ -27,36 +25,35 @@ CONVERSATIONS: Final = "conversations"
 
 
 def open_tenant(
+    account: AccountId,
     roots: Roots,
     variants: Path,
     geometry: Path,
     cap_seconds: int | None,
-    opener: Opener,
-    wait_seconds: float,
+    door: Door,
     ingest: Ingest,
 ) -> Tenant:
-    desk = Desk(roots, kinds(roots), opener, serve=http.serve, wait_seconds=wait_seconds)
-    meter = AccountMeter(variants.parent / USAGE, cap_seconds)
     return Tenant(
+        account=account,
         roots=roots,
         variants=variants,
         geometry=geometry,
         conversations=variants.parent / CONVERSATIONS,
-        desk=desk,
+        bell=Bell(),
+        door=door,
         ingest=ingest,
-        meter=meter,
+        meter=AccountMeter(variants.parent / USAGE, cap_seconds),
     )
 
 
 @dataclass
 class Tenants:
-    """The HTTP server's tenants: one per account, built on first use and kept, since its Desk is
-    process state."""
+    """The HTTP server's tenants: one per account, built on first use and kept, since its Bell is
+    process state that the page and the waiting tool call share."""
 
     accounts: Path
     cap_seconds: int
-    opener: Opener
-    wait_seconds: float
+    door: Door
     ingest: Ingest
     _lock: threading.Lock = field(default_factory=threading.Lock)
     _open: dict[AccountId, Tenant] = field(default_factory=dict[AccountId, Tenant])
@@ -68,12 +65,12 @@ class Tenants:
                 base = self.accounts / account
                 roots = Roots(base / "briefs", base / "projects")
                 tenant = open_tenant(
+                    account,
                     roots,
                     base / "variants",
                     base / "geometry",
                     self.cap_seconds,
-                    self.opener,
-                    self.wait_seconds,
+                    self.door,
                     self.ingest,
                 )
                 self._open[account] = tenant

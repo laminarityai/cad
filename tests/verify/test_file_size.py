@@ -114,3 +114,14 @@ def test_line_count_ignores_trailing_newline_and_crlf(
     path = tmp_path / "sample.py"
     path.write_bytes(text.encode())
     assert (run_tool(path).returncode == 0) is passes
+
+
+def test_git_listing_checks_typescript_but_not_the_generated_api_types(tmp_path: Path) -> None:
+    repo = init_repo(tmp_path)
+    (repo / "web" / "src" / "api").mkdir(parents=True)
+    (repo / "web" / "src" / "api" / "types.ts").write_text("export {};\n" * 401)
+    (repo / "Big.tsx").write_text("export {};\n" * 401)
+    done = run_tool_on_git_listing(repo)
+    assert done.returncode == 1
+    assert "Big.tsx has 401 lines" in done.stdout
+    assert "types.ts" not in done.stdout

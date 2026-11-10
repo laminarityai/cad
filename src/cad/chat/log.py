@@ -168,10 +168,6 @@ class Channels:
         return channel
 
 
-def exists(conversations: Path, cid: ConversationId) -> bool:
-    return (conversations / f"{cid}.json").exists() or transcript_path(conversations, cid).exists()
-
-
 def messages_of(events: Sequence[Event]) -> list[Message]:
     """The conversation as the model sees it. A call with no result, from a turn that died, gets
     an error result, because the API refuses a call that nothing answers."""

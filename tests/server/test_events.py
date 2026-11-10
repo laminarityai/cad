@@ -17,7 +17,8 @@ from cad.accounts.tenants import Tenants
 from cad.checks.jobs import JobSpec, Quick
 from cad.checks.lanes import Listener
 from cad.checks.report import SPECS, build_request
-from cad.confirmations.ballot import OS_OPEN
+from cad.confirmations.waiting import Door
+from cad.confirmations.web import LocalSignIn
 from cad.context_parts.ingest import ingest
 from cad.operations import events
 from cad.operations.events import events_route
@@ -161,7 +162,7 @@ def job(tenant: Tenant, variant_id: str = VID) -> JobSpec:
 
 @pytest.fixture
 def tenant(tmp_path: Path) -> Tenant:
-    return Tenants(tmp_path / "accounts", 60, OS_OPEN, 0.3, ingest).of(ALICE)
+    return Tenants(tmp_path / "accounts", 60, Door(wait_seconds=0.3), ingest).of(ALICE)
 
 
 def app_of(
@@ -268,7 +269,9 @@ async def test_a_job_of_another_variant_or_another_account_does_not_wake_the_str
         assert (await stream.card()) is not None
         reads = store.reads
         lanes.finished(job(tenant, "fedcba9876543210"))
-        other = Tenants(tmp_path / "other", 60, OS_OPEN, 0.3, ingest).of(AccountId("user_bob"))
+        other = Tenants(tmp_path / "other", 60, Door(wait_seconds=0.3), ingest).of(
+            AccountId("user_bob")
+        )
         lanes.finished(job(other))
         await asyncio.sleep(0.2)
     assert store.reads == reads
@@ -366,13 +369,13 @@ async def test_through_the_hosted_app_only_the_owner_of_a_variant_opens_its_stre
     tmp_path: Path,
 ) -> None:
     local = LocalIssuer.open(tmp_path, BASE)
-    tenants = Tenants(tmp_path / "accounts", 60, OS_OPEN, 0.3, ingest)
+    tenants = Tenants(tmp_path / "accounts", 60, Door(wait_seconds=0.3), ingest)
     code = "result = None"
     variant_id = entry.variant_id(code, image_tag(BUILD))
     entry.save(
         tenants.of(ALICE).variants, variant_id, code, Build(outcome=Built(), output=""), b"step"
     )
-    app = build_app(local.issuer(), tenants)
+    app = build_app(local.issuer(), tenants, LocalSignIn(local))
     path = f"/v1/variants/{variant_id}/events"
     async with opened(app, local.mint_person("user_alice"), path) as mine:
         assert mine.status == 200
