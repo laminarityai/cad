@@ -170,9 +170,12 @@ def app_of(
     store: FakeScorecard,
     hooked: bool = True,
     signed_in: str = "ok",
+    expires: list[str] | None = None,
 ) -> Starlette:
     def person(token: str) -> PersonSession | None:
-        return PersonSession(account=ALICE, session_id="sess") if token == signed_in else None
+        if token != signed_in or (expires is not None and token in expires):
+            return None
+        return PersonSession(account=ALICE, session_id="sess")
 
     route: Route = events_route(person, lambda _: tenant, lanes, store, hooked)
     return Starlette(routes=[route])
@@ -204,6 +207,47 @@ async def test_each_job_that_stores_a_result_sends_the_whole_card_it_changed(
     assert body == done.model_dump(by_alias=True, mode="json")
     assert body is not None
     assert body["etag"] != pending.etag
+
+
+async def test_a_job_that_finishes_during_the_first_read_reaches_the_stream_at_once(
+    tenant: Tenant,
+) -> None:
+    lanes = Announcer()
+    store = FakeScorecard()
+    first = store.becomes("prusament-pla")
+
+    class FinishesDuringTheFirstRead(FakeScorecard):
+        def __call__(self, tenant: Tenant, arguments: ScorecardInput) -> ScorecardSnapshot:
+            card = store(tenant, arguments)
+            if store.reads == 1:
+                store.becomes("generic-petg")
+                lanes.finished(job(tenant))
+            return card
+
+    async with opened(app_of(tenant, lanes, FinishesDuringTheFirstRead())) as stream:
+        sent = await stream.card()
+        assert sent is not None and sent["etag"] == first.etag
+        updated = await stream.card(0.4)
+    assert updated is not None
+    assert updated["etag"] != first.etag
+
+
+async def test_a_stream_ends_once_its_session_token_stops_being_accepted(
+    tenant: Tenant,
+) -> None:
+    store, lanes = FakeScorecard(), Announcer()
+    store.becomes("prusament-pla")
+    expired: list[str] = []
+    async with opened(app_of(tenant, lanes, store, expires=expired)) as stream:
+        assert (await stream.card()) is not None
+        expired.append("ok")
+        store.becomes("generic-petg")
+        lanes.finished(job(tenant))
+        frame = await stream.frame(0.4)
+    assert frame is not None
+    assert "event: refused" in frame
+    assert "SignedOut" in frame
+    assert "event: scorecard" not in frame
 
 
 async def test_a_finished_job_that_changed_nothing_sends_no_second_copy(tenant: Tenant) -> None:

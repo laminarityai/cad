@@ -77,7 +77,8 @@ def events_route(
     hooked: bool = True,
 ) -> Route:
     async def endpoint(request: Request) -> Response:
-        person = person_of(session_token(request))
+        token = session_token(request)
+        person = person_of(token)
         if person is None:
             return refuse(401, "sign in: this route takes a Clerk session token", CHALLENGE)
         tenant = tenant_of(person.account)
@@ -98,18 +99,26 @@ def events_route(
 
             return await anyio.to_thread.run_sync(run)
 
-        try:
-            first = await read()
-        except NOT_FOUND as refused:
-            return refuse(404, f"{type(refused).__name__}: {refused}")
-        except REFUSALS as refused:
-            return refuse(400, f"{type(refused).__name__}: {refused}")
-        except UNAVAILABLE as refused:
-            return refuse(503, str(refused))
         wake = Wake(tenant, arguments.variant_id)
         unsubscribe = lanes.subscribe(wake) if hooked else None
+        try:
+            first = await read()
+        except BaseException as error:
+            if unsubscribe is not None:
+                unsubscribe()
+            answer = _refusal(error)
+            if answer is None:
+                raise
+            return answer
         return StreamingResponse(
-            _events(read, wake, first, SAFETY_SECONDS if hooked else POLL_SECONDS, unsubscribe),
+            _events(
+                read,
+                lambda: person_of(token) is not None,
+                wake,
+                first,
+                SAFETY_SECONDS if hooked else POLL_SECONDS,
+                unsubscribe,
+            ),
             media_type="text/event-stream",
             headers=HEADERS,
         )
@@ -117,8 +126,19 @@ def events_route(
     return Route(EVENTS_PATH, endpoint, methods=["GET"], name="scorecard_events")
 
 
+def _refusal(error: BaseException) -> Response | None:
+    if isinstance(error, NOT_FOUND):
+        return refuse(404, f"{type(error).__name__}: {error}")
+    if isinstance(error, REFUSALS):
+        return refuse(400, f"{type(error).__name__}: {error}")
+    if isinstance(error, UNAVAILABLE):
+        return refuse(503, str(error))
+    return None
+
+
 async def _events(
     read: Callable[[], Awaitable[ScorecardSnapshot | None]],
+    signed_in: Callable[[], bool],
     wake: Wake,
     first: ScorecardSnapshot | None,
     interval: float,
@@ -136,6 +156,9 @@ async def _events(
                 yield ": keep-alive\n\n"
             await wake.rung(interval)
             wake.reset()
+            if not signed_in():
+                yield "event: refused\ndata: SignedOut\n\n"
+                return
             try:
                 card = await read()
             except (*NOT_FOUND, *REFUSALS, *UNAVAILABLE) as refused:

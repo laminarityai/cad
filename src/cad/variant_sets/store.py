@@ -69,8 +69,8 @@ def _drop_replaced(
     member = next((m for m in members(root, key) if m.slot == joined.slot), None)
     if member is None or len(member.revisions) < 2:
         return
-    replaced, current = member.revisions[-2].built_as, member.latest.built_as
-    if replaced != current:
+    current = member.latest.built_as
+    for replaced in {revision.built_as for revision in member.revisions[:-1]} - {current}:
         lanes.drop_unstarted(variants_root, replaced)
 
 

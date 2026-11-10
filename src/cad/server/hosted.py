@@ -56,6 +56,7 @@ from cad.sandbox.outcome import SandboxUnavailable
 DAILY_CAP_SECONDS: Final = 3600
 PORT: Final = 8765
 WAIT_SECONDS: Final = 20.0
+GRACEFUL_SHUTDOWN_SECONDS: Final = 3
 
 
 class AgentAccess(AccessToken):
@@ -176,7 +177,13 @@ def serve(
     tenants = Tenants(root / ACCOUNTS, cap_seconds, opener, WAIT_SECONDS, ingest)
     logging.getLogger(__name__).info("serving %s, tokens from %s", issuer.resource, issuer.url)
     with held:
-        uvicorn.run(build_app(issuer, tenants, hooked), host=host, port=port, log_level="warning")
+        uvicorn.run(
+            build_app(issuer, tenants, hooked),
+            host=host,
+            port=port,
+            log_level="warning",
+            timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_SECONDS,
+        )
 
 
 def main(argv: Sequence[str] | None = None) -> int:

@@ -223,6 +223,26 @@ async def test_a_revision_drops_the_unstarted_checks_of_the_one_it_replaced_and_
     assert second["variant_id"] not in {variant for _, variant in dropped}
 
 
+async def test_a_slot_replaced_twice_drops_every_earlier_revision_it_still_has_queued(
+    s: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dropped: set[str] = set()
+
+    def record(root: Path, variant_id: str) -> int:
+        dropped.add(variant_id)
+        return 0
+
+    monkeypatch.setattr(LANES, "drop_unstarted", record)
+    brief_id = await s.confirmed_brief()
+    first = await s.call("build_variant", code=PLATE, brief_id=brief_id)
+    second = await s.call("build_variant", code=THICKER, brief_id=brief_id, slot=1)
+    third = await s.call(
+        "build_variant", code=PLATE + "\n# thicker still\n", brief_id=brief_id, slot=1
+    )
+    assert dropped == {first["variant_id"], second["variant_id"]}
+    assert third["variant_id"] not in dropped
+
+
 async def test_a_full_set_takes_a_revision_in_a_slot_and_refuses_new_code_without_one(
     s: Session,
 ) -> None:
