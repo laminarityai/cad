@@ -68,7 +68,7 @@ def person_route(served: Served, one: Operation, person_of: PersonOf, tenant_of:
             await _request_body(request) if served.method != "GET" else dict(request.query_params)
         )
         if sent is None:
-            return _error(422, "the request body is not a JSON object")
+            return refuse(422, "the request body is not a JSON object")
         try:
             arguments = one.input.model_validate({**sent, **request.path_params})
         except ValidationError as error:
