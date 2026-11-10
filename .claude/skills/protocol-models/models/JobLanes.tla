@@ -84,11 +84,11 @@ FutureOf(r) == CASE r \in {"ok", "timeout"} -> "ok"
                  [] r = "unavailable" -> "error"
                  [] r = "killed" -> "killed"
 
-\* Future.set_result / set_exception on the Future that _flying holds for (p, j). Every
-\* thread that took that Future sees it settle. A thread holding an unset Future holds the
-\* current one, because a Future leaves _flying only after it settles.
+\* _fly's `with self._lock: del self._flying[path]; future.set_result / set_exception`, one
+\* step. Every thread that took that Future sees it settle. A thread holding an unset Future
+\* holds the current one, because a Future leaves _flying in the step that settles it.
 Settle(p, j, r) ==
-    /\ flying' = [flying EXCEPT ![p][j] = FutureOf(r)]
+    /\ flying' = [flying EXCEPT ![p][j] = "none"]
     /\ IF j = "fea"
          THEN /\ cfea' = [t \in Threads |->
                     IF t[1] = p /\ cfea[t] = [kind |-> "future", st |-> "unset"]
@@ -102,18 +102,18 @@ Settle(p, j, r) ==
 (* Lanes.settle on caller thread t = <<p, c>>: take off fea, then quick,   *)
 (* then land the fea flight.                                               *)
 
-\* _take_off(fea): the _flying lookup, job_store.read, _interrupted_too_often and the new Future, all in
+\* _take_off(fea): job_store.read, the _flying lookup, _interrupted_too_often and the new Future, all in
 \* one `with self._lock:`.
 FeaTakeOff(t) ==
     LET p == t[1] IN
     /\ cpc[t] = "idle"
     /\ seen' = [seen EXCEPT ![t] = Nothing]
-    /\ IF flying[p]["fea"] # "none" THEN
-            /\ cfea' = [cfea EXCEPT ![t] = [kind |-> "future", st |-> flying[p]["fea"]]]
+    /\ IF Stored("fea") THEN
+            /\ cfea' = [cfea EXCEPT ![t] = [kind |-> "done", value |-> disk["fea"]]]
             /\ cpc' = [cpc EXCEPT ![t] = "quick"]
             /\ UNCHANGED flying
-       ELSE IF Stored("fea") THEN
-            /\ cfea' = [cfea EXCEPT ![t] = [kind |-> "done", value |-> disk["fea"]]]
+       ELSE IF flying[p]["fea"] # "none" THEN
+            /\ cfea' = [cfea EXCEPT ![t] = [kind |-> "future", st |-> flying[p]["fea"]]]
             /\ cpc' = [cpc EXCEPT ![t] = "quick"]
             /\ UNCHANGED flying
        ELSE IF attempt["fea"] >= Cap THEN
@@ -152,13 +152,13 @@ StartWorker(t) ==
 QuickTakeOff(t) ==
     LET p == t[1] IN
     /\ cpc[t] = "quick"
-    /\ IF flying[p]["quick"] # "none" THEN
-            /\ cquick' = [cquick EXCEPT ![t] = flying[p]["quick"]]
-            /\ cpc' = [cpc EXCEPT ![t] = "waitquick"]
-            /\ UNCHANGED flying
-       ELSE IF Stored("quick") THEN
+    /\ IF Stored("quick") THEN
             /\ cquick' = [cquick EXCEPT ![t] = "none"]
             /\ cpc' = [cpc EXCEPT ![t] = "land"]
+            /\ UNCHANGED flying
+       ELSE IF flying[p]["quick"] # "none" THEN
+            /\ cquick' = [cquick EXCEPT ![t] = flying[p]["quick"]]
+            /\ cpc' = [cpc EXCEPT ![t] = "waitquick"]
             /\ UNCHANGED flying
        ELSE
             /\ flying' = [flying EXCEPT ![p]["quick"] = "unset"]
@@ -186,22 +186,18 @@ WriteQuick(t) ==
     /\ UNCHANGED <<attempt, flying, queue, worker, wpc, wjob, wres,
                    cfea, cquick, cres, seen, crashes, faults, tampers, cut>>
 
+\* Settle on the caller's own flight. A failed quick run then raises out of settle, so that
+\* call returns no card.
 SettleQuick(t) ==
-    /\ cpc[t] = "settlequick"
-    /\ Settle(t[1], "quick", cres[t])
-    /\ cpc' = [cpc EXCEPT ![t] = "releasequick"]
-    /\ UNCHANGED <<disk, attempt, queue, worker, wpc, wjob, wres,
-                   cres, seen, crashes, faults, tampers, cut>>
-
-\* _fly finally: `with self._lock: del self._flying[path]`. A failed quick run then raises out
-\* of settle, so that call returns no card.
-ReleaseQuick(t) ==
     LET p == t[1] IN
-    /\ cpc[t] = "releasequick"
+    /\ cpc[t] = "settlequick"
     /\ flying' = [flying EXCEPT ![p]["quick"] = "none"]
+    /\ cquick' = [u \in Threads |->
+            IF u = t THEN "none"
+            ELSE IF u[1] = p /\ cquick[u] = "unset" THEN FutureOf(cres[t])
+            ELSE cquick[u]]
     /\ cpc' = [cpc EXCEPT ![t] = IF cres[t] \in {"ok", "timeout"} THEN "land" ELSE "idle"]
     /\ cfea' = [cfea EXCEPT ![t] = IF cres[t] \in {"ok", "timeout"} THEN @ ELSE Nothing]
-    /\ cquick' = [cquick EXCEPT ![t] = "none"]
     /\ cres' = [cres EXCEPT ![t] = "ok"]
     /\ UNCHANGED <<disk, attempt, queue, worker, wpc, wjob, wres,
                    seen, crashes, faults, tampers, cut>>
@@ -297,20 +293,13 @@ WorkerWrite(p) ==
     /\ UNCHANGED <<attempt, flying, queue, worker, wjob, wres, cpc, cfea, cquick,
                    cres, seen, crashes, faults, tampers, cut>>
 
+\* A BaseException then leaves _drain's loop.
 WorkerSettle(p) ==
     /\ wpc[p] = "settle"
     /\ Settle(p, wjob[p], wres[p])
-    /\ wpc' = [wpc EXCEPT ![p] = "release"]
-    /\ UNCHANGED <<disk, attempt, queue, worker, wjob, wres, cpc, cres,
-                   seen, crashes, faults, tampers, cut>>
-
-\* _fly finally: del self._flying[path]. A BaseException then leaves _drain's loop.
-WorkerRelease(p) ==
-    /\ wpc[p] = "release"
-    /\ flying' = [flying EXCEPT ![p][wjob[p]] = "none"]
     /\ wpc' = [wpc EXCEPT ![p] = IF wres[p] = "killed" THEN "exit" ELSE "get"]
     /\ wres' = [wres EXCEPT ![p] = "ok"]
-    /\ UNCHANGED <<disk, attempt, queue, worker, wjob, cpc, cfea, cquick, cres,
+    /\ UNCHANGED <<disk, attempt, queue, worker, wjob, cpc, cres,
                    seen, crashes, faults, tampers, cut>>
 
 \* _drain finally: `with self._lock: self._worker = None; if queued: self._start_worker()`.
@@ -359,12 +348,12 @@ Tamper(j) ==
 \* Only Peek and Crash change peeked.
 CallerStep(t) ==
     /\ \/ FeaTakeOff(t) \/ Enqueue(t) \/ StartWorker(t) \/ QuickTakeOff(t) \/ RunQuick(t)
-       \/ WriteQuick(t) \/ SettleQuick(t) \/ ReleaseQuick(t) \/ WaitQuick(t) \/ Land(t)
+       \/ WriteQuick(t) \/ SettleQuick(t) \/ WaitQuick(t) \/ Land(t)
     /\ UNCHANGED peeked
 
 WorkerStep(p) ==
     /\ \/ WorkerGet(p) \/ WorkerBegin(p) \/ WorkerRun(p) \/ WorkerEnd(p) \/ WorkerWrite(p)
-       \/ WorkerSettle(p) \/ WorkerRelease(p) \/ WorkerExit(p)
+       \/ WorkerSettle(p) \/ WorkerExit(p)
     /\ UNCHANGED peeked
 
 Next ==
@@ -395,12 +384,12 @@ TypeOK ==
     /\ flying \in [Procs -> [Jobs -> FutureStates]]
     /\ DOMAIN queue = Procs /\ \A p \in Procs : queue[p] \in Seq({"fea"})
     /\ worker \in [Procs -> BOOLEAN]
-    /\ wpc \in [Procs -> {"gone", "get", "begin", "run", "end", "write", "settle", "release",
+    /\ wpc \in [Procs -> {"gone", "get", "begin", "run", "end", "write", "settle",
                           "exit"}]
     /\ wjob \in [Procs -> Jobs]
     /\ wres \in [Procs -> Results]
     /\ cpc \in [Threads -> {"idle", "enqueue", "startworker", "quick", "runquick", "writequick",
-                            "settlequick", "releasequick", "waitquick", "land"}]
+                            "settlequick", "waitquick", "land"}]
     /\ cfea \in [Threads -> Handles]
     /\ cquick \in [Threads -> FutureStates]
     /\ cres \in [Threads -> Results]

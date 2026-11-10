@@ -1,9 +1,11 @@
 from collections.abc import Generator
 from contextlib import contextmanager
 
-from cad.auto.log import append_event, read_run
+from cad.auto.log import read_run
 from cad.auto.model import AutoRun, Capped, Proposed, Running, RunRefused, RunStopped, Started
 from cad.briefs import store as briefs
+from cad.conversations.model import Mode
+from cad.conversations.store import record_event
 from cad.operations.model import Tenant
 from cad.projects.membership import project_briefs
 from cad.projects.model import ProjectId
@@ -11,10 +13,13 @@ from cad.records.roots import Roots
 from cad.sandbox.meter import AccountLimitReached
 
 
-def gate(tenant: Tenant, run_id: str | None, brief_id: str | None) -> Running | None:
+def gate(tenant: Tenant, brief_id: str | None) -> Running | None:
+    run_id = tenant.auto_run
     if run_id is None:
+        if tenant.mode is Mode.AUTO:
+            raise RunRefused("this conversation is in Auto mode, so call auto_start first")
         return None
-    run = record_proposals(tenant.roots, run_id)
+    run = record_proposals(tenant, run_id)
     if not isinstance(run.state, Running):
         raise RunStopped(run)
     start = run.state.start
@@ -27,28 +32,29 @@ def gate(tenant: Tenant, run_id: str | None, brief_id: str | None) -> Running | 
 
 
 @contextmanager
-def stops_at_the_limit(roots: Roots, run_id: str | None, variant_id: str) -> Generator[None]:
+def stops_at_the_limit(tenant: Tenant, variant_id: str) -> Generator[None]:
     """A container under an Auto run that the account's cap refuses stops the run (ADR-0010). The
     meter refuses before the container starts, so nothing is stored for the refused variant."""
     try:
         yield
     except AccountLimitReached as limit:
+        run_id = tenant.auto_run
         if run_id is None:
             raise
         reason = str(limit)
-        capped = append_event(roots, run_id, lambda _: Capped(refused=variant_id, reason=reason))
+        capped = record_event(tenant, run_id, lambda _: Capped(refused=variant_id, reason=reason))
         raise RunStopped(capped) from limit
 
 
-def record_proposals(roots: Roots, run_id: str) -> AutoRun:
+def record_proposals(tenant: Tenant, run_id: str) -> AutoRun:
     # Project-wide: one confirmation page lists every brief's waiting items.
-    run = read_run(roots, run_id)
-    if not isinstance(run.state, Running):
-        return run
-    fresh = _proposed_since(roots, run.state.start)
-    if fresh is None:
-        return run
-    return append_event(roots, run_id, lambda _: Proposed(requirements=fresh))
+    run = read_run(tenant.roots, run_id)
+    fresh = (
+        _proposed_since(tenant.roots, run.state.start) if isinstance(run.state, Running) else None
+    )
+    return record_event(
+        tenant, run_id, lambda _: None if fresh is None else Proposed(requirements=fresh)
+    )
 
 
 def watermark(roots: Roots, project: ProjectId) -> tuple[tuple[str, int], ...]:

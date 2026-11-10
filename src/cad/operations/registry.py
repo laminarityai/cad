@@ -1,4 +1,5 @@
 import sys
+from collections.abc import Mapping
 from typing import Final
 
 from cad.operations import (
@@ -6,14 +7,17 @@ from cad.operations import (
     briefs,
     confirmation,
     context_parts,
+    conversations,
     geometry,
     knowledge,
+    reads,
     research,
     scorecards,
     variants,
 )
 from cad.operations import server as server_operations
 from cad.operations.model import BOTH, Operation, Tenant, operation
+from cad.operations.routes import Served
 from cad.operations.server import REPO_ROOT, NoArguments, ServerInfo, git_state
 from cad.operations.tools import agent_operations
 
@@ -47,5 +51,23 @@ OPERATIONS: Final[tuple[Operation, ...]] = (
     *knowledge.OPERATIONS,
     *research.OPERATIONS,
     *auto.OPERATIONS,
+    *conversations.OPERATIONS,
     *geometry.OPERATIONS,
+    *reads.OPERATIONS,
 )
+
+ROUTES: Final[Mapping[str, Served]] = {
+    "server_info": Served("/v1/server"),
+    "list_materials": Served("/v1/materials"),
+    "search_knowledge": Served("/v1/knowledge"),
+    "list_requirements": Served("/v1/briefs/{brief_id}"),
+    "list_projects": Served("/v1/projects"),
+    "project": Served("/v1/projects/{project_id}"),
+    "variant_set": Served("/v1/projects/{project_id}/briefs/{brief_id}/set"),
+    "scorecard": Served("/v1/variants/{variant_id}/scorecard"),
+    "view": Served("/v1/variants/{variant_id}"),
+    "geometry": Served("/v1/variants/{variant_id}/geometry"),
+    "mesh": Served(reads.MESH_PATH, immutable=True),
+    "set_mode": Served("/v1/conversations/{conversation_id}/mode", method="PUT"),
+    "auto_stop": Served("/v1/auto/{run_id}/stop", method="POST"),
+}

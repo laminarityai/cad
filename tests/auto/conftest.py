@@ -12,7 +12,9 @@ from cad.auto.log import read_run
 from cad.auto.model import AutoRun
 from cad.confirmations.waiting import Bell, Door
 from cad.context_parts.ingest import ingest
-from cad.operations.model import Mode, Tenant
+from cad.conversations import store
+from cad.conversations.model import Conversation, ConversationId, Mode
+from cad.operations.model import Tenant
 from cad.operations.registry import OPERATIONS
 from cad.operations.tools import tools
 from cad.records.roots import Roots
@@ -49,6 +51,7 @@ class Session:
     client: Client
     tenant: Tenant
     meter: Ledger
+    conversation: ConversationId
 
     async def call(self, tool: str, **arguments: Any) -> dict[str, Any]:
         result = await self.client.call_tool(tool, arguments)
@@ -67,6 +70,23 @@ class Session:
     def run(self, run_id: str) -> AutoRun:
         return read_run(self.roots, run_id)
 
+    async def left_auto(self, brief_id: str, run_id: str) -> None:
+        """The run stopped, so the conversation is in Design, and the agent cannot start another
+        run on the brief, or drive the stopped one, until the person picks Auto."""
+        assert store.read(self.tenant.conversations, self.conversation) == Conversation(
+            mode=Mode.DESIGN
+        )
+        for _ in range(2):
+            text = await self.refusal("auto_start", brief_id=brief_id, material_key="prusament-pla")
+            assert "this caller's mode is design" in text, text
+            text = await self.refusal("auto_revise", run_id=run_id, code="result = None")
+            assert f"RunNotHeld: auto run {run_id} is not this conversation's" in text, text
+            text = await self.refusal("auto_ask", run_id=run_id, note="again")
+            assert f"RunNotHeld: auto run {run_id} is not this conversation's" in text, text
+        store.set_mode(self.tenant, self.conversation, Mode.AUTO)
+        again = await self.start(brief_id=brief_id, material_key="prusament-pla")
+        assert again.run_id != run_id
+
     async def confirmed(self, text: str, *requirements: dict[str, Any]) -> str:
         brief = await self.call("create_brief", text=text)
         brief_id = brief["brief_id"]
@@ -83,6 +103,10 @@ class Session:
         failed = Build(outcome=BuildFailed(error="NameError", traceback=""), output="")
         entry.save(self.tenant.variants, vid, code, failed, None)
         return vid
+
+    @property
+    def bound(self) -> Tenant:
+        return store.bind(self.tenant, self.conversation)
 
     @property
     def roots(self) -> Roots:
@@ -118,11 +142,14 @@ async def s(tmp_path: Path, meter: Ledger, person: "Person") -> AsyncIterator[Se
         roots=roots,
         variants=tmp_path / "variants",
         geometry=tmp_path / "geometry",
+        conversations=tmp_path / "conversations",
         bell=Bell(),
         door=Door(open_page=page.open, wait_seconds=5),
         ingest=ingest,
         meter=meter,
-        mode=Mode.AUTO,
     )
-    async with Client(MCPServer("cad", tools=tools(lambda: tenant, OPERATIONS))) as client:
-        yield Session(client, tenant, meter)
+    cid = ConversationId("c1")
+    store.set_mode(tenant, cid, Mode.AUTO)
+    served = tools(lambda: store.bind(tenant, cid), OPERATIONS)
+    async with Client(MCPServer("cad", tools=served)) as client:
+        yield Session(client, tenant, meter, cid)

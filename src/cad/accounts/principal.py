@@ -3,6 +3,8 @@ from typing import Final, Literal, NewType
 
 from pydantic import BaseModel, ConfigDict
 
+from cad.conversations.model import ConversationId
+
 AccountId = NewType("AccountId", str)
 
 # A Clerk user id is `user_` and base62. The id names a directory, so it is checked here, at the
@@ -39,6 +41,7 @@ class AgentToken(_Frozen):
     account: AccountId
     token_id: str
     client_id: str
+    conversation: ConversationId | None = None
 
 
 type Principal = PersonSession | AgentToken

@@ -90,7 +90,7 @@ SCORE_VARIANT = (
     "the sandbox image and the confirmed requirements are unchanged. Scoring a rebuilt "
     "variant by its new id gives the same scorecard with rebuilt_from empty. "
     "In Test mode, score only the variant the user picked. "
-    "Under an Auto run, pass auto_run with its run id and the run's brief_id: once the run has "
+    "Under an Auto run, which the conversation holds, pass the run's brief_id: once the run has "
     "stopped, the scorecard is refused before any check runs, and a check the account's usage "
     "limit refuses stops the run. " + OWN_MEASUREMENTS + RULE + " " + NOT_VERIFIED
 )
@@ -113,7 +113,6 @@ class ScoreVariantInput(Input):
     material_key: MaterialKey
     brief_id: str | None = None
     own_measurements: own.OwnMeasurements | None = None
-    auto_run: str | None = None
 
 
 class ScorecardInput(Input):
@@ -157,11 +156,11 @@ def judged(tenant: Tenant, brief_id: str | None, material_key: str) -> Judged:
 
 
 def score_variant(tenant: Tenant, arguments: ScoreVariantInput) -> material.ReportedScorecard:
-    gate(tenant, arguments.auto_run, arguments.brief_id)
+    gate(tenant, arguments.brief_id)
     basis = judged(tenant, arguments.brief_id, arguments.material_key)
     if arguments.own_measurements:
         own.refuse_unless_unchecked(basis.confirmed, arguments.own_measurements)
-    with stops_at_the_limit(tenant.roots, arguments.auto_run, arguments.variant_id):
+    with stops_at_the_limit(tenant, arguments.variant_id):
         scored = score.score_variant(
             arguments.variant_id,
             basis.material_key,
@@ -179,7 +178,7 @@ def score_variant(tenant: Tenant, arguments: ScoreVariantInput) -> material.Repo
     return card
 
 
-def scorecard(tenant: Tenant, arguments: ScorecardInput) -> material.ReportedScorecard:
+def scorecard(tenant: Tenant, arguments: ScorecardInput) -> material.ScorecardSnapshot:
     basis = judged(tenant, arguments.brief_id, arguments.material_key)
     peeked = score.peek_variant(
         arguments.variant_id,
@@ -189,8 +188,8 @@ def scorecard(tenant: Tenant, arguments: ScorecardInput) -> material.ReportedSco
         demand=basis.demand,
         table=basis.table.table,
     )
-    return with_research(
-        material.reported(peeked, basis.confirmed), basis.table, arguments.brief_id
+    return material.snapshot(
+        with_research(material.reported(peeked, basis.confirmed), basis.table, arguments.brief_id)
     )
 
 
@@ -208,7 +207,7 @@ OPERATIONS: Final = (
         audience=BOTH,
         description=SCORECARD,
         input=ScorecardInput,
-        output=material.ReportedScorecard,
+        output=material.ScorecardSnapshot,
         run=scorecard,
     ),
 )

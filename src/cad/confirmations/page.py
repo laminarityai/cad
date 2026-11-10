@@ -18,6 +18,7 @@ from cad.confirmations.answers import (
     read_ledger,
 )
 from cad.confirmations.items import Changes, Editable, Kinds, Refused, Section, pending
+from cad.confirmations.warnings import Conflict, conflicts
 from cad.projects.model import ProjectId
 from cad.records.roots import Roots
 
@@ -36,6 +37,8 @@ STYLE: Final = (
     "margin:1.25rem 0}.item h2{font-size:1.1rem}"
     "blockquote{white-space:pre-wrap;border-left:4px solid #888;margin:0;padding:.5rem 1rem;"
     "background:#f4f4f4}"
+    ".warning{background:#fff8e1;border:1px solid #e0b000;border-left-width:6px;"
+    "border-radius:8px;padding:.5rem 1.25rem;margin:1.25rem 0}.warning h2{font-size:1.1rem}"
     ".check{color:#555}li{margin:.75rem 0}textarea{width:100%;min-height:4rem}"
     ".change input{font-size:1rem;margin-left:.5rem;padding:.25rem .5rem;width:14rem}"
     "button{font-size:1rem;margin:.5rem .5rem 0 0;padding:.5rem 1.25rem;border-radius:6px;"
@@ -151,9 +154,11 @@ def _label(index: int) -> str:
     return f"Item {index + 1}"
 
 
-def view(kinds: Kinds, project: ProjectId, items: Sequence[ItemRef], snapshot: str) -> bytes:
+def view(
+    roots: Roots, kinds: Kinds, project: ProjectId, items: Sequence[ItemRef], snapshot: str
+) -> bytes:
     sections = [kinds[ref.kind].section(ref) for ref in items]
-    return render(sections, f"/projects/{project}/confirm", snapshot)
+    return render(sections, f"/projects/{project}/confirm", snapshot, conflicts(roots, project))
 
 
 def answer_page(
@@ -187,7 +192,9 @@ def answer_page(
     return Recorded(verdicts.count("confirmed"), verdicts.count("declined"))
 
 
-def render(sections: Sequence[Section], action: str, snapshot: str) -> bytes:
+def render(
+    sections: Sequence[Section], action: str, snapshot: str, warnings: Sequence[Conflict]
+) -> bytes:
     each = _declinable(len(sections))
     items = "".join(
         _section(f"{_label(index)}. " if each else "", index, section)
@@ -203,6 +210,7 @@ def render(sections: Sequence[Section], action: str, snapshot: str) -> bytes:
         "<h1>Confirm what the agent proposed</h1>"
         f'<p class="lead">One click answers {count} on this page. If a number is wrong, type '
         f"the right one beside it. Checks will read these numbers.{pick}</p>"
+        f"{''.join(_warning(index, one) for index, one in enumerate(warnings))}"
         f"{items}"
         f'<form id="page" method="post" action="{html.escape(action)}">'
         f'<input type="hidden" name="{SNAPSHOT}" value="{html.escape(snapshot)}">'
@@ -212,6 +220,27 @@ def render(sections: Sequence[Section], action: str, snapshot: str) -> bytes:
         '<button name="answer" value="decline">Decline all</button>'
         "</form></body></html>"
     ).encode()
+
+
+def _warning(index: int, conflict: Conflict) -> str:
+    cited = "".join(
+        f"<li><strong>{html.escape(one.headline)}</strong><br>"
+        f'From your words: <q class="origin">{html.escape(one.quote)}</q></li>'
+        for one in conflict.cited
+    )
+    researched = (
+        "<p>This rests on a researched material value, not one from the reviewed table.</p>"
+        if conflict.researched
+        else ""
+    )
+    return (
+        f'<div class="warning" role="note" aria-labelledby="warning-{index}">'
+        f'<h2 id="warning-{index}">Warning: these requirements conflict</h2>'
+        f"<p>{html.escape(conflict.statement)}</p>{researched}"
+        "<p>No design can meet all of them. Decline the item that is wrong and say which in "
+        "the note, or change its number.</p>"
+        f"<ul>{cited}</ul></div>"
+    )
 
 
 def _decline_control(index: int) -> str:

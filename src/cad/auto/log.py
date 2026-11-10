@@ -8,6 +8,7 @@ from pydantic import TypeAdapter, ValidationError
 from cad.auto.model import (
     AutoRun,
     Event,
+    PersonStopped,
     Running,
     Started,
     Stopped,
@@ -61,6 +62,9 @@ def create_run(roots: Roots, run_id: str, started: Started) -> None:
 
 
 def append_event(roots: Roots, run_id: str, make: Make) -> AutoRun:
+    if not exists(roots, run_id):
+        raise UnknownRun(f"no auto run {run_id} is stored")
+
     def record_for(existing: tuple[bytes, ...]) -> bytes | None:
         events = _parse(existing)
         if events is None:
@@ -73,6 +77,10 @@ def append_event(roots: Roots, run_id: str, make: Make) -> AutoRun:
 
     _append(roots, run_id, record_for)
     return read_run(roots, run_id)
+
+
+def stop_by_person(roots: Roots, run_id: str) -> AutoRun:
+    return append_event(roots, run_id, lambda _: PersonStopped())
 
 
 def _append(

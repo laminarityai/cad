@@ -83,7 +83,7 @@ class Mutant:
 MUTANTS: Final = (
     Mutant(
         "quick-skips-flying",
-        "_take_off stops looking in _flying before it reads the store",
+        "_take_off stops looking in _flying",
         JOB_LANES,
         (('IF flying[p]["quick"] # "none" THEN', "IF FALSE THEN"),),
         "OneContainerPerKey",

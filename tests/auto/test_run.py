@@ -1,23 +1,21 @@
 from __future__ import annotations
 
-import threading
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import replace
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Final
+from typing import TYPE_CHECKING, Final
 
 import pytest
 from mcp import Client
 from mcp.server import MCPServer
 
 from cad.auto.log import run_dir
-from cad.auto.model import AccountLimit, NeedsPerson, Running, Stopped
+from cad.auto.model import AccountLimit, AutoRun, NeedsPerson, Running, RunNotHeld, Stopped
 from cad.briefs.store import read_brief
+from cad.conversations import store
+from cad.conversations.model import ConversationId, Mode
 from cad.operations.auto import StartInput, auto_start
-from cad.operations.model import Mode
 from cad.operations.registry import OPERATIONS
 from cad.operations.tools import tools
-from cad.records import signed
 from cad.sandbox.image import BUILD, image_tag
 from cad.variants import entry
 
@@ -58,17 +56,6 @@ def records(s: Session, run_id: str) -> int:
     return len(list(run_dir(s.roots, run_id).glob("*.signed")))
 
 
-async def refused_everything(s: Session, brief_id: str, run_id: str, code: str) -> None:
-    score = {"variant_id": "0" * 16, "material_key": "prusament-pla", "brief_id": brief_id}
-    for _ in range(3):
-        for text in (
-            await s.refusal("auto_revise", run_id=run_id, code=code),
-            await s.refusal("build_variant", code=code, brief_id=brief_id, auto_run=run_id),
-            await s.refusal("score_variant", auto_run=run_id, **score),
-        ):
-            assert f"RunStopped: auto run {run_id} has stopped" in text, text
-
-
 async def test_the_auto_operations_are_agent_tools(s: Session) -> None:
     names = {tool.name for tool in (await s.client.list_tools()).tools}
     assert {"auto_start", "auto_revise", "auto_ask"} <= names
@@ -79,8 +66,12 @@ async def test_auto_start_is_refused_outside_an_auto_mode_conversation(
     s: Session, mode: Mode | None
 ) -> None:
     brief_id = await s.confirmed(TEXT, UNDER_150)
-    tenant = replace(s.tenant, mode=mode)
-    async with Client(MCPServer("cad", tools=tools(lambda: tenant, OPERATIONS))) as client:
+    if mode is None:
+        served = tools(lambda: s.tenant, OPERATIONS)
+    else:
+        store.set_mode(s.tenant, s.conversation, mode)
+        served = tools(lambda: s.bound, OPERATIONS)
+    async with Client(MCPServer("cad", tools=served)) as client:
         result = await client.call_tool(
             "auto_start", {"brief_id": brief_id, "material_key": "prusament-pla"}
         )
@@ -91,24 +82,20 @@ async def test_auto_start_is_refused_outside_an_auto_mode_conversation(
     assert not (s.roots.projects / project / "auto").exists()
 
 
-async def test_two_concurrent_starts_of_one_brief_make_one_run(
-    s: Session, monkeypatch: pytest.MonkeyPatch
-) -> None:
+async def test_two_concurrent_starts_of_one_brief_make_one_run(s: Session) -> None:
     brief_id = await s.confirmed(TEXT, UNDER_150)
-    both_at_create = threading.Barrier(2, timeout=5)
-    create_entry = signed.create_entry
-
-    def racing(*arguments: Any) -> bool:
-        both_at_create.wait()
-        return create_entry(*arguments)
-
-    monkeypatch.setattr(signed, "create_entry", racing)
     arguments = StartInput(brief_id=brief_id, material_key="prusament-pla")
-    with ThreadPoolExecutor(2) as pool:
-        racers = [pool.submit(auto_start, s.tenant, arguments) for _ in range(2)]
-        runs = [racer.result() for racer in racers]
-    [run_id] = {run.run_id for run in runs}
-    assert all(isinstance(run.state, Running) for run in runs)
+    other = ConversationId("c-other")
+    store.set_mode(s.tenant, other, Mode.AUTO)
+    callers = [s.bound, s.bound, store.bind(s.tenant, other)]
+    with ThreadPoolExecutor(3) as pool:
+        racers = [(caller, pool.submit(auto_start, caller, arguments)) for caller in callers]
+        outcomes = [(caller.conversation, racer.exception()) for caller, racer in racers]
+    [run_id] = {racer.result().run_id for _, racer in racers if racer.exception() is None}
+    owner = s.run(run_id).state.start.conversation
+    for conversation, refused in outcomes:
+        assert (conversation == owner) == (refused is None)
+        assert refused is None or isinstance(refused, RunNotHeld)
     stored = run_dir(s.roots, run_id).parent.iterdir()
     assert [path.name for path in stored if not path.name.startswith(".")] == [run_id]
 
@@ -126,7 +113,7 @@ async def test_a_conflicting_brief_stops_at_start_with_its_proof_and_builds_noth
     assert bounds.statement.startswith("min_mass 50 g > density(prusament-pla) 1.24 g/cm³")
     assert bounds.statement.endswith("envelope 8 cm³ = 9.92 g")
     assert bounds.statement in run.state.report
-    await refused_everything(s, brief_id, run.run_id, PLATE)
+    await s.left_auto(brief_id, run.run_id)
     assert s.meter.asked == []
     assert not s.tenant.variants.exists()
 
@@ -137,13 +124,14 @@ async def test_proposing_requirements_under_a_run_stops_it(
     brief_id, run_id = await running(s)
     await s.propose(brief_id, UNDER_150)
     monkeypatch.setenv("DOCKER_HOST", NO_DOCKER)
-    text = await s.refusal("build_variant", code=PLATE, brief_id=brief_id, auto_run=run_id)
+    text = await s.refusal("build_variant", code=PLATE, brief_id=brief_id)
     assert "New requirements were proposed, and only the person can confirm them" in text
     stopped = s.run(run_id)
     assert isinstance(stopped.state, Stopped)
     reason = stopped.state.reason
     assert isinstance(reason, NeedsPerson) and reason.why == "proposes_requirements"
     assert s.meter.asked == []
+    await s.left_auto(brief_id, run_id)
 
 
 async def test_auto_ask_stops_the_run_with_the_agents_note_and_nothing_spends_after(
@@ -160,10 +148,11 @@ async def test_auto_ask_stops_the_run_with_the_agents_note_and_nothing_spends_af
         "note": note,
     }
     assert note in asked["state"]["report"]
-    again = await s.call("auto_ask", run_id=run_id, note="a second note")
-    assert again == asked
+    text = await s.refusal("auto_ask", run_id=run_id, note="a second note")
+    assert f"RunNotHeld: auto run {run_id} is not this conversation's" in text
+    assert s.run(run_id).state == AutoRun.model_validate(asked).state
     monkeypatch.setenv("DOCKER_HOST", NO_DOCKER)
-    await refused_everything(s, brief_id, run_id, PLATE)
+    await s.left_auto(brief_id, run_id)
     assert s.meter.asked == []
     assert records(s, run_id) == 2
 
@@ -184,31 +173,34 @@ async def test_a_build_the_account_limit_refuses_stops_the_run_and_starts_nothin
     assert (s.meter.asked, started) == (["build"], [])
     assert entry.read_manifest(s.tenant.variants, vid) is None
     monkeypatch.setenv("DOCKER_HOST", NO_DOCKER)
-    await refused_everything(s, brief_id, run_id, PLATE)
+    await s.left_auto(brief_id, run_id)
     assert s.meter.asked == ["build"]
 
 
 async def test_a_check_the_account_limit_refuses_stops_the_run(s: Session) -> None:
     brief_id, run_id = await running(s)
-    built = await s.call("build_variant", code=PLATE, brief_id=brief_id, auto_run=run_id)
+    built = await s.call("build_variant", code=PLATE, brief_id=brief_id)
     s.meter.spent = True
     score = {"variant_id": built["variant_id"], "material_key": "prusament-pla"}
-    text = await s.refusal("score_variant", brief_id=brief_id, auto_run=run_id, **score)
+    text = await s.refusal("score_variant", brief_id=brief_id, **score)
     assert f"RunStopped: auto run {run_id} has stopped" in text
     run = s.run(run_id)
     assert isinstance(run.state, Stopped)
     reason = run.state.reason
     assert isinstance(reason, AccountLimit) and reason.refused == built["variant_id"]
     assert s.meter.asked == ["build", "check"]
+    await s.left_auto(brief_id, run_id)
 
 
-async def test_a_build_the_account_limit_refuses_outside_a_run_stops_no_run(
+async def test_a_build_the_account_limit_refuses_for_an_outside_client_stops_no_run(
     s: Session, started: list[str]
 ) -> None:
     s.meter.spent = True
     brief_id, run_id = await running(s)
-    text = await s.refusal("build_variant", code=PLATE, brief_id=brief_id)
-    assert "the account limit is reached: 600 of 600 container-seconds" in text
+    async with Client(MCPServer("cad", tools=tools(lambda: s.tenant, OPERATIONS))) as outside:
+        result = await outside.call_tool("build_variant", {"code": PLATE, "brief_id": brief_id})
+    assert result.is_error
+    assert "the account limit is reached: 600 of 600 container-seconds" in str(result.content)
     assert isinstance(s.run(run_id).state, Running)
     assert started == []
 
@@ -234,7 +226,7 @@ async def test_a_replayed_revision_appends_nothing_and_builds_nothing(
 async def test_a_run_builds_only_for_its_own_brief(s: Session) -> None:
     _, run_id = await running(s)
     other = await s.confirmed(TEXT, UNDER_150)
-    text = await s.refusal("build_variant", code=PLATE, brief_id=other, auto_run=run_id)
+    text = await s.refusal("build_variant", code=PLATE, brief_id=other)
     assert f"RunRefused: auto run {run_id} builds and scores only for brief" in text
     assert s.meter.asked == []
 
@@ -248,6 +240,7 @@ async def test_starting_a_brief_with_a_live_run_returns_that_run(s: Session) -> 
 async def test_starting_a_brief_whose_run_stopped_starts_a_new_run(s: Session) -> None:
     brief_id, run_id = await running(s)
     await s.call("auto_ask", run_id=run_id, note="stuck")
+    store.set_mode(s.tenant, s.conversation, Mode.AUTO)
     again = await s.start(brief_id=brief_id, material_key="prusament-pla")
     assert again.run_id != run_id
     assert isinstance(again.state, Running)
@@ -265,5 +258,5 @@ async def test_a_revision_that_passes_every_checked_requirement_stops_the_run(
     assert s.meter.asked.count("build") == 1
     asked = list(s.meter.asked)
     monkeypatch.setenv("DOCKER_HOST", NO_DOCKER)
-    await refused_everything(s, brief_id, run_id, PLATE + "\n# thicker\n")
+    await s.left_auto(brief_id, run_id)
     assert s.meter.asked == asked

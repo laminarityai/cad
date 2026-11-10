@@ -25,6 +25,7 @@ from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 
 from cad.accounts.principal import account_id
 from cad.accounts.tokens import Issuer
+from cad.conversations.model import conversation_id
 from cad.records.roots import DATA_ROOT
 
 ISSUER_URL: Final = "http://127.0.0.1/cad-local-issuer"
@@ -72,14 +73,18 @@ class LocalIssuer:
             frozenset({self.origin}),
         )
 
-    def mint_agent(self, account: str, ttl: int = TTL_SECONDS) -> str:
-        claims = {
+    def mint_agent(
+        self, account: str, ttl: int = TTL_SECONDS, conversation: str | None = None
+    ) -> str:
+        claims: dict[str, object] = {
             "sub": account,
             "aud": [self.resource],
             "client_id": "client_cad_local",
             "scope": "profile email",
             "jti": f"oat_{secrets.token_hex(12)}",
         }
+        if conversation is not None:
+            claims["conversation"] = conversation
         return self._sign(claims, "at+jwt", ttl)
 
     def mint_person(self, account: str, ttl: int = TTL_SECONDS) -> str:
@@ -128,11 +133,19 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("account")
     parser.add_argument("--url", default="http://127.0.0.1:8765", help="the server's own URL")
     parser.add_argument("--root", type=Path, default=DATA_ROOT, help="the server's data root")
+    parser.add_argument(
+        "--conversation", help="an agent token's conversation id, whose mode the server enforces"
+    )
     args = parser.parse_args(argv)
+    if args.conversation is not None and args.kind != "agent":
+        parser.error("--conversation goes with an agent token only")
     issuer = LocalIssuer.open(args.root, args.url)
     account = account_id(args.account)
-    mint = issuer.mint_agent if args.kind == "agent" else issuer.mint_person
-    print(mint(account))
+    if args.kind == "person":
+        print(issuer.mint_person(account))
+    else:
+        conversation = None if args.conversation is None else conversation_id(args.conversation)
+        print(issuer.mint_agent(account, conversation=conversation))
     return 0
 
 

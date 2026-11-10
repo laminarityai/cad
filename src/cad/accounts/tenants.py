@@ -1,10 +1,11 @@
 """An account's Tenant, by physical partition.
 
 One layout under a base directory: `briefs/`, `projects/`, `variants/` (with each variant's job
-results in `variants/<vid>/jobs/`), `geometry/` and `usage/`. The signing keys are siblings of
-each root, so every base has its own keys. The stdio server's base is `~/.cad`, today's paths. The
-HTTP server gives account `<aid>` the base `<data root>/accounts/<aid>`. No store is shared between
-accounts, content-addressed ones included, so a cache hit cannot reveal another account's geometry.
+results in `variants/<vid>/jobs/`), `geometry/`, `conversations/` and `usage/`. The signing keys
+are siblings of each root, so every base has its own keys. The stdio server's base is `~/.cad`,
+today's paths. The HTTP server gives account `<aid>` the base `<data root>/accounts/<aid>`. No
+store is shared between accounts, content-addressed ones included, so a cache hit cannot reveal
+another account's geometry.
 """
 
 import threading
@@ -20,6 +21,7 @@ from cad.operations.model import Tenant
 from cad.records.roots import Roots
 
 ACCOUNTS: Final = "accounts"
+CONVERSATIONS: Final = "conversations"
 
 
 def open_tenant(
@@ -36,6 +38,7 @@ def open_tenant(
         roots=roots,
         variants=variants,
         geometry=geometry,
+        conversations=variants.parent / CONVERSATIONS,
         bell=Bell(),
         door=door,
         ingest=ingest,

@@ -174,7 +174,7 @@ def _show(person: PersonSession, tenant: Tenant, project: ProjectId) -> Response
     if not items:
         return _plain(200, NOTHING_WAITS)
     sealed = snapshot.seal(tenant.roots.projects, person, project, items)
-    return _html(200, page.view(every, project, items, sealed))
+    return _html(200, page.view(tenant.roots, every, project, items, sealed))
 
 
 def _local_sign_in(verifier: Verifier) -> Callable[[Request], Response]:

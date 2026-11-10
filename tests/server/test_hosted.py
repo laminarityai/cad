@@ -111,7 +111,7 @@ async def test_an_agent_token_on_a_web_route_gets_401(app: Starlette, local: Loc
         client.cookies.set("__session", local.mint_person("user_alice"))
         reached = await client.get(path)
     assert refused.status_code == 401
-    assert reached.status_code == 400
+    assert reached.status_code == 404
     assert reached.json()["error"].startswith("UnknownVariant")
 
 

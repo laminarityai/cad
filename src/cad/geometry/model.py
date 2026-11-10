@@ -3,6 +3,11 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from cad.geometry.container.wire import ShapesWire, ShapeWire
+from cad.variants.entry import UnknownVariant
+
+
+class UnknownMesh(UnknownVariant):
+    pass
 
 
 class _Frozen(BaseModel):

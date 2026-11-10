@@ -1,6 +1,6 @@
 # Auto mode (NOT YET BUILT)
 
-The server holds an Auto run. The web backend calls `auto_start`, then `auto_revise` with each new revision of the code, until the server returns `Stopped`. A run stops when every checked requirement passes, when a call proposes requirements or a row waits on a confirmation, when the agent calls `auto_ask`, or when the account's usage cap refuses a build (`AccountLimit`). `bounds_conflicts` stops a run before any build and warns on the Plan mode confirmation page.
+The server holds an Auto run. The web backend calls `auto_start`, then `auto_revise` with each new revision of the code, until the server returns `Stopped`. A run stops when every checked requirement passes, when a call proposes requirements or a row waits on a confirmation, when the agent calls `auto_ask`, or when the account's usage cap refuses a build (`AccountLimit`). `bounds_conflicts` stops a run before any build, and the Plan mode confirmation page warns of the same conflict before the person confirms.
 
 Design: `docs/design/phase-4.md` §1b, §2.5 (ADR-0010, approved 2026-11-08) and §2.7 (`AccountMeter`). Units 7 and 9 of §4. Unit 1 (revisions in a slot) comes first and changes [Build variant](../build-variant.md): `build_variant` takes a `slot`.
 
@@ -12,7 +12,7 @@ Design: `docs/design/phase-4.md` §1b, §2.5 (ADR-0010, approved 2026-11-08) and
 ## Proof to write when it lands
 
 - Scripted driver with `cad-call`: confirm a brief (browser as the person), `auto_start`, `auto_revise` with the plate code, then call `auto_revise` again after `Stopped` and show the refusal with no new container (`docker ps -a --filter label=cad.sandbox` before and after). Cost: docker + browser.
-- The conflict warning is on the confirmation page, so `browser.py` reads it from the ARIA snapshot of that page. The 20 mm cube brief stops before any build: the variant store under `$CAD_HOME` stays empty.
+- The conflict warning is built and has its recipe in [Briefs](../briefs.md) (Conflict warning). Run that recipe on the 20 mm cube brief, then check the run stops before any build: the variant store under `$CAD_HOME` stays empty.
 - The stiffness-versus-mass eval is a live run through the brief-set driver ([Brief set](../brief-set.md)). Cost: live.
 
 ## Until then

@@ -37,17 +37,18 @@ from starlette.routing import Route
 from cad.accounts import lease
 from cad.accounts.clerk import PUBLIC_URL, PUBLISHABLE_KEY, clerk_issuer
 from cad.accounts.local import LocalIssuer
-from cad.accounts.principal import account_id
+from cad.accounts.principal import AgentToken
 from cad.accounts.tenants import ACCOUNTS, Tenants
 from cad.accounts.tokens import Issuer, Verifier
 from cad.confirmations.waiting import Door, Opener, page_address, program_opener, sign_in_opener
 from cad.confirmations.web import ClerkSignIn, LocalSignIn, SignIn, confirm_routes
 from cad.context_parts.ingest import ingest as read_part
 from cad.context_parts.store import Ingest
+from cad.conversations import store
 from cad.operations.guidance import INSTRUCTIONS
 from cad.operations.model import Tenant
-from cad.operations.registry import OPERATIONS
-from cad.operations.routes import person_route
+from cad.operations.registry import OPERATIONS, ROUTES
+from cad.operations.routes import person_routes
 from cad.operations.tools import tools
 from cad.records.roots import DATA_ROOT
 from cad.sandbox import container, meter
@@ -55,6 +56,10 @@ from cad.sandbox.outcome import SandboxUnavailable
 
 DAILY_CAP_SECONDS: Final = 3600
 PORT: Final = 8765
+
+
+class AgentAccess(AccessToken):
+    agent: AgentToken
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,12 +73,13 @@ class AgentTokens:
         agent = self.verifier.agent(token)
         if agent is None:
             return None
-        return AccessToken(
+        return AgentAccess(
             token=token,
             client_id=agent.client_id,
             scopes=[],
             resource=self.verifier.issuer.resource,
             subject=agent.account,
+            agent=agent,
         )
 
 
@@ -82,9 +88,9 @@ def build_app(issuer: Issuer, tenants: Tenants, sign_in: SignIn) -> Starlette:
 
     def tenant_of_token() -> Tenant:
         token = get_access_token()
-        if token is None or token.subject is None:
+        if not isinstance(token, AgentAccess):
             raise PermissionError("an MCP call reached a tool with no verified agent token")
-        return tenants.of(account_id(token.subject))
+        return store.bind(tenants.of(token.agent.account), token.agent.conversation)
 
     server = MCPServer(
         "cad",
@@ -103,10 +109,7 @@ def build_app(issuer: Issuer, tenants: Tenants, sign_in: SignIn) -> Starlette:
         )
     )
     app.router.routes.insert(0, _resource_metadata(issuer))
-    scorecard = next(one for one in OPERATIONS if one.name == "scorecard")
-    app.router.routes.append(
-        person_route("/v1/variants/{variant_id}/scorecard", scorecard, verifier.person, tenants.of)
-    )
+    app.router.routes.extend(person_routes(OPERATIONS, ROUTES, verifier.person, tenants.of))
     app.router.routes.extend(confirm_routes(verifier, tenants.of, origin(issuer), sign_in))
     return app
 

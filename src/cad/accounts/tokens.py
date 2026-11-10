@@ -18,6 +18,7 @@ import jwt
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 
 from cad.accounts.principal import AgentToken, NotAnAccount, PersonSession, account_id
+from cad.conversations.model import ConversationId, NotAConversation, conversation_id
 
 ALGORITHMS: Final = ["RS256"]
 LEEWAY_SECONDS: Final = 5
@@ -49,10 +50,17 @@ class Verifier:
         claims = self._claims(token, AGENT_TYPES, AGENT_CLAIMS, self.issuer.resource)
         if claims is None or not isinstance(claims["client_id"], str):
             return None
+        conversation: ConversationId | None = None
+        if "conversation" in claims:
+            try:
+                conversation = conversation_id(claims["conversation"])
+            except NotAConversation:
+                return None
         return AgentToken(
             account=account_id(claims["sub"]),
             token_id=str(claims["jti"]),
             client_id=claims["client_id"],
+            conversation=conversation,
         )
 
     def person(self, token: str) -> PersonSession | None:

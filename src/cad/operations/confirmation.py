@@ -222,7 +222,7 @@ OPERATIONS: Final = (
     ),
     operation(
         name="answer_page",
-        audience=Audience.PERSON,
+        audience=Audience.PAGE,
         description=ANSWER_PAGE,
         input=AnswerPageInput,
         output=PageReply,

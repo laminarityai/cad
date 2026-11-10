@@ -1,7 +1,7 @@
 import inspect
 from collections.abc import Callable
 from dataclasses import dataclass
-from enum import Flag, StrEnum, auto
+from enum import Flag, auto
 from pathlib import Path
 from typing import TypeAliasType
 
@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict
 from cad.accounts.principal import AccountId
 from cad.confirmations.waiting import Bell, Door
 from cad.context_parts.store import Ingest
+from cad.conversations.model import ConversationId, Mode
 from cad.records.roots import Roots
 from cad.sandbox.meter import Meter
 
@@ -17,16 +18,12 @@ from cad.sandbox.meter import Meter
 class Audience(Flag):
     AGENT = auto()
     PERSON = auto()
+    # The person through the confirmation page's form, which only confirmations.web serves: no
+    # MCP tool and no JSON route, so the page's Origin and snapshot checks guard every answer.
+    PAGE = auto()
 
 
 BOTH = Audience.AGENT | Audience.PERSON
-
-
-class Mode(StrEnum):
-    PLAN = "plan"
-    DESIGN = "design"
-    AUTO = "auto"
-    TEST = "test"
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,13 +32,14 @@ class Tenant:
     roots: Roots
     variants: Path
     geometry: Path
+    conversations: Path
     bell: Bell
     door: Door
     ingest: Ingest
     meter: Meter
-    # The caller's conversation mode, from the AgentToken our web backend builds (ADR-0010, phase
-    # 4 unit 8). None is an outside client, which has no conversation and so cannot run Auto.
+    conversation: ConversationId | None = None
     mode: Mode | None = None
+    auto_run: str | None = None
 
 
 class Input(BaseModel):
