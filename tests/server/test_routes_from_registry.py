@@ -10,6 +10,7 @@ from starlette.routing import Route
 from cad.accounts.local import LocalIssuer
 from cad.accounts.principal import AccountId
 from cad.accounts.tenants import Tenants
+from cad.chat.routes import CHAT_ROUTES
 from cad.confirmations.ballot import OS_OPEN
 from cad.context_parts.ingest import ingest
 from cad.geometry import job, store
@@ -84,8 +85,15 @@ def web_routes(app: Starlette) -> dict[str, str]:
     return {
         route.name: route.path
         for route in app.router.routes
-        if isinstance(route, Route) and route.path.startswith("/v1/")
+        if isinstance(route, Route)
+        and route.path.startswith("/v1/")
+        and (route.name, route.path) not in CHAT_ROUTES
     }
+
+
+async def test_a_stray_route_named_like_a_chat_route_is_not_exempt(app: Starlette) -> None:
+    app.router.routes.append(Route("/v1/stray", endpoint=Starlette(), name="message"))
+    assert web_routes(app)["message"] == "/v1/stray"
 
 
 async def test_every_web_route_comes_from_a_registry_operation(app: Starlette) -> None:
