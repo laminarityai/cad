@@ -45,7 +45,7 @@ Cost: **free** is `cad-call` alone (about 8 s of server start per call). **docke
 
 `docs/design/phase-4.md` designs these surfaces. Unit 3 landed as [Hosted MCP and accounts](./hosted-mcp.md) and unit 5 as [Geometry](./geometry.md), and the rest do not exist yet. Each file names the check that §4 Sequencing gives the unit, the proof to write into the map when the unit lands, and the parts of the design it comes from. It names no selector, because the UI does not exist. When a unit lands, replace its file with a real recipe that follows the four-section shape of the files above.
 
-- [Hosted confirmation](./phase-4/hosted-confirmation.md): the FastAPI page in the signed-in app, opened by URL elicitation. Unit 4.
+- [Hosted confirmation](./phase-4/hosted-confirmation.md): the Starlette page in the signed-in app, opened by URL elicitation. Unit 4.
 - [Web shell](./phase-4/web-shell.md): the viewer and scorecards over SSE. Unit 6. Unit 5, geometry, is built: see [Geometry](./geometry.md).
 - [Auto mode](./phase-4/auto-mode.md): the server-held Auto run and its stops. Units 7 and 9.
 - [Chat](./phase-4/chat.md): the chat runtime and mode switcher. Unit 8.

@@ -210,6 +210,15 @@ async def test_a_body_that_is_not_a_mode_is_refused(app: Starlette, local: Local
     assert (not_an_object.status_code, not_json.status_code) == (422, 422)
 
 
+async def test_the_mode_comes_from_the_body_not_the_query_string(
+    app: Starlette, local: LocalIssuer
+) -> None:
+    token = local.mint_person(ALICE)
+    async with http(app, token) as client:
+        refused = await client.put(f"/v1/conversations/{CID}/mode?mode=auto")
+    assert refused.status_code == 422
+
+
 async def test_the_person_stops_a_running_run_and_a_replay_records_nothing(
     app: Starlette, local: LocalIssuer, tenants: Tenants
 ) -> None:

@@ -91,7 +91,7 @@ class _Handler(BaseHTTPRequestHandler):
         if ballot is None:
             return self._send(403, plain(FORBIDDEN))
         try:
-            shown = page.view(self._desk.kinds, ballot)
+            shown = page.view(self._desk.roots, self._desk.kinds, ballot)
         except STORE_FAILURES:
             return self._send(500, plain(REFUSED))
         if isinstance(shown, Changed):

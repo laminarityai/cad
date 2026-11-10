@@ -29,7 +29,10 @@ async def test_scorecard_returns_the_card_score_variant_made_and_runs_no_check(
         read = await client.call_tool("scorecard", {"variant_id": variant_id, **KEY})
     assert not scored.is_error, text_of(scored)
     assert not read.is_error, text_of(read)
-    assert read.structured_content == scored.structured_content
+    assert read.structured_content is not None
+    assert {k: v for k, v in read.structured_content.items() if k != "etag"} == (
+        scored.structured_content
+    )
     assert sorted((tmp_path / variant_id / "jobs").iterdir()) == jobs
 
 
