@@ -169,7 +169,7 @@ def answer_page(
     return Recorded(verdicts.count("confirmed"), verdicts.count("declined"))
 
 
-def render(sections: Sequence[Section], action: str, warnings: Sequence[Conflict] = ()) -> bytes:
+def render(sections: Sequence[Section], action: str, warnings: Sequence[Conflict]) -> bytes:
     each = _declinable(len(sections))
     items = "".join(
         _section(f"{_label(index)}. " if each else "", index, section)
