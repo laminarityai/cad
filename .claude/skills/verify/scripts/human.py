@@ -114,7 +114,8 @@ def main(link: str, log: Path) -> None:
         record({"step": "replay", "status": fetch(jar, address, form, headers)[0]})
         record({"spent_token": token})
     except Exception as error:  # the server discards this process's output, so log every failure
-        record({"error": f"{type(error).__name__}: {error}".replace(token, "<token>")})
+        failure = f"{type(error).__name__}: {error}"
+        record({"error": failure.replace(token, "<token>") if token else failure})
         raise
 
 
