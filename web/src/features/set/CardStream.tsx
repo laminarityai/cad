@@ -1,8 +1,10 @@
 import { useEffect, type Dispatch } from "react";
 import { useServices } from "@/app/context";
 import type { CardsAction } from "@/state/cards";
+import { useVisible } from "@/state/visible";
 
-/** Keeps one slot's scorecard stream open while the slot shows `variantId`. Renders nothing. */
+/** Keeps one slot's scorecard stream open while the slot shows `variantId` and the tab is on
+ * screen. Renders nothing. */
 export function CardStream(props: {
   slot: number;
   variantId: string;
@@ -12,8 +14,12 @@ export function CardStream(props: {
 }) {
   const { events } = useServices();
   const { slot, variantId, materialKey, briefId, dispatch } = props;
+  const visible = useVisible();
   useEffect(() => {
     dispatch({ type: "retarget", slot, variantId });
+  }, [slot, variantId, dispatch]);
+  useEffect(() => {
+    if (!visible) return;
     return events.open(
       { variantId, materialKey, briefId },
       {
@@ -28,6 +34,6 @@ export function CardStream(props: {
         },
       },
     );
-  }, [events, slot, variantId, materialKey, briefId, dispatch]);
+  }, [events, slot, variantId, materialKey, briefId, dispatch, visible]);
   return null;
 }

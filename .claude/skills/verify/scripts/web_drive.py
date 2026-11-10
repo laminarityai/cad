@@ -289,7 +289,17 @@ def turn_finished(page: Page, seconds: float) -> bool:
     return wait_for(page, f"() => !({working[6:]})", seconds)
 
 
+SHOWN = """visibility => {
+  Object.defineProperty(document, "visibilityState", { value: visibility, configurable: true });
+  document.dispatchEvent(new Event("visibilitychange"));
+}"""
+
+
 def stop_in_another_tab(page: Page, run: Path, name: str) -> dict[str, Any]:
+    """Stop the run from a second tab of the same browser, as a person switching tabs does.
+    Playwright keeps every page visible, so each switch sets `visibilityState` and fires
+    `visibilitychange`, as the browser does on a real tab switch."""
+    page.evaluate(SHOWN, "hidden")
     other = page.context.new_page()
     other.goto(page.url)
     open_tab(other, "Chat")
@@ -298,8 +308,9 @@ def stop_in_another_tab(page: Page, run: Path, name: str) -> dict[str, Any]:
     button.first.click()
     stopped = wait_for(other, "() => document.querySelector('[data-run=stopped]') !== null", 30)
     other.screenshot(path=str(run / f"{name}-other-tab.png"))
-    other.close()
+    other.evaluate(SHOWN, "hidden")
     page.bring_to_front()
+    page.evaluate(SHOWN, "visible")
     return {"other_tab_stopped": stopped}
 
 
@@ -398,6 +409,7 @@ def chat(run: Path, path: str, name: str, given: dict[str, str]) -> int:
             page.screenshot(path=str(run / f"{name}-switch.png"))
         elif given["stop"] == "elsewhere":
             found.update(stop_in_another_tab(page, run, name))
+            pressed = time.time()
         elif stop.count():
             stop.first.click()
         found["moved_to_design"] = wait_for(
@@ -427,6 +439,8 @@ def chat(run: Path, path: str, name: str, given: dict[str, str]) -> int:
         "agent_replied", "auto_picked", "run_started", "stop_visible", "moved_to_design",
         "stopped_report",
     ]  # fmt: skip
+    if given["stop"] == "elsewhere":
+        needed.append("other_tab_stopped")
     ok = all(found.get(key) for key in needed) and bool(found["seconds_to_verdicts"])
     return 0 if ok else 1
 

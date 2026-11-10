@@ -140,10 +140,10 @@ export class FakeChat implements ChatApi {
     return Promise.resolve({ run, conversation: { conversation_id: "c_new", mode: "design", auto_run: null } });
   });
 
-  follow(conversationId: string, handlers: Follower): () => void {
+  follow(conversationId: string, after: number, handlers: Follower): () => void {
     this.followed.push(conversationId);
     handlers.onLink("live");
-    for (const one of this.transcript) handlers.onEvent(one.seq, one.event);
+    for (const one of this.transcript) if (one.seq > after) handlers.onEvent(one.seq, one.event);
     this.open.add(handlers);
     return () => {
       this.open.delete(handlers);

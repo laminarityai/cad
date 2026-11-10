@@ -105,9 +105,37 @@ describe("chat on the set page", () => {
     expect((await screen.findAllByText(/refused in Plan mode/)).length).toBeGreaterThan(0);
   });
 
+  it("closes its streams while the tab is hidden and, shown again, follows on from the last event", async () => {
+    const shown = (visibility: DocumentVisibilityState) => {
+      Object.defineProperty(document, "visibilityState", { value: visibility, configurable: true });
+      act(() => {
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+    };
+    try {
+      const chat = new FakeChat();
+      chat.say({ kind: "agent", text: "Built slot 1." });
+      const { events } = mount({ chat, entry: "/projects/p1/briefs/b1?chat=c_old" });
+      await screen.findByText("Built slot 1.");
+      await waitFor(() => {
+        expect(events.opened.filter((one) => !one.closed)).toHaveLength(1);
+      });
+      shown("hidden");
+      expect(events.opened.filter((one) => !one.closed)).toHaveLength(0);
+      chat.say({ kind: "agent", text: "Scored it." });
+      expect(screen.queryByText("Scored it.")).not.toBeInTheDocument();
+      shown("visible");
+      expect(await screen.findByText("Scored it.")).toBeInTheDocument();
+      expect(screen.getAllByText("Built slot 1.")).toHaveLength(1);
+      expect(events.opened.filter((one) => !one.closed)).toHaveLength(1);
+    } finally {
+      shown("visible");
+    }
+  });
+
   it("says the conversation is not in the account and shows no message", async () => {
     const chat = new FakeChat();
-    chat.follow = (_id, handlers) => {
+    chat.follow = (_id, _after, handlers) => {
       handlers.onLink("not_found");
       return () => undefined;
     };

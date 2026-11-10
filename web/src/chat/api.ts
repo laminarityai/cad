@@ -17,7 +17,8 @@ export interface ChatApi {
   send(conversationId: string, text: string): Promise<MessageSent>;
   setMode(conversationId: string, mode: Mode): Promise<ConversationState>;
   stop(runId: string): Promise<PersonStop>;
-  follow(conversationId: string, handlers: Follower): Unfollow;
+  /** Every event after `after`, then each new one as it is said. */
+  follow(conversationId: string, after: number, handlers: Follower): Unfollow;
 }
 
 const enc = encodeURIComponent;
@@ -44,11 +45,11 @@ const sleep = (ms: number, signal: AbortSignal) =>
 
 /** Not `EventSource`: it hides the status, and the page must tell a conversation that is not in the
  * account (404) from a stream that dropped. */
-async function follow(conversationId: string, handlers: Follower, signal: AbortSignal): Promise<void> {
-  let after = 0;
+async function follow(conversationId: string, from: number, handlers: Follower, signal: AbortSignal): Promise<void> {
+  let after = from;
   const closed = () => signal.aborted;
   while (!closed()) {
-    handlers.onLink(after === 0 ? "connecting" : "reconnecting");
+    handlers.onLink(after === from ? "connecting" : "reconnecting");
     try {
       const response = await fetch(`/v1/conversations/${enc(conversationId)}/stream?after=${String(after)}`, {
         credentials: "same-origin",
@@ -87,9 +88,9 @@ export const httpChat: ChatApi = {
   send: (conversationId, text) => requestJson("POST", `/v1/conversations/${enc(conversationId)}/messages`, { text }),
   setMode: (conversationId, mode) => requestJson("PUT", `/v1/conversations/${enc(conversationId)}/mode`, { mode }),
   stop: (runId) => requestJson("POST", `/v1/auto/${enc(runId)}/stop`),
-  follow(conversationId, handlers) {
+  follow(conversationId, after, handlers) {
     const controller = new AbortController();
-    void follow(conversationId, handlers, controller.signal);
+    void follow(conversationId, after, handlers, controller.signal);
     return () => {
       controller.abort();
     };
