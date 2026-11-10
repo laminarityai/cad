@@ -26,6 +26,7 @@ pytestmark = pytest.mark.anyio
 BASE: Final = "http://127.0.0.1:8765"
 MCP: Final = f"{BASE}/mcp"
 ALICE: Final = AccountId("user_alice")
+BOB: Final = AccountId("user_bob")
 CID: Final = ConversationId("c-1")
 PROJECT: Final = ProjectId("p-" + "0" * 16)
 INITIALIZE: Final = {
@@ -291,3 +292,34 @@ async def test_a_token_with_a_malformed_conversation_claim_gets_401(
         async with http(app, local.mint_agent(ALICE, conversation=claim)) as client:
             refused = await client.post("/mcp", json=INITIALIZE, headers=ACCEPT)
         assert refused.status_code == 401, claim
+
+
+async def test_another_accounts_conversation_is_404_on_every_route_and_nothing_is_made(
+    app: Starlette, local: LocalIssuer, tenants: Tenants
+) -> None:
+    alice, bob = local.mint_person(ALICE), local.mint_person(BOB)
+    async with http(app) as client:
+        client.cookies.set("__session", alice)
+        made = await client.post("/v1/conversations", json={})
+    cid = made.json()["conversation_id"]
+    run_id = start_briefless_run(tenants, ALICE, ConversationId(cid))
+    async with http(app) as client:
+        client.cookies.set("__session", bob)
+        moded = await client.put(f"/v1/conversations/{cid}/mode", json={"mode": "design"})
+        sent = await client.post(f"/v1/conversations/{cid}/messages", json={"text": "hi"})
+        streamed = await client.get(f"/v1/conversations/{cid}/stream", params={"follow": "false"})
+        stopped = await client.post(f"/v1/auto/{run_id}/stop")
+    answered = [one.status_code for one in (moded, sent, streamed, stopped)]
+    assert answered == [404, 404, 404, 404], [one.text for one in (moded, sent, streamed, stopped)]
+    assert not tenants.of(BOB).conversations.exists()
+    assert store.read(tenants.of(ALICE).conversations, ConversationId(cid)).mode is Mode.AUTO
+    assert isinstance(log.read_run(tenants.of(ALICE).roots, run_id).state, Running)
+
+
+async def test_an_unknown_conversation_is_404_for_mode_and_nothing_is_made(
+    app: Starlette, local: LocalIssuer, tenants: Tenants
+) -> None:
+    refused = await put_mode(app, local.mint_person(ALICE), CID, "design")
+    assert refused.status_code == 404
+    assert refused.json()["error"].startswith("UnknownConversation")
+    assert not tenants.of(ALICE).conversations.exists()
