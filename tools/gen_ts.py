@@ -14,8 +14,8 @@ import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from cad.operations.openapi import document, from_registry
-from cad.operations.registry import OPERATIONS, ROUTES
+from cad.operations.openapi import document
+from cad.operations.outside import every_route
 
 WEB = Path(__file__).resolve().parents[1] / "web"
 TYPES = WEB / "src" / "api" / "types.ts"
@@ -45,7 +45,7 @@ def install_if_stale() -> None:
 def generate(into: Path) -> None:
     with TemporaryDirectory() as scratch:
         described = Path(scratch) / "openapi.json"
-        described.write_text(json.dumps(document(from_registry(OPERATIONS, ROUTES)), indent=2))
+        described.write_text(json.dumps(document(every_route()), indent=2))
         subprocess.run(
             [
                 str(GENERATOR),

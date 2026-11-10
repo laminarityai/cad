@@ -212,6 +212,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/conversations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["create_conversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/conversations/{conversation_id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["message"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/conversations/{conversation_id}/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["stream"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -280,6 +328,15 @@ export interface components {
             failed: string | null;
             /** @default null */
             note: string | null;
+        };
+        /** AgentSaid */
+        AgentSaid: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "agent";
+            text: string;
         };
         /**
          * AgentValue
@@ -459,6 +516,11 @@ export interface components {
             limit: components["schemas"]["Measured"];
             verdict: components["schemas"]["Verdict"];
         };
+        /** ConversationCreated */
+        ConversationCreated: {
+            conversation_id: string;
+            mode: components["schemas"]["Mode"];
+        };
         /** ConversationState */
         ConversationState: {
             conversation_id: string;
@@ -466,6 +528,18 @@ export interface components {
             auto_run: string | null;
         };
         Direction: components["schemas"]["Along"] | components["schemas"]["Across"] | components["schemas"]["AnyWay"];
+        /**
+         * DriverSaid
+         * @description The Auto driver's reminder to the model that the run has not stopped.
+         */
+        DriverSaid: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "driver";
+            text: string;
+        };
         /**
          * Envelope
          * @description The variant fits inside a box of these three edge lengths, in any orientation.
@@ -487,6 +561,7 @@ export interface components {
         Error: {
             error: string;
         };
+        Event: components["schemas"]["UserSaid"] | components["schemas"]["DriverSaid"] | components["schemas"]["AgentSaid"] | components["schemas"]["ToolCalled"] | components["schemas"]["ToolReturned"] | components["schemas"]["StopReport"] | components["schemas"]["TurnFailed"] | components["schemas"]["TurnEnded"];
         /**
          * FarEnd
          * @description At the end farthest from the supports.
@@ -691,6 +766,10 @@ export interface components {
             revision: number;
             revisions: components["schemas"]["RevisionView"][];
             card_etag: string | null;
+        };
+        /** MessageSent */
+        MessageSent: {
+            seq: number;
         };
         /**
          * MinClearance
@@ -1092,6 +1171,20 @@ export interface components {
             sha256: string;
         };
         StopReason: components["schemas"]["AllPass"] | components["schemas"]["NeedsPerson"] | components["schemas"]["AccountLimit"] | components["schemas"]["StoppedByPerson"];
+        /**
+         * StopReport
+         * @description An Auto run stopped. `report` is the server's, from the signed run log.
+         */
+        StopReport: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "stop_report";
+            run_id: string;
+            reason: string;
+            report: string;
+        };
         /** Stopped */
         Stopped: {
             /**
@@ -1148,6 +1241,47 @@ export interface components {
             kind: "pending";
             brep_sha256: string;
         };
+        /** ToolCalled */
+        ToolCalled: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "tool_call";
+            call_id: string;
+            name: string;
+            input: {
+                [key: string]: unknown;
+            };
+        };
+        /** ToolReturned */
+        ToolReturned: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "tool_result";
+            call_id: string;
+            text: string;
+            is_error: boolean;
+        };
+        /** TurnEnded */
+        TurnEnded: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "turn_ended";
+        };
+        /** TurnFailed */
+        TurnFailed: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "turn_failed";
+            message: string;
+        };
         /**
          * Unchecked
          * @description A requirement no reviewed check decides. A scorecard lists it as unverified.
@@ -1177,6 +1311,15 @@ export interface components {
         UserEdit: {
             proposed: string;
             confirmed: string;
+        };
+        /** UserSaid */
+        UserSaid: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "user";
+            text: string;
         };
         /** VariantSetView */
         VariantSetView: {
@@ -1245,8 +1388,26 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description the named variant, brief or project is not stored */
+        /** @description the named variant, brief, project or conversation is not stored */
         NotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description the agent is still answering the last message */
+        Busy: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description the request is not application/json */
+        NotJson: {
             headers: {
                 [name: string]: unknown;
             };
@@ -1282,6 +1443,7 @@ export type AccountLimit = components['schemas']['AccountLimit'];
 export type Across = components['schemas']['Across'];
 export type AgainstBrief = components['schemas']['AgainstBrief'];
 export type AgentMeasurement = components['schemas']['AgentMeasurement'];
+export type AgentSaid = components['schemas']['AgentSaid'];
 export type AgentValue = components['schemas']['AgentValue'];
 export type AllPass = components['schemas']['AllPass'];
 export type Along = components['schemas']['Along'];
@@ -1301,10 +1463,13 @@ export type Checked = components['schemas']['Checked'];
 export type ClosedSolid = components['schemas']['ClosedSolid'];
 export type Comparator = components['schemas']['Comparator'];
 export type Comparison = components['schemas']['Comparison'];
+export type ConversationCreated = components['schemas']['ConversationCreated'];
 export type ConversationState = components['schemas']['ConversationState'];
 export type Direction = components['schemas']['Direction'];
+export type DriverSaid = components['schemas']['DriverSaid'];
 export type Envelope = components['schemas']['Envelope'];
 export type Error = components['schemas']['Error'];
+export type Event = components['schemas']['Event'];
 export type FarEnd = components['schemas']['FarEnd'];
 export type Field = components['schemas']['Field'];
 export type FlatEnd = components['schemas']['FlatEnd'];
@@ -1333,6 +1498,7 @@ export type Measure = components['schemas']['Measure'];
 export type MeasureLimit = components['schemas']['MeasureLimit'];
 export type Measured = components['schemas']['Measured'];
 export type MemberView = components['schemas']['MemberView'];
+export type MessageSent = components['schemas']['MessageSent'];
 export type MinClearance = components['schemas']['MinClearance'];
 export type MinMass = components['schemas']['MinMass'];
 export type MinSafetyFactor = components['schemas']['MinSafetyFactor'];
@@ -1373,6 +1539,7 @@ export type Step = components['schemas']['Step'];
 export type StepMissing = components['schemas']['StepMissing'];
 export type StepStored = components['schemas']['StepStored'];
 export type StopReason = components['schemas']['StopReason'];
+export type StopReport = components['schemas']['StopReport'];
 export type Stopped = components['schemas']['Stopped'];
 export type StoppedByPerson = components['schemas']['StoppedByPerson'];
 export type Support = components['schemas']['Support'];
@@ -1380,9 +1547,14 @@ export type Target = components['schemas']['Target'];
 export type Tessellated = components['schemas']['Tessellated'];
 export type TessellationFailed = components['schemas']['TessellationFailed'];
 export type TessellationPending = components['schemas']['TessellationPending'];
+export type ToolCalled = components['schemas']['ToolCalled'];
+export type ToolReturned = components['schemas']['ToolReturned'];
+export type TurnEnded = components['schemas']['TurnEnded'];
+export type TurnFailed = components['schemas']['TurnFailed'];
 export type Unchecked = components['schemas']['Unchecked'];
 export type Unverified = components['schemas']['Unverified'];
 export type UserEdit = components['schemas']['UserEdit'];
+export type UserSaid = components['schemas']['UserSaid'];
 export type VariantSetView = components['schemas']['VariantSetView'];
 export type VariantView = components['schemas']['VariantView'];
 export type Verdict = components['schemas']['Verdict'];
@@ -1392,6 +1564,8 @@ export type CadChecksResultRead = components['schemas']['cad__checks__result__Re
 export type ResponseRefused = components['responses']['Refused'];
 export type ResponseSignedOut = components['responses']['SignedOut'];
 export type ResponseNotFound = components['responses']['NotFound'];
+export type ResponseBusy = components['responses']['Busy'];
+export type ResponseNotJson = components['responses']['NotJson'];
 export type ResponseMalformed = components['responses']['Malformed'];
 export type ResponseUnavailable = components['responses']['Unavailable'];
 export type $defs = Record<string, never>;
@@ -1762,6 +1936,93 @@ export interface operations {
             404: components["responses"]["NotFound"];
             422: components["responses"]["Malformed"];
             503: components["responses"]["Unavailable"];
+        };
+    };
+    create_conversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": Record<string, never>;
+            };
+        };
+        responses: {
+            /** @description the result */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConversationCreated"];
+                };
+            };
+            401: components["responses"]["SignedOut"];
+            415: components["responses"]["NotJson"];
+        };
+    };
+    message: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    text: string;
+                };
+            };
+        };
+        responses: {
+            /** @description the result */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MessageSent"];
+                };
+            };
+            401: components["responses"]["SignedOut"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Busy"];
+            415: components["responses"]["NotJson"];
+            422: components["responses"]["Malformed"];
+        };
+    };
+    stream: {
+        parameters: {
+            query?: {
+                after?: number;
+                follow?: boolean;
+            };
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description server-sent events: id is the sequence number, event is the kind, data is one event */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["Event"];
+                };
+            };
+            401: components["responses"]["SignedOut"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Malformed"];
         };
     };
 }

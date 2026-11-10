@@ -13,13 +13,14 @@ from cad.confirmations.ballot import OS_OPEN
 from cad.context_parts.ingest import ingest
 from cad.operations.model import Audience
 from cad.operations.openapi import Described, Json, document, from_registry
+from cad.operations.outside import HAND_DESCRIBED, every_route
 from cad.operations.reads import VariantInput, VariantView
 from cad.operations.registry import OPERATIONS, ROUTES
 from cad.server.hosted import build_app
 
 ROOT = Path(__file__).resolve().parents[2]
 SKIPPED = {"HEAD", "OPTIONS"}
-DOCUMENT = document(from_registry(OPERATIONS, ROUTES))
+DOCUMENT = document(every_route())
 PATHS = cast(dict[str, dict[str, Json]], DOCUMENT["paths"])
 
 
@@ -37,13 +38,14 @@ def test_each_person_operation_has_exactly_one_path_and_no_agent_only_operation_
     names = [cast(str, one["operationId"]) for one in described().values()]
     person = {one.name for one in OPERATIONS if Audience.PERSON in one.audience}
     agent_only = {one.name for one in OPERATIONS if one.audience == Audience.AGENT}
-    assert sorted(names) == sorted(person)
+    assert sorted(names) == sorted(person | {one.name for one in HAND_DESCRIBED})
     assert agent_only
     assert not agent_only & set(names)
 
 
 def test_each_path_has_the_method_and_template_its_route_has() -> None:
-    assert set(described()) == {(served.method, served.path) for served in ROUTES.values()}
+    registry = {(served.method, served.path) for served in ROUTES.values()}
+    assert set(described()) == registry | {(one.method, one.path) for one in HAND_DESCRIBED}
 
 
 def test_every_web_route_the_app_mounts_is_described(tmp_path: Path) -> None:
@@ -57,7 +59,9 @@ def test_every_web_route_the_app_mounts_is_described(tmp_path: Path) -> None:
         if isinstance(route, Route) and route.path.startswith("/v1/")
         for method in (route.methods or set()) - SKIPPED
     }
-    assert mounted == set(described()), "describe a new route in cad.operations.openapi"
+    assert mounted == set(described()), (
+        "describe a new route in the registry ROUTES or in cad.operations.outside.HAND_DESCRIBED"
+    )
 
 
 def test_a_templated_name_is_a_path_parameter_and_every_other_argument_is_not() -> None:
@@ -99,18 +103,6 @@ def test_a_route_with_no_operation_or_an_operation_with_no_route_is_refused() ->
         from_registry(OPERATIONS, {})
     with pytest.raises(ValueError, match="differ"):
         from_registry([], ROUTES)
-
-
-def test_a_route_outside_the_registry_can_be_described_by_hand() -> None:
-    outside = Described(
-        name="elsewhere",
-        path="/v1/elsewhere/{variant_id}",
-        method="GET",
-        input=VariantInput,
-        output=VariantView,
-    )
-    made = document([outside])
-    assert list(cast(dict[str, Json], made["paths"])) == ["/v1/elsewhere/{variant_id}"]
 
 
 def test_a_path_template_naming_no_argument_is_refused() -> None:

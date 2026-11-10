@@ -39,6 +39,8 @@ from cad.accounts.local import LocalIssuer
 from cad.accounts.principal import AgentToken
 from cad.accounts.tenants import ACCOUNTS, Tenants
 from cad.accounts.tokens import Issuer, Verifier
+from cad.chat.model import Model, from_environment
+from cad.chat.routes import Chat, chat_routes
 from cad.confirmations.ballot import Opener, program_opener
 from cad.context_parts.ingest import ingest as read_part
 from cad.context_parts.store import Ingest
@@ -56,6 +58,7 @@ from cad.web.static import DIST, web_routes
 DAILY_CAP_SECONDS: Final = 3600
 PORT: Final = 8765
 WAIT_SECONDS: Final = 20.0
+GRACEFUL_SHUTDOWN_SECONDS: Final = 3
 
 
 class AgentAccess(AccessToken):
@@ -83,8 +86,14 @@ class AgentTokens:
         )
 
 
-def build_app(issuer: Issuer, tenants: Tenants, web: Path = DIST) -> Starlette:
+def build_app(
+    issuer: Issuer, tenants: Tenants, model: Model | None = None, web: Path = DIST
+) -> Starlette:
+    """`model` runs the chat agent. None reads `CAD_CHAT_MODEL`, so a server with no model
+    configured still starts and answers every call but a chat message. `web` is the built web
+    app that `/app` serves."""
     verifier = Verifier(issuer)
+    chat = Chat(model or from_environment(os.environ), tenants)
 
     def tenant_of_token() -> Tenant:
         token = get_access_token()
@@ -112,7 +121,9 @@ def build_app(issuer: Issuer, tenants: Tenants, web: Path = DIST) -> Starlette:
     )
     app.router.routes.insert(0, _resource_metadata(issuer))
     app.router.routes.extend(person_routes(OPERATIONS, ROUTES, verifier.person, tenants.of))
+    app.router.routes.extend(chat_routes(verifier.person, chat))
     app.router.routes.extend(web_routes(web))
+    app.state.chat = chat
     return app
 
 
@@ -175,7 +186,13 @@ def serve(
     tenants = Tenants(root / ACCOUNTS, cap_seconds, opener, WAIT_SECONDS, ingest)
     logging.getLogger(__name__).info("serving %s, tokens from %s", issuer.resource, issuer.url)
     with held:
-        uvicorn.run(build_app(issuer, tenants), host=host, port=port, log_level="warning")
+        uvicorn.run(
+            build_app(issuer, tenants),
+            host=host,
+            port=port,
+            log_level="warning",
+            timeout_graceful_shutdown=GRACEFUL_SHUTDOWN_SECONDS,
+        )
 
 
 def main(argv: Sequence[str] | None = None) -> int:
