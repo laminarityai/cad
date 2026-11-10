@@ -20,12 +20,20 @@ class Heard:
     def __init__(self) -> None:
         self.jobs: list[JobSpec] = []
         self.stored: list[bool] = []
-        self.on = threading.Event()
+        self._changed = threading.Condition()
 
     def __call__(self, spec: JobSpec) -> None:
-        self.jobs.append(spec)
-        self.stored.append(job_store.read(spec) is not None)
-        self.on.set()
+        stored = job_store.read(spec) is not None
+        with self._changed:
+            self.jobs.append(spec)
+            self.stored.append(stored)
+            self._changed.notify_all()
+
+    def wait_for(self, count: int) -> None:
+        """A background job's listeners run on the worker after its Future wakes the caller, so
+        `settle` can return before they do."""
+        with self._changed:
+            assert self._changed.wait_for(lambda: len(self.jobs) >= count, LONG)
 
 
 @pytest.fixture
@@ -48,8 +56,7 @@ def test_a_quick_and_a_background_completion_each_notify_once_with_the_result_st
     heard = Heard()
     lanes.subscribe(heard)
     lanes.settle(with_fea(tmp_path), LONG)
-    wait_for(job_store.result_path(job(tmp_path, FEA)))
-    assert heard.on.wait(LONG)
+    heard.wait_for(2)
     assert sorted(one.key for one in heard.jobs) == sorted(
         [job(tmp_path).key, job(tmp_path, FEA).key]
     )
@@ -93,6 +100,7 @@ def test_a_listener_that_raises_is_logged_and_stops_nothing(
     lanes.subscribe(heard)
     settled = lanes.settle(with_fea(tmp_path), LONG)
     assert settled.background == (Done(ran(job(tmp_path, FEA))),)
+    heard.wait_for(2)
     assert [one.key for one in heard.jobs].count(job(tmp_path, FEA).key) == 1
     assert "a completion listener raised" in caplog.text
     plan = Plan(quick=job(tmp_path, material="prusament-petg"), background=())
