@@ -38,7 +38,9 @@ def packages(lock: Path) -> dict[str, dict[str, object]]:
 def holds(entry: dict[str, object] | None) -> tuple[object, ...] | None:
     """What an entry installs. npm on Linux drops other keys, such as `libc`, from the entries it
     writes into `node_modules`."""
-    return entry and tuple(entry.get(key) for key in ("version", "resolved", "integrity", "link"))
+    if entry is None:
+        return None
+    return tuple(entry.get(key) for key in ("version", "resolved", "integrity", "link"))
 
 
 def unlike_lock() -> list[str]:
