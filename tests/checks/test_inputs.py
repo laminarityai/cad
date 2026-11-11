@@ -10,10 +10,19 @@ from cad.tables.materials import UNITS, load_materials
 
 
 def test_every_input_names_a_table_field_and_converts_to_its_wire_unit() -> None:
+    """The check image cannot import cad.tables, so inputs.py repeats the field names."""
     canonical: dict[str, str] = {field: spec.canonical_unit for field, spec in FIELDS.items()}
-    assert set(WIRE_UNITS) == set(Input)
+    assert set(WIRE_UNITS) == set(Input), "give every Input a unit in WIRE_UNITS in inputs.py"
     for wanted, unit in WIRE_UNITS.items():
-        assert UNITS.Unit(unit).dimensionality == UNITS.Unit(canonical[wanted]).dimensionality
+        assert wanted in canonical, (
+            f"Input.{wanted.name} is {wanted.value!r}, which is not a field in FIELDS. Make it"
+            " match the field's name in cad/tables/fields.py, or add the field there."
+        )
+        assert UNITS.Unit(unit).dimensionality == UNITS.Unit(canonical[wanted]).dimensionality, (
+            f"WIRE_UNITS[Input.{wanted.name}] is {unit!r}, which does not convert from"
+            f" {canonical[wanted]!r}, the canonical unit of {wanted.value} in cad/tables/fields.py."
+            " Fix the unit in cad/checks/container/inputs.py."
+        )
 
 
 def test_a_check_cannot_read_an_input_it_does_not_take() -> None:
