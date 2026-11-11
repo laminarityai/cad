@@ -1,7 +1,17 @@
 from typing import Final
 
 from cad.chat.log import Event
-from cad.chat.routes import CHAT_ROUTES, ConversationCreated, Follow, MessageSent, Said, Start
+from cad.chat.routes import (
+    CHAT_ROUTES,
+    ConversationCreated,
+    Follow,
+    MessageSent,
+    ProjectConversation,
+    Said,
+    Start,
+)
+from cad.confirmations.card import ConfirmationCard, ProjectArguments
+from cad.confirmations.web import CARD_PATH
 from cad.operations.events import EVENTS_PATH
 from cad.operations.openapi import Described, from_registry
 from cad.operations.registry import OPERATIONS, ROUTES
@@ -25,6 +35,22 @@ HAND_DESCRIBED: Final = (
         status=201,
         requires_json_body=True,
         failures=(401, 404, 415, 422),
+    ),
+    Described(
+        name="project_conversation",
+        path=CHAT_PATHS["project_conversation"],
+        method="GET",
+        input=ProjectArguments,
+        output=ProjectConversation,
+        failures=(401, 404),
+    ),
+    Described(
+        name="confirmation",
+        path=CARD_PATH,
+        method="GET",
+        input=ProjectArguments,
+        output=ConfirmationCard,
+        failures=(401, 404),
     ),
     Described(
         name="message",

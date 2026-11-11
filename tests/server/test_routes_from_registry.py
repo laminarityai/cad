@@ -12,7 +12,7 @@ from cad.accounts.principal import AccountId
 from cad.accounts.tenants import Tenants
 from cad.chat.routes import CHAT_ROUTES
 from cad.confirmations.waiting import Door
-from cad.confirmations.web import LocalSignIn
+from cad.confirmations.web import CARD_PATH, LocalSignIn
 from cad.context_parts.ingest import ingest
 from cad.geometry import job, store
 from cad.geometry.model import Tessellated, TessellationFailed
@@ -32,7 +32,7 @@ BASE = "http://127.0.0.1:8765"
 RAIL = b"CASCADE Topology V3, a rail\n"
 SHA = hashlib.sha256(RAIL).hexdigest()
 ALICE, BOB = AccountId("user_alice"), AccountId("user_bob")
-OUTSIDE_REGISTRY = CHAT_ROUTES | {("scorecard_events", EVENTS_PATH)}
+OUTSIDE_REGISTRY = CHAT_ROUTES | {("scorecard_events", EVENTS_PATH), ("confirmation", CARD_PATH)}
 
 
 def tessellated(name: str) -> Tessellated:

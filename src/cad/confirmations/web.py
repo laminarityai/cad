@@ -5,6 +5,9 @@
     POST /projects/<pid>/confirm   form snapshot=<sealed>&answer=confirm|decline&note=<text>
                                    [&decline-<i>=decline][&edit-<i>-<row>=<text>]
                                    200 recorded, 400, 401, 403, 404, 409, 413, 500 nothing recorded
+    GET  /v1/projects/<pid>/confirmation
+                                   200 JSON: what the page shows, sealed for the person, as the
+                                   chat's card; 401 JSON; 404 JSON no such project
     GET  /local/sign-in?token=<person JWT>&project=<pid>
                                    303 to the page with the session cookie; only when the server
                                    trusts the local issuer
@@ -23,7 +26,7 @@ from typing import Final
 import anyio.to_thread
 from pydantic import ValidationError
 from starlette.requests import Request
-from starlette.responses import HTMLResponse, RedirectResponse, Response
+from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from starlette.routing import Route
 
 from cad.accounts.local import LocalIssuer
@@ -31,13 +34,14 @@ from cad.accounts.principal import AccountId, PersonSession
 from cad.accounts.tokens import Verifier
 from cad.briefs.store import BriefRefused
 from cad.confirmations import page, snapshot
+from cad.confirmations.card import card
 from cad.confirmations.items import pending
 from cad.confirmations.page import STYLE, plain
 from cad.confirmations.registry import kinds
 from cad.operations.confirmation import AnswerPageInput, PageReply
 from cad.operations.model import Tenant
 from cad.operations.registry import OPERATIONS
-from cad.operations.routes import SESSION_COOKIE, session_token
+from cad.operations.routes import CHALLENGE, SESSION_COOKIE, session_token
 from cad.projects.membership import project_briefs
 from cad.projects.model import ProjectId, ProjectRefused, parse_project_id
 from cad.records.signed import StoreUnusable
@@ -117,6 +121,8 @@ KEEP_SESSION_SCRIPT: Final = (
     " answer = 'sent';"
     "});"
 )
+CARD_PATH: Final = "/v1/projects/{project_id}/confirmation"
+JSON_HEADERS: Final = {"Cache-Control": "no-store"}
 LOG = logging.getLogger(__name__)
 
 type TenantOf = Callable[[AccountId], Tenant]
@@ -206,7 +212,28 @@ def confirm_routes(
             on_recorded(person, project)
         return _plain(STATUS[reply.outcome], *reply.said)
 
+    async def read_card(request: Request) -> Response:
+        person = verifier.person(session_token(request))
+        if person is None:
+            return _json_error(401, "sign in: this route takes a Clerk session token", CHALLENGE)
+        tenant = tenant_of(person.account)
+        try:
+            project = parse_project_id(request.path_params["project_id"])
+        except ProjectRefused:
+            return _json_error(404, NO_PROJECT)
+        if tenant.account != person.account or not project_briefs(tenant.roots, project):
+            return _json_error(404, NO_PROJECT)
+        try:
+            found = await anyio.to_thread.run_sync(card, person, tenant, project)
+        except STORE_FAILURES as error:
+            LOG.error("the confirmation card could not be read: %s", type(error).__name__)
+            return _json_error(500, REFUSED)
+        return Response(
+            found.model_dump_json(), 200, media_type="application/json", headers=JSON_HEADERS
+        )
+
     routes = [
+        Route(CARD_PATH, read_card, methods=["GET"], name="confirmation"),
         Route("/projects/{project_id}/confirm", show, methods=["GET"]),
         Route("/projects/{project_id}/confirm", record, methods=["POST"]),
     ]
@@ -285,6 +312,10 @@ def _clerk_scripts_and_policy(sign_in: ClerkSignIn, inline: str) -> tuple[str, d
         f"worker-src 'self' blob:; frame-src {api} {CLERK_CHALLENGES}"
     )
     return scripts, {"Content-Security-Policy": policy}
+
+
+def _json_error(status: int, message: str, headers: Mapping[str, str] | None = None) -> Response:
+    return JSONResponse({"error": message}, status, headers={**JSON_HEADERS, **(headers or {})})
 
 
 def _plain(status: int, message: str, *more: str) -> Response:
