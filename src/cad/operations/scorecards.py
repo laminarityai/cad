@@ -20,7 +20,7 @@ from cad.sandbox import image
 from cad.scorecard import material, requirements, score
 from cad.tables.materials import KEY_PATTERN
 from cad.variant_sets import store as variant_sets
-from cad.variant_sets.model import MaterialChoice, MaterialMissing, SetKey
+from cad.variant_sets.model import MaterialChoice, MaterialMissing
 
 MAX_KEY_CHARS: Final = 64
 type MaterialKey = Annotated[
@@ -147,11 +147,8 @@ def _context(roots: Roots, brief_id: str) -> dict[ContextPartId, jobs.PartBrep]:
     }
 
 
-def _slot_choice(
-    tenant: Tenant, confirmed: ConfirmedSet, brief_id: str, variant_id: str
-) -> MaterialChoice | None:
-    project = briefs.read_brief(tenant.roots, brief_id).project
-    key = SetKey(project, confirmed.brief_id, confirmed.decision_sha256)
+def _slot_choice(tenant: Tenant, brief_id: str, variant_id: str) -> MaterialChoice | None:
+    key = variant_sets.set_key(tenant.roots, brief_id)
     return variant_sets.choice_of(
         tenant.roots.projects, key, variant_id, image.image_tag(image.BUILD)
     )
@@ -175,8 +172,8 @@ def judged(
     table = brief_table(tenant.roots, brief_id)
     pinned = material.pinned_key(confirmed, table.table)
     choice = None
-    if brief_id is not None and confirmed is not None and pinned is None and variant_id:
-        choice = _slot_choice(tenant, confirmed, brief_id, variant_id)
+    if brief_id is not None and pinned is None and variant_id:
+        choice = _slot_choice(tenant, brief_id, variant_id)
     named = None if material_key is None else table.table.row_key(material_key)
     key = named or pinned or (None if choice is None else choice.key)
     if key is None:

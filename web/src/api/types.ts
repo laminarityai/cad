@@ -1552,7 +1552,6 @@ export interface components {
         VariantSetView: {
             project_id: string;
             brief_id: string;
-            decision_sha256: string | null;
             /** @default 5 */
             limit: number;
             members: components["schemas"]["MemberView"][];

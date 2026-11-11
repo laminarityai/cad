@@ -20,10 +20,6 @@ class SetRefused(Refused):
     pass
 
 
-class NotConfirmed(SetRefused):
-    pass
-
-
 class SetFull(SetRefused):
     pass
 
@@ -40,7 +36,6 @@ class SetBusy(SetRefused):
 class SetKey:
     project: ProjectId
     brief_id: BriefId
-    decision_sha256: str
 
 
 class SlotRefused(SetRefused):

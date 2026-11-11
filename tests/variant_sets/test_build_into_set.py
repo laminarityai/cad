@@ -9,7 +9,7 @@ from cad.variant_sets import store
 from cad.variant_sets.model import MAX_MEMBERS
 from cad.variants import entry
 from cad.variants.entry import VariantId
-from tests.support.set_parts import NO_DOCKER, PLATE, held, shows
+from tests.support.set_parts import BRACKET, NO_DOCKER, PLATE, held, shows
 
 if TYPE_CHECKING:
     from tests.support.variant_set_session import Session
@@ -50,25 +50,30 @@ async def test_building_a_member_again_keeps_its_slot_and_starts_no_container(
     assert (again["variant_set"]["slot"], again["variant_set"]["already_member"]) == (1, True)
 
 
-async def test_a_brief_nobody_confirmed_is_refused_before_any_container(
-    s: Session, monkeypatch: pytest.MonkeyPatch
-) -> None:
+async def test_a_brief_nobody_confirmed_still_builds_into_its_set(s: Session) -> None:
     brief_id = await s.proposed_brief()
-    monkeypatch.setenv("DOCKER_HOST", NO_DOCKER)
-    text = await s.refusal("build_variant", code=PLATE, brief_id=brief_id)
-    assert text.startswith(
-        f"Error executing tool build_variant: NotConfirmed: brief {brief_id} has no confirmed "
-        "requirements"
+    built = await s.call(
+        "build_variant",
+        code=PLATE,
+        brief_id=brief_id,
+        material_key="prusament-pla",
+        material_reason="light",
     )
-    assert "ask_to_confirm" in text
-    assert str(s.tmp) not in text
+    assert built["variant_set"] == {
+        "kind": "joined",
+        "slot": 1,
+        "revision": 1,
+        "limit": MAX_MEMBERS,
+        "already_member": False,
+    }
+    assert shows(s, brief_id) == [built["variant_id"]]
 
 
 async def test_a_full_set_refuses_new_code_before_any_container(
     s: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     brief_id = await s.confirmed_brief()
-    key = store.confirmed_key(s.roots, brief_id)
+    key = store.set_key(s.roots, brief_id)
     for number in range(MAX_MEMBERS):
         store.join(s.tmp / "projects", key, f"code {number}", VariantId("0" * 16))
     monkeypatch.setenv("DOCKER_HOST", NO_DOCKER)
@@ -76,9 +81,20 @@ async def test_a_full_set_refuses_new_code_before_any_container(
     assert f"SetFull: the variant set of brief {brief_id} holds 5 variants, its limit" in text
 
 
-async def test_a_new_confirmation_starts_an_empty_set(s: Session) -> None:
-    brief_id = await s.confirmed_brief()
-    await s.call("build_variant", code=PLATE, brief_id=brief_id)
+async def test_confirming_editing_or_declining_later_keeps_the_options_in_the_set(
+    s: Session,
+) -> None:
+    brief_id = await s.proposed_brief()
+    first = await s.call(
+        "build_variant",
+        code=PLATE,
+        brief_id=brief_id,
+        material_key="prusament-pla",
+        material_reason="light",
+    )
+    await s.confirm(brief_id)
+    second = await s.call("build_variant", code=BRACKET, brief_id=brief_id)
+    assert second["variant_set"]["slot"] == 2
     await s.call(
         "propose_requirements",
         brief_id=brief_id,
@@ -88,8 +104,9 @@ async def test_a_new_confirmation_starts_an_empty_set(s: Session) -> None:
         ],
     )
     await s.confirm(brief_id)
-    joined = await s.call("build_variant", code=PLATE, brief_id=brief_id)
-    assert (joined["variant_set"]["slot"], joined["variant_set"]["already_member"]) == (1, False)
+    again = await s.call("build_variant", code=PLATE, brief_id=brief_id)
+    assert again["variant_set"]["slot"] == 1
+    assert shows(s, brief_id) == [first["variant_id"], second["variant_id"]]
 
 
 async def test_a_build_that_fails_joins_no_set(s: Session) -> None:
@@ -143,9 +160,6 @@ async def test_two_briefs_confirmed_by_one_answer_each_build_into_their_own_set(
     project_id = (await s.call("list_requirements", brief_id=first))["project_id"]
     second = await s.proposed_brief(project_id)
     await s.confirm(first)
-    assert store.confirmed_key(s.roots, first).decision_sha256 == (
-        store.confirmed_key(s.roots, second).decision_sha256
-    )
     for brief_id in (first, second):
         built = await s.call("build_variant", code=PLATE, brief_id=brief_id)
         assert built["variant_set"] == {

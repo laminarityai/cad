@@ -113,7 +113,7 @@ async def test_a_full_set_takes_a_revision_in_a_slot_and_refuses_new_code_withou
     s: Session,
 ) -> None:
     brief_id = await s.confirmed_brief()
-    key = store.confirmed_key(s.roots, brief_id)
+    key = store.set_key(s.roots, brief_id)
     for number in range(MAX_MEMBERS):
         store.join(s.tmp / "projects", key, f"code {number}", VariantId("0" * 16))
     revised = await s.call("build_variant", code=PLATE, brief_id=brief_id, slot=3)

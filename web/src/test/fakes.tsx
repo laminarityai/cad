@@ -11,7 +11,6 @@ export function setOf(variants: string[]): VariantSetView {
   return {
     project_id: "p1",
     brief_id: "b1",
-    decision_sha256: "c".repeat(64),
     limit: 5,
     members: variants.map((variant, at) => ({
       slot: at + 1,

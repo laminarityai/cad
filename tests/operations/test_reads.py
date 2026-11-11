@@ -90,7 +90,7 @@ def built(tenant: Tenant, code: str) -> str:
 
 def joined(tenant: Tenant, brief: str, code: str, slot: int | None = None) -> str:
     vid = built(tenant, code)
-    key = variant_sets.confirmed_key(tenant.roots, brief)
+    key = variant_sets.set_key(tenant.roots, brief)
     variant_sets.join(tenant.roots.projects, key, code, entry.VariantId(vid), slot)
     return vid
 
@@ -152,7 +152,6 @@ async def test_the_variant_set_lists_slots_with_their_revisions(alice: Tenant) -
     assert seen.members[0].variant_id == revised
     assert [one.variant_id for one in seen.members[0].revisions] == [first, revised]
     assert seen.members[2].variant_id == third
-    assert seen.decision_sha256 == variant_sets.confirmed_key(alice.roots, brief).decision_sha256
 
 
 async def test_a_member_never_scored_has_no_card_etag_and_names_its_material(
@@ -160,7 +159,7 @@ async def test_a_member_never_scored_has_no_card_etag_and_names_its_material(
 ) -> None:
     project, brief = await confirmed(alice)
     vid = built(alice, "result = 1")
-    key = variant_sets.confirmed_key(alice.roots, brief)
+    key = variant_sets.set_key(alice.roots, brief)
     choice = MaterialChoice(key="prusament-pla", reason="light")
     variant_sets.join(
         alice.roots.projects, key, "result = 1", entry.VariantId(vid), None, lambda _: choice
@@ -170,10 +169,14 @@ async def test_a_member_never_scored_has_no_card_etag_and_names_its_material(
     assert (member.card_etag, member.material_name) == (None, "Prusament PLA")
 
 
-async def test_an_unconfirmed_brief_has_an_empty_set(alice: Tenant) -> None:
+async def test_an_unconfirmed_brief_has_an_empty_set_and_joins_before_a_confirmation(
+    alice: Tenant,
+) -> None:
     project, brief = proposed(alice)
-    seen = reads.variant_set(alice, reads.VariantSetInput(project_id=project, brief_id=brief))
-    assert (seen.members, seen.decision_sha256) == ((), None)
+    asked = reads.VariantSetInput(project_id=project, brief_id=brief)
+    assert reads.variant_set(alice, asked).members == ()
+    vid = joined(alice, brief, "result = 1")
+    assert [m.variant_id for m in reads.variant_set(alice, asked).members] == [vid]
 
 
 def test_a_brief_outside_the_named_project_has_no_set(alice: Tenant) -> None:
