@@ -7,7 +7,7 @@ export interface ModeInfo {
 }
 
 const MODES: Record<Mode, Omit<ModeInfo, "mode">> = {
-  plan: { label: "Plan", hint: "Turns your words into requirements. Nothing builds." },
+  plan: { label: "Plan", hint: "Turns your words into requirements. Nothing builds. Ends when you confirm them." },
   design: { label: "Design", hint: "Builds and revises when you ask." },
   auto: { label: "Auto", hint: "Revises on its own until every check passes or it needs you. Leaving Auto stops the run." },
 };
