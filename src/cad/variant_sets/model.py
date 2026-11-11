@@ -122,6 +122,8 @@ class NotJoined(BaseModel):
 
 class SetBuildResult(BuildResult):
     variant_set: Annotated[Joined | NotJoined, Field(discriminator="kind")] | None = None
+    context_parts_out_of_date: tuple[str, ...] = ()
+    """Confirmed context parts that came from an earlier revision of the slot this build joined."""
 
 
 def code_sha256(code: str) -> str:

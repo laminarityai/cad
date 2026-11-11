@@ -4,6 +4,8 @@ from pydantic import BaseModel, Field
 
 from cad.auto.gate import gate, stops_at_the_limit
 from cad.briefs import store as briefs
+from cad.context_parts.model import UPDATE_PART
+from cad.context_parts.store import out_of_date_in
 from cad.conversations.model import Mode, ModeRefused
 from cad.operations.model import Audience, Input, Tenant, operation
 from cad.operations.research import brief_table
@@ -13,6 +15,7 @@ from cad.scorecard import material
 from cad.variant_sets import store as variant_sets
 from cad.variant_sets.model import (
     MAX_MEMBERS,
+    Joined,
     MaterialChoice,
     Reason,
     Resolve,
@@ -60,7 +63,8 @@ BUILD_VARIANT = (
     "mode in the web app. Under an Auto run, which the conversation holds, pass the run's "
     "brief_id: the build is refused before it starts once the run has stopped, and a build of "
     "code the store does not hold is charged to the account's usage limit, whose refusal stops "
-    "the run."
+    "the run. context_parts_out_of_date names the confirmed context parts that came from an "
+    "earlier revision of the slot this build joined: " + UPDATE_PART
 )
 
 
@@ -119,7 +123,7 @@ def build_variant(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResul
             resolve = chooser(
                 tenant, arguments.brief_id, arguments.material_key, arguments.material_reason
             )
-            return variant_sets.build_into_set(
+            built = variant_sets.build_into_set(
                 tenant.roots,
                 tenant.variants,
                 arguments.brief_id,
@@ -127,6 +131,7 @@ def build_variant(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResul
                 arguments.slot,
                 resolve,
             )
+            return with_out_of_date(tenant, arguments.brief_id, built)
         if arguments.slot is not None:
             raise SlotRefused("slot names a place in a brief's variant set, so pass brief_id too")
         if arguments.material_key is not None or arguments.material_reason is not None:
@@ -136,6 +141,15 @@ def build_variant(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResul
             )
         built = store.build_variant(arguments.code, tenant.variants)
     return SetBuildResult(variant_id=built.variant_id, outcome=built.outcome, output=built.output)
+
+
+def with_out_of_date(tenant: Tenant, brief_id: str, built: SetBuildResult) -> SetBuildResult:
+    joined = built.variant_set
+    if not isinstance(joined, Joined):
+        return built
+    project = briefs.read_brief(tenant.roots, brief_id).project
+    stale = out_of_date_in(tenant.roots.projects, project, brief_id, joined.slot)
+    return built.model_copy(update={"context_parts_out_of_date": stale})
 
 
 OPERATIONS: Final = (

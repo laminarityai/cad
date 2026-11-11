@@ -40,6 +40,12 @@ class ContextParts:
         if brief.project != record.project or record.origin.end > len(brief.text):
             raise TamperedProject(f"context part {record.id} does not match brief {brief.id}")
         origin = f"{record.name}, from variant {record.source.variant_id}"
+        replaced = _confirmed_before(self._roots, part)
+        if replaced is not None:
+            origin += (
+                ", a newer revision of the part you confirmed from variant "
+                f"{replaced.record.source.variant_id}"
+            )
         row = Row(
             headline=f"{origin}: {_size(record.facts)}",
             quote=brief.text[record.origin.start : record.origin.end],
@@ -64,3 +70,14 @@ class ContextParts:
 def _size(facts: Facts) -> str:
     x, y, z = (high - low for low, high in zip(facts.box_min, facts.box_max, strict=True))
     return f"a box of {x:.6g} by {y:.6g} by {z:.6g} mm, volume {facts.volume_mm3:.6g} mm³"
+
+
+def _confirmed_before(roots: Roots, part: Stored) -> Stored | None:
+    """The confirmed geometry this record would replace, when it updates a part."""
+    if part.record.replaces is None:
+        return None
+    earlier = stored_parts(roots.projects, part.record.project)[: part.number - 1]
+    same = [
+        one for one in earlier if one.record.id == part.record.id and one.outcome == "confirmed"
+    ]
+    return same[-1] if same else None

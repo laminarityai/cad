@@ -13,7 +13,7 @@ Everything gathered for one job: one or more briefs, their sources, and the cont
 _Avoid_: Workspace, job, design
 
 **Context part**:
-An existing CAD part, uploaded or read from a CAD tool, that a person confirmed into a project, such as a rail a new part clips onto. Checks measure new parts against it, and an edit may produce a new part from it.
+An existing CAD part, uploaded or read from a CAD tool, that a person confirmed into a project, such as a rail a new part clips onto. Checks measure new parts against it, and an edit may produce a new part from it. A part taken from a variant goes out of date when its slot gets a newer revision. Proposing that revision updates the part: it keeps its id and the requirements on it, and checks measure the new geometry once the person confirms it.
 _Avoid_: Assembly, reference model, fixture
 
 **Requirement**:

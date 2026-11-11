@@ -13,12 +13,15 @@ from pydantic import ValidationError
 from cad.briefs import store as briefs
 from cad.briefs.model import BriefSpan
 from cad.confirmations.answers import Found, ItemRef, read_ledger
+from cad.context_parts.ids import ContextPartId
 from cad.context_parts.ingest import Facts, NotAPart
-from cad.context_parts.model import ContextPartRecord, FromVariant, Outcome
+from cad.context_parts.model import ContextPartRecord, FromVariant, NewerRevision, Outcome
 from cad.projects.model import ProjectBusy, ProjectId, ProjectRefused, TamperedProject
 from cad.records import signed
 from cad.records.roots import Roots, project_store
 from cad.sandbox import image
+from cad.variant_sets import store as sets
+from cad.variant_sets.model import Member, Revision
 from cad.variants import entry, key
 
 CONTEXT_PARTS: Final = "context_parts"
@@ -81,7 +84,8 @@ def propose(
     ingest: Ingest,
 ) -> Stored:
     """Idempotent: the same BREP in the same project returns the stored record that is still
-    waiting or confirmed. A part declined before gets a new record."""
+    waiting or confirmed. A part declined before gets a new record. A newer revision of the slot a
+    confirmed part came from updates that part: the record keeps its id."""
     brief = briefs.read_brief(roots, brief_id)
     start = brief.text.find(quote) if quote else -1
     if start < 0:
@@ -90,7 +94,8 @@ def propose(
         )
     held = entry.open_entry(variants_root, variant_id, image.image_tag(image.BUILD))
     projects, project = roots.projects, brief.project
-    standing = _newest_undeclined(stored_parts(projects, project), held.brep_sha256)
+    parts = stored_parts(projects, project)
+    standing = _newest_undeclined(parts, held.brep_sha256)
     if standing is not None:
         return standing
     facts = ingest(held.brep)
@@ -106,6 +111,7 @@ def propose(
         brep_sha256=held.brep_sha256,
         facts=facts,
         proposed_at=datetime.now(UTC),
+        replaces=_replaced(projects, project, parts, held.id),
     )
     directory = projects / project / CONTEXT_PARTS
     directory.mkdir(parents=True, exist_ok=True)
@@ -149,11 +155,70 @@ def newest_parts(projects: Path, project: ProjectId) -> tuple[Stored, ...]:
 
 
 def confirmed_parts(projects: Path, project: ProjectId) -> tuple[ConfirmedPart, ...]:
-    return tuple(
-        ConfirmedPart(s.number, s.record, s.answer.sha256, _SEAL)
-        for s in newest_parts(projects, project)
+    """The newest confirmed geometry of each part: an update still waiting is not measured."""
+    confirmed = {
+        s.record.id: ConfirmedPart(s.number, s.record, s.answer.sha256, _SEAL)
+        for s in stored_parts(projects, project)
         if s.answer is not None and s.outcome == "confirmed"
+    }
+    return tuple(confirmed.values())
+
+
+def newer_revisions(projects: Path, project: ProjectId) -> dict[ContextPartId, NewerRevision]:
+    """Each confirmed part whose slot now shows a newer revision than the one it came from."""
+    tag = image.image_tag(image.BUILD)
+    slots = sets.project_slots(projects, project)
+    newer: dict[ContextPartId, NewerRevision] = {}
+    for part in confirmed_parts(projects, project):
+        source = part.record.source.variant_id
+        for where, member in slots:
+            if _holds(member, source, tag) and source not in _ids(member.latest, tag):
+                newer[part.record.id] = NewerRevision(
+                    brief_id=where.brief_id, slot=member.slot, variant_id=member.latest.live_id(tag)
+                )
+                break
+    return newer
+
+
+def out_of_date_in(
+    projects: Path, project: ProjectId, brief_id: str, slot: int
+) -> tuple[ContextPartId, ...]:
+    """The confirmed parts that came from an earlier revision of this slot."""
+    return tuple(
+        part
+        for part, newer in newer_revisions(projects, project).items()
+        if (newer.brief_id, newer.slot) == (brief_id, slot)
     )
+
+
+def _replaced(
+    projects: Path, project: ProjectId, parts: tuple[Stored, ...], variant_id: str
+) -> ContextPartId | None:
+    """The confirmed part whose variant is an earlier revision of the slot `variant_id` is in."""
+    tag = image.image_tag(image.BUILD)
+    for _, member in sets.project_slots(projects, project):
+        at = next(
+            (n for n, one in enumerate(member.revisions) if variant_id in _ids(one, tag)), None
+        )
+        if at is None:
+            continue
+        earlier = {vid for one in member.revisions[:at] for vid in _ids(one, tag)}
+        replaced = [
+            part
+            for part in parts
+            if part.outcome == "confirmed" and part.record.source.variant_id in earlier
+        ]
+        if replaced:
+            return replaced[-1].record.id
+    return None
+
+
+def _holds(member: Member, variant_id: str, tag: str) -> bool:
+    return any(variant_id in _ids(one, tag) for one in member.revisions)
+
+
+def _ids(revision: Revision, tag: str) -> set[str]:
+    return {revision.built_as, revision.live_id(tag)}
 
 
 def part_brep(projects: Path, part: ConfirmedPart) -> bytes:

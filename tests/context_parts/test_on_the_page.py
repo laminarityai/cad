@@ -49,6 +49,7 @@ async def test_a_proposed_part_waits_on_the_page_beside_the_requirements(s: Sess
         "box_min": [-15, 0, 0],
         "box_max": [15, 20, 10],
         "note": "",
+        "newer_revision": None,
     }
     assert status == 200
     assert body.count('<section class="item">') == 2

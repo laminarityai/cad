@@ -11,6 +11,7 @@ Records live in `~/.cad/projects/<project_id>/context_parts/<n>.signed`, signed 
 - `part-declined` declines the part on the page. Proposing it again stores a second record that waits on a new page.
 - `part-fit` builds a housing, confirms it with two `min_clearance` requirements, and scores a variant that overlaps it and a variant 0.5 mm clear of it.
 - `part-fit-live` builds a rail, proposes it as a context part, confirms a brief with a `min_clearance` on it, builds a clip in the rail's frame and scores the clip with the `brief_id`. The card holds a `fit` result for the rail and the clearance verdict.
+- `part-newer-revision` revises the slot a confirmed part came from. The build result's `context_parts_out_of_date` names the part, and `ask_to_confirm` gives its item a `newer_revision` (`brief_id`, `slot`, `variant_id`). Proposing that variant returns the same `part_id`, waiting. The page headline says `a newer revision of the part you confirmed from variant <old>`. Until the person confirms it, the fit check measures the old geometry. In process: `uv run python -m pytest -q tests/context_parts/test_newer_revision.py`.
 - `part-refusals` shows a quote that is not in the brief (`BadContextPart`), an unknown variant (`UnknownVariant`), a variant whose build failed (`NotBuilt`) and a shape the container refuses (`BadContextPart: variant <id> cannot be a context part: <reason>`). Nothing is stored for any of them.
 
 ## How to get to it (user POV)
