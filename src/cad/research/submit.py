@@ -18,10 +18,10 @@ from cad.research.ledger import (
     read_ledger,
 )
 from cad.research.overlay import fill, overlay
-from cad.research.quote import on_page, where_written, written_in
 from cad.research.requests import ResearchRequest, request_for
 from cad.tables.fields import FIELDS, Field
 from cad.tables.materials import FromResearch, Known, MaterialsTable, row_or_blank
+from cad.tables.quote import on_page, where_written, written_as_one_number
 
 
 class _Frozen(BaseModel):
@@ -203,7 +203,7 @@ def _in_canonical_unit(question: Question) -> float | _Refusal:
             f"pass one of {spellings}"
         )
     written = Decimal(repr(question.value))
-    if not written_in(written, question.quote):
+    if not written_as_one_number(written, question.quote):
         return _Refusal(
             f"the value {written} is not written in the quote as one number; pass the number as "
             "the quote writes it, in the unit the page gives it, and a quote that contains it"
