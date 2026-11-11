@@ -13,8 +13,9 @@ from cad.confirmations.answers import ItemKindName, read_ledger
 from cad.confirmations.items import Refused, pending
 from cad.confirmations.page import AlreadyAnswered, Changed, Recorded
 from cad.confirmations.registry import kinds
-from cad.context_parts.model import Outcome
-from cad.context_parts.store import Stored, newest_parts
+from cad.context_parts.ids import ContextPartId
+from cad.context_parts.model import UPDATE_PART, NewerRevision, Outcome
+from cad.context_parts.store import Stored, newer_revisions, newest_parts
 from cad.operations.model import Audience, Input, Tenant, operation
 from cad.projects.membership import project_briefs
 from cad.projects.model import (
@@ -32,7 +33,8 @@ ASK_TO_CONFIRM = (
     "or declines the whole page, and only the signed-in user can press it. A client that can "
     "open a page for the user is asked to open it. Waits up to about 20 seconds, then returns "
     "each brief's newest proposal and each context part as waiting, confirmed, or declined with "
-    "the user's note. waiting is not an answer. This tool never confirms anything."
+    "the user's note. waiting is not an answer. This tool never confirms anything. A confirmed "
+    "context part whose slot now shows a newer revision has newer_revision: " + UPDATE_PART
 )
 WAITING = (
     "Everything in a project waiting on the signed-in person, as the project's confirmation "
@@ -79,6 +81,7 @@ class ContextPartItem(BaseModel):
     box_min: tuple[float, float, float]
     box_max: tuple[float, float, float]
     note: str = ""
+    newer_revision: NewerRevision | None = None
 
 
 class AskResult(BaseModel):
@@ -109,7 +112,7 @@ def _item(state: BriefState) -> RequirementsItem | None:
     )
 
 
-def _part_item(part: Stored) -> ContextPartItem:
+def _part_item(part: Stored, newer: dict[ContextPartId, NewerRevision]) -> ContextPartItem:
     facts = part.record.facts
     return ContextPartItem(
         part_id=part.record.id,
@@ -118,6 +121,7 @@ def _part_item(part: Stored) -> ContextPartItem:
         box_min=facts.box_min,
         box_max=facts.box_max,
         note=part.note,
+        newer_revision=newer.get(part.record.id),
     )
 
 
@@ -158,7 +162,8 @@ async def ask_to_confirm(tenant: Tenant, arguments: AskToConfirmInput) -> AskRes
     recorded = len(read_ledger(tenant.roots.projects, project).answers)
     found = [_item(store.read_state(tenant.roots, brief_id)) for brief_id in briefs]
     items: list[RequirementsItem | ContextPartItem] = [item for item in found if item is not None]
-    items.extend(_part_item(part) for part in newest_parts(tenant.roots.projects, project))
+    newer = newer_revisions(tenant.roots.projects, project)
+    items.extend(_part_item(part, newer) for part in newest_parts(tenant.roots.projects, project))
     outcomes = {item.outcome for item in items}
     status: Literal["nothing_to_confirm", "pending", "answered"] = (
         "pending" if "waiting" in outcomes else "answered" if items else "nothing_to_confirm"

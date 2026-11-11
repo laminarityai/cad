@@ -8,7 +8,9 @@ from typing import Final
 from pydantic import ValidationError
 
 from cad.briefs import store as briefs
+from cad.briefs.model import BriefId
 from cad.checks.lanes import LANES, Lanes
+from cad.projects.model import ProjectId
 from cad.records import signed
 from cad.records.roots import Roots, project_store
 from cad.sandbox.outcome import Built
@@ -173,6 +175,37 @@ def choice_of(root: Path, key: SetKey, variant_id: str, image_tag: str) -> Mater
         if variant_id in (member.latest.built_as, member.latest.live_id(image_tag)):
             return member.latest.material
     return None
+
+
+def project_slots(root: Path, project: ProjectId) -> tuple[tuple[SetKey, Member], ...]:
+    """Every slot of every variant set in the project, with the set that holds it."""
+    sets = root / project / "sets"
+    if not signed.is_directory(sets):
+        return ()
+    found: list[tuple[SetKey, Member]] = []
+    for revisions in sorted(sets.glob("*/*/revisions")):
+        key = SetKey(project, BriefId(revisions.parent.parent.name), revisions.parent.name)
+        found.extend((key, member) for member in members(root, key))
+    return tuple(found)
+
+
+def refuse_a_slot_out_of_turn(roots: Roots, brief_id: str, slot: int) -> None:
+    """An Auto revision changes a slot its set holds, or takes the next free one. Auto revisions
+    are recorded one at a time, so unlike parallel builds they never need a later slot first."""
+    key = confirmed_key(roots, brief_id)
+    taken = [member.slot for member in members(roots.projects, key)]
+    free = next((n for n in range(1, MAX_MEMBERS + 1) if n not in taken), None)
+    if slot in taken or slot == free:
+        return
+    holds = (
+        "it holds no variant yet" if not taken else f"it holds slots {', '.join(map(str, taken))}"
+    )
+    nxt = "" if free is None else f", or takes the next free one, slot {free}"
+    raise SlotRefused(
+        f"the variant set of brief {key.brief_id} holds no slot {slot}: {holds}. An Auto revision "
+        f"changes a slot this set holds{nxt}. A variant in another brief's set is revised by a run "
+        "started with auto_start on the brief whose variant set holds it. Nothing was built."
+    )
 
 
 def members(root: Path, key: SetKey) -> tuple[Member, ...]:

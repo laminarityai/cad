@@ -22,12 +22,13 @@ from cad.auto.model import (
 from cad.auto.step import standing_of
 from cad.briefs import store as briefs
 from cad.briefs.model import MAX_NOTE_CHARS
+from cad.context_parts.model import UPDATE_PART
 from cad.conversations import store as conversations
 from cad.conversations.model import Mode
 from cad.operations import scorecards
 from cad.operations.conversations import ConversationState
 from cad.operations.model import Audience, Input, Tenant, operation
-from cad.operations.variants import MAX_CODE_CHARS, chooser
+from cad.operations.variants import MAX_CODE_CHARS, chooser, with_out_of_date
 from cad.sandbox import image
 from cad.sandbox.outcome import Built
 from cad.scorecard import material
@@ -69,7 +70,10 @@ STOPS = (
 )
 AUTO_REVISE = (
     "Build and score one revision of the design under an Auto run the person started. Pass "
-    "run_id and the build123d code, with slot as in build_variant. The server builds the code "
+    "run_id and the build123d code, with slot as in build_variant: a slot the run's brief's "
+    "variant set holds, to revise that variant, or its next free slot. Any other slot is "
+    "refused before anything is built, so to revise a variant the person names, start the run "
+    "on the brief whose variant set holds it. The server builds the code "
     "into the run's brief's variant set, scores it with the run's material and returns the run. "
     "A running state holds history, one standing per revision with each confirmed "
     "requirement's mark, and failing, the requirements of the latest revision that fail or are "
@@ -81,7 +85,11 @@ AUTO_REVISE = (
     "again with the same code to wait for it. Code the run already recorded is not built "
     "again, and nothing new is recorded. Every build and check container is charged to the "
     "account's usage limit, and code the store holds is not built again. A stopped state holds "
-    "reason and report: give the user the report. " + STOPS
+    "reason and report: give the user the report. context_parts_out_of_date names the confirmed "
+    "context parts that came from an earlier revision of the slot this revision joined: "
+    + UPDATE_PART
+    + " "
+    + STOPS
 )
 AUTO_ASK = (
     "Stop an Auto run because you need the person: you are stuck, or only the person can "
@@ -119,6 +127,10 @@ class AskInput(Input):
 
 class StopInput(Input):
     run_id: str
+
+
+class RevisedRun(AutoRun):
+    context_parts_out_of_date: tuple[str, ...] = ()
 
 
 class PersonStop(BaseModel):
@@ -175,7 +187,7 @@ def auto_start(tenant: Tenant, arguments: StartInput) -> AutoRun:
     return conversations.start_run(tenant, cid, confirmed.brief_id, open_under_lock)
 
 
-def auto_revise(tenant: Tenant, arguments: ReviseInput) -> AutoRun:
+def auto_revise(tenant: Tenant, arguments: ReviseInput) -> RevisedRun:
     roots, run_id = tenant.roots, arguments.run_id
     _refuse_unless_held(tenant, run_id)
     brief_id = log.read_run(roots, run_id).state.start.brief_id
@@ -183,7 +195,9 @@ def auto_revise(tenant: Tenant, arguments: ReviseInput) -> AutoRun:
     assert running is not None
     sha = code_sha256(arguments.code)
     if _tried(running, sha):
-        return AutoRun(run_id=run_id, state=running)
+        return RevisedRun(run_id=run_id, state=running)
+    if arguments.slot is not None:
+        variant_sets.refuse_a_slot_out_of_turn(roots, brief_id, arguments.slot)
     revision = len(running.history) + 1
     vid = entry.variant_id(arguments.code, image.image_tag(image.BUILD))
     with stops_at_the_limit(tenant, vid):
@@ -200,7 +214,7 @@ def auto_revise(tenant: Tenant, arguments: ReviseInput) -> AutoRun:
             )
             standing = standing_of(scorecards.score_variant(tenant, scored), revision, sha)
             if isinstance(standing, Unsettled):
-                return AutoRun(run_id=run_id, state=running, settling=True)
+                return RevisedRun(run_id=run_id, state=running, settling=True)
         else:
             standing = Standing(
                 revision=revision,
@@ -215,7 +229,11 @@ def auto_revise(tenant: Tenant, arguments: ReviseInput) -> AutoRun:
             return None
         return Revised(standing=standing.model_copy(update={"revision": len(state.history) + 1}))
 
-    return conversations.record_event(tenant, run_id, make)
+    run = conversations.record_event(tenant, run_id, make)
+    stale = with_out_of_date(tenant, brief_id, built).context_parts_out_of_date
+    return RevisedRun(
+        run_id=run.run_id, state=run.state, settling=run.settling, context_parts_out_of_date=stale
+    )
 
 
 def _tried(state: AutoState, sha: str) -> bool:
@@ -260,7 +278,7 @@ OPERATIONS: Final = (
         audience=Audience.AGENT,
         description=AUTO_REVISE,
         input=ReviseInput,
-        output=AutoRun,
+        output=RevisedRun,
         run=auto_revise,
     ),
     operation(
