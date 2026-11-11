@@ -35,27 +35,37 @@ def packages(lock: Path) -> dict[str, dict[str, object]]:
     return {path: entry for path, entry in document["packages"].items() if path}
 
 
-def install_matches_lock() -> bool:
-    """Whether `node_modules` holds what the lock says, judged by content, never by mtime.
+def unlike_lock() -> list[str]:
+    """The paths where `node_modules` does not hold what the lock says, judged by content, never
+    by mtime.
 
     A fresh worktree checks the lock out with a new mtime. npm writes `.package-lock.json` as the
     lock's `packages` map without the root entry, and without the optional packages built for
     another platform, so every lock entry must be installed unless it is optional.
     """
     if not GENERATOR.exists():
-        return False
+        return [str(GENERATOR)]
     try:
         wanted, installed = packages(LOCK), packages(INSTALLED)
     except (OSError, ValueError, KeyError):
-        return False
-    return all(wanted.get(path) == entry for path, entry in installed.items()) and all(
-        path in installed or entry.get("optional") is True for path, entry in wanted.items()
-    )
+        return [str(INSTALLED)]
+    changed = [path for path, entry in installed.items() if wanted.get(path) != entry]
+    absent = [
+        path
+        for path, entry in wanted.items()
+        if path not in installed and entry.get("optional") is not True
+    ]
+    return changed + absent
+
+
+def install_matches_lock() -> bool:
+    return not unlike_lock()
 
 
 def install_if_stale() -> None:
     """`verify` runs the web steps side by side, so the first one to take the lock installs and
-    the others wait, then find the install fresh."""
+    the others wait, then find the install fresh. An install that still reads as stale would make
+    every later step install again, under the steps already running, so it fails here."""
     with INSTALLING.open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         if install_matches_lock():
@@ -65,6 +75,8 @@ def install_if_stale() -> None:
             check=True,
             stdout=subprocess.DEVNULL,
         )
+        if unlike := unlike_lock():
+            raise SystemExit(f"gen_ts: npm ci left node_modules unlike the lock at {unlike[:8]}")
 
 
 def generate(into: Path) -> None:

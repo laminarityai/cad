@@ -35,15 +35,23 @@ def web(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(gen_ts, "INSTALLED", modules / ".package-lock.json")
     monkeypatch.setattr(gen_ts, "GENERATOR", modules / ".bin" / "openapi-typescript")
     monkeypatch.setattr(gen_ts, "WEB", tmp_path)
+    monkeypatch.setattr(gen_ts, "INSTALLING", tmp_path / ".install.lock")
     return tmp_path
+
+
+def npm_installs(packages: Packages) -> Packages:
+    return {path: entry for path, entry in packages.items() if path and "os" not in entry}
 
 
 @pytest.fixture
 def commands(monkeypatch: pytest.MonkeyPatch) -> list[list[str]]:
+    """The commands run, with an `npm ci` that installs what the lock lists for this platform."""
     ran: list[list[str]] = []
 
     def fake_run(argv: list[str], **_: object) -> subprocess.CompletedProcess[None]:
         ran.append(argv)
+        wanted: Packages = json.loads(gen_ts.LOCK.read_text())["packages"]
+        write_packages(gen_ts.INSTALLED, npm_installs(wanted))
         return subprocess.CompletedProcess(argv, 0)
 
     monkeypatch.setattr(gen_ts.subprocess, "run", fake_run)
@@ -82,3 +90,16 @@ def test_a_missing_install_reinstalls(web: Path, commands: list[list[str]]) -> N
     gen_ts.INSTALLED.unlink()
     gen_ts.install_if_stale()
     assert [argv[:2] for argv in commands] == [["npm", "ci"]]
+
+
+def test_an_install_that_still_reads_as_stale_fails_and_names_the_path(
+    web: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def leaves_it_stale(argv: list[str], **_: object) -> subprocess.CompletedProcess[None]:
+        write_packages(gen_ts.INSTALLED, {"node_modules/a": {**REQUIRED, "peer": True}})
+        return subprocess.CompletedProcess(argv, 0)
+
+    gen_ts.INSTALLED.unlink()
+    monkeypatch.setattr(gen_ts.subprocess, "run", leaves_it_stale)
+    with pytest.raises(SystemExit, match="node_modules/a"):
+        gen_ts.install_if_stale()
