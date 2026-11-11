@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from pathlib import Path
 from typing import TYPE_CHECKING, Final
 
@@ -14,6 +15,7 @@ from cad.briefs.store import read_brief
 from cad.conversations import store
 from cad.conversations.model import ConversationId, Mode
 from cad.operations.auto import StartInput, auto_start
+from cad.operations.briefs import CreateBriefInput, create_brief
 from cad.operations.registry import OPERATIONS
 from cad.operations.tools import tools
 from cad.sandbox.image import BUILD, image_tag
@@ -245,8 +247,10 @@ async def test_a_replayed_revision_appends_nothing_and_builds_nothing(
 
 async def test_a_run_builds_only_for_its_own_brief(s: Session) -> None:
     _, run_id = await running(s)
-    other = await s.confirmed(TEXT, UNDER_150)
-    text = await s.refusal("build_variant", code=PLATE, brief_id=other)
+    elsewhere = create_brief(replace(s.tenant, conversation=None), CreateBriefInput(text=TEXT))
+    await s.propose(elsewhere.brief_id, UNDER_150)
+    await s.call("ask_to_confirm", project_id=elsewhere.project_id)
+    text = await s.refusal("build_variant", code=PLATE, brief_id=elsewhere.brief_id)
     assert f"RunRefused: auto run {run_id} builds and scores only for brief" in text
     assert s.meter.asked == []
 

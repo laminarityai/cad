@@ -19,6 +19,7 @@ from mcp.server import MCPServer
 
 from cad.accounts.principal import AgentToken, PersonSession
 from cad.accounts.tenants import Tenants
+from cad.briefs import store as briefs
 from cad.chat import answer_driver
 from cad.chat.auto_driver import AutoDriver
 from cad.chat.log import (
@@ -38,17 +39,20 @@ from cad.operations.guidance import INSTRUCTIONS
 from cad.operations.model import Tenant
 from cad.operations.registry import OPERATIONS
 from cad.operations.tools import tools
+from cad.projects.membership import project_briefs
+from cad.projects.model import ProjectId
 
 CLIENT_ID: Final = "cad-chat"
 MAX_STEPS: Final = 100
 MAX_RESULT_CHARS: Final = 40_000
+FIRST_WORDS: Final = 120
 MODE_NOTES: Final[Mapping[Mode, str]] = {
     Mode.PLAN: (
         "This conversation is in Plan mode. Turn the person's words into requirements and ask "
         "them to confirm. The server refuses build_variant in Plan mode. When the person "
         "confirms, the server moves the conversation to Design mode and starts your next turn "
-        "by itself. After ask_to_confirm returns pending, tell the person to answer on the page "
-        "and end your message."
+        "by itself. After ask_to_confirm returns pending, the page shows a Confirm card in this "
+        "chat: tell the person in one short sentence to confirm it there, and end your message."
     ),
     Mode.DESIGN: (
         "This conversation is in Design mode. Build and revise variants when the person asks, "
@@ -64,15 +68,19 @@ MODE_NOTES: Final[Mapping[Mode, str]] = {
     ),
 }
 
-OPEN_BRIEF: Final = (
-    "The person started this conversation on project {project_id}, brief {brief_id}, which "
-    "their page shows. A slot they name is a slot of this brief's variant set: call variant_set "
-    "with this project_id and brief_id for each slot's variant_id and revision, and variant_code "
-    "for the code a variant was built from. To change a slot, edit that code and build it with "
-    "build_variant, this brief_id and that slot. A change to a slot stays in this brief: a "
-    "revision when no number is stated, and a new proposal on this brief when one is. Then "
-    "score the new variant with score_variant and this brief_id: only that runs the checks, "
-    "and the person's scorecard waits on it. The "
+OPEN_PROJECT: Final = (
+    "This conversation is the chat of project {project_id}. Its briefs, oldest first, each with "
+    "its brief_id and its first words:
+{briefs}
+The person's page shows every brief of this "
+    "project. A new part is a new brief in this project: call create_brief with this project_id. "
+    "A slot they name is a slot of the brief they are talking about; ask which brief only when "
+    "it is unclear. Call variant_set with this project_id and that brief_id for each slot's "
+    "variant_id and revision, and variant_code for the code a variant was built from. To change "
+    "a slot, edit that code and build it with build_variant, that brief_id and that slot. A "
+    "change to a slot stays in its brief: a revision when no number is stated, and a new "
+    "proposal on that brief when one is. Then score the new variant with score_variant and that "
+    "brief_id: only that runs the checks, and the person's scorecard waits on it. The "
     "material is the one the brief's made_of requirement confirms (list_requirements shows it). "
     "When none does, choose one for each variant and pass it to build_variant as material_key "
     "with a one-line material_reason: omit both to keep the slot's choice. When the person asks "
@@ -177,9 +185,22 @@ def _system(tenant: Tenant) -> str:
     parts = [INSTRUCTIONS, MODE_NOTES[tenant.mode or Mode.PLAN], ON_THE_PAGE]
     if tenant.conversation is not None:
         held = store.read(tenant.conversations, tenant.conversation)
-        if held.project_id is not None and held.brief_id is not None:
-            parts.append(OPEN_BRIEF.format(project_id=held.project_id, brief_id=held.brief_id))
+        if held.project_id is not None:
+            parts.append(_open_project(tenant, ProjectId(held.project_id)))
     return "\n\n".join(parts)
+
+
+def _open_project(tenant: Tenant, project: ProjectId) -> str:
+    lines = [
+        f"- {brief_id}: {_first_words(briefs.read_brief(tenant.roots, brief_id).text)}"
+        for brief_id in project_briefs(tenant.roots, project)
+    ]
+    return OPEN_PROJECT.format(project_id=project, briefs="\n".join(lines) or "- none yet")
+
+
+def _first_words(text: str) -> str:
+    words = " ".join(text.split())
+    return words if len(words) <= FIRST_WORDS else f"{words[:FIRST_WORDS].rstrip()}…"
 
 
 def _say(channel: Channel, reply: Message) -> None:

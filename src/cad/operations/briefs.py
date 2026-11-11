@@ -18,6 +18,8 @@ from cad.briefs.store import BriefState, ProposalState, Status
 from cad.briefs.words import describe
 from cad.checks.report import QUICK, closure
 from cad.context_parts.store import stored_parts
+from cad.conversations import store as conversations
+from cad.conversations.model import ConversationId, UnknownConversation
 from cad.operations.guidance import PLAN_MODE
 from cad.operations.model import BOTH, Audience, Input, Tenant, operation
 from cad.operations.research import brief_table
@@ -35,10 +37,10 @@ CREATE_BRIEF = (
     "text: the server copies the person's newest message, and those words are the brief. From "
     "any other client, pass text, the person's own words verbatim, not a summary or a rewrite: "
     "the person reads this text when they confirm. Create a brief only for a new part: a change "
-    "to a part the project already has stays in that part's brief. A project "
-    "holds every brief for one job. Omit project_id to start a new project. Pass the "
-    "project_id an earlier create_brief returned to add this brief to that project; a brief "
-    "stays in the project it was created in. " + PLAN_MODE
+    "to a part the project already has stays in that part's brief. A project holds every brief "
+    "for one job. Omit project_id to start a new project, or, in a chat that has a project, to "
+    "add the brief to that project. Pass the project_id an earlier create_brief returned to add "
+    "this brief to that project; a brief stays in the project it was created in. " + PLAN_MODE
 )
 PROPOSE_REQUIREMENTS = (
     "If the brief names a material, call list_materials before you propose. Propose the whole "
@@ -192,10 +194,25 @@ class ListRequirementsInput(Input):
 
 
 def create_brief(tenant: Tenant, arguments: CreateBriefInput) -> BriefCreated:
+    """In a chat, a brief with no project_id joins the conversation's project, and the first brief
+    of a conversation that has none makes its project the conversation's."""
     first = source.first_words(tenant, arguments.text)
-    project = project_for_new_brief(tenant.roots, arguments.project_id)
+    cid = tenant.conversation
+    asked = arguments.project_id
+    if asked is None and cid is not None:
+        asked = _project_of(tenant, cid)
+    project = project_for_new_brief(tenant.roots, asked)
     brief = store.create_brief(tenant.roots, first.text, project, first.transcript_seq)
+    if cid is not None:
+        conversations.started(tenant, cid, project)
     return BriefCreated(brief_id=brief.id, project_id=project, text=brief.text)
+
+
+def _project_of(tenant: Tenant, cid: ConversationId) -> str | None:
+    try:
+        return conversations.read(tenant.conversations, cid).project_id
+    except UnknownConversation:
+        return None
 
 
 def propose_requirements(tenant: Tenant, arguments: ProposeRequirementsInput) -> Proposed:
