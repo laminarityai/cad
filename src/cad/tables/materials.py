@@ -10,20 +10,13 @@ from typing import cast
 import pint
 import yaml
 
+from cad.tables.fields import FIELDS, Field
+
 UNITS = pint.UnitRegistry()
 TABLE_PATH = Path(__file__).resolve().parents[3] / "tables" / "materials.yaml"
 KEY_PATTERN = re.compile(r"[a-z0-9]+(-[a-z0-9]+)*")
 PROJECT_PREFIX = "project-"
-DENSITY_RANGE_KG_PER_M3 = (500.0, 20000.0)
-ELASTIC_MODULUS_RANGE_GPA = (0.01, 500.0)
 MAX_YIELD_STRAIN = 0.1
-FIELD_UNITS = {
-    "density": "kg/m^3",
-    "yield_strength": "MPa",
-    "tensile_strength": "MPa",
-    "elastic_modulus": "MPa",
-    "poisson_ratio": "dimensionless",
-}
 SOURCE_TEXT_FIELDS = ("url", "title", "page", "quote")
 
 type Raw = Mapping[object, object]
@@ -82,7 +75,7 @@ class Material:
     poisson_ratio: Value
 
     def value(self, field: str) -> Value:
-        if field not in FIELD_UNITS:
+        if field not in FIELDS:
             raise KeyError(field)
         return cast(Value, getattr(self, field))
 
@@ -90,7 +83,7 @@ class Material:
 def row_or_blank(materials: Mapping[str, Material], key: str) -> Material | None:
     found = materials.get(key)
     if found is None and key.startswith(PROJECT_PREFIX):
-        return Material(key, key, **dict.fromkeys(FIELD_UNITS, Unknown()))
+        return Material(key, key, **dict.fromkeys(FIELDS, Unknown()))
     return found
 
 
@@ -188,7 +181,7 @@ def _parse_material(row: Raw, problems: list[str]) -> Material | None:
         problems.append(f"{key}: name is missing")
         return None
     start = len(problems)
-    values = {field: _parse_value(key, field, row.get(field), problems) for field in FIELD_UNITS}
+    values = {field: _parse_value(key, field, row.get(field), problems) for field in FIELDS}
     if len(problems) > start:
         return None
     material = Material(key, name, **values)
@@ -196,7 +189,7 @@ def _parse_material(row: Raw, problems: list[str]) -> Material | None:
     return material
 
 
-def _parse_value(key: str, field: str, raw: object, problems: list[str]) -> Value:
+def _parse_value(key: str, field: Field, raw: object, problems: list[str]) -> Value:
     if raw == "unknown":
         return Unknown()
     mapping = _mapping(raw)
@@ -212,7 +205,7 @@ def _parse_value(key: str, field: str, raw: object, problems: list[str]) -> Valu
         return Unknown()
     try:
         quantity = UNITS.Quantity(text)
-        magnitude(quantity, FIELD_UNITS[field])
+        magnitude(quantity, FIELDS[field].canonical_unit)
     except pint.PintError as error:
         problems.append(f"{key}: {field} {text!r}: {error}")
         return Unknown()
@@ -243,7 +236,7 @@ def _parse_source(key: str, field: str, raw: object, problems: list[str]) -> Sou
 def rule_problems(material: Material) -> list[str]:
     problems: list[str] = []
     density = material.density
-    low, high = DENSITY_RANGE_KG_PER_M3
+    low, high = _plausible("density", "kg/m^3")
     if isinstance(density, Known) and not low <= density.magnitude_in("kg/m^3") <= high:
         problems.append(
             f"{material.key}: density {density.quantity:g~P} is outside the plausible range"
@@ -260,16 +253,17 @@ def rule_problems(material: Material) -> list[str]:
             f" tensile_strength {tensile_strength.quantity:g~P}"
         )
     modulus, poisson = material.elastic_modulus, material.poisson_ratio
-    low, high = ELASTIC_MODULUS_RANGE_GPA
+    low, high = _plausible("elastic_modulus", "GPa")
     if isinstance(modulus, Known) and not low <= modulus.magnitude_in("GPa") <= high:
         problems.append(
             f"{material.key}: elastic_modulus {modulus.quantity:g~P} is outside the plausible"
             f" range {low:g} to {high:g} GPa"
         )
-    if isinstance(poisson, Known) and not 0 < poisson.magnitude_in("dimensionless") < 0.5:
+    low, high = _plausible("poisson_ratio", "dimensionless")
+    if isinstance(poisson, Known) and not low < poisson.magnitude_in("dimensionless") < high:
         problems.append(
             f"{material.key}: poisson_ratio {poisson.magnitude_in('dimensionless'):g} is not"
-            " above 0 and below 0.5"
+            f" above {low:g} and below {high:g}"
         )
     if (
         isinstance(yield_strength, Known)
@@ -281,3 +275,9 @@ def rule_problems(material: Material) -> list[str]:
             f" {MAX_YIELD_STRAIN:g} of elastic_modulus {modulus.quantity:g~P}"
         )
     return problems
+
+
+def _plausible(field: Field, unit: str) -> tuple[float, float]:
+    spec = FIELDS[field]
+    low, high = (UNITS.Quantity(bound, spec.canonical_unit) for bound in (spec.low, spec.high))
+    return magnitude(low, unit), magnitude(high, unit)

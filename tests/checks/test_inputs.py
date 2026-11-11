@@ -5,13 +5,15 @@ from cad.checks.container import mass
 from cad.checks.container.inputs import WIRE_UNITS, Input, Inputs, Undeclared
 from cad.checks.container.runner import run
 from cad.checks.report import DEPENDENCIES, IMAGE_TAG, QUICK, build_request, specs
-from cad.tables.materials import FIELD_UNITS, UNITS, load_materials
+from cad.tables.fields import FIELDS
+from cad.tables.materials import UNITS, load_materials
 
 
 def test_every_input_names_a_table_field_and_converts_to_its_wire_unit() -> None:
+    canonical: dict[str, str] = {field: spec.canonical_unit for field, spec in FIELDS.items()}
     assert set(WIRE_UNITS) == set(Input)
     for wanted, unit in WIRE_UNITS.items():
-        assert UNITS.Unit(unit).dimensionality == UNITS.Unit(FIELD_UNITS[wanted]).dimensionality
+        assert UNITS.Unit(unit).dimensionality == UNITS.Unit(canonical[wanted]).dimensionality
 
 
 def test_a_check_cannot_read_an_input_it_does_not_take() -> None:

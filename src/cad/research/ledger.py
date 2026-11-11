@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, ValidationError
 from cad.projects.model import ProjectBusy, ProjectId
 from cad.records import signed
 from cad.records.roots import project_store
-from cad.research.fields import Field
+from cad.tables.fields import Field
 
 RESEARCH: Final = "research"
 _OPERATOR: Final = "the operator must delete the project's research directory"

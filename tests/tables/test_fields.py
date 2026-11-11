@@ -1,5 +1,7 @@
-from cad.research.fields import SPECS
-from cad.tables.materials import DENSITY_RANGE_KG_PER_M3, ELASTIC_MODULUS_RANGE_GPA, FIELD_UNITS
+from dataclasses import fields
+
+from cad.tables.fields import FIELDS
+from cad.tables.materials import Material
 
 EXPECTED = {
     "density": ("kg/m^3", 500.0, 20000.0, False),
@@ -11,8 +13,10 @@ EXPECTED = {
 
 
 def test_each_field_has_its_canonical_unit_and_plausible_range() -> None:
-    found = {f: (s.canonical_unit, s.low, s.high, s.exclusive) for f, s in SPECS.items()}
+    found = {f: (s.canonical_unit, s.low, s.high, s.exclusive) for f, s in FIELDS.items()}
     assert found == EXPECTED
-    assert {field: unit for field, (unit, *_) in EXPECTED.items()} == FIELD_UNITS
-    assert DENSITY_RANGE_KG_PER_M3 == (500.0, 20000.0)
-    assert ELASTIC_MODULUS_RANGE_GPA == (0.01, 500.0)
+
+
+def test_a_material_holds_exactly_the_table_fields() -> None:
+    held = [one.name for one in fields(Material) if one.name not in {"key", "name"}]
+    assert held == list(FIELDS), "Material in cad/tables/materials.py must match FIELDS"

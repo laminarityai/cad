@@ -22,7 +22,8 @@ from typing import Final
 import pint
 
 from cad.research.quote import on_page
-from cad.tables.materials import FIELD_UNITS, TABLE_PATH, UNITS, Known, MaterialsTable
+from cad.tables.fields import FIELDS
+from cad.tables.materials import TABLE_PATH, UNITS, Known, MaterialsTable
 
 STORE = TABLE_PATH.parent / "datasheet_text"
 HEADER = "url: "
@@ -88,7 +89,7 @@ def cover(quotes: Iterable[str], extractions: Iterable[Extraction]) -> tuple[lis
 
 def citations(table: MaterialsTable) -> Iterator[Citation]:
     for material in table.materials.values():
-        for field in FIELD_UNITS:
+        for field in FIELDS:
             value = material.value(field)
             if isinstance(value, Known):
                 source = value.source

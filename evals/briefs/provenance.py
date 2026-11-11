@@ -44,10 +44,9 @@ from cad.checks.container.check import Quick
 from cad.checks.report import CheckSpec
 from cad.checks.result import CheckResult, Measure
 from cad.records.roots import Roots
-from cad.research.fields import SPECS as FIELD_SPECS
-from cad.research.fields import Field
 from cad.scorecard.material import ReportedScorecard
 from cad.scorecard.model import AgainstBrief, Checked, Scorecard
+from cad.tables.fields import FIELDS, Field
 from cad.tables.materials import (
     UNITS,
     FromResearch,
@@ -263,7 +262,7 @@ def _confirmed(card: Scorecard, index: int, place: int, shown: Shown | None) -> 
 
 
 def _bound(field: Field, bound: Literal["low", "high"], value: str) -> Outcome:
-    if f"{getattr(FIELD_SPECS[field], bound):g}" != value:
+    if f"{getattr(FIELDS[field], bound):g}" != value:
         return Unresolved(f"{value} is not the {bound} bound the server sets for {field}")
     return Resolved((BoundStep(field, bound),))
 
