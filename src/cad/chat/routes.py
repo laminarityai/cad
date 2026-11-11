@@ -255,7 +255,27 @@ def chat_routes(person_of: PersonOf, chat: Chat) -> list[Route]:
             headers=STREAM_HEADERS,
         )
 
+    async def project_conversation(request: Request) -> Response:
+        """Prototype read (proto/project-workspace): the project's newest conversation, so the
+        workspace opens the same chat for every brief without an id in the URL."""
+        who = person(request)
+        if isinstance(who, Response):
+            return who
+        directory = chat.tenants.of(who.account).conversations
+        wanted = request.path_params["project_id"]
+        found = sorted(
+            (one for one in directory.glob("c_*.json") if store.read(directory, conversation_id(one.stem)).project_id == wanted),
+            key=lambda one: one.stat().st_mtime,
+        )
+        return JSONResponse({"conversation_id": found[-1].stem if found else None})
+
     return [
+        Route(
+            "/v1/projects/{project_id}/conversation",
+            project_conversation,
+            methods=["GET"],
+            name="project_conversation",
+        ),
         Route("/v1/conversations", create, methods=["POST"], name="create_conversation"),
         Route(
             "/v1/conversations/{conversation_id}/messages", send, methods=["POST"], name="message"
