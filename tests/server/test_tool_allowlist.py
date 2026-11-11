@@ -21,7 +21,8 @@ ALLOWED_ARGUMENTS = {
     "scorecard": {"variant_id", "material_key", "brief_id"},
     "list_materials": set[str](),
     "create_brief": {"text", "name", "project_id"},
-    "propose_requirements": {"brief_id", "requirements", "said"},
+    # assumptions are the agent's own numbers, listed with the measure, never a verdict.
+    "propose_requirements": {"brief_id", "requirements", "assumptions", "said"},
     "ask_to_confirm": {"project_id"},
     "list_requirements": {"brief_id"},
     "propose_context_part": {"brief_id", "quote", "name", "variant_id"},
