@@ -2,6 +2,7 @@ import sys
 
 import pytest
 
+from cad.verify.__main__ import select_steps
 from cad.verify.runner import run_steps
 from cad.verify.steps import STEPS, Step
 
@@ -61,3 +62,8 @@ def test_first_failure_stops_the_run_and_shows_its_output(
     assert "FAIL bad" in out
     assert "boom detail" in out
     assert "never" not in out
+
+
+def test_only_runs_the_named_steps_in_verify_order() -> None:
+    chosen = select_steps(["pytest", "ruff check"])
+    assert [step.name for step in chosen] == ["ruff check", "pytest"]

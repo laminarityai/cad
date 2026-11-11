@@ -32,6 +32,8 @@ from cad.sandbox.outcome import Build, BuildFailed, Built
 from cad.server.app import LocalPage, build_server
 from cad.variants import entry
 
+pytest_plugins = ("shards",)
+
 TEXT = "A wall bracket for a 2 kg shelf, under 150 g, fits in 120 x 80 x 40 mm, printable in PETG"
 UNDER_150 = {
     "target": {"kind": "max_mass", "mass": {"magnitude": 150, "unit": "g"}},

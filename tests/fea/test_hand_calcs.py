@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Final
 
 import pytest
+from cache_key import CORE, shared_inputs
 from cases import BY_NAME, CASES, Case
 
 from cad.checks.container.mesher import MESH_CHANGE_LIMIT
@@ -16,13 +17,12 @@ from cad.sandbox import container
 from cad.sandbox.container import Job, ReadOnlyMount
 from cad.sandbox.host import Artifacts, build
 from cad.sandbox.image import BUILD, current_image, image_tag
-from cad.sandbox.stage import TARGET, check_mount, read_sources
+from cad.sandbox.stage import TARGET, check_mount
 
 HARNESS: Final = "/opt/fea"
 PROGRAM: Final = (
     f"import sys; sys.path[:0] = [{TARGET!r}, {HARNESS!r}]; from driver import main; main()"
 )
-CORE: Final = read_sources("cad.checks.container.calculix")
 DETERMINISM_CASE: Final = "cantilever tip"
 CACHE: Final = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "cad" / "fea"
 
@@ -58,21 +58,14 @@ def key(job: Job) -> str:
     """Digest every input the solve container can read, so equal keys mean equal reports.
 
     The container has no network and a read-only root. It reads only the image, its argv, stdin
-    and the two mounts. The mounts enter by content, the harness without `__pycache__`, and
-    container.py by its source, since it holds the docker flags. The determinism test below proves
+    and the two mounts, which shared_inputs digests by content. The determinism test below proves
     equal inputs give equal bytes.
     """
     digest = hashlib.sha256()
     limits = f"{job.wall_seconds} {job.memory_mb} {job.tmpfs_mb}"
-    for text in (job.image_id, *job.command, limits, CORE.digest):
+    for text in (job.image_id, *job.command, limits, shared_inputs()):
         digest.update(hashlib.sha256(text.encode()).digest())
-    for data in (job.stdin, Path(container.__file__).read_bytes()):
-        digest.update(hashlib.sha256(data).digest())
-    harness = Path(__file__).parent
-    for path in sorted(harness.rglob("*")):
-        if path.is_file() and "__pycache__" not in path.parts:
-            digest.update(path.relative_to(harness).as_posix().encode() + b"\0")
-            digest.update(hashlib.sha256(path.read_bytes()).digest())
+    digest.update(hashlib.sha256(job.stdin).digest())
     return digest.hexdigest()
 
 

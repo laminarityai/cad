@@ -2,6 +2,7 @@
 
     check_models.py [--trace] [NAME ...]    run the named checks, or all of them
     check_models.py --mutants [NAME ...]    run the named mutants, or all of them
+    check_models.py --changed-since REF     exit 1 when no model or covered file changed since REF
 
 A check passes when TLC finds no error, or, for a check that records a known finding, when TLC
 finds exactly that violation again. It prints TLC's counterexample on an unexpected result, and
@@ -141,14 +142,29 @@ def mutate(mutant: Mutant, tools: Path, java: str, trace: bool) -> bool:
     return caught
 
 
-def drift() -> None:
-    """Warn when the code a model covers changed after the commit the skill last synced to."""
+def coverage() -> tuple[str, list[str]]:
+    """The sync commit and the code files the models cover, from SKILL.md's coverage block."""
     block = re.search(r"```coverage\n(.*?)```", (SKILL / "SKILL.md").read_text(), re.DOTALL)
     if block is None:
         raise SystemExit("SKILL.md has no coverage block")
     lines = [line.split() for line in block.group(1).splitlines() if line.strip()]
     sync = next(words[1] for words in lines if words[0] == "sync:")
     files = [path for words in lines if words[0] != "sync:" for path in words[1:]]
+    return sync, files
+
+
+def changed_since(ref: str) -> list[str]:
+    """The files that decide a TLC result, or that a model covers, changed since ref."""
+    _, files = coverage()
+    return subprocess.run(
+        ["git", "diff", "--name-only", ref, "--", str(SKILL.relative_to(REPO)), *files],
+        cwd=REPO, capture_output=True, text=True, check=True,
+    ).stdout.split()  # fmt: skip
+
+
+def drift() -> None:
+    """Warn when the code a model covers changed after the commit the skill last synced to."""
+    sync, files = coverage()
     known = subprocess.run(
         ["git", "cat-file", "-e", f"{sync}^{{commit}}"], cwd=REPO, capture_output=True, check=False
     )
@@ -170,7 +186,17 @@ def main(argv: Sequence[str]) -> int:
     parser.add_argument("names", nargs="*", help="checks (or with --mutants, mutants) to run")
     parser.add_argument("--mutants", action="store_true", help="run mutants instead of checks")
     parser.add_argument("--trace", action="store_true", help="print TLC's output for every run")
+    parser.add_argument(
+        "--changed-since",
+        metavar="REF",
+        help="run nothing; list the model and covered files changed since REF, exit 1 if none",
+    )
     args = parser.parse_args(argv)
+    if args.changed_since is not None:
+        ref = str(args.changed_since)
+        changed = changed_since(ref)
+        print("\n".join(changed) or f"nothing the models read or cover changed since {ref}")
+        return 0 if changed else 1
     names: list[str] = args.names
     known = {one.name for one in (MUTANTS if args.mutants else CHECKS)}
     unknown = sorted(set(names) - known)
