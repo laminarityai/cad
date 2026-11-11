@@ -67,8 +67,8 @@ describe("loadWorkspace", () => {
     expect(model.conversationId).toBe("c1");
   });
 
-  it("names a brief with no confirmed proposal as drafting and reads no options for it", async () => {
-    const variantSet = vi.fn();
+  it("names a brief with no confirmed proposal and no options as drafting, and reads its options anyway", async () => {
+    const variantSet = vi.fn(() => Promise.resolve(setOf([])));
     const api = fakeApi([], {
       project: vi.fn(() =>
         Promise.resolve({ project_id: "p1", briefs: [{ brief_id: "b1", created_at: "2026-11-10T00:00:00Z", proposals: 1, confirmed_proposal: null }], context_parts: [] }),
@@ -80,7 +80,7 @@ describe("loadWorkspace", () => {
     expect(model.briefs[0]?.state).toBe("drafting");
     expect(model.briefs[0]?.title).toBe("Part 1");
     expect(model.confirmation).toBeNull();
-    expect(variantSet).not.toHaveBeenCalled();
+    expect(variantSet).toHaveBeenCalledWith("p1", "b1");
   });
 });
 

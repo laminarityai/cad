@@ -78,7 +78,7 @@ function slotsOf(set: VariantSetView | null): Slot[] {
 
 function stateOf(brief: BriefView, confirmation: Confirmation, slots: Slot[]): BriefState {
   if (confirmation?.items.some((item) => item.brief_id === brief.brief_id)) return "waiting";
-  if (brief.confirmed_proposal === null) return "drafting";
+  if (brief.confirmed_proposal === null && slots.length === 0) return "drafting";
   return slots.length === 0 ? "building" : "ready";
 }
 
@@ -104,7 +104,7 @@ export async function loadWorkspace(api: Api, projectId: string): Promise<Worksp
     project.briefs.map(async (summary, at) => {
       const [brief, set] = await Promise.all([
         api.brief(summary.brief_id),
-        summary.confirmed_proposal === null ? Promise.resolve(null) : api.variantSet(projectId, summary.brief_id),
+        api.variantSet(projectId, summary.brief_id),
       ]);
       return briefOf(brief, at, set, confirmation, project.context_parts);
     }),
