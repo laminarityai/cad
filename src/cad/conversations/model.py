@@ -25,7 +25,6 @@ class Mode(StrEnum):
     PLAN = "plan"
     DESIGN = "design"
     AUTO = "auto"
-    TEST = "test"
 
 
 class Conversation(BaseModel):

@@ -31,11 +31,20 @@ class UserSaid(_Frozen):
     text: str
 
 
+class Answered(_Frozen):
+    """The conversation is told every answer in the project's ledger up to `through`."""
+
+    project_id: str
+    through: int
+
+
 class DriverSaid(_Frozen):
-    """The Auto driver's reminder to the model that the run has not stopped."""
+    """The server speaking to the model: the Auto driver's reminder that the run has not stopped,
+    or, with `answered`, the person's answer to the confirmation page."""
 
     kind: Literal["driver"] = "driver"
     text: str
+    answered: Answered | None = None
 
 
 class AgentSaid(_Frozen):
@@ -166,6 +175,9 @@ class Channels:
         if channel is None:
             channel = self._open[key] = Channel(transcript_path(conversations, cid))
         return channel
+
+    def open_in(self, account: AccountId) -> list[tuple[ConversationId, Channel]]:
+        return [(cid, channel) for (owner, cid), channel in self._open.items() if owner == account]
 
 
 def messages_of(events: Sequence[Event]) -> list[Message]:

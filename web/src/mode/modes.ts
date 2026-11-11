@@ -6,15 +6,16 @@ export interface ModeInfo {
   hint: string;
 }
 
-export const PICKABLE: readonly ModeInfo[] = [
-  { mode: "plan", label: "Plan", hint: "Turns your words into requirements. Nothing builds." },
-  { mode: "design", label: "Design", hint: "Builds and revises when you ask." },
-  { mode: "auto", label: "Auto", hint: "Revises on its own until every check passes or it needs you. Leaving Auto stops the run." },
-];
+const MODES: Record<Mode, Omit<ModeInfo, "mode">> = {
+  plan: { label: "Plan", hint: "Turns your words into requirements. Nothing builds. Ends when you confirm them." },
+  design: { label: "Design", hint: "Builds and revises when you ask." },
+  auto: { label: "Auto", hint: "Revises on its own until every check passes or it needs you. Leaving Auto stops the run." },
+};
+
+export const PICKABLE: readonly ModeInfo[] = (Object.keys(MODES) as Mode[]).map((mode) => ({ mode, ...MODES[mode] }));
 
 export function labelOf(mode: Mode | null): string {
-  if (mode === null) return "Mode";
-  return PICKABLE.find((one) => one.mode === mode)?.label ?? `${mode.slice(0, 1).toUpperCase()}${mode.slice(1)}`;
+  return mode === null ? "Mode" : MODES[mode].label;
 }
 
 export function nextMode(mode: Mode | null): Mode {

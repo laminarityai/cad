@@ -9,7 +9,7 @@ from cad.briefs import store
 from cad.briefs.model import Declined
 from cad.briefs.store import BriefState, Status
 from cad.confirmations import page, snapshot
-from cad.confirmations.answers import ItemKindName
+from cad.confirmations.answers import ItemKindName, read_ledger
 from cad.confirmations.items import Refused, pending
 from cad.confirmations.page import AlreadyAnswered, Changed, Recorded
 from cad.confirmations.registry import kinds
@@ -42,8 +42,10 @@ ANSWER_PAGE = "Record the signed-in person's answer to a project's confirmation 
 NEXT: Final = {
     "pending": (
         "The confirmation is waiting in the web app and has no answer yet. Tell the user to "
-        "answer it there, on the project's confirmation page, and call ask_to_confirm again "
-        "after they say they answered. Build no geometry for a brief until it is confirmed."
+        "answer it there, on the project's confirmation page. In the web app's chat their answer "
+        "reaches you by itself, so end your message and do not ask them to tell you. Any other "
+        "client calls ask_to_confirm again after they answer. Build no geometry for a brief "
+        "until it is confirmed."
     ),
     "declined": (
         "The user declined an item. Read their note, revise with propose_requirements or "
@@ -84,6 +86,9 @@ class AskResult(BaseModel):
     status: Literal["nothing_to_confirm", "pending", "answered"]
     items: list[RequirementsItem | ContextPartItem]
     next: str
+    answers_recorded: int = Field(
+        description="How many answers the project's page has recorded when the items were read."
+    )
 
 
 def _item(state: BriefState) -> RequirementsItem | None:
@@ -149,6 +154,8 @@ async def ask_to_confirm(tenant: Tenant, arguments: AskToConfirmInput) -> AskRes
             door.wait_seconds,
             abandon_on_cancel=True,
         )
+    # Counted before the items while one waits, so it never counts an answer they do not show.
+    recorded = len(read_ledger(tenant.roots.projects, project).answers)
     found = [_item(store.read_state(tenant.roots, brief_id)) for brief_id in briefs]
     items: list[RequirementsItem | ContextPartItem] = [item for item in found if item is not None]
     items.extend(_part_item(part) for part in newest_parts(tenant.roots.projects, project))
@@ -156,6 +163,9 @@ async def ask_to_confirm(tenant: Tenant, arguments: AskToConfirmInput) -> AskRes
     status: Literal["nothing_to_confirm", "pending", "answered"] = (
         "pending" if "waiting" in outcomes else "answered" if items else "nothing_to_confirm"
     )
+    if status != "pending":
+        # Nothing waits, so no answer can follow the items: count one that landed before them.
+        recorded = len(read_ledger(tenant.roots.projects, project).answers)
     advice = [status] if status != "answered" or "declined" not in outcomes else []
     if "declined" in outcomes:
         advice.append("declined")
@@ -164,6 +174,7 @@ async def ask_to_confirm(tenant: Tenant, arguments: AskToConfirmInput) -> AskRes
         status=status,
         items=items,
         next=" ".join(NEXT[one] for one in advice),
+        answers_recorded=recorded,
     )
 
 

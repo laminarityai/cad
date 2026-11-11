@@ -1,3 +1,4 @@
+import html
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -9,6 +10,7 @@ from starlette.applications import Starlette
 from cad.accounts.local import LocalIssuer
 from cad.accounts.tenants import Tenants
 from cad.chat.scripted import Call, Script, Scripted, Step
+from tests.conftest import SNAPSHOT, form
 
 BASE = "http://127.0.0.1:8765"
 ALICE = "user_alice"
@@ -57,6 +59,20 @@ class Chat:
         )
         assert sent.status_code == 202, sent.text
         return sent.json()["seq"]
+
+    async def page_form(
+        self, client: httpx2.AsyncClient, project_id: str, answer: str, note: str = ""
+    ) -> bytes:
+        """The form the person's browser sends from the project's confirmation page."""
+        shown = await client.get(f"/projects/{project_id}/confirm")
+        found = SNAPSHOT.search(shown.text)
+        assert found is not None, shown.text
+        return form(answer, note, {"snapshot": html.unescape(found.group(1))})
+
+    async def post_page(self, client: httpx2.AsyncClient, project_id: str, body: bytes) -> int:
+        headers = {"Origin": BASE, "Content-Type": "application/x-www-form-urlencoded"}
+        posted = await client.post(f"/projects/{project_id}/confirm", headers=headers, content=body)
+        return posted.status_code
 
     async def finish(self) -> None:
         await self.app.state.chat.idle()

@@ -414,6 +414,14 @@ export interface components {
             kind: "along";
             axis: components["schemas"]["Axis"];
         };
+        /**
+         * Answered
+         * @description The conversation is told every answer in the project's ledger up to `through`.
+         */
+        Answered: {
+            project_id: string;
+            through: number;
+        };
         /** AnyWay */
         AnyWay: {
             /**
@@ -587,7 +595,8 @@ export interface components {
         Direction: components["schemas"]["Along"] | components["schemas"]["Across"] | components["schemas"]["AnyWay"];
         /**
          * DriverSaid
-         * @description The Auto driver's reminder to the model that the run has not stopped.
+         * @description The server speaking to the model: the Auto driver's reminder that the run has not stopped,
+         *     or, with `answered`, the person's answer to the confirmation page.
          */
         DriverSaid: {
             /**
@@ -596,6 +605,8 @@ export interface components {
              */
             kind: "driver";
             text: string;
+            /** @default null */
+            answered: components["schemas"]["Answered"] | null;
         };
         /**
          * Envelope
@@ -870,7 +881,7 @@ export interface components {
          * Mode
          * @enum {string}
          */
-        Mode: "plan" | "design" | "auto" | "test";
+        Mode: "plan" | "design" | "auto";
         /** NeedsPerson */
         NeedsPerson: {
             /**
@@ -1533,6 +1544,7 @@ export type AgentSaid = components['schemas']['AgentSaid'];
 export type AgentValue = components['schemas']['AgentValue'];
 export type AllPass = components['schemas']['AllPass'];
 export type Along = components['schemas']['Along'];
+export type Answered = components['schemas']['Answered'];
 export type AnyWay = components['schemas']['AnyWay'];
 export type AutoRun = components['schemas']['AutoRun'];
 export type AutoState = components['schemas']['AutoState'];

@@ -35,7 +35,8 @@ JAR_URL: Final = (
 JAR_SHA256: Final = "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88"
 PASSED: Final = "Model checking completed. No error has been found."
 VIOLATION: Final = re.compile(
-    r"^Error: (?:Invariant (\w+) is violated|(Temporal) properties were violated|(Deadlock) )",
+    r"^Error: (?:Invariant (\w+) is violated|Action property (\w+) is violated"
+    r"|(Temporal) properties were violated|(Deadlock) )",
     re.MULTILINE,
 )
 STATES: Final = re.compile(r"([\d,]+) distinct states found")
