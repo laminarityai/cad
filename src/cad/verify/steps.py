@@ -29,10 +29,6 @@ STEPS: tuple[Step, ...] = (
     Step("web build", (PYTHON, str(ROOT / "tools" / "web.py"), "build")),
     Step("protocol models", (PYTHON, str(MODELS / "scripts" / "check_models.py"))),
     Step("sandbox image", (PYTHON, "-m", "cad.sandbox", "build-image")),
-    Step(
-        "pytest",
-        (PYTHON, "-m", "pytest", "-q", "-n", "4", "--dist", "loadfile", "--durations=0"),
-        show_output=True,
-    ),
+    Step("pytest", (PYTHON, "-m", "pytest", "-q", "-n", "4", "--dist", "loadfile")),
     Step("app", (PYTHON, "-m", "cad.server.probe"), show_output=True),
 )
