@@ -17,13 +17,21 @@ from cad.projects.model import ProjectRefused
 from cad.records.signed import StoreUnusable
 from cad.sandbox.meter import metered
 from cad.sandbox.outcome import SandboxUnavailable
+from cad.selections.model import SelectionRefused, UnknownSelection
 from cad.variant_sets.model import SetRefused
 from cad.variants.entry import VariantRefused
 
 type Call = Callable[..., object]
 type TenantOf = Callable[[], Tenant]
 
-REFUSALS: Final = (VariantRefused, BriefRefused, ProjectRefused, SetRefused)
+REFUSALS: Final = (
+    VariantRefused,
+    BriefRefused,
+    ProjectRefused,
+    SetRefused,
+    UnknownSelection,
+    SelectionRefused,
+)
 UNAVAILABLE: Final = (SandboxUnavailable, StoreUnusable)
 STATELESS: Final = "2026-07-28"
 CONTEXT: Final = "ctx"

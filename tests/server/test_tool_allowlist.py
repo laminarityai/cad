@@ -33,6 +33,7 @@ ALLOWED_ARGUMENTS = {
     "auto_ask": {"run_id", "note"},
     "variant_set": {"project_id", "brief_id", "material_key"},
     "variant_code": {"variant_id"},
+    "read_selection": {"selection_id"},
 }
 
 

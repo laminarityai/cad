@@ -1,6 +1,7 @@
-import { Box, ChevronLeft, ChevronRight, Crosshair } from "lucide-react";
+import { Box, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, type Dispatch } from "react";
-import type { Shapes } from "@/features/viewer/engine";
+import type { OnPick, Shapes } from "@/features/viewer/engine";
+import { summaryOf as selectionSummary, type Pick, type Selection } from "@/features/viewer/selection";
 import { ViewerCanvas } from "@/features/viewer/ViewerCanvas";
 import { useMesh } from "@/features/viewer/useMesh";
 import { cn } from "@/lib/utils";
@@ -63,20 +64,41 @@ function withFit(part: Shapes, fit: Shapes): Shapes {
   return { ...part, parts: [...part.parts, ...ghost], bb };
 }
 
-function Mesh({ variantId, label, fit }: { variantId: string; label: string; fit: Fit | null }) {
+const NO_PICKS: readonly Pick[] = [];
+const ignore: OnPick = () => undefined;
+
+function Mesh(props: { variantId: string; label: string; fit: Fit | null; selection: Selection | null; onPick: OnPick }) {
+  const { variantId, label, fit, selection, onPick } = props;
   const mesh = useMesh(variantId);
   const fitMesh = useMesh(fit?.variantId ?? variantId);
   if (mesh.status === "failed") return <p className="p-4 text-fail">{mesh.reason}</p>;
   const shapes = mesh.status === "ready" ? mesh.shapes : mesh.lastDrawn;
   if (shapes === null) return <p className="p-4 text-ink-3">Drawing…</p>;
   const ghost = fit && fitMesh.status === "ready" ? fitMesh.shapes : null;
-  return <ViewerCanvas key={`${variantId}:${String(ghost !== null)}`} shapes={ghost ? withFit(shapes, ghost) : shapes} label={label} />;
+  const ready = mesh.status === "ready";
+  return (
+    <ViewerCanvas
+      key={`${variantId}:${String(ghost !== null)}`}
+      shapes={ghost ? withFit(shapes, ghost) : shapes}
+      label={label}
+      picks={selection?.picks ?? NO_PICKS}
+      onPick={ready ? onPick : ignore}
+    />
+  );
 }
 
 const at = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 
-export function Stage(props: { slot: Slot; revision: number | null; dispatch: Dispatch<ViewAction>; briefId: string; fit: Fit | null }) {
-  const { slot, revision, dispatch, briefId, fit } = props;
+export function Stage(props: {
+  slot: Slot;
+  revision: number | null;
+  dispatch: Dispatch<ViewAction>;
+  briefId: string;
+  fit: Fit | null;
+  selection: Selection | null;
+  onPick: OnPick;
+}) {
+  const { slot, revision, dispatch, briefId, fit, selection, onPick } = props;
   const [showFit, setShowFit] = useState(true);
   const newest = slot.revisions.length;
   const showing = Math.min(revision ?? newest, newest);
@@ -89,7 +111,7 @@ export function Stage(props: { slot: Slot; revision: number | null; dispatch: Di
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div className="relative min-h-0 flex-1" data-stage>
-        <Mesh variantId={shown.variantId} label={`${slot.label}, revision ${String(showing)}`} fit={showFit ? fit : null} />
+        <Mesh variantId={shown.variantId} label={`${slot.label}, revision ${String(showing)}`} fit={showFit ? fit : null} selection={selection} onPick={onPick} />
         <div className="absolute right-3 top-3 z-30 flex gap-2">
           {fit ? (
             <button
@@ -107,15 +129,10 @@ export function Stage(props: { slot: Slot; revision: number | null; dispatch: Di
               <Box className="size-4" /> With {fit.name}
             </button>
           ) : null}
-          <button
-            type="button"
-            disabled
-            title="Coming soon"
-            className="flex items-center gap-1.5 rounded-full border border-rule bg-panel px-3 py-1.5 text-[14px] text-ink-3 shadow-sm disabled:cursor-not-allowed"
-          >
-            <Crosshair className="size-4" /> Point at it
-          </button>
         </div>
+        <p data-pick-hint className="pointer-events-none absolute bottom-3 left-3 z-30 max-w-[70%] rounded-md bg-panel/85 px-2.5 py-1 text-[13px] text-ink-2">
+          {selection ? `${selectionSummary(selection)} selected · Esc clears` : "Click a face or edge to point at it. Shift-click adds, double-click picks the whole part."}
+        </p>
       </div>
       <div className="flex items-center gap-3 border-t border-rule-2 px-4 py-2.5 text-[14px]" data-revisions>
         <button

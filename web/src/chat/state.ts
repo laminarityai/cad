@@ -2,7 +2,8 @@ import type { Event } from "@/api/types";
 import type { Link } from "./api";
 
 export type Line =
-  | { seq: number; kind: "user" | "agent" | "driver"; text: string }
+  | { seq: number; kind: "user"; text: string; selection: string | null }
+  | { seq: number; kind: "agent" | "driver"; text: string }
   | { seq: number; kind: "tool"; callId: string; name: string; input: Record<string, unknown>; result: { text: string; isError: boolean } | null }
   | { seq: number; kind: "stop_report"; runId: string; reason: string; report: string }
   | { seq: number; kind: "failed"; message: string };
@@ -29,6 +30,7 @@ export function chatStart(conversationId: string | null): ChatState {
 function withEvent(lines: readonly Line[], seq: number, event: Event): readonly Line[] {
   switch (event.kind) {
     case "user":
+      return [...lines, { seq, kind: "user", text: event.text, selection: event.selection?.summary ?? null }];
     case "agent":
     case "driver":
       return [...lines, { seq, kind: event.kind, text: event.text }];

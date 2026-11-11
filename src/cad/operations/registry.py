@@ -13,6 +13,7 @@ from cad.operations import (
     reads,
     research,
     scorecards,
+    selections,
     variants,
 )
 from cad.operations import server as server_operations
@@ -54,6 +55,7 @@ OPERATIONS: Final[tuple[Operation, ...]] = (
     *conversations.OPERATIONS,
     *geometry.OPERATIONS,
     *reads.OPERATIONS,
+    *selections.OPERATIONS,
 )
 
 ROUTES: Final[Mapping[str, Served]] = {

@@ -10,7 +10,7 @@ const result = (id: string, text: string, isError = false): Event => ({ kind: "t
 
 describe("chatReducer", () => {
   it("merges a tool result into its call and follows the turn from the user's message to its end", () => {
-    let state = play(chatStart("c1"), [{ kind: "user", text: "make the wall 4 mm" }, call("a", "build_variant")]);
+    let state = play(chatStart("c1"), [{ kind: "user", text: "make the wall 4 mm", selection: null }, call("a", "build_variant")]);
     expect(state.turn).toBe("running");
     state = play(state, [result("a", "{}"), { kind: "agent", text: "Done." }, { kind: "turn_ended" }], 3);
     expect(state.turn).toBe("idle");
@@ -23,4 +23,15 @@ describe("chatReducer", () => {
     expect(chatReducer(once, { type: "event", seq: 1, event: { kind: "agent", text: "hi" } })).toBe(once);
   });
 
+  it("keeps the words of what the person pointed at on their message", () => {
+    const note = { selection_id: "sel-1", summary: "2 faces", brief_id: "b1", slot: 1, revision: 2 };
+    const state = play(chatStart("c1"), [
+      { kind: "user", text: "thicker", selection: note },
+      { kind: "user", text: "ok", selection: null },
+    ]);
+    expect(state.lines).toMatchObject([
+      { kind: "user", selection: "2 faces" },
+      { kind: "user", selection: null },
+    ]);
+  });
 });

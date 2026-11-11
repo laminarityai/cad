@@ -1,6 +1,7 @@
 from typing import Literal, TypedDict
 
 type Location = tuple[tuple[float, float, float], tuple[float, float, float, float]]
+type Vec = tuple[float, float, float]
 
 
 class ShapeWire(TypedDict):
@@ -54,9 +55,41 @@ class ShapesWire(TypedDict):
     bb: BoundingBoxWire
 
 
+class FaceFacts(TypedDict):
+    """What one BREP face is, in the order `shapes` numbers faces, so faces_<i> in the viewer is
+    entry i. Lengths in mm. `normal` points out of the solid at `center`; `axis` and `radius`
+    describe a cylinder, cone, sphere or torus and are None for other faces."""
+
+    type: str
+    area: float
+    center: Vec
+    normal: Vec | None
+    radius: float | None
+    axis: Vec | None
+    edges: list[int]
+
+
+class EdgeFacts(TypedDict):
+    """What one BREP edge is, in the order `shapes` numbers edges. `center` is the point halfway
+    along it, `direction` is a line's, `radius` a circle's, and `faces` are the faces it bounds."""
+
+    type: str
+    length: float
+    center: Vec
+    direction: Vec | None
+    radius: float | None
+    faces: list[int]
+
+
+class TopologyWire(TypedDict):
+    faces: list[FaceFacts]
+    edges: list[EdgeFacts]
+
+
 class TessellatedReport(TypedDict):
     kind: Literal["tessellated"]
     shapes: ShapesWire
+    topology: TopologyWire
 
 
 class UnreadableReport(TypedDict):

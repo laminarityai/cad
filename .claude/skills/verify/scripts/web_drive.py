@@ -3,6 +3,7 @@
     uv run python .claude/skills/verify/scripts/browser.py web shot <run> <path> <name> [options]
     uv run python .claude/skills/verify/scripts/browser.py web watch <run> <path> <name> [options]
     uv run python .claude/skills/verify/scripts/browser.py web walk <run> <out> [options]
+    uv run python .claude/skills/verify/scripts/browser.py web select <run> <out> [options]
 
 <run> is the data root of a local `cad-http` (its `local-issuer.pem` signs the sign-in token),
 <path> is a route of the app such as `/projects/<id>`, and <name> is the prefix of the files
@@ -17,7 +18,8 @@ something else scores the variants. It writes <name>-pending.png when it first s
 and when) and <name>.rows.jsonl (every change of a row). It exits 1 when a pending row ever wears a
 verdict, or when no row went from pending to a verdict without a navigation.
 
-`walk` is one live walk of the project workspace: see web_walk.py.
+`walk` is one live walk of the project workspace: see web_walk.py. `select` is one live walk of
+pointing at a design and asking for a change to it: see web_select.py.
 """
 
 from __future__ import annotations
@@ -198,6 +200,10 @@ def main(argv: list[str]) -> int:
             from web_walk import main as walk
 
             return walk(argv[1:])
+        case ["select", *_]:
+            from web_select import main as select
+
+            return select(argv[1:])
         case _:
             print(__doc__)
             return 2
