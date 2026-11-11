@@ -41,8 +41,11 @@ from cad.conversations.model import (
 from cad.operations.model import Tenant
 from cad.operations.routes import CHALLENGE, PersonOf, session_token
 from cad.projects.membership import project_briefs
-from cad.projects.model import ProjectId, UnknownProject, parse_project_id
-from cad.selections.model import Picked
+from cad.projects.model import ProjectId, ProjectRefused, UnknownProject, parse_project_id
+from cad.sandbox.outcome import SandboxUnavailable
+from cad.selections import mint
+from cad.selections.model import Picked, SelectionNote, SelectionRefused
+from cad.variants.entry import VariantRefused
 
 MAX_MESSAGE_CHARS: Final = 20_000
 KEEPALIVE_SECONDS: Final = 15.0
@@ -112,11 +115,16 @@ class Chat:
         return self.channels.of(person.account, conversations, cid)
 
     def start(
-        self, person: PersonSession, cid: ConversationId, channel: Channel, text: str
+        self,
+        person: PersonSession,
+        cid: ConversationId,
+        channel: Channel,
+        text: str,
+        selection: SelectionNote | None = None,
     ) -> int | None:
         if channel.running:
             return None
-        return self._begin(person, cid, channel, UserSaid(text=text))
+        return self._begin(person, cid, channel, UserSaid(text=text, selection=selection))
 
     def answered(self, person: PersonSession, project: ProjectId) -> None:
         """The person answered the project's page. Each open conversation of theirs that waits on
@@ -239,7 +247,13 @@ def chat_routes(person_of: PersonOf, chat: Chat) -> list[Route]:
             said = Said.model_validate_json(await request.body())
         except ValidationError as error:
             return _error(422, str(error))
-        seq = chat.start(who, cid, channel, said.text)
+        picked = None
+        if said.selection is not None:
+            minted = await _mint(chat.tenants.of(who.account), cid, said.selection)
+            if isinstance(minted, Response):
+                return minted
+            picked = minted
+        seq = chat.start(who, cid, channel, said.text, picked)
         if seq is None:
             return _error(409, "the agent is still answering the last message")
         return _json(MessageSent(seq=seq), 202)
@@ -314,6 +328,24 @@ async def _events(channel: Channel, seen: int, follow: bool) -> AsyncIterator[st
             await asyncio.wait_for(channel.wait_after(seen), KEEPALIVE_SECONDS)
         except TimeoutError:
             yield ": keepalive\n\n"
+
+
+async def _mint(tenant: Tenant, cid: ConversationId, picked: Picked) -> SelectionNote | Response:
+    """The signed selection's note, or the response that refuses the pick. It is made before the
+    message is appended, so a refused pick leaves the transcript as it was."""
+    try:
+        project = store.read(tenant.conversations, cid).project_id
+    except UnknownConversation:
+        return _error(404, f"no conversation {cid} in this account")
+    if project is None:
+        return _error(422, "pick something in a project: this conversation has none")
+    try:
+        record = await asyncio.to_thread(mint.mint, tenant, parse_project_id(project), picked)
+    except (SelectionRefused, VariantRefused, ProjectRefused) as error:
+        return _error(422, str(error))
+    except SandboxUnavailable as error:
+        return _error(503, str(error))
+    return mint.note(record)
 
 
 def _is_delivery(event: Event) -> bool:

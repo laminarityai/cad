@@ -22,7 +22,8 @@ CHANGES = (
     "Only a part the project does not have, such as a lid, gets a new brief, in the same "
     "project. Take sensible defaults and say each in one line instead of asking. Ask only for a "
     "target only the person can set, and never invent one for them to confirm. Never ask the "
-    "person to pick among options you can build."
+    "person to pick among options you can build. A message that carries a selection names where "
+    "the change goes: read it with read_selection and build the slot's next revision."
 )
 
 OPTIONS = (
