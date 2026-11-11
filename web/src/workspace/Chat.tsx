@@ -115,6 +115,13 @@ function Activity({ lines }: { lines: Extract<Line, { kind: "tool" }>[] }) {
   );
 }
 
+/** The person reads what they did, never the prompt the model was given. */
+export function driverText(text: string): string | null {
+  const [, confirmed, declined] = /confirmed (\d+) and declined (\d+)/.exec(text) ?? [];
+  if (confirmed === undefined || declined === undefined) return null;
+  return Number(declined) > 0 ? `You confirmed ${confirmed}, declined ${declined}` : `You confirmed ${confirmed}`;
+}
+
 function Said({ line }: { line: Line }) {
   switch (line.kind) {
     case "user":
@@ -123,12 +130,15 @@ function Said({ line }: { line: Line }) {
           <p className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-accent/15 px-3.5 py-2 text-[15px]">{line.text}</p>
         </div>
       );
-    case "driver":
+    case "driver": {
+      const said = driverText(line.text);
+      if (said === null) return null;
       return (
         <p data-said="driver" className="flex items-center gap-1.5 text-[14px] text-pass">
-          <Check className="size-4" /> {line.text}
+          <Check className="size-4" /> {said}
         </p>
       );
+    }
     case "agent":
       return (
         <div data-said="agent" className="text-[15px] leading-relaxed">
@@ -222,7 +232,7 @@ export function ChatPane(props: { lines: readonly Line[]; running: boolean; card
     end.current?.scrollIntoView({ block: "end" });
   }, [lines, card]);
   return (
-    <section aria-label="Chat" className="flex h-full min-h-0 flex-col">
+    <section aria-label="Chat" aria-busy={running} className="flex h-full min-h-0 flex-col">
       <div role="log" className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
         {grouped(lines).map((one) => (one.kind === "activity" ? <Activity key={`a${String(one.key)}`} lines={one.lines} /> : <Said key={one.line.seq} line={one.line} />))}
         {running ? <p className="text-[14px] text-ink-3">Working…</p> : null}

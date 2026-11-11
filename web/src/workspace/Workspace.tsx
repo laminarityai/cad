@@ -1,5 +1,4 @@
-import { Files as FilesIcon, Plus } from "lucide-react";
-import { useReducer, useState, type Dispatch, type ReactNode } from "react";
+import { useReducer, useState, type Dispatch } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useServices } from "@/app/context";
 import { Gate } from "@/components/Gate";
@@ -9,49 +8,20 @@ import { Checks } from "./bits";
 import { sourcesOf, useCards, type CardKey } from "./cards";
 import { CHANGES_PAGE, ChatPane, Composer, useProjectChat } from "./Chat";
 import { ConfirmCard } from "./Confirm";
+import { Explorer } from "./Explorer";
 import { loadWorkspace, viewReducer, viewStart, type Brief, type View, type ViewAction, type Workspace as Model } from "./model";
-import { BriefList, Files } from "./Nav";
 import { SlotTabs, Stage } from "./Stage";
 import { useNarrow } from "./useNarrow";
 
-function TopBar(props: { title: string; children?: ReactNode }) {
+function TopBar({ title }: { title: string }) {
   return (
     <header className="flex h-14 shrink-0 items-center gap-4 border-b border-rule bg-panel px-4">
       <Link to="/new" className="text-[17px] font-semibold tracking-tight" title="Start a new project">
         cad
       </Link>
       <span className="text-ink-3">/</span>
-      <span className="truncate text-[16px] font-medium">{props.title}</span>
-      <div className="min-w-0 flex-1">{props.children}</div>
+      <span className="truncate text-[16px] font-medium">{title}</span>
     </header>
-  );
-}
-
-function BriefChips({ briefs, current, dispatch, onNew }: { briefs: Brief[]; current: string; dispatch: Dispatch<ViewAction>; onNew: () => void }) {
-  return (
-    <nav aria-label="Parts" className="flex items-center gap-1.5 overflow-x-auto">
-      {briefs.map((one) => (
-        <button
-          key={one.id}
-          type="button"
-          data-brief={one.id}
-          aria-current={one.id === current}
-          onClick={() => {
-            dispatch({ type: "brief", briefId: one.id });
-          }}
-          className={cn(
-            "flex shrink-0 items-center gap-2 rounded-full border px-3 py-1 text-[14px]",
-            one.id === current ? "border-accent bg-accent/15" : "border-rule hover:bg-panel-2",
-          )}
-        >
-          {one.title}
-          {one.state === "waiting" ? <span className="size-2 rounded-full bg-wait" /> : null}
-        </button>
-      ))}
-      <button type="button" onClick={onNew} className="flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[14px] text-accent hover:bg-panel-2">
-        <Plus className="size-4" /> New part
-      </button>
-    </nav>
   );
 }
 
@@ -107,12 +77,18 @@ function shown(brief: Brief, view: View): { variantId: string; slot: number } | 
   return revision ? { variantId: revision.variantId, slot: slot.slot } : null;
 }
 
-type Tab = "chat" | "design" | "checks" | "files";
+type Pane = "explorer" | "design" | "chat";
+
+const PANES: readonly (readonly [Pane, string])[] = [
+  ["explorer", "Explorer"],
+  ["design", "Design"],
+  ["chat", "Chat"],
+];
 
 function Page({ model, reload }: { model: Model; reload: () => void }) {
   const { chat: chatApi } = useServices();
   const narrow = useNarrow();
-  const [tab, setTab] = useState<Tab>("design");
+  const [pane, setPane] = useState<Pane>("design");
   const [view, dispatch] = useReducer(viewReducer, viewStart);
   const [answered, setAnswered] = useState<string | null>(null);
   const [placeholder, setPlaceholder] = useState("Ask for a change, a new part, anything");
@@ -135,8 +111,10 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
   const waiting = model.confirmation !== null && model.confirmation.snapshot !== answered;
   const onNew = () => {
     setPlaceholder("Describe the new part");
-    setTab("chat");
-    document.querySelector<HTMLTextAreaElement>("textarea[aria-label=Message]")?.focus();
+    setPane("chat");
+    setTimeout(() => {
+      document.querySelector<HTMLTextAreaElement>("textarea[aria-label=Message]")?.focus();
+    }, 0);
   };
 
   if (!brief) return <Navigate to="/new" replace />;
@@ -166,40 +144,34 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
   const chatPane = <ChatPane lines={chat.lines} running={chat.turn === "running"} card={card} composer={composer} />;
   const center = <Center brief={brief} view={view} cards={cards} dispatch={dispatch} />;
 
+  const explorer = (
+    <Explorer briefs={model.briefs} current={brief.id} slot={slotOf(brief, view)?.slot} cards={cards} parts={model.parts} sources={sources} dispatch={dispatch} onNew={onNew} />
+  );
+
   if (narrow) {
-    const tabs = [
-      ["chat", "Chat"],
-      ["design", "Design"],
-      ["checks", "Checks"],
-      ["files", "Files"],
-    ] as const;
     return (
       <div className="flex h-dvh flex-col bg-background text-ink">
         <TopBar title={model.title} />
-        <div className="border-b border-rule-2 px-3 py-2">
-          <BriefChips briefs={model.briefs} current={brief.id} dispatch={dispatch} onNew={onNew} />
-        </div>
         <main className="min-h-0 flex-1 overflow-y-auto">
-          {tab === "chat" ? chatPane : null}
-          {tab === "design" ? <div className="flex h-full flex-col">{center}</div> : null}
-          {tab === "checks" ? checks : null}
-          {tab === "files" ? (
-            <div className="space-y-5 py-4">
-              <BriefList briefs={model.briefs} current={brief.id} cards={cards} dispatch={dispatch} onNew={onNew} />
-              <Files parts={model.parts} sources={sources} />
-            </div>
+          {pane === "explorer" ? (
+            <>
+              {explorer}
+              <div className="border-t border-rule">{checks}</div>
+            </>
           ) : null}
+          {pane === "design" ? <div className="flex h-full flex-col">{center}</div> : null}
+          {pane === "chat" ? chatPane : null}
         </main>
-        <nav aria-label="Panes" className="grid grid-cols-4 border-t border-rule bg-panel">
-          {tabs.map(([key, label]) => (
+        <nav aria-label="Panes" className="grid grid-cols-3 border-t border-rule bg-panel">
+          {PANES.map(([key, label]) => (
             <button
               key={key}
               type="button"
-              aria-current={tab === key}
+              aria-current={pane === key}
               onClick={() => {
-                setTab(key);
+                setPane(key);
               }}
-              className={cn("relative py-3 text-[15px]", tab === key ? "font-semibold text-accent" : "text-ink-2")}
+              className={cn("relative py-3 text-[15px]", pane === key ? "font-semibold text-accent" : "text-ink-2")}
             >
               {label}
               {key === "chat" && waiting ? <span data-waiting className="absolute right-5 top-2.5 size-2 rounded-full bg-wait" /> : null}
@@ -212,22 +184,14 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
 
   return (
     <div className="flex h-dvh flex-col bg-background text-ink">
-      <TopBar title={model.title}>
-        <BriefChips briefs={model.briefs} current={brief.id} dispatch={dispatch} onNew={onNew} />
-      </TopBar>
-      <div className="grid min-h-0 flex-1 grid-cols-[minmax(360px,420px)_minmax(0,1fr)_340px]">
-        <aside className="min-h-0 border-r border-rule bg-panel">{chatPane}</aside>
-        {center}
-        <aside className="flex min-h-0 flex-col overflow-y-auto border-l border-rule bg-panel">
-          {checks}
-          <details className="mt-auto border-t border-rule" open={model.parts.length > 0}>
-            <summary className="flex cursor-pointer items-center gap-2 px-4 py-3 text-[15px] font-semibold">
-              <FilesIcon className="size-4" /> Files
-            </summary>
-            <Files bare parts={model.parts} sources={sources} />
-            <div className="h-4" />
-          </details>
+      <TopBar title={model.title} />
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(300px,340px)_minmax(0,1fr)_minmax(380px,420px)]">
+        <aside className="flex min-h-0 flex-col border-r border-rule bg-panel">
+          <div className="max-h-[45%] shrink-0 overflow-y-auto">{explorer}</div>
+          <div className="flex min-h-0 flex-1 flex-col border-t border-rule">{checks}</div>
         </aside>
+        {center}
+        <aside className="min-h-0 border-l border-rule bg-panel">{chatPane}</aside>
       </div>
     </div>
   );

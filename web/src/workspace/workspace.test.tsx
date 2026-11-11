@@ -9,9 +9,10 @@ import type { ConfirmationCard } from "@/api/types";
 import { FakeChat, FakeEvents, FakeViewer, fakeApi, setOf } from "@/test/fakes";
 import { brief } from "@/test/fixtures";
 import { materialLabel } from "./bits";
-import { activityText, Composer } from "./Chat";
+import { activityText, ChatPane, Composer, driverText } from "./Chat";
 import { ConfirmCard, formOf } from "./Confirm";
-import { loadWorkspace } from "./model";
+import { Explorer } from "./Explorer";
+import { loadWorkspace, type Brief } from "./model";
 import { Start } from "./Workspace";
 
 const card = (items: number): ConfirmationCard & { snapshot: string } => ({
@@ -136,5 +137,90 @@ describe("the chat", () => {
     expect(await screen.findByText("project page")).toBeInTheDocument();
     expect(chat.create).toHaveBeenCalledWith();
     expect(chat.sent).toEqual(["a hook"]);
+  });
+});
+
+describe("the chat's driver line", () => {
+  it("shows what the person did and never the prompt the model was given", () => {
+    const prompt = "The person answered the confirmation page of project p-1: they confirmed 1 and declined 0. Call ask_to_confirm again.";
+    expect(driverText(prompt)).toBe("You confirmed 1");
+    expect(driverText(prompt.replace("1 and declined 0", "2 and declined 1"))).toBe("You confirmed 2, declined 1");
+    expect(driverText("Call ask_to_confirm with the project.")).toBeNull();
+    render(<ChatPane lines={[{ kind: "driver", seq: 1, text: prompt }]} running={false} card={null} composer={null} />);
+    expect(screen.getByText("You confirmed 1")).toBeInTheDocument();
+    expect(screen.queryByText(/ask_to_confirm/)).toBeNull();
+  });
+
+  it("tells a driver when the agent's turn is running", () => {
+    const { rerender } = render(<ChatPane lines={[]} running card={null} composer={null} />);
+    expect(screen.getByRole("region", { name: "Chat" })).toHaveAttribute("aria-busy", "true");
+    rerender(<ChatPane lines={[]} running={false} card={null} composer={null} />);
+    expect(screen.getByRole("region", { name: "Chat" })).toHaveAttribute("aria-busy", "false");
+  });
+});
+
+const slot = (n: number) => ({ slot: n, label: `Option ${String(n)}`, differs: "", revisions: [{ n: 1, variantId: `v${String(n)}`, at: "2026-11-10T00:00:00Z" }] });
+const part = (id: string, title: string, state: Brief["state"], slots: number[]): Brief => ({
+  id,
+  words: `words of ${title}`,
+  title,
+  state,
+  slots: slots.map(slot),
+  materialOf: {},
+  fits: [],
+});
+
+describe("the explorer", () => {
+  const props = (dispatch = vi.fn(), onNew = vi.fn()) => ({
+    briefs: [part("b1", "Hook", "ready", [1, 2]), part("b2", "Lid", "waiting", [])],
+    current: "b1",
+    slot: 1,
+    cards: {},
+    parts: [{ name: "rail", size: "30 × 20 × 10 mm", state: "confirmed" as const }],
+    sources: [{ url: "https://example.com/pla", title: "PLA datasheet", page: "p", retrieved: "2026-11-10", standard: null, quote: "q" }],
+    dispatch,
+    onNew,
+  });
+
+  it("selects a part and an option the way the stage tabs do", async () => {
+    const dispatch = vi.fn();
+    const { container } = render(<Explorer {...props(dispatch)} />);
+    expect(container.querySelector("[data-tree]")).not.toBeNull();
+    await userEvent.click(container.querySelector("[data-brief=b2]") as HTMLElement);
+    expect(dispatch).toHaveBeenLastCalledWith({ type: "brief", briefId: "b2" });
+    await userEvent.click(container.querySelector("[data-slot-node='2']") as HTMLElement);
+    expect(dispatch).toHaveBeenCalledWith({ type: "brief", briefId: "b1" });
+    expect(dispatch).toHaveBeenLastCalledWith({ type: "slot", briefId: "b1", slot: 2 });
+    expect(container.querySelector("[data-slot-node='1']")).toHaveAttribute("aria-current", "true");
+    expect(container.querySelector("[data-brief=b1]")).toHaveAttribute("aria-current", "true");
+  });
+
+  it("marks a part that waits on the person", () => {
+    const { container } = render(<Explorer {...props()} />);
+    expect(container.querySelector("[data-brief=b2] [data-brief-waiting]")).not.toBeNull();
+    expect(container.querySelector("[data-brief=b1] [data-brief-waiting]")).toBeNull();
+  });
+
+  it("lists the context parts and the cited sources under Files, and folders collapse", async () => {
+    const { container } = render(<Explorer {...props()} />);
+    expect(container.querySelectorAll("[data-file]")).toHaveLength(2);
+    expect(screen.getByRole("link", { name: "PLA datasheet" })).toHaveAttribute("href", "https://example.com/pla");
+    await userEvent.click(screen.getByRole("button", { name: "Files" }));
+    expect(screen.getByRole("button", { name: "Files" })).toHaveAttribute("aria-expanded", "false");
+    expect(container.querySelectorAll("[data-file]")).toHaveLength(0);
+    await userEvent.click(screen.getByRole("button", { name: "Hook options" }));
+    expect(container.querySelector("[data-slot-node]")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Hook options" }));
+    expect(container.querySelectorAll("[data-slot-node]")).toHaveLength(2);
+  });
+
+  it("starts a new part, and offers no upload yet", async () => {
+    const onNew = vi.fn();
+    render(<Explorer {...props(vi.fn(), onNew)} />);
+    await userEvent.click(screen.getByRole("button", { name: "New part" }));
+    expect(onNew).toHaveBeenCalledTimes(1);
+    const add = screen.getByRole("button", { name: "Add files" });
+    expect(add).toBeDisabled();
+    expect(add).toHaveAttribute("title", "Coming soon");
   });
 });
