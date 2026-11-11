@@ -62,6 +62,9 @@ def page_for(browser: Browser, run: Path, given: dict[str, str], width: int) -> 
     return context.new_page()
 
 
+SEND_TRIES = 6
+
+
 def step(name: str, page: Page, check: str, seconds: int = AGENT_SECONDS) -> None:
     started = time.monotonic()
     try:
@@ -80,11 +83,25 @@ def idle(page: Page) -> None:
 
 
 def say(page: Page, text: str) -> None:
-    idle(page)
+    """The page can show the turn as ended a moment before the server takes a new message, so a
+    message the server turned away is sent again."""
+    sent = "() => document.querySelector('textarea').value === ''"
     box = page.get_by_label("Message")
+    for _ in range(SEND_TRIES - 1):
+        idle(page)
+        box.fill(text)
+        box.press("Enter")
+        try:
+            page.wait_for_function(sent, timeout=10_000)
+        except Exception:
+            page.wait_for_timeout(10_000)
+            continue
+        print("sent", flush=True)
+        return
+    idle(page)
     box.fill(text)
     box.press("Enter")
-    step("sent", page, "() => document.querySelector('textarea').value === ''", 30)
+    step("sent", page, sent, 30)
 
 
 def shoot(page: Page, out: Path, name: str) -> None:
