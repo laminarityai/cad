@@ -1,8 +1,9 @@
 """OCP ships no stubs, so its modules come through importlib, as in the kernel."""
 
 import importlib
+import math
 import tempfile
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -38,6 +39,30 @@ def fuse(solid: Solid, *others: Solid) -> Solid:
     for other in others:
         solid = _ocp("BRepAlgoAPI").BRepAlgoAPI_Fuse(solid, other).Shape()
     return solid
+
+
+def prism(corners: Sequence[tuple[float, float]], height: float, z: float = -1) -> Solid:
+    """The polygon through `corners` in the plane z, drawn up by `height`."""
+    polygon = _ocp("BRepBuilderAPI").BRepBuilderAPI_MakePolygon()
+    for x, y in corners:
+        polygon.Add(gp.gp_Pnt(x, y, z))
+    polygon.Close()
+    face = _ocp("BRepBuilderAPI").BRepBuilderAPI_MakeFace(polygon.Wire()).Face()
+    return _ocp("BRepPrimAPI").BRepPrimAPI_MakePrism(face, gp.gp_Vec(0, 0, height)).Shape()
+
+
+def hexagon_hole(across_flats: float, x: float, y: float, depth: float = 5) -> Solid:
+    radius = across_flats / math.sqrt(3)
+    corners = [
+        (x + radius * math.cos(k * math.pi / 3), y + radius * math.sin(k * math.pi / 3))
+        for k in range(6)
+    ]
+    return prism(corners, depth + 2)
+
+
+def cone(bottom: float, top: float, height: float, at: Point) -> Solid:
+    frame = gp.gp_Ax2(gp.gp_Pnt(*at), gp.gp_Dir(0, 0, 1))
+    return _ocp("BRepPrimAPI").BRepPrimAPI_MakeCone(frame, bottom, top, height).Shape()
 
 
 def through_hole(diameter: float, x: float, y: float, depth: float = 5) -> Solid:

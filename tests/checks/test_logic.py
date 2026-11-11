@@ -305,13 +305,14 @@ def test_the_report_lists_every_check_in_suite_order_with_the_step_of_the_measur
         "interference",
         "mass",
         "extents",
+        "holes",
     ]
     step = report["step"]
     assert step["kind"] == "written"
     assert base64.b64decode(step["base64"]) == b"STEP bytes"
 
 
-def test_an_unreadable_brep_still_reports_all_four_checks_and_no_step() -> None:
+def test_an_unreadable_brep_still_reports_every_quick_check_and_no_step() -> None:
     report = run(request(), UNREADABLE_BREP, FakeKernel(), REPORT_CAP)
     verdicts = {result["id"]: result["verdict"] for result in report["results"]}
     assert verdicts == {
@@ -319,6 +320,7 @@ def test_an_unreadable_brep_still_reports_all_four_checks_and_no_step() -> None:
         "interference": "unknown",
         "mass": "unknown",
         "extents": "unknown",
+        "holes": "unknown",
     }
     assert report["step"] == {
         "kind": "missing",

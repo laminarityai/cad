@@ -8,6 +8,7 @@ from cad.checks.container.kernel import (
     EdgeUses,
     FaceInfo,
     Inertia,
+    Opening,
     Point,
     Shape,
     StepTooLarge,
@@ -59,6 +60,8 @@ class FakeKernel:
     invalid_raises: bool = False
     step_raises: bool = False
     step: bytes = b"STEP bytes"
+    face_list: tuple[FaceInfo, ...] = ()
+    mouths: tuple[Opening, ...] = ()
 
     def read_brep(self, data: bytes) -> Shape | Unreadable:
         return Unreadable("not a BREP") if data == UNREADABLE_BREP else FakeShape()
@@ -90,10 +93,19 @@ class FakeKernel:
         return 1e-7
 
     def faces(self, shape: Shape) -> tuple[FaceInfo, ...]:
-        raise NotImplementedError("no check reads faces yet")
+        return self.face_list
+
+    def openings(self, shape: Shape) -> tuple[Opening, ...]:
+        return self.mouths
 
     def inertia(self, shape: Shape) -> Inertia:
-        raise NotImplementedError("no check reads inertia yet")
+        return Inertia(
+            volume=self.props.volume,
+            center=self.props.center,
+            axes=((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)),
+            moments=(1.0, 1.0, 1.0),
+            spans=((0.0, 30.0), (0.0, 10.0), (0.0, 20.0)),
+        )
 
     def common_volume(self, first: Shape, second: Shape) -> float | None:
         assert isinstance(first, FakeShape) and isinstance(second, FakeShape)
