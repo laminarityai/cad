@@ -192,9 +192,9 @@ class ListRequirementsInput(Input):
 
 
 def create_brief(tenant: Tenant, arguments: CreateBriefInput) -> BriefCreated:
-    text, message = source.first_words(tenant, arguments.text)
+    first = source.first_words(tenant, arguments.text)
     project = project_for_new_brief(tenant.roots, arguments.project_id)
-    brief = store.create_brief(tenant.roots, text, project, message)
+    brief = store.create_brief(tenant.roots, first.text, project, first.transcript_seq)
     return BriefCreated(brief_id=brief.id, project_id=project, text=brief.text)
 
 

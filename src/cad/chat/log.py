@@ -164,8 +164,6 @@ def _readable_prefix(path: Path) -> list[Stamped]:
 
 
 def person_said(conversations: Path, cid: ConversationId) -> tuple[tuple[int, str], ...]:
-    """The seq and text of each message the person typed, oldest first. It only reads, because
-    the conversation's Channel owns the file and repairs it."""
     try:
         lines = transcript_path(conversations, cid).read_bytes().splitlines()
     except FileNotFoundError:

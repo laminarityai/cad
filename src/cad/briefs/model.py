@@ -36,8 +36,7 @@ BriefId = NewType("BriefId", str)
 RequirementId = NewType("RequirementId", str)
 CheckId = NewType("CheckId", str)
 MAX_BRIEF_CHARS: Final = 64 * 1024
-SEPARATOR: Final = "\n\n"
-"""Between a brief's first words and each Said after them."""
+SAID_SEPARATOR: Final = "\n\n"
 MAX_REQUIREMENTS: Final = 64
 MAX_STATEMENT_CHARS: Final = 500
 MAX_NOTE_CHARS: Final = 2000
@@ -310,8 +309,7 @@ class Brief(_Frozen):
     text: Annotated[str, Field(min_length=1, max_length=MAX_BRIEF_CHARS)]
     created_at: datetime
     project_id: Annotated[NewProjectId, Field(pattern=NEW_PROJECT_ID.pattern)] | None = None
-    message: int | None = None
-    """The chat transcript seq the server copied the text from. None from an outside client."""
+    transcript_seq: int | None = None
 
     @property
     def project(self) -> ProjectId:
@@ -320,13 +318,10 @@ class Brief(_Frozen):
 
 
 class Said(_Frozen):
-    """Words the person said after the brief was created, which a requirement quotes. Appended
-    to the brief, never changed or removed. `message` is as on Brief."""
-
     brief_id: BriefId
     number: Annotated[int, Field(ge=1)]
     text: Annotated[str, Field(min_length=1, max_length=MAX_BRIEF_CHARS)]
-    message: int | None
+    transcript_seq: int | None
     said_at: datetime
 
 

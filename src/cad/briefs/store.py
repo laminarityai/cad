@@ -15,7 +15,7 @@ from cad.briefs import said
 from cad.briefs.edits import apply_edits
 from cad.briefs.model import (
     MAX_BRIEF_CHARS,
-    SEPARATOR,
+    SAID_SEPARATOR,
     Answer,
     Brief,
     BriefId,
@@ -152,14 +152,14 @@ def parse_brief_id(raw: str) -> BriefId:
 
 
 def create_brief(
-    roots: Roots, text: str, project: NewProjectId, message: int | None = None
+    roots: Roots, text: str, project: NewProjectId, transcript_seq: int | None = None
 ) -> Brief:
     brief = Brief(
         id=BriefId(secrets.token_hex(8)),
         text=text,
         created_at=datetime.now(UTC),
         project_id=project,
-        message=message,
+        transcript_seq=transcript_seq,
     )
     first = (f"{brief.id}/brief", BRIEF, brief.model_dump_json().encode())
     children = (PROPOSALS, DECISIONS, said.SAID)
@@ -181,10 +181,9 @@ def stored_briefs(roots: Roots) -> list[BriefId]:
 def propose(
     roots: Roots, raw_id: str, drafts: Sequence[Draft], words: said.Words = said.BRIEF_ONLY
 ) -> ProposalState:
-    """Store drafts as the next proposal, or return the latest when it is the same undecided set.
-    A quote that only `words` holds adds those words to the brief first."""
+    """Store drafts as the next proposal, or return the latest when it is the same undecided set."""
     root = roots.briefs
-    brief = _with_words(roots, read_brief(roots, raw_id), drafts, words)
+    brief = _add_quoted(roots, read_brief(roots, raw_id), drafts, words)
     requirements = _resolve(brief, drafts, words)
     ids = [r.id for r in requirements]
     unchanged: ProposalState | None = None
@@ -227,15 +226,17 @@ def propose(
     return unchanged
 
 
-def _with_words(roots: Roots, brief: Brief, drafts: Sequence[Draft], words: said.Words) -> Brief:
-    added = said.needed(brief.text, [d.quote for d in drafts], words)
-    if len(brief.text) + sum(len(SEPARATOR) + len(text) for _, text in added) > MAX_BRIEF_CHARS:
+def _add_quoted(roots: Roots, brief: Brief, drafts: Sequence[Draft], words: said.Words) -> Brief:
+    added = said.words_to_add(brief.text, [d.quote for d in drafts], words)
+    grown = len(brief.text) + sum(len(SAID_SEPARATOR) + len(one.text) for one in added)
+    if grown > MAX_BRIEF_CHARS:
         raise BadProposal(
-            f"brief {brief.id} would pass {MAX_BRIEF_CHARS} characters: start a new one"
+            f"brief {brief.id} would pass {MAX_BRIEF_CHARS} characters: create a new brief"
         )
+    directory = roots.briefs / brief.id / said.SAID
     try:
         for spoken in added:
-            said.append(_store(roots.briefs), roots.briefs / brief.id / said.SAID, brief, spoken)
+            said.append_unless_said(_store(roots.briefs), directory, brief, spoken)
     except signed.Contended as error:
         raise BadProposal(f"brief {brief.id} is being added to concurrently; try again") from error
     except signed.Tampered as error:
@@ -334,7 +335,7 @@ def _resolve(brief: Brief, drafts: Sequence[Draft], words: said.Words) -> tuple[
         if start < 0:
             raise BadProposal(
                 f"requirements[{index}]: the quote does not appear in brief {brief.id}; "
-                + words.fix
+                + words.refusal_hint
             )
         origin = BriefSpan(start=start, end=start + len(draft.quote))
         rid = requirement_id(brief.id, draft.target, origin)

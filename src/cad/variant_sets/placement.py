@@ -59,8 +59,6 @@ def shown(held: tuple[Member, ...], sha256: str, slot: int | None) -> Member | N
 
 @dataclass(frozen=True, slots=True)
 class Design:
-    """What a revision records beside its code: the agent's material choice and option."""
-
     material: MaterialChoice | None
     option: Option | None
 

@@ -52,7 +52,6 @@ def build_into_set(
     option: Option | None = None,
     lanes: Lanes = LANES,
 ) -> SetBuildResult:
-    """`option` None keeps the slot's earlier option, as `resolve` may keep its material."""
     root = roots.projects
     key = confirmed_key(roots, brief_id)
     held = members(root, key)
