@@ -98,5 +98,15 @@ MATERIAL = (
 )
 
 INSTRUCTIONS: Final = " ".join(
-    (RULE, PLAN_MODE, CHANGES, OPTIONS, CONTEXT_PARTS, MATERIAL, DEEPER_ANALYSIS, RESEARCH, NOT_VERIFIED)
+    (
+        RULE,
+        PLAN_MODE,
+        CHANGES,
+        OPTIONS,
+        CONTEXT_PARTS,
+        MATERIAL,
+        DEEPER_ANALYSIS,
+        RESEARCH,
+        NOT_VERIFIED,
+    )
 )

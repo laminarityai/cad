@@ -8,13 +8,13 @@ from mcp import Client
 from cad.operations.guidance import (
     CHANGES,
     CONTEXT_PARTS,
+    DEEPER_ANALYSIS,
     MATERIAL,
     NOT_VERIFIED,
     OPTIONS,
     PLAN_MODE,
     RESEARCH,
     RULE,
-    DEEPER_ANALYSIS,
 )
 from cad.sandbox.outcome import Build, Built
 from cad.server.app import build_server
