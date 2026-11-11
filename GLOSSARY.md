@@ -17,8 +17,12 @@ An existing CAD part, uploaded or read from a CAD tool, that a person confirmed 
 _Avoid_: Assembly, reference model, fixture
 
 **Requirement**:
-One checkable target taken from a brief, such as a ratio, a load, or a size limit. It quotes the words of the brief it came from. It is proposed until the user confirms it, and checks read only confirmed requirements.
+One checkable target taken from a brief, such as a ratio, a load, or a size limit. It quotes the words of the brief it came from. It is proposed until the user confirms it. A check may measure for it before then, and a verdict rests only on a confirmed requirement.
 _Avoid_: Constraint, goal
+
+**Assumption**:
+A value the agent filled in so that it could build, such as a load or a size limit the person did not state. It is stored apart from every proposal, never appears on a confirmation page, and never gets a verdict. The scorecard lists it with the measure beside the assumed value. The person turns it into a requirement by stating it.
+_Avoid_: Default, guess, soft requirement
 
 **Proposal**:
 One numbered set of requirements that the agent proposed for a brief. The user confirms or declines a proposal as a whole, on a confirmation page that only the user can answer. A newer proposal never changes an older one.
@@ -33,7 +37,7 @@ One candidate design produced for a brief. The agent and the web app call it an 
 _Avoid_: Candidate, design
 
 **Variant set**:
-The variants built for one brief against the requirements the user confirmed, which the user compares side by side. A set holds at most five, one per slot. Requirements confirmed later start a new set. A variant keeps its place in its set when a server update gives its code a new variant id.
+The variants built for one brief, which the user compares side by side. A set holds at most five, one per slot. The set belongs to the brief, so confirming, editing or declining requirements removes nothing from it. A variant keeps its place in its set when a server update gives its code a new variant id.
 _Avoid_: Design, batch, group, shortlist
 
 **Slot**:

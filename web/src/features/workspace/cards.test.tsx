@@ -5,7 +5,7 @@ import { ServicesProvider } from "@/app/context";
 import { FakeChat, FakeViewer, fakeApi } from "@/test/fakes";
 import { massResult, snapshot } from "@/test/fixtures";
 import { restore } from "@/api/snapshot";
-import { assumedOf, summaryOf, useCards, type CardKey } from "./cards";
+import { assumedOf, linesOf, summaryOf, useCards, type CardKey } from "./cards";
 
 const settle = () => act(() => vi.advanceTimersByTimeAsync(0));
 const tick = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
@@ -82,6 +82,7 @@ describe("what the agent assumed", () => {
     statement: "Mass at most 120 g",
     why: "a light part prints fast",
     check_id: "mass",
+    instance: "",
     values: [{ measure: "mass", assumed: { magnitude: 120, unit: "g" }, measured: { magnitude: 0.2, unit: "kg" } }],
   };
 
@@ -98,5 +99,14 @@ describe("what the agent assumed", () => {
       },
     ]);
     expect(summaryOf({ snapshot: held })).toEqual(summaryOf({ snapshot: plain }));
+  });
+
+  it("never lists a result that read an assumed load as a check that passed", () => {
+    const underLoad = { ...massResult(), check_id: "fea", instance: "load-1" };
+    const assumedLoad = { ...assumedRow, check_id: "fea", instance: "load-1", values: [] };
+    const plain = restore(snapshot("v1", [], [massResult(), underLoad]));
+    const held = restore({ ...snapshot("v1", [], [massResult(), underLoad]), assumptions: [assumedLoad] });
+    expect(linesOf(plain).also.map((one) => one.key)).toEqual(["check:mass:", "check:fea:load-1"]);
+    expect(linesOf(held).also.map((one) => one.key)).toEqual(["check:mass:"]);
   });
 });

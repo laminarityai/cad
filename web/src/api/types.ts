@@ -449,7 +449,8 @@ export interface components {
         /**
          * AssumedRow
          * @description The agent filled in this value. The measure of the deciding check is beside it, and it is
-         *     never graded.
+         *     never graded. `instance` names the result of `check_id` that read the assumed load, which is
+         *     a measure under the agent's own number and never a passed check.
          */
         AssumedRow: {
             /**
@@ -465,6 +466,7 @@ export interface components {
             statement: string;
             why: string;
             check_id: string;
+            instance: string;
             values: components["schemas"]["AssumedValue"][];
         };
         /** AssumedValue */

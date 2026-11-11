@@ -140,8 +140,14 @@ export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
       });
     }
   }
+  // A result that read a load the agent assumed is a measure under the agent's own number. The
+  // assumption's row shows it, so it is never listed as a check that passed.
+  const underAssumed = new Set(
+    snapshot.assumptions.filter((one) => one.instance !== "").map((one) => `${one.check_id}:${one.instance}`),
+  );
   const also: Line[] = results
     .filter((one) => !covered.has(one.check_id))
+    .filter((one) => !underAssumed.has(`${one.check_id}:${one.instance}`))
     .map((one) => {
       const label = CHECK_NAMES[one.check_id] ?? one.check_id.replace(/_/g, " ");
       if (isRunning(one))

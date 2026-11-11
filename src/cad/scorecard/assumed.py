@@ -26,13 +26,15 @@ class AssumedValue(Frozen):
 
 class AssumedRow(Frozen):
     """The agent filled in this value. The measure of the deciding check is beside it, and it is
-    never graded."""
+    never graded. `instance` names the result of `check_id` that read the assumed load, which is
+    a measure under the agent's own number and never a passed check."""
 
     kind: Literal["assumed"] = "assumed"
     label: Literal["assumed by the agent, no verdict"] = "assumed by the agent, no verdict"
     statement: str
     why: str
     check_id: str
+    instance: str
     values: tuple[AssumedValue, ...]
 
 
@@ -53,13 +55,15 @@ def _row(
     check_id = deciding_check(target)
     if check_id is None:
         raise ValueError("an assumption names a target that a check decides")
-    result = result_of(results, check_id, instance(target))
+    reads = instance(target)
+    result = result_of(results, check_id, reads)
     measures = result.measured if isinstance(result, CheckResult) else ()
     found = {one.name: one.value for one in measures}
     return AssumedRow(
         statement=describe_target(target, names),
         why=assumption.why,
         check_id=check_id,
+        instance=reads,
         values=tuple(
             AssumedValue(measure=one.measure, assumed=one.quantity, measured=found.get(one.measure))
             for one in limits(target)
