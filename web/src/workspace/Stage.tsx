@@ -52,13 +52,17 @@ const SEATED: Record<string, Shapes["parts"][number]["loc"]> = {
     [0, 0, 32],
     [1, 0, 0, 0],
   ],
+  "928167d0fb6c61e6": [
+    [0, 0, 33],
+    [1, 0, 0, 0],
+  ],
 };
 
 function withFit(part: Shapes, fit: Shapes, variantId: string): Shapes {
   const seat = SEATED[variantId];
   const own = part.parts.map((one) => (seat ? { ...one, loc: seat } : one));
   const ghost = fit.parts.map((one) => ({ ...one, id: "/variant/fit", name: "fit", color: "#9aa7b4", alpha: 0.22 }));
-  return { ...part, parts: [...own, ...ghost], bb: { ...fit.bb, zmax: Math.max(fit.bb.zmax, seat ? 32 : part.bb.zmax) } };
+  return { ...part, parts: [...own, ...ghost], bb: { ...fit.bb, zmax: Math.max(fit.bb.zmax, seat ? seat[0][2] : part.bb.zmax) } };
 }
 
 /** Options that already hold the part they fit are drawn as they are. */

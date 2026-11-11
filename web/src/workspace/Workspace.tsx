@@ -246,7 +246,8 @@ function Page({ model }: { model: Model }) {
   );
   const chatPane = (
     <ChatPane
-      lines={[...chat.lines, ...mock.lines]}
+      lines={chat.lines}
+      later={mock.lines}
       pointed={mock.pointed}
       running={chat.turn === "running"}
       card={card}
