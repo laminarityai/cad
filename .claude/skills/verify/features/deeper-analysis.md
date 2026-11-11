@@ -4,7 +4,7 @@ Deeper analysis is slower analysis of one variant the user picks. It is not a mo
 
 ## Sub-features
 
-- `deeper-analysis-text` sends the deeper analysis paragraph as part of the server's `instructions`. `tests/server/test_scorecard_tools.py` asserts it.
+- `deeper-analysis-text` sends the deeper analysis paragraph as part of the server's `instructions`. `tests/operations/test_scorecard_tools.py` asserts it.
 - `deeper-analysis-hook` makes Claude Code, in a second session on the same server home, score only the variant the user picked, with its `brief_id`, and report the load and print time as not checked, with no estimate of its own.
 - `deeper-analysis-new-load` has the user state a load no confirmed requirement holds. Claude Code proposes it, the scripted person confirms it, and only then does Claude Code score the picked variant.
 
