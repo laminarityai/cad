@@ -74,6 +74,18 @@ OPEN_BRIEF: Final = (
     "person for code, a brief, a material or an id that these tools return."
 )
 
+ON_THE_PAGE: Final = (
+    "The person reads this chat beside their project page. The page shows every brief, every "
+    "variant in its own tab with its 3D view, its scorecard as it runs, and each slot's earlier "
+    "revisions, and it updates by itself after each build and score. So never restate a "
+    "scorecard, a check result, a measurement, a list of variants or an id in your reply, and "
+    "never write a table. After you build or score, reply in one or two short sentences that "
+    "say what changed and point at the page, for example: Built 3 lid options, see the tabs. "
+    "When the person must choose, ask one short question. When you need the person to confirm, "
+    "call ask_to_confirm: the page draws the items in this chat with a Confirm button, so do "
+    "not list them yourself. Never ask the person for an id, a mode or a material."
+)
+
 _LOG = logging.getLogger(__name__)
 
 
@@ -154,7 +166,7 @@ async def _converse(model: Model, tenants: Tenants, token: AgentToken, channel: 
 
 
 def _system(tenant: Tenant) -> str:
-    parts = [INSTRUCTIONS, MODE_NOTES[tenant.mode or Mode.PLAN]]
+    parts = [INSTRUCTIONS, MODE_NOTES[tenant.mode or Mode.PLAN], ON_THE_PAGE]
     if tenant.conversation is not None:
         held = store.read(tenant.conversations, tenant.conversation)
         if held.project_id is not None and held.brief_id is not None:
