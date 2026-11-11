@@ -2,13 +2,13 @@
 
     uv run python .claude/skills/verify/scripts/browser.py web shot <run> <path> <name> [options]
     uv run python .claude/skills/verify/scripts/browser.py web watch <run> <path> <name> [options]
-    uv run python .claude/skills/verify/scripts/browser.py web chat <run> <path> <name> [options]
+    uv run python .claude/skills/verify/scripts/browser.py web walk <run> <out> [options]
 
 <run> is the data root of a local `cad-http` (its `local-issuer.pem` signs the sign-in token),
 <path> is a route of the app such as `/projects/<id>`, and <name> is the prefix of the files
 written into <run>. Options: --url (the server, default http://127.0.0.1:8765), --account
 (default user_web_proof), --width, --height, --scheme (light or dark), --seconds (watch, default
-120), --tab (a narrow-screen pane to show: Chat, Design, Checks or Files).
+120), --tab (a narrow-screen pane to show: Explorer, Design or Chat).
 
 `shot` opens the page, waits until the option on screen has drawn, and writes <name>.png and
 <name>.aria.yml (the page's accessibility tree). `watch` opens the page and polls its rows while
@@ -17,7 +17,7 @@ something else scores the variants. It writes <name>-pending.png when it first s
 and when) and <name>.rows.jsonl (every change of a row). It exits 1 when a pending row ever wears a
 verdict, or when no row went from pending to a verdict without a navigation.
 
-`chat` drives the chat panel: see web_chat.py.
+`walk` is one live walk of the project workspace: see web_walk.py.
 """
 
 from __future__ import annotations
@@ -194,10 +194,10 @@ def main(argv: list[str]) -> int:
             return shot(Path(run), path, name, given)
         case ["watch", run, path, name]:
             return watch(Path(run), path, name, given)
-        case ["chat", run, path, name]:
-            from web_chat import chat
+        case ["walk", *_]:
+            from web_walk import main as walk
 
-            return chat(Path(run), path, name, given)
+            return walk(argv[1:])
         case _:
             print(__doc__)
             return 2
