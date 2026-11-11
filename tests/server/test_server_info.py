@@ -48,6 +48,7 @@ async def test_server_info_names_the_head_sha_python_and_tools() -> None:
             "list_requirements",
             "propose_context_part",
             "propose_requirements",
+            "read_selection",
             "score_variant",
             "scorecard",
             "search_knowledge",
