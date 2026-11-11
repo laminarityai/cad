@@ -21,7 +21,7 @@
 
 ## Verify your work
 
-`uv run verify` runs the fast steps in about 45 seconds: type checking, lint, the format check, the file-size check, the materials table, the API types and the web lint, tests and build. `uv run verify --all` adds the slow steps: protocol models, the sandbox image, pytest and the app step. The app step starts the MCP server and fails unless `server_info` reports the SHA that `git rev-parse HEAD` gives.
+`uv run verify` runs the fast steps side by side in about 15 seconds: type checking, lint, the format check, the file-size check, the materials table, the API types and the web lint, tests and build. `uv run verify --all` adds the slow steps: protocol models, the sandbox image, pytest and the app step. The app step starts the MCP server and fails unless `server_info` reports the SHA that `git rev-parse HEAD` gives.
 
 CI runs every step on every PR in about 3 minutes, and CI is the gate. Locally, run the tests for what you changed and `uv run verify`, then push and watch CI. Do not run `--all` on this laptop. It takes about 10 minutes. Do one live walk per PR, at the end, and never wait on another agent's PR. [.claude/skills/run-tests/SKILL.md](.claude/skills/run-tests/SKILL.md) says how.
 

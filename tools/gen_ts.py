@@ -7,6 +7,7 @@ status is 1 when they differ. That is the `api types` step of `uv run verify`.
 """
 
 import argparse
+import fcntl
 import json
 import shutil
 import subprocess
@@ -22,6 +23,7 @@ TYPES = WEB / "src" / "api" / "types.ts"
 GENERATOR = WEB / "node_modules" / ".bin" / "openapi-typescript"
 INSTALLED = WEB / "node_modules" / ".package-lock.json"
 LOCK = WEB / "package-lock.json"
+INSTALLING = WEB / ".install.lock"
 NO_NODE = (
     "gen_ts: node and npm are not on PATH, and the api types step needs them. "
     "Install Node 22 or later (macOS: brew install node), then run it again."
@@ -52,13 +54,17 @@ def install_matches_lock() -> bool:
 
 
 def install_if_stale() -> None:
-    if install_matches_lock():
-        return
-    subprocess.run(
-        ["npm", "ci", "--no-audit", "--no-fund", "--prefix", str(WEB)],
-        check=True,
-        stdout=subprocess.DEVNULL,
-    )
+    """`verify` runs the web steps side by side, so the first one to take the lock installs and
+    the others wait, then find the install fresh."""
+    with INSTALLING.open("w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if install_matches_lock():
+            return
+        subprocess.run(
+            ["npm", "ci", "--no-audit", "--no-fund", "--prefix", str(WEB)],
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
 
 
 def generate(into: Path) -> None:
