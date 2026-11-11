@@ -8,12 +8,14 @@ from tracking import RequirementOutcome, outcomes_of
 
 from cad.briefs import store as briefs
 from cad.briefs.store import ConfirmedSet
-from cad.checks.result import Verdict
+from cad.checks.result import Measure, Verdict
 from cad.confirmations import answers
 from cad.projects.model import ProjectId, new_project_id
 from cad.records import key
 from cad.records.roots import Roots
 from cad.scorecard.model import AwaitingConfirmation, Scorecard
+from cad.scorecard.requirements import against
+from cad.tables.materials import UNITS
 from tests.support.cards import (
     BRIEF_TEXT,
     confirm,
@@ -23,6 +25,7 @@ from tests.support.cards import (
     judged_card,
     reasons,
     trace,
+    with_result,
 )
 
 LIGHT = ({"kind": "max_mass", "mass": {"magnitude": 150, "unit": "g"}}, "under 150 g")
@@ -75,6 +78,35 @@ def test_every_confirmed_limit_resolves_to_the_decision_that_confirmed_it(
     assert limits[FIRST_LIMIT] == Resolved(
         (ConfirmedStep(confirmed.brief_id, confirmed.decision_sha256, light, "Mass at most 150 g"),)
     )
+
+
+def test_the_band_a_holes_requirement_was_held_to_resolves_to_the_confirmed_target(
+    store: Path, roots: Roots
+) -> None:
+    brief_id = briefs.create_brief(roots, "a plate with two M5 holes", new_project_id()).id
+    holes = (
+        {"kind": "fastener_holes", "size": "M5", "fit": "clearance", "count": 2},
+        "two M5 holes",
+    )
+    confirmed = confirm(roots, brief_id, drafts(holes))
+    sizes = tuple(
+        Measure(name=f"hole_diameter:{at}", value=UNITS.Quantity(5.5, "mm")) for at in range(2)
+    )
+    card = with_result(genuine_card(), "holes", measured=sizes)
+    card = card.model_copy(update={"basis": against(confirmed)(card.finished)})
+    traced = trace(card, store)
+    assert traced.failures == ()
+    step = ConfirmedStep(
+        confirmed.brief_id,
+        confirmed.decision_sha256,
+        confirmed.requirements[0].id,
+        "2 holes that fit an M5 bolt",
+    )
+    limits = [one.outcome for one in traced.numbers if one.label.startswith("basis")]
+    assert limits == [Resolved((step,))] * 2
+    changed = card.model_dump(mode="json")
+    changed["basis"]["requirements"][0]["comparisons"][1]["limit"]["magnitude"] = 9
+    assert reasons(trace(Scorecard.model_validate(changed), store), Unresolved, "basis") != []
 
 
 def test_a_limit_confirmed_on_the_page_resolves_to_the_page_answer(

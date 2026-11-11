@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ServicesProvider } from "@/app/context";
 import { FakeChat, FakeViewer, fakeApi } from "@/test/fakes";
+import type { DoneCheck } from "@/api/snapshot";
 import { massResult, snapshot } from "@/test/fixtures";
 import { restore } from "@/api/snapshot";
 import { assumedOf, awaitingOf, linesOf, summaryOf, useCards, type CardKey } from "./cards";
@@ -137,5 +138,31 @@ describe("what waits for the person's Confirm", () => {
     const waitingLoad = { ...awaitingRow, check_id: "fea", instance: "load-1", values: [] };
     const held = restore({ ...snapshot("v1", [], [massResult(), underLoad]), awaiting: [waitingLoad] });
     expect(linesOf(held).also.map((one) => one.key)).toEqual(["check:mass:"]);
+  });
+});
+
+describe("linesOf holes", () => {
+  const holes = (sizes: number[], verdict: DoneCheck["verdict"] = "pass"): DoneCheck => ({
+    ...massResult(),
+    check_id: "holes",
+    verdict,
+    measured: [
+      { name: "hole_count", value: { magnitude: sizes.length, unit: "dimensionless" } },
+      ...sizes.map((magnitude, at) => ({ name: `hole_diameter:${String(at)}`, value: { magnitude, unit: "mm" } })),
+    ],
+  });
+  const lineOf = (result: DoneCheck) => linesOf(restore(snapshot("v1", [], [result]))).also[0];
+
+  it("shows the count and every diameter beside the Holes line", () => {
+    expect(lineOf(holes([5.5, 5.5]))?.value).toBe("2 holes: 5.5, 5.5 mm");
+    expect(lineOf(holes([4.2]))?.value).toBe("1 hole: 4.2 mm");
+    expect(lineOf(holes([]))?.value).toBe("no round holes");
+  });
+
+  it("keeps the diameters of a part the check could not fully read, with status unknown", () => {
+    const line = lineOf(holes([5.5], "unknown"));
+    expect(line?.value).toBe("1 hole: 5.5 mm");
+    expect(line?.status).toBe("unknown");
+    expect(line?.label).toBe("Holes");
   });
 });

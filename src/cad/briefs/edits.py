@@ -17,6 +17,7 @@ from pydantic import ValidationError
 from cad.briefs.model import (
     ClosedSolid,
     Envelope,
+    FastenerHoles,
     MadeOf,
     MaxClearance,
     MaxDeflection,
@@ -25,6 +26,7 @@ from cad.briefs.model import (
     MinClearance,
     MinMass,
     MinSafetyFactor,
+    PlainHoles,
     Requirement,
     Unchecked,
     amount,
@@ -97,8 +99,17 @@ def placeholder(requirement: Requirement) -> str | None:
     """What the page shows in the row's empty edit field, or None when the row has no number."""
     target = requirement.target
     match target:
-        case ClosedSolid() | MeasureLimit() | Unchecked() | MadeOf() | MinSafetyFactor():
+        case (
+            ClosedSolid()
+            | MeasureLimit()
+            | Unchecked()
+            | MadeOf()
+            | MinSafetyFactor()
+            | FastenerHoles()
+        ):
             return None
+        case PlainHoles():
+            return amount(target.diameter)
         case MaxMass() | MinMass():
             return amount(target.mass)
         case MaxDeflection():
@@ -135,8 +146,18 @@ def _edited(requirement: Requirement, text: str) -> Requirement | str:
     target = requirement.target
     try:
         match target:
-            case ClosedSolid() | MeasureLimit() | Unchecked() | MadeOf() | MinSafetyFactor():
+            case (
+                ClosedSolid()
+                | MeasureLimit()
+                | Unchecked()
+                | MadeOf()
+                | MinSafetyFactor()
+                | FastenerHoles()
+            ):
                 return "This row has no number to change."
+            case PlainHoles():
+                [diameter] = _quantities(text, LENGTH)
+                new = PlainHoles(diameter=diameter, count=target.count)
             case MaxMass() | MinMass():
                 [mass] = _quantities(text, MASS)
                 new = type(target).model_validate({"mass": mass})

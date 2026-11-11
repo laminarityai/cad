@@ -34,6 +34,9 @@ def changed(target: dict[str, Any], text: str) -> str:
     return applied if isinstance(applied, str) else describe(applied[0])
 
 
+SHAFT = {"kind": "plain_holes", "diameter": {"magnitude": 8, "unit": "mm"}, "count": 2}
+M5 = {"kind": "fastener_holes", "size": "M5", "fit": "clearance", "count": 2}
+
 # Every text the page has accepted. A stored answer keeps the person's text and the store reads
 # it again on every read, so a text that stopped reading the same would make an old confirmed
 # brief read as tampered. Add to this list; never remove from it or change a line.
@@ -58,6 +61,7 @@ ACCEPTED = [
     (BOX, "1 x 0.5 x 0.25 m", "Fits inside a box of 1 m x 0.5 m x 0.25 m"),
     (BOX, "6 x 4 x 2 in", "Fits inside a box of 6 in x 4 in x 2 in"),
     (BOX, "6 x 4 x 2 inches", "Fits inside a box of 6 in x 4 in x 2 in"),
+    (SHAFT, "6 mm", "2 holes of 6 mm diameter"),
 ]
 
 
@@ -170,3 +174,8 @@ def test_only_rows_with_a_number_offer_a_field() -> None:
         None,
         None,
     ]
+
+
+def test_a_plain_hole_offers_its_diameter_and_a_fastener_hole_offers_no_field() -> None:
+    assert [placeholder(requirement(t)) for t in (SHAFT, M5)] == ["8 mm", None]
+    assert "no number to change" in changed(M5, "4 mm")

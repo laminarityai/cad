@@ -22,8 +22,8 @@ POISSON_UNKNOWN = "the materials table has no poisson_ratio for prusament-petg: 
 
 PLATE = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
 PLATE_SHELL = PLATE + "from build123d import Shell\nresult = Shell(result.faces()[:-1])\n"
-FEA = SPECS[4]
-FIT = SPECS[5]
+FEA = next(spec for spec in SPECS if spec.id == "fea")
+FIT = next(spec for spec in SPECS if spec.id == "fit")
 RAIL = jobs.PartBrep("r" * 64, b"rail brep")
 RAIL_ID = ContextPartId("part-" + "1" * 16)
 CASE: LoadCaseWire = {
@@ -117,7 +117,7 @@ def assembled(root: Path, outcome: Done | Pending | Refused) -> tuple[Scorecard,
 def test_a_pending_background_check_holds_its_place_and_no_verdict(tmp_path: Path) -> None:
     card, assessed = assembled(tmp_path, Pending())
     assert [one.check_id for one in card.results] == [spec.id for spec in (*QUICK, FEA)]
-    assert card.results[4] == PendingCheck(
+    assert card.results[-1] == PendingCheck(
         check_id="fea",
         formula=FEA.formula,
         sources=FEA.sources,
@@ -130,16 +130,16 @@ def test_a_pending_background_check_holds_its_place_and_no_verdict(tmp_path: Pat
         ),
     )
     assert card.pending == ("fea",)
-    assert assessed == ["closed_solid", "interference", "mass", "extents"]
+    assert assessed == ["closed_solid", "interference", "mass", "extents", "holes"]
     assert Scorecard.model_validate_json(card.model_dump_json()) == card
 
 
 def test_a_refused_background_check_is_unknown_with_the_reason(tmp_path: Path) -> None:
     card, _ = assembled(tmp_path, Refused("the account has no analysis time left"))
     assert card.pending == ()
-    assert card.finished[4].verdict == Verdict.UNKNOWN
-    assert card.finished[4].reason == "the account has no analysis time left"
-    assert card.finished[4].instance == "c1"
+    assert card.finished[-1].verdict == Verdict.UNKNOWN
+    assert card.finished[-1].reason == "the account has no analysis time left"
+    assert card.finished[-1].instance == "c1"
 
 
 def test_a_card_must_list_exactly_its_pending_checks(tmp_path: Path) -> None:
@@ -206,6 +206,6 @@ def test_a_finished_fea_job_fills_its_place_with_its_instance(tmp_path: Path) ->
     )
     card, _ = assembled(tmp_path, done)
     assert card.pending == ()
-    assert (card.finished[4].check_id, card.finished[4].instance) == ("fea", "c1")
+    assert (card.finished[-1].check_id, card.finished[-1].instance) == ("fea", "c1")
     assert '"instance": "c1"' in card.model_dump_json(indent=1)
     assert '"instance"' not in card.finished[0].model_dump_json()

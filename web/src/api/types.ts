@@ -862,6 +862,22 @@ export interface components {
             force: components["schemas"]["Force"];
             direction: components["schemas"]["Direction"];
         };
+        /**
+         * FastenerHoles
+         * @description Holes for a metric size, such as 2 that fit an M5 bolt or are tapped for M4. `size` is an
+         *     exact key of the fasteners table. With no `count` one such hole is enough, else exactly that.
+         */
+        FastenerHoles: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "fastener_holes";
+            size: string;
+            fit: components["schemas"]["HoleFit"];
+            /** @default null */
+            count: components["schemas"]["RequiredCount"] | null;
+        };
         /** @enum {string} */
         Field: "density" | "elastic_modulus" | "poisson_ratio" | "yield_strength" | "tensile_strength";
         /**
@@ -881,6 +897,12 @@ export interface components {
         };
         GeometryRead: components["schemas"]["Tessellated"] | components["schemas"]["TessellationFailed"] | components["schemas"]["TessellationPending"];
         HoleCount: number;
+        /**
+         * HoleFit
+         * @description What a hole is for: a bolt passes through it, or a thread is cut in it.
+         * @enum {string}
+         */
+        HoleFit: "clearance" | "tapped";
         /**
          * Holes
          * @description Bolted or screwed through exactly `count` holes, of this bore diameter when given.
@@ -1222,6 +1244,20 @@ export interface components {
             /** @default false */
             part?: boolean;
         };
+        /**
+         * PlainHoles
+         * @description Holes of a stated diameter, such as an 8 mm hole for a shaft. `count` works as above.
+         */
+        PlainHoles: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "plain_holes";
+            diameter: components["schemas"]["Length"];
+            /** @default null */
+            count: components["schemas"]["RequiredCount"] | null;
+        };
         /** ProjectConversation */
         ProjectConversation: {
             conversation_id: string;
@@ -1296,6 +1332,7 @@ export interface components {
             quote: string;
             sha256: string;
         };
+        RequiredCount: number;
         /** Requirement */
         Requirement: {
             id: string;
@@ -1554,7 +1591,7 @@ export interface components {
             kind: "stopped_by_person";
         };
         Support: components["schemas"]["Holes"] | components["schemas"]["LargestFlat"] | components["schemas"]["FlatEnd"];
-        Target: components["schemas"]["ClosedSolid"] | components["schemas"]["MaxMass"] | components["schemas"]["MinMass"] | components["schemas"]["Envelope"] | components["schemas"]["MeasureLimit"] | components["schemas"]["Unchecked"] | components["schemas"]["MadeOf"] | components["schemas"]["MinSafetyFactor"] | components["schemas"]["MaxDeflection"] | components["schemas"]["MinClearance"] | components["schemas"]["MaxClearance"];
+        Target: components["schemas"]["ClosedSolid"] | components["schemas"]["MaxMass"] | components["schemas"]["MinMass"] | components["schemas"]["Envelope"] | components["schemas"]["MeasureLimit"] | components["schemas"]["Unchecked"] | components["schemas"]["MadeOf"] | components["schemas"]["MinSafetyFactor"] | components["schemas"]["MaxDeflection"] | components["schemas"]["MinClearance"] | components["schemas"]["MaxClearance"] | components["schemas"]["FastenerHoles"] | components["schemas"]["PlainHoles"];
         /**
          * Tessellated
          * @description The mesh of one BREP, made in the analysis image, as three-cad-viewer renders it.
@@ -1855,11 +1892,13 @@ export type ExportReady = components['schemas']['ExportReady'];
 export type ExportView = components['schemas']['ExportView'];
 export type FaceFacts = components['schemas']['FaceFacts'];
 export type FarEnd = components['schemas']['FarEnd'];
+export type FastenerHoles = components['schemas']['FastenerHoles'];
 export type Field = components['schemas']['Field'];
 export type FlatEnd = components['schemas']['FlatEnd'];
 export type Force = components['schemas']['Force'];
 export type GeometryRead = components['schemas']['GeometryRead'];
 export type HoleCount = components['schemas']['HoleCount'];
+export type HoleFit = components['schemas']['HoleFit'];
 export type Holes = components['schemas']['Holes'];
 export type Index = components['schemas']['Index'];
 export type ItemKindName = components['schemas']['ItemKindName'];
@@ -1900,6 +1939,7 @@ export type PartWire = components['schemas']['PartWire'];
 export type PendingCheck = components['schemas']['PendingCheck'];
 export type PersonStop = components['schemas']['PersonStop'];
 export type Picked = components['schemas']['Picked'];
+export type PlainHoles = components['schemas']['PlainHoles'];
 export type ProjectConversation = components['schemas']['ProjectConversation'];
 export type ProjectList = components['schemas']['ProjectList'];
 export type ProjectSummary = components['schemas']['ProjectSummary'];
@@ -1909,6 +1949,7 @@ export type QuantityJson = components['schemas']['QuantityJson'];
 export type ReadCited = components['schemas']['ReadCited'];
 export type ReadMissing = components['schemas']['ReadMissing'];
 export type ReadResearched = components['schemas']['ReadResearched'];
+export type RequiredCount = components['schemas']['RequiredCount'];
 export type Requirement = components['schemas']['Requirement'];
 export type RequirementResult = components['schemas']['RequirementResult'];
 export type RequirementRow = components['schemas']['RequirementRow'];

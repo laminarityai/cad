@@ -83,6 +83,8 @@ def test_every_kind_has_one_deciding_check_or_is_unverified() -> None:
         Kind.MAX_DEFLECTION: "fea",
         Kind.MIN_CLEARANCE: "fit",
         Kind.MAX_CLEARANCE: "fit",
+        Kind.FASTENER_HOLES: "holes",
+        Kind.PLAIN_HOLES: "holes",
     }
 
 
@@ -98,6 +100,22 @@ def test_every_kind_has_one_deciding_check_or_is_unverified() -> None:
         ),
         ({"kind": "unchecked", "statement": "holds a 2 kg shelf"}, "holds a 2 kg shelf"),
         ({"kind": "made_of", "material": "bambu-pla-basic"}, "Made of bambu-pla-basic"),
+        (
+            {"kind": "fastener_holes", "size": "M5", "fit": "clearance", "count": 2},
+            "2 holes that fit an M5 bolt",
+        ),
+        (
+            {"kind": "fastener_holes", "size": "M4", "fit": "tapped", "count": 1},
+            "1 hole tapped for M4",
+        ),
+        (
+            {"kind": "fastener_holes", "size": "M3", "fit": "clearance"},
+            "A hole that fits an M3 bolt",
+        ),
+        (
+            {"kind": "plain_holes", "diameter": grams(8, "mm"), "count": 3},
+            "3 holes of 8 mm diameter",
+        ),
     ],
 )
 def test_a_requirement_reads_in_plain_words(raw: dict[str, Any], words: str) -> None:
@@ -119,6 +137,7 @@ def q(magnitude: float, unit: str) -> object:
     [
         ({"kind": "closed_solid"}, []),
         ({"kind": "unchecked", "statement": "holds a shelf"}, []),
+        ({"kind": "fastener_holes", "size": "M5", "fit": "tapped"}, []),
         ({"kind": "max_mass", "mass": grams(150)}, [("mass", Comparator.AT_MOST, q(150, "g"))]),
         (
             {"kind": "min_mass", "mass": grams(0.2, "kg")},
@@ -163,6 +182,8 @@ EXAMPLES: dict[Kind, dict[str, Any]] = {
     Kind.MAX_DEFLECTION: {"kind": "max_deflection", "load": LOAD, "deflection": grams(2, "mm")},
     Kind.MIN_CLEARANCE: {"kind": "min_clearance", "part": PART, "clearance": grams(0.2, "mm")},
     Kind.MAX_CLEARANCE: {"kind": "max_clearance", "part": PART, "clearance": grams(0.5, "mm")},
+    Kind.FASTENER_HOLES: {"kind": "fastener_holes", "size": "M5", "fit": "clearance", "count": 2},
+    Kind.PLAIN_HOLES: {"kind": "plain_holes", "diameter": grams(8, "mm")},
 }
 
 
@@ -180,6 +201,23 @@ def test_every_deciding_check_and_every_limit_names_a_registered_check_and_its_m
             base, _, part = one.measure.partition(":")
             assert base in measures[check_id], f"{check_id} declares no measure {base!r}"
             assert not part or part in extents.SORTED_NAMES, f"{one.measure} is never measured"
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        {"kind": "fastener_holes", "size": "M7", "fit": "clearance"},
+        {"kind": "fastener_holes", "size": "m5", "fit": "clearance"},
+        {"kind": "fastener_holes", "size": "M5", "fit": "loose"},
+        {"kind": "fastener_holes", "size": "M5", "fit": "tapped", "count": 0},
+        {"kind": "plain_holes", "diameter": grams(0, "mm")},
+        {"kind": "plain_holes", "diameter": grams(8, "g")},
+        {"kind": "plain_holes", "diameter": grams(8, "mm"), "count": 1.5},
+    ],
+)
+def test_a_holes_target_names_a_table_size_a_fit_and_a_whole_count(raw: dict[str, Any]) -> None:
+    with pytest.raises(ValidationError):
+        target(raw)
 
 
 @pytest.mark.parametrize("key", ["Bambu PLA Basic", "bambu_pla", "", "-pla", "pla-"])
