@@ -50,6 +50,7 @@ def tessellated(name: str) -> Tessellated:
                 "normal_len": 0,
                 "bb": box,
             },
+            "topology": {"faces": [], "edges": []},
         }
     )
 
