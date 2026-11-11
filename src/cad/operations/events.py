@@ -26,7 +26,14 @@ from cad.checks.jobs import JobSpec
 from cad.checks.lanes import LANES, Listener
 from cad.errors import Refused, Unavailable
 from cad.operations.model import Tenant
-from cad.operations.routes import CHALLENGE, PersonOf, TenantOf, refusal, refuse, session_token
+from cad.operations.routes import (
+    PersonOf,
+    TenantOf,
+    refusal,
+    refuse,
+    session_person,
+    session_token,
+)
 from cad.operations.scorecards import ScorecardInput, names_a_material, scorecard
 from cad.sandbox.meter import metered
 from cad.scorecard.material import ScorecardSnapshot
@@ -72,10 +79,9 @@ def events_route(
     hooked: bool = True,
 ) -> Route:
     async def endpoint(request: Request) -> Response:
-        token = session_token(request)
-        person = person_of(token)
-        if person is None:
-            return refuse(401, "sign in: this route takes a Clerk session token", CHALLENGE)
+        person = session_person(person_of, request)
+        if isinstance(person, Response):
+            return person
         tenant = tenant_of(person.account)
         try:
             arguments = ScorecardInput.model_validate(
@@ -109,7 +115,7 @@ def events_route(
         return StreamingResponse(
             _events(
                 read,
-                lambda: person_of(token) is not None,
+                lambda: person_of(session_token(request)) is not None,
                 wake,
                 first,
                 SAFETY_SECONDS if hooked else POLL_SECONDS,

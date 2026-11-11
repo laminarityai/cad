@@ -56,9 +56,9 @@ def person_route(served: Served, one: Operation, person_of: PersonOf, tenant_of:
         raise ValueError(f"{one.name} is not for the person, so it has no web route")
 
     async def endpoint(request: Request) -> Response:
-        person = person_of(session_token(request))
-        if person is None:
-            return refuse(401, "sign in: this route takes a Clerk session token", CHALLENGE)
+        person = session_person(person_of, request)
+        if isinstance(person, Response):
+            return person
         tenant = tenant_of(person.account)
         sent = (
             await _request_body(request) if served.method != "GET" else dict(request.query_params)
@@ -125,6 +125,15 @@ def session_token(request: Request) -> str:
     if scheme.lower() == "bearer" and token.strip():
         return token.strip()
     return request.cookies.get(SESSION_COOKIE, "")
+
+
+def session_person(person_of: PersonOf, request: Request) -> PersonSession | Response:
+    """The signed-in person, or the 401 a route answers when the request carries no valid Clerk
+    session token."""
+    person = person_of(session_token(request))
+    if person is None:
+        return refuse(401, "sign in: this route takes a Clerk session token", CHALLENGE)
+    return person
 
 
 def refusal(error: Refused | Unavailable) -> Response:
