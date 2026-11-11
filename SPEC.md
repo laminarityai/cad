@@ -28,22 +28,22 @@ The full user research is in the report *AI CAD harness user needs*. The knowled
 ## Core loop
 
 1. **Brief.** You say what you need, in your own words, and attach images, drawings or documents if you have them.
-2. **Requirements.** The agent turns the brief into checkable requirements and shows where each one came from. You confirm them.
-3. **Variants.** The agent builds 3 to 5 parametric variants.
-4. **Checks.** Every variant gets a scorecard. This step is what sets us apart.
+2. **Variants.** The agent builds 3 to 5 parametric variants at once. It does not wait for you.
+3. **Requirements.** The agent proposes the targets you stated, each with the words it came from, and fills in the numbers you did not state as assumptions it labels. You confirm your targets with one click, and a brief with no number needs no click.
+4. **Checks.** Every variant gets a scorecard. A target waits as waiting on you, with the measure beside it, until you confirm it, and then the same results are judged. This step is what sets us apart.
 5. **Change and export.** You pick a variant, ask in chat for any change, and send it to Onshape. The agent edits the variant and rebuilds it, and the checks run again. You can download the option on screen as STEP, STL or 3MF from the workspace page.
 
-Attachments are context, not input to convert. The agent reads them for intent and dimensions, and every dimension it takes from an image becomes a requirement you confirm, with the others, before any variant is built.
+Attachments are context, not input to convert. The agent reads them for intent and dimensions, and every dimension it takes from an image becomes a requirement you confirm, with the others. No verdict rests on it until you do.
 
-Existing CAD parts can be context too. A context part is a part that the new part must fit with, such as the housing or rail it mounts to. You attach one to the project, or an earlier variant becomes one. You confirm each context part before a check measures against it. Reading a part directly from Onshape or Fusion through their MCP servers is a later goal, tracked in [#60](https://github.com/laminarityai/cad/issues/60).
+Existing CAD parts can be context too. A context part is a part that the new part must fit with, such as the housing or rail it mounts to. You attach one to the project, or an earlier variant becomes one. You confirm each context part before a verdict rests on it. Reading a part directly from Onshape or Fusion through their MCP servers is a later goal, tracked in [#60](https://github.com/laminarityai/cad/issues/60).
 
 ## Asking you
 
 Friction is a defect. The one step the agent cannot take for you is confirming what it proposed, because then it would be grading its own work. So confirmations stay, and each one costs you as little as possible.
 
 - **One page, one click.** Everything waiting on you appears on one confirmation page: requirements, dimensions read from images, values taken from documents, context parts, and sources the agent found. Each item shows the agent's proposal and the words it came from. Confirming the whole page is one click, and editing an item is optional.
-- **Only what a check reads.** The agent asks you to confirm a number only when a check will use it. What it reads for context and intent needs no confirmation.
-- **Nothing waits that doesn't have to.** Work that doesn't depend on a pending answer goes ahead. You never have to choose a material. When your brief names none, the agent chooses one for each variant, from our table or one it researches, and says why in a line. The page marks it as chosen by the agent, and you can change it in chat. A material you name is a requirement you confirm. If the material is not in our table, the variants are still built and the geometry checks still run. The agent researches the density, and mass fills in, labelled as researched, without a rebuild.
+- **Only what you stated.** The agent asks you to confirm a number only when you stated it and a check will use it. A number it fills in itself is an assumption, shown apart with no verdict. What it reads for context and intent needs no confirmation.
+- **Nothing waits that doesn't have to.** A new brief builds its options before you confirm anything, and what you decline later removes none of them. You never have to choose a material. When your brief names none, the agent chooses one for each variant, from our table or one it researches, and says why in a line. The page marks it as chosen by the agent, and you can change it in chat. A material you name is a requirement you confirm. If the material is not in our table, the variants are still built and the geometry checks still run. The agent researches the density, and mass fills in, labelled as researched, without a rebuild.
 - **Any cited source.** A value can come from a datasheet, a handbook, a supplier's page, a standard's clause, or your own words in the brief. The citation says where the number came from. Your confirmation says that it is the number you mean.
 - **Confirm once.** A confirmed value, material or source is reused for the rest of the project, so you are never asked the same thing twice.
 - **Most briefs need no values confirmed.** Our materials and parts tables cover the common choices, so confirming a value is the exception, not a step in every design.
@@ -54,8 +54,7 @@ Friction is a defect. The one step the agent cannot take for you is confirming w
 
 You switch modes in the chat, the way you switch modes in Claude Code.
 
-- **Plan mode.** The agent asks questions and turns the brief into requirements, without making geometry. It ends when you confirm the requirements.
-- **Design mode** is the default. The agent makes variants, runs checks, shows scorecards, and stops for you to pick a variant or ask for a change.
+- **Design mode** is the default. A new brief builds at once: the agent makes variants, runs checks, shows scorecards, and stops for you to pick a variant or ask for a change. It asks you only to confirm a target you stated.
 - **Auto mode.** The agent revises variants against the checks without stopping. It stops in three cases. The first is that every requirement passes, which the checks decide. The second is that it needs a decision only you can make, such as relaxing one of two conflicting requirements, changing a requirement you confirmed, or using a source it found. The third is that the agent judges it is stuck, in which case it reports what it tried and asks how to proceed. There is no budget. An account's usage limit also ends a run when it refuses a build.
 
 Deeper analysis is not a mode. When you ask whether a chosen variant will hold a load, or a requirement needs it, the agent runs slower analysis of that one variant, such as full FEA and tolerance stack-ups, in whichever mode you are in.
@@ -124,7 +123,7 @@ The first version is built in five phases, in this order. Each phase ends when i
 
 1. **Server and universal checks.** Project setup ([AGENTS.md](AGENTS.md)), an MCP server that runs build123d code in the sandbox, the geometric universal checks, and the first materials table.
    - Exit: Claude Code, connected to the server, produces scorecards for the 10 bake-off parts that agree with the bake-off grader, and the sandbox blocks network access and enforces its limits.
-2. **Briefs, requirements and scorecards.** Plan mode, 3 to 5 variants, scorecards that list unverified requirements, sources and researched values, the knowledge base, agent-written checks with per-project review, and context parts with the fit check.
+2. **Briefs, requirements and scorecards.** A brief that builds at once, 3 to 5 variants, scorecards that list unverified requirements, sources and researched values, the knowledge base, agent-written checks with per-project review, and context parts with the fit check.
    - Exit: on the private brief set, across at least five domains, every number on every scorecard traces to a confirmed source. The one exception is an agent's own measurement, which is counted as not verified.
 3. **Physics and manufacturing.** FEA under stated loads and deeper analysis of one chosen variant.
    - Exit: FEA results land within a stated error of hand calculations on beam and plate cases with known answers.

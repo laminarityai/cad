@@ -5,8 +5,9 @@
 
 <run> is the data root of a running local `cad-http` (its `local-issuer.pem` signs the sign-in
 token) and <out> the folder the screenshots go to. The walk starts on the empty `/app`, types the
-brief, confirms in the chat card, waits for the options, asks for a change and steps back to the
-earlier revision, asks for a lid, confirms it, and turns the fit ghost on. It shoots each step in
+brief, waits for the options (a brief builds at once), confirms the chat card when the brief states
+a target, asks for a change and steps back to the earlier revision, asks for a lid, waits for its
+options, confirms its card when there is one, and turns the fit ghost on. It shoots each step in
 dark mode at 1440 px, and the lid's workspace at 400 px, and exits 1 at the first step that did
 not happen, naming it.
 """
@@ -110,10 +111,24 @@ def shoot(page: Page, out: Path, name: str) -> None:
     print(f"shot {name}.png", flush=True)
 
 
+CARD = "[data-confirm-card] [data-confirm]"
+
+
 def confirm(page: Page) -> None:
-    step("card", page, "() => document.querySelector('[data-confirm-card] [data-confirm]')")
-    page.locator("[data-confirm-card] [data-confirm]").click()
+    step("card", page, f"() => document.querySelector({CARD!r})")
+    page.locator(CARD).click()
     step("card answered", page, "() => !document.querySelector('[data-confirm-card]')", 60)
+
+
+def confirm_if_asked(page: Page, out: Path, name: str) -> bool:
+    """A brief that states no number shows no card, so a missing card is not a miss. The options
+    stand before the card shows, and the click rebuilds nothing."""
+    if not page.locator(CARD).count():
+        print("no card", flush=True)
+        return False
+    shoot(page, out, name)
+    confirm(page)
+    return True
 
 
 def walk(run: Path, out: Path, given: dict[str, str]) -> None:
@@ -126,20 +141,18 @@ def walk(run: Path, out: Path, given: dict[str, str]) -> None:
         shoot(page, out, "walk-1-start")
         say(page, given["brief"])
         step("project page", page, "() => location.pathname.includes('/projects/')")
-        step("card", page, "() => document.querySelector('[data-confirm-card]')")
-        idle(page)
-        shoot(page, out, "walk-2-confirm-in-chat")
-        confirm(page)
         step("options", page, "() => document.querySelectorAll('[data-slot-tab]').length > 0")
         step("drawn", page, drawn)
         idle(page)
         step("checked", page, "() => document.querySelectorAll('[data-line]').length > 0", 300)
-        shoot(page, out, "walk-3-options")
+        shoot(page, out, "walk-2-options")
+        if confirm_if_asked(page, out, "walk-3-confirm-in-chat"):
+            idle(page)
+            shoot(page, out, "walk-3b-judged")
         say(page, given["change"])
         page.wait_for_timeout(3000)
         idle(page)
-        if page.locator("[data-confirm-card] [data-confirm]").count():
-            confirm(page)
+        confirm_if_asked(page, out, "walk-4a-change-confirm")
         step(
             "revision 2",
             page,
@@ -155,10 +168,13 @@ def walk(run: Path, out: Path, given: dict[str, str]) -> None:
         )
         shoot(page, out, "walk-4-earlier-revision")
         say(page, given["lid"])
-        step("lid card", page, "() => document.querySelector('[data-confirm-card]')")
+        step(
+            "lid built",
+            page,
+            "() => document.querySelector('[data-confirm-card], [data-fit-toggle]')",
+        )
         idle(page)
-        shoot(page, out, "walk-5-lid-confirm")
-        confirm(page)
+        confirm_if_asked(page, out, "walk-5-lid-confirm")
         step("fit toggle", page, "() => document.querySelector('[data-fit-toggle]')")
         step("lid drawn", page, drawn)
         idle(page)

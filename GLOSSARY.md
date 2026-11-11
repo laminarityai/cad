@@ -17,7 +17,7 @@ An existing CAD part, uploaded or read from a CAD tool, that a person confirmed 
 _Avoid_: Assembly, reference model, fixture
 
 **Requirement**:
-One checkable target taken from a brief, such as a ratio, a load, or a size limit. It quotes the words of the brief it came from. It is proposed until the user confirms it. A check may measure for it before then, and a verdict rests only on a confirmed requirement.
+One checkable target taken from a brief, such as a ratio, a load, or a size limit. It quotes the words of the brief it came from. It is proposed until the user confirms it. A check may measure for it before then, and the scorecard shows it as waiting on the user, with the measure beside it. A verdict rests only on a confirmed requirement, and after the user confirms, the same stored results are judged.
 _Avoid_: Constraint, goal
 
 **Assumption**:
@@ -102,11 +102,8 @@ _Avoid_: Model, generator
 **Mode**:
 A setting on the conversation that decides what the agent does next and when it hands back to the user.
 
-**Plan mode**:
-The agent asks questions and turns the brief into requirements, without making geometry. It ends when the user confirms the requirements.
-
 **Design mode**:
-The default mode. The agent makes variants, runs checks, shows scorecards, and stops for the user to pick a variant or ask for a change.
+The default mode. A new brief builds at once: the agent makes variants, runs checks, shows scorecards, and stops for the user to pick a variant or ask for a change. There is no Plan mode, because nothing waits for a confirmation before it builds.
 
 **Auto mode**:
 The agent revises variants against the checks without stopping, until every requirement passes, it needs a decision from the user, or it judges that it is stuck. An account's usage limit also ends a run when it refuses a build.

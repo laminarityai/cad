@@ -1,6 +1,6 @@
 # Auto mode
 
-The server holds an Auto run. The agent calls `auto_start`, then `auto_revise` with each new revision of the code, until the server returns `Stopped`. A run stops when every checked requirement passes, when a call proposes requirements or a row waits on a confirmation, when the agent calls `auto_ask`, when the account's usage cap refuses a build (`AccountLimit`), or when the person presses Stop. `bounds_conflicts` stops a run before any build, and the Plan mode confirmation page warns of the same conflict before the person confirms.
+The server holds an Auto run. The agent calls `auto_start`, then `auto_revise` with each new revision of the code, until the server returns `Stopped`. A run stops when every checked requirement passes, when a call proposes requirements or a row waits on a confirmation, when the agent calls `auto_ask`, when the account's usage cap refuses a build (`AccountLimit`), or when the person presses Stop. `bounds_conflicts` stops a run before any build, and the confirmation page warns of the same conflict before the person confirms.
 
 Design: `docs/design/phase-4.md` §1b, §2.5 (ADR-0010) and §2.7 (`AccountMeter`). Units 7 and 9 of §4.
 
