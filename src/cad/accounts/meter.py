@@ -23,8 +23,9 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import BinaryIO, Final, Literal
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import ValidationError
 
+from cad.frozen import Frozen
 from cad.sandbox.meter import AccountLimitReached, Kind, Reservation
 from cad.sandbox.outcome import SandboxUnavailable
 
@@ -32,9 +33,7 @@ USAGE: Final = "usage"
 LOG = logging.getLogger(__name__)
 
 
-class Line(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
+class Line(Frozen):
     op: Literal["reserve", "settle"]
     id: str
     seconds: float

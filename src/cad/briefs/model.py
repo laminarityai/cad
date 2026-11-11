@@ -25,7 +25,7 @@ from cad.checks.container import closed_solid, extents, fea, fit, mass
 from cad.checks.result import Comparator
 from cad.checks.units import AnyQuantity, Length, Mass, number
 from cad.context_parts.ids import PART_ID_PATTERN, ContextPartId
-from cad.frozen import FrozenArbitrary
+from cad.frozen import Frozen
 from cad.loads.model import LoadCase
 from cad.projects.model import NEW_PROJECT_ID, NewProjectId, ProjectId, legacy_project
 from cad.tables.materials import KEY_PATTERN, UNITS, magnitude
@@ -59,21 +59,21 @@ class Kind(StrEnum):
     MAX_CLEARANCE = "max_clearance"
 
 
-class ClosedSolid(FrozenArbitrary):
+class ClosedSolid(Frozen):
     kind: Literal[Kind.CLOSED_SOLID] = Kind.CLOSED_SOLID
 
 
-class MaxMass(FrozenArbitrary):
+class MaxMass(Frozen):
     kind: Literal[Kind.MAX_MASS] = Kind.MAX_MASS
     mass: Mass
 
 
-class MinMass(FrozenArbitrary):
+class MinMass(Frozen):
     kind: Literal[Kind.MIN_MASS] = Kind.MIN_MASS
     mass: Mass
 
 
-class Envelope(FrozenArbitrary):
+class Envelope(Frozen):
     """The variant fits inside a box of these three edge lengths, in any orientation.
 
     Stored longest first, so one box given in any order is one target with one id.
@@ -93,7 +93,7 @@ class Envelope(FrozenArbitrary):
         return longest, middle, shortest
 
 
-class MeasureLimit(FrozenArbitrary):
+class MeasureLimit(Frozen):
     """One team measure held to a limit the person confirms, such as the volume at most 30 cm^3.
 
     Only a measure in BINDABLE can be named, and the limit must be in that measure's dimension.
@@ -124,14 +124,14 @@ class MeasureLimit(FrozenArbitrary):
         return self
 
 
-class Unchecked(FrozenArbitrary):
+class Unchecked(Frozen):
     """A requirement no reviewed check decides. A scorecard lists it as unverified."""
 
     kind: Literal[Kind.UNCHECKED] = Kind.UNCHECKED
     statement: Annotated[str, Field(min_length=1, max_length=MAX_STATEMENT_CHARS)]
 
 
-class MadeOf(FrozenArbitrary):
+class MadeOf(Frozen):
     """The brief names the material. A confirmed one pins the `material_key` that scoring accepts.
 
     The key is an exact key of the materials table, or, for a material the table lacks, a key of
@@ -145,7 +145,7 @@ class MadeOf(FrozenArbitrary):
     ]
 
 
-class MinSafetyFactor(FrozenArbitrary):
+class MinSafetyFactor(Frozen):
     """The yield strength over the largest von Mises stress under the load case."""
 
     kind: Literal[Kind.MIN_SAFETY_FACTOR] = Kind.MIN_SAFETY_FACTOR
@@ -153,7 +153,7 @@ class MinSafetyFactor(FrozenArbitrary):
     factor: Annotated[float, Field(ge=1, allow_inf_nan=False)]
 
 
-class MaxDeflection(FrozenArbitrary):
+class MaxDeflection(Frozen):
     """The largest displacement of any point under the load case."""
 
     kind: Literal[Kind.MAX_DEFLECTION] = Kind.MAX_DEFLECTION
@@ -164,7 +164,7 @@ class MaxDeflection(FrozenArbitrary):
 type PartId = Annotated[ContextPartId, Field(pattern=PART_ID_PATTERN)]
 
 
-class MinClearance(FrozenArbitrary):
+class MinClearance(Frozen):
     """The variant, built in the context part's frame, stays at least this far from it."""
 
     kind: Literal[Kind.MIN_CLEARANCE] = Kind.MIN_CLEARANCE
@@ -172,7 +172,7 @@ class MinClearance(FrozenArbitrary):
     clearance: Length
 
 
-class MaxClearance(FrozenArbitrary):
+class MaxClearance(Frozen):
     """The variant comes no further than this from the context part, so it cannot pass by
     sitting far away."""
 
@@ -273,7 +273,7 @@ def limits(target: Target) -> tuple[Limit, ...]:
             assert_never(target)
 
 
-class BriefSpan(FrozenArbitrary):
+class BriefSpan(Frozen):
     """Characters [start, end) of the brief text, resolved by the store from a verbatim quote."""
 
     kind: Literal["brief_text"] = "brief_text"
@@ -281,7 +281,7 @@ class BriefSpan(FrozenArbitrary):
     end: Annotated[int, Field(gt=0)]
 
 
-class Brief(FrozenArbitrary):
+class Brief(Frozen):
     id: BriefId
     text: Annotated[str, Field(min_length=1, max_length=MAX_BRIEF_CHARS)]
     created_at: datetime
@@ -295,7 +295,7 @@ class Brief(FrozenArbitrary):
         return legacy_project(self.id) if self.project_id is None else self.project_id
 
 
-class Said(FrozenArbitrary):
+class Said(Frozen):
     brief_id: BriefId
     number: Annotated[int, Field(ge=1)]
     text: Annotated[str, Field(min_length=1, max_length=MAX_BRIEF_CHARS)]
@@ -303,7 +303,7 @@ class Said(FrozenArbitrary):
     said_at: datetime
 
 
-class Requirement(FrozenArbitrary):
+class Requirement(Frozen):
     id: RequirementId
     brief_id: BriefId
     target: Target
@@ -319,7 +319,7 @@ def requirement_id(brief_id: BriefId, target: Target, origin: BriefSpan) -> Requ
     return RequirementId(hashlib.sha256(identity.encode()).hexdigest()[:16])
 
 
-class Proposal(FrozenArbitrary):
+class Proposal(Frozen):
     """One whole numbered set of requirements for a brief. Never edited once stored."""
 
     brief_id: BriefId
@@ -328,11 +328,11 @@ class Proposal(FrozenArbitrary):
     created_at: datetime
 
 
-class Confirmed(FrozenArbitrary):
+class Confirmed(Frozen):
     verdict: Literal["confirmed"] = "confirmed"
 
 
-class Declined(FrozenArbitrary):
+class Declined(Frozen):
     verdict: Literal["declined"] = "declined"
     note: Annotated[str, Field(max_length=MAX_NOTE_CHARS)]
 
@@ -340,7 +340,7 @@ class Declined(FrozenArbitrary):
 type Answer = Annotated[Confirmed | Declined, Field(discriminator="verdict")]
 
 
-class Decision(FrozenArbitrary):
+class Decision(Frozen):
     """What a person answered on the page for one proposal, bound to the bytes they were shown."""
 
     proposal: Annotated[int, Field(ge=1)]

@@ -1,6 +1,6 @@
 from typing import Annotated, Final, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import Field, model_validator
 
 from cad.checks.result import (
     CheckResult,
@@ -140,7 +140,7 @@ class AgentMeasurement(Frozen):
     note: str | None = Field(default=None, exclude_if=lambda note: note is None)
 
 
-class Scorecard(BaseModel):
+class Scorecard(Frozen):
     """All of a variant's check results, each with its formula and source.
 
     `brep_sha256` names the shape the checks measured. `step` names the STEP derived from it, or
@@ -152,8 +152,6 @@ class Scorecard(BaseModel):
     `rebuilt_from` names the variant an earlier sandbox stored, when the checks scored its stored
     code rebuilt as `variant_id`.
     """
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
 
     variant_id: str
     rebuilt_from: str | None = None

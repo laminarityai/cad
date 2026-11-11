@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated, Final, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, Field, StringConstraints
 
 from cad.briefs.model import BriefId
 from cad.errors import Refused
@@ -104,10 +104,8 @@ class Revision(Frozen):
         return variant_id(self.code, image_tag)
 
 
-class Member(BaseModel):
+class Member(Frozen):
     """A slot and every revision it has had, oldest first. The last one is what the set shows."""
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
 
     slot: int
     revisions: tuple[Revision, ...] = Field(min_length=1)

@@ -13,7 +13,7 @@ from cad.checks.container.wire import (
     SupportWire,
 )
 from cad.checks.units import Force, Length
-from cad.frozen import FrozenArbitrary
+from cad.frozen import Frozen
 from cad.tables.materials import magnitude
 
 LoadCaseId = NewType("LoadCaseId", str)
@@ -22,7 +22,7 @@ MAX_HOLES: Final = 12
 type HoleCount = Annotated[int, Field(ge=1, le=MAX_HOLES)]
 
 
-class Holes(FrozenArbitrary):
+class Holes(Frozen):
     """Bolted or screwed through exactly `count` holes, of this bore diameter when given."""
 
     kind: Literal["holes"] = "holes"
@@ -30,13 +30,13 @@ class Holes(FrozenArbitrary):
     diameter: Length | None = None
 
 
-class LargestFlat(FrozenArbitrary):
+class LargestFlat(Frozen):
     """Glued down or sitting on its largest flat face."""
 
     kind: Literal["largest_flat"] = "largest_flat"
 
 
-class FlatEnd(FrozenArbitrary):
+class FlatEnd(Frozen):
     """Fixed at the flat face across one end of its long axis."""
 
     kind: Literal["flat_end"] = "flat_end"
@@ -52,26 +52,26 @@ class Axis(StrEnum):
     """The common axis direction of the support holes, so only with a `Holes` support."""
 
 
-class Along(FrozenArbitrary):
+class Along(Frozen):
     kind: Literal["along"] = "along"
     axis: Axis
 
 
-class Across(FrozenArbitrary):
+class Across(Frozen):
     """Any direction in the plane normal to the axis."""
 
     kind: Literal["across"] = "across"
     axis: Axis
 
 
-class AnyWay(FrozenArbitrary):
+class AnyWay(Frozen):
     kind: Literal["any"] = "any"
 
 
 type Direction = Annotated[Along | Across | AnyWay, Field(discriminator="kind")]
 
 
-class FarEnd(FrozenArbitrary):
+class FarEnd(Frozen):
     """At the end farthest from the supports."""
 
     kind: Literal["far_end"] = "far_end"
@@ -79,7 +79,7 @@ class FarEnd(FrozenArbitrary):
     direction: Direction
 
 
-class OnHoles(FrozenArbitrary):
+class OnHoles(Frozen):
     """Hangs from exactly `count` holes that are not supports."""
 
     kind: Literal["on_holes"] = "on_holes"
@@ -92,7 +92,7 @@ class OnHoles(FrozenArbitrary):
 type Load = Annotated[FarEnd | OnHoles, Field(discriminator="kind")]
 
 
-class LoadCase(FrozenArbitrary):
+class LoadCase(Frozen):
     support: Support
     load: Load
 

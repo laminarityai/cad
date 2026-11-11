@@ -5,7 +5,7 @@ from typing import Annotated, Literal, TypedDict, cast
 import pint
 from pydantic import Field, PlainSerializer, PlainValidator
 
-from cad.frozen import FrozenArbitrary
+from cad.frozen import Frozen
 from cad.tables.materials import UNITS, Source
 
 
@@ -47,19 +47,19 @@ type Measured = Annotated[
 ]
 
 
-class Measure(FrozenArbitrary):
+class Measure(Frozen):
     name: str
     value: Measured
 
 
-class ReadCited(FrozenArbitrary):
+class ReadCited(Frozen):
     """The check read a value that a reviewed row in git cites; `sources` names the row's source."""
 
     kind: Literal["cited"] = "cited"
     field: str
 
 
-class ReadResearched(FrozenArbitrary):
+class ReadResearched(Frozen):
     """The check read a value the server fetched and read from `quote` on the page at `url`
     (ADR-0009). `sha256` hashes the page as fetched. A result that rests on it is researched."""
 
@@ -70,7 +70,7 @@ class ReadResearched(FrozenArbitrary):
     sha256: str
 
 
-class ReadMissing(FrozenArbitrary):
+class ReadMissing(Frozen):
     """The table has no value for the field, so the check read none."""
 
     kind: Literal["missing"] = "missing"
@@ -81,7 +81,7 @@ class ReadMissing(FrozenArbitrary):
 type Read = Annotated[ReadCited | ReadResearched | ReadMissing, Field(discriminator="kind")]
 
 
-class CheckResult(FrozenArbitrary):
+class CheckResult(Frozen):
     check_id: str
     verdict: Verdict
     measured: tuple[Measure, ...]
@@ -103,12 +103,12 @@ class CheckResult(FrozenArbitrary):
         return float(self.value(name).m_as(unit))  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
 
 
-class StepStored(FrozenArbitrary):
+class StepStored(Frozen):
     kind: Literal["stored"] = "stored"
     sha256: str
 
 
-class StepMissing(FrozenArbitrary):
+class StepMissing(Frozen):
     kind: Literal["missing"] = "missing"
     reason: str
 
@@ -116,7 +116,7 @@ class StepMissing(FrozenArbitrary):
 type Step = Annotated[StepStored | StepMissing, Field(discriminator="kind")]
 
 
-class CheckRun(FrozenArbitrary):
+class CheckRun(Frozen):
     """One `run_checks` call. Holds the hashes that make "checks measured what the user gets"
     auditable: `step` is the STEP derived from the BREP whose hash is `brep_sha256`, or why there is
     none, and `check_image_digest` is the analysis image the check container ran, whatever
