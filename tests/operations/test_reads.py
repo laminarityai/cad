@@ -19,13 +19,14 @@ from cad.operations.briefs import (
     create_brief,
     propose_requirements,
 )
-from cad.operations.confirmation import AskToConfirmInput, ask_to_confirm, waiting
+from cad.operations.confirmation import AskToConfirmInput, ask_to_confirm
 from cad.operations.model import Tenant
 from cad.operations.server import NoArguments
 from cad.projects.model import UnknownProject
 from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.outcome import Build, Built
 from cad.variant_sets import store as variant_sets
+from cad.variant_sets.model import MaterialChoice
 from cad.variants import entry
 from cad.variants.entry import UnknownVariant
 from tests.conftest import local_pages
@@ -123,19 +124,6 @@ async def test_a_confirmed_proposal_shows_in_the_project(alice: Tenant) -> None:
 def test_an_unknown_project_is_refused(alice: Tenant) -> None:
     with pytest.raises(UnknownProject):
         reads.project(alice, reads.ProjectInput(project_id="p-" + "0" * 16))
-    with pytest.raises(UnknownProject):
-        waiting(alice, AskToConfirmInput(project_id="p-" + "0" * 16))
-
-
-async def test_waiting_lists_what_another_brief_of_the_project_waits_on(alice: Tenant) -> None:
-    project, _ = await confirmed(alice)
-    assert waiting(alice, AskToConfirmInput(project_id=project)).items == ()
-    _, second = proposed(alice, project)
-    [item] = waiting(alice, AskToConfirmInput(project_id=project)).items
-    assert (item.kind, item.brief_id, item.brief_text) == ("requirements", second, TEXT)
-    assert [(row.headline, row.quote) for row in item.rows] == [
-        ("Mass at most 150 g", "under 150 g")
-    ]
 
 
 async def test_the_variant_set_lists_slots_with_their_revisions(alice: Tenant) -> None:
@@ -156,12 +144,19 @@ async def test_the_variant_set_lists_slots_with_their_revisions(alice: Tenant) -
     assert seen.decision_sha256 == variant_sets.confirmed_key(alice.roots, brief).decision_sha256
 
 
-async def test_a_member_never_scored_has_no_card_etag(alice: Tenant) -> None:
+async def test_a_member_never_scored_has_no_card_etag_and_names_its_material(
+    alice: Tenant,
+) -> None:
     project, brief = await confirmed(alice)
-    joined(alice, brief, "result = 1")
+    vid = built(alice, "result = 1")
+    key = variant_sets.confirmed_key(alice.roots, brief)
+    choice = MaterialChoice(key="prusament-pla", reason="light")
+    variant_sets.join(
+        alice.roots.projects, key, "result = 1", entry.VariantId(vid), None, lambda _: choice
+    )
     asked = reads.VariantSetInput(project_id=project, brief_id=brief, material_key="prusament-pla")
     [member] = reads.variant_set(alice, asked).members
-    assert member.card_etag is None
+    assert (member.card_etag, member.material_name) == (None, "Prusament PLA")
 
 
 async def test_an_unconfirmed_brief_has_an_empty_set(alice: Tenant) -> None:

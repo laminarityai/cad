@@ -2,15 +2,19 @@ from __future__ import annotations
 
 import hashlib
 import html
-from typing import TYPE_CHECKING, Any
+from types import SimpleNamespace
+from typing import TYPE_CHECKING, Any, cast
 
 import pytest
 
 from cad.context_parts.store import confirmed_parts, part_brep
+from cad.operations import reads
 from cad.projects.model import ProjectId
 
 if TYPE_CHECKING:
     from conftest import Session
+
+    from cad.operations.model import Tenant
 
 pytestmark = pytest.mark.anyio
 TEXT = "A clip that slides onto the rail, at least 0.2 mm clear of it, under 150 g"
@@ -54,11 +58,21 @@ async def test_a_proposed_part_waits_on_the_page_beside_the_requirements(s: Sess
     assert status == 200
     assert body.count('<section class="item">') == 2
     assert "Item 2. A part your design must fit with" in body
-    assert f"rail, from variant {vid}: a box of 30 by 20 by 10 mm, volume 6000 mm³" in body
+    assert "rail: a box of 30 by 20 by 10 mm" in body
     assert '<q class="origin">the rail</q>' in body
     assert "The fit check fails a variant that overlaps it and measures the clearance" in body
     assert 'name="edit-1-' not in body
     assert 'name="edit-0-' in body
+    reader = cast("Tenant", SimpleNamespace(roots=s.roots))
+    [shown] = reads.project(
+        reader, reads.ProjectInput(project_id=created["project_id"])
+    ).context_parts
+    assert (shown.name, shown.variant_id, shown.outcome, shown.size_mm) == (
+        "rail",
+        vid,
+        "waiting",
+        (30, 20, 10),
+    )
 
 
 async def test_one_click_confirms_the_requirements_and_the_part(s: Session) -> None:
