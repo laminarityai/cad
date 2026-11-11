@@ -28,12 +28,31 @@ NO_NODE = (
 )
 
 
+def packages(lock: Path) -> dict[str, dict[str, object]]:
+    document: dict[str, dict[str, dict[str, object]]] = json.loads(lock.read_text())
+    return {path: entry for path, entry in document["packages"].items() if path}
+
+
+def install_matches_lock() -> bool:
+    """Whether `node_modules` holds what the lock says, judged by content, never by mtime.
+
+    A fresh worktree checks the lock out with a new mtime. npm writes `.package-lock.json` as the
+    lock's `packages` map without the root entry, and without the optional packages built for
+    another platform, so every lock entry must be installed unless it is optional.
+    """
+    if not GENERATOR.exists():
+        return False
+    try:
+        wanted, installed = packages(LOCK), packages(INSTALLED)
+    except (OSError, ValueError, KeyError):
+        return False
+    return all(wanted.get(path) == entry for path, entry in installed.items()) and all(
+        path in installed or entry.get("optional") is True for path, entry in wanted.items()
+    )
+
+
 def install_if_stale() -> None:
-    if (
-        INSTALLED.exists()
-        and GENERATOR.exists()
-        and INSTALLED.stat().st_mtime >= LOCK.stat().st_mtime
-    ):
+    if install_matches_lock():
         return
     subprocess.run(
         ["npm", "ci", "--no-audit", "--no-fund", "--prefix", str(WEB)],
