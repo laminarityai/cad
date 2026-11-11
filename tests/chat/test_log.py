@@ -52,7 +52,10 @@ async def test_a_waiter_wakes_for_the_next_append(tmp_path: Path) -> None:
 
 def test_a_server_sent_event_carries_the_seq_as_its_id(tmp_path: Path) -> None:
     stamped = Channel(tmp_path / "c1.jsonl").append(UserSaid(text="hi"))
-    assert line(stamped) == 'id: 1\nevent: user\ndata: {"kind":"user","text":"hi"}\n\n'
+    assert (
+        line(stamped)
+        == 'id: 1\nevent: user\ndata: {"kind":"user","text":"hi","selection":null}\n\n'
+    )
 
 
 def test_the_model_sees_calls_with_their_results_in_order() -> None:

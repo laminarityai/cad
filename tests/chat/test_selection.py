@@ -7,6 +7,7 @@ import pytest
 from cad.accounts.principal import AccountId
 from cad.chat.log import person_said
 from cad.chat.model import Message, Model, Text, ToolSpec
+from cad.conversations.model import ConversationId
 from cad.operations.model import Tenant
 from tests.chat.support import ALICE, JSON, Chat, script, step
 from tests.selections.support import TOP, confirmed, joined, stored_mesh
@@ -87,7 +88,9 @@ async def test_a_message_with_a_pick_carries_a_signed_selection_to_the_agent(
     assert block.startswith("make this thicker\n\n[server: the person selected 1 face of slot 1")
     assert f"read_selection with {note['selection_id']}" in block
     tenant = chat.tenants.of(AccountId(ALICE))
-    assert [text for _, text in person_said(tenant.conversations, cid)] == ["make this thicker"]
+    assert [text for _, text in person_said(tenant.conversations, ConversationId(cid))] == [
+        "make this thicker"
+    ]
 
 
 async def test_a_pick_the_geometry_does_not_hold_is_refused_and_nothing_is_said(
