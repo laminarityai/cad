@@ -20,6 +20,8 @@ from pydantic import (
     model_validator,
 )
 
+from cad.errors import Refused
+
 MAX_PICKS: Final = 64
 SELECTION_ID: Final = re.compile(r"^sel-[0-9a-f]{16}$")
 
@@ -27,11 +29,11 @@ SelectionId = NewType("SelectionId", str)
 type Vec = tuple[float, float, float]
 
 
-class SelectionRefused(Exception):
+class SelectionRefused(Refused):
     """The viewer's pick does not resolve against the revision it names. Nothing was signed."""
 
 
-class UnknownSelection(Exception):
+class UnknownSelection(Refused):
     pass
 
 

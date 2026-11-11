@@ -7,6 +7,7 @@ from typing import Annotated, Final, Literal
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from cad.briefs.model import BriefId
+from cad.errors import Refused
 from cad.projects.model import ProjectId
 from cad.variants.entry import VariantId, variant_id
 from cad.variants.store import BuildResult
@@ -14,7 +15,7 @@ from cad.variants.store import BuildResult
 MAX_MEMBERS: Final = 5
 
 
-class SetRefused(Exception):
+class SetRefused(Refused):
     pass
 
 

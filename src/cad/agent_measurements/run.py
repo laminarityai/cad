@@ -17,7 +17,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from cad.agent_measurements.script import MARK, compose
 from cad.briefs.model import Unchecked
-from cad.briefs.store import BriefRefused, ConfirmedSet
+from cad.briefs.store import ConfirmedSet
+from cad.errors import Refused
 from cad.sandbox import host, image
 from cad.sandbox.outcome import (
     BuildFailed,
@@ -59,7 +60,7 @@ class OwnMeasurementRequest(BaseModel):
 type OwnMeasurements = Annotated[list[OwnMeasurementRequest], Field(max_length=MAX_SNIPPETS)]
 
 
-class MeasurementRefused(BriefRefused):
+class MeasurementRefused(Refused):
     pass
 
 

@@ -24,17 +24,10 @@ from starlette.routing import Route
 
 from cad.checks.jobs import JobSpec
 from cad.checks.lanes import LANES, Listener
+from cad.errors import Refused, Unavailable
 from cad.operations.model import Tenant
-from cad.operations.routes import (
-    CHALLENGE,
-    NOT_FOUND,
-    PersonOf,
-    TenantOf,
-    refuse,
-    session_token,
-)
+from cad.operations.routes import CHALLENGE, PersonOf, TenantOf, refusal, refuse, session_token
 from cad.operations.scorecards import ScorecardInput, names_a_material, scorecard
-from cad.operations.tools import REFUSALS, UNAVAILABLE
 from cad.sandbox.meter import metered
 from cad.scorecard.material import ScorecardSnapshot
 from cad.scorecard.score import NotScored
@@ -110,10 +103,9 @@ def events_route(
         except BaseException as error:
             if unsubscribe is not None:
                 unsubscribe()
-            answer = _refusal(error)
-            if answer is None:
+            if not isinstance(error, Refused | Unavailable):
                 raise
-            return answer
+            return refusal(error)
         return StreamingResponse(
             _events(
                 read,
@@ -128,16 +120,6 @@ def events_route(
         )
 
     return Route(EVENTS_PATH, endpoint, methods=["GET"], name="scorecard_events")
-
-
-def _refusal(error: BaseException) -> Response | None:
-    if isinstance(error, NOT_FOUND):
-        return refuse(404, f"{type(error).__name__}: {error}")
-    if isinstance(error, REFUSALS):
-        return refuse(400, f"{type(error).__name__}: {error}")
-    if isinstance(error, UNAVAILABLE):
-        return refuse(503, str(error))
-    return None
 
 
 async def _events(
@@ -165,7 +147,7 @@ async def _events(
                 return
             try:
                 card = await read()
-            except (*NOT_FOUND, *REFUSALS, *UNAVAILABLE) as refused:
+            except (Refused, Unavailable) as refused:
                 yield f"event: refused\ndata: {type(refused).__name__}\n\n"
                 return
     finally:

@@ -6,8 +6,9 @@ from typing import Annotated, Final, Literal, Self
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
 
 from cad.briefs.model import MadeOf, Requirement
-from cad.briefs.store import BriefRefused, ConfirmedSet
+from cad.briefs.store import ConfirmedSet
 from cad.briefs.words import describe
+from cad.errors import Refused
 from cad.research.requests import ResearchRequest
 from cad.scorecard.model import Scorecard
 from cad.tables.materials import PROJECT_PREFIX, MaterialsTable
@@ -19,7 +20,7 @@ AGENT_CHOSE: Final = (
 )
 
 
-class MaterialPinned(BriefRefused):
+class MaterialPinned(Refused):
     pass
 
 

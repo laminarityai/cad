@@ -12,6 +12,7 @@ from typing import Final, NewType, Self
 
 from pydantic import model_validator
 
+from cad.errors import NotFound, Refused
 from cad.sandbox.outcome import Build, Built, SandboxUnavailable
 from cad.variants import key
 
@@ -32,11 +33,11 @@ VariantId = NewType("VariantId", str)
 LOG = logging.getLogger(__name__)
 
 
-class VariantRefused(Exception):
+class VariantRefused(Refused):
     pass
 
 
-class UnknownVariant(VariantRefused):
+class UnknownVariant(VariantRefused, NotFound):
     pass
 
 

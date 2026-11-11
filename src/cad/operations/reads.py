@@ -17,7 +17,7 @@ from cad.operations.server import NoArguments
 from cad.projects.membership import stored_projects
 from cad.projects.model import UnknownProject, parse_project_id
 from cad.sandbox import image
-from cad.scorecard import material
+from cad.scorecard import material, score
 from cad.scorecard.material import MaterialUse
 from cad.tables.materials import MaterialsTable
 from cad.variant_sets import store as variant_sets
@@ -250,7 +250,7 @@ def _etag(tenant: Tenant, brief_id: str, material_key: str | None, variant_id: s
     asked = ScorecardInput(variant_id=variant_id, material_key=material_key, brief_id=brief_id)
     try:
         return scorecard(tenant, asked).etag
-    except entry.VariantRefused:
+    except (entry.VariantRefused, score.NotScored):
         return None
 
 

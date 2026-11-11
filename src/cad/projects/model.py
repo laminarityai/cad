@@ -2,6 +2,8 @@ import re
 import secrets
 from typing import Final, NewType
 
+from cad.errors import NotFound, Refused
+
 ProjectId = NewType("ProjectId", str)
 NewProjectId = NewType("NewProjectId", ProjectId)
 NEW_PROJECT_ID: Final = re.compile(r"^p-[0-9a-f]{16}$")
@@ -10,11 +12,11 @@ PROJECT_ID_CHARS: Final = 19
 LEGACY: Final = "pb-"
 
 
-class ProjectRefused(Exception):
+class ProjectRefused(Refused):
     pass
 
 
-class UnknownProject(ProjectRefused):
+class UnknownProject(ProjectRefused, NotFound):
     pass
 
 
