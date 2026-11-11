@@ -6,11 +6,11 @@ from mcp import Client
 from mcp.server import MCPServer
 from pydantic import BaseModel
 
-from cad.accounts.tenants import open_tenant
 from cad.confirmations.waiting import Door
 from cad.context_parts.ingest import ingest
 from cad.operations.model import BOTH, Audience, Input, Tenant, operation
 from cad.operations.registry import OPERATIONS
+from cad.operations.tenants import open_tenant
 from cad.operations.tools import TenantOf, agent_operations, tools
 from cad.records.roots import Roots
 from cad.server.app import LOCAL, build_server

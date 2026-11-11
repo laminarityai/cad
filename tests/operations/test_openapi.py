@@ -8,7 +8,6 @@ import pytest
 from starlette.routing import Route
 
 from cad.accounts.local import LocalIssuer
-from cad.accounts.tenants import Tenants
 from cad.confirmations.waiting import Door
 from cad.confirmations.web import LocalSignIn
 from cad.context_parts.ingest import ingest
@@ -17,6 +16,7 @@ from cad.operations.openapi import Described, Json, document, from_registry
 from cad.operations.outside import HAND_DESCRIBED, every_route
 from cad.operations.reads import VariantInput, VariantView
 from cad.operations.registry import OPERATIONS, ROUTES
+from cad.operations.tenants import Tenants
 from cad.server.hosted import build_app
 
 ROOT = Path(__file__).resolve().parents[2]

@@ -121,7 +121,8 @@ async def test_the_read_answers_only_the_account_that_holds_the_conversation(
 ) -> None:
     async with chat.client() as alice, chat.client(BOB) as bob, chat.client(None) as nobody:
         cid = await chat.conversation(alice)
-        store.set_mode(chat.tenants.of(AccountId(ALICE)), ConversationId(cid), Mode.DESIGN)
+        tenant = chat.tenants.of(AccountId(ALICE))
+        store.set_mode(tenant.roots, tenant.conversations, ConversationId(cid), Mode.DESIGN)
         own = await alice.get(f"/v1/conversations/{cid}")
         other = await bob.get(f"/v1/conversations/{cid}")
         unknown = await alice.get("/v1/conversations/c_0000000000000000")

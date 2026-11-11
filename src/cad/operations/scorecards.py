@@ -190,11 +190,13 @@ def judged(
 
 
 def score_variant(tenant: Tenant, arguments: ScoreVariantInput) -> material.ReportedScorecard:
-    gate(tenant, arguments.brief_id)
+    gate(tenant.roots, tenant.conversations, tenant.auto_run, tenant.mode, arguments.brief_id)
     basis = judged(tenant, arguments.brief_id, arguments.material_key, arguments.variant_id)
     if arguments.own_measurements:
         own.refuse_unless_unchecked(basis.confirmed, arguments.own_measurements)
-    with stops_at_the_limit(tenant, arguments.variant_id):
+    with stops_at_the_limit(
+        tenant.roots, tenant.conversations, tenant.auto_run, arguments.variant_id
+    ):
         scored = score.score_variant(
             arguments.variant_id,
             basis.material_key,

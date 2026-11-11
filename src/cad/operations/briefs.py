@@ -199,7 +199,7 @@ class ListRequirementsInput(Input):
 
 
 def create_brief(tenant: Tenant, arguments: CreateBriefInput) -> BriefCreated:
-    first = source.first_words(tenant, arguments.text)
+    first = source.first_words(tenant.conversations, tenant.conversation, arguments.text)
     cid = tenant.conversation
     asked = arguments.project_id
     if asked is None and cid is not None:
@@ -209,7 +209,7 @@ def create_brief(tenant: Tenant, arguments: CreateBriefInput) -> BriefCreated:
         tenant.roots, first.text, project, first.transcript_seq, arguments.name
     )
     if cid is not None:
-        conversations.started(tenant, cid, project)
+        conversations.started(tenant.conversations, cid, project)
     return BriefCreated(brief_id=brief.id, project_id=project, text=brief.text)
 
 
@@ -221,7 +221,7 @@ def _project_of(tenant: Tenant, cid: ConversationId) -> str | None:
 
 
 def propose_requirements(tenant: Tenant, arguments: ProposeRequirementsInput) -> Proposed:
-    words = source.later_words(tenant, arguments.said)
+    words = source.later_words(tenant.conversations, tenant.conversation, arguments.said)
     drafts = [store.Draft(target=r.target, quote=r.quote) for r in arguments.requirements]
     project = store.read_brief(tenant.roots, arguments.brief_id).project
     clearances.check_proposed(

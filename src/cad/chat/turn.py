@@ -18,7 +18,6 @@ from mcp import Client
 from mcp.server import MCPServer
 
 from cad.accounts.principal import AgentToken, PersonSession
-from cad.accounts.tenants import Tenants
 from cad.briefs import store as briefs
 from cad.chat import answer_driver
 from cad.chat.auto_driver import AutoDriver
@@ -38,6 +37,7 @@ from cad.conversations.model import ConversationId, Mode
 from cad.operations.guidance import INSTRUCTIONS
 from cad.operations.model import Tenant
 from cad.operations.registry import OPERATIONS
+from cad.operations.tenants import Tenants, bind
 from cad.operations.tools import tools
 from cad.projects.membership import project_briefs
 from cad.projects.model import ProjectId
@@ -126,7 +126,7 @@ async def run_turn(model: Model, tenants: Tenants, token: AgentToken, channel: C
 
 async def _converse(model: Model, tenants: Tenants, token: AgentToken, channel: Channel) -> None:
     def tenant_of() -> Tenant:
-        return store.bind(tenants.of(token.account), token.conversation)
+        return bind(tenants.of(token.account), token.conversation)
 
     server = MCPServer("cad", instructions=INSTRUCTIONS, tools=tools(tenant_of, OPERATIONS))
     async with Client(server) as client:

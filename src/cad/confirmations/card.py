@@ -9,8 +9,8 @@ from cad.confirmations import snapshot
 from cad.confirmations.answers import ItemKindName
 from cad.confirmations.items import pending
 from cad.confirmations.registry import kinds
-from cad.operations.model import Tenant
 from cad.projects.model import ProjectId
+from cad.records.roots import Roots
 
 
 class CardEditable(BaseModel):
@@ -43,12 +43,12 @@ class ProjectArguments(BaseModel):
     project_id: str
 
 
-def card(person: PersonSession, tenant: Tenant, project: ProjectId) -> ConfirmationCard:
-    every = kinds(tenant.roots)
+def card(person: PersonSession, roots: Roots, project: ProjectId) -> ConfirmationCard:
+    every = kinds(roots)
     refs = pending(every, project)
     if not refs:
         return ConfirmationCard(snapshot=None, items=())
-    sealed = snapshot.seal(tenant.roots.projects, person, project, refs)
+    sealed = snapshot.seal(roots.projects, person, project, refs)
     items: list[CardItem] = []
     for ref in refs:
         section = every[ref.kind].section(ref)

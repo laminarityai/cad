@@ -3,10 +3,10 @@ from pathlib import Path
 import pytest
 
 from cad.accounts.principal import AccountId
-from cad.accounts.tenants import Tenants
 from cad.confirmations.waiting import Door
 from cad.context_parts.ingest import ingest
 from cad.operations.model import Tenant
+from cad.operations.tenants import Tenants
 from tests.conftest import Person, local_pages
 
 

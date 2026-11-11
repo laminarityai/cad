@@ -11,6 +11,7 @@ from cad.auto.model import Running, RunStopped, Stopped, StoppedByPerson
 from cad.conversations import store
 from cad.conversations.model import ConversationId, Mode
 from cad.operations.registry import OPERATIONS
+from cad.operations.tenants import bind
 from cad.operations.tools import tools
 from cad.operations.variants import BuildVariantInput, build_variant
 
@@ -40,7 +41,7 @@ async def running(s: Session) -> tuple[str, str]:
 
 
 async def refusal_in(s: Session, cid: ConversationId, tool: str, **arguments: object) -> str:
-    served = tools(lambda: store.bind(s.tenant, cid), OPERATIONS)
+    served = tools(lambda: bind(s.tenant, cid), OPERATIONS)
     async with Client(MCPServer("cad", tools=served)) as client:
         result = await client.call_tool(tool, dict(arguments))
     assert result.is_error, result.structured_content
@@ -71,7 +72,7 @@ async def test_a_build_under_the_conversations_run_is_charged_once(s: Session) -
 
 async def test_the_person_leaving_auto_stops_the_next_build(s: Session, started: list[str]) -> None:
     _, run_id = await running(s)
-    store.set_mode(s.tenant, s.conversation, Mode.DESIGN)
+    store.set_mode(s.tenant.roots, s.tenant.conversations, s.conversation, Mode.DESIGN)
     run = s.run(run_id)
     assert isinstance(run.state, Stopped)
     assert isinstance(run.state.reason, StoppedByPerson)
@@ -84,7 +85,7 @@ async def test_the_person_leaving_auto_stops_the_next_build(s: Session, started:
 async def test_build_variant_is_refused_in_plan_mode_before_anything_starts(
     s: Session, started: list[str]
 ) -> None:
-    store.set_mode(s.tenant, s.conversation, Mode.PLAN)
+    store.set_mode(s.tenant.roots, s.tenant.conversations, s.conversation, Mode.PLAN)
     text = await s.refusal("build_variant", code=PLATE)
     assert PLAN_REFUSAL in text
     assert (started, s.meter.asked) == ([], [])
@@ -93,7 +94,7 @@ async def test_build_variant_is_refused_in_plan_mode_before_anything_starts(
 async def test_build_variant_in_design_mode_reaches_the_sandbox(
     s: Session, started: list[str]
 ) -> None:
-    store.set_mode(s.tenant, s.conversation, Mode.DESIGN)
+    store.set_mode(s.tenant.roots, s.tenant.conversations, s.conversation, Mode.DESIGN)
     text = await s.refusal("build_variant", code=PLATE)
     assert "this test starts no container" in text
     assert (len(started), s.meter.asked) == (1, ["build"])
@@ -103,10 +104,10 @@ async def test_two_conversations_of_one_account_never_leak_a_mode(
     s: Session, started: list[str]
 ) -> None:
     planning, designing = ConversationId("c-plan"), ConversationId("c-design")
-    store.create(s.tenant, planning)
-    store.create(s.tenant, designing)
-    store.set_mode(s.tenant, planning, Mode.PLAN)
-    store.set_mode(s.tenant, designing, Mode.DESIGN)
+    store.create(s.tenant.conversations, planning)
+    store.create(s.tenant.conversations, designing)
+    store.set_mode(s.tenant.roots, s.tenant.conversations, planning, Mode.PLAN)
+    store.set_mode(s.tenant.roots, s.tenant.conversations, designing, Mode.DESIGN)
     for round_ in range(5):
         in_plan = await refusal_in(s, planning, "build_variant", code=PLATE)
         in_design = await refusal_in(s, designing, "build_variant", code=PLATE + f"# {round_}\n")
@@ -120,8 +121,8 @@ async def test_auto_mode_with_no_run_refuses_a_build_and_a_score(
     s: Session, started: list[str]
 ) -> None:
     fresh = ConversationId("c-fresh")
-    store.create(s.tenant, fresh)
-    store.set_mode(s.tenant, fresh, Mode.AUTO)
+    store.create(s.tenant.conversations, fresh)
+    store.set_mode(s.tenant.roots, s.tenant.conversations, fresh, Mode.AUTO)
     score = {"variant_id": "0" * 16, "material_key": "prusament-pla"}
     for text in (
         await refusal_in(s, fresh, "build_variant", code=PLATE),
@@ -152,8 +153,8 @@ async def test_only_the_conversation_that_started_a_run_can_revise_or_ask(
 ) -> None:
     _, run_id = await running(s)
     designing = ConversationId("c2")
-    store.create(s.tenant, designing)
-    store.set_mode(s.tenant, designing, Mode.DESIGN)
+    store.create(s.tenant.conversations, designing)
+    store.set_mode(s.tenant.roots, s.tenant.conversations, designing, Mode.DESIGN)
     revise = {"run_id": run_id, "code": PLATE}
     ask = {"run_id": run_id, "note": "not mine"}
     for text in (
@@ -172,8 +173,8 @@ async def test_another_auto_conversation_cannot_take_a_running_run_on_its_brief(
 ) -> None:
     brief_id, run_id = await running(s)
     third = ConversationId("c3")
-    store.create(s.tenant, third)
-    store.set_mode(s.tenant, third, Mode.AUTO)
+    store.create(s.tenant.conversations, third)
+    store.set_mode(s.tenant.roots, s.tenant.conversations, third, Mode.AUTO)
     start = {
         "brief_id": brief_id,
         "material_key": "prusament-pla",
@@ -182,7 +183,7 @@ async def test_another_auto_conversation_cannot_take_a_running_run_on_its_brief(
     text = await refusal_in(s, third, "auto_start", **start)
     assert f"RunNotHeld: brief {brief_id} has Auto run {run_id} in another" in text
     assert store.read(s.tenant.conversations, third).auto_run is None
-    store.set_mode(s.tenant, third, Mode.PLAN)
+    store.set_mode(s.tenant.roots, s.tenant.conversations, third, Mode.PLAN)
     assert isinstance(s.run(run_id).state, Running)
     assert store.read(s.tenant.conversations, s.conversation).auto_run == run_id
 
@@ -191,9 +192,9 @@ async def test_a_run_another_conversation_stopped_leaves_its_brief_free(s: Sessi
     brief_id, run_id = await running(s)
     await s.call("auto_ask", run_id=run_id, note="stuck")
     third = ConversationId("c3")
-    store.create(s.tenant, third)
-    store.set_mode(s.tenant, third, Mode.AUTO)
-    served = tools(lambda: store.bind(s.tenant, third), OPERATIONS)
+    store.create(s.tenant.conversations, third)
+    store.set_mode(s.tenant.roots, s.tenant.conversations, third, Mode.AUTO)
+    served = tools(lambda: bind(s.tenant, third), OPERATIONS)
     async with Client(MCPServer("cad", tools=served)) as client:
         result = await client.call_tool(
             "auto_start",

@@ -117,7 +117,7 @@ def settle(tenant: Tenant, events: Sequence[Event], call: ToolUse, result: ToolR
     ledger = read_ledger(tenant.roots.projects, project)
     new = [page for _, page in ledger.answers[before : asked.answers_recorded]]
     if confirms_requirements(new):
-        store.confirmed(tenant, tenant.conversation)
+        store.confirmed(tenant.conversations, tenant.conversation)
 
 
 def _ask_calls(events: Sequence[Event]) -> frozenset[str]:

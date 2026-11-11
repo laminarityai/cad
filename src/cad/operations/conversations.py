@@ -65,13 +65,13 @@ def conversation(tenant: Tenant, arguments: ConversationInput) -> ConversationVi
         auto_run=held.auto_run,
         project_id=held.project_id,
         brief_id=held.brief_id,
-        run=store.last_run(tenant, held),
+        run=store.last_run(tenant.roots, held),
     )
 
 
 def set_mode(tenant: Tenant, arguments: SetModeInput) -> ConversationState:
     cid = _parsed(arguments.conversation_id)
-    held = store.set_mode(tenant, cid, arguments.mode)
+    held = store.set_mode(tenant.roots, tenant.conversations, cid, arguments.mode)
     return ConversationState(conversation_id=cid, mode=held.mode, auto_run=held.auto_run)
 
 

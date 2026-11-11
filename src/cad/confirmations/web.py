@@ -225,7 +225,7 @@ def confirm_routes(
         if tenant.account != person.account or not project_briefs(tenant.roots, project):
             return _json_error(404, NO_PROJECT)
         try:
-            found = await anyio.to_thread.run_sync(card, person, tenant, project)
+            found = await anyio.to_thread.run_sync(card, person, tenant.roots, project)
         except STORE_FAILURES as error:
             LOG.error("the confirmation card could not be read: %s", type(error).__name__)
             return _json_error(500, REFUSED)
