@@ -15,7 +15,13 @@ Run the tests for the directory you changed, on four workers:
 uv run pytest -q -x -n 4 --dist loadfile tests/<feature>
 ```
 
-Most directories take seconds. The ones that start sandbox containers take minutes. `tests/shard_seconds.json` records over 80 s each for `tests/checks` (about 290 s), `tests/variant_sets`, `tests/briefs`, `tests/agent_measurements`, `tests/sandbox`, `tests/fea` and `tests/scorecard`. In those, run the one file you changed.
+Most directories take seconds. Tests that start a sandbox container take minutes, and each carries `pytest.mark.docker`. Leave them out while you iterate:
+
+```
+uv run pytest -q -x -n 4 --dist loadfile -m "not docker" tests/<feature>
+```
+
+That runs 1651 of the 1898 tests. A test that starts a container without the mark fails and names the mark, so the loop never needs Docker. When your change touches a docker test, run its one file. `tests/shard_seconds.json` records the seconds of each slow file.
 
 Run the web tests when you change `web/`:
 
@@ -25,7 +31,7 @@ uv run verify --only "web test"
 
 ## Before you push
 
-Run the fast steps. They run side by side and take about 15 seconds. The pre-commit hooks run the type checks, lint, format, file size and materials table steps on every commit. They run `api types`, the web steps and `protocol models` only when the commit changes the files `.pre-commit-config.yaml` names for each. The other slow steps run only in CI:
+Run the fast steps. They run side by side and take about 12 seconds. A fast step whose inputs match its last pass is skipped and prints `skip <step>`, so a run after a Python-only edit takes about 7 seconds and a run on an unchanged tree under 1 second. `--no-cache` runs every step, and CI never skips one. The pre-commit hooks run the type checks, lint, format, file size and materials table steps on every commit, and `api types` and the web steps when the files `.pre-commit-config.yaml` names for each change. `protocol models` runs TLC only when the commit changes a file its coverage block lists. The other slow steps run only in CI:
 
 ```
 uv run verify
@@ -47,7 +53,7 @@ When a check fails, read its log with `gh run view <run-id> --log-failed`, fix i
 
 ## Live proof
 
-Do one live walk per PR, at the end, after the code is final. A live walk costs minutes and model money. Prove a fix made after the walk with the cheapest path in the [verify skill](../verify/SKILL.md) cost table, not with a second full walk.
+Do one live walk per PR, at the end, after the code is final. Walk on one warm `cad-http` with `cad-call --url`, as the [verify skill](../verify/SKILL.md) shows: a call there takes about 0.5 seconds, against 2 to 8 over stdio. A live walk costs minutes and model money. Prove a fix made after the walk with the cheapest path in the [verify skill](../verify/SKILL.md) cost table, not with a second full walk.
 
 ## Never wait on another agent's PR
 
