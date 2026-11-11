@@ -10,11 +10,12 @@ from typing import Final, NewType, Self
 
 from pydantic import model_validator
 
+from cad.data_root import DATA_ROOT
 from cad.errors import NotFound, Refused
 from cad.records import files, key
 from cad.sandbox.outcome import Build, Built, SandboxUnavailable
 
-VARIANTS_ROOT: Final = Path.home() / ".cad" / "variants"
+VARIANTS_ROOT: Final = DATA_ROOT / "variants"
 CODE: Final = "code.py"
 MANIFEST: Final = "build.json"
 MAC: Final = "build.mac"

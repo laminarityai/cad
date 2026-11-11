@@ -12,13 +12,14 @@ from typing import Final
 from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
 
+from cad.data_root import DATA_ROOT
 from cad.sandbox.container import ReadOnlyMount
 
 SANDBOX_DIR: Final = Path(__file__).parent
 SRC_ROOT: Final = Path(__file__).parents[2]
 CONTAINER_ENTRY: Final = "cad.checks.container.runner"
 PACKAGE_PATH: Final = "cad/checks/container"
-STAGE_ROOT: Final = Path.home() / ".cad" / "stage"
+STAGE_ROOT: Final = DATA_ROOT / "stage"
 DIGEST_CHARS: Final = 16
 TARGET: Final = "/opt/trusted"
 BOOT: Final = (

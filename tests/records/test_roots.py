@@ -1,7 +1,8 @@
 from pathlib import Path
 
+from cad.data_root import DATA_ROOT
 from cad.geometry.store import GEOMETRY_ROOT
-from cad.records.roots import BRIEFS_ROOT, DATA_ROOT, HOME_ROOTS, PROJECTS_ROOT
+from cad.records.roots import BRIEFS_ROOT, HOME_ROOTS, PROJECTS_ROOT
 from cad.sandbox.stage import STAGE_ROOT
 from cad.variants.entry import VARIANTS_ROOT
 

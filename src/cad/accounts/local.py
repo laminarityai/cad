@@ -26,7 +26,7 @@ from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from cad.accounts.principal import account_id
 from cad.accounts.tokens import Issuer
 from cad.conversations.model import conversation_id
-from cad.records.roots import DATA_ROOT
+from cad.data_root import DATA_ROOT
 
 ISSUER_URL: Final = "http://127.0.0.1/cad-local-issuer"
 KEY_FILE: Final = "local-issuer.pem"

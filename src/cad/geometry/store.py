@@ -4,12 +4,13 @@ from typing import Final
 
 from pydantic import TypeAdapter, ValidationError
 
+from cad.data_root import DATA_ROOT
 from cad.geometry import job
 from cad.geometry.model import Stored
 from cad.records import files
 from cad.sandbox.outcome import SandboxUnavailable
 
-GEOMETRY_ROOT: Final = Path.home() / ".cad" / "geometry"
+GEOMETRY_ROOT: Final = DATA_ROOT / "geometry"
 SHA256: Final = re.compile(r"[0-9a-f]{64}")
 STORED: Final = TypeAdapter[Stored](Stored)
 
