@@ -158,7 +158,7 @@ async def test_the_page_says_a_made_of_fixes_the_material_and_gives_no_number_to
     status, page = s.get(s.person.url)
     assert status == 200
     assert "Fixes the material that scoring uses" in page
-    assert "Made of prusament-petg" in page
+    assert "Made of Prusament PETG" in page
     assert "unverified" not in page
 
 

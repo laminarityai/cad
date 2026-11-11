@@ -10,11 +10,15 @@ from cad.briefs.store import ProposalState, Status, TamperedBrief
 from cad.briefs.words import describe
 from cad.confirmations.answers import Edit, ItemKindName, ItemRef
 from cad.confirmations.items import Changes, Editable, Refused, Row, Section
+from cad.context_parts.store import stored_parts
 from cad.projects.membership import project_briefs
 from cad.projects.model import ProjectId
 from cad.records.roots import Roots
+from cad.research.overlay import project_table
+from cad.sandbox import host
 
 SLOT: Final = re.compile(r"([0-9a-f]{16})/proposal/([1-9][0-9]{0,3})")
+TITLE: Final = "Requirements for your brief"
 
 
 class Requirements:
@@ -35,17 +39,17 @@ class Requirements:
 
     def section(self, ref: ItemRef) -> Section:
         text, shown = self._shown(ref)
+        names = plain_names(self._roots, shown.proposal.brief_id)
         rows = tuple(
             Row(
-                headline=describe(r),
+                headline=describe(r, names),
                 quote=text[r.origin.start : r.origin.end],
                 decides=_decides(r.target),
                 editable=_editable(r),
             )
             for r in shown.proposal.requirements
         )
-        title = f"Requirements for your brief (proposal {shown.proposal.number})"
-        return Section(title=title, brief_id=shown.proposal.brief_id, context=text, rows=rows)
+        return Section(title=TITLE, brief_id=shown.proposal.brief_id, context=text, rows=rows)
 
     def edit(self, ref: ItemRef, edits: Sequence[Edit]) -> Refused | Changes:
         proposed = self._shown(ref)[1].proposal.requirements
@@ -68,6 +72,16 @@ class Requirements:
         if shown is None or shown.ref != ref:
             raise TamperedBrief(f"brief {state.brief.id} changed since the page opened")
         return state.brief.text, shown
+
+
+def plain_names(roots: Roots, brief_id: str) -> dict[str, str]:
+    """The names a person reads for what a brief's requirements name by id or key: each context
+    part of its project and each material of its table."""
+    project = store.read_brief(roots, brief_id).project
+    table = project_table(host.materials_table(), roots.projects, project).table
+    names = {key: table.name_of(key) for key in table.materials}
+    names.update((one.record.id, one.record.name) for one in stored_parts(roots.projects, project))
+    return names
 
 
 def _editable(requirement: Requirement) -> Editable | None:

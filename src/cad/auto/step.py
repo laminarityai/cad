@@ -1,4 +1,5 @@
-from collections.abc import Sequence
+from collections.abc import Callable, Mapping, Sequence
+from types import MappingProxyType
 from typing import Final, assert_never
 
 from cad.auto.model import (
@@ -27,6 +28,7 @@ from cad.scorecard.model import AgainstBrief, Checked, Scorecard, Unverified
 from cad.scorecard.requirements import UNCONFIRMED_PART
 from cad.scorecard.waiting import Waiting
 
+NO_STATEMENTS: Final[Mapping[str, str]] = MappingProxyType({})
 PASSING: Final = frozenset({Mark.PASS, Mark.PASS_RESEARCHED, Mark.UNVERIFIED})
 WORDS: Final = {
     Mark.PASS: "passes",
@@ -138,8 +140,16 @@ def _stop(state: Running, reason: StopReason) -> Stopped:
     )
 
 
-def report(history: tuple[Standing, ...], reason: StopReason) -> str:
-    lines = [_reason(reason)]
+def report(
+    history: tuple[Standing, ...], reason: StopReason, said: Mapping[str, str] = NO_STATEMENTS
+) -> str:
+    """The stop's report. The agent reads requirements by id; `said` maps each id to the plain
+    statement the person reads instead."""
+
+    def named(rids: Sequence[str]) -> str:
+        return ", ".join(said.get(rid, rid) for rid in rids)
+
+    lines = [_reason(reason, named)]
     if not history:
         lines.append("No revision was tried.")
     else:
@@ -148,24 +158,26 @@ def report(history: tuple[Standing, ...], reason: StopReason) -> str:
         lines.append(
             f"Revisions tried: {len(history)}. The latest is variant {latest.variant_id}{built}."
         )
-        lines.extend(f"- requirement {rid}: {WORDS[mark]}" for rid, mark in latest.marks)
+        lines.extend(
+            f"- {said.get(rid, f'requirement {rid}')}: {WORDS[mark]}" for rid, mark in latest.marks
+        )
     return "\n".join(lines)
 
 
-def _reason(reason: StopReason) -> str:
+def _reason(reason: StopReason, named: Callable[[Sequence[str]], str]) -> str:
     match reason:
         case AllPass():
             line = "Every checked requirement passes."
             if reason.researched:
-                line += f" These pass on researched data: {', '.join(reason.researched)}."
+                line += f" These pass on researched data: {named(reason.researched)}."
             if reason.unverified:
                 line += (
                     " No check covers these, so they count as neither pass nor fail: "
-                    f"{', '.join(reason.unverified)}."
+                    f"{named(reason.unverified)}."
                 )
             return line
         case NeedsPerson():
-            return _needs_person(reason)
+            return _needs_person(reason, named(reason.requirements))
         case AccountLimit():
             return f"The account's usage limit refused a build under the run: {reason.reason}"
         case StoppedByPerson():
@@ -174,8 +186,7 @@ def _reason(reason: StopReason) -> str:
             assert_never(reason)
 
 
-def _needs_person(reason: NeedsPerson) -> str:
-    ids = ", ".join(reason.requirements)
+def _needs_person(reason: NeedsPerson, ids: str) -> str:
     match reason.why:
         case "conflict":
             proofs = " ".join(f"{one.statement}." for one in reason.bounds)

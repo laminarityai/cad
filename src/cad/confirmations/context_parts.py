@@ -39,13 +39,9 @@ class ContextParts:
         brief = briefs.read_brief(self._roots, record.brief_id)
         if brief.project != record.project or record.origin.end > len(brief.text):
             raise TamperedProject(f"context part {record.id} does not match brief {brief.id}")
-        origin = f"{record.name}, from variant {record.source.variant_id}"
-        replaced = _confirmed_before(self._roots, part)
-        if replaced is not None:
-            origin += (
-                ", a newer revision of the part you confirmed from variant "
-                f"{replaced.record.source.variant_id}"
-            )
+        origin = record.name
+        if _confirmed_before(self._roots, part) is not None:
+            origin += ", a newer revision of the part you confirmed"
         row = Row(
             headline=f"{origin}: {_size(record.facts)}",
             quote=brief.text[record.origin.start : record.origin.end],
@@ -69,7 +65,7 @@ class ContextParts:
 
 def _size(facts: Facts) -> str:
     x, y, z = (high - low for low, high in zip(facts.box_min, facts.box_max, strict=True))
-    return f"a box of {x:.6g} by {y:.6g} by {z:.6g} mm, volume {facts.volume_mm3:.6g} mm³"
+    return f"a box of {x:.6g} by {y:.6g} by {z:.6g} mm"
 
 
 def _confirmed_before(roots: Roots, part: Stored) -> Stored | None:

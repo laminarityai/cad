@@ -104,7 +104,7 @@ async def test_proposing_the_newer_revision_updates_the_part_and_keeps_its_requi
     [still_measured] = confirmed_parts(s.roots.projects, fitted.project)
     assert (update["part_id"], update["status"]) == (fitted.part, "waiting")
     assert part_item(waiting)["outcome"] == "waiting"
-    assert f"SD card box, from variant {new}, a newer revision of the part you confirmed" in page
+    assert "SD card box, a newer revision of the part you confirmed" in page
     assert still_measured.record.source.variant_id == fitted.old
 
     s.post(s.person.url, "confirm")
