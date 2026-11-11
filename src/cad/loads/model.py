@@ -1,17 +1,10 @@
 import hashlib
 import json
-import math
-from collections.abc import Callable
 from enum import StrEnum
-from typing import Annotated, Any, Final, Literal, NewType, assert_never
+from typing import Annotated, Final, Literal, NewType, assert_never
 
 import pint
-from pydantic import (
-    Field,
-    ValidatorFunctionWrapHandler,
-    WithJsonSchema,
-    WrapValidator,
-)
+from pydantic import Field
 
 from cad.checks.container.wire import (
     DirectionWire,
@@ -19,43 +12,13 @@ from cad.checks.container.wire import (
     LoadWire,
     SupportWire,
 )
-from cad.checks.result import Measured
+from cad.checks.units import Force, Length
 from cad.frozen import FrozenArbitrary
 from cad.tables.materials import magnitude
 
 LoadCaseId = NewType("LoadCaseId", str)
 UnitCaseKey = NewType("UnitCaseKey", str)
 MAX_HOLES: Final = 12
-QUANTITY_SCHEMA: Final[dict[str, Any]] = {
-    "type": "object",
-    "properties": {"magnitude": {"type": "number"}, "unit": {"type": "string"}},
-    "required": ["magnitude", "unit"],
-    "additionalProperties": False,
-}
-
-
-def positive(dimension: str) -> Callable[[object, ValidatorFunctionWrapHandler], pint.Quantity]:
-    def validate(raw: object, handler: ValidatorFunctionWrapHandler) -> pint.Quantity:
-        try:
-            quantity: pint.Quantity = handler(raw)
-        except pint.PintError as error:
-            raise ValueError(f"not a unit: {error}") from error
-        if not quantity.check(dimension):  # pyright: ignore[reportUnknownMemberType]
-            raise ValueError(f"expected a {dimension} quantity, got {quantity.units}")
-        magnitude = float(quantity.magnitude)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
-        if not math.isfinite(magnitude) or magnitude <= 0:
-            raise ValueError("the magnitude must be a finite number above zero")
-        return quantity
-
-    return validate
-
-
-type Length = Annotated[
-    Measured, WrapValidator(positive("[length]")), WithJsonSchema(QUANTITY_SCHEMA)
-]
-type Force = Annotated[
-    Measured, WrapValidator(positive("[force]")), WithJsonSchema(QUANTITY_SCHEMA)
-]
 type HoleCount = Annotated[int, Field(ge=1, le=MAX_HOLES)]
 
 

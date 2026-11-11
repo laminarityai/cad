@@ -7,30 +7,27 @@ exist, so there is no stored "confirmed" for anyone to edit.
 import hashlib
 import json
 import math
-from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
-from typing import Annotated, Any, Final, Literal, NewType, assert_never
+from typing import Annotated, Final, Literal, NewType, assert_never
 
 import pint
 from pydantic import (
     Field,
     StringConstraints,
-    ValidatorFunctionWrapHandler,
-    WithJsonSchema,
-    WrapValidator,
     field_validator,
     model_validator,
 )
 
 from cad.briefs.bindable import BINDABLE
-from cad.checks.result import Comparator, Measured
+from cad.checks.result import Comparator
+from cad.checks.units import AnyQuantity, Length, Mass, number
 from cad.context_parts.ids import PART_ID_PATTERN, ContextPartId
 from cad.frozen import FrozenArbitrary
 from cad.loads.model import LoadCase
 from cad.projects.model import NEW_PROJECT_ID, NewProjectId, ProjectId, legacy_project
-from cad.tables.materials import KEY_PATTERN, UNITS
+from cad.tables.materials import KEY_PATTERN, UNITS, magnitude
 
 BriefId = NewType("BriefId", str)
 RequirementId = NewType("RequirementId", str)
@@ -45,43 +42,6 @@ MAX_REQUIREMENTS: Final = 64
 MAX_STATEMENT_CHARS: Final = 500
 MAX_NOTE_CHARS: Final = 2000
 MAX_MATERIAL_KEY_CHARS: Final = 64
-QUANTITY_SCHEMA: Final[dict[str, Any]] = {
-    "type": "object",
-    "properties": {"magnitude": {"type": "number"}, "unit": {"type": "string"}},
-    "required": ["magnitude", "unit"],
-    "additionalProperties": False,
-}
-
-
-def _magnitude(quantity: pint.Quantity) -> float:
-    # Pint's annotations leave quantities partly untyped, as in cad.tables.materials.
-    return float(quantity.magnitude)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
-
-
-def _parsed(raw: object, handler: ValidatorFunctionWrapHandler) -> pint.Quantity:
-    try:
-        return handler(raw)
-    except pint.PintError as error:
-        raise ValueError(f"not a unit: {error}") from error
-
-
-def _positive(dimension: str) -> Callable[[object, ValidatorFunctionWrapHandler], pint.Quantity]:
-    def validate(raw: object, handler: ValidatorFunctionWrapHandler) -> pint.Quantity:
-        quantity = _parsed(raw, handler)
-        if not quantity.check(dimension):  # pyright: ignore[reportUnknownMemberType]
-            raise ValueError(f"expected a {dimension} quantity, got {quantity.units}")
-        magnitude = _magnitude(quantity)
-        if not math.isfinite(magnitude) or magnitude <= 0:
-            raise ValueError("the magnitude must be a finite number above zero")
-        return quantity
-
-    return validate
-
-
-type Mass = Annotated[Measured, WrapValidator(_positive("[mass]")), WithJsonSchema(QUANTITY_SCHEMA)]
-type Length = Annotated[
-    Measured, WrapValidator(_positive("[length]")), WithJsonSchema(QUANTITY_SCHEMA)
-]
 
 
 class Kind(StrEnum):
@@ -112,11 +72,6 @@ class MinMass(FrozenArbitrary):
     mass: Mass
 
 
-def _millimetres(length: pint.Quantity) -> float:
-    # Pint's annotations leave conversions partly untyped, as in cad.tables.materials.
-    return float(length.m_as("mm"))  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
-
-
 class Envelope(FrozenArbitrary):
     """The variant fits inside a box of these three edge lengths, in any orientation.
 
@@ -131,7 +86,9 @@ class Envelope(FrozenArbitrary):
     def _longest_first(
         cls, edges: tuple[pint.Quantity, pint.Quantity, pint.Quantity]
     ) -> tuple[pint.Quantity, pint.Quantity, pint.Quantity]:
-        longest, middle, shortest = sorted(edges, key=_millimetres, reverse=True)
+        longest, middle, shortest = sorted(
+            edges, key=lambda edge: magnitude(edge, "mm"), reverse=True
+        )
         return longest, middle, shortest
 
 
@@ -145,7 +102,7 @@ class MeasureLimit(FrozenArbitrary):
     check_id: CheckId
     measure: str
     comparator: Comparator
-    limit: Annotated[Measured, WrapValidator(_parsed), WithJsonSchema(QUANTITY_SCHEMA)]
+    limit: AnyQuantity
 
     @model_validator(mode="after")
     def _bindable(self) -> "MeasureLimit":
@@ -160,8 +117,8 @@ class MeasureLimit(FrozenArbitrary):
             raise ValueError(
                 f"the limit must be in {bound.unit} or a unit of its kind, not {self.limit.units}"
             )
-        magnitude = _magnitude(self.limit)
-        if not math.isfinite(magnitude) or magnitude <= 0:
+        value = number(self.limit)
+        if not math.isfinite(value) or value <= 0:
             raise ValueError("the limit must be a finite number above zero")
         return self
 
@@ -374,4 +331,4 @@ class Decision(FrozenArbitrary):
 
 
 def amount(quantity: pint.Quantity) -> str:
-    return f"{_magnitude(quantity):g} {quantity.units:~P}"
+    return f"{number(quantity):g} {quantity.units:~P}"
