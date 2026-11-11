@@ -1,7 +1,7 @@
 import { act } from "@testing-library/react";
 import { vi } from "vitest";
 import type { Api } from "@/api/client";
-import type { ChatApi, Follower } from "@/features/chat/api";
+import type { ChatApi, Follower } from "@/api/chat";
 import type { AutoRun, ConversationState, ConversationView, Event, Mode, Picked, PersonStop, StopReason, Tessellated, VariantSetView } from "@/api/types";
 import type { Mounted, OnPick, Shapes, ViewerEngine } from "@/features/viewer/engine";
 import type { Pick } from "@/features/viewer/selection";

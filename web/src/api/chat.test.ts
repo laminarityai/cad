@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { httpChat } from "./api";
+import { httpChat } from "./chat";
 
 const JSON_ACCEPT = { accept: "application/json" };
 const JSON_BODY = { accept: "application/json", "content-type": "application/json" };

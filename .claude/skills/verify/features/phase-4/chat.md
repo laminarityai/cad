@@ -59,4 +59,4 @@ uv run python .claude/skills/verify/scripts/browser.py web walk "$RUN" "$RUN/sho
 
 `walk` (`web_walk.py`) starts on the empty `/app`, types a box brief, confirms in the chat card, waits for the options and their checks, asks for a change and steps back to the earlier revision, asks for a lid, confirms it, and turns the fit ghost on. It shoots each step in dark mode at 1440 px and the last at 400 px, and exits 1 at the first step that did not happen, with `missed.png`. `--brief`, `--change` and `--lid` replace the words it types.
 
-Free proofs: `npm run test` in `web/` (`workspace/workspace.test.tsx`).
+Free proofs: `npm run test` in `web/` (`features/workspace/workspace.test.tsx`).

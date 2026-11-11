@@ -1,4 +1,4 @@
-import { openStream, request } from "@/api/client";
+import { openStream, request } from "./client";
 import type { ConversationCreated, ConversationState, ConversationView, Event, Mode, MessageSent, Picked, PersonStop } from "@/api/types";
 import { sleep } from "@/lib/sleep";
 import { FrameReader } from "./sse";
