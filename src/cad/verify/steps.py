@@ -24,6 +24,8 @@ STEPS: tuple[Step, ...] = (
     Step("ruff check", (PYTHON, "-m", "ruff", "check")),
     Step("ruff format", (PYTHON, "-m", "ruff", "format", "--check")),
     Step("file size", (PYTHON, str(ROOT / "tools" / "check_file_size.py"))),
+    # The layers contract in pyproject.toml. import-linter ships a script, not a -m entry point.
+    Step("layers", (str(Path(PYTHON).with_name("lint-imports")), "--no-cache", "--no-logo")),
     Step("materials table", (PYTHON, "-m", "cad.tables.validate")),
     Step("api types", (PYTHON, str(ROOT / "tools" / "gen_ts.py"), "--check")),
     Step("web lint", (PYTHON, str(ROOT / "tools" / "web.py"), "lint")),

@@ -24,6 +24,7 @@ cad-sandbox = "cad.sandbox.__main__:main"
 dev = [
     "basedpyright>=1.40,<1.41",
     "cadquery-ocp-novtk==7.9.3.1.1",
+    "import-linter>=2.16",
     "jsonschema>=4.26.0",
     "pdfminer-six>=20250506",
     "playwright>=1.64.1",
@@ -67,6 +68,82 @@ select = ["E", "F", "I", "INP", "UP", "B", "SIM", "RUF"]
 [tool.ruff.lint.per-file-ignores]
 # Every directory under src/cad is a package with an __init__.py. Scripts and tests are not.
 "!src/**" = ["INP001"]
+
+[tool.importlinter]
+root_package = "cad"
+
+[[tool.importlinter.contracts]]
+name = "layers"
+type = "layers"
+containers = ["cad"]
+exhaustive = true
+unmatched_ignore_imports_alerting = "error"
+layers = [
+    "server | verify",
+    "chat",
+    "operations",
+    "confirmations | selections | agent_measurements",
+    "auto | accounts",
+    "conversations",
+    "scorecard",
+    "context_parts",
+    "variant_sets",
+    "research",
+    "briefs",
+    "projects",
+    "loads | geometry",
+    "checks",
+    "variants",
+    "records",
+    "sandbox",
+    "tables | knowledge | web",
+    "errors",
+]
+# Each line is an upward import that is still there. The list only shrinks: fix a new upward
+# import instead of adding it here. A line that no longer matches an import fails the step.
+ignore_imports = [
+    # Tenant is an operations type: these go when each function takes the values it uses.
+    "cad.accounts.tenants -> cad.confirmations.waiting",
+    "cad.accounts.tenants -> cad.operations.model",
+    "cad.auto.gate -> cad.operations.model",
+    "cad.briefs.source -> cad.operations.model",
+    "cad.confirmations.card -> cad.operations.model",
+    "cad.conversations.store -> cad.operations.model",
+    "cad.selections.mint -> cad.operations.model",
+    # HTTP routes that run operations and chat: these go when the modules move up to server.
+    "cad.confirmations.web -> cad.operations.confirmation",
+    "cad.confirmations.web -> cad.operations.model",
+    "cad.confirmations.web -> cad.operations.registry",
+    "cad.confirmations.web -> cad.operations.routes",
+    "cad.operations.outside -> cad.chat.log",
+    "cad.operations.outside -> cad.chat.routes",
+    # The run records in conversations.store go when they move into auto.
+    "cad.conversations.store -> cad.auto.log",
+    "cad.conversations.store -> cad.auto.model",
+    # The answer record the brief and context-part stores write goes when it moves below briefs.
+    "cad.briefs.edits -> cad.confirmations.answers",
+    "cad.briefs.store -> cad.confirmations.answers",
+    "cad.context_parts.store -> cad.confirmations.answers",
+    # context_parts.ids imports nothing: these go when it moves below checks.
+    "cad.briefs.model -> cad.context_parts.ids",
+    "cad.checks.jobs -> cad.context_parts.ids",
+    # projects.membership reads the brief store: these go when it moves into briefs.
+    "cad.projects.membership -> cad.briefs.model",
+    "cad.projects.membership -> cad.briefs.store",
+    # The host side of the sandbox runs checks and builds: these go when it moves above checks.
+    "cad.sandbox.__main__ -> cad.variants.entry",
+    "cad.sandbox.host -> cad.checks.report",
+    "cad.sandbox.host -> cad.checks.result",
+    "cad.sandbox.host -> cad.variants.entry",
+    # This goes when variants/key.py moves into records.
+    "cad.records.signed -> cad.variants.key",
+    # These go when PendingCheck moves next to CheckResult in checks.result and MaterialPinned
+    # moves into variant_sets.
+    "cad.research.requests -> cad.scorecard.model",
+    "cad.variant_sets.placement -> cad.scorecard.material",
+    # This goes when person_said moves out of the chat log, or briefs.source into operations.
+    "cad.briefs.source -> cad.chat.log",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
