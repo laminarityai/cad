@@ -1,10 +1,11 @@
 from dataclasses import dataclass
 from typing import Annotated, Final
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
+from pydantic import ConfigDict, Field, TypeAdapter, ValidationError
 
 from cad.checks.container.ingest import IngestWire
 from cad.checks.report import IMAGE_TAG
+from cad.frozen import Frozen
 from cad.sandbox import container, image, stage
 from cad.sandbox.container import Job, Ran, TooMuchOutput
 from cad.sandbox.outcome import SandboxUnavailable
@@ -15,11 +16,11 @@ SOURCES: Final = stage.read_sources(ENTRY)
 REPORT: Final = TypeAdapter[IngestWire](Annotated[IngestWire, Field(discriminator="kind")])
 
 
-class Facts(BaseModel):
+class Facts(Frozen):
     """Measured by the analysis container. Shown to the person and the agent so they can
     recognise the part and build in its frame. No check reads them."""
 
-    model_config = ConfigDict(frozen=True, extra="forbid", allow_inf_nan=False)
+    model_config = ConfigDict(allow_inf_nan=False)
 
     solids: int
     volume_mm3: float

@@ -97,7 +97,7 @@ layers = [
     "records",
     "sandbox",
     "tables | knowledge | web",
-    "errors | data_root",
+    "errors | data_root | frozen",
 ]
 # Each line is an upward import that is still there. The list only shrinks: fix a new upward
 # import instead of adding it here. A line that no longer matches an import fails the step.

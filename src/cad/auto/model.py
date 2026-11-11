@@ -3,11 +3,12 @@ import re
 from enum import StrEnum
 from typing import Annotated, Final, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import Field, model_validator
 
 from cad.briefs.model import MAX_NOTE_CHARS
 from cad.conversations.model import ConversationId
 from cad.errors import NotFound, Refused
+from cad.frozen import Frozen
 from cad.projects.model import ProjectId
 
 RUN_ID: Final = re.compile(r"^((?:p|pb)-[0-9a-f]{16})-r[0-9a-f]{16}$")
@@ -44,10 +45,6 @@ def run_project(run_id: str) -> ProjectId:
     return ProjectId(match.group(1))
 
 
-class _Frozen(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-
 class Mark(StrEnum):
     PASS = "pass"
     PASS_RESEARCHED = "pass_researched"
@@ -57,7 +54,7 @@ class Mark(StrEnum):
     AWAITS_PERSON = "awaits_person"
 
 
-class Standing(_Frozen):
+class Standing(Frozen):
     revision: Annotated[int, Field(ge=1)]
     variant_id: str
     code_sha256: str
@@ -65,27 +62,27 @@ class Standing(_Frozen):
     marks: tuple[tuple[str, Mark], ...]
 
 
-class Read(_Frozen):
+class Read(Frozen):
     material_key: str
     field: Literal["density"]
     value: str
     basis: Literal["table", "researched"]
 
 
-class Bounds(_Frozen):
+class Bounds(Frozen):
     quantity: Literal["mass", "volume"]
     statement: str
     requirements: tuple[str, ...]
     reads: tuple[Read, ...] = ()
 
 
-class AllPass(_Frozen):
+class AllPass(Frozen):
     kind: Literal["all_pass"] = "all_pass"
     researched: tuple[str, ...]
     unverified: tuple[str, ...]
 
 
-class NeedsPerson(_Frozen):
+class NeedsPerson(Frozen):
     kind: Literal["needs_person"] = "needs_person"
     why: Literal["conflict", "proposes_requirements", "source_to_confirm", "agent_asked"]
     requirements: tuple[str, ...] = ()
@@ -101,13 +98,13 @@ class NeedsPerson(_Frozen):
         return self
 
 
-class AccountLimit(_Frozen):
+class AccountLimit(Frozen):
     kind: Literal["account_limit"] = "account_limit"
     refused: str | None
     reason: str
 
 
-class StoppedByPerson(_Frozen):
+class StoppedByPerson(Frozen):
     kind: Literal["stopped_by_person"] = "stopped_by_person"
 
 
@@ -116,7 +113,7 @@ type StopReason = Annotated[
 ]
 
 
-class Started(_Frozen):
+class Started(Frozen):
     kind: Literal["started"] = "started"
     conversation: ConversationId
     brief_id: str
@@ -128,28 +125,28 @@ class Started(_Frozen):
     conflicts: tuple[Bounds, ...]
 
 
-class Revised(_Frozen):
+class Revised(Frozen):
     kind: Literal["revised"] = "revised"
     standing: Standing
 
 
-class Proposed(_Frozen):
+class Proposed(Frozen):
     kind: Literal["proposed"] = "proposed"
     requirements: tuple[str, ...]
 
 
-class Asked(_Frozen):
+class Asked(Frozen):
     kind: Literal["asked"] = "asked"
     note: Annotated[str, Field(min_length=1, max_length=MAX_NOTE_CHARS)]
 
 
-class Capped(_Frozen):
+class Capped(Frozen):
     kind: Literal["capped"] = "capped"
     refused: str | None
     reason: str
 
 
-class PersonStopped(_Frozen):
+class PersonStopped(Frozen):
     kind: Literal["person_stopped"] = "person_stopped"
 
 
@@ -158,7 +155,7 @@ type Event = Annotated[
 ]
 
 
-class Running(_Frozen):
+class Running(Frozen):
     kind: Literal["running"] = "running"
     start: Started
     history: tuple[Standing, ...] = ()
@@ -171,7 +168,7 @@ class Running(_Frozen):
         return tuple(rid for rid, mark in marks if mark in (Mark.FAIL, Mark.UNKNOWN))
 
 
-class Stopped(_Frozen):
+class Stopped(Frozen):
     kind: Literal["stopped"] = "stopped"
     start: Started
     history: tuple[Standing, ...]
@@ -182,11 +179,11 @@ class Stopped(_Frozen):
 type AutoState = Annotated[Running | Stopped, Field(discriminator="kind")]
 
 
-class Unsettled(_Frozen):
+class Unsettled(Frozen):
     pass
 
 
-class AutoRun(_Frozen):
+class AutoRun(Frozen):
     run_id: str
     state: AutoState
     settling: bool = False

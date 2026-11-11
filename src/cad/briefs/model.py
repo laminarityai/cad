@@ -7,31 +7,28 @@ exist, so there is no stored "confirmed" for anyone to edit.
 import hashlib
 import json
 import math
-from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
-from typing import Annotated, Any, Final, Literal, NewType, assert_never
+from typing import Annotated, Final, Literal, NewType, assert_never
 
 import pint
 from pydantic import (
-    BaseModel,
-    ConfigDict,
     Field,
     StringConstraints,
-    ValidatorFunctionWrapHandler,
-    WithJsonSchema,
-    WrapValidator,
     field_validator,
     model_validator,
 )
 
 from cad.briefs.bindable import BINDABLE
-from cad.checks.result import Comparator, Measured
+from cad.checks.container import closed_solid, extents, fea, fit, mass
+from cad.checks.result import Comparator
+from cad.checks.units import AnyQuantity, Length, Mass, number
 from cad.context_parts.ids import PART_ID_PATTERN, ContextPartId
+from cad.frozen import Frozen
 from cad.loads.model import LoadCase
 from cad.projects.model import NEW_PROJECT_ID, NewProjectId, ProjectId, legacy_project
-from cad.tables.materials import KEY_PATTERN, UNITS
+from cad.tables.materials import KEY_PATTERN, UNITS, magnitude
 
 BriefId = NewType("BriefId", str)
 RequirementId = NewType("RequirementId", str)
@@ -46,47 +43,6 @@ MAX_REQUIREMENTS: Final = 64
 MAX_STATEMENT_CHARS: Final = 500
 MAX_NOTE_CHARS: Final = 2000
 MAX_MATERIAL_KEY_CHARS: Final = 64
-QUANTITY_SCHEMA: Final[dict[str, Any]] = {
-    "type": "object",
-    "properties": {"magnitude": {"type": "number"}, "unit": {"type": "string"}},
-    "required": ["magnitude", "unit"],
-    "additionalProperties": False,
-}
-
-
-class _Frozen(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid", arbitrary_types_allowed=True)
-
-
-def _magnitude(quantity: pint.Quantity) -> float:
-    # Pint's annotations leave quantities partly untyped, as in cad.tables.materials.
-    return float(quantity.magnitude)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
-
-
-def _parsed(raw: object, handler: ValidatorFunctionWrapHandler) -> pint.Quantity:
-    try:
-        return handler(raw)
-    except pint.PintError as error:
-        raise ValueError(f"not a unit: {error}") from error
-
-
-def _positive(dimension: str) -> Callable[[object, ValidatorFunctionWrapHandler], pint.Quantity]:
-    def validate(raw: object, handler: ValidatorFunctionWrapHandler) -> pint.Quantity:
-        quantity = _parsed(raw, handler)
-        if not quantity.check(dimension):  # pyright: ignore[reportUnknownMemberType]
-            raise ValueError(f"expected a {dimension} quantity, got {quantity.units}")
-        magnitude = _magnitude(quantity)
-        if not math.isfinite(magnitude) or magnitude <= 0:
-            raise ValueError("the magnitude must be a finite number above zero")
-        return quantity
-
-    return validate
-
-
-type Mass = Annotated[Measured, WrapValidator(_positive("[mass]")), WithJsonSchema(QUANTITY_SCHEMA)]
-type Length = Annotated[
-    Measured, WrapValidator(_positive("[length]")), WithJsonSchema(QUANTITY_SCHEMA)
-]
 
 
 class Kind(StrEnum):
@@ -103,26 +59,21 @@ class Kind(StrEnum):
     MAX_CLEARANCE = "max_clearance"
 
 
-class ClosedSolid(_Frozen):
+class ClosedSolid(Frozen):
     kind: Literal[Kind.CLOSED_SOLID] = Kind.CLOSED_SOLID
 
 
-class MaxMass(_Frozen):
+class MaxMass(Frozen):
     kind: Literal[Kind.MAX_MASS] = Kind.MAX_MASS
     mass: Mass
 
 
-class MinMass(_Frozen):
+class MinMass(Frozen):
     kind: Literal[Kind.MIN_MASS] = Kind.MIN_MASS
     mass: Mass
 
 
-def _millimetres(length: pint.Quantity) -> float:
-    # Pint's annotations leave conversions partly untyped, as in cad.tables.materials.
-    return float(length.m_as("mm"))  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
-
-
-class Envelope(_Frozen):
+class Envelope(Frozen):
     """The variant fits inside a box of these three edge lengths, in any orientation.
 
     Stored longest first, so one box given in any order is one target with one id.
@@ -136,11 +87,13 @@ class Envelope(_Frozen):
     def _longest_first(
         cls, edges: tuple[pint.Quantity, pint.Quantity, pint.Quantity]
     ) -> tuple[pint.Quantity, pint.Quantity, pint.Quantity]:
-        longest, middle, shortest = sorted(edges, key=_millimetres, reverse=True)
+        longest, middle, shortest = sorted(
+            edges, key=lambda edge: magnitude(edge, "mm"), reverse=True
+        )
         return longest, middle, shortest
 
 
-class MeasureLimit(_Frozen):
+class MeasureLimit(Frozen):
     """One team measure held to a limit the person confirms, such as the volume at most 30 cm^3.
 
     Only a measure in BINDABLE can be named, and the limit must be in that measure's dimension.
@@ -150,7 +103,7 @@ class MeasureLimit(_Frozen):
     check_id: CheckId
     measure: str
     comparator: Comparator
-    limit: Annotated[Measured, WrapValidator(_parsed), WithJsonSchema(QUANTITY_SCHEMA)]
+    limit: AnyQuantity
 
     @model_validator(mode="after")
     def _bindable(self) -> "MeasureLimit":
@@ -165,20 +118,20 @@ class MeasureLimit(_Frozen):
             raise ValueError(
                 f"the limit must be in {bound.unit} or a unit of its kind, not {self.limit.units}"
             )
-        magnitude = _magnitude(self.limit)
-        if not math.isfinite(magnitude) or magnitude <= 0:
+        value = number(self.limit)
+        if not math.isfinite(value) or value <= 0:
             raise ValueError("the limit must be a finite number above zero")
         return self
 
 
-class Unchecked(_Frozen):
+class Unchecked(Frozen):
     """A requirement no reviewed check decides. A scorecard lists it as unverified."""
 
     kind: Literal[Kind.UNCHECKED] = Kind.UNCHECKED
     statement: Annotated[str, Field(min_length=1, max_length=MAX_STATEMENT_CHARS)]
 
 
-class MadeOf(_Frozen):
+class MadeOf(Frozen):
     """The brief names the material. A confirmed one pins the `material_key` that scoring accepts.
 
     The key is an exact key of the materials table, or, for a material the table lacks, a key of
@@ -192,7 +145,7 @@ class MadeOf(_Frozen):
     ]
 
 
-class MinSafetyFactor(_Frozen):
+class MinSafetyFactor(Frozen):
     """The yield strength over the largest von Mises stress under the load case."""
 
     kind: Literal[Kind.MIN_SAFETY_FACTOR] = Kind.MIN_SAFETY_FACTOR
@@ -200,7 +153,7 @@ class MinSafetyFactor(_Frozen):
     factor: Annotated[float, Field(ge=1, allow_inf_nan=False)]
 
 
-class MaxDeflection(_Frozen):
+class MaxDeflection(Frozen):
     """The largest displacement of any point under the load case."""
 
     kind: Literal[Kind.MAX_DEFLECTION] = Kind.MAX_DEFLECTION
@@ -211,7 +164,7 @@ class MaxDeflection(_Frozen):
 type PartId = Annotated[ContextPartId, Field(pattern=PART_ID_PATTERN)]
 
 
-class MinClearance(_Frozen):
+class MinClearance(Frozen):
     """The variant, built in the context part's frame, stays at least this far from it."""
 
     kind: Literal[Kind.MIN_CLEARANCE] = Kind.MIN_CLEARANCE
@@ -219,7 +172,7 @@ class MinClearance(_Frozen):
     clearance: Length
 
 
-class MaxClearance(_Frozen):
+class MaxClearance(Frozen):
     """The variant comes no further than this from the context part, so it cannot pass by
     sitting far away."""
 
@@ -228,7 +181,6 @@ class MaxClearance(_Frozen):
     clearance: Length
 
 
-type Loaded = MinSafetyFactor | MaxDeflection
 type Target = Annotated[
     ClosedSolid
     | MaxMass
@@ -249,19 +201,39 @@ def deciding_check(target: Target) -> CheckId | None:
     """The one table from a requirement to the check that decides it. None is unverified."""
     match target:
         case ClosedSolid():
-            return CheckId("closed_solid")
+            return CheckId(closed_solid.ID)
         case MaxMass() | MinMass():
-            return CheckId("mass")
+            return CheckId(mass.ID)
         case Envelope():
-            return CheckId("extents")
+            return CheckId(extents.ID)
         case MeasureLimit():
             return target.check_id
         case Unchecked() | MadeOf():
             return None
         case MinSafetyFactor() | MaxDeflection():
-            return CheckId("fea")
+            return CheckId(fea.ID)
         case MinClearance() | MaxClearance():
-            return CheckId("fit")
+            return CheckId(fit.ID)
+        case _:
+            assert_never(target)
+
+
+def load_of(target: Target) -> LoadCase | None:
+    match target:
+        case MinSafetyFactor() | MaxDeflection():
+            return target.load
+        case (
+            ClosedSolid()
+            | MaxMass()
+            | MinMass()
+            | Envelope()
+            | MeasureLimit()
+            | Unchecked()
+            | MadeOf()
+            | MinClearance()
+            | MaxClearance()
+        ):
+            return None
         case _:
             assert_never(target)
 
@@ -301,7 +273,7 @@ def limits(target: Target) -> tuple[Limit, ...]:
             assert_never(target)
 
 
-class BriefSpan(_Frozen):
+class BriefSpan(Frozen):
     """Characters [start, end) of the brief text, resolved by the store from a verbatim quote."""
 
     kind: Literal["brief_text"] = "brief_text"
@@ -309,7 +281,7 @@ class BriefSpan(_Frozen):
     end: Annotated[int, Field(gt=0)]
 
 
-class Brief(_Frozen):
+class Brief(Frozen):
     id: BriefId
     text: Annotated[str, Field(min_length=1, max_length=MAX_BRIEF_CHARS)]
     created_at: datetime
@@ -323,7 +295,7 @@ class Brief(_Frozen):
         return legacy_project(self.id) if self.project_id is None else self.project_id
 
 
-class Said(_Frozen):
+class Said(Frozen):
     brief_id: BriefId
     number: Annotated[int, Field(ge=1)]
     text: Annotated[str, Field(min_length=1, max_length=MAX_BRIEF_CHARS)]
@@ -331,7 +303,7 @@ class Said(_Frozen):
     said_at: datetime
 
 
-class Requirement(_Frozen):
+class Requirement(Frozen):
     id: RequirementId
     brief_id: BriefId
     target: Target
@@ -347,7 +319,7 @@ def requirement_id(brief_id: BriefId, target: Target, origin: BriefSpan) -> Requ
     return RequirementId(hashlib.sha256(identity.encode()).hexdigest()[:16])
 
 
-class Proposal(_Frozen):
+class Proposal(Frozen):
     """One whole numbered set of requirements for a brief. Never edited once stored."""
 
     brief_id: BriefId
@@ -356,11 +328,11 @@ class Proposal(_Frozen):
     created_at: datetime
 
 
-class Confirmed(_Frozen):
+class Confirmed(Frozen):
     verdict: Literal["confirmed"] = "confirmed"
 
 
-class Declined(_Frozen):
+class Declined(Frozen):
     verdict: Literal["declined"] = "declined"
     note: Annotated[str, Field(max_length=MAX_NOTE_CHARS)]
 
@@ -368,7 +340,7 @@ class Declined(_Frozen):
 type Answer = Annotated[Confirmed | Declined, Field(discriminator="verdict")]
 
 
-class Decision(_Frozen):
+class Decision(Frozen):
     """What a person answered on the page for one proposal, bound to the bytes they were shown."""
 
     proposal: Annotated[int, Field(ge=1)]
@@ -379,4 +351,4 @@ class Decision(_Frozen):
 
 
 def amount(quantity: pint.Quantity) -> str:
-    return f"{_magnitude(quantity):g} {quantity.units:~P}"
+    return f"{number(quantity):g} {quantity.units:~P}"

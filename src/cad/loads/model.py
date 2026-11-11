@@ -1,19 +1,10 @@
 import hashlib
 import json
-import math
-from collections.abc import Callable
 from enum import StrEnum
-from typing import Annotated, Any, Final, Literal, NewType, assert_never
+from typing import Annotated, Final, Literal, NewType, assert_never
 
 import pint
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    Field,
-    ValidatorFunctionWrapHandler,
-    WithJsonSchema,
-    WrapValidator,
-)
+from pydantic import Field
 
 from cad.checks.container.wire import (
     DirectionWire,
@@ -21,50 +12,17 @@ from cad.checks.container.wire import (
     LoadWire,
     SupportWire,
 )
-from cad.checks.result import Measured
+from cad.checks.units import Force, Length
+from cad.frozen import Frozen
 from cad.tables.materials import magnitude
 
 LoadCaseId = NewType("LoadCaseId", str)
 UnitCaseKey = NewType("UnitCaseKey", str)
 MAX_HOLES: Final = 12
-QUANTITY_SCHEMA: Final[dict[str, Any]] = {
-    "type": "object",
-    "properties": {"magnitude": {"type": "number"}, "unit": {"type": "string"}},
-    "required": ["magnitude", "unit"],
-    "additionalProperties": False,
-}
-
-
-class _Frozen(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid", arbitrary_types_allowed=True)
-
-
-def positive(dimension: str) -> Callable[[object, ValidatorFunctionWrapHandler], pint.Quantity]:
-    def validate(raw: object, handler: ValidatorFunctionWrapHandler) -> pint.Quantity:
-        try:
-            quantity: pint.Quantity = handler(raw)
-        except pint.PintError as error:
-            raise ValueError(f"not a unit: {error}") from error
-        if not quantity.check(dimension):  # pyright: ignore[reportUnknownMemberType]
-            raise ValueError(f"expected a {dimension} quantity, got {quantity.units}")
-        magnitude = float(quantity.magnitude)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
-        if not math.isfinite(magnitude) or magnitude <= 0:
-            raise ValueError("the magnitude must be a finite number above zero")
-        return quantity
-
-    return validate
-
-
-type Length = Annotated[
-    Measured, WrapValidator(positive("[length]")), WithJsonSchema(QUANTITY_SCHEMA)
-]
-type Force = Annotated[
-    Measured, WrapValidator(positive("[force]")), WithJsonSchema(QUANTITY_SCHEMA)
-]
 type HoleCount = Annotated[int, Field(ge=1, le=MAX_HOLES)]
 
 
-class Holes(_Frozen):
+class Holes(Frozen):
     """Bolted or screwed through exactly `count` holes, of this bore diameter when given."""
 
     kind: Literal["holes"] = "holes"
@@ -72,13 +30,13 @@ class Holes(_Frozen):
     diameter: Length | None = None
 
 
-class LargestFlat(_Frozen):
+class LargestFlat(Frozen):
     """Glued down or sitting on its largest flat face."""
 
     kind: Literal["largest_flat"] = "largest_flat"
 
 
-class FlatEnd(_Frozen):
+class FlatEnd(Frozen):
     """Fixed at the flat face across one end of its long axis."""
 
     kind: Literal["flat_end"] = "flat_end"
@@ -94,26 +52,26 @@ class Axis(StrEnum):
     """The common axis direction of the support holes, so only with a `Holes` support."""
 
 
-class Along(_Frozen):
+class Along(Frozen):
     kind: Literal["along"] = "along"
     axis: Axis
 
 
-class Across(_Frozen):
+class Across(Frozen):
     """Any direction in the plane normal to the axis."""
 
     kind: Literal["across"] = "across"
     axis: Axis
 
 
-class AnyWay(_Frozen):
+class AnyWay(Frozen):
     kind: Literal["any"] = "any"
 
 
 type Direction = Annotated[Along | Across | AnyWay, Field(discriminator="kind")]
 
 
-class FarEnd(_Frozen):
+class FarEnd(Frozen):
     """At the end farthest from the supports."""
 
     kind: Literal["far_end"] = "far_end"
@@ -121,7 +79,7 @@ class FarEnd(_Frozen):
     direction: Direction
 
 
-class OnHoles(_Frozen):
+class OnHoles(Frozen):
     """Hangs from exactly `count` holes that are not supports."""
 
     kind: Literal["on_holes"] = "on_holes"
@@ -134,7 +92,7 @@ class OnHoles(_Frozen):
 type Load = Annotated[FarEnd | OnHoles, Field(discriminator="kind")]
 
 
-class LoadCase(_Frozen):
+class LoadCase(Frozen):
     support: Support
     load: Load
 

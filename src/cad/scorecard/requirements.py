@@ -6,20 +6,26 @@ again to re-derive a stored card.
 """
 
 from collections.abc import Mapping, Sequence
-from typing import Final
+from typing import Final, assert_never
 
 from cad.briefs.model import (
+    ClosedSolid,
     Envelope,
     Limit,
     MadeOf,
     MaxClearance,
     MaxDeflection,
+    MaxMass,
+    MeasureLimit,
     MinClearance,
+    MinMass,
     MinSafetyFactor,
     Requirement,
     Target,
+    Unchecked,
     deciding_check,
     limits,
+    load_of,
 )
 from cad.briefs.store import ConfirmedSet
 from cad.briefs.words import NO_NAMES, describe
@@ -69,11 +75,7 @@ ERROR_BOUNDS: Final = {spec.id: spec.error_bounds for spec in SPECS}
 def demand(confirmed: ConfirmedSet | None, parts: Mapping[ContextPartId, PartBrep]) -> Demand:
     held = () if confirmed is None else confirmed.requirements
     return Demand(
-        loads={
-            one.target.load.id: one.target.load.wire()
-            for one in held
-            if isinstance(one.target, MinSafetyFactor | MaxDeflection)
-        },
+        loads={load.id: load.wire() for one in held if (load := load_of(one.target)) is not None},
         parts=parts,
     )
 
@@ -84,8 +86,18 @@ def instance(target: Target) -> str:
             return target.load.id
         case MinClearance() | MaxClearance():
             return target.part
-        case _:
+        case (
+            ClosedSolid()
+            | MaxMass()
+            | MinMass()
+            | Envelope()
+            | MeasureLimit()
+            | Unchecked()
+            | MadeOf()
+        ):
             return ""
+        case _:
+            assert_never(target)
 
 
 def against(confirmed: ConfirmedSet, names: Mapping[str, str] = NO_NAMES) -> Assess:

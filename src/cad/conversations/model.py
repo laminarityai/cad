@@ -2,9 +2,8 @@ import re
 from enum import StrEnum
 from typing import Final, NewType
 
-from pydantic import BaseModel, ConfigDict
-
 from cad.errors import NotFound, Refused
+from cad.frozen import Frozen
 
 ConversationId = NewType("ConversationId", str)
 
@@ -27,9 +26,7 @@ class Mode(StrEnum):
     AUTO = "auto"
 
 
-class Conversation(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
+class Conversation(Frozen):
     mode: Mode = Mode.PLAN
     auto_run: str | None = None
     project_id: str | None = None

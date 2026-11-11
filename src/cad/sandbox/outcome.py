@@ -2,22 +2,19 @@ import logging
 from pathlib import Path
 from typing import Annotated, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from cad.errors import Unavailable
+from cad.frozen import Frozen
 
 LOG = logging.getLogger(__name__)
 
 
-class _Outcome(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-
-class Built(_Outcome):
+class Built(Frozen):
     kind: Literal["built"] = "built"
 
 
-class BuildFailed(_Outcome):
+class BuildFailed(Frozen):
     """The code raised, or the build process died before it reported."""
 
     kind: Literal["build_failed"] = "build_failed"
@@ -25,19 +22,19 @@ class BuildFailed(_Outcome):
     traceback: str
 
 
-class TimedOut(_Outcome):
+class TimedOut(Frozen):
     """The build ran past its wall clock. Not stored, so the same code builds again next time."""
 
     kind: Literal["timed_out"] = "timed_out"
     limit_seconds: int
 
 
-class OutOfMemory(_Outcome):
+class OutOfMemory(Frozen):
     kind: Literal["out_of_memory"] = "out_of_memory"
     limit_mb: int
 
 
-class NoResult(_Outcome):
+class NoResult(Frozen):
     """The code ran to the end, but `result` was missing or not a Shape.
 
     `reason` is written by the host and always names the contract.
@@ -51,9 +48,7 @@ type Failure = BuildFailed | TimedOut | OutOfMemory | NoResult
 type BuildOutcome = Annotated[Built | Failure, Field(discriminator="kind")]
 
 
-class Build(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
+class Build(Frozen):
     outcome: BuildOutcome
     output: str
 

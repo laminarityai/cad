@@ -1,9 +1,8 @@
 import re
 from typing import Final, Literal, NewType
 
-from pydantic import BaseModel, ConfigDict
-
 from cad.conversations.model import ConversationId
+from cad.frozen import Frozen
 
 AccountId = NewType("AccountId", str)
 
@@ -22,11 +21,7 @@ def account_id(raw: object) -> AccountId:
     return AccountId(raw)
 
 
-class _Frozen(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-
-class PersonSession(_Frozen):
+class PersonSession(Frozen):
     """A person signed in to the web app, from a Clerk session token."""
 
     kind: Literal["person"] = "person"
@@ -34,7 +29,7 @@ class PersonSession(_Frozen):
     session_id: str
 
 
-class AgentToken(_Frozen):
+class AgentToken(Frozen):
     """An agent acting for an account, from a Clerk OAuth access token on `/mcp`."""
 
     kind: Literal["agent"] = "agent"

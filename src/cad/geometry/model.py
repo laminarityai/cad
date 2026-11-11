@@ -1,8 +1,9 @@
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from cad.errors import NotFound
+from cad.frozen import Frozen
 from cad.geometry.container.wire import ShapesWire, ShapeWire, TopologyWire
 
 
@@ -10,11 +11,7 @@ class UnknownMesh(NotFound):
     pass
 
 
-class _Frozen(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-
-class Tessellated(_Frozen):
+class Tessellated(Frozen):
     """The mesh of one BREP, made in the analysis image, as three-cad-viewer renders it."""
 
     kind: Literal["tessellated"] = "tessellated"
@@ -24,14 +21,14 @@ class Tessellated(_Frozen):
     topology: TopologyWire
 
 
-class TessellationFailed(_Frozen):
+class TessellationFailed(Frozen):
     kind: Literal["failed"] = "failed"
     brep_sha256: str
     version: str
     reason: str
 
 
-class TessellationPending(_Frozen):
+class TessellationPending(Frozen):
     kind: Literal["pending"] = "pending"
     brep_sha256: str
 
