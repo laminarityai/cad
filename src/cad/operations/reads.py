@@ -18,14 +18,16 @@ from cad.sandbox import image
 from cad.scorecard import material
 from cad.scorecard.material import MaterialUse
 from cad.variant_sets import store as variant_sets
-from cad.variant_sets.model import MAX_MEMBERS, Member, NotConfirmed
+from cad.variant_sets.model import MAX_MEMBERS, Member, NotConfirmed, Option
 from cad.variants import entry
 
 LIST_PROJECTS = "The signed-in person's projects, newest first, each with its briefs."
 PROJECT = "One project: its briefs, each with its proposal count and its confirmed proposal."
 VARIANT_SET = (
     "The variant set of a brief: for each slot, its latest variant and every revision the slot "
-    "has had. A member's material is the one its card uses and what set it: the made_of "
+    "has had. A member's option is the label the agent gave its slot and how it differs from "
+    "the others; it is empty when none was given. A member's material is the one its card "
+    "uses and what set it: the made_of "
     "requirement the person confirmed, or the agent, with the reason it recorded; it is empty "
     "when neither named one. A member's card_etag is the etag of its scorecard for that "
     "material, or for material_key when you pass it. It is empty when the variant was never "
@@ -97,6 +99,7 @@ class MemberView(BaseModel):
     revision: int
     revisions: tuple[RevisionView, ...]
     material: MaterialUse | None
+    option: Option | None
     card_etag: str | None
 
 
@@ -198,6 +201,7 @@ def _member(
             for number, one in enumerate(member.revisions, start=1)
         ),
         material=None if key is None else material.used(key, confirmed, choice),
+        option=latest.option,
         card_etag=_etag(tenant, brief_id, asked or key, latest.built_as),
     )
 

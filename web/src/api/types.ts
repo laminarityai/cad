@@ -592,6 +592,7 @@ export interface components {
             brief_id: string | null;
             run: components["schemas"]["AutoRun"] | null;
         };
+        Differs: string;
         Direction: components["schemas"]["Along"] | components["schemas"]["Across"] | components["schemas"]["AnyWay"];
         /**
          * DriverSaid
@@ -693,6 +694,7 @@ export interface components {
         KnowledgeHits: {
             hits: components["schemas"]["KnowledgeHit"][];
         };
+        Label: string;
         /**
          * LargestFlat
          * @description Glued down or sitting on its largest flat face.
@@ -836,6 +838,7 @@ export interface components {
             revision: number;
             revisions: components["schemas"]["RevisionView"][];
             material: components["schemas"]["MaterialUse"] | null;
+            option: components["schemas"]["Option"] | null;
             card_etag: string | null;
         };
         /** MessageSent */
@@ -924,6 +927,15 @@ export interface components {
             diameter: components["schemas"]["Length"] | null;
             force: components["schemas"]["Force"];
             direction: components["schemas"]["Direction"];
+        };
+        /**
+         * Option
+         * @description What the agent calls a slot and how it differs from the set's other slots. A design note
+         *     like the material choice: never a requirement or a verdict.
+         */
+        Option: {
+            label: components["schemas"]["Label"];
+            differs: components["schemas"]["Differs"];
         };
         PartId: string;
         /** PartWire */
@@ -1564,6 +1576,7 @@ export type Comparison = components['schemas']['Comparison'];
 export type ConversationCreated = components['schemas']['ConversationCreated'];
 export type ConversationState = components['schemas']['ConversationState'];
 export type ConversationView = components['schemas']['ConversationView'];
+export type Differs = components['schemas']['Differs'];
 export type Direction = components['schemas']['Direction'];
 export type DriverSaid = components['schemas']['DriverSaid'];
 export type Envelope = components['schemas']['Envelope'];
@@ -1579,6 +1592,7 @@ export type Holes = components['schemas']['Holes'];
 export type ItemKindName = components['schemas']['ItemKindName'];
 export type KnowledgeHit = components['schemas']['KnowledgeHit'];
 export type KnowledgeHits = components['schemas']['KnowledgeHits'];
+export type Label = components['schemas']['Label'];
 export type LargestFlat = components['schemas']['LargestFlat'];
 export type Length = components['schemas']['Length'];
 export type Load = components['schemas']['Load'];
@@ -1606,6 +1620,7 @@ export type Mode = components['schemas']['Mode'];
 export type NeedsPerson = components['schemas']['NeedsPerson'];
 export type NoBrief = components['schemas']['NoBrief'];
 export type OnHoles = components['schemas']['OnHoles'];
+export type Option = components['schemas']['Option'];
 export type PartId = components['schemas']['PartId'];
 export type PartWire = components['schemas']['PartWire'];
 export type PendingCheck = components['schemas']['PendingCheck'];
