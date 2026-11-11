@@ -144,9 +144,11 @@ def walk(run: Path, out: Path, given: dict[str, str]) -> None:
         step("options", page, "() => document.querySelectorAll('[data-slot-tab]').length > 0")
         step("drawn", page, drawn)
         idle(page)
-        step("checked", page, "() => document.querySelectorAll('[data-line]').length > 0", 300)
+        rows = "[data-line], [data-awaiting] li"
+        step("checked", page, f"() => document.querySelectorAll({rows!r}).length > 0", 300)
         shoot(page, out, "walk-2-options")
         if confirm_if_asked(page, out, "walk-3-confirm-in-chat"):
+            step("judged", page, "() => document.querySelectorAll('[data-line]').length > 0", 120)
             idle(page)
             shoot(page, out, "walk-3b-judged")
         say(page, given["change"])
