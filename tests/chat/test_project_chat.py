@@ -6,6 +6,7 @@ from urllib.parse import urlencode
 import pytest
 
 from cad.accounts.principal import AccountId
+from cad.chat.log import Channel, UserSaid, transcript_path
 from cad.chat.model import Message, Model, ToolSpec
 from cad.conversations import store
 from cad.conversations.model import ConversationId, Mode
@@ -155,8 +156,11 @@ async def test_the_first_brief_of_a_chat_binds_it_and_later_briefs_join_its_proj
     async with chat.client() as client:
         cid = ConversationId(await chat.conversation(client))
         tenant = replace(chat.tenants.of(AccountId(ALICE)), conversation=cid)
-        first = create_brief(tenant, CreateBriefInput(text=TEXT))
-        second = create_brief(tenant, CreateBriefInput(text="a lid for it"))
+        said = Channel(transcript_path(tenant.conversations, cid))
+        said.append(UserSaid(text=TEXT))
+        first = create_brief(tenant, CreateBriefInput())
+        said.append(UserSaid(text="a lid for it"))
+        second = create_brief(tenant, CreateBriefInput())
         found = await client.get(f"/v1/projects/{first.project_id}/conversation")
     assert store.read(tenant.conversations, cid).project_id == first.project_id
     assert second.project_id == first.project_id
