@@ -11,8 +11,11 @@ from typing import Final
 
 from pydantic import BaseModel, ValidationError
 
+from cad.briefs import said
 from cad.briefs.edits import apply_edits
 from cad.briefs.model import (
+    MAX_BRIEF_CHARS,
+    SEPARATOR,
     Answer,
     Brief,
     BriefId,
@@ -148,15 +151,19 @@ def parse_brief_id(raw: str) -> BriefId:
     return BriefId(raw)
 
 
-def create_brief(roots: Roots, text: str, project: NewProjectId) -> Brief:
+def create_brief(
+    roots: Roots, text: str, project: NewProjectId, message: int | None = None
+) -> Brief:
     brief = Brief(
         id=BriefId(secrets.token_hex(8)),
         text=text,
         created_at=datetime.now(UTC),
         project_id=project,
+        message=message,
     )
     first = (f"{brief.id}/brief", BRIEF, brief.model_dump_json().encode())
-    if not signed.create_entry(_store(roots.briefs), brief.id, first, (PROPOSALS, DECISIONS)):
+    children = (PROPOSALS, DECISIONS, said.SAID)
+    if not signed.create_entry(_store(roots.briefs), brief.id, first, children):
         raise FileExistsError(f"brief {brief.id} already exists")
     return brief
 
@@ -171,11 +178,14 @@ def stored_briefs(roots: Roots) -> list[BriefId]:
     ]
 
 
-def propose(roots: Roots, raw_id: str, drafts: Sequence[Draft]) -> ProposalState:
-    """Store drafts as the next proposal, or return the latest when it is the same undecided set."""
+def propose(
+    roots: Roots, raw_id: str, drafts: Sequence[Draft], words: said.Words = said.BRIEF_ONLY
+) -> ProposalState:
+    """Store drafts as the next proposal, or return the latest when it is the same undecided set.
+    A quote that only `words` holds adds those words to the brief first."""
     root = roots.briefs
-    brief = read_brief(roots, raw_id)
-    requirements = _resolve(brief, drafts)
+    brief = _with_words(roots, read_brief(roots, raw_id), drafts, words)
+    requirements = _resolve(brief, drafts, words)
     ids = [r.id for r in requirements]
     unchanged: ProposalState | None = None
 
@@ -215,6 +225,22 @@ def propose(roots: Roots, raw_id: str, drafts: Sequence[Draft]) -> ProposalState
     if unchanged is None:
         raise TamperedBrief(_report(root, brief.id))
     return unchanged
+
+
+def _with_words(roots: Roots, brief: Brief, drafts: Sequence[Draft], words: said.Words) -> Brief:
+    added = said.needed(brief.text, [d.quote for d in drafts], words)
+    if len(brief.text) + sum(len(SEPARATOR) + len(text) for _, text in added) > MAX_BRIEF_CHARS:
+        raise BadProposal(
+            f"brief {brief.id} would pass {MAX_BRIEF_CHARS} characters: start a new one"
+        )
+    try:
+        for spoken in added:
+            said.append(_store(roots.briefs), roots.briefs / brief.id / said.SAID, brief, spoken)
+    except signed.Contended as error:
+        raise BadProposal(f"brief {brief.id} is being added to concurrently; try again") from error
+    except signed.Tampered as error:
+        raise TamperedBrief(_report(roots.briefs, brief.id)) from error
+    return read_brief(roots, brief.id) if added else brief
 
 
 def read_brief(roots: Roots, raw_id: str) -> Brief:
@@ -272,9 +298,10 @@ def _read_brief(root: Path, brief_id: BriefId) -> tuple[Brief, str]:
         raise UnknownBrief(f"no brief {brief_id} is stored; store it with create_brief")
     record = _read_signed(root, f"{brief_id}/brief", directory / BRIEF)
     brief = _parse(root, brief_id, Brief, record)
-    if brief.id != brief_id:
+    added = said.read(_store(root), directory / said.SAID, brief_id)
+    if brief.id != brief_id or added is None:
         raise TamperedBrief(_report(root, brief_id))
-    return brief, hashlib.sha256(record).hexdigest()
+    return said.joined(brief, added), hashlib.sha256(record).hexdigest()
 
 
 def _legacy(root: Path, brief_id: BriefId, bound: tuple[int, str, str], path: Path) -> Answered:
@@ -300,14 +327,14 @@ def _status(answered: Answered | None, *, newest: bool) -> Status:
     return Status.CONFIRMED if answered.answer.verdict == "confirmed" else Status.DECLINED
 
 
-def _resolve(brief: Brief, drafts: Sequence[Draft]) -> tuple[Requirement, ...]:
+def _resolve(brief: Brief, drafts: Sequence[Draft], words: said.Words) -> tuple[Requirement, ...]:
     requirements: list[Requirement] = []
     for index, draft in enumerate(drafts):
         start = brief.text.find(draft.quote) if draft.quote else -1
         if start < 0:
             raise BadProposal(
                 f"requirements[{index}]: the quote does not appear in brief {brief.id}; "
-                "copy the words exactly from the brief"
+                + words.fix
             )
         origin = BriefSpan(start=start, end=start + len(draft.quote))
         rid = requirement_id(brief.id, draft.target, origin)
