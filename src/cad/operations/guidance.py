@@ -64,10 +64,11 @@ RESEARCH = (
     "nothing for that project: only the operator can fix it."
 )
 
-TEST_MODE = (
-    "Test mode is deeper analysis of one variant the user picks, for example when they ask "
-    "whether it will hold a load. If the user states a load that no confirmed requirement "
-    "holds, propose it as min_safety_factor or max_deflection, which the fea check decides. "
+DEEPER_ANALYSIS = (
+    "Deeper analysis is slower analysis of one variant the user picks, for example when they "
+    "ask whether it will hold a load. It is not a mode. If the user states a load that no "
+    "confirmed requirement holds, propose it as min_safety_factor or max_deflection, which the "
+    "fea check decides. "
     "No check decides a print process or a print time, so propose those as unchecked and say "
     "that print time is not checked. Propose it on the variant's own brief: the server adds the "
     "person's words to that brief. Have the user confirm before you score. Then score only "
@@ -97,5 +98,5 @@ MATERIAL = (
 )
 
 INSTRUCTIONS: Final = " ".join(
-    (RULE, PLAN_MODE, CHANGES, OPTIONS, CONTEXT_PARTS, MATERIAL, TEST_MODE, RESEARCH, NOT_VERIFIED)
+    (RULE, PLAN_MODE, CHANGES, OPTIONS, CONTEXT_PARTS, MATERIAL, DEEPER_ANALYSIS, RESEARCH, NOT_VERIFIED)
 )

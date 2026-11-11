@@ -1,12 +1,12 @@
-# Test mode
+# Deeper analysis
 
-Test mode is deeper analysis of one variant the user picks. It has no server state, no mode argument and no second fidelity. It is guidance: the server's `instructions` end with a Test mode paragraph, and the `score_variant` description says to score only the picked variant. The proof is a real Claude Code session that follows it on the hook brief of `docs/design/phase-3.md` §1a.
+Deeper analysis is slower analysis of one variant the user picks. It is not a mode: it has no server state, no mode argument and no second fidelity. It is guidance: the server's `instructions` include a deeper analysis paragraph, and the `score_variant` description says to score only the picked variant. The proof is a real Claude Code session that follows it on the hook brief of `docs/design/phase-3.md` §1a.
 
 ## Sub-features
 
-- `test-mode-text` sends the Test mode paragraph as the last part of the server's `instructions`. `tests/server/test_scorecard_tools.py` asserts it.
-- `test-mode-hook` makes Claude Code, in a second session on the same server home, score only the variant the user picked, with its `brief_id`, and report the load and print time as not checked, with no estimate of its own.
-- `test-mode-new-load` has the user state a load no confirmed requirement holds. Claude Code proposes it, the scripted person confirms it, and only then does Claude Code score the picked variant.
+- `deeper-analysis-text` sends the deeper analysis paragraph as part of the server's `instructions`. `tests/server/test_scorecard_tools.py` asserts it.
+- `deeper-analysis-hook` makes Claude Code, in a second session on the same server home, score only the variant the user picked, with its `brief_id`, and report the load and print time as not checked, with no estimate of its own.
+- `deeper-analysis-new-load` has the user state a load no confirmed requirement holds. Claude Code proposes it, the scripted person confirms it, and only then does Claude Code score the picked variant.
 
 ## How to get to it (user POV)
 

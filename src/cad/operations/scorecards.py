@@ -96,7 +96,7 @@ SCORE_VARIANT = (
     "Scoring the same variant and key again gives the same scorecard while the materials table, "
     "the sandbox image and the confirmed requirements are unchanged. Scoring a rebuilt "
     "variant by its new id gives the same scorecard with rebuilt_from empty. "
-    "In Test mode, score only the variant the user picked. "
+    "When the user asks about one variant they picked, score only that variant. "
     "Under an Auto run, which the conversation holds, pass the run's brief_id: once the run has "
     "stopped, the scorecard is refused before any check runs, and a check the account's usage "
     "limit refuses stops the run. " + OWN_MEASUREMENTS + RULE + " " + NOT_VERIFIED
