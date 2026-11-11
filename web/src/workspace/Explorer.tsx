@@ -78,13 +78,21 @@ function Part(props: { brief: Brief; current: boolean; slot: number | undefined;
   );
 }
 
-function byTitle(sources: Source[]): [string, Source[]][] {
+function siteOf(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
+function bySite(sources: Source[]): [string, Source[]][] {
   const groups = new Map<string, Source[]>();
-  for (const one of sources) groups.set(one.title, [...(groups.get(one.title) ?? []), one]);
+  for (const one of sources) groups.set(siteOf(one.url), [...(groups.get(siteOf(one.url)) ?? []), one]);
   return [...groups];
 }
 
-function SourceFolder({ title, pages }: { title: string; pages: Source[] }) {
+function SourceFolder({ site, pages }: { site: string; pages: Source[] }) {
   const [open, setOpen] = useState(false);
   const FolderIcon = open ? FolderOpen : Folder;
   return (
@@ -92,7 +100,7 @@ function SourceFolder({ title, pages }: { title: string; pages: Source[] }) {
       <button
         type="button"
         aria-expanded={open}
-        title={title}
+        title={site}
         onClick={() => {
           setOpen((was) => !was);
         }}
@@ -100,16 +108,16 @@ function SourceFolder({ title, pages }: { title: string; pages: Source[] }) {
       >
         <Chevron open={open} />
         <FolderIcon className="size-4 shrink-0 text-ink-2" />
-        <span className="min-w-0 flex-1 truncate">{title}</span>
+        <span className="min-w-0 flex-1 truncate">{site}</span>
         <span className="text-[12px] text-ink-3">{pages.length}</span>
       </button>
       {open ? (
         <Children>
           {pages.map((one) => (
             <li key={one.url} data-file="source">
-              <a href={one.url} target="_blank" rel="noreferrer" title={one.url} className={cn(ROW, "text-[14px] text-accent hover:bg-panel-2/60")}>
+              <a href={one.url} target="_blank" rel="noreferrer" title={one.page ? `${one.title}, ${one.page}` : one.title} className={cn(ROW, "text-[14px] text-accent hover:bg-panel-2/60")}>
                 <Link2 className="size-4 shrink-0" />
-                <span className="truncate underline">{one.page || one.title}</span>
+                <span className="truncate underline">{one.title}</span>
               </a>
             </li>
           ))}
@@ -147,8 +155,8 @@ function Files(props: { parts: Part[]; sources: Source[]; open: boolean; toggle:
               {one.state === "declined" ? <span className="text-[12px] text-ink-3">Declined</span> : null}
             </li>
           ))}
-          {byTitle(sources).map(([title, pages]) => (
-            <SourceFolder key={title} title={title} pages={pages} />
+          {bySite(sources).map(([site, pages]) => (
+            <SourceFolder key={site} site={site} pages={pages} />
           ))}
           {parts.length === 0 && sources.length === 0 ? <li className="px-2 py-1 text-[13px] text-ink-3">Nothing yet</li> : null}
         </Children>
