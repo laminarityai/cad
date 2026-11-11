@@ -28,30 +28,44 @@ jobs:
           --only "api types" --only "web lint" --only "web test" --only "web build"
           --only app
 
+  # TLC's verdict depends only on the skill's files, so a pull request that changes neither them
+  # nor the code they cover skips it. A push to main always runs it.
   models:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2
+        with:
+          fetch-depth: 2
+      - id: covered
+        run: >-
+          if [ "${{ github.event_name }}" != pull_request ]
+          || python3 .claude/skills/protocol-models/scripts/check_models.py --changed-since HEAD^1;
+          then echo "run=true" >> "$GITHUB_OUTPUT"; fi
+      - if: steps.covered.outputs.run
+        uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2
       - id: tla
+        if: steps.covered.outputs.run
         run: >-
           echo "sha=$(grep -oE '[0-9a-f]{64}' .claude/skills/protocol-models/scripts/check_models.py)"
           >> "$GITHUB_OUTPUT"
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - if: steps.covered.outputs.run
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/cad
           key: tla2tools-${{ steps.tla.outputs.sha }}
-      - run: uv sync --locked
-      - run: uv run --locked verify --only "protocol models"
+      - if: steps.covered.outputs.run
+        run: uv sync --locked
+      - if: steps.covered.outputs.run
+        run: uv run --locked verify --only "protocol models"
 
   tests:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     env:
-      CAD_TEST_SHARD: ${{ matrix.shard }}/6
+      CAD_TEST_SHARD: ${{ matrix.shard }}/8
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2
