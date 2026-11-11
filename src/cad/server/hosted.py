@@ -38,7 +38,6 @@ from cad.accounts import lease
 from cad.accounts.clerk import PUBLIC_URL, PUBLISHABLE_KEY, clerk_issuer
 from cad.accounts.local import LocalIssuer
 from cad.accounts.principal import AccountId, AgentToken, account_id
-from cad.accounts.tenants import ACCOUNTS, Tenants
 from cad.accounts.tokens import Issuer, Verifier
 from cad.chat.key_file import load_key
 from cad.chat.model import MODEL_VARIABLE, SCRIPTED_PREFIX, Model, from_environment
@@ -60,6 +59,7 @@ from cad.operations.guidance import INSTRUCTIONS
 from cad.operations.model import Tenant
 from cad.operations.registry import OPERATIONS, ROUTES
 from cad.operations.routes import person_routes
+from cad.operations.tenants import ACCOUNTS, Tenants
 from cad.operations.tools import tools
 from cad.records.roots import DATA_ROOT
 from cad.sandbox import container, meter

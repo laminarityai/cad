@@ -8,10 +8,10 @@ from mcp import Client
 from mcp.client.context import ClientRequestContext
 from mcp.server import MCPServer
 
-from cad.accounts.tenants import open_tenant
 from cad.confirmations.waiting import Door, page_address
 from cad.context_parts.ingest import ingest
 from cad.operations.registry import OPERATIONS
+from cad.operations.tenants import open_tenant
 from cad.operations.tools import tools
 from cad.records.roots import Roots
 from cad.server.app import LOCAL

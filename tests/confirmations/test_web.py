@@ -23,10 +23,10 @@ from playwright.async_api import Browser, Error, Playwright, Route, async_playwr
 
 from cad.accounts.local import PERSON_TTL_SECONDS, LocalIssuer
 from cad.accounts.principal import AccountId
-from cad.accounts.tenants import Tenants
 from cad.confirmations import answers
 from cad.confirmations.waiting import Door, page_address, sign_in_link
 from cad.confirmations.web import CLERK_CHALLENGES, CLERK_JS, ClerkSignIn, LocalSignIn, SignIn
+from cad.operations.tenants import Tenants
 from cad.projects.model import ProjectId
 from cad.server.hosted import build_app
 

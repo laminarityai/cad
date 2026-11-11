@@ -19,12 +19,12 @@ import anyio
 from mcp import Client, StdioServerParameters
 from playwright.sync_api import sync_playwright
 
-from cad.accounts.tenants import open_tenant
 from cad.confirmations.waiting import Door
 from cad.context_parts.ingest import ingest
 from cad.geometry.model import Tessellated, TessellationPending, mesh_volume
 from cad.operations.model import Audience, Tenant
 from cad.operations.registry import OPERATIONS
+from cad.operations.tenants import open_tenant
 from cad.records.roots import Roots
 from cad.server.app import LOCAL
 

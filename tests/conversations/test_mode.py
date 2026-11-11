@@ -11,7 +11,6 @@ from starlette.applications import Starlette
 
 from cad.accounts.local import LocalIssuer
 from cad.accounts.principal import AccountId
-from cad.accounts.tenants import Tenants
 from cad.auto import log
 from cad.auto.model import AutoRun, Running, Started, Stopped, StoppedByPerson, nth_run_id
 from cad.confirmations.waiting import Door
@@ -19,6 +18,7 @@ from cad.confirmations.web import LocalSignIn
 from cad.context_parts.ingest import ingest
 from cad.conversations import store
 from cad.conversations.model import ConversationId, Mode
+from cad.operations.tenants import Tenants
 from cad.projects.model import ProjectId
 from cad.server.hosted import build_app
 

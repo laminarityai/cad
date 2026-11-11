@@ -35,7 +35,6 @@ from friction import read_pages
 from cad.accounts.local import LocalIssuer
 from cad.accounts.meter import USAGE, parse_lines
 from cad.accounts.principal import AccountId
-from cad.accounts.tenants import ACCOUNTS, Tenants
 from cad.auto import log
 from cad.auto.model import NeedsPerson, Stopped
 from cad.chat.anthropic_model import KEY_VARIABLE, AnthropicModel
@@ -46,6 +45,7 @@ from cad.confirmations.web import LocalSignIn
 from cad.context_parts.ingest import ingest
 from cad.conversations import store
 from cad.conversations.model import ConversationId
+from cad.operations.tenants import ACCOUNTS, Tenants
 from cad.server.app import LocalPage
 from cad.server.hosted import DAILY_CAP_SECONDS, build_app
 

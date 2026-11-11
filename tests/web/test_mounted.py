@@ -3,10 +3,10 @@ from pathlib import Path
 from starlette.testclient import TestClient
 
 from cad.accounts.local import LocalIssuer
-from cad.accounts.tenants import Tenants
 from cad.confirmations.waiting import Door
 from cad.confirmations.web import LocalSignIn
 from cad.context_parts.ingest import ingest
+from cad.operations.tenants import Tenants
 from cad.server.hosted import build_app
 
 BASE = "http://127.0.0.1:8765"

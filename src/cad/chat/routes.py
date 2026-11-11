@@ -22,7 +22,6 @@ from starlette.responses import Response, StreamingResponse
 from starlette.routing import Route
 
 from cad.accounts.principal import PersonSession
-from cad.accounts.tenants import Tenants
 from cad.briefs import store as briefs
 from cad.briefs.store import BriefRefused
 from cad.chat import answer_driver, log
@@ -40,6 +39,7 @@ from cad.conversations.model import (
 )
 from cad.operations.model import Tenant
 from cad.operations.routes import PersonOf, refuse, session_person
+from cad.operations.tenants import Tenants
 from cad.projects.membership import project_briefs
 from cad.projects.model import ProjectId, ProjectRefused, UnknownProject, parse_project_id
 from cad.sandbox.outcome import SandboxUnavailable

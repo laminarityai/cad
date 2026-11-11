@@ -103,8 +103,6 @@ layers = [
 # import instead of adding it here. A line that no longer matches an import fails the step.
 ignore_imports = [
     # Tenant is an operations type: these go when each function takes the values it uses.
-    "cad.accounts.tenants -> cad.confirmations.waiting",
-    "cad.accounts.tenants -> cad.operations.model",
     "cad.auto.gate -> cad.operations.model",
     "cad.briefs.source -> cad.operations.model",
     "cad.confirmations.card -> cad.operations.model",

@@ -9,7 +9,6 @@ from starlette.routing import Route
 
 from cad.accounts.local import LocalIssuer
 from cad.accounts.principal import AccountId
-from cad.accounts.tenants import Tenants
 from cad.chat.routes import CHAT_ROUTES
 from cad.confirmations.waiting import Door
 from cad.confirmations.web import CARD_PATH, LocalSignIn
@@ -20,6 +19,7 @@ from cad.operations.events import EVENTS_PATH
 from cad.operations.model import Audience, Operation, Tenant
 from cad.operations.registry import OPERATIONS, ROUTES
 from cad.operations.routes import Served, person_routes
+from cad.operations.tenants import Tenants
 from cad.operations.tools import agent_operations
 from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.outcome import Build, Built

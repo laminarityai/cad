@@ -10,7 +10,6 @@ from starlette.applications import Starlette
 
 from cad.accounts.local import LocalIssuer
 from cad.accounts.principal import AccountId
-from cad.accounts.tenants import open_tenant
 from cad.accounts.tokens import Verifier
 from cad.confirmations.waiting import OS_OPEN, WAIT_SECONDS, Door, Opener, sign_in_opener
 from cad.confirmations.web import LocalSignIn, confirm_routes
@@ -20,6 +19,7 @@ from cad.geometry.store import GEOMETRY_ROOT
 from cad.operations.guidance import INSTRUCTIONS
 from cad.operations.model import Tenant
 from cad.operations.registry import OPERATIONS
+from cad.operations.tenants import open_tenant
 from cad.operations.tools import tools
 from cad.projects.model import ProjectId
 from cad.records.roots import HOME_ROOTS, Roots
