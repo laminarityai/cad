@@ -870,7 +870,7 @@ export interface components {
          * Mode
          * @enum {string}
          */
-        Mode: "plan" | "design" | "auto" | "test";
+        Mode: "plan" | "design" | "auto";
         /** NeedsPerson */
         NeedsPerson: {
             /**

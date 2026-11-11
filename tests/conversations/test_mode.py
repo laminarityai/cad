@@ -112,7 +112,7 @@ def records(tenants: Tenants, account: AccountId, run_id: str) -> int:
     return len(list(log.run_dir(tenants.of(account).roots, run_id).glob("*.signed")))
 
 
-@pytest.mark.parametrize("mode", ["plan", "design", "auto", "test"])
+@pytest.mark.parametrize("mode", ["plan", "design", "auto"])
 async def test_the_person_switches_a_conversation_to_each_mode(
     app: Starlette, local: LocalIssuer, tenants: Tenants, mode: str
 ) -> None:
@@ -122,6 +122,15 @@ async def test_the_person_switches_a_conversation_to_each_mode(
     assert answered.json() == {"conversation_id": CID, "mode": mode, "auto_run": None}
     held = store.read(tenants.of(ALICE).conversations, CID)
     assert held.mode == Mode(mode)
+
+
+async def test_test_mode_is_refused_and_the_mode_stays(
+    app: Starlette, local: LocalIssuer, tenants: Tenants
+) -> None:
+    store.create(tenants.of(ALICE), CID)
+    refused = await put_mode(app, local.mint_person(ALICE), CID, "test")
+    assert refused.status_code == 422, refused.text
+    assert store.read(tenants.of(ALICE).conversations, CID).mode is Mode.PLAN
 
 
 async def test_a_new_conversation_is_in_plan_so_it_builds_nothing(

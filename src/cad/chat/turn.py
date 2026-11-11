@@ -58,9 +58,6 @@ MODE_NOTES: Final[Mapping[Mode, str]] = {
         "person must decide. The server decides when the run stops, and the person can press "
         "Stop at any time. Never call set_mode: only the person switches modes."
     ),
-    Mode.TEST: (
-        "This conversation is in Test mode: deeper analysis of the one variant the person picks."
-    ),
 }
 
 OPEN_BRIEF: Final = (
