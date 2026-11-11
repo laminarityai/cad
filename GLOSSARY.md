@@ -103,6 +103,6 @@ The default mode. The agent makes variants, runs checks, shows scorecards, and s
 **Auto mode**:
 The agent revises variants against the checks without stopping, until every requirement passes, it needs a decision from the user, or it judges that it is stuck. An account's usage limit also ends a run when it refuses a build.
 
-**Test mode**:
-Deeper, slower analysis of one chosen variant, such as full FEA and tolerance stack-ups.
-_Avoid_: Verify mode, analysis mode
+**Deeper analysis**:
+Slower analysis of one chosen variant, such as full FEA and tolerance stack-ups. It runs when the user asks about that variant or a requirement needs it. It is not a mode.
+_Avoid_: Test mode, verify mode, analysis mode
