@@ -68,7 +68,7 @@ describe("loadWorkspace", () => {
     expect(model.conversationId).toBe("c1");
   });
 
-  it("names a brief with no confirmed proposal and no options as drafting, and reads its options anyway", async () => {
+  it("names a brief with no options yet as building, and reads its options before anything is confirmed", async () => {
     const variantSet = vi.fn(() => Promise.resolve(setOf([])));
     const api = fakeApi([], {
       project: vi.fn(() =>
@@ -78,7 +78,7 @@ describe("loadWorkspace", () => {
       variantSet,
     });
     const model = await loadWorkspace(api, "p1");
-    expect(model.briefs[0]?.state).toBe("drafting");
+    expect(model.briefs[0]?.state).toBe("building");
     expect(model.briefs[0]?.title).toBe("Part 1");
     expect(model.confirmation).toBeNull();
     expect(variantSet).toHaveBeenCalledWith("p1", "b1");
@@ -98,6 +98,7 @@ describe("the confirm card", () => {
     const answer = vi.fn().mockResolvedValueOnce({ status: 400, text: "That is not a number." }).mockResolvedValueOnce({ status: 200, text: "" });
     const onAnswered = vi.fn();
     render(<ConfirmCard projectId="p1" card={card(1)} onAnswered={onAnswered} />, { wrapper: wrap(fakeApi([], { answer })) });
+    expect(screen.getByRole("region", { name: "Confirm your targets" })).toBeInTheDocument();
     expect(screen.getByText("Only you can confirm.")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("That is not a number.");

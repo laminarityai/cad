@@ -53,9 +53,9 @@ export function ConfirmCard({ projectId, card, onAnswered }: { projectId: string
   };
   const asksNote = declining || declined.size > 0;
   return (
-    <section data-confirm-card aria-label="Confirm before I build" className="overflow-hidden rounded-2xl border border-wait/60 bg-panel-2">
+    <section data-confirm-card aria-label="Confirm your targets" className="overflow-hidden rounded-2xl border border-wait/60 bg-panel-2">
       <header className="border-b border-rule-2 bg-wait-bg/60 px-4 py-2.5">
-        <h3 className="text-[15px] font-semibold">Confirm before I build</h3>
+        <h3 className="text-[15px] font-semibold">Confirm your targets</h3>
       </header>
       {card.items.map((item, at) => {
         const no = declined.has(at);

@@ -13,7 +13,7 @@ export function ModePicker(props: { mode: Mode | null; onPick: (mode: Mode) => v
         data-mode={mode ?? "unknown"}
         className={cn(
           "flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[14px] font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          mode === "plan" ? "border-res text-res" : mode === "auto" ? "border-accent text-accent" : "border-rule text-ink-2",
+          mode === "auto" ? "border-accent text-accent" : "border-rule text-ink-2",
         )}
       >
         {labelOf(mode)}

@@ -5,7 +5,7 @@ import { ServicesProvider } from "@/app/context";
 import { FakeChat, FakeViewer, fakeApi } from "@/test/fakes";
 import { massResult, snapshot } from "@/test/fixtures";
 import { restore } from "@/api/snapshot";
-import { assumedOf, linesOf, summaryOf, useCards, type CardKey } from "./cards";
+import { assumedOf, awaitingOf, linesOf, summaryOf, useCards, type CardKey } from "./cards";
 
 const settle = () => act(() => vi.advanceTimersByTimeAsync(0));
 const tick = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
@@ -107,6 +107,35 @@ describe("what the agent assumed", () => {
     const plain = restore(snapshot("v1", [], [massResult(), underLoad]));
     const held = restore({ ...snapshot("v1", [], [massResult(), underLoad]), assumptions: [assumedLoad] });
     expect(linesOf(plain).also.map((one) => one.key)).toEqual(["check:mass:", "check:fea:load-1"]);
+    expect(linesOf(held).also.map((one) => one.key)).toEqual(["check:mass:"]);
+  });
+});
+
+describe("what waits for the person's Confirm", () => {
+  const awaitingRow = {
+    kind: "awaiting" as const,
+    label: "waiting for your Confirm, no verdict" as const,
+    requirement_id: "r1",
+    statement: "Mass at most 30 g",
+    check_id: "mass",
+    instance: "",
+    values: [{ measure: "mass", proposed: { magnitude: 30, unit: "g" }, measured: { magnitude: 0.2, unit: "kg" } }],
+  };
+
+  it("lists the measure beside the stated target and counts as neither a pass nor a fail", () => {
+    const plain = restore(snapshot("v1", [], [massResult()]));
+    const held = restore({ ...snapshot("v1", [], [massResult()]), awaiting: [awaitingRow] });
+    expect(awaitingOf(plain)).toEqual([]);
+    expect(awaitingOf(held)).toEqual([
+      { key: "awaiting:r1", label: "Mass at most 30 g", values: [{ measure: "mass", target: "30 g", measured: "200 g" }] },
+    ]);
+    expect(summaryOf({ snapshot: held })).toEqual(summaryOf({ snapshot: plain }));
+  });
+
+  it("never lists a result that read a load awaiting Confirm as a check that passed", () => {
+    const underLoad = { ...massResult(), check_id: "fea", instance: "load-1" };
+    const waitingLoad = { ...awaitingRow, check_id: "fea", instance: "load-1", values: [] };
+    const held = restore({ ...snapshot("v1", [], [massResult(), underLoad]), awaiting: [waitingLoad] });
     expect(linesOf(held).also.map((one) => one.key)).toEqual(["check:mass:"]);
   });
 });

@@ -535,6 +535,35 @@ export interface components {
             brief_id: string;
         };
         /**
+         * AwaitingRow
+         * @description The person stated this target and has not confirmed it, so it is not judged. `instance`
+         *     names the result of `check_id` that read its load, which is a measure and never a passed
+         *     check.
+         */
+        AwaitingRow: {
+            /**
+             * @default awaiting
+             * @constant
+             */
+            kind: "awaiting";
+            /**
+             * @default waiting for your Confirm, no verdict
+             * @constant
+             */
+            label: "waiting for your Confirm, no verdict";
+            requirement_id: string;
+            statement: string;
+            check_id: string;
+            instance: string;
+            values: components["schemas"]["AwaitingValue"][];
+        };
+        /** AwaitingValue */
+        AwaitingValue: {
+            measure: string;
+            proposed: components["schemas"]["Measured"];
+            measured: components["schemas"]["Measured"] | null;
+        };
+        /**
          * Axis
          * @enum {string}
          */
@@ -1075,7 +1104,7 @@ export interface components {
          * Mode
          * @enum {string}
          */
-        Mode: "plan" | "design" | "auto";
+        Mode: "design" | "auto";
         /** NeedsPerson */
         NeedsPerson: {
             /**
@@ -1340,6 +1369,8 @@ export interface components {
             material: components["schemas"]["MaterialUse"];
             /** @default [] */
             assumptions?: components["schemas"]["AssumedRow"][];
+            /** @default [] */
+            awaiting?: components["schemas"]["AwaitingRow"][];
             /** @default [] */
             research?: components["schemas"]["ResearchRequest"][];
             /** @default null */
@@ -1788,6 +1819,8 @@ export type AssumptionRow = components['schemas']['AssumptionRow'];
 export type AutoRun = components['schemas']['AutoRun'];
 export type AutoState = components['schemas']['AutoState'];
 export type AwaitingConfirmation = components['schemas']['AwaitingConfirmation'];
+export type AwaitingRow = components['schemas']['AwaitingRow'];
+export type AwaitingValue = components['schemas']['AwaitingValue'];
 export type Axis = components['schemas']['Axis'];
 export type Basis = components['schemas']['Basis'];
 export type BoundingBoxWire = components['schemas']['BoundingBoxWire'];

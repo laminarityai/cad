@@ -32,8 +32,7 @@ function TopBar({ title }: { title: string }) {
 }
 
 const WAITING_TEXT: Record<Brief["state"], string> = {
-  drafting: "The agent is writing what it will check.",
-  waiting: "Confirm in the chat and the options appear here.",
+  waiting: "Your targets wait for your Confirm in the chat.",
   building: "Building the options…",
   ready: "",
 };
@@ -138,7 +137,7 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
     ),
   );
   const cards = useCards(keys);
-  const placeholder = selection ? SELECTED_PLACEHOLDER : forNewPart ? "Describe the new part" : auto.mode === "plan" ? "Describe what you need" : "Ask for a change, such as: make the wall 4 mm";
+  const placeholder = selection ? SELECTED_PLACEHOLDER : forNewPart ? "Describe the new part" : "Ask for a change, such as: make the wall 4 mm";
   const sources = sourcesOf(cards);
   const waiting = model.confirmation !== null && model.confirmation.snapshot !== answered;
   const onNew = () => {
