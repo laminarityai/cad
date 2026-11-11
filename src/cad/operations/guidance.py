@@ -26,8 +26,10 @@ CHANGES = (
 )
 
 OPTIONS = (
-    "Every new variant set gets 2 or 3 options that differ in a way the person would choose "
-    "between, each built with a label and a one-line differs."
+    "Every fresh brief, a new part such as a lid included, gets 3 to 5 options, each in its own "
+    "slot, that differ in a way the person would choose between, each built with a label and a "
+    "one-line differs. A change to a built option is the next revision of its slot, not a new "
+    "option."
 )
 
 RULE = (

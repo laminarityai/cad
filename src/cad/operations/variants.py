@@ -40,7 +40,7 @@ BUILD_VARIANT = (
     "except after a timeout. "
     "Pass brief_id once the user has confirmed the brief's requirements: a built variant then "
     f"joins the brief's variant set, which holds up to {MAX_MEMBERS} variants for the user to "
-    "compare, and variant_set names its slot and revision. A new set gets 2 or 3 options, each "
+    "compare, and variant_set names its slot and revision. Build 3 to 5 different variants, each "
     "in its own slot, that differ in a way the person would choose between, not in small "
     "dimensions. Give each a label of a few words and differs, one line saying how it differs "
     "from the others. On a revision, omit both to keep the slot's label, or pass both to change "

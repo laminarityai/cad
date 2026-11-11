@@ -7,7 +7,7 @@ Nov 5, 2026 · @Kevin · revised after a grilling session, and on Nov 7 to make 
 We are building an AI engineer that turns what you ask for into several engineering-checked designs to choose from. Pitch: CAD at the speed of thought, with the engineering already done.
 
 - **Who it's for:** early CADders, such as students, makers and hobbyists, who can describe what a part must do but can't yet model it fast or size it confidently. The bar is that a working engineer would trust the same output.
-- **What it does:** turns a brief into 2 or 3 parametric variants, checks each one, shows every result with its math, changes the chosen one when you ask in chat, and sends it to Onshape.
+- **What it does:** turns a brief into 3 to 5 parametric variants, checks each one, shows every result with its math, changes the chosen one when you ask in chat, and sends it to Onshape.
 - **How it should feel:** simpler, faster and easier than CAD, most of all in the slow parts of prototyping and testing. The agent does the work and asks you only for the decisions that need a person. If you have to take a step the product could have taken, we have failed.
 - **How it stays honest:** the agent proposes designs, and checks it cannot change decide whether they pass. Each scorecard lists every requirement that no reviewed check covers, so a design never looks more checked than it is.
 - **What it is not:** a new CAD program, a text-to-mesh generator, or a blueprint-to-CAD converter.
@@ -29,7 +29,7 @@ The full user research is in the report *AI CAD harness user needs*. The knowled
 
 1. **Brief.** You say what you need, in your own words, and attach images, drawings or documents if you have them.
 2. **Requirements.** The agent turns the brief into checkable requirements and shows where each one came from. You confirm them.
-3. **Variants.** The agent builds 2 or 3 parametric variants.
+3. **Variants.** The agent builds 3 to 5 parametric variants.
 4. **Checks.** Every variant gets a scorecard. This step is what sets us apart.
 5. **Change and export.** You pick a variant, ask in chat for any change, and send it to Onshape. The agent edits the variant and rebuilds it, and the checks run again.
 
@@ -124,7 +124,7 @@ The first version is built in five phases, in this order. Each phase ends when i
 
 1. **Server and universal checks.** Project setup ([AGENTS.md](AGENTS.md)), an MCP server that runs build123d code in the sandbox, the geometric universal checks, and the first materials table.
    - Exit: Claude Code, connected to the server, produces scorecards for the 10 bake-off parts that agree with the bake-off grader, and the sandbox blocks network access and enforces its limits.
-2. **Briefs, requirements and scorecards.** Plan mode, 2 or 3 variants, scorecards that list unverified requirements, sources and researched values, the knowledge base, agent-written checks with per-project review, and context parts with the fit check.
+2. **Briefs, requirements and scorecards.** Plan mode, 3 to 5 variants, scorecards that list unverified requirements, sources and researched values, the knowledge base, agent-written checks with per-project review, and context parts with the fit check.
    - Exit: on the private brief set, across at least five domains, every number on every scorecard traces to a confirmed source. The one exception is an agent's own measurement, which is counted as not verified.
 3. **Physics and manufacturing.** FEA under stated loads and deeper analysis of one chosen variant.
    - Exit: FEA results land within a stated error of hand calculations on beam and plate cases with known answers.
