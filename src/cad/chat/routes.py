@@ -158,15 +158,13 @@ class Chat:
         try:
             ledger = read_ledger(tenant.roots.projects, waiting.project)
             found = answer_driver.delivery(waiting, ledger)
-            if found is not None and found.ends_plan:
-                store.confirmed(tenant.conversations, cid)
         except Exception:
             # The page answer is recorded already, so a store that cannot be read must not fail
             # it. The conversation is told when it is next opened.
             _LOG.exception("could not tell conversation %s about a page answer", cid)
             return
         if found is not None:
-            self._begin(person, cid, channel, found.event)
+            self._begin(person, cid, channel, found)
 
     def _begin(
         self, person: PersonSession, cid: ConversationId, channel: Channel, event: Event

@@ -18,7 +18,6 @@ from mcp.server import MCPServer
 
 from cad.accounts.principal import AgentToken, PersonSession
 from cad.briefs import store as briefs
-from cad.chat import answer_driver
 from cad.chat.auto_driver import AutoDriver
 from cad.chat.log import (
     AgentSaid,
@@ -108,7 +107,6 @@ async def _converse(model: Model, tenants: Tenants, token: AgentToken, channel: 
                 results: list[ToolResult] = []
                 for call in calls:
                     result = await _call(client, call)
-                    answer_driver.settle(tenant_of(), channel.events(), call, result)
                     channel.append(
                         ToolReturned(call_id=call.id, text=result.text, is_error=result.is_error)
                     )
@@ -131,7 +129,7 @@ async def _converse(model: Model, tenants: Tenants, token: AgentToken, channel: 
 
 
 def _system(tenant: Tenant) -> str:
-    parts = [INSTRUCTIONS, CHAT_MODE_NOTES[tenant.mode or Mode.PLAN], CHAT_ON_THE_PAGE]
+    parts = [INSTRUCTIONS, CHAT_MODE_NOTES[tenant.mode or Mode.DESIGN], CHAT_ON_THE_PAGE]
     if tenant.conversation is not None:
         held = store.read(tenant.conversations, tenant.conversation)
         if held.project_id is not None:

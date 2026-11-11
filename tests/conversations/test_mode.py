@@ -24,7 +24,7 @@ from tests.support.conversations import (
 pytestmark = pytest.mark.anyio
 
 
-@pytest.mark.parametrize("mode", ["plan", "design", "auto"])
+@pytest.mark.parametrize("mode", ["design", "auto"])
 async def test_the_person_switches_a_conversation_to_each_mode(
     app: Starlette, local: LocalIssuer, tenants: Tenants, mode: str
 ) -> None:
@@ -42,16 +42,34 @@ async def test_test_mode_is_refused_and_the_mode_stays(
     store.create(tenants.of(ALICE).conversations, CID)
     refused = await put_mode(app, local.mint_person(ALICE), CID, "test")
     assert refused.status_code == 422, refused.text
-    assert store.read(tenants.of(ALICE).conversations, CID).mode is Mode.PLAN
+    assert store.read(tenants.of(ALICE).conversations, CID).mode is Mode.DESIGN
 
 
-async def test_a_new_conversation_is_in_plan_so_it_builds_nothing(
-    app: Starlette, local: LocalIssuer
+async def test_plan_is_not_a_mode_any_more(
+    app: Starlette, local: LocalIssuer, tenants: Tenants
 ) -> None:
+    store.create(tenants.of(ALICE).conversations, CID)
+    refused = await put_mode(app, local.mint_person(ALICE), CID, "plan")
+    assert refused.status_code == 422, refused.text
+    assert store.read(tenants.of(ALICE).conversations, CID).mode is Mode.DESIGN
+
+
+async def test_a_new_conversation_is_in_design_so_a_brief_builds_at_once(
+    app: Starlette, local: LocalIssuer, tenants: Tenants
+) -> None:
+    store.create(tenants.of(ALICE).conversations, CID)
+    assert store.read(tenants.of(ALICE).conversations, CID).mode is Mode.DESIGN
     token = local.mint_agent(ALICE, conversation=CID)
-    refused = await agent_call(app, token, "build_variant", code="result = None")
-    assert refused.is_error
-    assert "build_variant is refused in Plan mode" in refused.content[0].text
+    built = await agent_call(app, token, "build_variant", code="result = None")
+    assert "Plan mode" not in built.content[0].text
+
+
+async def test_a_record_stored_in_plan_reads_as_design(tenants: Tenants) -> None:
+    conversations = tenants.of(ALICE).conversations
+    store.create(conversations, CID)
+    path = conversations / f"{CID}.json"
+    path.write_text(path.read_text().replace('"design"', '"plan"'))
+    assert store.read(conversations, CID).mode is Mode.DESIGN
 
 
 async def test_the_mode_the_person_sets_reaches_the_agents_next_call(
@@ -63,19 +81,19 @@ async def test_the_mode_the_person_sets_reaches_the_agents_next_call(
     in_auto = await agent_call(app, agent, "build_variant", code="result = None")
     assert in_auto.is_error
     assert "this conversation is in Auto mode, so call auto_start first" in in_auto.content[0].text
-    await put_mode(app, person, CID, "plan")
-    in_plan = await agent_call(app, agent, "build_variant", code="result = None")
-    assert "build_variant is refused in Plan mode" in in_plan.content[0].text
+    await put_mode(app, person, CID, "design")
+    in_design = await agent_call(app, agent, "build_variant", code="result = None")
+    assert "this conversation is in Auto mode" not in in_design.content[0].text
 
 
 async def test_one_conversations_mode_does_not_reach_another(
     app: Starlette, local: LocalIssuer, tenants: Tenants
 ) -> None:
-    store.create(tenants.of(ALICE).conversations, ConversationId("c-design"))
-    await put_mode(app, local.mint_person(ALICE), "c-design", "design")
+    store.create(tenants.of(ALICE).conversations, ConversationId("c-auto"))
+    await put_mode(app, local.mint_person(ALICE), "c-auto", "auto")
     other = local.mint_agent(ALICE, conversation="c-other")
-    refused = await agent_call(app, other, "build_variant", code="result = None")
-    assert "build_variant is refused in Plan mode" in refused.content[0].text
+    built = await agent_call(app, other, "build_variant", code="result = None")
+    assert "this conversation is in Auto mode" not in built.content[0].text
 
 
 async def test_leaving_auto_stops_the_run_and_the_agent_cannot_revise_it(
@@ -116,7 +134,7 @@ async def test_an_agent_token_cannot_set_the_mode(
     store.create(tenants.of(ALICE).conversations, CID)
     refused = await put_mode(app, local.mint_agent(ALICE, conversation=CID), CID, "design")
     assert refused.status_code == 401
-    assert store.read(tenants.of(ALICE).conversations, CID).mode is Mode.PLAN
+    assert store.read(tenants.of(ALICE).conversations, CID).mode is Mode.DESIGN
 
 
 @pytest.mark.parametrize("cid", ["bad.id", "a" * 65, "sp%20ace"])

@@ -14,7 +14,7 @@ from cad.conversations.model import (
 from cad.operations.model import Audience, Input, Tenant, operation
 
 SET_MODE = (
-    "Switch a conversation to Plan, Design or Auto mode. Only the person does this, in the "
+    "Switch a conversation to Design or Auto mode. Only the person does this, in the "
     "web app, and the server enforces the mode on the agent's next tool call. Leaving Auto stops "
     "the conversation's Auto run. Returns the conversation's mode and its Auto run, if any."
 )

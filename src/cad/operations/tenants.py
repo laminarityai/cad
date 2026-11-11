@@ -80,7 +80,7 @@ class Tenants:
 
 
 def bind(tenant: Tenant, cid: ConversationId | None) -> Tenant:
-    """An agent token's conversation with no record binds as Plan, which builds nothing."""
+    """An agent token's conversation with no record binds as Design."""
     if cid is None:
         return tenant
     try:

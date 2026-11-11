@@ -63,7 +63,7 @@ async def test_the_auto_operations_are_agent_tools(s: Session) -> None:
     assert {"auto_start", "auto_revise", "auto_ask"} <= names
 
 
-@pytest.mark.parametrize("mode", [None, Mode.PLAN, Mode.DESIGN])
+@pytest.mark.parametrize("mode", [None, Mode.DESIGN])
 async def test_auto_start_is_refused_outside_an_auto_mode_conversation(
     s: Session, mode: Mode | None
 ) -> None:

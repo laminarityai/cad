@@ -42,21 +42,24 @@ NEXT: Final = {
         "The confirmation is waiting in the web app and has no answer yet. Tell the user to "
         "answer it there, on the project's confirmation page. In the web app's chat their answer "
         "reaches you by itself, so end your message and do not ask them to tell you. Any other "
-        "client calls ask_to_confirm again after they answer. Build no geometry for a brief "
-        "until it is confirmed."
+        "client calls ask_to_confirm again after they answer. What you built stays, and the "
+        "scorecards show each target that waits as waiting on the person, with its measure."
     ),
     "declined": (
-        "The user declined an item. Read their note, revise with propose_requirements or "
-        "propose_context_part, and call ask_to_confirm again."
+        "The user declined an item. Nothing you built is removed. Read their note, then revise "
+        "with propose_requirements or propose_context_part and call ask_to_confirm again, or "
+        "file the value as an assumption, or drop it."
     ),
     "answered": (
         "The user confirmed, and may have changed numbers on the page. Read what they confirmed "
-        "with list_requirements, build with build_variant, and pass the brief_id to "
-        "score_variant."
+        "with list_requirements, then call score_variant with the brief_id for each option. "
+        "The stored check results are judged against what they confirmed with no rebuild. "
+        "Revise only an option that fails a confirmed target."
     ),
     "nothing_to_confirm": (
-        "Nothing in this project waits on the user. Propose requirements with "
-        "propose_requirements, or a context part with propose_context_part, first."
+        "Nothing in this project waits on the user. A brief that states no number needs no "
+        "confirmation. When the user did state one, propose it with propose_requirements, or "
+        "a context part with propose_context_part, first."
     ),
 }
 

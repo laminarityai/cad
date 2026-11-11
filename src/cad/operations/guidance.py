@@ -3,30 +3,36 @@ from typing import Final
 
 from cad.conversations.model import Mode
 
-PLAN_MODE = (
-    "Plan mode comes first for every brief. Store the brief with create_brief: in chat pass no "
-    "text, and the server copies the person's message; from any other client pass their words "
-    "verbatim. "
-    "Turn them into requirements with propose_requirements, each quoting the words it comes "
-    "from. Then call ask_to_confirm with the project_id: only the user can confirm, on one page "
-    "that opens on their screen and lists everything waiting on them in the project, and you "
-    "cannot answer it. Build no geometry for a brief until ask_to_confirm or list_requirements "
-    "says its requirements are confirmed. If the user declines, read their note, revise, and "
-    "propose again."
+BUILD_FIRST = (
+    "A brief builds at once, so nothing waits on the person before you build. Work in this "
+    "order in one turn. Store the brief with create_brief. In chat pass no text, and the server "
+    "copies the person's message. From any other client pass their words verbatim. Call "
+    "propose_requirements with every target the person stated, each quoting the words that "
+    "state it, and with an assumption for every number you fill in yourself. Build 3 to 5 "
+    "options and score each one with the brief_id. Call ask_to_confirm with the project_id "
+    "last, and only when a stated target is waiting for the person. A brief that states no "
+    "number gets no ask_to_confirm and shows no Confirm card. Only the person can confirm, on "
+    "the project's page, and you cannot answer it. No requirement verdict rests on a target "
+    "until the person confirms it. Until then the scorecard shows the target as waiting on the "
+    "person, with the measure beside it, and you report it that way. After they confirm, the "
+    "same stored check results are judged and nothing is rebuilt. If the person declines, read "
+    "their note and keep every option you built. Then propose the target again, file its value "
+    "as an assumption, or drop it."
 )
 
 CHANGES = (
     "Sort each change the person asks for. With no number stated, such as shorter, stiffer or "
     "less plastic, build it as the next revision of the slot it names, with build_variant and "
-    "that slot: no new brief, no proposal and no confirmation. Pick the amount yourself and say "
-    "it in one line. A number the person states, such as 20 N or at most 30 g, is proposed on "
-    "that slot's own brief, with every requirement that stays in force and the new one, quoting "
-    "the person's words exactly: the server adds their message to the brief. Then ask_to_confirm. "
-    "Only a part the project does not have, such as a lid, gets a new brief, in the same "
-    "project. Take sensible defaults and say each in one line instead of asking. Ask only for a "
-    "target only the person can set, and never invent one for them to confirm. Never ask the "
-    "person to pick among options you can build. A message that carries a selection names where "
-    "the change goes: read it with read_selection and build the slot's next revision."
+    "that slot. That needs no new brief, no proposal and no confirmation. Pick the amount "
+    "yourself and say it in one line. A number the person states, such as 20 N or at most "
+    "30 g, is proposed on that slot's own brief, with every requirement that stays in force "
+    "and the new one, quoting the person's words exactly. The server adds their message to the "
+    "brief. Build and score the slot's next revision without waiting, then call ask_to_confirm "
+    "last. Only a part the project does not have, such as a lid, gets a new brief, in the same "
+    "project. Take sensible defaults and say each in one line instead of asking. Ask only for "
+    "a target only the person can set, and never invent one for them to confirm. Never ask the "
+    "person to pick among options you can build. A message that carries a selection names "
+    "where the change goes. Read it with read_selection and build the slot's next revision."
 )
 
 OPTIONS = (
@@ -72,16 +78,18 @@ DEEPER_ANALYSIS = (
     "Deeper analysis is slower analysis of one variant the user picks, for example when they "
     "ask whether it will hold a load. It is not a mode. If the user states a load that no "
     "confirmed requirement holds, propose it as min_safety_factor or max_deflection, which the "
-    "fea check decides. "
-    "No check decides a print process or a print time, so propose those as unchecked and say "
-    "that print time is not checked. Propose it on the variant's own brief: the server adds the "
-    "person's words to that brief. Have the user confirm before you score. Then score only "
-    "that variant, with its brief_id. A scorecard with pending checks is not finished: do not "
-    "state a pending check's result, and call score_variant again with the same arguments to "
-    "wait for it. Report only what the checks returned, and for a load, the fea verdict and "
-    "its measures. When fea is unknown because the table lacks a material value, answer the "
-    "card's research requests and score again before you report. Do not estimate a strength, "
-    "a deflection or a print time yourself: when no check returned it, say it was not checked."
+    "fea check decides, on the variant's own brief. The server adds the person's words to that "
+    "brief. Score that variant at once with its brief_id. Do not wait for the confirmation: the "
+    "fea check runs under the load that awaits it, and the card shows the measure beside the "
+    "waiting target. That result is a measure and not a verdict. Say that the target waits for "
+    "the person, give the measure, and never say it passed or failed. Once they confirm, score "
+    "again to read the verdict. No check decides a print process or a print time, so propose "
+    "those as unchecked and say that print time is not checked. A scorecard with pending "
+    "checks is not finished. Do not state a pending check's result, and call score_variant "
+    "again with the same arguments to wait for it. Report only what the checks returned. When "
+    "fea is unknown because the table lacks a material value, answer the card's research "
+    "requests and score again before you report. Do not estimate a strength, a deflection or a "
+    "print time yourself. When no check returned it, say it was not checked."
 )
 
 NOT_VERIFIED = (
@@ -104,7 +112,7 @@ MATERIAL = (
 INSTRUCTIONS: Final = " ".join(
     (
         RULE,
-        PLAN_MODE,
+        BUILD_FIRST,
         CHANGES,
         OPTIONS,
         CONTEXT_PARTS,
@@ -116,24 +124,19 @@ INSTRUCTIONS: Final = " ".join(
 )
 
 CHAT_MODE_NOTES: Final[Mapping[Mode, str]] = {
-    Mode.PLAN: (
-        "This conversation is in Plan mode. Turn the person's words into requirements and ask "
-        "them to confirm. The server refuses build_variant in Plan mode. When the person "
-        "confirms, the server moves the conversation to Design mode and starts your next turn "
-        "by itself. After ask_to_confirm returns pending, the page shows a Confirm card in this "
-        "chat: tell the person in one short sentence to confirm it there, and end your message."
-    ),
     Mode.DESIGN: (
         "This conversation is in Design mode. Build and revise variants when the person asks, "
-        "and report only what the checks returned. You act when the person writes or answers the "
-        "confirmation page."
+        "and report only what the checks returned. You act when the person writes or answers "
+        "the confirmation page. After ask_to_confirm returns pending, the page shows a Confirm "
+        "card in this chat. Tell the person in one short sentence to confirm it there, and end "
+        "your message."
     ),
     Mode.AUTO: (
         "This conversation is in Auto mode. Call auto_start with the brief_id of a brief whose "
         "requirements the person confirmed, then call auto_revise with new build123d code for "
         "the failing requirements until the run stops. Call auto_ask when you are stuck or the "
         "person must decide. The server decides when the run stops, and the person can press "
-        "Stop at any time. Never call set_mode: only the person switches modes."
+        "Stop at any time. Never call set_mode, because only the person switches modes."
     ),
 }
 
@@ -163,7 +166,8 @@ CHAT_ON_THE_PAGE: Final = (
     "scorecard, a check result, a measurement, a list of variants or an id in your reply, and "
     "never write a table. After you build or score, reply in one or two short sentences that "
     "say what changed and point at the page, for example: Built 3 lid options, see the tabs. "
-    "When the person must choose, ask one short question. When you need the person to confirm, "
-    "call ask_to_confirm: the page draws the items in this chat with a Confirm button, so do "
-    "not list them yourself. Never ask the person for an id, a mode or a material."
+    "When the person must choose, ask one short question. When a target the person stated waits "
+    "for them, call ask_to_confirm after you build and score. The page draws the items in this "
+    "chat with a Confirm button, so do not list them yourself. Never ask the person for an id, "
+    "a mode or a material."
 )

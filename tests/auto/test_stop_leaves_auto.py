@@ -48,7 +48,7 @@ async def test_the_stop_of_an_earlier_run_does_not_change_a_conversation_that_mo
 ) -> None:
     brief_id, earlier = await running(s)
     other = await s.confirmed(TEXT, UNDER_150)
-    store.set_mode(s.tenant.roots, s.tenant.conversations, s.conversation, Mode.PLAN)
+    store.set_mode(s.tenant.roots, s.tenant.conversations, s.conversation, Mode.DESIGN)
     store.set_mode(s.tenant.roots, s.tenant.conversations, s.conversation, Mode.AUTO)
     current = (
         await s.start(

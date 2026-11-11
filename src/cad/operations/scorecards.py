@@ -8,7 +8,7 @@ from cad.auto.gate import gate, stops_at_the_limit
 from cad.briefs import assumptions as assuming
 from cad.briefs import store as briefs
 from cad.briefs.assumptions import Assumption
-from cad.briefs.model import Target
+from cad.briefs.model import Requirement, Target
 from cad.briefs.store import ConfirmedSet
 from cad.checks import jobs
 from cad.confirmations.requirements import plain_names
@@ -20,7 +20,7 @@ from cad.operations.research import brief_table, with_research
 from cad.records.roots import Roots
 from cad.research.overlay import ProjectTable
 from cad.sandbox import image
-from cad.scorecard import assumed, material, requirements, score
+from cad.scorecard import assumed, awaiting, material, requirements, score
 from cad.tables.materials import KEY_PATTERN
 from cad.variant_sets import store as variant_sets
 from cad.variant_sets.model import MaterialChoice, MaterialMissing
@@ -77,7 +77,13 @@ SCORE_VARIANT = (
     "decided it, a verdict, and each limit the user confirmed, and unverified_requirements lists "
     "every requirement that no reviewed check covers. The measured value for a limit is the "
     "measure of the same name in that check's result. Before the user confirms, the basis is "
-    "awaiting_confirmation and no requirement is judged. Without brief_id the basis is no_brief "
+    "awaiting_confirmation and no requirement is judged. A stated target that waits for the "
+    "user's Confirm is listed under awaiting, beside the measure of its deciding check and "
+    "with no verdict: report it as waiting for the user, give the measure, and never call it "
+    "a pass or a fail. After they confirm, scoring the same variant again judges the same "
+    "stored check results against it with no rebuild. A check result for a load case under an "
+    "awaiting or assumed target is a measure of that load and never a passed check. "
+    "Without brief_id the basis is no_brief "
     "and the scorecard covers no requirement. A limit counts as met up to one part in a billion, "
     "an allowance for float noise in unit conversion and not an engineering tolerance. envelope "
     "compares the bounding box of the part as built, never rotated, so it is pass or unknown and "
@@ -141,6 +147,7 @@ class Judged:
     material_key: str
     choice: MaterialChoice | None
     assumptions: tuple[Assumption, ...]
+    waiting: tuple[Requirement, ...]
 
 
 def _context(roots: Roots, brief_id: str) -> dict[ContextPartId, jobs.PartBrep]:
@@ -163,19 +170,28 @@ def _assumed(tenant: Tenant, brief_id: str) -> tuple[Assumption, ...]:
     return () if held is None else held.assumptions
 
 
+def _waiting(
+    tenant: Tenant, brief_id: str, confirmed: ConfirmedSet | None
+) -> tuple[Requirement, ...]:
+    """The stated targets the person has not confirmed: the newest proposal's rows, less any the
+    confirmed set already holds, which are judged."""
+    latest = briefs.read_state(tenant.roots, brief_id).latest
+    if latest is None or latest.status is not briefs.Status.PROPOSED:
+        return ()
+    held = () if confirmed is None else [one.target for one in confirmed.requirements]
+    return tuple(one for one in latest.requirements if one.target not in held)
+
+
 def _targets(
-    tenant: Tenant,
-    brief_id: str,
     confirmed: ConfirmedSet | None,
+    waiting: tuple[Requirement, ...],
     assumed_by_agent: tuple[Assumption, ...],
 ) -> list[Target]:
     """Every target a card may show a measure for: confirmed, awaiting Confirm, or assumed."""
-    latest = briefs.read_state(tenant.roots, brief_id).latest
-    awaiting = latest.requirements if latest and latest.status is briefs.Status.PROPOSED else ()
     held = () if confirmed is None else confirmed.requirements
     return [
         *(one.target for one in held),
-        *(one.target for one in awaiting),
+        *(one.target for one in waiting),
         *(one.target for one in assumed_by_agent),
     ]
 
@@ -183,11 +199,15 @@ def _targets(
 def with_assumptions(
     card: material.ReportedScorecard, tenant: Tenant, basis: Judged, brief_id: str | None
 ) -> material.ReportedScorecard:
-    if brief_id is None or not basis.assumptions:
+    if brief_id is None or not (basis.assumptions or basis.waiting):
         return card
     names = plain_names(tenant.roots, brief_id)
-    rows = assumed.rows(basis.assumptions, card.results, names)
-    return card.model_copy(update={"assumptions": rows})
+    return card.model_copy(
+        update={
+            "assumptions": assumed.rows(basis.assumptions, card.results, names),
+            "awaiting": awaiting.rows(basis.waiting, card.results, names),
+        }
+    )
 
 
 def judged(
@@ -198,6 +218,7 @@ def judged(
     confirmed = None
     assess, demand = score.no_brief, score.NO_DEMAND
     held = ()
+    waiting: tuple[Requirement, ...] = ()
     if brief_id is not None:
         confirmed = briefs.confirmed_requirements(tenant.roots, brief_id)
         assess = (
@@ -206,8 +227,9 @@ def judged(
             else requirements.against(confirmed, plain_names(tenant.roots, brief_id))
         )
         held = _assumed(tenant, brief_id)
+        waiting = _waiting(tenant, brief_id, confirmed)
         demand = requirements.demand(
-            _targets(tenant, brief_id, confirmed, held), _context(tenant.roots, brief_id)
+            _targets(confirmed, waiting, held), _context(tenant.roots, brief_id)
         )
     table = brief_table(tenant.roots, brief_id)
     pinned = material.pinned_key(confirmed, table.table)
@@ -223,7 +245,7 @@ def judged(
             "material the agent chose for this variant's slot"
         )
     material.refuse_other_material(confirmed, key, table.table)
-    return Judged(confirmed, assess, demand, table, key, choice, held)
+    return Judged(confirmed, assess, demand, table, key, choice, held, waiting)
 
 
 def score_variant(tenant: Tenant, arguments: ScoreVariantInput) -> material.ReportedScorecard:
