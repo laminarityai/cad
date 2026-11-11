@@ -288,23 +288,28 @@ export function Composer(props: {
 
 export function ChatPane(props: {
   lines: readonly Line[];
+  /** Lines said after the card was drawn, so they read below it. */
+  later: readonly Line[];
   pointed: Record<number, string>;
   running: boolean;
   card: ReactNode;
   composer: ReactNode;
   notice: string | null;
 }) {
-  const { lines, pointed, running, card, composer, notice } = props;
+  const { lines, later, pointed, running, card, composer, notice } = props;
+  const said = (all: readonly Line[]) =>
+    grouped(all).map((one) => (one.kind === "activity" ? <Activity key={`a${String(one.key)}`} lines={one.lines} /> : <Said key={one.line.seq} line={one.line} pointed={pointed[one.line.seq]} />));
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
     end.current?.scrollIntoView({ block: "end" });
-  }, [lines, card, notice]);
+  }, [lines, later, card, notice]);
   return (
     <section aria-label="Chat" className="flex h-full min-h-0 flex-col">
       <div role="log" className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
-        {grouped(lines).map((one) => (one.kind === "activity" ? <Activity key={`a${String(one.key)}`} lines={one.lines} /> : <Said key={one.line.seq} line={one.line} pointed={pointed[one.line.seq]} />))}
+        {said(lines)}
         {running ? <p className="text-[14px] text-ink-3">Working…</p> : null}
         {card}
+        {said(later)}
         {notice ? <p className="rounded-lg bg-panel-2 px-3 py-2 text-[14px] text-ink-2">{notice}</p> : null}
         <div ref={end} />
       </div>

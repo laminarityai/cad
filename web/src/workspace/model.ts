@@ -101,6 +101,8 @@ const LABELS: Record<string, { label: string; differs: string }> = {
 const NOTES: Record<string, string> = {
   "27c2d5123a01c996": "First try: flat plate on the rim",
   e4c5fd81fa49bb3a: "Plugs in, flush with the rim",
+  "026445a319ce2b10": "2 mm plate",
+  "928167d0fb6c61e6": "3 mm plate, from “make this thicker”",
 };
 
 const MATERIAL_NAMES: Record<string, string> = { "prusament-pla": "Prusament PLA" };
@@ -127,7 +129,9 @@ function materialOf(brief: BriefView): Material {
 function slotsOf(set: VariantSetView | null): Slot[] {
   if (!set) return [];
   return set.members.map((member) => {
-    const latest = LABELS[member.variant_id] ?? { label: `Option ${String(member.slot)}`, differs: "" };
+    /* An option keeps its name across revisions: the newest revision that has one names it. */
+    const named = [member.variant_id, ...member.revisions.map((one) => one.variant_id).reverse()].find((id) => id in LABELS);
+    const latest = (named ? LABELS[named] : undefined) ?? { label: `Option ${String(member.slot)}`, differs: "" };
     return {
       slot: member.slot,
       label: latest.label,
