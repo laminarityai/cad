@@ -132,11 +132,13 @@ CHAT_MODE_NOTES: Final[Mapping[Mode, str]] = {
         "your message."
     ),
     Mode.AUTO: (
-        "This conversation is in Auto mode. Call auto_start with the brief_id of a brief whose "
-        "requirements the person confirmed, then call auto_revise with new build123d code for "
-        "the failing requirements until the run stops. Call auto_ask when you are stuck or the "
-        "person must decide. The server decides when the run stops, and the person can press "
-        "Stop at any time. Never call set_mode, because only the person switches modes."
+        "This conversation is in Auto mode. A brief the person has confirmed nothing for builds "
+        "and scores with build_variant and score_variant, as every fresh brief does. Once they "
+        "have confirmed its requirements, call auto_start with its brief_id, then call "
+        "auto_revise with new build123d code for the failing requirements until the run stops. "
+        "Call auto_ask when you are stuck or the person must decide. The server decides when "
+        "the run stops, and the person can press Stop at any time. Never call set_mode, because "
+        "only the person switches modes."
     ),
 }
 

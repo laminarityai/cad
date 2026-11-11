@@ -15,26 +15,11 @@ from cad.operations.registry import OPERATIONS
 from cad.operations.tenants import bind
 from cad.operations.tools import tools
 from cad.records.roots import Roots
-from cad.sandbox import container
 from cad.server.app import LOCAL, LocalPage
 from tests.support.auto_session import Ledger, Session
 
 if TYPE_CHECKING:
     from tests.support.browser import Person
-
-
-@pytest.fixture
-def started(monkeypatch: pytest.MonkeyPatch) -> list[str]:
-    """The name of each container that reached `docker run`."""
-    names: list[str] = []
-
-    def attend(name: str, argv: tuple[str, ...], stdin: bytes, wall_seconds: int) -> None:
-        del argv, stdin, wall_seconds
-        names.append(name)
-        raise container.SandboxUnavailable("this test starts no container")
-
-    monkeypatch.setattr(container, "attend", attend)
-    return names
 
 
 @pytest.fixture

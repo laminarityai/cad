@@ -23,6 +23,8 @@ from tests.support.conversations import (
 
 pytestmark = pytest.mark.anyio
 
+NO_CONTAINER = "this test starts no container"
+
 
 @pytest.mark.parametrize("mode", ["design", "auto"])
 async def test_the_person_switches_a_conversation_to_each_mode(
@@ -55,13 +57,14 @@ async def test_plan_is_not_a_mode_any_more(
 
 
 async def test_a_new_conversation_is_in_design_so_a_brief_builds_at_once(
-    app: Starlette, local: LocalIssuer, tenants: Tenants
+    app: Starlette, local: LocalIssuer, tenants: Tenants, started: list[str]
 ) -> None:
     store.create(tenants.of(ALICE).conversations, CID)
     assert store.read(tenants.of(ALICE).conversations, CID).mode is Mode.DESIGN
     token = local.mint_agent(ALICE, conversation=CID)
     built = await agent_call(app, token, "build_variant", code="result = None")
-    assert "Plan mode" not in built.content[0].text
+    assert NO_CONTAINER in built.content[0].text
+    assert len(started) == 1
 
 
 async def test_a_record_stored_in_plan_reads_as_design(tenants: Tenants) -> None:
@@ -73,7 +76,7 @@ async def test_a_record_stored_in_plan_reads_as_design(tenants: Tenants) -> None
 
 
 async def test_the_mode_the_person_sets_reaches_the_agents_next_call(
-    app: Starlette, local: LocalIssuer, tenants: Tenants
+    app: Starlette, local: LocalIssuer, tenants: Tenants, started: list[str]
 ) -> None:
     store.create(tenants.of(ALICE).conversations, CID)
     person, agent = local.mint_person(ALICE), local.mint_agent(ALICE, conversation=CID)
@@ -83,17 +86,19 @@ async def test_the_mode_the_person_sets_reaches_the_agents_next_call(
     assert "this conversation is in Auto mode, so call auto_start first" in in_auto.content[0].text
     await put_mode(app, person, CID, "design")
     in_design = await agent_call(app, agent, "build_variant", code="result = None")
-    assert "this conversation is in Auto mode" not in in_design.content[0].text
+    assert NO_CONTAINER in in_design.content[0].text
+    assert len(started) == 1
 
 
 async def test_one_conversations_mode_does_not_reach_another(
-    app: Starlette, local: LocalIssuer, tenants: Tenants
+    app: Starlette, local: LocalIssuer, tenants: Tenants, started: list[str]
 ) -> None:
     store.create(tenants.of(ALICE).conversations, ConversationId("c-auto"))
     await put_mode(app, local.mint_person(ALICE), "c-auto", "auto")
     other = local.mint_agent(ALICE, conversation="c-other")
     built = await agent_call(app, other, "build_variant", code="result = None")
-    assert "this conversation is in Auto mode" not in built.content[0].text
+    assert NO_CONTAINER in built.content[0].text
+    assert len(started) == 1
 
 
 async def test_leaving_auto_stops_the_run_and_the_agent_cannot_revise_it(

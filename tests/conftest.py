@@ -17,6 +17,7 @@ from cad.confirmations.web import LocalSignIn
 from cad.context_parts.ingest import ingest
 from cad.operations.tenants import Tenants
 from cad.records.roots import Roots
+from cad.sandbox import container
 from cad.server.app import build_server
 from cad.server.hosted import build_app
 from tests.support.browser import Person, local_pages
@@ -43,6 +44,20 @@ def person() -> Person:
 @pytest.fixture
 def browser() -> type[Person]:
     return Person
+
+
+@pytest.fixture
+def started(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """The name of each container that reached `docker run`."""
+    names: list[str] = []
+
+    def attend(name: str, argv: tuple[str, ...], stdin: bytes, wall_seconds: int) -> None:
+        del argv, stdin, wall_seconds
+        names.append(name)
+        raise container.SandboxUnavailable("this test starts no container")
+
+    monkeypatch.setattr(container, "attend", attend)
+    return names
 
 
 @pytest.fixture

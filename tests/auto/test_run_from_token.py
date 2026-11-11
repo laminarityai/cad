@@ -8,6 +8,7 @@ from mcp import Client
 from mcp.server import MCPServer
 
 from cad.auto.model import Running, RunStopped, Stopped, StoppedByPerson
+from cad.chat.log import Channel, UserSaid, transcript_path
 from cad.conversations import store
 from cad.conversations.model import ConversationId, Mode
 from cad.operations.registry import OPERATIONS
@@ -133,6 +134,23 @@ async def test_auto_mode_with_no_run_refuses_a_build_and_a_score(
     ):
         assert "this conversation is in Auto mode, so call auto_start first" in text
     assert (started, s.meter.asked) == ([], [])
+
+
+async def test_auto_mode_builds_a_brief_with_nothing_confirmed_and_needs_a_run_once_it_is(
+    s: Session, started: list[str]
+) -> None:
+    Channel(transcript_path(s.tenant.conversations, s.conversation)).append(UserSaid(text=TEXT))
+    brief = await s.call("create_brief")
+    chosen = {"material_key": "prusament-pla", "material_reason": "PLA prints easily"}
+    text = await s.refusal("build_variant", code=PLATE, brief_id=brief["brief_id"], **chosen)
+    assert "this test starts no container" in text
+    assert len(started) == 1
+    await s.propose(brief["brief_id"], UNDER_150)
+    answer = await s.call("ask_to_confirm", project_id=brief["project_id"])
+    assert answer["status"] == "answered", answer
+    text = await s.refusal("build_variant", code=PLATE, brief_id=brief["brief_id"], **chosen)
+    assert AUTO_REFUSAL in text
+    assert len(started) == 1
 
 
 async def test_build_variant_takes_no_auto_run_argument(s: Session) -> None:
