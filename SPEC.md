@@ -130,8 +130,8 @@ The first version is built in five phases, in this order. Each phase ends when i
    - Exit: FEA results land within a stated error of hand calculations on beam and plate cases with known answers.
 4. **Web app.** Chat, 3D viewer, scorecards, the mode switcher, Auto mode with its stopping rules, and accounts with usage limits.
    - Exit: a change asked for in chat rebuilds the variant and updates its scorecard without a page reload, and Auto mode stops correctly on a brief whose requirements conflict.
-5. **Onshape.** Send to Onshape through the REST API.
-   - Exit: someone who doesn't use CAD designs and prints a working part from a brief, and an engineer reads its scorecard and agrees with it.
+5. **Onshape.** Send a variant to Onshape, and read a part from an Onshape document into a project as a context part, through the REST API.
+   - Exit: a variant sent from the workspace opens in Onshape with the volume and bounding box its scorecard reports, and a part read from an Onshape document becomes a context part that the fit check measures against.
 
 Track progress with three numbers on a private set of briefs that spans at least five domains. The first is the strict pass rate, graded by executable checks, not "valid STL" rates. The second is the share of requirements covered by reviewed checks, which shows whether the "checks decide" claim holds as the agent takes on new domains. The third is friction: how many times you are asked to confirm something, and how many minutes pass, from brief to first scorecard. A change that raises friction needs a stated reason. Report public benchmarks such as Text2CAD-Bench and BenchCAD-Edit alongside.
 
