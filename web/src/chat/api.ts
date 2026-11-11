@@ -1,5 +1,5 @@
 import { requestJson } from "@/api/client";
-import type { ConversationCreated, ConversationState, ConversationView, Event, Mode, MessageSent, PersonStop } from "@/api/types";
+import type { ConversationCreated, ConversationState, ConversationView, Event, Mode, MessageSent, Picked, PersonStop } from "@/api/types";
 import { FrameReader } from "./sse";
 
 export type Link = "connecting" | "live" | "reconnecting" | "signed_out" | "not_found";
@@ -14,7 +14,7 @@ export type Unfollow = () => void;
 export interface ChatApi {
   create(projectId?: string): Promise<ConversationCreated>;
   read(conversationId: string): Promise<ConversationView>;
-  send(conversationId: string, text: string): Promise<MessageSent>;
+  send(conversationId: string, text: string, selection?: Picked): Promise<MessageSent>;
   setMode(conversationId: string, mode: Mode): Promise<ConversationState>;
   stop(runId: string): Promise<PersonStop>;
   /** Every event after `after`, then each new one as it is said. */
@@ -76,7 +76,7 @@ async function follow(conversationId: string, from: number, handlers: Follower, 
 export const httpChat: ChatApi = {
   create: (projectId) => requestJson("POST", "/v1/conversations", projectId === undefined ? {} : { project_id: projectId }),
   read: (conversationId) => requestJson("GET", `/v1/conversations/${enc(conversationId)}`),
-  send: (conversationId, text) => requestJson("POST", `/v1/conversations/${enc(conversationId)}/messages`, { text }),
+  send: (conversationId, text, selection) => requestJson("POST", `/v1/conversations/${enc(conversationId)}/messages`, selection === undefined ? { text } : { text, selection }),
   setMode: (conversationId, mode) => requestJson("PUT", `/v1/conversations/${enc(conversationId)}/mode`, { mode }),
   stop: (runId) => requestJson("POST", `/v1/auto/${enc(runId)}/stop`),
   follow(conversationId, after, handlers) {

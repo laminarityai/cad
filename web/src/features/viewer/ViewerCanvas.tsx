@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useServices } from "@/app/context";
-import type { Mounted, Shapes, Theme } from "./engine";
+import type { Mounted, OnPick, Shapes, Theme } from "./engine";
+import type { Pick } from "./selection";
 
 function currentTheme(): Theme {
   const forced = document.documentElement.dataset.theme;
@@ -8,30 +9,42 @@ function currentTheme(): Theme {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-export function ViewerCanvas({ shapes, label }: { shapes: Shapes; label: string }) {
+export function ViewerCanvas({ shapes, label, picks, onPick }: { shapes: Shapes; label: string; picks: readonly Pick[]; onPick: OnPick }) {
   const { viewer } = useServices();
   const host = useRef<HTMLDivElement>(null);
   const mounted = useRef<{ view: Mounted; shapes: Shapes } | null>(null);
   const latest = useRef(shapes);
+  const latestPicks = useRef(picks);
+  const latestOnPick = useRef(onPick);
   const [problem, setProblem] = useState<string | null>(null);
   const countDraw = (into: HTMLElement) => {
     into.dataset.draws = String(Number(into.dataset.draws ?? "0") + 1);
   };
   useEffect(() => {
+    latestOnPick.current = onPick;
+  });
+  useEffect(() => {
     latest.current = shapes;
     const held = mounted.current;
     if (held && held.shapes !== shapes) {
       held.view.show(shapes);
+      held.view.select(latestPicks.current);
       held.shapes = shapes;
       if (host.current) countDraw(host.current);
     }
   }, [shapes]);
   useEffect(() => {
+    latestPicks.current = picks;
+    mounted.current?.view.select(picks);
+  }, [picks]);
+  useEffect(() => {
     const element = host.current;
     if (!element) return;
     let live = true;
     const first = latest.current;
-    viewer.mount(element, first, currentTheme()).then(
+    viewer.mount(element, first, currentTheme(), (pick, shift) => {
+      latestOnPick.current(pick, shift);
+    }).then(
       (view) => {
         if (!live) {
           view.stop();
@@ -42,6 +55,7 @@ export function ViewerCanvas({ shapes, label }: { shapes: Shapes; label: string 
           view.show(latest.current);
           mounted.current.shapes = latest.current;
         }
+        view.select(latestPicks.current);
         countDraw(element);
       },
       (error: unknown) => {
@@ -56,7 +70,7 @@ export function ViewerCanvas({ shapes, label }: { shapes: Shapes; label: string 
   }, [viewer]);
   return (
     <div role="img" aria-label={label} data-viewer="ready" className="relative h-full min-h-[240px] w-full overflow-hidden bg-panel-2">
-      <div ref={host} className="absolute inset-0 [&_canvas]:block" />
+      <div ref={host} data-picks={picks.length} className="absolute inset-0 [&_canvas]:block" />
       {problem ? <p className="absolute inset-x-0 top-0 p-3 font-mono text-xs text-fail">{problem}</p> : null}
     </div>
   );

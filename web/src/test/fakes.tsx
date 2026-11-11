@@ -1,10 +1,12 @@
+import { act } from "@testing-library/react";
 import { vi } from "vitest";
 import type { Api } from "@/api/client";
 import type { CardHandlers, CardQuery, ScorecardEvents } from "@/api/events";
 import type { Scorecard } from "@/api/snapshot";
 import type { ChatApi, Follower } from "@/chat/api";
-import type { AutoRun, ConversationState, ConversationView, Event, Mode, PersonStop, StopReason, Tessellated, VariantSetView } from "@/api/types";
-import type { Mounted, Shapes, ViewerEngine } from "@/features/viewer/engine";
+import type { AutoRun, ConversationState, ConversationView, Event, Mode, Picked, PersonStop, StopReason, Tessellated, VariantSetView } from "@/api/types";
+import type { Mounted, OnPick, Shapes, ViewerEngine } from "@/features/viewer/engine";
+import type { Pick } from "@/features/viewer/selection";
 import { brief } from "./fixtures";
 
 export function setOf(variants: string[]): VariantSetView {
@@ -38,6 +40,7 @@ export const meshOf = (name: string): Tessellated => ({
   brep_sha256: "b".repeat(64),
   version: "0123456789ab",
   shapes: { name } as unknown as Tessellated["shapes"],
+  topology: { faces: [], edges: [] },
 });
 
 export function fakeApi(variants: string[], overrides: Partial<Api> = {}): Api {
@@ -96,24 +99,57 @@ export class FakeEvents implements ScorecardEvents {
 export class FakeViewer implements ViewerEngine {
   readonly mounted: Shapes[] = [];
   readonly shown: Shapes[] = [];
+  /** Every call to `select`, newest last. */
+  readonly selected: (readonly Pick[])[] = [];
+  private readonly listeners: OnPick[] = [];
   stopped = 0;
 
-  mount(_element: HTMLElement, shapes: Shapes): Promise<Mounted> {
+  mount(_element: HTMLElement, shapes: Shapes, _theme: unknown, onPick: OnPick): Promise<Mounted> {
     this.mounted.push(shapes);
+    this.listeners.push(onPick);
     return Promise.resolve({
       show: (next: Shapes) => {
         this.shown.push(next);
+      },
+      select: (picks) => {
+        this.selected.push(picks);
       },
       stop: () => {
         this.stopped += 1;
       },
     });
   }
+
+  /** What the person sees highlighted now. */
+  get highlighted(): readonly Pick[] {
+    return this.selected[this.selected.length - 1] ?? [];
+  }
+
+  /** The person clicks what is under the cursor on the newest canvas. */
+  pick(pick: Pick | null, shift = false): void {
+    act(() => {
+      this.listeners[this.listeners.length - 1]?.(pick, shift);
+    });
+  }
+}
+
+const plural = (n: number, word: string) => `${String(n)} ${word}${n === 1 ? "" : "s"}`;
+
+function noteOf(picked: Picked) {
+  const parts = [(picked.faces ?? []).length > 0 ? plural((picked.faces ?? []).length, "face") : "", (picked.edges ?? []).length > 0 ? plural((picked.edges ?? []).length, "edge") : ""];
+  return {
+    selection_id: "sel-1",
+    summary: picked.part === true ? "Whole part" : parts.filter((one) => one !== "").join(", "),
+    brief_id: "b1",
+    slot: 1,
+    revision: 1,
+  };
 }
 
 export class FakeChat implements ChatApi {
   readonly transcript: { seq: number; event: Event }[] = [];
   readonly sent: string[] = [];
+  readonly picked: (Picked | undefined)[] = [];
   readonly modes: Mode[] = [];
   readonly stops: string[] = [];
   readonly followed: string[] = [];
@@ -135,9 +171,10 @@ export class FakeChat implements ChatApi {
     }),
   );
 
-  send = vi.fn((_conversationId: string, text: string) => {
+  send = vi.fn((_conversationId: string, text: string, selection?: Picked) => {
     this.sent.push(text);
-    this.say({ kind: "user", text });
+    this.picked.push(selection);
+    this.say({ kind: "user", text, selection: selection ? noteOf(selection) : null });
     this.onSend(text);
     return Promise.resolve({ seq: this.transcript.length });
   });

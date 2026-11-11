@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Paperclip, SendHorizontal } from "lucide-react";
+import { Check, ChevronDown, Crosshair, Paperclip, SendHorizontal, X } from "lucide-react";
 import { useEffect, useReducer, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useServices } from "@/app/context";
 import { Refused } from "@/api/client";
@@ -124,6 +124,11 @@ function Said({ line }: { line: Line }) {
       return (
         <div data-said="user" className="flex flex-col items-end gap-1">
           <p className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-accent/15 px-3.5 py-2 text-[15px]">{line.text}</p>
+          {line.selection === null ? null : (
+            <span data-said-selection className="flex items-center gap-1 rounded-full border border-rule px-2.5 py-0.5 text-[13px] text-ink-2">
+              <Crosshair className="size-3.5" /> Pointed at {line.selection}
+            </span>
+          )}
         </div>
       );
     case "driver": {
@@ -157,8 +162,13 @@ function Said({ line }: { line: Line }) {
 
 const BUSY = "The agent is still answering. Send this again when it is done.";
 
-export function Composer(props: { placeholder: string; onSend: (text: string) => Promise<void>; big?: boolean; tools?: ReactNode; onCycle?: () => void }) {
-  const { placeholder, onSend, big, tools, onCycle } = props;
+export interface PointedAt {
+  label: string;
+  onRemove: () => void;
+}
+
+export function Composer(props: { placeholder: string; onSend: (text: string) => Promise<void>; big?: boolean; tools?: ReactNode; onCycle?: () => void; selection?: PointedAt | null }) {
+  const { placeholder, onSend, big, tools, onCycle, selection } = props;
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -192,6 +202,15 @@ export function Composer(props: { placeholder: string; onSend: (text: string) =>
       }}
       className={cn("rounded-2xl border border-rule bg-panel-2 focus-within:border-accent", big ? "p-3" : "p-2")}
     >
+      {selection ? (
+        <span data-selection-chip className="m-1 inline-flex items-center gap-1.5 rounded-full border border-rule bg-panel py-0.5 pl-2.5 pr-1 text-[14px]">
+          <Crosshair className="size-3.5 text-accent" />
+          {selection.label}
+          <button type="button" aria-label="Remove selection" onClick={selection.onRemove} className="rounded-full p-0.5 text-ink-3 hover:text-ink">
+            <X className="size-3.5" />
+          </button>
+        </span>
+      ) : null}
       <textarea
         aria-label="Message"
         value={text}
