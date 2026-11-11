@@ -15,9 +15,6 @@ import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from cad.operations.openapi import document
-from cad.operations.outside import every_route
-
 WEB = Path(__file__).resolve().parents[1] / "web"
 TYPES = WEB / "src" / "api" / "types.ts"
 GENERATOR = WEB / "node_modules" / ".bin" / "openapi-typescript"
@@ -88,6 +85,11 @@ def install_if_stale() -> None:
 
 
 def generate(into: Path) -> None:
+    # Imported here, not at the top: tools/web.py imports this module for install_if_stale, and
+    # the web steps neither need nor declare the Python code as an input.
+    from cad.operations.openapi import document
+    from cad.operations.outside import every_route
+
     with TemporaryDirectory() as scratch:
         described = Path(scratch) / "openapi.json"
         described.write_text(json.dumps(document(every_route()), indent=2))

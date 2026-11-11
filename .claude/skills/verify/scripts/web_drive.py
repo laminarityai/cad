@@ -12,11 +12,12 @@ written into <run>. Options: --url (the server, default http://127.0.0.1:8765), 
 120), --tab (a narrow-screen pane to show: Explorer, Design or Chat).
 
 `shot` opens the page, waits until the option on screen has drawn, and writes <name>.png and
-<name>.aria.yml (the page's accessibility tree). `watch` opens the page and polls its rows while
-something else scores the variants. It writes <name>-pending.png when it first sees a pending row,
-<name>-done.png once none is left, and <name>.sse.jsonl (every scorecard event the page received,
-and when) and <name>.rows.jsonl (every change of a row). It exits 1 when a pending row ever wears a
-verdict, or when no row went from pending to a verdict without a navigation.
+<name>.aria.yml (the page's accessibility tree). `watch` opens the page and polls the check lines
+of the option on screen (`[data-line]`, whose value is the line's status) while something else
+scores it. It writes <name>-running.png when it first sees a running line, <name>-done.png once
+none is left, and <name>.lines.jsonl (every change of a line, and when). It exits 1 when no line
+went from running to a verdict, when a running line showed anything but `Checking`, or when the
+page navigated after it loaded.
 
 `walk` is one live walk of the project workspace: see web_walk.py. `select` is one live walk of
 pointing at a design and asking for a change to it: see web_select.py.
@@ -40,23 +41,10 @@ if TYPE_CHECKING:
 COOKIE = "__session"
 VERDICTS = {"pass", "fail", "unknown", "researched"}
 ARGS = ["--enable-unsafe-swiftshader", "--use-gl=angle", "--use-angle=swiftshader"]
-TAP = """
-window.__sse = [];
-const Real = window.EventSource;
-window.EventSource = class extends Real {
-  constructor(url, init) {
-    super(url, init);
-    this.addEventListener("scorecard", (event) => {
-      const etag = JSON.parse(event.data).etag;
-      window.__sse.push({ at: Date.now(), url, bytes: event.data.length, etag });
-    });
-  }
-};
-"""
-ROWS = """
-() => [...document.querySelectorAll("[data-row]")].map((row) => ({
-  key: row.dataset.key, kind: row.dataset.row,
-  tones: [...row.querySelectorAll("[data-tone]")].map((one) => one.dataset.tone),
+LINES = """
+() => [...document.querySelectorAll("[data-line]")].map((line) => ({
+  label: line.querySelector("button > span")?.textContent ?? "", status: line.dataset.line,
+  shown: line.querySelector("button > span:last-child")?.textContent ?? "",
 }))
 """
 
@@ -95,7 +83,6 @@ def open_page(playwright: Any, run: Path, path: str, given: dict[str, str]) -> t
     browser = playwright.chromium.launch(args=ARGS)
     context = browser.new_context(viewport=size, color_scheme=given["scheme"], **recording)
     context.add_cookies([{"name": COOKIE, "value": token, "url": given["url"]}])
-    context.add_init_script(TAP)
     page = context.new_page()
     page.goto(f"{given['url']}/app{path}")
     page.evaluate("window.__alive = true")
@@ -137,56 +124,51 @@ def shot(run: Path, path: str, name: str, given: dict[str, str]) -> int:
 
 def watch(run: Path, path: str, name: str, given: dict[str, str]) -> int:
     started = time.time()
-    was_pending: set[str] = set()
-    wearing: list[str] = []
-    replaced: list[str] = []
+    running: set[str] = set()
+    settled: set[str] = set()
+    wearing: set[str] = set()
     with sync_playwright() as playwright:
         browser, page = open_page(playwright, run, path, given)
         drawn(page)
         pick_material(page, given)
         navigations: list[str] = []
         page.on("framenavigated", lambda frame: navigations.append(frame.url))
-        last: dict[str, tuple[str, tuple[str, ...]]] = {}
-        shots: set[str] = set()
-        with (run / f"{name}.rows.jsonl").open("w") as log:
+        last: dict[str, str] = {}
+        with (run / f"{name}.lines.jsonl").open("w") as log:
             while time.time() - started < float(given["seconds"]):
-                rows = page.evaluate(ROWS)
-                for row in rows:
-                    state = (row["kind"], tuple(row["tones"]))
-                    if last.get(row["key"]) != state:
-                        log.write(json.dumps({"at": time.time(), **row}) + "\n")
+                lines: list[dict[str, str]] = page.evaluate(LINES)
+                for line in lines:
+                    label, status = line["label"], line["status"]
+                    if last.get(label) != status:
+                        log.write(json.dumps({"at": time.time(), **line}) + "\n")
                         log.flush()
-                    if row["kind"] == "pending":
-                        was_pending.add(row["key"])
-                        if VERDICTS & set(row["tones"]):
-                            wearing.append(row["key"])
-                    elif row["key"] in was_pending and last.get(row["key"], ("",))[0] == "pending":
-                        replaced.append(row["key"])
-                    last[row["key"]] = state
-                if rows and any(r["kind"] == "pending" for r in rows) and "pending" not in shots:
-                    shots.add("pending")
-                    page.screenshot(path=str(run / f"{name}-pending.png"))
-                if shots and rows and all(r["kind"] != "pending" for r in rows):
+                    if status == "running" and not running:
+                        page.screenshot(path=str(run / f"{name}-running.png"))
+                    if status == "running":
+                        running.add(label)
+                        if line["shown"] != "Checking":
+                            wearing.add(label)
+                    elif label in running and status in VERDICTS:
+                        settled.add(label)
+                    last[label] = status
+                if running and lines and all(one["status"] != "running" for one in lines):
                     page.wait_for_timeout(400)
                     page.screenshot(path=str(run / f"{name}-done.png"))
                     break
                 page.wait_for_timeout(250)
-        events = page.evaluate("window.__sse")
-        (run / f"{name}.sse.jsonl").write_text("".join(json.dumps(e) + "\n" for e in events))
         (run / f"{name}.aria.yml").write_text(page.locator("body").aria_snapshot())
         browser.close()
     print(
         json.dumps(
             {
-                "pending_rows_seen": sorted(was_pending),
-                "replaced_in_place": sorted(set(replaced)),
-                "pending_rows_wearing_a_verdict": wearing,
+                "running_lines_seen": sorted(running),
+                "settled_to_a_verdict": sorted(settled),
+                "running_lines_showing_a_verdict": sorted(wearing),
                 "navigations_after_load": navigations,
-                "events": len(events),
             }
         )
     )
-    return 0 if replaced and not wearing and not navigations else 1
+    return 0 if settled and not wearing and not navigations else 1
 
 
 def main(argv: list[str]) -> int:

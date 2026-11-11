@@ -13,7 +13,7 @@ if TYPE_CHECKING:
     from tests.support.browser import Person
     from tests.support.session import Session
 
-pytestmark = pytest.mark.anyio
+pytestmark = [pytest.mark.anyio, pytest.mark.docker]
 
 
 async def test_an_own_measurement_is_information_beside_identical_team_results(

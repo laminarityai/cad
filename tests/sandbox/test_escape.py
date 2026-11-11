@@ -9,6 +9,8 @@ from cad.sandbox import container, host
 from cad.sandbox.image import BUILD, current_image, image_tag
 from cad.sandbox.outcome import BuildFailed, BuildOutcome, Built, Failure, OutOfMemory, TimedOut
 
+pytestmark = pytest.mark.docker
+
 FAST_WALL_SECONDS = 2
 
 

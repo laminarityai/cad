@@ -39,6 +39,7 @@ async def test_a_start_with_no_confirmed_material_and_no_choice_is_refused_never
     assert not (s.roots.projects / project / "auto").exists()
 
 
+@pytest.mark.docker
 async def test_a_start_with_a_choice_records_it_on_every_revision_it_builds(s: Session) -> None:
     brief_id = await s.confirmed(TEXT, UNDER_150)
     run = await s.start(brief_id=brief_id, material_key="prusament-pla", material_reason=REASON)

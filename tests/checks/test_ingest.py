@@ -12,6 +12,8 @@ from tests.support.solids import (
     loosened,
 )
 
+pytestmark = pytest.mark.docker
+
 JOB = Job("check", "sha256:analysis", (), b"")
 
 

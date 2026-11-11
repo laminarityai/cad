@@ -72,7 +72,9 @@ repos:
         entry: uv run verify --only "protocol models"
         language: system
         pass_filenames: false
-        files: ^(src/cad/checks/(lanes|job_store|jobs)\.py|src/cad/sandbox/container\.py|src/cad/confirmations/|src/cad/records/signed\.py|\.claude/skills/protocol-models/)
+        # check_models.py runs TLC only when `--changed-since HEAD` names a file the skill's
+        # coverage block lists, so there is no file filter here to drift from that block.
+        always_run: true
       - id: sandbox-image
         name: sandbox image
         entry: uv run verify --only "sandbox image"

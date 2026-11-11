@@ -74,6 +74,7 @@ async def test_score_variant_with_a_malformed_id_is_an_error_naming_the_id(tmp_p
     assert "../../etc" in text_of(result)
 
 
+@pytest.mark.docker
 async def test_build_then_score_returns_the_scorecard_it_stored(tmp_path: Path) -> None:
     async with Client(build_server(tmp_path)) as client:
         built = await client.call_tool("build_variant", {"code": PLATE})
@@ -94,6 +95,7 @@ async def test_build_then_score_returns_the_scorecard_it_stored(tmp_path: Path) 
     assert not list((tmp_path / variant_id).glob("scorecard*"))
 
 
+@pytest.mark.docker
 async def test_scoring_a_variant_an_older_sandbox_stored_names_the_rebuild_and_its_source(
     tmp_path: Path,
 ) -> None:
@@ -113,6 +115,7 @@ async def test_scoring_a_variant_an_older_sandbox_stored_names_the_rebuild_and_i
     assert (tmp_path / old / entry.CODE).read_text() == PLATE
 
 
+@pytest.mark.docker
 async def test_a_failed_rebuild_is_an_error_naming_both_ids_and_no_host_path(
     tmp_path: Path,
 ) -> None:
@@ -181,6 +184,7 @@ async def test_every_table_key_passes_the_material_key_bounds(tmp_path: Path) ->
             assert UNBUILT_ID in text_of(result)
 
 
+@pytest.mark.docker
 async def test_a_well_formed_key_missing_from_the_table_scores_with_mass_unknown(
     tmp_path: Path,
 ) -> None:

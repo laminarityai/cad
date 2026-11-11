@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from tests.support.browser import Person
     from tests.support.session import Session
 
-pytestmark = pytest.mark.anyio
+pytestmark = [pytest.mark.anyio, pytest.mark.docker]
 
 PLATE = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
 PLATE_TEXT = "A plate under 150 g, at least 50 g, fits in 120 x 80 x 40 mm, looks friendly"

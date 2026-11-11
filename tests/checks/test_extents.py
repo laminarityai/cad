@@ -10,6 +10,8 @@ from cad.sandbox.host import run_checks
 from cad.sandbox.outcome import Built
 from cad.variants.store import BuildResult, build_variant
 
+pytestmark = pytest.mark.docker
+
 PARTS = {
     path.stem: path.read_text()
     for path in (Path(__file__).parents[1] / "sandbox/parts").glob("*.py")

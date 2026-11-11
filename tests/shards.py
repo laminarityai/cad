@@ -2,8 +2,13 @@
 
 A file stays whole, so its module fixtures still run once. Each file weighs its seconds in
 shard_seconds.json, and the heaviest goes first onto the lightest shard, so the shards end close
-together. A file the table lacks weighs DEFAULT_SECONDS. To refresh the table, run the suite with
-CAD_TEST_SECONDS=tests/shard_seconds.json, which writes every file's summed test seconds there.
+together. A file the table lacks weighs DEFAULT_SECONDS.
+
+Within a run the heaviest file is queued first too, so under `-n 4 --dist loadfile` a long file
+starts at once instead of after the short ones; xdist's own reorder, by test count, is turned off.
+
+To refresh the table, run every test file with CAD_TEST_SECONDS=<path>, which writes each file's
+summed test seconds there. One run per package group is fine: merge the files it writes.
 """
 
 import json
@@ -37,12 +42,18 @@ def file_of(nodeid: str) -> str:
     return nodeid.split("::", 1)[0]
 
 
+def pytest_configure(config: pytest.Config) -> None:
+    if hasattr(config.option, "loadscopereorder"):
+        config.option.loadscopereorder = False
+
+
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    seconds: dict[str, float] = json.loads(TABLE.read_text())
+    items.sort(key=lambda item: -seconds.get(file_of(item.nodeid), DEFAULT_SECONDS))
     shard = os.environ.get("CAD_TEST_SHARD")
     if not shard:
         return
     index, count = (int(part) for part in shard.split("/"))
-    seconds: dict[str, float] = json.loads(TABLE.read_text())
     placed = shard_of({file_of(item.nodeid) for item in items}, seconds, count)
     kept: list[pytest.Item] = []
     dropped: list[pytest.Item] = []

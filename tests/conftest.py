@@ -3,7 +3,7 @@ import os
 import pwd
 import sys
 import threading
-from collections.abc import AsyncIterator, Iterator
+from collections.abc import AsyncIterator, Iterator, Sequence
 from pathlib import Path
 from typing import cast
 
@@ -154,3 +154,35 @@ def no_write_reaches_the_operators_home() -> Iterator[list[str]]:
         written, home_writes[:] = list(home_writes), []
     if written:
         pytest.fail(f"this test wrote to the operator's ~/.cad: {written}")
+
+
+DOCKER_STARTS = frozenset({"run", "build"})
+container_starts: list[str] = []
+
+
+def _note_container_starts(event: str, arguments: tuple[object, ...]) -> None:
+    if event != "subprocess.Popen" or not isinstance(argv := arguments[1], list | tuple):
+        return
+    words = [os.fsdecode(cast("str | bytes", word)) for word in cast("Sequence[object]", argv)[:2]]
+    if len(words) == 2 and os.path.basename(words[0]) == "docker" and words[1] in DOCKER_STARTS:
+        with home_writes_lock:
+            container_starts.append(" ".join(words))
+
+
+sys.addaudithook(_note_container_starts)
+
+
+@pytest.fixture(autouse=True)
+def a_test_that_starts_a_container_is_marked_docker(
+    request: pytest.FixtureRequest,
+) -> Iterator[None]:
+    """A start in a module or session fixture counts against the first test that used it, so
+    the whole file needs the mark: run alone, any of its tests would build that fixture."""
+    yield
+    with home_writes_lock:
+        started, container_starts[:] = list(container_starts), []
+    if started and request.node.get_closest_marker("docker") is None:
+        pytest.fail(
+            f"this test ran `{started[0]}`; mark it, or its file, `pytest.mark.docker` so "
+            '`-m "not docker"` leaves it out'
+        )

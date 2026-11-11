@@ -7,7 +7,7 @@ from mcp import Client
 
 from cad.server.app import build_server
 
-pytestmark = pytest.mark.anyio
+pytestmark = [pytest.mark.anyio, pytest.mark.docker]
 
 PLATE = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
 KEY = {"material_key": "prusament-pla"}

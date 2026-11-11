@@ -18,7 +18,7 @@ from cad.server.hosted import build_app
 from tests.support.bodies import check
 from tests.support.hosted import BASE
 
-pytestmark = pytest.mark.anyio
+pytestmark = [pytest.mark.anyio, pytest.mark.docker]
 
 ALICE = AccountId("user_alice")
 PLATE = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()

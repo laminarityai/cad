@@ -7,6 +7,8 @@ from cad.sandbox import container
 from cad.sandbox.container import Job
 from cad.sandbox.image import current_image
 
+pytestmark = pytest.mark.docker
+
 PROBE = r"""
 import json, subprocess
 from pathlib import Path

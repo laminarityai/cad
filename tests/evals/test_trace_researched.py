@@ -50,6 +50,7 @@ def arguments_for(store: Path) -> list[str]:
 
 
 @pytest.mark.anyio
+@pytest.mark.docker
 async def test_a_card_the_server_returned_through_score_variant_traces(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

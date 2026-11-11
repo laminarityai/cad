@@ -14,6 +14,7 @@ PLATE = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
 OLD_ID = "fe250eb62250be75"
 
 
+@pytest.mark.docker
 def test_run_checks_prints_the_check_run_as_json_and_exits_zero(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -24,6 +25,7 @@ def test_run_checks_prints_the_check_run_as_json_and_exits_zero(
     assert [result.verdict for result in run.results] == [Verdict.PASS] * 4
 
 
+@pytest.mark.docker
 def test_a_failing_check_is_still_exit_zero(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

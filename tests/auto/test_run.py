@@ -189,6 +189,7 @@ async def test_a_build_the_account_limit_refuses_stops_the_run_and_starts_nothin
     assert s.meter.asked == ["build"]
 
 
+@pytest.mark.docker
 async def test_a_check_the_account_limit_refuses_stops_the_run(s: Session) -> None:
     brief_id, run_id = await running(s)
     built = await s.call("build_variant", code=PLATE, brief_id=brief_id, **PLA_CHOICE)
@@ -270,6 +271,7 @@ async def test_starting_a_brief_whose_run_stopped_starts_a_new_run(s: Session) -
     assert isinstance(again.state, Running)
 
 
+@pytest.mark.docker
 async def test_a_revision_that_passes_every_checked_requirement_stops_the_run(
     s: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:

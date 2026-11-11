@@ -14,7 +14,7 @@ from tests.support.set_parts import BRACKET, NO_DOCKER, PLATE, THICKER, held, sh
 if TYPE_CHECKING:
     from tests.support.variant_set_session import Session
 
-pytestmark = pytest.mark.anyio
+pytestmark = [pytest.mark.anyio, pytest.mark.docker]
 
 
 async def test_a_change_to_slot_2_becomes_its_next_revision_and_the_old_one_stays_in_history(

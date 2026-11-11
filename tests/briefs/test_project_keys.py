@@ -44,6 +44,7 @@ async def test_a_project_key_for_a_table_row_proposes_the_table_row(s: Session, 
 
 
 @pytest.mark.parametrize("key", SHADOWS)
+@pytest.mark.docker
 async def test_scoring_a_project_key_for_a_table_row_reads_the_cited_row(
     s: Session, key: str
 ) -> None:
@@ -110,6 +111,7 @@ async def test_the_page_names_a_project_material_plainly(s: Session) -> None:
     assert "project-" not in page
 
 
+@pytest.mark.docker
 async def test_the_card_names_a_project_material_plainly(s: Session, person: Person) -> None:
     person.answer = "confirm"
     created = await propose_esun(s)
@@ -137,6 +139,7 @@ def table_with_acme(tmp_path: Path) -> Path:
     return path
 
 
+@pytest.mark.docker
 async def test_a_git_row_added_after_research_grades_on_git_values(
     s: Session, person: Person, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

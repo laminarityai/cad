@@ -10,7 +10,7 @@ from cad.scorecard.material import AGENT_CHOSE
 if TYPE_CHECKING:
     from tests.support.variant_set_session import Session
 
-pytestmark = pytest.mark.anyio
+pytestmark = [pytest.mark.anyio, pytest.mark.docker]
 
 PLATE: Final = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
 THICKER: Final = PLATE + "\n# a thicker wall\n"

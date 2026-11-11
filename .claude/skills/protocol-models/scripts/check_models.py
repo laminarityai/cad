@@ -8,6 +8,9 @@ A check passes when TLC finds no error, or, for a check that records a known fin
 finds exactly that violation again. It prints TLC's counterexample on an unexpected result, and
 on every result with --trace. A mutant writes one code regression into a scratch copy of a model,
 and the check must catch it.
+
+Under pre-commit (which sets PRE_COMMIT=1) a bare run checks nothing when --changed-since HEAD
+finds nothing, so the hook's file filter is the coverage block itself and cannot drift from it.
 """
 
 import argparse
@@ -198,6 +201,14 @@ def main(argv: Sequence[str]) -> int:
         print("\n".join(changed) or f"nothing the models read or cover changed since {ref}")
         return 0 if changed else 1
     names: list[str] = args.names
+    if (
+        os.environ.get("PRE_COMMIT")
+        and not names
+        and not args.mutants
+        and not changed_since("HEAD")
+    ):
+        print("nothing the models read or cover is in this commit, so TLC did not run")
+        return 0
     known = {one.name for one in (MUTANTS if args.mutants else CHECKS)}
     unknown = sorted(set(names) - known)
     if unknown:

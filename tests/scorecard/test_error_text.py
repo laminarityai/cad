@@ -9,6 +9,8 @@ from cad.scorecard import score
 from cad.tables.materials import load_materials
 from cad.variants import entry
 
+pytestmark = pytest.mark.docker
+
 PLATE = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
 
 type Build = Callable[[str], str]

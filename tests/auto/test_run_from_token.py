@@ -60,6 +60,7 @@ async def test_a_call_bound_before_the_stop_is_refused_and_starts_nothing(
     assert (started, s.meter.asked) == ([], [])
 
 
+@pytest.mark.docker
 async def test_a_build_under_the_conversations_run_is_charged_once(s: Session) -> None:
     brief_id, run_id = await running(s)
     chosen = {"material_key": "prusament-pla", "material_reason": "PLA prints easily"}

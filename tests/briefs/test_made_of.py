@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from tests.support.browser import Person
     from tests.support.session import Session
 
-pytestmark = pytest.mark.anyio
+pytestmark = [pytest.mark.anyio, pytest.mark.docker]
 
 PLATE = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
 URL = "https://example.org/silk-pla"

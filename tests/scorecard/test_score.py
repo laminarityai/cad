@@ -24,6 +24,8 @@ from cad.tables.materials import UNITS
 from cad.variants import entry
 from tests.support.scorecard import UNBUILT_ID, offline_card
 
+pytestmark = pytest.mark.docker
+
 PLATE = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
 PLATE_SHELL = PLATE + "from build123d import Shell\nresult = Shell(result.faces()[:-1])\n"
 PLATE_VOLUME_MM3 = 29509.72
