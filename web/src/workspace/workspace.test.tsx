@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { ServicesProvider } from "@/app/context";
 import { Refused, type Api } from "@/api/client";
 import type { ConfirmationCard } from "@/api/types";
-import { FakeChat, FakeEvents, FakeViewer, fakeApi, setOf } from "@/test/fakes";
+import { FakeChat, FakeViewer, fakeApi, setOf } from "@/test/fakes";
 import { brief } from "@/test/fixtures";
 import { materialLabel } from "./bits";
 import { activityText, ChatPane, Composer, driverText } from "./Chat";
@@ -28,7 +28,7 @@ const card = (items: number): ConfirmationCard & { snapshot: string } => ({
 
 function wrap(api: Api, chat = new FakeChat()) {
   return ({ children }: { children: ReactNode }) => (
-    <ServicesProvider services={{ api, events: new FakeEvents(), viewer: new FakeViewer(), chat }}>{children}</ServicesProvider>
+    <ServicesProvider services={{ api, viewer: new FakeViewer(), chat }}>{children}</ServicesProvider>
   );
 }
 

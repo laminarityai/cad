@@ -1,8 +1,6 @@
 import { act } from "@testing-library/react";
 import { vi } from "vitest";
 import type { Api } from "@/api/client";
-import type { CardHandlers, CardQuery, ScorecardEvents } from "@/api/events";
-import type { Scorecard } from "@/api/snapshot";
 import type { ChatApi, Follower } from "@/chat/api";
 import type { AutoRun, ConversationState, ConversationView, Event, Mode, Picked, PersonStop, StopReason, Tessellated, VariantSetView } from "@/api/types";
 import type { Mounted, OnPick, Shapes, ViewerEngine } from "@/features/viewer/engine";
@@ -70,30 +68,6 @@ export function fakeApi(variants: string[], overrides: Partial<Api> = {}): Api {
     geometry: vi.fn((variantId: string) => Promise.resolve(meshOf(variantId))),
     ...overrides,
   };
-}
-
-export interface Opened {
-  query: CardQuery;
-  handlers: CardHandlers;
-  closed: boolean;
-}
-
-export class FakeEvents implements ScorecardEvents {
-  readonly opened: Opened[] = [];
-
-  open(query: CardQuery, handlers: CardHandlers): () => void {
-    const one: Opened = { query, handlers, closed: false };
-    this.opened.push(one);
-    handlers.onConnection("live");
-    return () => {
-      one.closed = true;
-    };
-  }
-
-  push(snapshot: Scorecard): void {
-    const open = this.opened.filter((one) => one.query.variantId === snapshot.variant_id && !one.closed);
-    for (const one of open) one.handlers.onSnapshot(snapshot);
-  }
 }
 
 export class FakeViewer implements ViewerEngine {

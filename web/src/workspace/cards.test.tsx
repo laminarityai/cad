@@ -2,7 +2,7 @@ import { act, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ServicesProvider } from "@/app/context";
-import { FakeChat, FakeEvents, FakeViewer, fakeApi } from "@/test/fakes";
+import { FakeChat, FakeViewer, fakeApi } from "@/test/fakes";
 import { massResult, snapshot } from "@/test/fixtures";
 import { useCards, type CardKey } from "./cards";
 
@@ -14,7 +14,7 @@ const wire = (variantId: string) => snapshot(variantId, [], [massResult()]);
 function mount(scorecard: ReturnType<typeof fakeApi>["scorecard"], initial: CardKey[]) {
   const api = fakeApi([], { scorecard });
   const wrapper = ({ children }: { children: ReactNode }) => (
-    <ServicesProvider services={{ api, events: new FakeEvents(), viewer: new FakeViewer(), chat: new FakeChat() }}>{children}</ServicesProvider>
+    <ServicesProvider services={{ api, viewer: new FakeViewer(), chat: new FakeChat() }}>{children}</ServicesProvider>
   );
   return renderHook(({ keys }: { keys: CardKey[] }) => useCards(keys), { wrapper, initialProps: { keys: initial } });
 }

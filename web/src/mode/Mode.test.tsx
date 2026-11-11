@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { ServicesProvider } from "@/app/context";
 import { Workspace } from "@/workspace/Workspace";
-import { FakeChat, FakeEvents, FakeViewer, fakeApi, runningRun, stoppedRun } from "@/test/fakes";
+import { FakeChat, FakeViewer, fakeApi, runningRun, stoppedRun } from "@/test/fakes";
 import type { Mode } from "@/api/types";
 import { nextMode } from "./modes";
 import { CONVERSATION_FOLLOW_MS } from "./useAuto";
@@ -17,7 +17,7 @@ function mount(chat: FakeChat, mode: Mode | null = null) {
     ),
   });
   return render(
-    <ServicesProvider services={{ api, events: new FakeEvents(), viewer: new FakeViewer(), chat }}>
+    <ServicesProvider services={{ api, viewer: new FakeViewer(), chat }}>
       <MemoryRouter initialEntries={["/projects/p1"]}>
         <Routes>
           <Route path="projects/:projectId" element={<Workspace />} />

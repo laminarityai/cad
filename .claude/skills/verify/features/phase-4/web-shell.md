@@ -13,7 +13,7 @@ Design: `docs/design/phase-4.md` §2.3 (tessellation), §2.6 (reads and streamin
 - `web-shell-viewer` reads the mesh (`web/src/features/viewer/useMesh.ts`): the `view` route says whether it is stored, then the `geometry` route starts the tessellation and answers pending until it is done, and the immutable mesh URL serves a stored one.
 - `web-shell-signed-out` shows a Sign in link to the confirmation page's sign-in (`web/src/api/confirmation.ts` is the one file that knows its URL) when a route answers 401.
 
-The page's own tests are `npm run test` in `web/`: Vitest with fakes for the API, the event stream and the viewer. `uv run verify` runs `web lint`, `web test` and `web build`.
+The page's own tests are `npm run test` in `web/`: Vitest with fakes for the API, the chat stream and the viewer. `uv run verify` runs `web lint`, `web test` and `web build`.
 
 ## How to get to it (person POV)
 

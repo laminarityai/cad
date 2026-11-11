@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useServices } from "@/app/context";
-import type { Connection } from "@/api/events";
 import { restore, type DoneCheck, type RunningCheck, type Scorecard } from "@/api/snapshot";
 import type { Source } from "@/api/types";
 
@@ -8,7 +7,6 @@ const POLL_MS = 1500;
 
 export interface Card {
   snapshot: Scorecard | null;
-  connection: Connection;
 }
 
 export interface CardKey {
@@ -35,16 +33,13 @@ export function useCards(keys: CardKey[]): Record<string, Card> {
             if (live)
               setCards((now) => ({
                 ...now,
-                [variantId]: { snapshot: restore(wire), connection: "live" },
+                [variantId]: { snapshot: restore(wire) },
               }));
           } catch {
             if (live)
               setCards((now) => ({
                 ...now,
-                [variantId]: {
-                  snapshot: now[variantId]?.snapshot ?? null,
-                  connection: "reconnecting",
-                },
+                [variantId]: { snapshot: now[variantId]?.snapshot ?? null },
               }));
           }
         }),
