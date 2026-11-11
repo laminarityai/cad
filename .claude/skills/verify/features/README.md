@@ -41,10 +41,11 @@ Cost: **free** is `cad-call` alone. The cost table in `../SKILL.md` gives the ti
 | [Hosted confirmation](./phase-4/hosted-confirmation.md) | the confirmation page in the signed-in app: the local sign-in link, who may read and answer it, the 401, 403 and 409 refusals, `ask_to_confirm` over HTTP | free: curl with `cad-token` tokens. browser: `browser.py` through `cad-http --opener` | live: the agent's flow. operator: the Claude Code URL dialog |
 | [Hosted MCP and accounts](./hosted-mcp.md) | `cad-http`: `/mcp` over HTTP, the metadata, token kinds per route, tenancy, the lease, the usage cap | free: curl and `cad-call --url` with `cad-token` tokens | operator: `claude mcp login cad` against a Clerk instance |
 | [Geometry](./geometry.md) | the person-only `geometry` operation: the mesh of a variant from the analysis image, for three-cad-viewer | free: pending, stored, retried (`tests/geometry/test_lane.py`). docker: the mesh volume against the `mass` check, and a screenshot in three-cad-viewer (`scripts/geometry.py`) | none: no agent reaches it |
+| [Download](./download.md) | the person-only `export` and `export_file` operations and the Download menu: the option on screen as STEP, STL or 3MF, in millimetres | free: pending, stored, failed, the adapter (`tests/geometry/test_exports.py`, `tests/operations/test_download*.py`). docker: the files against the `extents` check and the card's STEP hash (`tests/geometry/test_export_container.py`). docker + browser: `browser.py web download` | none: no agent reaches it |
 
 ## Phase 4 web app
 
-`docs/design/phase-4.md` designs these surfaces, and each is built. Unit 3 is [Hosted MCP and accounts](./hosted-mcp.md), unit 4 [Hosted confirmation](./phase-4/hosted-confirmation.md) and unit 5 [Geometry](./geometry.md).
+`docs/design/phase-4.md` designs these surfaces, and each is built. Unit 3 is [Hosted MCP and accounts](./hosted-mcp.md), unit 4 [Hosted confirmation](./phase-4/hosted-confirmation.md), unit 5 [Geometry](./geometry.md) and the [Download](./download.md) that follows it.
 
 - [Web shell](./phase-4/web-shell.md): the React app at `/app`, its viewers and its scorecards. Unit 6.
 - [Auto mode](./phase-4/auto-mode.md): the server-held Auto run and its stops. Units 7 and 9.

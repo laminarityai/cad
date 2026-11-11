@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { summaryOf, type Card } from "./cards";
 import type { Brief, Fit, Slot, ViewAction } from "./model";
 import { Dot } from "./bits";
+import { Download } from "./Download";
 
 export function SlotTabs(props: { brief: Brief; slot: number; cards: Record<string, Card>; dispatch: Dispatch<ViewAction> }) {
   const { brief, slot, cards, dispatch } = props;
@@ -129,6 +130,7 @@ export function Stage(props: {
               <Box className="size-4" /> With {fit.name}
             </button>
           ) : null}
+          <Download key={shown.variantId} variantId={shown.variantId} briefId={briefId} />
         </div>
         <p data-pick-hint className="pointer-events-none absolute bottom-3 left-3 z-30 max-w-[70%] rounded-md bg-panel/85 px-2.5 py-1 text-[13px] text-ink-2">
           {selection ? `${selectionSummary(selection)} selected · Esc clears` : "Click a face or edge to point at it. Shift-click adds, double-click picks the whole part."}
