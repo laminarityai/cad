@@ -65,6 +65,9 @@ class Status(StrEnum):
     SUPERSEDED = "superseded"
 
 
+HOLDS_THE_SET: Final = (Status.PROPOSED, Status.CONFIRMED)
+
+
 @dataclass(frozen=True, slots=True)
 class Draft:
     """A requirement before the store resolves its quote to a span and gives it an id."""
@@ -169,20 +172,10 @@ def create_brief(
     return brief
 
 
-def stored_briefs(roots: Roots) -> list[BriefId]:
-    if not files.is_directory(roots.briefs):
-        return []
-    return [
-        BriefId(path.name)
-        for path in roots.briefs.iterdir()
-        if ID_PATTERN.fullmatch(path.name) and files.is_directory(path)
-    ]
-
-
 def propose(
     roots: Roots, raw_id: str, drafts: Sequence[Draft], words: said.Words = said.BRIEF_ONLY
 ) -> ProposalState:
-    """Store drafts as the next proposal, or return the latest when it is the same undecided set."""
+    """Store drafts as the next proposal, or return the latest when it already holds this set."""
     root = roots.briefs
     brief = _add_quoted(roots, read_brief(roots, raw_id), drafts, words)
     requirements = _resolve(brief, drafts, words)
@@ -192,7 +185,7 @@ def propose(
     def next_proposal(existing: tuple[bytes, ...]) -> bytes | None:
         nonlocal unchanged
         latest = read_state(roots, brief.id).latest
-        if latest and latest.status is Status.PROPOSED and latest.requirement_ids == ids:
+        if latest and latest.status in HOLDS_THE_SET and latest.requirement_ids == ids:
             unchanged = latest
             return None
         unchanged = None

@@ -10,14 +10,25 @@ from cad.projects.model import (
     new_project_id,
     parse_project_id,
 )
+from cad.records import files
 from cad.records.roots import Roots
 
 LOG = logging.getLogger(__name__)
 
 
+def _stored_briefs(roots: Roots) -> list[BriefId]:
+    if not files.is_directory(roots.briefs):
+        return []
+    return [
+        BriefId(path.name)
+        for path in roots.briefs.iterdir()
+        if store.ID_PATTERN.fullmatch(path.name) and files.is_directory(path)
+    ]
+
+
 def stored_projects(roots: Roots) -> dict[ProjectId, tuple[Brief, ...]]:
     members: dict[ProjectId, list[Brief]] = {}
-    for brief_id in store.stored_briefs(roots):
+    for brief_id in _stored_briefs(roots):
         try:
             brief = store.read_brief(roots, brief_id)
         except store.TamperedBrief:

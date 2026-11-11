@@ -170,6 +170,31 @@ export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
   return { asked, also };
 }
 
+export interface Assumed {
+  key: string;
+  label: string;
+  why: string;
+  values: { measure: string; assumed: string; measured: string | null }[];
+}
+
+function quantity(one: { magnitude: number; unit: string }): string {
+  return one.unit === "kg" ? `${num(one.magnitude * 1000)} g` : `${num(one.magnitude)} ${one.unit}`;
+}
+
+/** What the agent assumed, with the measure beside it. It has no status, so `summaryOf` never counts it. */
+export function assumedOf(snapshot: Scorecard): Assumed[] {
+  return snapshot.assumptions.map((one, index) => ({
+    key: `assumed:${String(index)}`,
+    label: short(one.statement),
+    why: one.why,
+    values: one.values.map((value) => ({
+      measure: value.measure,
+      assumed: quantity(value.assumed),
+      measured: value.measured ? quantity(value.measured) : null,
+    })),
+  }));
+}
+
 export function summaryOf(card: Card | undefined): {
   status: Status | "none";
   text: string;
