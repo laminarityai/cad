@@ -31,7 +31,8 @@ export CAD_BROWSER="$EVIDENCE/browser"
 
 | Path | Cost per use | Use it to prove |
 |---|---|---|
-| `cad-call` on a tool that starts no container | about 8 s (server start), no Docker, no model | a tool's result, a refusal, stored files |
+| `cad-call --url` on the warm `cad-http` | about 3 s once to start the server, then about 0.5 s per call, no Docker, no model | a tool's result, a refusal, stored files |
+| stdio `cad-call` | about 2 to 8 s per call, because each call starts a server | a claim about the stdio server itself |
 | `cad-call build_variant`, `score_variant`, `cad-sandbox run-checks` | one container, about 20 s for new code. The same code in the same `CAD_HOME` is a store hit and starts none | a build, a check, a scorecard |
 | `browser.py` | one Chromium per run: about 13 s on the first launch after install, 2 s after that. Each page adds about 2 s | what the person sees and does on the confirmation page |
 | `claude_session.py` | a live model session: money and 30 s to several minutes | what the agent does: which tools it calls, what it says |
@@ -72,7 +73,21 @@ claude --version
 
 ## Drive
 
-### cad-call
+### cad-call on a warm server (the default)
+
+Start one `cad-http` for the run and send every call to it. The token's audience is the `/mcp` URL, so `cad-token` needs the same `--url`:
+
+```
+HOME="$CAD_HOME" uv run cad-http --root "$EVIDENCE/root" --port 8791 --opener "$CAD_BROWSER/bin/open" > "$EVIDENCE/http.log" 2>&1 & echo $! > "$EVIDENCE/http.pid"
+export CAD_URL=http://127.0.0.1:8791 CAD_TOKEN=$(uv run cad-token --root "$EVIDENCE/root" agent user_walk --url http://127.0.0.1:8791)
+uv run cad-call --url "$CAD_URL/mcp" --token "$CAD_TOKEN" <tool> '<json args>'
+```
+
+Its opener is the browser's, so `ask_to_confirm` goes to the scripted person. Stop it when the run ends with `kill $(cat "$EVIDENCE/http.pid")`: `uv` passes the signal on to the server. A three-call walk took 1.3 s here against 6.7 s over stdio, plus about 3 s to start the server.
+
+### cad-call over stdio
+
+Use it only when the claim is about the stdio server, as `uv run verify --only app` does:
 
 ```
 HOME="$CAD_HOME" uv run cad-call <tool> '<json args>'
@@ -139,7 +154,7 @@ Everything goes under `$EVIDENCE`: `cad-call` output as `<slug>.json`, transcrip
 ```
 uv run python .claude/skills/verify/scripts/browser.py stop "$CAD_BROWSER"
 docker ps -a --filter label=cad.sandbox
-pgrep -fl "$PWD/.venv/bin/python.*(-m cad\.server|bin/cad-server)"
+pgrep -fl "$PWD/.venv/bin/python.*(-m cad\.server|bin/cad-server|bin/cad-http)"
 ```
 
 - `stop` closes Chromium and ends the daemon, and prints `browser stopped: pid <pid>, <n> pages`. If it says the daemon is still running, `kill` that pid only.
