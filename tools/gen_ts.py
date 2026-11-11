@@ -35,6 +35,12 @@ def packages(lock: Path) -> dict[str, dict[str, object]]:
     return {path: entry for path, entry in document["packages"].items() if path}
 
 
+def holds(entry: dict[str, object] | None) -> tuple[object, ...] | None:
+    """What an entry installs. npm on Linux drops other keys, such as `libc`, from the entries it
+    writes into `node_modules`."""
+    return entry and tuple(entry.get(key) for key in ("version", "resolved", "integrity", "link"))
+
+
 def unlike_lock() -> list[str]:
     """The paths where `node_modules` does not hold what the lock says, judged by content, never
     by mtime.
@@ -49,7 +55,7 @@ def unlike_lock() -> list[str]:
         wanted, installed = packages(LOCK), packages(INSTALLED)
     except (OSError, ValueError, KeyError):
         return [str(INSTALLED)]
-    changed = [path for path, entry in installed.items() if wanted.get(path) != entry]
+    changed = [path for path, entry in installed.items() if holds(wanted.get(path)) != holds(entry)]
     absent = [
         path
         for path, entry in wanted.items()

@@ -68,6 +68,15 @@ def test_a_matching_install_is_kept_when_a_fresh_checkout_gives_the_lock_a_newer
     assert commands == []
 
 
+def test_an_install_is_kept_when_npm_dropped_a_key_that_installs_nothing(
+    web: Path, commands: list[list[str]]
+) -> None:
+    lock: Packages = {"": {"name": "web"}, "node_modules/a": {**REQUIRED, "libc": ["glibc"]}}
+    write_packages(web / "package-lock.json", lock)
+    gen_ts.install_if_stale()
+    assert commands == []
+
+
 @pytest.mark.parametrize(
     "packages",
     [
@@ -96,7 +105,7 @@ def test_an_install_that_still_reads_as_stale_fails_and_names_the_path(
     web: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     def leaves_it_stale(argv: list[str], **_: object) -> subprocess.CompletedProcess[None]:
-        write_packages(gen_ts.INSTALLED, {"node_modules/a": {**REQUIRED, "peer": True}})
+        write_packages(gen_ts.INSTALLED, {"node_modules/a": {**REQUIRED, "version": "0.9.0"}})
         return subprocess.CompletedProcess(argv, 0)
 
     gen_ts.INSTALLED.unlink()
