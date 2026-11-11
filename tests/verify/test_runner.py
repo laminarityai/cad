@@ -67,3 +67,13 @@ def test_first_failure_stops_the_run_and_shows_its_output(
 def test_only_runs_the_named_steps_in_verify_order() -> None:
     chosen = select_steps(["pytest", "ruff check"])
     assert [step.name for step in chosen] == ["ruff check", "pytest"]
+
+
+def test_a_bare_run_skips_the_slow_steps_that_ci_runs() -> None:
+    names = [step.name for step in select_steps(None)]
+    assert names == [step.name for step in STEPS if not step.slow]
+    assert {"pytest", "sandbox image", "protocol models", "app"}.isdisjoint(names)
+
+
+def test_all_runs_every_step() -> None:
+    assert select_steps(None, every=True) == STEPS

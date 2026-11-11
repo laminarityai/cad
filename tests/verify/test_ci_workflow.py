@@ -7,6 +7,7 @@ from typing import Any, cast
 
 import yaml
 
+from cad.verify.__main__ import select_steps
 from cad.verify.steps import STEPS
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -36,7 +37,7 @@ def test_ci_runs_every_verify_step() -> None:
         if words[: len(VERIFY)] == VERIFY:
             rest = words[len(VERIFY) :]
             assert rest[::2] == ["--only"] * len(rest[1::2]), words
-            ran += rest[1::2] or [step.name for step in STEPS]
+            ran += rest[1::2] or [step.name for step in select_steps(None)]
     assert sorted(ran) == sorted(step.name for step in STEPS)
 
 

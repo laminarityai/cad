@@ -73,15 +73,21 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+        # Slow: CI runs it on every PR. Run it here with `uvx pre-commit run --hook-stage manual`.
+        stages: [manual]
       - id: pytest
         name: pytest
         entry: uv run verify --only pytest
         language: system
         pass_filenames: false
         always_run: true
+        # Slow: CI runs it on every PR. Run it here with `uvx pre-commit run --hook-stage manual`.
+        stages: [manual]
       - id: app
         name: app
         entry: uv run verify --only app
         language: system
         pass_filenames: false
         always_run: true
+        # Slow: CI runs it on every PR. Run it here with `uvx pre-commit run --hook-stage manual`.
+        stages: [manual]

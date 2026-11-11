@@ -19,7 +19,7 @@ The `build_variant` tool runs agent-written build123d code in a sandbox containe
 
 - Run `HOME="$CAD_HOME" uv run cad-call build_variant "$(jq -Rs '{code: .}' < <file>.py)"` in a terminal.
 - Ask Claude Code, with the repo's `.mcp.json` loaded, to build a part with the `build_variant` tool.
-- Run `uv run verify` and read the `sandbox image` line.
+- Run `uv run verify --only "sandbox image"` and read its line.
 
 ## Driving it with cad-call and claude_session.py
 
