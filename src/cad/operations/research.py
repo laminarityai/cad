@@ -8,14 +8,19 @@ from cad.operations.model import Audience, Input, Tenant, operation
 from cad.projects.model import ProjectRefused
 from cad.records.roots import Roots
 from cad.records.signed import StoreUnusable
-from cad.research.fields import MAX_QUOTE_LENGTH
-from cad.research.fields import Field as MaterialField
 from cad.research.overlay import ProjectTable, project_table
 from cad.research.requests import SUBMIT, requests_on
-from cad.research.submit import Question, ResearchAnswer, ResearchRefused, submit
+from cad.research.submit import (
+    MAX_QUOTE_LENGTH,
+    Question,
+    ResearchAnswer,
+    ResearchRefused,
+    submit,
+)
 from cad.sandbox import host
 from cad.sandbox.outcome import SandboxUnavailable
 from cad.scorecard.material import ReportedScorecard
+from cad.tables.fields import Field as MaterialField
 from cad.tables.materials import KEY_PATTERN
 
 SUBMIT_RESEARCH = (

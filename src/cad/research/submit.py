@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
-from typing import Literal
+from typing import Final, Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -22,6 +22,8 @@ from cad.research.requests import ResearchRequest, request_for
 from cad.tables.fields import FIELDS, Field
 from cad.tables.materials import FromResearch, Known, MaterialsTable, row_or_blank
 from cad.tables.quote import on_page, where_written, written_as_one_number
+
+MAX_QUOTE_LENGTH: Final = 500
 
 
 class _Frozen(BaseModel):
