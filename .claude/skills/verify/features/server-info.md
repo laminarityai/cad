@@ -15,7 +15,7 @@ The `server_info` tool tells a client which commit the server runs from, which P
 
 - Run `HOME="$CAD_HOME" uv run cad-call server_info '{}'` in a terminal.
 - Ask Claude Code, with the repo's `.mcp.json` loaded, to call the `server_info` tool.
-- Run `uv run verify` and read the `app` line.
+- Run `uv run verify --only app` and read its line.
 
 ## Driving it with cad-call and claude_session.py
 

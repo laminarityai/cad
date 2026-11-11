@@ -21,8 +21,12 @@
 
 ## Verify your work
 
-`uv run verify` is the single command that runs type checking, lint, the format check, the file-size check, tests and the app step, and exits non-zero on the first failure. The app step starts the MCP server and fails unless `server_info` reports the SHA that `git rev-parse HEAD` gives. A change is done when `verify` passes and you have exercised the change through the MCP server or the app, not only through unit tests.
+`uv run verify` runs the fast steps in about 45 seconds: type checking, lint, the format check, the file-size check, the materials table, the API types and the web lint, tests and build. `uv run verify --all` adds the slow steps: protocol models, the sandbox image, pytest and the app step. The app step starts the MCP server and fails unless `server_info` reports the SHA that `git rev-parse HEAD` gives.
+
+CI runs every step on every PR in about 3 minutes, and CI is the gate. Locally, run the tests for what you changed and `uv run verify`, then push and watch CI. Do not run `--all` on this laptop. It takes about 10 minutes. Do one live walk per PR, at the end, and never wait on another agent's PR. [.claude/skills/run-tests/SKILL.md](.claude/skills/run-tests/SKILL.md) says how.
+
+A change is done when CI passes and you have exercised the change through the MCP server or the app, not only through unit tests.
 
 The `protocol models` step model-checks the job queue and the confirmation answer flow with TLC, so it needs Java 11 or later on PATH (macOS: `brew install --cask temurin`). It downloads the TLA+ tools to `~/.cache/cad` on its first run. See [.claude/skills/protocol-models/SKILL.md](.claude/skills/protocol-models/SKILL.md).
 
-After `uv sync`, run `uvx pre-commit install` once. Each commit then runs the same steps through `verify --only <step>`.
+After `uv sync`, run `uvx pre-commit install` once. Each commit then runs the fast steps through `verify --only <step>`, and `protocol models` when its files change. The other slow steps run in CI.

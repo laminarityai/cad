@@ -122,10 +122,10 @@ The session's server inherits the environment, so `CAD_HUMAN_ANSWER`, `CAD_HUMAN
 ### The gate
 
 ```
-uv run verify
+uv run verify --all
 ```
 
-It runs the type checks, lint, format, file size, materials table, sandbox image, tests, and the `app` step, which fails unless `server_info` reports `git rev-parse HEAD`. A dirty tree prints `dirty=True` and does not fail.
+CI runs this on every PR, so run it here only to debug ([run-tests](../run-tests/SKILL.md)). It runs the type checks, lint, format, file size, materials table, sandbox image, tests, and the `app` step, which fails unless `server_info` reports `git rev-parse HEAD`. A dirty tree prints `dirty=True` and does not fail.
 
 ## Evidence
 

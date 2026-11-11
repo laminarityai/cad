@@ -12,6 +12,8 @@ class Step:
     name: str
     argv: tuple[str, ...]
     show_output: bool = False
+    # A slow step runs in CI on every PR and locally only under --all or --only.
+    slow: bool = False
 
 
 STEPS: tuple[Step, ...] = (
@@ -27,8 +29,8 @@ STEPS: tuple[Step, ...] = (
     Step("web lint", (PYTHON, str(ROOT / "tools" / "web.py"), "lint")),
     Step("web test", (PYTHON, str(ROOT / "tools" / "web.py"), "test")),
     Step("web build", (PYTHON, str(ROOT / "tools" / "web.py"), "build")),
-    Step("protocol models", (PYTHON, str(MODELS / "scripts" / "check_models.py"))),
-    Step("sandbox image", (PYTHON, "-m", "cad.sandbox", "build-image")),
-    Step("pytest", (PYTHON, "-m", "pytest", "-q", "-n", "4", "--dist", "loadfile")),
-    Step("app", (PYTHON, "-m", "cad.server.probe"), show_output=True),
+    Step("protocol models", (PYTHON, str(MODELS / "scripts" / "check_models.py")), slow=True),
+    Step("sandbox image", (PYTHON, "-m", "cad.sandbox", "build-image"), slow=True),
+    Step("pytest", (PYTHON, "-m", "pytest", "-q", "-n", "4", "--dist", "loadfile"), slow=True),
+    Step("app", (PYTHON, "-m", "cad.server.probe"), show_output=True, slow=True),
 )
