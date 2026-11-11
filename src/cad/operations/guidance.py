@@ -47,10 +47,10 @@ CONTEXT_PARTS = (
     "variant, propose that variant with propose_context_part before you call ask_to_confirm, "
     "so the user confirms it on the same page, and build the new part in its frame. A "
     "clearance the brief states is a min_clearance or max_clearance requirement on that part's "
-    "part_id. Scoring with the brief_id then runs the fit check against each confirmed context "
-    "part, and its result carries the part_id as instance. Model a part that must fit another "
-    "part in that other part's frame, its origin and axes, so the fit check and the page show "
-    "them together."
+    "part_id. Scoring with the brief_id then runs the fit check against each context part "
+    "confirmed for that brief, and its result carries the part_id as instance. Model a part "
+    "that must fit another part in that other part's frame, its origin and axes, so the fit "
+    "check and the page show them together."
 )
 
 RESEARCH = (
