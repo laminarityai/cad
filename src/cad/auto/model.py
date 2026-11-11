@@ -123,6 +123,7 @@ class Started(_Frozen):
     project: str
     decision_sha256: str
     material_key: str
+    material_reason: str | None = None
     watermark: tuple[tuple[str, int], ...]
     conflicts: tuple[Bounds, ...]
 

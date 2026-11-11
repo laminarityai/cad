@@ -6,7 +6,8 @@ result wakes the stream, so a card turns from pending to done at once. A slower 
 beside it, for what no job announces (a confirmation, a researched value), and as the only path
 when the hook is switched off. A variant nobody has scored yet is not refused: the stream stays
 open and sends nothing until its first check stores a result. A material_key that names no row of
-the brief's table, and no material the user confirmed, gets the scorecard route's refusal instead.
+the brief's table, no material the user confirmed and no material the agent chose for the variant's
+slot gets the scorecard route's refusal instead.
 """
 
 import asyncio

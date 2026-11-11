@@ -15,8 +15,11 @@ from cad.operations.model import BOTH, Audience, Input, Tenant, operation
 from cad.operations.research import brief_table, with_research
 from cad.records.roots import Roots
 from cad.research.overlay import ProjectTable
+from cad.sandbox import image
 from cad.scorecard import material, requirements, score
 from cad.tables.materials import KEY_PATTERN
+from cad.variant_sets import store as variant_sets
+from cad.variant_sets.model import MaterialChoice, MaterialMissing, SetKey
 
 MAX_KEY_CHARS: Final = 64
 type MaterialKey = Annotated[
@@ -77,13 +80,16 @@ SCORE_VARIANT = (
     "never fail. When you report the scorecard, give every verdict as it states it, with each "
     "check's formula and source, the table version and the basis, and say that every "
     "requirement it did not judge was not checked. "
-    "material_key names the material: a key from list_materials when the table lists that same "
-    "material, and otherwise a key of your own that names it. A key the table lacks is scored "
-    "as the project's own row, project- and your key, and the card's research asks for each "
-    "value a check read. When the user confirmed a made_of requirement for the brief, pass "
-    "that key: any other material_key is refused and nothing is scored. "
-    "The card's material says which key was used and what set it, the confirmed requirement or "
-    "your argument. When your argument set it, say so wherever a result rests on the material. "
+    "The material is the one the person confirmed in a made_of requirement. When none did, it "
+    "is the one you chose for the variant's slot with build_variant, so pass the brief_id and "
+    "no material_key. material_key overrides that choice for one call: a key from list_materials "
+    "when the table lists that same material, and otherwise a key of your own that names it. A "
+    "key the table lacks is scored as the project's own row, project- and your key, and the "
+    "card's research asks for each value a check read. When the user confirmed a made_of "
+    "requirement for the brief, any other material_key is refused and nothing is scored. "
+    "The card's material says which key was used and what set it: the confirmed requirement, or "
+    "the agent, with the reason you recorded. When the agent set it, say so, and give the "
+    "reason, wherever a result rests on the material. "
     "You cannot change a check or the materials table. "
     "Only score_variant runs a check. "
     "Scoring the same variant and key again gives the same scorecard while the materials table, "
@@ -99,7 +105,8 @@ SCORECARD = (
     "Read the scorecard of a variant that score_variant already ran, from the stored results of "
     "its checks. It starts no check, builds nothing and waits for nothing: a check that has not "
     "finished is listed under pending, and a variant that was never scored for this material is "
-    "an error. Pass the same variant_id, material_key and brief_id as the score_variant call. "
+    "an error. Pass the same variant_id, brief_id and material_key, if any, as the "
+    "score_variant call. "
     "It has the same fields as the score_variant result, except that it never holds the agent's "
     "own measurements, which only the score_variant call that ran them returns. "
     + RULE
@@ -110,14 +117,14 @@ SCORECARD = (
 
 class ScoreVariantInput(Input):
     variant_id: str
-    material_key: MaterialKey
+    material_key: MaterialKey | None = None
     brief_id: str | None = None
     own_measurements: own.OwnMeasurements | None = None
 
 
 class ScorecardInput(Input):
     variant_id: str
-    material_key: MaterialKey
+    material_key: MaterialKey | None = None
     brief_id: str | None = None
 
 
@@ -128,6 +135,7 @@ class Judged:
     demand: jobs.Demand
     table: ProjectTable
     material_key: str
+    choice: MaterialChoice | None
 
 
 def _context(roots: Roots, brief_id: str) -> dict[ContextPartId, jobs.PartBrep]:
@@ -138,7 +146,21 @@ def _context(roots: Roots, brief_id: str) -> dict[ContextPartId, jobs.PartBrep]:
     }
 
 
-def judged(tenant: Tenant, brief_id: str | None, material_key: str) -> Judged:
+def _slot_choice(
+    tenant: Tenant, confirmed: ConfirmedSet, brief_id: str, variant_id: str
+) -> MaterialChoice | None:
+    project = briefs.read_brief(tenant.roots, brief_id).project
+    key = SetKey(project, confirmed.brief_id, confirmed.decision_sha256)
+    return variant_sets.choice_of(
+        tenant.roots.projects, key, variant_id, image.image_tag(image.BUILD)
+    )
+
+
+def judged(
+    tenant: Tenant, brief_id: str | None, material_key: str | None, variant_id: str | None
+) -> Judged:
+    """The key a card is scored with: the one passed, else the person's made_of, else the one the
+    agent chose for the variant's slot."""
     confirmed = None
     assess, demand = score.no_brief, score.NO_DEMAND
     if brief_id is not None:
@@ -150,14 +172,25 @@ def judged(tenant: Tenant, brief_id: str | None, material_key: str) -> Judged:
         )
         demand = requirements.demand(confirmed, _context(tenant.roots, brief_id))
     table = brief_table(tenant.roots, brief_id)
-    key = table.table.row_key(material_key)
+    pinned = material.pinned_key(confirmed, table.table)
+    choice = None
+    if brief_id is not None and confirmed is not None and pinned is None and variant_id:
+        choice = _slot_choice(tenant, confirmed, brief_id, variant_id)
+    named = None if material_key is None else table.table.row_key(material_key)
+    key = named or pinned or (None if choice is None else choice.key)
+    if key is None:
+        raise MaterialMissing(
+            "no material is known for this variant: pass material_key, or pass the brief_id "
+            "of a brief whose confirmed made_of names it, or whose variant set records the "
+            "material the agent chose for this variant's slot"
+        )
     material.refuse_other_material(confirmed, key, table.table)
-    return Judged(confirmed, assess, demand, table, key)
+    return Judged(confirmed, assess, demand, table, key, choice)
 
 
 def score_variant(tenant: Tenant, arguments: ScoreVariantInput) -> material.ReportedScorecard:
     gate(tenant, arguments.brief_id)
-    basis = judged(tenant, arguments.brief_id, arguments.material_key)
+    basis = judged(tenant, arguments.brief_id, arguments.material_key, arguments.variant_id)
     if arguments.own_measurements:
         own.refuse_unless_unchecked(basis.confirmed, arguments.own_measurements)
     with stops_at_the_limit(tenant, arguments.variant_id):
@@ -170,7 +203,7 @@ def score_variant(tenant: Tenant, arguments: ScoreVariantInput) -> material.Repo
             table=basis.table.table,
         )
     card = with_research(
-        material.reported(scored, basis.confirmed), basis.table, arguments.brief_id
+        material.reported(scored, basis.confirmed, basis.choice), basis.table, arguments.brief_id
     )
     if arguments.own_measurements:
         rows = own.measure(tenant.variants, card.variant_id, arguments.own_measurements)
@@ -179,7 +212,7 @@ def score_variant(tenant: Tenant, arguments: ScoreVariantInput) -> material.Repo
 
 
 def scorecard(tenant: Tenant, arguments: ScorecardInput) -> material.ScorecardSnapshot:
-    basis = judged(tenant, arguments.brief_id, arguments.material_key)
+    basis = judged(tenant, arguments.brief_id, arguments.material_key, arguments.variant_id)
     peeked = score.peek_variant(
         arguments.variant_id,
         basis.material_key,
@@ -188,18 +221,18 @@ def scorecard(tenant: Tenant, arguments: ScorecardInput) -> material.ScorecardSn
         demand=basis.demand,
         table=basis.table.table,
     )
-    return material.snapshot(
-        with_research(material.reported(peeked, basis.confirmed), basis.table, arguments.brief_id)
-    )
+    reported = material.reported(peeked, basis.confirmed, basis.choice)
+    return material.snapshot(with_research(reported, basis.table, arguments.brief_id))
 
 
 def names_a_material(tenant: Tenant, arguments: ScorecardInput) -> bool:
-    """Whether material_key names a row of the brief's table, or the material the user confirmed,
-    so a card nobody scored yet may still come."""
-    basis = judged(tenant, arguments.brief_id, arguments.material_key)
+    """Whether the card's material is a row of the brief's table, the one the user confirmed, or
+    the one the agent chose for the slot, so a card nobody scored yet may still come."""
+    basis = judged(tenant, arguments.brief_id, arguments.material_key, arguments.variant_id)
     return (
         basis.material_key in basis.table.table.materials
         or material.pinned_by(basis.confirmed) is not None
+        or (basis.choice is not None and basis.choice.key == basis.material_key)
     )
 
 

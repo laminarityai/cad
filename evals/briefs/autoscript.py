@@ -47,6 +47,7 @@ def script_for(brief: BriefInput) -> Script:
                     input={
                         "brief_id": "${create_brief.brief_id}",
                         "material_key": _material_key(brief),
+                        "material_reason": "the scripted run's stand-in material",
                     },
                 ),
             ),

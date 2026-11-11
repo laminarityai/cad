@@ -3,11 +3,24 @@ from typing import Annotated, Final
 from pydantic import BaseModel, Field
 
 from cad.auto.gate import gate, stops_at_the_limit
+from cad.briefs import store as briefs
 from cad.conversations.model import Mode, ModeRefused
 from cad.operations.model import Audience, Input, Tenant, operation
+from cad.operations.research import brief_table
+from cad.operations.scorecards import MaterialKey
 from cad.sandbox import container, host, image
+from cad.scorecard import material
 from cad.variant_sets import store as variant_sets
-from cad.variant_sets.model import MAX_MEMBERS, SetBuildResult, SlotRefused
+from cad.variant_sets.model import (
+    MAX_MEMBERS,
+    MaterialChoice,
+    Reason,
+    Resolve,
+    SetBuildResult,
+    SetRefused,
+    SlotRefused,
+)
+from cad.variant_sets.placement import choose
 from cad.variants import entry, store
 
 MAX_CODE_CHARS: Final = 256 * 1024
@@ -25,9 +38,18 @@ BUILD_VARIANT = (
     "in its own slot. To change a variant the user asked about, such as making a wall thicker, "
     f"build the edited code with brief_id and that variant's slot, 1 to {MAX_MEMBERS}: it becomes "
     "the slot's next revision, and the set shows it in place of the old one, which stays in the "
-    "slot's history. A built variant has no verdicts until you score it: call score_variant "
-    "with its variant_id, the brief_id and the material the brief's made_of requirement "
-    "confirms, and the person's scorecard shows pending until you do. "
+    "slot's history. The person never chooses the material. When a confirmed made_of "
+    "requirement names it, the slot uses that material and you pass none. Otherwise you choose "
+    "it for each variant, and variants may differ: pass material_key, a key from list_materials "
+    "or one of your own for a material the table lacks, which you then research, and "
+    "material_reason, one line saying why this material suits this variant. The server records "
+    "the choice with the slot's revision, the person's page shows it as chosen by the agent, "
+    "and it is a design choice, not a requirement and not a verdict. Omit both to keep the "
+    "slot's earlier choice; a new material with the same code is a new revision. A build with "
+    "no confirmed made_of, no earlier choice for the slot and no material_key is refused before "
+    "it starts. A built variant has no verdicts until you score it: call score_variant "
+    "with its variant_id and the brief_id, and the person's scorecard shows pending until you "
+    "do. "
     "Without slot, code already shown in a slot keeps that slot, and new code "
     "takes the lowest free slot. A build for a brief with no confirmed requirements, for new "
     "code with no slot when every slot is taken, or for code that another slot already shows, "
@@ -69,6 +91,19 @@ class BuildVariantInput(Input):
     code: Annotated[str, Field(max_length=MAX_CODE_CHARS)]
     brief_id: str | None = None
     slot: Annotated[int | None, Field(strict=True)] = None
+    material_key: MaterialKey | None = None
+    material_reason: Reason | None = None
+
+
+def chooser(tenant: Tenant, brief_id: str, key: str | None, reason: str | None) -> Resolve:
+    """The material a build in the brief's set records: the person's made_of, else the agent's."""
+
+    def resolve(previous: MaterialChoice | None) -> MaterialChoice | None:
+        table = brief_table(tenant.roots, brief_id).table
+        pinned = material.pinned_key(briefs.confirmed_requirements(tenant.roots, brief_id), table)
+        return choose(pinned, previous, key, reason, table)
+
+    return resolve
 
 
 def build_variant(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResult:
@@ -81,11 +116,24 @@ def build_variant(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResul
     vid = entry.variant_id(arguments.code, image.image_tag(image.BUILD))
     with stops_at_the_limit(tenant, vid):
         if arguments.brief_id is not None:
+            resolve = chooser(
+                tenant, arguments.brief_id, arguments.material_key, arguments.material_reason
+            )
             return variant_sets.build_into_set(
-                tenant.roots, tenant.variants, arguments.brief_id, arguments.code, arguments.slot
+                tenant.roots,
+                tenant.variants,
+                arguments.brief_id,
+                arguments.code,
+                arguments.slot,
+                resolve,
             )
         if arguments.slot is not None:
             raise SlotRefused("slot names a place in a brief's variant set, so pass brief_id too")
+        if arguments.material_key is not None or arguments.material_reason is not None:
+            raise SetRefused(
+                "material_key and material_reason record a choice in a brief's variant set, "
+                "so pass brief_id too"
+            )
         built = store.build_variant(arguments.code, tenant.variants)
     return SetBuildResult(variant_id=built.variant_id, outcome=built.outcome, output=built.output)
 

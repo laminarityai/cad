@@ -21,28 +21,33 @@ from cad.auto.model import (
 )
 from cad.auto.step import standing_of
 from cad.briefs import store as briefs
-from cad.briefs.model import MAX_NOTE_CHARS, MadeOf
+from cad.briefs.model import MAX_NOTE_CHARS
 from cad.conversations import store as conversations
 from cad.conversations.model import Mode
 from cad.operations import scorecards
 from cad.operations.conversations import ConversationState
 from cad.operations.model import Audience, Input, Tenant, operation
-from cad.operations.variants import MAX_CODE_CHARS
+from cad.operations.variants import MAX_CODE_CHARS, chooser
 from cad.sandbox import image
 from cad.sandbox.outcome import Built
 from cad.scorecard import material
 from cad.variant_sets import store as variant_sets
-from cad.variant_sets.model import code_sha256
+from cad.variant_sets.model import Reason, code_sha256
+from cad.variant_sets.placement import CHOOSE
 from cad.variants import entry
 
 AUTO_START = (
     "Start an Auto run on a brief whose requirements the person confirmed. Only a conversation "
     "the person switched to Auto mode in the web app can start one; any other caller is "
-    "refused. The run uses the confirmed made_of material, or material_key when no requirement "
-    "names one. When the confirmed targets conflict, the run stops at once with the proof and "
-    "builds nothing. When this conversation's run on the brief has not stopped, auto_start "
-    "returns that run. A run belongs to the conversation that started it: while it has not "
-    "stopped, auto_start on its brief from another conversation is refused, and auto_revise "
+    "refused. The run uses the confirmed made_of material. When no requirement names one, you "
+    "choose it, because the person never does: pass material_key, a key from list_materials or "
+    "one of your own for a material the table lacks, and material_reason, one line saying why "
+    "it suits the part. Without both the start is refused. The run builds every revision with "
+    "that material, records it with the slot as chosen by the agent, and scores it. When the "
+    "confirmed targets conflict, the run stops at once with the proof and builds nothing. When "
+    "this conversation's run on the brief has not stopped, auto_start returns that run. A run "
+    "belongs to the conversation that started it: while it has not stopped, auto_start on its "
+    "brief from another conversation is refused, and auto_revise "
     "and auto_ask on it are refused from any other conversation, from a client with no "
     "conversation, and after the person moves the conversation out of Auto mode. A "
     "conversation holds one run at a time: while its run has not stopped, starting another "
@@ -98,6 +103,7 @@ AUTO_STOP = (
 class StartInput(Input):
     brief_id: str
     material_key: scorecards.MaterialKey | None = None
+    material_reason: Reason | None = None
 
 
 class ReviseInput(Input):
@@ -133,12 +139,10 @@ def auto_start(tenant: Tenant, arguments: StartInput) -> AutoRun:
         raise briefs.BriefRefused(
             f"brief {arguments.brief_id} has no confirmed requirements; Plan mode comes first"
         )
-    pin = material.pinned_by(confirmed)
-    named = pin.target.material if pin is not None and isinstance(pin.target, MadeOf) else None
-    key = arguments.material_key or named
-    if key is None:
-        raise RunRefused("no confirmed requirement names the material, so pass material_key")
-    basis = scorecards.judged(tenant, arguments.brief_id, key)
+    pinned = material.pinned_by(confirmed) is not None
+    if not pinned and (arguments.material_key is None or arguments.material_reason is None):
+        raise RunRefused(CHOOSE)
+    basis = scorecards.judged(tenant, arguments.brief_id, arguments.material_key, None)
     project = briefs.read_brief(roots, arguments.brief_id).project
     started = Started(
         conversation=cid,
@@ -146,6 +150,7 @@ def auto_start(tenant: Tenant, arguments: StartInput) -> AutoRun:
         project=project,
         decision_sha256=confirmed.decision_sha256,
         material_key=basis.material_key,
+        material_reason=None if pinned else arguments.material_reason,
         watermark=watermark(roots, project),
         conflicts=bounds_conflicts(confirmed.requirements, basis.table.table),
     )
@@ -182,8 +187,10 @@ def auto_revise(tenant: Tenant, arguments: ReviseInput) -> AutoRun:
     revision = len(running.history) + 1
     vid = entry.variant_id(arguments.code, image.image_tag(image.BUILD))
     with stops_at_the_limit(tenant, vid):
+        start = running.start
+        resolve = chooser(tenant, brief_id, start.material_key, start.material_reason)
         built = variant_sets.build_into_set(
-            roots, tenant.variants, brief_id, arguments.code, arguments.slot
+            roots, tenant.variants, brief_id, arguments.code, arguments.slot, resolve
         )
         if built.outcome == Built():
             scored = scorecards.ScoreVariantInput(

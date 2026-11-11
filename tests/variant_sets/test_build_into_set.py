@@ -99,7 +99,10 @@ async def test_a_new_confirmation_starts_an_empty_set(s: Session) -> None:
     await s.call(
         "propose_requirements",
         brief_id=brief_id,
-        requirements=[{"target": {"kind": "closed_solid"}, "quote": "A plate"}],
+        requirements=[
+            {"target": {"kind": "made_of", "material": "prusament-pla"}, "quote": "PLA"},
+            {"target": {"kind": "closed_solid"}, "quote": "A plate"},
+        ],
     )
     await s.confirm(brief_id)
     joined = await s.call("build_variant", code=PLATE, brief_id=brief_id)

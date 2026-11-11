@@ -51,7 +51,14 @@ async def confirmed(s: Session, person: Person) -> tuple[str, str, str]:
         for r in listed["proposals"][0]["requirements"]
         if r["requirement"]["target"]["kind"] == "unchecked"
     )
-    variant_id = (await s.call("build_variant", code=HOLED_PLATE, brief_id=brief_id))["variant_id"]
+    built = await s.call(
+        "build_variant",
+        code=HOLED_PLATE,
+        brief_id=brief_id,
+        material_key="prusament-pla",
+        material_reason="PLA is light and prints easily",
+    )
+    variant_id = built["variant_id"]
     return brief_id, unchecked, variant_id
 
 
