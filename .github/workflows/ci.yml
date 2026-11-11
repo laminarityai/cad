@@ -8,8 +8,10 @@ on:
 permissions:
   contents: read
 
+# Every verify step runs in one of these jobs, and the jobs run side by side. The test files
+# split into shards by CAD_TEST_SHARD, so the slowest job sets the wall time, not the sum.
 jobs:
-  verify:
+  checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -28,4 +30,49 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: uv sync --locked
-      - run: uv run --locked verify
+      - run: >-
+          uv run --locked verify --only basedpyright --only "basedpyright skills"
+          --only "ruff check" --only "ruff format" --only "file size" --only "materials table"
+          --only "api types" --only "web lint" --only "web test" --only "web build"
+          --only "protocol models" --only app
+
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    env:
+      CAD_TEST_SHARD: ${{ matrix.shard }}/4
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2
+      - run: nohup vmstat 10 > "$RUNNER_TEMP/vmstat.log" 2>&1 &
+      # The image tag hashes these files, so the saved images are current exactly when it hits.
+      - id: images
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/cad-images
+          key: sandbox-images-${{ hashFiles('sandbox/**') }}
+      - if: steps.images.outputs.cache-hit == 'true'
+        run: docker load --input ~/.cache/cad-images/images.tar
+      - run: uv sync --locked
+      - run: uv run --locked verify --only "sandbox image"
+      - if: steps.images.outputs.cache-hit != 'true'
+        run: >-
+          mkdir -p ~/.cache/cad-images && docker save --output ~/.cache/cad-images/images.tar
+          $(docker images --format '{{.Repository}}:{{.Tag}}' 'cad-*')
+      # tests/fea keeps solver reports by a digest of every input, the image id among them. The
+      # image id holds only while the cached images are reused, so it is part of this key.
+      - id: fea
+        run: >-
+          echo "key=fea-$(docker images --quiet --no-trunc 'cad-*' | sort | sha256sum | cut -c1-16)-${{
+          hashFiles('tests/fea/**', 'src/cad/checks/container/**', 'src/cad/sandbox/container.py') }}"
+          >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/cad/fea
+          key: ${{ steps.fea.outputs.key }}
+      - run: uv run --locked verify --only pytest
+      - if: always()
+        run: cat "$RUNNER_TEMP/vmstat.log"; nproc; docker images

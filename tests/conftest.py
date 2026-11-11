@@ -9,6 +9,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+import zlib
 from collections.abc import AsyncIterator, Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from email.message import Message
@@ -328,6 +329,24 @@ def _refuse_home_writes(event: str, arguments: tuple[object, ...]) -> None:
 
 
 sys.addaudithook(_refuse_home_writes)
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Keep one shard's files when CAD_TEST_SHARD is `index/count`, as CI's parallel jobs set it.
+
+    A file stays whole, so its module fixtures still run once.
+    """
+    shard = os.environ.get("CAD_TEST_SHARD")
+    if not shard:
+        return
+    index, count = (int(part) for part in shard.split("/"))
+    kept: list[pytest.Item] = []
+    dropped: list[pytest.Item] = []
+    for item in items:
+        name = item.path.relative_to(config.rootpath).as_posix()
+        (kept if zlib.crc32(name.encode()) % count == index - 1 else dropped).append(item)
+    config.hook.pytest_deselected(items=dropped)
+    items[:] = kept
 
 
 @pytest.fixture(name="home_writes", autouse=True)
