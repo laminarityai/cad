@@ -25,3 +25,13 @@ async def test_a_revision_into_a_slot_its_set_does_not_hold_is_refused_before_an
     assert "auto_start on the brief whose variant set holds it" in text
     assert started == []
     assert s.run(run.run_id).state.history == ()
+
+
+async def test_a_build_into_a_stray_slot_under_a_running_run_is_refused(
+    s: Session, started: list[str]
+) -> None:
+    brief_id = await s.confirmed("make the box use less plastic", SOLID)
+    await s.start(brief_id=brief_id, **CHOICE)
+    text = await s.refusal("build_variant", brief_id=brief_id, code="result = None", slot=4)
+    assert f"SlotRefused: the variant set of brief {brief_id} holds no slot 4" in text
+    assert started == []

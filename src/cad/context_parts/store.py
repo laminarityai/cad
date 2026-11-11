@@ -194,23 +194,30 @@ def out_of_date_in(
 def _replaced(
     projects: Path, project: ProjectId, parts: tuple[Stored, ...], variant_id: str
 ) -> ContextPartId | None:
-    """The confirmed part whose variant is an earlier revision of the slot `variant_id` is in."""
+    """The confirmed part whose geometry the user confirmed last came from an earlier revision of
+    the slot `variant_id` is in, counting from that variant's latest revision there."""
     tag = image.image_tag(image.BUILD)
+    confirmed = [
+        part
+        for part in parts
+        if part.outcome == "confirmed" and _current_confirmed(parts, part.record.id) is part
+    ]
     for _, member in sets.project_slots(projects, project):
-        at = next(
-            (n for n, one in enumerate(member.revisions) if variant_id in _ids(one, tag)), None
-        )
-        if at is None:
+        at = [n for n, one in enumerate(member.revisions) if variant_id in _ids(one, tag)]
+        if not at:
             continue
-        earlier = {vid for one in member.revisions[:at] for vid in _ids(one, tag)}
-        replaced = [
-            part
-            for part in parts
-            if part.outcome == "confirmed" and part.record.source.variant_id in earlier
-        ]
+        earlier = {vid for one in member.revisions[: at[-1]] for vid in _ids(one, tag)} - {
+            variant_id
+        }
+        replaced = [part for part in confirmed if part.record.source.variant_id in earlier]
         if replaced:
             return replaced[-1].record.id
     return None
+
+
+def _current_confirmed(parts: tuple[Stored, ...], part: ContextPartId) -> Stored | None:
+    confirmed = [one for one in parts if one.record.id == part and one.outcome == "confirmed"]
+    return confirmed[-1] if confirmed else None
 
 
 def _holds(member: Member, variant_id: str, tag: str) -> bool:
@@ -250,8 +257,18 @@ def _stored(projects: Path, project: ProjectId, raw: tuple[bytes, ...]) -> tuple
 
 
 def _newest_undeclined(parts: tuple[Stored, ...], brep_sha256: str) -> Stored | None:
+    """The record of this geometry that still stands: not declined, and not passed by a later
+    record of its part that waits or was confirmed."""
     same = [part for part in parts if part.record.brep_sha256 == brep_sha256]
-    return same[-1] if same and same[-1].outcome != "declined" else None
+    if not same or same[-1].outcome == "declined":
+        return None
+    current = _current(parts).get(same[-1].record.id)
+    return same[-1] if current is None or current.number <= same[-1].number else None
+
+
+def _current(parts: tuple[Stored, ...]) -> dict[ContextPartId, Stored]:
+    """Each part's newest record that waits or was confirmed."""
+    return {part.record.id: part for part in parts if part.outcome != "declined"}
 
 
 def _write_brep(directory: Path, brep: bytes, brep_sha256: str) -> None:

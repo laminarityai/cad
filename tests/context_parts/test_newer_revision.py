@@ -132,3 +132,56 @@ async def test_a_declined_update_leaves_the_confirmed_geometry_measured(s: Sessi
     [measured] = confirmed_parts(s.roots.projects, fitted.project)
     assert measured.record.source.variant_id == fitted.old
     assert part_item(asked)["outcome"] == "declined"
+
+
+async def confirm_update(s: Session, fitted: Fitted, variant_id: str) -> dict[str, Any]:
+    s.person.answer = "confirm"
+    proposed = await s.call(
+        "propose_context_part",
+        brief_id=fitted.lid,
+        quote="slot 1",
+        name="SD card box",
+        variant_id=variant_id,
+    )
+    await s.call("ask_to_confirm", project_id=fitted.project)
+    return proposed
+
+
+async def test_a_slot_built_back_to_the_confirmed_first_geometry_updates_the_part_again(
+    s: Session,
+) -> None:
+    fitted = await box_with_a_fitted_lid(s)
+    new, _ = await lighter(s, fitted)
+    await confirm_update(s, fitted, new)
+    back = await s.call(
+        "build_variant", code="result = Box(40, 30, 20)\n", brief_id=fitted.box, slot=1
+    )
+    assert back["context_parts_out_of_date"] == [fitted.part]
+    again = await confirm_update(s, fitted, fitted.old)
+    asked = await s.call("ask_to_confirm", project_id=fitted.project)
+    [measured] = confirmed_parts(s.roots.projects, fitted.project)
+    assert again["part_id"] == fitted.part
+    assert (measured.record.id, measured.record.source.variant_id) == (fitted.part, fitted.old)
+    assert part_item(asked)["newer_revision"] is None
+
+
+async def test_an_older_revision_is_not_called_newer_and_waits_for_the_person(
+    s: Session,
+) -> None:
+    fitted = await box_with_a_fitted_lid(s)
+    new, _ = await lighter(s, fitted)
+    await confirm_update(s, fitted, new)
+    s.person.answer = None
+    older = await s.call(
+        "propose_context_part",
+        brief_id=fitted.lid,
+        quote="slot 1",
+        name="SD card box",
+        variant_id=fitted.old,
+    )
+    await s.call("ask_to_confirm", project_id=fitted.project)
+    _, page = s.get(s.person.url)
+    [measured] = confirmed_parts(s.roots.projects, fitted.project)
+    assert older["status"] == "waiting"
+    assert "a newer revision of the part you confirmed" not in page
+    assert measured.record.source.variant_id == new
