@@ -68,10 +68,14 @@ OPEN_BRIEF: Final = (
     "their page shows. A slot they name is a slot of this brief's variant set: call variant_set "
     "with this project_id and brief_id for each slot's variant_id and revision, and variant_code "
     "for the code a variant was built from. To change a slot, edit that code and build it with "
-    "build_variant, this brief_id and that slot. Then score the new variant with score_variant, "
-    "this brief_id and the material the brief's made_of requirement confirms (list_requirements "
-    "shows it): only that runs the checks, and the person's scorecard waits on it. Do not ask the "
-    "person for code, a brief, a material or an id that these tools return."
+    "build_variant, this brief_id and that slot. Then score the new variant with score_variant "
+    "and this brief_id: only that runs the checks, and the person's scorecard waits on it. The "
+    "material is the one the brief's made_of requirement confirms (list_requirements shows it). "
+    "When none does, choose one for each variant and pass it to build_variant as material_key "
+    "with a one-line material_reason: omit both to keep the slot's choice. When the person asks "
+    "for a particular material, propose it as a made_of requirement for them to confirm. Never "
+    "ask the person to choose a material. Do not "
+    "ask the person for code, a brief, a material or an id that these tools return."
 )
 
 _LOG = logging.getLogger(__name__)

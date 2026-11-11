@@ -824,6 +824,7 @@ export interface components {
             variant_id: string;
             revision: number;
             revisions: components["schemas"]["RevisionView"][];
+            material: components["schemas"]["MaterialUse"] | null;
             card_etag: string | null;
         };
         /** MessageSent */
@@ -1116,7 +1117,11 @@ export interface components {
             tools: string[];
         };
         SetBy: components["schemas"]["SetByRequirement"] | components["schemas"]["SetByAgent"];
-        /** SetByAgent */
+        /**
+         * SetByAgent
+         * @description The agent chose the material. `reason` is the one line it recorded with its choice, and is
+         *     missing when the agent named a key that no slot of the variant set records.
+         */
         SetByAgent: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -1125,6 +1130,8 @@ export interface components {
             kind: "agent_argument";
             /** @default The agent chose this material. No requirement the person confirmed names it, so a result that depends on it rests on the agent's choice. */
             statement: string;
+            /** @default null */
+            reason?: string | null;
         };
         /**
          * SetByRequirement
@@ -1199,6 +1206,8 @@ export interface components {
             project: string;
             decision_sha256: string;
             material_key: string;
+            /** @default null */
+            material_reason: string | null;
             watermark: [
                 string,
                 number
@@ -1679,8 +1688,8 @@ export interface operations {
     };
     scorecard: {
         parameters: {
-            query: {
-                material_key: components["schemas"]["MaterialKey"];
+            query?: {
+                material_key?: components["schemas"]["MaterialKey"] | null;
                 brief_id?: string | null;
             };
             header?: never;
@@ -2170,8 +2179,8 @@ export interface operations {
     };
     scorecard_events: {
         parameters: {
-            query: {
-                material_key: components["schemas"]["MaterialKey"];
+            query?: {
+                material_key?: components["schemas"]["MaterialKey"] | null;
                 brief_id?: string | null;
             };
             header?: never;

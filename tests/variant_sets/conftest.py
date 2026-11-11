@@ -10,7 +10,8 @@ from cad.records.roots import Roots
 from cad.server.app import build_server
 from tests.conftest import Person
 
-TEXT = "A plate under 150 g"
+TEXT = "A PLA plate under 150 g"
+PLA = {"target": {"kind": "made_of", "material": "prusament-pla"}, "quote": "PLA"}
 UNDER_150 = {
     "target": {"kind": "max_mass", "mass": {"magnitude": 150, "unit": "g"}},
     "quote": "under 150 g",
@@ -37,10 +38,14 @@ class Session:
     def roots(self) -> Roots:
         return Roots(self.tmp / "briefs", self.tmp / "projects")
 
-    async def proposed_brief(self, project_id: str | None = None) -> str:
+    async def proposed_brief(
+        self, project_id: str | None = None, text: str = TEXT, *rows: dict[str, Any]
+    ) -> str:
         joined = {} if project_id is None else {"project_id": project_id}
-        brief_id = (await self.call("create_brief", text=TEXT, **joined))["brief_id"]
-        await self.call("propose_requirements", brief_id=brief_id, requirements=[UNDER_150])
+        brief_id = (await self.call("create_brief", text=text, **joined))["brief_id"]
+        await self.call(
+            "propose_requirements", brief_id=brief_id, requirements=list(rows or [PLA, UNDER_150])
+        )
         return brief_id
 
     async def confirm(self, brief_id: str) -> None:

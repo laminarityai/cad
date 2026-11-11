@@ -30,7 +30,11 @@ PLAN_REFUSAL: Final = "build_variant is refused in Plan mode"
 
 async def running(s: Session) -> tuple[str, str]:
     brief_id = await s.confirmed(TEXT, UNDER_150)
-    run = await s.start(brief_id=brief_id, material_key="prusament-pla")
+    run = await s.start(
+        brief_id=brief_id,
+        material_key="prusament-pla",
+        material_reason="PLA is light and prints easily",
+    )
     assert isinstance(run.state, Running)
     return brief_id, run.run_id
 
@@ -57,9 +61,10 @@ async def test_a_call_bound_before_the_stop_is_refused_and_starts_nothing(
 
 async def test_a_build_under_the_conversations_run_is_charged_once(s: Session) -> None:
     brief_id, run_id = await running(s)
-    await s.call("build_variant", code=PLATE, brief_id=brief_id)
+    chosen = {"material_key": "prusament-pla", "material_reason": "PLA prints easily"}
+    await s.call("build_variant", code=PLATE, brief_id=brief_id, **chosen)
     assert s.meter.asked == ["build"]
-    await s.call("build_variant", code=PLATE, brief_id=brief_id)
+    await s.call("build_variant", code=PLATE, brief_id=brief_id, **chosen)
     assert s.meter.asked == ["build"]
     assert isinstance(s.run(run_id).state, Running)
 
@@ -169,7 +174,11 @@ async def test_another_auto_conversation_cannot_take_a_running_run_on_its_brief(
     third = ConversationId("c3")
     store.create(s.tenant, third)
     store.set_mode(s.tenant, third, Mode.AUTO)
-    start = {"brief_id": brief_id, "material_key": "prusament-pla"}
+    start = {
+        "brief_id": brief_id,
+        "material_key": "prusament-pla",
+        "material_reason": "PLA is light and prints easily",
+    }
     text = await refusal_in(s, third, "auto_start", **start)
     assert f"RunNotHeld: brief {brief_id} has Auto run {run_id} in another" in text
     assert store.read(s.tenant.conversations, third).auto_run is None
@@ -187,7 +196,12 @@ async def test_a_run_another_conversation_stopped_leaves_its_brief_free(s: Sessi
     served = tools(lambda: store.bind(s.tenant, third), OPERATIONS)
     async with Client(MCPServer("cad", tools=served)) as client:
         result = await client.call_tool(
-            "auto_start", {"brief_id": brief_id, "material_key": "prusament-pla"}
+            "auto_start",
+            {
+                "brief_id": brief_id,
+                "material_key": "prusament-pla",
+                "material_reason": "PLA is light and prints easily",
+            },
         )
     assert not result.is_error, result.content
     assert result.structured_content is not None

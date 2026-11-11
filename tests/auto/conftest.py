@@ -76,14 +76,23 @@ class Session:
         held = store.read(self.tenant.conversations, self.conversation)
         assert (held.mode, held.auto_run) == (Mode.DESIGN, None)
         for _ in range(2):
-            text = await self.refusal("auto_start", brief_id=brief_id, material_key="prusament-pla")
+            text = await self.refusal(
+                "auto_start",
+                brief_id=brief_id,
+                material_key="prusament-pla",
+                material_reason="PLA is light and prints easily",
+            )
             assert "this caller's mode is design" in text, text
             text = await self.refusal("auto_revise", run_id=run_id, code="result = None")
             assert f"RunNotHeld: auto run {run_id} is not this conversation's" in text, text
             text = await self.refusal("auto_ask", run_id=run_id, note="again")
             assert f"RunNotHeld: auto run {run_id} is not this conversation's" in text, text
         store.set_mode(self.tenant, self.conversation, Mode.AUTO)
-        again = await self.start(brief_id=brief_id, material_key="prusament-pla")
+        again = await self.start(
+            brief_id=brief_id,
+            material_key="prusament-pla",
+            material_reason="PLA is light and prints easily",
+        )
         assert again.run_id != run_id
 
     async def confirmed(self, text: str, *requirements: dict[str, Any]) -> str:

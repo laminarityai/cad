@@ -49,7 +49,13 @@ async def test_the_stop_of_an_earlier_run_does_not_change_a_conversation_that_mo
     other = await s.confirmed(TEXT, UNDER_150)
     store.set_mode(s.tenant, s.conversation, Mode.PLAN)
     store.set_mode(s.tenant, s.conversation, Mode.AUTO)
-    current = (await s.start(brief_id=other, material_key="prusament-pla")).run_id
+    current = (
+        await s.start(
+            brief_id=other,
+            material_key="prusament-pla",
+            material_reason="PLA is light and prints easily",
+        )
+    ).run_id
     assert current != earlier
     assert isinstance(s.run(earlier).state, Stopped)
     store.record_event(s.tenant, earlier, asked)
@@ -75,7 +81,12 @@ async def test_a_start_after_a_stop_recorded_before_the_conversation_moved_is_re
 ) -> None:
     brief_id, run_id = await running(s)
     log.append_event(s.roots, run_id, asked)
-    text = await s.refusal("auto_start", brief_id=brief_id, material_key="prusament-pla")
+    text = await s.refusal(
+        "auto_start",
+        brief_id=brief_id,
+        material_key="prusament-pla",
+        material_reason="PLA is light and prints easily",
+    )
     assert f"auto run {run_id} has stopped" in text, text
     await s.left_auto(brief_id, run_id)
 
@@ -86,6 +97,11 @@ async def test_a_conversation_left_in_auto_on_a_stopped_run_refuses_a_start(s: S
     stuck = Conversation(mode=Mode.AUTO, auto_run=run_id)
     (s.tenant.conversations / f"{s.conversation}.json").write_text(stuck.model_dump_json())
     store.set_mode(s.tenant, s.conversation, Mode.AUTO)
-    text = await s.refusal("auto_start", brief_id=brief_id, material_key="prusament-pla")
+    text = await s.refusal(
+        "auto_start",
+        brief_id=brief_id,
+        material_key="prusament-pla",
+        material_reason="PLA is light and prints easily",
+    )
     assert f"auto run {run_id} has stopped" in text, text
     await s.left_auto(brief_id, run_id)

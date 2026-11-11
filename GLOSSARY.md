@@ -40,6 +40,10 @@ _Avoid_: Design, batch, group, shortlist
 A place in a variant set, numbered 1 to 5, that keeps its number for as long as the set lives. It shows the latest revision of the variant the user is working on there.
 _Avoid_: Position, index
 
+**Material choice**:
+The material the agent picked for a slot when no confirmed requirement names one, with a one-line reason. It is a design choice, like the code: not a requirement and not a verdict. The server records it on the slot's revision, and the scorecard uses it and is labelled agent-chosen. A material the user names stays a confirmed requirement. The agent never asks the user to choose one.
+_Avoid_: Default material, assumed material
+
 **Revision**:
 One signed entry in a slot's history, made when new code is built into the slot. A change the user asks for in chat adds a revision to the slot it changes and takes no new slot. Earlier revisions stay readable.
 _Avoid_: Version, edit, draft

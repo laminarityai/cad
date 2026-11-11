@@ -31,6 +31,10 @@ UNDER_150: Final = {
     "target": {"kind": "max_mass", "mass": {"magnitude": 150, "unit": "g"}},
     "quote": "under 150 g",
 }
+PLA_CHOICE: Final = {
+    "material_key": "prusament-pla",
+    "material_reason": "PLA is light and prints easily",
+}
 CUBE_TEXT: Final = "A block that fits in a 20 mm cube, PLA, at least 50 g"
 CUBE: Final = (
     {
@@ -47,7 +51,11 @@ CUBE: Final = (
 
 async def running(s: Session) -> tuple[str, str]:
     brief_id = await s.confirmed(TEXT, UNDER_150)
-    run = await s.start(brief_id=brief_id, material_key="prusament-pla")
+    run = await s.start(
+        brief_id=brief_id,
+        material_key="prusament-pla",
+        material_reason="PLA is light and prints easily",
+    )
     assert isinstance(run.state, Running)
     return brief_id, run.run_id
 
@@ -73,7 +81,12 @@ async def test_auto_start_is_refused_outside_an_auto_mode_conversation(
         served = tools(lambda: s.bound, OPERATIONS)
     async with Client(MCPServer("cad", tools=served)) as client:
         result = await client.call_tool(
-            "auto_start", {"brief_id": brief_id, "material_key": "prusament-pla"}
+            "auto_start",
+            {
+                "brief_id": brief_id,
+                "material_key": "prusament-pla",
+                "material_reason": "PLA is light and prints easily",
+            },
         )
     assert result.is_error
     text = result.content[0].model_dump()["text"]
@@ -84,7 +97,11 @@ async def test_auto_start_is_refused_outside_an_auto_mode_conversation(
 
 async def test_two_concurrent_starts_of_one_brief_make_one_run(s: Session) -> None:
     brief_id = await s.confirmed(TEXT, UNDER_150)
-    arguments = StartInput(brief_id=brief_id, material_key="prusament-pla")
+    arguments = StartInput(
+        brief_id=brief_id,
+        material_key="prusament-pla",
+        material_reason="PLA is light and prints easily",
+    )
     other = ConversationId("c-other")
     store.create(s.tenant, other)
     store.set_mode(s.tenant, other, Mode.AUTO)
@@ -180,7 +197,7 @@ async def test_a_build_the_account_limit_refuses_stops_the_run_and_starts_nothin
 
 async def test_a_check_the_account_limit_refuses_stops_the_run(s: Session) -> None:
     brief_id, run_id = await running(s)
-    built = await s.call("build_variant", code=PLATE, brief_id=brief_id)
+    built = await s.call("build_variant", code=PLATE, brief_id=brief_id, **PLA_CHOICE)
     s.meter.spent = True
     score = {"variant_id": built["variant_id"], "material_key": "prusament-pla"}
     text = await s.refusal("score_variant", brief_id=brief_id, **score)
@@ -199,7 +216,9 @@ async def test_a_build_the_account_limit_refuses_for_an_outside_client_stops_no_
     s.meter.spent = True
     brief_id, run_id = await running(s)
     async with Client(MCPServer("cad", tools=tools(lambda: s.tenant, OPERATIONS))) as outside:
-        result = await outside.call_tool("build_variant", {"code": PLATE, "brief_id": brief_id})
+        result = await outside.call_tool(
+            "build_variant", {"code": PLATE, "brief_id": brief_id, **PLA_CHOICE}
+        )
     assert result.is_error
     assert "the account limit is reached: 600 of 600 container-seconds" in str(result.content)
     assert isinstance(s.run(run_id).state, Running)
@@ -234,7 +253,11 @@ async def test_a_run_builds_only_for_its_own_brief(s: Session) -> None:
 
 async def test_starting_a_brief_with_a_live_run_returns_that_run(s: Session) -> None:
     brief_id, run_id = await running(s)
-    again = await s.start(brief_id=brief_id, material_key="prusament-pla")
+    again = await s.start(
+        brief_id=brief_id,
+        material_key="prusament-pla",
+        material_reason="PLA is light and prints easily",
+    )
     assert again.run_id == run_id
 
 
@@ -242,7 +265,11 @@ async def test_starting_a_brief_whose_run_stopped_starts_a_new_run(s: Session) -
     brief_id, run_id = await running(s)
     await s.call("auto_ask", run_id=run_id, note="stuck")
     store.set_mode(s.tenant, s.conversation, Mode.AUTO)
-    again = await s.start(brief_id=brief_id, material_key="prusament-pla")
+    again = await s.start(
+        brief_id=brief_id,
+        material_key="prusament-pla",
+        material_reason="PLA is light and prints easily",
+    )
     assert again.run_id != run_id
     assert isinstance(again.state, Running)
 

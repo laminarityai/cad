@@ -11,6 +11,7 @@ from cad.briefs.words import describe
 from cad.research.requests import ResearchRequest
 from cad.scorecard.model import Scorecard
 from cad.tables.materials import PROJECT_PREFIX, MaterialsTable
+from cad.variant_sets.model import MaterialChoice
 
 AGENT_CHOSE: Final = (
     "The agent chose this material. No requirement the person confirmed names it, so a result "
@@ -35,8 +36,12 @@ class SetByRequirement(_Frozen):
 
 
 class SetByAgent(_Frozen):
+    """The agent chose the material. `reason` is the one line it recorded with its choice, and is
+    missing when the agent named a key that no slot of the variant set records."""
+
     kind: Literal["agent_argument"] = "agent_argument"
     statement: str = AGENT_CHOSE
+    reason: str | None = Field(default=None, exclude_if=lambda one: one is None)
 
 
 type SetBy = Annotated[SetByRequirement | SetByAgent, Field(discriminator="kind")]
@@ -96,16 +101,30 @@ def refuse_other_material(
     )
 
 
-def reported(card: Scorecard, confirmed: ConfirmedSet | None) -> ReportedScorecard:
+def pinned_key(confirmed: ConfirmedSet | None, table: MaterialsTable) -> str | None:
     pin = pinned_by(confirmed)
-    set_by: SetBy = (
-        SetByAgent()
-        if pin is None
-        else SetByRequirement(requirement_id=pin.id, statement=_statement(pin, card.material_key))
-    )
-    return ReportedScorecard(
-        **dict(card), material=MaterialUse(key=card.material_key, set_by=set_by)
-    )
+    if pin is None or not isinstance(pin.target, MadeOf):
+        return None
+    return table.row_key(pin.target.material)
+
+
+def used(key: str, confirmed: ConfirmedSet | None, choice: MaterialChoice | None) -> MaterialUse:
+    """What set `key`: the requirement the person confirmed, else the agent, with its reason when
+    `choice` records this key."""
+    pin = pinned_by(confirmed)
+    if pin is not None:
+        return MaterialUse(
+            key=key,
+            set_by=SetByRequirement(requirement_id=pin.id, statement=_statement(pin, key)),
+        )
+    reason = choice.reason if choice is not None and choice.key == key else None
+    return MaterialUse(key=key, set_by=SetByAgent(reason=reason))
+
+
+def reported(
+    card: Scorecard, confirmed: ConfirmedSet | None, choice: MaterialChoice | None = None
+) -> ReportedScorecard:
+    return ReportedScorecard(**dict(card), material=used(card.material_key, confirmed, choice))
 
 
 def _statement(pin: Requirement, scored: str) -> str:

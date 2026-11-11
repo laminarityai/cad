@@ -4,8 +4,7 @@ from typing import Annotated, Final, Literal
 from pydantic import BaseModel, Field
 
 from cad.briefs import store as briefs
-from cad.briefs.model import MadeOf
-from cad.briefs.store import BriefState
+from cad.briefs.store import BriefState, ConfirmedSet
 from cad.geometry import job
 from cad.geometry import store as meshes
 from cad.geometry.model import Tessellated, UnknownMesh
@@ -17,6 +16,7 @@ from cad.projects.membership import stored_projects
 from cad.projects.model import UnknownProject, parse_project_id
 from cad.sandbox import image
 from cad.scorecard import material
+from cad.scorecard.material import MaterialUse
 from cad.variant_sets import store as variant_sets
 from cad.variant_sets.model import MAX_MEMBERS, Member, NotConfirmed
 from cad.variants import entry
@@ -25,10 +25,11 @@ LIST_PROJECTS = "The signed-in person's projects, newest first, each with its br
 PROJECT = "One project: its briefs, each with its proposal count and its confirmed proposal."
 VARIANT_SET = (
     "The variant set of a brief: for each slot, its latest variant and every revision the slot "
-    "has had. A member's card_etag is the etag of its scorecard for the material: material_key, "
-    "or without it the material the person confirmed in a made_of requirement. It is empty when "
-    "the variant was never scored for that material. A brief with no confirmed requirements has "
-    "an empty set."
+    "has had. A member's material is the one its card uses and what set it: the made_of "
+    "requirement the person confirmed, or the agent, with the reason it recorded; it is empty "
+    "when neither named one. A member's card_etag is the etag of its scorecard for that "
+    "material, or for material_key when you pass it. It is empty when the variant was never "
+    "scored for that material. A brief with no confirmed requirements has an empty set."
 )
 VIEW = (
     "What the viewer needs for one built variant: the hash that names its BREP, whether its mesh "
@@ -95,6 +96,7 @@ class MemberView(BaseModel):
     variant_id: str
     revision: int
     revisions: tuple[RevisionView, ...]
+    material: MaterialUse | None
     card_etag: str | None
 
 
@@ -157,30 +159,34 @@ def variant_set(tenant: Tenant, arguments: VariantSetInput) -> VariantSetView:
         return VariantSetView(
             project_id=arguments.project_id, brief_id=brief_id, decision_sha256=None, members=()
         )
-    material_key = arguments.material_key or _confirmed_material(tenant, brief_id)
+    confirmed = briefs.confirmed_requirements(tenant.roots, brief_id)
+    table = brief_table(tenant.roots, brief_id).table
+    pinned = material.pinned_key(confirmed, table)
     return VariantSetView(
         project_id=arguments.project_id,
         brief_id=brief_id,
         decision_sha256=key.decision_sha256,
         members=tuple(
-            _member(tenant, brief_id, material_key, one)
+            _member(tenant, brief_id, arguments.material_key, confirmed, pinned, one)
             for one in variant_sets.members(tenant.roots.projects, key)
         ),
     )
 
 
-def _confirmed_material(tenant: Tenant, brief_id: str) -> str | None:
-    pin = material.pinned_by(briefs.confirmed_requirements(tenant.roots, brief_id))
-    if pin is None or not isinstance(pin.target, MadeOf):
-        return None
-    return brief_table(tenant.roots, brief_id).table.row_key(pin.target.material)
-
-
-def _member(tenant: Tenant, brief_id: str, material_key: str | None, member: Member) -> MemberView:
-    latest = member.latest.built_as
+def _member(
+    tenant: Tenant,
+    brief_id: str,
+    asked: str | None,
+    confirmed: ConfirmedSet | None,
+    pinned: str | None,
+    member: Member,
+) -> MemberView:
+    latest = member.latest
+    choice = latest.material
+    key = pinned or (None if choice is None else choice.key)
     return MemberView(
         slot=member.slot,
-        variant_id=latest,
+        variant_id=latest.built_as,
         revision=len(member.revisions),
         revisions=tuple(
             RevisionView(
@@ -191,7 +197,8 @@ def _member(tenant: Tenant, brief_id: str, material_key: str | None, member: Mem
             )
             for number, one in enumerate(member.revisions, start=1)
         ),
-        card_etag=_etag(tenant, brief_id, material_key, latest),
+        material=None if key is None else material.used(key, confirmed, choice),
+        card_etag=_etag(tenant, brief_id, asked or key, latest.built_as),
     )
 
 

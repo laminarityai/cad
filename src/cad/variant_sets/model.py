@@ -1,9 +1,10 @@
 import hashlib
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Annotated, Final, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from cad.briefs.model import BriefId
 from cad.projects.model import ProjectId
@@ -44,6 +45,32 @@ class SlotRefused(SetRefused):
     pass
 
 
+class MaterialMissing(SetRefused):
+    pass
+
+
+type Reason = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=200, pattern=r"^[^\n\r]+$"),
+]
+
+
+class MaterialChoice(BaseModel):
+    """The material the agent chose for a slot when no confirmed made_of names one. A design
+    choice like the code: not a requirement, not a verdict. `key` is a materials table row, or
+    project- and a key of the agent's own for a material it researched."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    key: str
+    reason: Reason
+
+
+type Resolve = Callable[[MaterialChoice | None], MaterialChoice | None]
+"""Given the slot's latest choice, the choice the new revision records. Refuses when the build
+may not go ahead."""
+
+
 class Revision(BaseModel):
     """One signed record of the set's log: this code became what `slot` shows."""
 
@@ -54,6 +81,7 @@ class Revision(BaseModel):
     code_sha256: str
     built_as: VariantId
     joined_at: datetime
+    material: MaterialChoice | None = None
 
     def live_id(self, image_tag: str) -> VariantId:
         return variant_id(self.code, image_tag)

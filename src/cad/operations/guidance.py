@@ -62,4 +62,16 @@ NOT_VERIFIED = (
     "on it to reach a verdict."
 )
 
-INSTRUCTIONS: Final = " ".join((RULE, PLAN_MODE, CONTEXT_PARTS, TEST_MODE, RESEARCH, NOT_VERIFIED))
+MATERIAL = (
+    "The person never chooses a material. When a confirmed made_of requirement names one, use "
+    "it. Otherwise choose one for each variant yourself, from list_materials or a material the "
+    "table lacks, which you research, and pass it to build_variant as material_key with a "
+    "one-line material_reason. It is a design choice, not a requirement and not a verdict, and "
+    "the scorecard says the agent chose it. When the person asks for a particular material, "
+    "propose it as a made_of requirement for them to confirm. Never ask the person which "
+    "material to use."
+)
+
+INSTRUCTIONS: Final = " ".join(
+    (RULE, PLAN_MODE, CONTEXT_PARTS, MATERIAL, TEST_MODE, RESEARCH, NOT_VERIFIED)
+)

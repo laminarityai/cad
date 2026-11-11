@@ -7,6 +7,7 @@ from mcp import Client
 
 from cad.operations.guidance import (
     CONTEXT_PARTS,
+    MATERIAL,
     NOT_VERIFIED,
     PLAN_MODE,
     RESEARCH,
@@ -232,6 +233,6 @@ async def test_the_server_tells_every_client_that_only_check_results_are_measure
     async with Client(build_server()) as client:
         instructions = client.instructions
     assert instructions == " ".join(
-        (RULE, PLAN_MODE, CONTEXT_PARTS, TEST_MODE, RESEARCH, NOT_VERIFIED)
+        (RULE, PLAN_MODE, CONTEXT_PARTS, MATERIAL, TEST_MODE, RESEARCH, NOT_VERIFIED)
     )
     assert (await listed_description("score_variant")).endswith(f"{RULE} {NOT_VERIFIED}")

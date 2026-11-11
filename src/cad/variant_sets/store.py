@@ -15,9 +15,11 @@ from cad.sandbox.outcome import Built
 from cad.variant_sets.model import (
     MAX_MEMBERS,
     Joined,
+    MaterialChoice,
     Member,
     NotConfirmed,
     NotJoined,
+    Resolve,
     Revision,
     SetBuildResult,
     SetBusy,
@@ -29,7 +31,7 @@ from cad.variant_sets.model import (
     code_sha256,
     group,
 )
-from cad.variant_sets.placement import Placement, place
+from cad.variant_sets.placement import Placement, place, shown
 from cad.variants import store as variants
 from cad.variants.entry import VariantId
 
@@ -42,19 +44,25 @@ def build_into_set(
     variants_root: Path,
     brief_id: str,
     code: str,
-    slot: int | None = None,
+    slot: int | None,
+    resolve: Resolve,
     lanes: Lanes = LANES,
 ) -> SetBuildResult:
     root = roots.projects
     key = confirmed_key(roots, brief_id)
+    held = members(root, key)
+    sha256 = code_sha256(code)
     try:
-        place(members(root, key), code_sha256(code), slot)
+        choice = _resolved(held, sha256, slot, resolve)
+        place(held, sha256, choice, slot)
     except SetFull:
         raise _full(key) from None
-    _record(code, 1, VariantId("0" * 16), key)
+    _record(code, 1, VariantId("0" * 16), key, choice)
     built = variants.build_variant(code, variants_root)
     joined = (
-        join(root, key, code, built.variant_id, slot) if built.outcome == Built() else NotJoined()
+        join(root, key, code, built.variant_id, slot, resolve)
+        if built.outcome == Built()
+        else NotJoined()
     )
     if isinstance(joined, Joined) and not joined.already_member:
         _drop_replaced(root, key, variants_root, joined, lanes)
@@ -87,10 +95,29 @@ def confirmed_key(roots: Roots, brief_id: str) -> SetKey:
     return SetKey(state.brief.project, state.brief.id, confirmed.answered.sha256)
 
 
+def _no_choice(previous: MaterialChoice | None) -> MaterialChoice | None:
+    return None
+
+
+def _resolved(
+    held: tuple[Member, ...], sha256: str, slot: int | None, resolve: Resolve
+) -> MaterialChoice | None:
+    slot_now = shown(held, sha256, slot)
+    return resolve(None if slot_now is None else slot_now.latest.material)
+
+
 def join(
-    root: Path, key: SetKey, code: str, built_as: VariantId, slot: int | None = None
+    root: Path,
+    key: SetKey,
+    code: str,
+    built_as: VariantId,
+    slot: int | None = None,
+    resolve: Resolve = _no_choice,
 ) -> Joined:
-    """Make `code` what `slot` shows, as a new revision. With no slot, new code takes a free one."""
+    """Make `code` what `slot` shows, as a new revision. With no slot, new code takes a free one.
+
+    `resolve` runs on the log being appended to, so a choice made by a build that finished first
+    is the one it sees."""
     sha256 = code_sha256(code)
     directory = _directory(root, key)
     outcome: list[Placement | SetRefused] = []
@@ -98,7 +125,9 @@ def join(
     def next_revision(existing: tuple[bytes, ...]) -> bytes | None:
         outcome.clear()
         try:
-            placed = place(group(_parse(key, directory, existing)), sha256, slot)
+            held = group(_parse(key, directory, existing))
+            choice = _resolved(held, sha256, slot, resolve)
+            placed = place(held, sha256, choice, slot)
         except SetFull:
             outcome.append(_full(key, built_as))
             return None
@@ -107,7 +136,7 @@ def join(
             outcome.append(SlotRefused(f"{error} {kept}"))
             return None
         outcome.append(placed)
-        return None if placed.unchanged else _record(code, placed.slot, built_as, key)
+        return None if placed.unchanged else _record(code, placed.slot, built_as, key, choice)
 
     with _without_host_paths(key, directory):
         directory.mkdir(parents=True, exist_ok=True)
@@ -118,7 +147,9 @@ def join(
     return Joined(slot=result.slot, revision=result.revision, already_member=result.unchanged)
 
 
-def _record(code: str, slot: int, built_as: VariantId, key: SetKey) -> bytes:
+def _record(
+    code: str, slot: int, built_as: VariantId, key: SetKey, material: MaterialChoice | None
+) -> bytes:
     record = (
         Revision(
             slot=slot,
@@ -126,6 +157,7 @@ def _record(code: str, slot: int, built_as: VariantId, key: SetKey) -> bytes:
             code_sha256=code_sha256(code),
             built_as=built_as,
             joined_at=datetime.now(UTC),
+            material=material,
         )
         .model_dump_json()
         .encode()
@@ -133,6 +165,14 @@ def _record(code: str, slot: int, built_as: VariantId, key: SetKey) -> bytes:
     if len(record) > MAX_MEMBER_BYTES:
         raise SetRefused(f"this code is too large to keep in the variant set of {key.brief_id}")
     return record
+
+
+def choice_of(root: Path, key: SetKey, variant_id: str, image_tag: str) -> MaterialChoice | None:
+    """The material the agent chose for the slot whose latest revision shows `variant_id`."""
+    for member in members(root, key):
+        if variant_id in (member.latest.built_as, member.latest.live_id(image_tag)):
+            return member.latest.material
+    return None
 
 
 def members(root: Path, key: SetKey) -> tuple[Member, ...]:

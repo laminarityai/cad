@@ -18,6 +18,7 @@ export function setOf(variants: string[]): VariantSetView {
       variant_id: variant,
       revision: 1,
       revisions: [{ revision: 1, variant_id: variant, code_sha256: "e".repeat(64), joined_at: "2026-11-10T00:00:00Z" }],
+      material: null,
       card_etag: null,
     })),
   };
@@ -184,6 +185,7 @@ export function startOf(): Extract<AutoRun["state"], { kind: "running" }>["start
     project: "p1",
     decision_sha256: "c".repeat(64),
     material_key: "prusament-pla",
+    material_reason: null,
     watermark: [],
     conflicts: [],
   };

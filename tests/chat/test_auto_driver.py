@@ -38,7 +38,12 @@ def confirmed() -> list[Step]:
         ),
         step(
             "Starting the run.",
-            call("auto_start", brief_id="${create_brief.brief_id}", material_key="prusament-pla"),
+            call(
+                "auto_start",
+                brief_id="${create_brief.brief_id}",
+                material_key="prusament-pla",
+                material_reason="PLA is light and prints easily",
+            ),
         ),
     ]
 
