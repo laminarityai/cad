@@ -1,5 +1,5 @@
 import type { Event } from "@/api/types";
-import type { Link } from "./api";
+import type { Link } from "@/api/chat";
 
 export type Line =
   | { seq: number; kind: "user"; text: string; selection: string | null }

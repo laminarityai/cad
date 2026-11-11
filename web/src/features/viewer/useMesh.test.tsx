@@ -3,7 +3,7 @@ import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ServicesProvider } from "@/app/context";
 import type { VariantView } from "@/api/types";
-import { FakeChat, FakeEvents, FakeViewer, fakeApi, meshOf } from "@/test/fakes";
+import { FakeChat, FakeViewer, fakeApi, meshOf } from "@/test/fakes";
 import { useMesh } from "./useMesh";
 
 const pendingView = (variantId: string): VariantView => ({
@@ -15,7 +15,7 @@ const pendingView = (variantId: string): VariantView => ({
 
 function mount(api: ReturnType<typeof fakeApi>) {
   const wrapper = ({ children }: { children: ReactNode }) => (
-    <ServicesProvider services={{ api, events: new FakeEvents(), viewer: new FakeViewer(), chat: new FakeChat() }}>
+    <ServicesProvider services={{ api, viewer: new FakeViewer(), chat: new FakeChat() }}>
       {children}
     </ServicesProvider>
   );
@@ -64,6 +64,21 @@ describe("useMesh", () => {
       expect(geometry).toHaveBeenCalledWith("v2");
     });
     expect(result.current).toEqual({ status: "loading", lastDrawn: drawn });
+  });
+
+  it("stops asking about a variant once another is shown", async () => {
+    const geometry = vi.fn((variantId: string) => Promise.resolve({ kind: "pending" as const, brep_sha256: variantId.padEnd(64, "b") }));
+    const { rerender } = mount(fakeApi(["v1"], { view: (variantId: string) => Promise.resolve(pendingView(variantId)), geometry }));
+    await waitFor(() => {
+      expect(geometry).toHaveBeenCalledWith("v1");
+    });
+    rerender({ variantId: "v2" });
+    await waitFor(() => {
+      expect(geometry).toHaveBeenCalledWith("v2");
+    });
+    const asked = geometry.mock.calls.filter(([id]) => id === "v1").length;
+    await new Promise((done) => setTimeout(done, 700));
+    expect(geometry.mock.calls.filter(([id]) => id === "v1")).toHaveLength(asked);
   });
 
   it("says why a mesh failed", async () => {

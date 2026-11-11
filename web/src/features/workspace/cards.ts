@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
 import { useServices } from "@/app/context";
-import type { Connection } from "@/api/events";
+import { useResources } from "@/state/resource";
 import { restore, type DoneCheck, type RunningCheck, type Scorecard } from "@/api/snapshot";
 import type { Source } from "@/api/types";
 
@@ -8,7 +7,6 @@ const POLL_MS = 1500;
 
 export interface Card {
   snapshot: Scorecard | null;
-  connection: Connection;
 }
 
 export interface CardKey {
@@ -17,46 +15,25 @@ export interface CardKey {
   briefId: string;
 }
 
+const entryOf = (one: CardKey) => `${one.variantId}|${one.materialKey ?? ""}|${one.briefId}`;
+
 /** Polls each card instead of streaming it: a browser holds six connections per host, and the
- * chat stream and the meshes need theirs. */
+ * chat stream and the meshes need theirs. A card shows once it has been read or has failed to be. */
 export function useCards(keys: CardKey[]): Record<string, Card> {
   const { api } = useServices();
-  const [cards, setCards] = useState<Record<string, Card>>({});
-  const joined = keys.map((one) => `${one.variantId}|${one.materialKey ?? ""}|${one.briefId}`).join(",");
-  useEffect(() => {
-    let live = true;
-    const entries = [...new Set(joined.split(",").filter(Boolean))];
-    const once = async () => {
-      await Promise.all(
-        entries.map(async (entry) => {
-          const [variantId = "", materialKey = "", briefId = ""] = entry.split("|");
-          try {
-            const wire = await api.scorecard(variantId, briefId, materialKey === "" ? null : materialKey);
-            if (live)
-              setCards((now) => ({
-                ...now,
-                [variantId]: { snapshot: restore(wire), connection: "live" },
-              }));
-          } catch {
-            if (live)
-              setCards((now) => ({
-                ...now,
-                [variantId]: {
-                  snapshot: now[variantId]?.snapshot ?? null,
-                  connection: "reconnecting",
-                },
-              }));
-          }
-        }),
-      );
-    };
-    void once();
-    const timer = setInterval(() => void once(), POLL_MS);
-    return () => {
-      live = false;
-      clearInterval(timer);
-    };
-  }, [api, joined]);
+  const { resources } = useResources(
+    keys.map(entryOf),
+    async (entry) => {
+      const [variantId = "", materialKey = "", briefId = ""] = entry.split("|");
+      return restore(await api.scorecard(variantId, briefId, materialKey === "" ? null : materialKey));
+    },
+    POLL_MS,
+  );
+  const cards: Record<string, Card> = {};
+  for (const [entry, resource] of Object.entries(resources)) {
+    if (resource.status === "loading") continue;
+    cards[entry.split("|")[0] ?? ""] = { snapshot: resource.status === "ok" ? resource.data : null };
+  }
   return cards;
 }
 

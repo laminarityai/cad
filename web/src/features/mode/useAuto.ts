@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useServices } from "@/app/context";
 import type { ConversationView, Mode } from "@/api/types";
-import { useResource } from "@/state/resource";
+import { said, useResource } from "@/state/resource";
 import { nextMode } from "./modes";
 import { viewOf, type RunView } from "./run";
 
@@ -16,8 +16,6 @@ export interface Auto {
   stop(): Promise<void>;
   reload(): void;
 }
-
-const said = (error: unknown) => (error instanceof Error ? error.message : "the request failed");
 
 function runToShow(view: ConversationView | null): RunView | null {
   if (view?.run == null) return null;

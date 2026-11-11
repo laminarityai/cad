@@ -1,5 +1,6 @@
-import { requestJson } from "@/api/client";
+import { openStream, request } from "./client";
 import type { ConversationCreated, ConversationState, ConversationView, Event, Mode, MessageSent, Picked, PersonStop } from "@/api/types";
+import { sleep } from "@/lib/sleep";
 import { FrameReader } from "./sse";
 
 export type Link = "connecting" | "live" | "reconnecting" | "signed_out" | "not_found";
@@ -21,18 +22,8 @@ export interface ChatApi {
   follow(conversationId: string, after: number, handlers: Follower): Unfollow;
 }
 
-const enc = encodeURIComponent;
 const RETRY_MS = 1000;
 const EVENT_KINDS: ReadonlySet<string> = new Set<Event["kind"]>(["user", "driver", "agent", "tool_call", "tool_result", "stop_report", "turn_failed", "turn_ended"]);
-
-const sleep = (ms: number, signal: AbortSignal) =>
-  new Promise<void>((done) => {
-    const timer = setTimeout(done, ms);
-    signal.addEventListener("abort", () => {
-      clearTimeout(timer);
-      done();
-    });
-  });
 
 /** Not `EventSource`: it hides the status, and the page must tell a conversation that is not in the
  * account (404) from a stream that dropped. */
@@ -42,11 +33,7 @@ async function follow(conversationId: string, from: number, handlers: Follower, 
   while (!closed()) {
     handlers.onLink(after === from ? "connecting" : "reconnecting");
     try {
-      const response = await fetch(`/v1/conversations/${enc(conversationId)}/stream?after=${String(after)}`, {
-        credentials: "same-origin",
-        headers: { accept: "text/event-stream" },
-        signal,
-      });
+      const response = await openStream("/v1/conversations/{conversation_id}/stream", signal, { path: { conversation_id: conversationId }, query: { after } });
       if (response.status === 401 || response.status === 404) {
         handlers.onLink(response.status === 401 ? "signed_out" : "not_found");
         return;
@@ -74,11 +61,12 @@ async function follow(conversationId: string, from: number, handlers: Follower, 
 }
 
 export const httpChat: ChatApi = {
-  create: (projectId) => requestJson("POST", "/v1/conversations", projectId === undefined ? {} : { project_id: projectId }),
-  read: (conversationId) => requestJson("GET", `/v1/conversations/${enc(conversationId)}`),
-  send: (conversationId, text, selection) => requestJson("POST", `/v1/conversations/${enc(conversationId)}/messages`, selection === undefined ? { text } : { text, selection }),
-  setMode: (conversationId, mode) => requestJson("PUT", `/v1/conversations/${enc(conversationId)}/mode`, { mode }),
-  stop: (runId) => requestJson("POST", `/v1/auto/${enc(runId)}/stop`),
+  create: (projectId) => request("post", "/v1/conversations", { body: projectId === undefined ? {} : { project_id: projectId } }),
+  read: (conversation_id) => request("get", "/v1/conversations/{conversation_id}", { path: { conversation_id } }),
+  send: (conversation_id, text, selection) =>
+    request("post", "/v1/conversations/{conversation_id}/messages", { path: { conversation_id }, body: selection === undefined ? { text } : { text, selection } }),
+  setMode: (conversation_id, mode) => request("put", "/v1/conversations/{conversation_id}/mode", { path: { conversation_id }, body: { mode } }),
+  stop: (run_id) => request("post", "/v1/auto/{run_id}/stop", { path: { run_id } }),
   follow(conversationId, after, handlers) {
     const controller = new AbortController();
     void follow(conversationId, after, handlers, controller.signal);

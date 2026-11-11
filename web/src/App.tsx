@@ -1,5 +1,5 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
-import { Home, Start, Workspace } from "@/workspace/Workspace";
+import { Home, Start, Workspace } from "@/features/workspace/Workspace";
 
 export function AppRoutes() {
   return (

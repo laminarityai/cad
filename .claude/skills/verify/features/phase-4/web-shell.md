@@ -7,13 +7,14 @@ Design: `docs/design/phase-4.md` §2.3 (tessellation), §2.6 (reads and streamin
 ## Sub-features
 
 - `web-shell-static` serves `web/dist` at `/app`. A path with a file extension is an asset or 404, any other path is the page, assets are cached for good and the page is not, `/` redirects to `/app/`, and an unbuilt app answers 503 with the command that builds it. `tests/web/` covers it.
-- `web-shell-workspace` is `/app/projects/<project_id>` (`web/src/workspace/`). Three panes on a wide screen (Explorer, Design and Chat), and the same three as tabs in the `Panes` navigation at 860 px and under.
-- `web-shell-live-card` polls `GET /v1/variants/<id>/scorecard` every 1.5 s for each option shown (`web/src/workspace/cards.ts`) and replaces the card on each read. It polls instead of streaming, because a browser holds six connections per host and the chat stream and the meshes need theirs. Each check line carries `data-line` with its status, `running` while it is checking.
-- `web-shell-follow` reads the project, its confirmation, its conversation and each confirmed brief's set again every 3 s, and after each chat turn that changes the page (`web/src/workspace/Workspace.tsx`). A slot rebuilt to a new variant id moves its viewer and its card to the new id with no reload.
+- `web-shell-workspace` is `/app/projects/<project_id>` (`web/src/features/workspace/`). Three panes on a wide screen (Explorer, Design and Chat), and the same three as tabs in the `Panes` navigation at 860 px and under.
+- `web-shell-live-card` polls `GET /v1/variants/<id>/scorecard` every 1.5 s for each option shown (`web/src/features/workspace/cards.ts`) and replaces the card on each read. It polls instead of streaming, because a browser holds six connections per host and the chat stream and the meshes need theirs. Each check line carries `data-line` with its status, `running` while it is checking.
+- `web-shell-follow` reads the project, its confirmation, its conversation and each confirmed brief's set again every 3 s, and after each chat turn that changes the page (`web/src/features/workspace/Workspace.tsx`). A slot rebuilt to a new variant id moves its viewer and its card to the new id with no reload.
 - `web-shell-viewer` reads the mesh (`web/src/features/viewer/useMesh.ts`): the `view` route says whether it is stored, then the `geometry` route starts the tessellation and answers pending until it is done, and the immutable mesh URL serves a stored one.
+- `web-shell-one-way` has one way to call the server and one way to load: every request goes through `web/src/api/client.ts` (`request`, typed by the generated `paths`, and `openStream`; the chat's calls are `web/src/api/chat.ts`), and every GET the page shows loads through `useResource` or `useResources` (`web/src/state/resource.ts`). `npm run lint` in `web/` fails on `fetch`, `EventSource` or a `/v1/` path outside `web/src/api/`.
 - `web-shell-signed-out` shows a Sign in link to the confirmation page's sign-in (`web/src/api/confirmation.ts` is the one file that knows its URL) when a route answers 401.
 
-The page's own tests are `npm run test` in `web/`: Vitest with fakes for the API, the event stream and the viewer. `uv run verify` runs `web lint`, `web test` and `web build`.
+The page's own tests are `npm run test` in `web/`: Vitest with fakes for the API, the chat stream and the viewer. `uv run verify` runs `web lint`, `web test` and `web build`.
 
 ## How to get to it (person POV)
 
@@ -32,7 +33,7 @@ The page's own tests are `npm run test` in `web/`: Vitest with fakes for the API
 
 ## Checks
 
-- `npm run test` in `web/` (`workspace/workspace.test.tsx`) covers the workspace with fake services.
+- `npm run test` in `web/` (`features/workspace/workspace.test.tsx`) covers the workspace with fake services.
 - The page signs in with the `__session` cookie that `cad-token person` mints, so the local drive needs no Clerk and no confirmation-page sign-in.
 
 ## Gotchas

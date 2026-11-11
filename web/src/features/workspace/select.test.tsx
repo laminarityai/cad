@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { ServicesProvider } from "@/app/context";
 import { Refused } from "@/api/client";
-import { FakeChat, FakeEvents, FakeViewer, fakeApi, setOf } from "@/test/fakes";
+import { FakeChat, FakeViewer, fakeApi, setOf } from "@/test/fakes";
 import { Workspace } from "./Workspace";
 
 const HINT = "Click a face or edge to point at it. Shift-click adds, double-click picks the whole part.";
@@ -29,7 +29,7 @@ async function open(chat = new FakeChat(), viewer = new FakeViewer()) {
     variantSet: vi.fn(() => Promise.resolve(twoRevisions())),
   });
   const { container } = render(
-    <ServicesProvider services={{ api, events: new FakeEvents(), viewer, chat }}>
+    <ServicesProvider services={{ api, viewer, chat }}>
       <MemoryRouter initialEntries={["/projects/p1"]}>
         <Routes>
           <Route path="projects/:projectId" element={<Workspace />} />
