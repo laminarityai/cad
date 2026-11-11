@@ -19,6 +19,8 @@ from cad.sandbox.outcome import Built
 from cad.variants import entry
 from cad.variants.store import build_variant
 
+pytestmark = pytest.mark.docker
+
 PARTS = Path(__file__).parents[1] / "sandbox/parts"
 Point = tuple[float, float, float]
 Triangle = tuple[Point, Point, Point]
