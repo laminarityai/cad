@@ -1,5 +1,6 @@
 import { openStream, request } from "@/api/client";
 import type { ConversationCreated, ConversationState, ConversationView, Event, Mode, MessageSent, Picked, PersonStop } from "@/api/types";
+import { sleep } from "@/lib/sleep";
 import { FrameReader } from "./sse";
 
 export type Link = "connecting" | "live" | "reconnecting" | "signed_out" | "not_found";
@@ -23,15 +24,6 @@ export interface ChatApi {
 
 const RETRY_MS = 1000;
 const EVENT_KINDS: ReadonlySet<string> = new Set<Event["kind"]>(["user", "driver", "agent", "tool_call", "tool_result", "stop_report", "turn_failed", "turn_ended"]);
-
-const sleep = (ms: number, signal: AbortSignal) =>
-  new Promise<void>((done) => {
-    const timer = setTimeout(done, ms);
-    signal.addEventListener("abort", () => {
-      clearTimeout(timer);
-      done();
-    });
-  });
 
 /** Not `EventSource`: it hides the status, and the page must tell a conversation that is not in the
  * account (404) from a stream that dropped. */

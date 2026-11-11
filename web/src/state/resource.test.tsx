@@ -1,7 +1,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NotFound, SignedOut } from "@/api/client";
-import { useResource } from "./resource";
+import { useResource, useResources } from "./resource";
 
 const settle = () => act(() => vi.advanceTimersByTimeAsync(0));
 const tick = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
@@ -149,5 +149,70 @@ describe("useResource", () => {
     document.dispatchEvent(new Event("visibilitychange"));
     await settle();
     expect(load).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe("useResource keys", () => {
+  it("never shows one key's data under another", async () => {
+    const seen: unknown[] = [];
+    const { rerender } = renderHook(
+      ({ key }) => {
+        const { resource } = useResource(() => Promise.resolve(key), key);
+        seen.push(resource);
+        return resource;
+      },
+      { initialProps: { key: "a" } },
+    );
+    await settle();
+    seen.length = 0;
+    rerender({ key: "b" });
+    await settle();
+    expect(seen[0]).toEqual({ status: "loading" });
+    expect(seen[seen.length - 1]).toEqual({ status: "ok", data: "b" });
+  });
+
+  it("aborts the signal a load was given when the key changes or the page leaves", async () => {
+    const signals: AbortSignal[] = [];
+    const load = (signal: AbortSignal) => {
+      signals.push(signal);
+      return new Promise<string>(() => undefined);
+    };
+    const { rerender, unmount } = renderHook(({ key }) => useResource(load, key), { initialProps: { key: "a" } });
+    await settle();
+    rerender({ key: "b" });
+    await settle();
+    expect(signals.map((one) => one.aborted)).toEqual([true, false]);
+    unmount();
+    expect(signals[1]?.aborted).toBe(true);
+  });
+});
+
+describe("useResources", () => {
+  it("reads each key once, keeps the data of a key that stays and forgets one that goes", async () => {
+    const load = vi.fn((key: string) => Promise.resolve(key.toUpperCase()));
+    const { result, rerender } = renderHook(({ keys }) => useResources(keys, load), { initialProps: { keys: ["a", "b", "a"] } });
+    await settle();
+    expect(result.current.resources).toEqual({ a: { status: "ok", data: "A" }, b: { status: "ok", data: "B" } });
+    expect(load).toHaveBeenCalledTimes(2);
+    rerender({ keys: ["b", "c"] });
+    expect(result.current.resources).toEqual({ b: { status: "ok", data: "B" }, c: { status: "loading" } });
+    await settle();
+    expect(result.current.resources).toEqual({ b: { status: "ok", data: "B" }, c: { status: "ok", data: "C" } });
+  });
+
+  it("follows each key on its own, and a sign-out ends only the key that had it", async () => {
+    const calls: string[] = [];
+    const load = (key: string) => {
+      calls.push(key);
+      return key === "gone" && calls.length > 2 ? Promise.reject(new SignedOut()) : Promise.resolve(key);
+    };
+    const { result } = renderHook(() => useResources(["gone", "stay"], load, 1000));
+    await settle();
+    await tick(1000);
+    expect(result.current.resources.gone).toEqual({ status: "signed_out" });
+    expect(result.current.resources.stay).toEqual({ status: "ok", data: "stay" });
+    await tick(3000);
+    expect(calls.filter((one) => one === "gone")).toHaveLength(2);
+    expect(calls.filter((one) => one === "stay")).toHaveLength(5);
   });
 });

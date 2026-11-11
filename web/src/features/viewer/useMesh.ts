@@ -1,6 +1,8 @@
-import { useEffect, useReducer } from "react";
+import { useState } from "react";
 import { useServices } from "@/app/context";
-import type { GeometryRead } from "@/api/types";
+import type { Api } from "@/api/client";
+import { sleep } from "@/lib/sleep";
+import { said, useResource } from "@/state/resource";
 import type { Shapes } from "./engine";
 
 export type MeshState =
@@ -10,69 +12,35 @@ export type MeshState =
 
 const POLL_MS = 250;
 
-interface Held {
-  variantId: string;
-  state: MeshState;
+/** The view says whether the mesh is stored: a stored mesh is fetched once from its immutable URL.
+ * Otherwise the geometry route starts the tessellation and answers pending until it is done, so it is
+ * asked again every POLL_MS until `signal` aborts. A refusal is rethrown as a plain error so the page
+ * shows the server's words, whatever kind it was. */
+async function readMesh(api: Api, variantId: string, signal: AbortSignal): Promise<Shapes> {
+  try {
+    const view = await api.view(variantId);
+    if (view.mesh_url !== null) return (await api.mesh(view.mesh_url)).shapes;
+    if (view.mesh === "failed") throw new Error("The mesh could not be made.");
+    for (;;) {
+      const read = await api.geometry(variantId);
+      if (read.kind === "tessellated") return read.shapes;
+      if (read.kind === "failed") throw new Error(read.reason);
+      await sleep(POLL_MS, signal);
+      signal.throwIfAborted();
+    }
+  } catch (error) {
+    throw new Error(said(error), { cause: error });
+  }
 }
 
-const onScreen = (state: MeshState): Shapes | null =>
-  state.status === "ready" ? state.shapes : state.status === "loading" ? state.lastDrawn : null;
-
-function reduce(held: Held, next: Held): Held {
-  return next.state.status === "loading" ? { variantId: next.variantId, state: { status: "loading", lastDrawn: onScreen(held.state) } } : next;
-}
-
-/** Read one variant's mesh. The view says whether it is stored: a stored mesh is fetched once from its
- * immutable URL. Otherwise the geometry route starts the tessellation and answers pending until it is
- * done, so it is asked again every POLL_MS. */
+/** Read one variant's mesh, keeping the last one drawn on screen while the next is made. */
 export function useMesh(variantId: string): MeshState {
   const { api } = useServices();
-  const [held, put] = useReducer(reduce, { variantId, state: { status: "loading", lastDrawn: null } });
-  useEffect(() => {
-    const run = { live: true };
-    const live = () => run.live;
-    const set = (state: MeshState) => {
-      put({ variantId, state });
-    };
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    set({ status: "loading", lastDrawn: null });
-    const settle = (read: GeometryRead) => {
-      if (read.kind === "tessellated") set({ status: "ready", shapes: read.shapes });
-      else if (read.kind === "failed") set({ status: "failed", reason: read.reason });
-      else timer = setTimeout(() => void ask(), POLL_MS);
-    };
-    const ask = async () => {
-      try {
-        const read = await api.geometry(variantId);
-        if (live()) settle(read);
-      } catch (error) {
-        fail(error);
-      }
-    };
-    const fail = (error: unknown) => {
-      if (live()) set({ status: "failed", reason: error instanceof Error ? error.message : "The mesh did not load." });
-    };
-    const look = async () => {
-      try {
-        const view = await api.view(variantId);
-        if (!live()) return;
-        if (view.mesh_url !== null) {
-          const mesh = await api.mesh(view.mesh_url);
-          if (live()) set({ status: "ready", shapes: mesh.shapes });
-        } else if (view.mesh === "failed") {
-          set({ status: "failed", reason: "The mesh could not be made." });
-        } else {
-          await ask();
-        }
-      } catch (error) {
-        fail(error);
-      }
-    };
-    void look();
-    return () => {
-      run.live = false;
-      clearTimeout(timer);
-    };
-  }, [api, variantId]);
-  return held.variantId === variantId ? held.state : { status: "loading", lastDrawn: onScreen(held.state) };
+  const { resource } = useResource((signal) => readMesh(api, variantId, signal), `mesh:${variantId}`);
+  const [drawn, setDrawn] = useState<Shapes | null>(null);
+  const onScreen = resource.status === "ok" ? resource.data : resource.status === "loading" ? drawn : null;
+  if (onScreen !== drawn) setDrawn(onScreen);
+  if (resource.status === "ok") return { status: "ready", shapes: resource.data };
+  if (resource.status === "loading") return { status: "loading", lastDrawn: drawn };
+  return { status: "failed", reason: resource.status === "error" ? resource.message : "The mesh did not load." };
 }

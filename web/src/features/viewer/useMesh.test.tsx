@@ -66,6 +66,21 @@ describe("useMesh", () => {
     expect(result.current).toEqual({ status: "loading", lastDrawn: drawn });
   });
 
+  it("stops asking about a variant once another is shown", async () => {
+    const geometry = vi.fn((variantId: string) => Promise.resolve({ kind: "pending" as const, brep_sha256: variantId.padEnd(64, "b") }));
+    const { rerender } = mount(fakeApi(["v1"], { view: (variantId: string) => Promise.resolve(pendingView(variantId)), geometry }));
+    await waitFor(() => {
+      expect(geometry).toHaveBeenCalledWith("v1");
+    });
+    rerender({ variantId: "v2" });
+    await waitFor(() => {
+      expect(geometry).toHaveBeenCalledWith("v2");
+    });
+    const asked = geometry.mock.calls.filter(([id]) => id === "v1").length;
+    await new Promise((done) => setTimeout(done, 700));
+    expect(geometry.mock.calls.filter(([id]) => id === "v1")).toHaveLength(asked);
+  });
+
   it("says why a mesh failed", async () => {
     const geometry = vi.fn().mockResolvedValue({ kind: "failed", brep_sha256: "b", version: "v", reason: "not a solid" });
     const { result } = mount(fakeApi(["v1"], { view: () => Promise.resolve(pendingView("v1")), geometry }));

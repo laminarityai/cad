@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useReducer, useRef } from "react";
+import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
 import { NotFound, SignedOut } from "@/api/client";
+import { sleep } from "@/lib/sleep";
 
 export type Resource<T> =
   | { status: "loading" }
@@ -8,104 +9,134 @@ export type Resource<T> =
   | { status: "not_found" }
   | { status: "error"; message: string };
 
+type State<T> = Record<string, Resource<T>>;
+
 type Action<T> =
-  | { type: "loading" }
-  | { type: "done"; data: T }
-  | { type: "failed"; error: unknown }
-  | { type: "refresh_failed"; error: unknown };
+  | { type: "begin"; keys: readonly string[] }
+  | { type: "done"; key: string; data: T }
+  | { type: "failed"; key: string; error: unknown }
+  | { type: "refresh_failed"; key: string; error: unknown };
+
+const LOADING = { status: "loading" } as const;
+
+export const said = (error: unknown) => (error instanceof Error ? error.message : "the request failed");
 
 function failed<T>(error: unknown): Resource<T> {
   if (error instanceof SignedOut) return { status: "signed_out" };
   if (error instanceof NotFound) return { status: "not_found" };
-  return { status: "error", message: error instanceof Error ? error.message : "the request failed" };
+  return { status: "error", message: said(error) };
 }
 
-function reduce<T>(state: Resource<T>, action: Action<T>): Resource<T> {
+function reduce<T>(state: State<T>, action: Action<T>): State<T> {
   switch (action.type) {
-    case "loading":
-      return { status: "loading" };
+    case "begin":
+      return Object.fromEntries(action.keys.map((key) => [key, state[key] ?? LOADING]));
     case "done":
-      return { status: "ok", data: action.data };
+      return { ...state, [action.key]: { status: "ok", data: action.data } };
     case "failed":
-      return failed(action.error);
+      return { ...state, [action.key]: failed(action.error) };
     case "refresh_failed": {
+      const before = state[action.key];
       const next = failed<T>(action.error);
-      return state.status === "ok" && next.status === "error" ? state : next;
+      return { ...state, [action.key]: before?.status === "ok" && next.status === "error" ? before : next };
     }
   }
 }
 
 const final = (error: unknown) => error instanceof SignedOut || error instanceof NotFound;
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
 export interface Loaded<T> {
   resource: Resource<T>;
   reload: () => void;
 }
 
-/** Load once per `key`. With `followMs`, load again that long after each load ends while the tab is
- * visible, and again the moment it becomes visible, so the data on screen follows the server. A
+export interface LoadedSet<T> {
+  resources: Readonly<Record<string, Resource<T>>>;
+  reload: () => void;
+}
+
+/** Load each of `keys` once. With `followMs`, load again that long after each load ends while the tab
+ * is visible, and again the moment it becomes visible, so the data on screen follows the server. A
  * follow-up load that fails for any reason but sign-out or not-found keeps the data on screen, so a
- * server restart does not blank the page. */
-export function useResource<T>(load: () => Promise<T>, key: string, followMs?: number): Loaded<T> {
-  const [resource, dispatch] = useReducer(reduce<T>, { status: "loading" });
+ * server restart does not blank the page. A key that stays in `keys` keeps its data while the others
+ * change; a key that leaves is forgotten. `load` gets a signal that aborts when the keys change or the
+ * page leaves. */
+export function useResources<T>(keys: readonly string[], load: (key: string, signal: AbortSignal) => Promise<T>, followMs?: number): LoadedSet<T> {
+  const joined = JSON.stringify([...new Set(keys)]);
+  const [state, dispatch] = useReducer(reduce<T>, {});
   const latest = useRef(load);
   const again = useRef<() => void>(() => undefined);
   useEffect(() => {
     latest.current = load;
   });
   useEffect(() => {
-    const run = { live: true, ended: false, reading: false, queued: false };
-    const live = () => run.live && !run.ended;
-    const queued = () => run.queued;
-    const once = async (first: boolean) => {
-      try {
-        const data = await latest.current();
-        if (live()) dispatch({ type: "done", data });
-      } catch (error) {
-        if (live()) dispatch(first ? { type: "failed", error } : { type: "refresh_failed", error });
-        if (final(error)) run.ended = true;
-      }
+    const own = JSON.parse(joined) as string[];
+    const abort = new AbortController();
+    let live = true;
+    const track = (key: string) => {
+      const run = { ended: false, reading: false, queued: false };
+      const going = () => live && !run.ended;
+      const queued = () => run.queued;
+      const once = async (first: boolean) => {
+        try {
+          const data = await latest.current(key, abort.signal);
+          if (going()) dispatch({ type: "done", key, data });
+        } catch (error) {
+          if (going()) dispatch(first ? { type: "failed", key, error } : { type: "refresh_failed", key, error });
+          if (final(error)) run.ended = true;
+        }
+      };
+      const readCoalesced = async () => {
+        if (!going()) return;
+        if (run.reading) {
+          run.queued = true;
+          return;
+        }
+        run.reading = true;
+        do {
+          run.queued = false;
+          await once(false);
+        } while (going() && queued());
+        run.reading = false;
+      };
+      const follow = async () => {
+        run.reading = true;
+        await once(true);
+        run.reading = false;
+        if (queued()) await readCoalesced();
+        while (going() && followMs !== undefined) {
+          await sleep(followMs, abort.signal);
+          if (going() && !document.hidden) await readCoalesced();
+        }
+      };
+      return { follow, readCoalesced };
     };
-    const readCoalesced = async () => {
-      if (!live()) return;
-      if (run.reading) {
-        run.queued = true;
-        return;
-      }
-      run.reading = true;
-      do {
-        run.queued = false;
-        await once(false);
-      } while (live() && queued());
-      run.reading = false;
-    };
-    again.current = () => void readCoalesced();
-    const follow = async () => {
-      dispatch({ type: "loading" });
-      run.reading = true;
-      await once(true);
-      run.reading = false;
-      if (queued()) await readCoalesced();
-      while (live() && followMs !== undefined) {
-        await sleep(followMs);
-        if (live() && !document.hidden) await readCoalesced();
-      }
+    dispatch({ type: "begin", keys: own });
+    const tracked = own.map(track);
+    again.current = () => {
+      for (const one of tracked) void one.readCoalesced();
     };
     const visible = () => {
-      if (!document.hidden && followMs !== undefined) void readCoalesced();
+      if (!document.hidden && followMs !== undefined) again.current();
     };
     document.addEventListener("visibilitychange", visible);
-    void follow();
+    for (const one of tracked) void one.follow();
     return () => {
-      run.live = false;
+      live = false;
+      abort.abort();
       again.current = () => undefined;
       document.removeEventListener("visibilitychange", visible);
     };
-  }, [key, followMs]);
+  }, [joined, followMs]);
   const reload = useCallback(() => {
     again.current();
   }, []);
-  return { resource, reload };
+  const resources = useMemo(() => Object.fromEntries((JSON.parse(joined) as string[]).map((key) => [key, state[key] ?? LOADING])), [joined, state]);
+  return { resources, reload };
+}
+
+/** Load once per `key`, and follow it as `useResources` does. */
+export function useResource<T>(load: (signal: AbortSignal) => Promise<T>, key: string, followMs?: number): Loaded<T> {
+  const { resources, reload } = useResources([key], (_key, signal) => load(signal), followMs);
+  return { resource: resources[key] ?? LOADING, reload };
 }
