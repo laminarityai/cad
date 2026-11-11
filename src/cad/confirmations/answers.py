@@ -12,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 from cad.accounts.principal import AccountId
 from cad.briefs.model import MAX_NOTE_CHARS
 from cad.projects.model import ProjectBusy, ProjectId, TamperedProject
-from cad.records import key, signed
+from cad.records import files, key, signed
 from cad.records.roots import project_store
 
 type ItemKindName = Literal["requirements", "context_part"]
@@ -120,7 +120,7 @@ def append_answer(projects: Path, project: ProjectId, answer: PageAnswer) -> boo
 def _require_key(store: signed.Store, directory: Path, project: ProjectId) -> None:
     if store.key_exists() or not os.path.lexists(directory):
         return
-    if signed.is_directory(directory) and all(p.name.startswith(".") for p in directory.iterdir()):
+    if files.is_directory(directory) and all(p.name.startswith(".") for p in directory.iterdir()):
         return
     raise TamperedProject(_report(store.root, project))
 

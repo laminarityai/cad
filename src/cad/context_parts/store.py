@@ -18,7 +18,7 @@ from cad.context_parts.ingest import Facts, NotAPart
 from cad.context_parts.model import ContextPartRecord, FromVariant, NewerRevision, Outcome
 from cad.errors import Refused
 from cad.projects.model import ProjectBusy, ProjectId, TamperedProject
-from cad.records import key, signed
+from cad.records import files, key, signed
 from cad.records.roots import Roots, project_store
 from cad.sandbox import image
 from cad.variant_sets import store as sets
@@ -240,7 +240,7 @@ def _ids(revision: Revision, tag: str) -> set[str]:
 def part_brep(projects: Path, part: ConfirmedPart) -> bytes:
     record = part.record
     path = projects / record.project / PARTS / f"{record.brep_sha256}.brep"
-    data = signed.read_regular(path, entry.MAX_FILE_BYTES)
+    data = files.read_regular(path, entry.MAX_FILE_BYTES)
     if data is None or hashlib.sha256(data).hexdigest() != record.brep_sha256:
         LOG.error("%s is missing or does not match its SHA-256", path)
         raise TamperedProject(
@@ -282,7 +282,7 @@ def _current(parts: tuple[Stored, ...]) -> dict[ContextPartId, Stored]:
 
 def _write_brep(directory: Path, brep: bytes, brep_sha256: str) -> None:
     path = directory / f"{brep_sha256}.brep"
-    held = signed.read_regular(path, entry.MAX_FILE_BYTES)
+    held = files.read_regular(path, entry.MAX_FILE_BYTES)
     if held is not None and hashlib.sha256(held).hexdigest() == brep_sha256:
         return
     directory.mkdir(parents=True, exist_ok=True)
@@ -295,7 +295,7 @@ def _write_brep(directory: Path, brep: bytes, brep_sha256: str) -> None:
 
 
 def _left_by_crashed_first_proposal(directory: Path) -> bool:
-    return signed.is_directory(directory) and all(
+    return files.is_directory(directory) and all(
         path.name.startswith(".") for path in directory.iterdir()
     )
 

@@ -4,17 +4,15 @@ import os
 import re
 import secrets
 import shutil
-import stat
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
 from cad.errors import Unavailable
-from cad.records import key
+from cad.records import files, key
 from cad.sandbox.outcome import SandboxUnavailable
 
-MAX_RECORD_BYTES: Final = 1024 * 1024
 ATTEMPTS: Final = 8
 SLOT_PATTERN: Final = re.compile(r"(\d{4})\.signed")
 
@@ -74,7 +72,7 @@ def publish(store: Store, slot: str, path: Path, record: bytes) -> bool:
 
 def read(store: Store, slot: str, path: Path) -> bytes | None:
     """The record, or None when the file is missing, not a regular file, or not signed for slot."""
-    mac, newline, record = (read_regular(path) or b"").partition(b"\n")
+    mac, newline, record = (files.read_regular(path) or b"").partition(b"\n")
     try:
         valid = bool(newline) and key.verify(store.root, slot, record, mac)
     except SandboxUnavailable as error:
@@ -138,7 +136,7 @@ def read_numbered(
 ) -> tuple[bytes, ...] | None:
     """Every record in order. None when a slot fails its MAC, a name is not a slot or a number
     is missing."""
-    if not is_directory(directory):
+    if not files.is_directory(directory):
         return None
     numbers: list[int] = []
     for path in directory.iterdir():
@@ -158,25 +156,5 @@ def slot_file(number: int) -> str:
     return f"{number:04d}.signed"
 
 
-def is_directory(path: Path) -> bool:
-    try:
-        return stat.S_ISDIR(path.lstat().st_mode)
-    except OSError:
-        return False
-
-
 def _unusable(store: Store) -> StoreUnusable:
     return StoreUnusable(f"the {store.name} store's key is unusable; the operator must fix it")
-
-
-def read_regular(path: Path, limit: int = MAX_RECORD_BYTES) -> bytes | None:
-    """The file's bytes, or None when it is missing, a symlink, not a regular file or over limit."""
-    try:
-        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
-    except OSError:
-        return None
-    with os.fdopen(descriptor, "rb") as file:
-        if not stat.S_ISREG(os.fstat(file.fileno()).st_mode):
-            return None
-        data = file.read(limit + 1)
-    return None if len(data) > limit else data
