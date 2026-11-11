@@ -5,7 +5,7 @@ A companion that turns what a user asks for into several engineering-checked des
 ## Language
 
 **Brief**:
-What the user asks for, in their own words, together with any images, drawings or documents they attach.
+What the user asks for, in their own words, together with any images, drawings or documents they attach. Words can be added to a brief later, each one the person's own message, and none is ever edited.
 _Avoid_: Spec, prompt, request
 
 **Project**:
