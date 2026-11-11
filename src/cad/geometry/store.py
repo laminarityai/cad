@@ -15,12 +15,16 @@ SHA256: Final = re.compile(r"[0-9a-f]{64}")
 STORED: Final = TypeAdapter[Stored](Stored)
 
 
-def path(root: Path, brep_sha256: str) -> Path:
-    """Content-addressed: one file per BREP under the current tessellator's version, so a new
-    tessellator or analysis image tessellates every BREP again."""
+def named(root: Path, version: str, brep_sha256: str, suffix: str) -> Path:
+    """Content-addressed: one file per BREP under a job's version, so a new job or analysis image
+    makes every BREP again."""
     if SHA256.fullmatch(brep_sha256) is None:
         raise ValueError(f"a BREP hash is 64 lowercase hex digits, not {brep_sha256!r}")
-    return root / job.VERSION / f"{brep_sha256}.json"
+    return root / version / f"{brep_sha256}.{suffix}"
+
+
+def path(root: Path, brep_sha256: str) -> Path:
+    return named(root, job.VERSION, brep_sha256, "json")
 
 
 def read(root: Path, brep_sha256: str) -> Stored | None:
