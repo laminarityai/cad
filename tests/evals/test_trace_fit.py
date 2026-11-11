@@ -22,18 +22,12 @@ from tests.support.cards import (
     drafts,
     genuine_card,
     genuine_result,
-    roots_beside,
     trace,
 )
 
 TEXT = "A clip that slides onto the rail, at least 0.2 mm clear of it"
 RAIL = Facts(solids=1, volume_mm3=64800.0, box_min=(0, 0, 0), box_max=(300, 18, 12))
 FORGED = "part-" + "0" * 16
-
-
-@pytest.fixture
-def roots(store: Path) -> Roots:
-    return roots_beside(store)
 
 
 @pytest.fixture

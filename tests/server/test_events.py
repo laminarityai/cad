@@ -32,11 +32,11 @@ from cad.server.hosted import build_app
 from cad.tables.materials import load_materials
 from cad.variants import entry
 from cad.variants.entry import UnknownVariant
+from tests.support.hosted import BASE
 from tests.support.scorecard import reported
 
 pytestmark = pytest.mark.anyio
 
-BASE = "http://127.0.0.1:8765"
 ALICE = AccountId("user_alice")
 VID = "0123456789abcdef"
 PATH = f"/v1/variants/{VID}/events"

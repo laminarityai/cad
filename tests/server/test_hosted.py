@@ -1,7 +1,7 @@
 import os
 import subprocess
 import sys
-from collections.abc import AsyncGenerator, AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from dataclasses import replace
 from pathlib import Path
@@ -15,39 +15,19 @@ from starlette.applications import Starlette
 
 from cad.accounts.local import LocalIssuer
 from cad.accounts.principal import AccountId
-from cad.confirmations.waiting import Door
 from cad.confirmations.web import LocalSignIn
-from cad.context_parts.ingest import ingest
 from cad.operations.tenants import Tenants
 from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.outcome import Build, Built
 from cad.server.hosted import build_app, choose_issuer
 from cad.server.probe import free_port, wait_until_up
 from cad.variants import entry
+from tests.support.hosted import BASE, MCP
 
 pytestmark = pytest.mark.anyio
 
-BASE = "http://127.0.0.1:8765"
-MCP = f"{BASE}/mcp"
 CODE = "result = None"
 RAIL = b"CASCADE Topology V3, a rail\n"
-
-
-@pytest.fixture
-def local(tmp_path: Path) -> LocalIssuer:
-    return LocalIssuer.open(tmp_path, BASE)
-
-
-@pytest.fixture
-def tenants(tmp_path: Path) -> Tenants:
-    return Tenants(tmp_path / "accounts", 60, Door(wait_seconds=0.3), ingest)
-
-
-@pytest.fixture
-async def app(local: LocalIssuer, tenants: Tenants) -> AsyncIterator[Starlette]:
-    app = build_app(local.issuer(), tenants, LocalSignIn(local))
-    async with app.router.lifespan_context(app):
-        yield app
 
 
 @asynccontextmanager

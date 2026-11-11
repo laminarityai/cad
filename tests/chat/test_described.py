@@ -1,19 +1,13 @@
 import pytest
 
-from cad.chat.model import Model
 from tests.support.bodies import check
-from tests.support.chat import JSON, Chat, script, step
+from tests.support.chat import JSON, Chat
 
 pytestmark = pytest.mark.anyio
 
 CONVERSATIONS = "/v1/conversations"
 MESSAGES = "/v1/conversations/{conversation_id}/messages"
 STREAM = "/v1/conversations/{conversation_id}/stream"
-
-
-@pytest.fixture
-def model() -> Model:
-    return script(step("Hello."))
 
 
 async def test_what_the_chat_routes_send_is_what_the_web_page_is_told(chat: Chat) -> None:

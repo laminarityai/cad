@@ -16,10 +16,10 @@ from cad.operations.tenants import Tenants
 from cad.operations.variants import BuildVariantInput, build_variant
 from cad.server.hosted import build_app
 from tests.support.bodies import check
+from tests.support.hosted import BASE
 
 pytestmark = pytest.mark.anyio
 
-BASE = "http://127.0.0.1:8765"
 ALICE = AccountId("user_alice")
 PLATE = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
 KEY = "prusament-pla"

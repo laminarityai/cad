@@ -14,9 +14,8 @@ from cad.conversations import store
 from cad.conversations.model import ConversationId, Mode
 from cad.operations.tenants import Tenants
 from cad.projects.model import ProjectId
+from tests.support.hosted import BASE, MCP
 
-BASE: Final = "http://127.0.0.1:8765"
-MCP: Final = f"{BASE}/mcp"
 ALICE: Final = AccountId("user_alice")
 BOB: Final = AccountId("user_bob")
 CID: Final = ConversationId("c-1")

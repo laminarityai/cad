@@ -17,15 +17,10 @@ from cad.accounts.local import LocalIssuer, main
 from cad.accounts.principal import AccountId, AgentToken, PersonSession
 from cad.accounts.tokens import Issuer, Verifier, jwks_keys
 from cad.conversations.model import NotAConversation
+from tests.support.hosted import BASE
 
-BASE = "http://127.0.0.1:8765"
 CLERK = "https://clerk.example.test"
 KID = "ins_test"
-
-
-@pytest.fixture
-def local(tmp_path: Path) -> LocalIssuer:
-    return LocalIssuer.open(tmp_path, BASE)
 
 
 def verifier(issuer: LocalIssuer) -> Verifier:

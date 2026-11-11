@@ -9,10 +9,18 @@ from typing import cast
 
 import pytest
 from mcp import Client
+from starlette.applications import Starlette
 
+from cad.accounts.local import LocalIssuer
+from cad.confirmations.waiting import Door
+from cad.confirmations.web import LocalSignIn
+from cad.context_parts.ingest import ingest
+from cad.operations.tenants import Tenants
 from cad.records.roots import Roots
 from cad.server.app import build_server
-from tests.support.browser import Person
+from cad.server.hosted import build_app
+from tests.support.browser import Person, local_pages
+from tests.support.hosted import BASE
 from tests.support.rows import fake_ingest
 from tests.support.session import Session
 
@@ -38,8 +46,39 @@ def browser() -> type[Person]:
 
 
 @pytest.fixture
-async def s(tmp_path: Path, person: Person) -> AsyncIterator[Session]:
-    roots = Roots(tmp_path / "briefs", tmp_path / "projects")
+def roots(tmp_path: Path) -> Roots:
+    return Roots(tmp_path / "briefs", tmp_path / "projects")
+
+
+@pytest.fixture
+def local(tmp_path: Path) -> LocalIssuer:
+    return LocalIssuer.open(tmp_path, BASE)
+
+
+@pytest.fixture
+def tenants(tmp_path: Path) -> Tenants:
+    """Accounts that never see a confirmation page: the door gives up after 0.3 s."""
+    return Tenants(tmp_path / "accounts", 60, Door(wait_seconds=0.3), ingest)
+
+
+@pytest.fixture
+def confirming_tenants(tmp_path: Path, person: Person) -> Tenants:
+    """Accounts whose confirmation page opens for `person`, who confirms it."""
+    person.answer = "confirm"
+    door = Door(open_page=local_pages(person, lambda account: tenants.of(account)), wait_seconds=5)
+    tenants = Tenants(tmp_path / "accounts", 600, door, ingest)
+    return tenants
+
+
+@pytest.fixture
+async def app(local: LocalIssuer, tenants: Tenants) -> AsyncIterator[Starlette]:
+    app = build_app(local.issuer(), tenants, LocalSignIn(local))
+    async with app.router.lifespan_context(app):
+        yield app
+
+
+@pytest.fixture
+async def s(roots: Roots, tmp_path: Path, person: Person) -> AsyncIterator[Session]:
     variants = tmp_path / "variants"
     server = build_server(variants, roots, opener=person, wait_seconds=0.3, ingest=fake_ingest)
     async with Client(server) as client:

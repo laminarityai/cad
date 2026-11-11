@@ -22,7 +22,6 @@ from tests.support.cards import (
     genuine_card,
     judged_card,
     reasons,
-    roots_beside,
     trace,
 )
 
@@ -33,11 +32,6 @@ BOX = (
 )
 FRIENDLY = ({"kind": "unchecked", "statement": "looks friendly"}, "looks friendly")
 FIRST_LIMIT = "basis.requirements[0].comparisons[0].limit"
-
-
-@pytest.fixture
-def roots(store: Path) -> Roots:
-    return roots_beside(store)
 
 
 @pytest.fixture

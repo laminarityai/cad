@@ -11,8 +11,8 @@ from cad.accounts.local import LocalIssuer
 from cad.chat.scripted import Call, Script, Scripted, Step
 from cad.operations.tenants import Tenants
 from tests.support.browser import SNAPSHOT, form
+from tests.support.hosted import BASE
 
-BASE = "http://127.0.0.1:8765"
 ALICE = "user_alice"
 BOB = "user_bob"
 JSON = {"Content-Type": "application/json"}
