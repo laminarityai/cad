@@ -21,12 +21,13 @@ export function SlotTabs(props: { brief: Brief; slot: number; cards: Record<stri
             key={one.slot}
             role="tab"
             aria-selected={on}
+            title={one.differs || undefined}
             data-slot-tab={one.slot}
             onClick={() => {
               dispatch({ type: "slot", briefId: brief.id, slot: one.slot });
             }}
             className={cn(
-              "-mb-px flex min-w-[130px] max-w-[240px] flex-col items-start gap-0.5 rounded-t-lg border border-b-0 px-3.5 py-2 text-left",
+              "-mb-px flex min-w-[130px] max-w-[240px] shrink-0 flex-col items-start gap-0.5 rounded-t-lg border border-b-0 px-3.5 py-2 text-left",
               on ? "border-rule bg-panel" : "border-transparent text-ink-2 hover:bg-panel/60",
             )}
           >
@@ -34,7 +35,7 @@ export function SlotTabs(props: { brief: Brief; slot: number; cards: Record<stri
               <span className="truncate text-[15px] font-semibold text-ink">{one.label}</span>
               <Dot status={summary.status} className="ml-auto" />
             </span>
-            {one.differs ? <span className="w-full truncate text-[13px] text-ink-2">{one.differs}</span> : null}
+            {one.differs ? <span className="line-clamp-2 w-full text-[13px] leading-snug text-ink-2">{one.differs}</span> : null}
           </button>
         );
       })}

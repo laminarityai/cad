@@ -14,9 +14,11 @@ from cad.geometry.model import TessellationFailed, UnknownMesh
 from cad.operations import reads
 from cad.operations.briefs import (
     CreateBriefInput,
+    ListRequirementsInput,
     ProposeRequirementsInput,
     RequirementDraft,
     create_brief,
+    list_requirements,
     propose_requirements,
 )
 from cad.operations.confirmation import AskToConfirmInput, ask_to_confirm
@@ -119,6 +121,15 @@ async def test_a_confirmed_proposal_shows_in_the_project(alice: Tenant) -> None:
     project, _ = await confirmed(alice)
     [summary] = reads.project(alice, reads.ProjectInput(project_id=project)).briefs
     assert summary.confirmed_proposal == 1
+
+
+def test_a_brief_reads_the_part_name_it_was_created_with(alice: Tenant) -> None:
+    named = create_brief(alice, CreateBriefInput(text=TEXT, name="  Desk box "))
+    unnamed = create_brief(alice, CreateBriefInput(text=TEXT))
+    assert (
+        list_requirements(alice, ListRequirementsInput(brief_id=named.brief_id)).name == "Desk box"
+    )
+    assert list_requirements(alice, ListRequirementsInput(brief_id=unnamed.brief_id)).name is None
 
 
 def test_an_unknown_project_is_refused(alice: Tenant) -> None:

@@ -54,13 +54,6 @@ export interface Workspace {
   conversationId: string;
 }
 
-export function titleOf(words: string): string {
-  const trimmed = words.replace(/^(can you|please|i want|i need)\s+/i, "").replace(/[.?!]+$/, "");
-  const short = trimmed.split(/,| with | for /)[0] ?? trimmed;
-  const capital = short.charAt(0).toUpperCase() + short.slice(1);
-  return capital.length > 32 ? `${capital.slice(0, 30)}…` : capital;
-}
-
 function materialOf(member: MemberView): Material | null {
   if (!member.material) return null;
   return {
@@ -91,12 +84,12 @@ function stateOf(brief: BriefView, confirmation: Confirmation, slots: Slot[]): B
 
 const mm = (size: readonly number[]) => `${size.map((one) => String(Number(one.toPrecision(3)))).join(" × ")} mm`;
 
-function briefOf(brief: BriefView, set: VariantSetView | null, confirmation: Confirmation, parts: ContextPartView[]): Brief {
+function briefOf(brief: BriefView, at: number, set: VariantSetView | null, confirmation: Confirmation, parts: ContextPartView[]): Brief {
   const slots = slotsOf(set);
   return {
     id: brief.brief_id,
     words: brief.text,
-    title: titleOf(brief.text),
+    title: brief.name ?? `Part ${String(at + 1)}`,
     state: stateOf(brief, confirmation, slots),
     slots,
     materialOf: Object.fromEntries((set?.members ?? []).map((member) => [member.slot, materialOf(member)])),
@@ -108,12 +101,12 @@ export async function loadWorkspace(api: Api, projectId: string): Promise<Worksp
   const [project, card, conversation] = await Promise.all([api.project(projectId), api.confirmation(projectId), api.conversation(projectId)]);
   const confirmation = card.snapshot === null ? null : card;
   const read = await Promise.all(
-    project.briefs.map(async (summary) => {
+    project.briefs.map(async (summary, at) => {
       const [brief, set] = await Promise.all([
         api.brief(summary.brief_id),
         summary.confirmed_proposal === null ? Promise.resolve(null) : api.variantSet(projectId, summary.brief_id),
       ]);
-      return briefOf(brief, set, confirmation, project.context_parts);
+      return briefOf(brief, at, set, confirmation, project.context_parts);
     }),
   );
   return {

@@ -57,6 +57,7 @@ describe("loadWorkspace", () => {
     const model = await loadWorkspace(api, "p1");
     const [one] = model.briefs;
     expect(one?.state).toBe("waiting");
+    expect(one?.title).toBe("Bracket");
     expect(one?.slots.map((slot) => slot.label)).toEqual(["Rounded corners", "Option 2"]);
     expect(one?.slots[0]?.differs).toBe("3 mm fillets on every edge");
     expect(one?.materialOf[1] && materialLabel(one.materialOf[1])).toBe("Prusament PLA · chosen by the agent");
@@ -77,6 +78,7 @@ describe("loadWorkspace", () => {
     });
     const model = await loadWorkspace(api, "p1");
     expect(model.briefs[0]?.state).toBe("drafting");
+    expect(model.briefs[0]?.title).toBe("Part 1");
     expect(model.confirmation).toBeNull();
     expect(variantSet).not.toHaveBeenCalled();
   });
@@ -181,7 +183,8 @@ describe("the explorer", () => {
     parts: [{ name: "rail", size: "30 × 20 × 10 mm", state: "confirmed" as const }],
     sources: [
       { url: "https://www.example.com/pla", title: "PLA datasheet", page: "p. 2", retrieved: "2026-11-10", standard: null, quote: "q" },
-      { url: "https://example.com/petg", title: "PETG datasheet", page: "p. 3", retrieved: "2026-11-10", standard: null, quote: "q" },
+      { url: "https://example.com/pla-2", title: "PLA datasheet", page: "p. 3", retrieved: "2026-11-10", standard: null, quote: "q" },
+      { url: "https://example.org/petg", title: "", page: "", retrieved: "2026-11-10", standard: null, quote: "q" },
     ],
     dispatch,
     onNew,
@@ -206,12 +209,15 @@ describe("the explorer", () => {
     expect(container.querySelector("[data-brief=b1] [data-brief-waiting]")).toBeNull();
   });
 
-  it("lists the context parts and the cited sources under Files, and folders collapse", async () => {
+  it("lists the context parts and the cited sources by document under Files, and folders collapse", async () => {
     const { container } = render(<Explorer {...props()} />);
     expect(container.querySelectorAll("[data-file]")).toHaveLength(1);
-    await userEvent.click(screen.getByRole("button", { name: /^example\.com/ }));
+    expect(container.querySelectorAll("[data-source-folder]")).toHaveLength(2);
+    await userEvent.click(screen.getByRole("button", { name: /^PLA datasheet/ }));
     expect(container.querySelectorAll("[data-file=source]")).toHaveLength(2);
-    expect(screen.getByRole("link", { name: "PLA datasheet" })).toHaveAttribute("href", "https://www.example.com/pla");
+    expect(screen.getByRole("link", { name: "p. 2" })).toHaveAttribute("href", "https://www.example.com/pla");
+    await userEvent.click(screen.getByRole("button", { name: /^example\.org/ }));
+    expect(screen.getByRole("link", { name: "example.org" })).toHaveAttribute("href", "https://example.org/petg");
     await userEvent.click(screen.getByRole("button", { name: "Files" }));
     expect(screen.getByRole("button", { name: "Files" })).toHaveAttribute("aria-expanded", "false");
     expect(container.querySelectorAll("[data-file], [data-source-folder]")).toHaveLength(0);

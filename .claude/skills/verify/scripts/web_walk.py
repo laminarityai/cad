@@ -31,7 +31,7 @@ DEFAULTS = {
     "url": "http://127.0.0.1:8765",
     "account": "user_walk",
     "brief": "An open box for my desk, 60 by 40 by 30 mm outside, with 2 mm walls.",
-    "change": "Make option 1's walls 3 mm thick.",
+    "change": "Give option 1 rounded outside corners.",
     "lid": "Now a lid for that box. It should plug into the top and fit with about 0.3 mm gap.",
 }
 

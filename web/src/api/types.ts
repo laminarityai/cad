@@ -516,6 +516,7 @@ export interface components {
             brief_id: string;
             project_id: string;
             text: string;
+            name: string | null;
             proposals: components["schemas"]["ProposalView"][];
             confirmed_proposal: number | null;
         };

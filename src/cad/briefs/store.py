@@ -152,7 +152,11 @@ def parse_brief_id(raw: str) -> BriefId:
 
 
 def create_brief(
-    roots: Roots, text: str, project: NewProjectId, transcript_seq: int | None = None
+    roots: Roots,
+    text: str,
+    project: NewProjectId,
+    transcript_seq: int | None = None,
+    name: str | None = None,
 ) -> Brief:
     brief = Brief(
         id=BriefId(secrets.token_hex(8)),
@@ -160,6 +164,7 @@ def create_brief(
         created_at=datetime.now(UTC),
         project_id=project,
         transcript_seq=transcript_seq,
+        name=name,
     )
     first = (f"{brief.id}/brief", BRIEF, brief.model_dump_json().encode())
     children = (PROPOSALS, DECISIONS, said.SAID)

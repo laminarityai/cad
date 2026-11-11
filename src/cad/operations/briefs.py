@@ -10,6 +10,7 @@ from cad.briefs.model import (
     MAX_REQUIREMENTS,
     MAX_STATEMENT_CHARS,
     MadeOf,
+    PartName,
     Requirement,
     Target,
     deciding_check,
@@ -40,7 +41,9 @@ CREATE_BRIEF = (
     "to a part the project already has stays in that part's brief. A project holds every brief "
     "for one job. Omit project_id to start a new project, or, in a chat that has a project, to "
     "add the brief to that project. Pass the project_id an earlier create_brief returned to add "
-    "this brief to that project; a brief stays in the project it was created in. " + PLAN_MODE
+    "this brief to that project; a brief stays in the project it was created in. Pass name, a "
+    'short noun name for the part, such as "Desk box" or "Lid": the person\'s page shows it. '
+    + PLAN_MODE
 )
 PROPOSE_REQUIREMENTS = (
     "If the brief names a material, call list_materials before you propose. Propose the whole "
@@ -131,6 +134,7 @@ class BriefView(BaseModel):
     brief_id: str
     project_id: str
     text: str
+    name: str | None
     proposals: list[ProposalView]
     confirmed_proposal: int | None
 
@@ -176,6 +180,7 @@ def _user_edit(proposed: Requirement, confirmed: Requirement) -> UserEdit | None
 
 class CreateBriefInput(Input):
     text: Annotated[str, Field(min_length=1, max_length=MAX_BRIEF_CHARS)] | None = None
+    name: PartName | None = None
     project_id: Annotated[
         str | None, Field(max_length=PROJECT_ID_CHARS, pattern=PROJECT_ID.pattern)
     ] = None
@@ -200,7 +205,9 @@ def create_brief(tenant: Tenant, arguments: CreateBriefInput) -> BriefCreated:
     if asked is None and cid is not None:
         asked = _project_of(tenant, cid)
     project = project_for_new_brief(tenant.roots, asked)
-    brief = store.create_brief(tenant.roots, first.text, project, first.transcript_seq)
+    brief = store.create_brief(
+        tenant.roots, first.text, project, first.transcript_seq, arguments.name
+    )
     if cid is not None:
         conversations.started(tenant, cid, project)
     return BriefCreated(brief_id=brief.id, project_id=project, text=brief.text)
@@ -234,6 +241,7 @@ def list_requirements(tenant: Tenant, arguments: ListRequirementsInput) -> Brief
         brief_id=state.brief.id,
         project_id=state.brief.project,
         text=state.brief.text,
+        name=state.brief.name,
         proposals=[_view(state, p) for p in state.proposals],
         confirmed_proposal=confirmed.proposal.number if confirmed else None,
     )
