@@ -3,7 +3,7 @@ from typing import Annotated, Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from cad.briefs import clearances, made_of, store
+from cad.briefs import clearances, made_of, source, store
 from cad.briefs.edits import placeholder
 from cad.briefs.model import (
     MAX_BRIEF_CHARS,
@@ -31,8 +31,11 @@ AFTER_PROPOSAL: Final = (
 )
 
 CREATE_BRIEF = (
-    "Store the user's brief, their own words verbatim, and return its brief id and project id. "
-    "Do not summarize or rewrite it: the user reads this text when they confirm. A project "
+    "Store a new brief and return its brief id, project id and the text stored. In chat, pass no "
+    "text: the server copies the person's newest message, and those words are the brief. From "
+    "any other client, pass text, the person's own words verbatim, not a summary or a rewrite: "
+    "the person reads this text when they confirm. Create a brief only for a new part: a change "
+    "to a part the project already has stays in that part's brief. A project "
     "holds every brief for one job. Omit project_id to start a new project. Pass the "
     "project_id an earlier create_brief returned to add this brief to that project; a brief "
     "stays in the project it was created in. " + PLAN_MODE
@@ -66,7 +69,12 @@ PROPOSE_REQUIREMENTS = (
     "none of these say are an unchecked requirement. Proposing never confirms: every new row is "
     "proposed until the user confirms the set. A new proposal replaces the old one for "
     "confirmation, and what the user already confirmed stays in force until they confirm the "
-    "new set. Proposing the same undecided set again changes nothing."
+    "new set. Proposing the same undecided set again changes nothing. A quote may come from "
+    "words the person said after the brief was created. In chat, the server finds them in the "
+    "person's messages and adds that message to the brief, so quote it exactly and pass no "
+    "said. From any other client, pass the person's new words verbatim as said. Propose every "
+    "requirement that should stay in force, with the new one. Never propose a number the "
+    "person did not state."
 )
 LIST_REQUIREMENTS = (
     "Show a brief's text, every proposal with its status (proposed, confirmed, declined or "
@@ -87,6 +95,7 @@ class RequirementDraft(BaseModel):
 class BriefCreated(BaseModel):
     brief_id: str
     project_id: str
+    text: str
 
 
 class UserEdit(BaseModel):
@@ -164,7 +173,7 @@ def _user_edit(proposed: Requirement, confirmed: Requirement) -> UserEdit | None
 
 
 class CreateBriefInput(Input):
-    text: Annotated[str, Field(min_length=1, max_length=MAX_BRIEF_CHARS)]
+    text: Annotated[str, Field(min_length=1, max_length=MAX_BRIEF_CHARS)] | None = None
     project_id: Annotated[
         str | None, Field(max_length=PROJECT_ID_CHARS, pattern=PROJECT_ID.pattern)
     ] = None
@@ -175,6 +184,7 @@ class ProposeRequirementsInput(Input):
     requirements: Annotated[
         list[RequirementDraft], Field(min_length=1, max_length=MAX_REQUIREMENTS)
     ]
+    said: Annotated[str, Field(min_length=1, max_length=MAX_BRIEF_CHARS)] | None = None
 
 
 class ListRequirementsInput(Input):
@@ -182,12 +192,14 @@ class ListRequirementsInput(Input):
 
 
 def create_brief(tenant: Tenant, arguments: CreateBriefInput) -> BriefCreated:
+    text, message = source.first_words(tenant, arguments.text)
     project = project_for_new_brief(tenant.roots, arguments.project_id)
-    brief = store.create_brief(tenant.roots, arguments.text, project)
-    return BriefCreated(brief_id=brief.id, project_id=project)
+    brief = store.create_brief(tenant.roots, text, project, message)
+    return BriefCreated(brief_id=brief.id, project_id=project, text=brief.text)
 
 
 def propose_requirements(tenant: Tenant, arguments: ProposeRequirementsInput) -> Proposed:
+    words = source.later_words(tenant, arguments.said)
     drafts = [store.Draft(target=r.target, quote=r.quote) for r in arguments.requirements]
     project = store.read_brief(tenant.roots, arguments.brief_id).project
     clearances.check_proposed(
@@ -195,7 +207,7 @@ def propose_requirements(tenant: Tenant, arguments: ProposeRequirementsInput) ->
     )
     table = brief_table(tenant.roots, arguments.brief_id)
     drafts = made_of.with_row_keys(drafts, table.table)
-    proposed = store.propose(tenant.roots, arguments.brief_id, drafts)
+    proposed = store.propose(tenant.roots, arguments.brief_id, drafts, words)
     view = _view(store.read_state(tenant.roots, arguments.brief_id), proposed)
     return Proposed(**dict(view), research=_made_of_requests(table, arguments.brief_id, drafts))
 

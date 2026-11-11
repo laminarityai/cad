@@ -22,7 +22,7 @@ def script_for(brief: BriefInput) -> Script:
     steps = (
         Step(
             text="Storing the brief.",
-            calls=(Call(name="create_brief", input={"text": brief.text}),),
+            calls=(Call(name="create_brief"),),
         ),
         Step(
             text="Proposing requirements.",
