@@ -142,11 +142,11 @@
   --color-unk-bg: var(--unk-bg);
   --color-stop: var(--stop);
   --color-stop-ink: var(--stop-ink);
-  --font-sans: "IBM Plex Sans Condensed", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-  --radius-sm: 0;
-  --radius-md: 0;
-  --radius-lg: 0;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
 }
 
 @layer base {
@@ -159,7 +159,7 @@
     background: var(--bg);
     color: var(--ink);
     font-family: var(--font-sans);
-    font-size: 14px;
+    font-size: 15px;
     line-height: 1.4;
     -webkit-font-smoothing: antialiased;
   }
@@ -175,4 +175,16 @@
   50% {
     opacity: 0.35;
   }
+}
+
+/* three-cad-viewer ships unlayered CSS that paints the body and its canvas white or grey by its own
+ * theme. Unlayered rules here win back the page's colours. */
+html body {
+  background-color: var(--bg);
+}
+[data-viewer] [data-theme] {
+  --tcv-bg-color: var(--panel-2);
+}
+[data-viewer] .tcv_cad_viewer {
+  background-color: var(--panel-2);
 }

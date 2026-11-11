@@ -1,9 +1,12 @@
-from typing import assert_never
+from collections.abc import Mapping
+from types import MappingProxyType
+from typing import Final, assert_never
 
 from cad.briefs.bindable import BINDABLE
 from cad.briefs.model import (
     ClosedSolid,
     Envelope,
+    Length,
     MadeOf,
     MaxClearance,
     MaxDeflection,
@@ -20,6 +23,8 @@ from cad.checks.result import Comparator
 from cad.loads.words import describe_case
 from cad.tables.materials import PROJECT_PREFIX
 
+NO_NAMES: Final[Mapping[str, str]] = MappingProxyType({})
+
 
 def measure_limit_words(target: MeasureLimit) -> str:
     words = BINDABLE[(target.check_id, target.measure)].words
@@ -27,8 +32,7 @@ def measure_limit_words(target: MeasureLimit) -> str:
     return f"{words[0].upper()}{words[1:]} is {bound} {amount(target.limit)}"
 
 
-def describe(requirement: Requirement) -> str:
-    """The plain words the page shows a person and the tools show the agent."""
+def describe(requirement: Requirement, names: Mapping[str, str] = NO_NAMES) -> str:
     target = requirement.target
     match target:
         case ClosedSolid():
@@ -44,7 +48,8 @@ def describe(requirement: Requirement) -> str:
         case Unchecked():
             return target.statement
         case MadeOf():
-            return f"Made of {target.material.removeprefix(PROJECT_PREFIX)}"
+            key = target.material
+            return f"Made of {names.get(key) or key.removeprefix(PROJECT_PREFIX)}"
         case MinSafetyFactor():
             return f"Safety factor against yield at least {target.factor:g} with " + describe_case(
                 target.load
@@ -52,8 +57,15 @@ def describe(requirement: Requirement) -> str:
         case MaxDeflection():
             return f"Deflects at most {amount(target.deflection)} with {describe_case(target.load)}"
         case MinClearance():
-            return f"At least {amount(target.clearance)} clear of context part {target.part}"
+            return f"At least {_clearance(target.clearance, target.part, names)}"
         case MaxClearance():
-            return f"At most {amount(target.clearance)} clear of context part {target.part}"
+            return f"At most {_clearance(target.clearance, target.part, names)}"
         case _:
             assert_never(target)
+
+
+def _clearance(clearance: Length, part: str, names: Mapping[str, str]) -> str:
+    name = names.get(part)
+    if name is None:
+        return f"{amount(clearance)} clear of context part {part}"
+    return f"{amount(clearance)} gap to {name}"

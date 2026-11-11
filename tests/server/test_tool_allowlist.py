@@ -20,7 +20,7 @@ ALLOWED_ARGUMENTS = {
     "score_variant": {"variant_id", "material_key", "brief_id", "own_measurements"},
     "scorecard": {"variant_id", "material_key", "brief_id"},
     "list_materials": set[str](),
-    "create_brief": {"text", "project_id"},
+    "create_brief": {"text", "name", "project_id"},
     "propose_requirements": {"brief_id", "requirements", "said"},
     "ask_to_confirm": {"project_id"},
     "list_requirements": {"brief_id"},

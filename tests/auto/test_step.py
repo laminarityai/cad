@@ -20,7 +20,7 @@ from cad.auto.model import (
     StopReason,
     Unsettled,
 )
-from cad.auto.step import fold, standing_of
+from cad.auto.step import fold, report, standing_of
 from cad.checks.result import ReadResearched, StepMissing, Verdict
 from cad.conversations.model import ConversationId
 from cad.scorecard.model import (
@@ -161,6 +161,17 @@ def test_the_report_labels_research_and_lists_the_unverified() -> None:
     assert "- requirement r1: passes on researched data" in state.report
     assert "neither pass nor fail: r2" in state.report
     assert "Revisions tried: 1" in state.report
+
+
+def test_the_persons_report_names_each_requirement_by_its_statement() -> None:
+    rows = (checked("r1", PASS, researched=True), unverified("r2"))
+    state = run(Revised(standing=settle(card(*rows))))
+    assert isinstance(state, Stopped)
+    said = {"r1": "Mass at most 150 g", "r2": "Holds 5 kg"}
+    text = report(state.history, state.reason, said)
+    assert "- Mass at most 150 g: passes on researched data" in text
+    assert "neither pass nor fail: Holds 5 kg" in text
+    assert "r1" not in text
 
 
 @pytest.mark.parametrize(

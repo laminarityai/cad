@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Final
 
 import pytest
 
-from cad.context_parts.store import confirmed_parts
+from cad.context_parts.store import confirmed_parts, fitted_by
 from cad.projects.model import ProjectId
 
 if TYPE_CHECKING:
@@ -104,7 +104,7 @@ async def test_proposing_the_newer_revision_updates_the_part_and_keeps_its_requi
     [still_measured] = confirmed_parts(s.roots.projects, fitted.project)
     assert (update["part_id"], update["status"]) == (fitted.part, "waiting")
     assert part_item(waiting)["outcome"] == "waiting"
-    assert f"SD card box, from variant {new}, a newer revision of the part you confirmed" in page
+    assert "SD card box, a newer revision of the part you confirmed" in page
     assert still_measured.record.source.variant_id == fitted.old
 
     s.post(s.person.url, "confirm")
@@ -185,3 +185,12 @@ async def test_an_older_revision_is_not_called_newer_and_waits_for_the_person(
     assert older["status"] == "waiting"
     assert "a newer revision of the part you confirmed" not in page
     assert measured.record.source.variant_id == new
+
+
+async def test_a_part_is_fitted_by_the_brief_it_was_proposed_for_and_not_its_own(
+    s: Session,
+) -> None:
+    fitted = await box_with_a_fitted_lid(s)
+    assert fitted_by(s.roots.projects, fitted.project, fitted.box) == ()
+    [part] = fitted_by(s.roots.projects, fitted.project, fitted.lid)
+    assert part.record.id == fitted.part

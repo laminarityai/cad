@@ -32,6 +32,25 @@ def create(
         return _write(tenant.conversations, cid, held)
 
 
+def of_project(directory: Path, project_id: str) -> ConversationId | None:
+    found = [
+        (path.stat().st_mtime, cid)
+        for path in directory.glob("c_*.json")
+        if read(directory, cid := ConversationId(path.stem)).project_id == project_id
+    ]
+    return max(found)[1] if found else None
+
+
+def started(tenant: Tenant, cid: ConversationId, project_id: str) -> None:
+    with _LOCK:
+        try:
+            held = read(tenant.conversations, cid)
+        except UnknownConversation:
+            return
+        if held.project_id is None:
+            _write(tenant.conversations, cid, held.model_copy(update={"project_id": project_id}))
+
+
 def bind(tenant: Tenant, cid: ConversationId | None) -> Tenant:
     """An agent token's conversation with no record binds as Plan, which builds nothing."""
     if cid is None:

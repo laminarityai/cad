@@ -19,11 +19,17 @@ from pydantic import ValidationError
 
 from cad.auto import log
 from cad.auto.model import AutoRun, Stopped, TamperedRun, UnknownRun
+from cad.auto.step import report
+from cad.briefs import store as briefs
+from cad.briefs.store import BriefRefused
+from cad.briefs.words import describe
 from cad.chat.log import Event, StopReport, ToolCalled, ToolReturned, TurnFailed
 from cad.chat.model import ToolResult, ToolUse
+from cad.confirmations.requirements import plain_names
 from cad.conversations import store
 from cad.conversations.model import Mode
 from cad.operations.model import Tenant
+from cad.projects.model import ProjectRefused
 
 AUTO_TOOLS: Final = frozenset({"auto_start", "auto_revise", "auto_ask"})
 MAX_NUDGES: Final = 3
@@ -71,7 +77,9 @@ class AutoDriver:
             return None
         self.reported = True
         assert isinstance(run.state, Stopped)
-        return StopReport(run_id=run.run_id, reason=run.state.reason.kind, report=run.state.report)
+        state = run.state
+        said = report(state.history, state.reason, self._statements(state.start.brief_id))
+        return StopReport(run_id=run.run_id, reason=state.reason.kind, report=said)
 
     def nudge(self) -> str | None:
         if self.reported or self.run_id is None or self.nudges >= MAX_NUDGES:
@@ -83,6 +91,15 @@ class AutoDriver:
             return None
         self.nudges += 1
         return NUDGE.format(run_id=self.run_id)
+
+    def _statements(self, brief_id: str) -> dict[str, str]:
+        roots = self.tenant.roots
+        try:
+            proposals = briefs.read_state(roots, brief_id).proposals
+            names = plain_names(roots, brief_id)
+        except (BriefRefused, ProjectRefused):
+            return {}
+        return {r.id: describe(r, names) for one in proposals for r in one.requirements}
 
     def _stopped(self) -> AutoRun | None:
         if self.run_id is None:

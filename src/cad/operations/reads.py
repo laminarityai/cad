@@ -5,6 +5,8 @@ from pydantic import BaseModel, Field
 
 from cad.briefs import store as briefs
 from cad.briefs.store import BriefState, ConfirmedSet
+from cad.context_parts.model import Outcome
+from cad.context_parts.store import Stored, newest_parts
 from cad.geometry import job
 from cad.geometry import store as meshes
 from cad.geometry.model import Tessellated, UnknownMesh
@@ -17,12 +19,16 @@ from cad.projects.model import UnknownProject, parse_project_id
 from cad.sandbox import image
 from cad.scorecard import material
 from cad.scorecard.material import MaterialUse
+from cad.tables.materials import MaterialsTable
 from cad.variant_sets import store as variant_sets
 from cad.variant_sets.model import MAX_MEMBERS, Member, NotConfirmed, Option
 from cad.variants import entry
 
 LIST_PROJECTS = "The signed-in person's projects, newest first, each with its briefs."
-PROJECT = "One project: its briefs, each with its proposal count and its confirmed proposal."
+PROJECT = (
+    "One project: its briefs, each with its proposal count and its confirmed proposal, and the "
+    "newest record of each part a brief must fit with."
+)
 VARIANT_SET = (
     "The variant set of a brief: for each slot, its latest variant and every revision the slot "
     "has had. A member's option is the label the agent gave its slot and how it differs from "
@@ -31,7 +37,8 @@ VARIANT_SET = (
     "requirement the person confirmed, or the agent, with the reason it recorded; it is empty "
     "when neither named one. A member's card_etag is the etag of its scorecard for that "
     "material, or for material_key when you pass it. It is empty when the variant was never "
-    "scored for that material. A brief with no confirmed requirements has an empty set."
+    "scored for that material. material_name is the name a person reads for the material. A "
+    "brief with no confirmed requirements has an empty set."
 )
 VIEW = (
     "What the viewer needs for one built variant: the hash that names its BREP, whether its mesh "
@@ -81,9 +88,22 @@ class BriefSummary(BaseModel):
     confirmed_proposal: int | None
 
 
+class ContextPartView(BaseModel):
+    """A part a brief's design must fit with. A fitting variant is built in this part's frame,
+    so `variant_id`'s mesh draws with it as it is."""
+
+    part_id: str
+    name: str
+    brief_id: str
+    variant_id: str
+    outcome: Outcome
+    size_mm: tuple[float, float, float]
+
+
 class ProjectView(BaseModel):
     project_id: str
     briefs: tuple[BriefSummary, ...]
+    context_parts: tuple[ContextPartView, ...]
 
 
 class RevisionView(BaseModel):
@@ -100,6 +120,7 @@ class MemberView(BaseModel):
     revisions: tuple[RevisionView, ...]
     material: MaterialUse | None
     option: Option | None
+    material_name: str | None
     card_etag: str | None
 
 
@@ -133,12 +154,27 @@ def list_projects(tenant: Tenant, arguments: NoArguments) -> ProjectList:
 
 
 def project(tenant: Tenant, arguments: ProjectInput) -> ProjectView:
-    found = stored_projects(tenant.roots).get(parse_project_id(arguments.project_id))
+    project_id = parse_project_id(arguments.project_id)
+    found = stored_projects(tenant.roots).get(project_id)
     if found is None:
         raise UnknownProject(f"no project {arguments.project_id} is stored")
     return ProjectView(
         project_id=arguments.project_id,
         briefs=tuple(_summary(briefs.read_state(tenant.roots, one.id)) for one in found),
+        context_parts=tuple(_part(one) for one in newest_parts(tenant.roots.projects, project_id)),
+    )
+
+
+def _part(part: Stored) -> ContextPartView:
+    record = part.record
+    low, high = record.facts.box_min, record.facts.box_max
+    return ContextPartView(
+        part_id=record.id,
+        name=record.name,
+        brief_id=record.brief_id,
+        variant_id=record.source.variant_id,
+        outcome=part.outcome,
+        size_mm=(high[0] - low[0], high[1] - low[1], high[2] - low[2]),
     )
 
 
@@ -170,7 +206,7 @@ def variant_set(tenant: Tenant, arguments: VariantSetInput) -> VariantSetView:
         brief_id=brief_id,
         decision_sha256=key.decision_sha256,
         members=tuple(
-            _member(tenant, brief_id, arguments.material_key, confirmed, pinned, one)
+            _member(tenant, brief_id, arguments.material_key, confirmed, pinned, table, one)
             for one in variant_sets.members(tenant.roots.projects, key)
         ),
     )
@@ -182,6 +218,7 @@ def _member(
     asked: str | None,
     confirmed: ConfirmedSet | None,
     pinned: str | None,
+    table: MaterialsTable,
     member: Member,
 ) -> MemberView:
     latest = member.latest
@@ -202,6 +239,7 @@ def _member(
         ),
         material=None if key is None else material.used(key, confirmed, choice),
         option=latest.option,
+        material_name=None if key is None else table.name_of(key),
         card_etag=_etag(tenant, brief_id, asked or key, latest.built_as),
     )
 

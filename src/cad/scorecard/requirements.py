@@ -22,7 +22,7 @@ from cad.briefs.model import (
     limits,
 )
 from cad.briefs.store import ConfirmedSet
-from cad.briefs.words import describe
+from cad.briefs.words import NO_NAMES, describe
 from cad.checks.jobs import Demand, PartBrep
 from cad.checks.report import SPECS
 from cad.checks.result import CheckResult, Comparator, Measured, ReadResearched, Verdict
@@ -88,10 +88,10 @@ def instance(target: Target) -> str:
             return ""
 
 
-def against(confirmed: ConfirmedSet) -> Assess:
+def against(confirmed: ConfirmedSet, names: Mapping[str, str] = NO_NAMES) -> Assess:
     def assess(results: Results) -> Basis:
         return assess_requirements(
-            confirmed.brief_id, confirmed.decision_sha256, confirmed.requirements, results
+            confirmed.brief_id, confirmed.decision_sha256, confirmed.requirements, results, names
         )
 
     return assess
@@ -110,9 +110,10 @@ def assess_requirements(
     decision_sha256: str,
     confirmed: Sequence[Requirement],
     results: Sequence[CheckResult | PendingCheck],
+    names: Mapping[str, str] = NO_NAMES,
 ) -> AgainstBrief:
     judged = tuple(
-        judge(requirement, results)
+        judge(requirement, results, names)
         for requirement in confirmed
         if not isinstance(requirement.target, MadeOf)
     )
@@ -127,9 +128,11 @@ def assess_requirements(
 
 
 def judge(
-    requirement: Requirement, results: Sequence[CheckResult | PendingCheck]
+    requirement: Requirement,
+    results: Sequence[CheckResult | PendingCheck],
+    names: Mapping[str, str] = NO_NAMES,
 ) -> RequirementResult:
-    statement = describe(requirement)
+    statement = describe(requirement, names)
     check_id = deciding_check(requirement.target)
     if check_id is None:
         return Unverified(requirement_id=requirement.id, statement=statement)

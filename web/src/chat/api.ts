@@ -12,7 +12,7 @@ export interface Follower {
 export type Unfollow = () => void;
 
 export interface ChatApi {
-  create(projectId: string, briefId: string): Promise<ConversationCreated>;
+  create(projectId?: string): Promise<ConversationCreated>;
   read(conversationId: string): Promise<ConversationView>;
   send(conversationId: string, text: string): Promise<MessageSent>;
   setMode(conversationId: string, mode: Mode): Promise<ConversationState>;
@@ -23,16 +23,7 @@ export interface ChatApi {
 
 const enc = encodeURIComponent;
 const RETRY_MS = 1000;
-const EVENT_KINDS: ReadonlySet<string> = new Set<Event["kind"]>([
-  "user",
-  "driver",
-  "agent",
-  "tool_call",
-  "tool_result",
-  "stop_report",
-  "turn_failed",
-  "turn_ended",
-]);
+const EVENT_KINDS: ReadonlySet<string> = new Set<Event["kind"]>(["user", "driver", "agent", "tool_call", "tool_result", "stop_report", "turn_failed", "turn_ended"]);
 
 const sleep = (ms: number, signal: AbortSignal) =>
   new Promise<void>((done) => {
@@ -83,7 +74,7 @@ async function follow(conversationId: string, from: number, handlers: Follower, 
 }
 
 export const httpChat: ChatApi = {
-  create: (projectId, briefId) => requestJson("POST", "/v1/conversations", { project_id: projectId, brief_id: briefId }),
+  create: (projectId) => requestJson("POST", "/v1/conversations", projectId === undefined ? {} : { project_id: projectId }),
   read: (conversationId) => requestJson("GET", `/v1/conversations/${enc(conversationId)}`),
   send: (conversationId, text) => requestJson("POST", `/v1/conversations/${enc(conversationId)}/messages`, { text }),
   setMode: (conversationId, mode) => requestJson("PUT", `/v1/conversations/${enc(conversationId)}/mode`, { mode }),

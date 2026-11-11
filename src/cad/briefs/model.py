@@ -18,6 +18,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    StringConstraints,
     ValidatorFunctionWrapHandler,
     WithJsonSchema,
     WrapValidator,
@@ -36,6 +37,10 @@ BriefId = NewType("BriefId", str)
 RequirementId = NewType("RequirementId", str)
 CheckId = NewType("CheckId", str)
 MAX_BRIEF_CHARS: Final = 64 * 1024
+type PartName = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=40, pattern=r"^[^\n\r]+$"),
+]
 SAID_SEPARATOR: Final = "\n\n"
 MAX_REQUIREMENTS: Final = 64
 MAX_STATEMENT_CHARS: Final = 500
@@ -310,6 +315,7 @@ class Brief(_Frozen):
     created_at: datetime
     project_id: Annotated[NewProjectId, Field(pattern=NEW_PROJECT_ID.pattern)] | None = None
     transcript_seq: int | None = None
+    name: PartName | None = None
 
     @property
     def project(self) -> ProjectId:

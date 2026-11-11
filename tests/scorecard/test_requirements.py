@@ -328,6 +328,12 @@ def test_an_overlap_fails_any_clearance_on_that_part(kind: str) -> None:
     assert (judged.verdict, judged.reason) == (Verdict.FAIL, requirements.OVERLAPS)
 
 
+def test_the_scorecard_names_a_context_part_by_its_name() -> None:
+    results = (*suite(), fitted(0.3))
+    judged = checked(requirements.judge(clearance("min_clearance", 0.2), results, {RAIL: "Rail"}))
+    assert judged.statement == "At least 0.2 mm gap to Rail"
+
+
 def test_the_page_names_the_part_and_the_clearance() -> None:
     assert (
         describe(clearance("min_clearance", 0.2)) == f"At least 0.2 mm clear of context part {RAIL}"

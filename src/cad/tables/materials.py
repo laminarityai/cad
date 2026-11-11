@@ -116,6 +116,10 @@ class MaterialsTable:
             raise UnknownMaterial(f"no material with key {key!r}; keys are {known}")
         return material
 
+    def name_of(self, key: str) -> str:
+        found = self.materials.get(key)
+        return (key if found is None else found.name).removeprefix(PROJECT_PREFIX)
+
     def row_key(self, key: str) -> str:
         """The key of the row that holds the material `key` names: the git row when git has one,
         and the project's own row otherwise. The plain name never starts with the prefix, so no

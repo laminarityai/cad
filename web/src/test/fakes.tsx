@@ -17,9 +17,17 @@ export function setOf(variants: string[]): VariantSetView {
       slot: at + 1,
       variant_id: variant,
       revision: 1,
-      revisions: [{ revision: 1, variant_id: variant, code_sha256: "e".repeat(64), joined_at: "2026-11-10T00:00:00Z" }],
+      revisions: [
+        {
+          revision: 1,
+          variant_id: variant,
+          code_sha256: "e".repeat(64),
+          joined_at: "2026-11-10T00:00:00Z",
+        },
+      ],
       material: null,
       option: null,
+      material_name: null,
       card_etag: null,
     })),
   };
@@ -35,11 +43,18 @@ export const meshOf = (name: string): Tessellated => ({
 export function fakeApi(variants: string[], overrides: Partial<Api> = {}): Api {
   return {
     projects: vi.fn(() => Promise.resolve({ projects: [] })),
-    project: vi.fn(() => Promise.resolve({ project_id: "p1", briefs: [] })),
+    project: vi.fn(() => Promise.resolve({ project_id: "p1", briefs: [], context_parts: [] })),
     brief: vi.fn(() => Promise.resolve(brief(true))),
-    waiting: vi.fn(() => Promise.resolve({ project_id: "p1", items: [] })),
+    conversation: vi.fn(() => Promise.resolve({ conversation_id: "c1" })),
+    confirmation: vi.fn(() => Promise.resolve({ snapshot: null, items: [] })),
+    answer: vi.fn(() => Promise.resolve({ status: 200, text: "" })),
+    scorecard: vi.fn(() => Promise.reject(new Error("no scorecard in this test"))),
     variantSet: vi.fn(() => Promise.resolve(setOf(variants))),
-    materials: vi.fn(() => Promise.resolve({ materials: [{ key: "prusament-pla", name: "Prusament PLA" }] })),
+    materials: vi.fn(() =>
+      Promise.resolve({
+        materials: [{ key: "prusament-pla", name: "Prusament PLA" }],
+      }),
+    ),
     view: vi.fn((variantId: string) =>
       Promise.resolve({
         variant_id: variantId,
@@ -109,16 +124,15 @@ export class FakeChat implements ChatApi {
 
   create = vi.fn<ChatApi["create"]>(() => Promise.resolve({ conversation_id: "c_new", mode: this.mode }));
 
-  read = vi.fn(
-    (conversationId: string): Promise<ConversationView> =>
-      Promise.resolve({
-        conversation_id: conversationId,
-        mode: this.mode,
-        auto_run: this.autoRun?.state.kind === "running" ? this.autoRun.run_id : null,
-        project_id: "p1",
-        brief_id: "b1",
-        run: this.autoRun,
-      }),
+  read = vi.fn((conversationId: string): Promise<ConversationView> =>
+    Promise.resolve({
+      conversation_id: conversationId,
+      mode: this.mode,
+      auto_run: this.autoRun?.state.kind === "running" ? this.autoRun.run_id : null,
+      project_id: "p1",
+      brief_id: "b1",
+      run: this.autoRun,
+    }),
   );
 
   send = vi.fn((_conversationId: string, text: string) => {
@@ -132,7 +146,11 @@ export class FakeChat implements ChatApi {
     this.modes.push(mode);
     this.mode = mode;
     if (mode !== "auto" && this.autoRun?.state.kind === "running") this.autoRun = stoppedRun(this.autoRun.run_id, "stopped_by_person", "You stopped the run.");
-    return Promise.resolve({ conversation_id: conversationId, mode, auto_run: null });
+    return Promise.resolve({
+      conversation_id: conversationId,
+      mode,
+      auto_run: null,
+    });
   });
 
   stop = vi.fn((runId: string): Promise<PersonStop> => {
@@ -140,7 +158,14 @@ export class FakeChat implements ChatApi {
     this.mode = "design";
     const run = stoppedRun(runId, "stopped_by_person", "You stopped the run.");
     this.autoRun = run;
-    return Promise.resolve({ run, conversation: { conversation_id: "c_new", mode: "design", auto_run: null } });
+    return Promise.resolve({
+      run,
+      conversation: {
+        conversation_id: "c_new",
+        mode: "design",
+        auto_run: null,
+      },
+    });
   });
 
   follow(conversationId: string, after: number, handlers: Follower): () => void {
@@ -168,14 +193,26 @@ export class FakeChat implements ChatApi {
 }
 
 export function stoppedRun(runId: string, kind: StopReason["kind"], report: string): AutoRun {
-  const reasons: { [K in StopReason["kind"]]: Extract<StopReason, { kind: K }> } = {
+  const reasons: {
+    [K in StopReason["kind"]]: Extract<StopReason, { kind: K }>;
+  } = {
     all_pass: { kind: "all_pass", researched: [], unverified: [] },
-    needs_person: { kind: "needs_person", why: "agent_asked", requirements: [], bounds: [], note: "" },
+    needs_person: {
+      kind: "needs_person",
+      why: "agent_asked",
+      requirements: [],
+      bounds: [],
+      note: "",
+    },
     account_limit: { kind: "account_limit", refused: null, reason: "" },
     stopped_by_person: { kind: "stopped_by_person" },
   };
   const reason = reasons[kind];
-  return { run_id: runId, settling: false, state: { kind: "stopped", start: startOf(), history: [], reason, report } };
+  return {
+    run_id: runId,
+    settling: false,
+    state: { kind: "stopped", start: startOf(), history: [], reason, report },
+  };
 }
 
 export function startOf(): Extract<AutoRun["state"], { kind: "running" }>["start"] {

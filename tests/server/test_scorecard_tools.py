@@ -8,13 +8,13 @@ from mcp import Client
 from cad.operations.guidance import (
     CHANGES,
     CONTEXT_PARTS,
+    DEEPER_ANALYSIS,
     MATERIAL,
     NOT_VERIFIED,
     OPTIONS,
     PLAN_MODE,
     RESEARCH,
     RULE,
-    TEST_MODE,
 )
 from cad.sandbox.outcome import Build, Built
 from cad.server.app import build_server
@@ -242,7 +242,7 @@ async def test_the_server_tells_every_client_that_only_check_results_are_measure
             OPTIONS,
             CONTEXT_PARTS,
             MATERIAL,
-            TEST_MODE,
+            DEEPER_ANALYSIS,
             RESEARCH,
             NOT_VERIFIED,
         )

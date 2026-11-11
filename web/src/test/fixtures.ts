@@ -90,6 +90,7 @@ export const brief = (confirmed: boolean): BriefView => ({
   brief_id: "b1",
   project_id: "p1",
   text: "A bracket that weighs at most 50 g.",
+  name: confirmed ? "Bracket" : null,
   confirmed_proposal: confirmed ? 1 : null,
   proposals: [
     {

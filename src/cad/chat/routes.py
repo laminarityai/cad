@@ -40,13 +40,15 @@ from cad.conversations.model import (
 )
 from cad.operations.model import Tenant
 from cad.operations.routes import CHALLENGE, PersonOf, session_token
-from cad.projects.model import ProjectId
+from cad.projects.membership import project_briefs
+from cad.projects.model import ProjectId, UnknownProject, parse_project_id
 
 MAX_MESSAGE_CHARS: Final = 20_000
 KEEPALIVE_SECONDS: Final = 15.0
 CHAT_ROUTES: Final = frozenset(
     {
         ("create_conversation", "/v1/conversations"),
+        ("project_conversation", "/v1/projects/{project_id}/conversation"),
         ("message", "/v1/conversations/{conversation_id}/messages"),
         ("stream", "/v1/conversations/{conversation_id}/stream"),
     }
@@ -62,8 +64,6 @@ class Said(BaseModel):
 
 
 class Start(BaseModel):
-    """The project and brief the page shows, which the agent reads to find the slots."""
-
     model_config = ConfigDict(extra="forbid")
 
     project_id: str | None = None
@@ -73,6 +73,10 @@ class Start(BaseModel):
 class ConversationCreated(BaseModel):
     conversation_id: str
     mode: Mode
+
+
+class ProjectConversation(BaseModel):
+    conversation_id: str
 
 
 class MessageSent(BaseModel):
@@ -207,10 +211,12 @@ def chat_routes(person_of: PersonOf, chat: Chat) -> list[Route]:
         except ValidationError as error:
             return _error(422, str(error))
         tenant = chat.tenants.of(who.account)
-        if (start.project_id is None) != (start.brief_id is None):
-            return _error(422, "send project_id and brief_id together, or neither")
+        if start.brief_id is not None and start.project_id is None:
+            return _error(422, "send project_id with brief_id")
         if start.brief_id is not None and not _holds(tenant, start.project_id, start.brief_id):
             return _error(404, f"no brief {start.brief_id} in project {start.project_id}")
+        if start.project_id is not None and not _is_project(tenant, start.project_id):
+            return _error(404, f"no project {start.project_id} in this account")
         cid = conversation_id(f"c_{secrets.token_hex(8)}")
         held = store.create(tenant, cid, start.project_id, start.brief_id)
         return _json(ConversationCreated(conversation_id=cid, mode=held.mode), 201)
@@ -255,7 +261,31 @@ def chat_routes(person_of: PersonOf, chat: Chat) -> list[Route]:
             headers=STREAM_HEADERS,
         )
 
+    async def project_conversation(request: Request) -> Response:
+        """The project's one conversation, made on the first read, so every brief of the project
+        opens the same chat without an id in the URL."""
+        who = person(request)
+        if isinstance(who, Response):
+            return who
+        tenant = chat.tenants.of(who.account)
+        raw = request.path_params["project_id"]
+        if not _is_project(tenant, raw):
+            return _error(404, f"no project {raw} in this account")
+        project = parse_project_id(raw)
+        # No await from the read to the create, so two reads on this loop make one conversation.
+        cid = store.of_project(tenant.conversations, project)
+        if cid is None:
+            cid = conversation_id(f"c_{secrets.token_hex(8)}")
+            store.create(tenant, cid, project)
+        return _json(ProjectConversation(conversation_id=cid), 200)
+
     return [
+        Route(
+            "/v1/projects/{project_id}/conversation",
+            project_conversation,
+            methods=["GET"],
+            name="project_conversation",
+        ),
         Route("/v1/conversations", create, methods=["POST"], name="create_conversation"),
         Route(
             "/v1/conversations/{conversation_id}/messages", send, methods=["POST"], name="message"
@@ -290,6 +320,13 @@ def _holds(tenant: Tenant, project_id: str | None, brief_id: str) -> bool:
     try:
         return briefs.read_brief(tenant.roots, brief_id).project == project_id
     except BriefRefused:
+        return False
+
+
+def _is_project(tenant: Tenant, raw: str) -> bool:
+    try:
+        return bool(project_briefs(tenant.roots, parse_project_id(raw)))
+    except UnknownProject:
         return False
 
 

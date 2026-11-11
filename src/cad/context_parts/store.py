@@ -164,6 +164,14 @@ def confirmed_parts(projects: Path, project: ProjectId) -> tuple[ConfirmedPart, 
     return tuple(confirmed.values())
 
 
+def fitted_by(projects: Path, project: ProjectId, brief_id: str) -> tuple[ConfirmedPart, ...]:
+    """The confirmed parts a brief's design must fit: those proposed for that brief, so a part
+    is never measured against the brief it was taken from."""
+    return tuple(
+        one for one in confirmed_parts(projects, project) if one.record.brief_id == brief_id
+    )
+
+
 def newer_revisions(projects: Path, project: ProjectId) -> dict[ContextPartId, NewerRevision]:
     """Each confirmed part whose slot now shows a newer revision than the one it came from."""
     tag = image.image_tag(image.BUILD)

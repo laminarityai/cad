@@ -68,22 +68,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/projects/{project_id}/waiting": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["waiting"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/knowledge": {
         parameters: {
             query?: never;
@@ -254,6 +238,38 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["create_conversation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{project_id}/conversation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["project_conversation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{project_id}/confirmation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["confirmation"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -500,8 +516,28 @@ export interface components {
             brief_id: string;
             project_id: string;
             text: string;
+            name: string | null;
             proposals: components["schemas"]["ProposalView"][];
             confirmed_proposal: number | null;
+        };
+        /** CardEditable */
+        CardEditable: {
+            row: string;
+            placeholder: string;
+        };
+        /** CardItem */
+        CardItem: {
+            kind: components["schemas"]["ItemKindName"];
+            brief_id: string;
+            title: string;
+            brief_text: string;
+            rows: components["schemas"]["CardRow"][];
+        };
+        /** CardRow */
+        CardRow: {
+            headline: string;
+            quote: string;
+            editable: components["schemas"]["CardEditable"] | null;
         };
         /** CheckResult */
         CheckResult: {
@@ -571,6 +607,31 @@ export interface components {
             comparator: components["schemas"]["Comparator"];
             limit: components["schemas"]["Measured"];
             verdict: components["schemas"]["Verdict"];
+        };
+        /**
+         * ConfirmationCard
+         * @description `snapshot` goes back with the answer. It is null, and `items` empty, when nothing waits.
+         */
+        ConfirmationCard: {
+            snapshot: string | null;
+            items: components["schemas"]["CardItem"][];
+        };
+        /**
+         * ContextPartView
+         * @description A part a brief's design must fit with. A fitting variant is built in this part's frame,
+         *     so `variant_id`'s mesh draws with it as it is.
+         */
+        ContextPartView: {
+            part_id: string;
+            name: string;
+            brief_id: string;
+            variant_id: string;
+            outcome: components["schemas"]["Outcome"];
+            size_mm: [
+                number,
+                number,
+                number
+            ];
         };
         /** ConversationCreated */
         ConversationCreated: {
@@ -839,6 +900,7 @@ export interface components {
             revisions: components["schemas"]["RevisionView"][];
             material: components["schemas"]["MaterialUse"] | null;
             option: components["schemas"]["Option"] | null;
+            material_name: string | null;
             card_etag: string | null;
         };
         /** MessageSent */
@@ -937,6 +999,8 @@ export interface components {
             label: components["schemas"]["Label"];
             differs: components["schemas"]["Differs"];
         };
+        /** @enum {string} */
+        Outcome: "waiting" | "confirmed" | "declined";
         PartId: string;
         /** PartWire */
         PartWire: {
@@ -986,6 +1050,10 @@ export interface components {
             run: components["schemas"]["AutoRun"];
             conversation: components["schemas"]["ConversationState"];
         };
+        /** ProjectConversation */
+        ProjectConversation: {
+            conversation_id: string;
+        };
         /** ProjectList */
         ProjectList: {
             projects: components["schemas"]["ProjectSummary"][];
@@ -1001,6 +1069,7 @@ export interface components {
         ProjectView: {
             project_id: string;
             briefs: components["schemas"]["BriefSummary"][];
+            context_parts: components["schemas"]["ContextPartView"][];
         };
         /** ProposalView */
         ProposalView: {
@@ -1449,24 +1518,6 @@ export interface components {
             statement: string;
             check_id: string;
         };
-        /** WaitingItem */
-        WaitingItem: {
-            kind: components["schemas"]["ItemKindName"];
-            brief_id: string;
-            brief_text: string;
-            title: string;
-            rows: components["schemas"]["WaitingRow"][];
-        };
-        /** WaitingRow */
-        WaitingRow: {
-            headline: string;
-            quote: string;
-        };
-        /** WaitingView */
-        WaitingView: {
-            project_id: string;
-            items: components["schemas"]["WaitingItem"][];
-        };
         /** Read */
         cad__auto__model__Read: {
             material_key: string;
@@ -1568,11 +1619,16 @@ export type Bounds = components['schemas']['Bounds'];
 export type BriefSpan = components['schemas']['BriefSpan'];
 export type BriefSummary = components['schemas']['BriefSummary'];
 export type BriefView = components['schemas']['BriefView'];
+export type CardEditable = components['schemas']['CardEditable'];
+export type CardItem = components['schemas']['CardItem'];
+export type CardRow = components['schemas']['CardRow'];
 export type CheckResult = components['schemas']['CheckResult'];
 export type Checked = components['schemas']['Checked'];
 export type ClosedSolid = components['schemas']['ClosedSolid'];
 export type Comparator = components['schemas']['Comparator'];
 export type Comparison = components['schemas']['Comparison'];
+export type ConfirmationCard = components['schemas']['ConfirmationCard'];
+export type ContextPartView = components['schemas']['ContextPartView'];
 export type ConversationCreated = components['schemas']['ConversationCreated'];
 export type ConversationState = components['schemas']['ConversationState'];
 export type ConversationView = components['schemas']['ConversationView'];
@@ -1621,10 +1677,12 @@ export type NeedsPerson = components['schemas']['NeedsPerson'];
 export type NoBrief = components['schemas']['NoBrief'];
 export type OnHoles = components['schemas']['OnHoles'];
 export type Option = components['schemas']['Option'];
+export type Outcome = components['schemas']['Outcome'];
 export type PartId = components['schemas']['PartId'];
 export type PartWire = components['schemas']['PartWire'];
 export type PendingCheck = components['schemas']['PendingCheck'];
 export type PersonStop = components['schemas']['PersonStop'];
+export type ProjectConversation = components['schemas']['ProjectConversation'];
 export type ProjectList = components['schemas']['ProjectList'];
 export type ProjectSummary = components['schemas']['ProjectSummary'];
 export type ProjectView = components['schemas']['ProjectView'];
@@ -1674,9 +1732,6 @@ export type VariantSetView = components['schemas']['VariantSetView'];
 export type VariantView = components['schemas']['VariantView'];
 export type Verdict = components['schemas']['Verdict'];
 export type Waiting = components['schemas']['Waiting'];
-export type WaitingItem = components['schemas']['WaitingItem'];
-export type WaitingRow = components['schemas']['WaitingRow'];
-export type WaitingView = components['schemas']['WaitingView'];
 export type CadAutoModelRead = components['schemas']['cad__auto__model__Read'];
 export type CadChecksResultRead = components['schemas']['cad__checks__result__Read'];
 export type ResponseRefused = components['responses']['Refused'];
@@ -1786,33 +1841,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BriefView"];
-                };
-            };
-            400: components["responses"]["Refused"];
-            401: components["responses"]["SignedOut"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["Malformed"];
-            503: components["responses"]["Unavailable"];
-        };
-    };
-    waiting: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                project_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description the result */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WaitingView"];
                 };
             };
             400: components["responses"]["Refused"];
@@ -2141,6 +2169,54 @@ export interface operations {
             404: components["responses"]["NotFound"];
             415: components["responses"]["NotJson"];
             422: components["responses"]["Malformed"];
+        };
+    };
+    project_conversation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description the result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectConversation"];
+                };
+            };
+            401: components["responses"]["SignedOut"];
+            404: components["responses"]["NotFound"];
+        };
+    };
+    confirmation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description the result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConfirmationCard"];
+                };
+            };
+            401: components["responses"]["SignedOut"];
+            404: components["responses"]["NotFound"];
         };
     };
     message: {

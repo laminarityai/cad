@@ -8,8 +8,9 @@ from cad.auto.gate import gate, stops_at_the_limit
 from cad.briefs import store as briefs
 from cad.briefs.store import ConfirmedSet
 from cad.checks import jobs
+from cad.confirmations.requirements import plain_names
 from cad.context_parts.ids import ContextPartId
-from cad.context_parts.store import confirmed_parts, part_brep
+from cad.context_parts.store import fitted_by, part_brep
 from cad.operations.guidance import NOT_VERIFIED, RULE
 from cad.operations.model import BOTH, Audience, Input, Tenant, operation
 from cad.operations.research import brief_table, with_research
@@ -95,7 +96,7 @@ SCORE_VARIANT = (
     "Scoring the same variant and key again gives the same scorecard while the materials table, "
     "the sandbox image and the confirmed requirements are unchanged. Scoring a rebuilt "
     "variant by its new id gives the same scorecard with rebuilt_from empty. "
-    "In Test mode, score only the variant the user picked. "
+    "When the user asks about one variant they picked, score only that variant. "
     "Under an Auto run, which the conversation holds, pass the run's brief_id: once the run has "
     "stopped, the scorecard is refused before any check runs, and a check the account's usage "
     "limit refuses stops the run. " + OWN_MEASUREMENTS + RULE + " " + NOT_VERIFIED
@@ -142,7 +143,7 @@ def _context(roots: Roots, brief_id: str) -> dict[ContextPartId, jobs.PartBrep]:
     project = briefs.read_brief(roots, brief_id).project
     return {
         part.record.id: jobs.PartBrep(part.record.brep_sha256, part_brep(roots.projects, part))
-        for part in confirmed_parts(roots.projects, project)
+        for part in fitted_by(roots.projects, project, brief_id)
     }
 
 
@@ -168,7 +169,7 @@ def judged(
         assess = (
             requirements.awaiting(brief_id)
             if confirmed is None
-            else requirements.against(confirmed)
+            else requirements.against(confirmed, plain_names(tenant.roots, brief_id))
         )
         demand = requirements.demand(confirmed, _context(tenant.roots, brief_id))
     table = brief_table(tenant.roots, brief_id)
