@@ -3,6 +3,10 @@ import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useServices } from "@/app/context";
 import { Gate } from "@/components/Gate";
 import { cn } from "@/lib/utils";
+import { ModePicker } from "@/mode/ModePicker";
+import { RunStatus } from "@/mode/RunStatus";
+import { AUTO_TOOLS } from "@/mode/run";
+import { useAuto } from "@/mode/useAuto";
 import { useResource } from "@/state/resource";
 import { Checks } from "./bits";
 import { sourcesOf, useCards, type CardKey } from "./cards";
@@ -91,10 +95,13 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
   const [pane, setPane] = useState<Pane>("design");
   const [view, dispatch] = useReducer(viewReducer, viewStart);
   const [answered, setAnswered] = useState<string | null>(null);
-  const [placeholder, setPlaceholder] = useState("Ask for a change, a new part, anything");
+  const [forNewPart, setForNewPart] = useState(false);
+  const auto = useAuto(model.conversationId);
   const chat = useProjectChat(model.conversationId, (change) => {
-    if (change.kind === "turn_ended" || CHANGES_PAGE.has(change.name)) reload();
+    if (change.kind === "turn_ended" || change.kind === "stop_report" || AUTO_TOOLS.has(change.name)) auto.reload();
+    if (change.kind === "turn_ended" || (change.kind === "tool" && CHANGES_PAGE.has(change.name))) reload();
   });
+  const placeholder = forNewPart ? "Describe the new part" : auto.mode === "plan" ? "Describe what you need" : "Ask for a change, such as: make the wall 4 mm";
   const withSets = model.briefs.filter((one) => one.slots.length > 0);
   const brief = model.briefs.find((one) => one.id === view.briefId) ?? withSets[withSets.length - 1] ?? model.briefs[0];
   const keys: CardKey[] = model.briefs.flatMap((one) =>
@@ -110,7 +117,7 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
   const sources = sourcesOf(cards);
   const waiting = model.confirmation !== null && model.confirmation.snapshot !== answered;
   const onNew = () => {
-    setPlaceholder("Describe the new part");
+    setForNewPart(true);
     setPane("chat");
     setTimeout(() => {
       document.querySelector<HTMLTextAreaElement>("textarea[aria-label=Message]")?.focus();
@@ -139,9 +146,12 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
       onSend={async (text) => {
         await chatApi.send(model.conversationId, text);
       }}
+      tools={<ModePicker mode={auto.mode} onPick={(mode) => void auto.pick(mode)} />}
+      onCycle={() => void auto.cycle()}
     />
   );
-  const chatPane = <ChatPane lines={chat.lines} running={chat.turn === "running"} card={card} composer={composer} />;
+  const status = <RunStatus mode={auto.mode} run={auto.run} problem={auto.problem} onStop={() => void auto.stop()} />;
+  const chatPane = <ChatPane lines={chat.lines} running={chat.turn === "running"} card={card} composer={composer} status={status} />;
   const center = <Center brief={brief} view={view} cards={cards} dispatch={dispatch} />;
 
   const explorer = (

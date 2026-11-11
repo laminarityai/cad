@@ -4,6 +4,7 @@ import { useServices } from "@/app/context";
 import { Refused } from "@/api/client";
 import { chatReducer, chatStart, type Line } from "@/chat/state";
 import { cn } from "@/lib/utils";
+import { isStopKind, reasonText } from "@/mode/run";
 import { Markdown } from "./Markdown";
 
 export const DOING: Record<string, string> = {
@@ -20,9 +21,9 @@ export const DOING: Record<string, string> = {
 
 const WORKED = "worked";
 
-export const CHANGES_PAGE: ReadonlySet<string> = new Set(["build_variant", "score_variant", "propose_requirements", "propose_context_part", "create_brief", "ask_to_confirm"]);
+export const CHANGES_PAGE: ReadonlySet<string> = new Set(["build_variant", "auto_revise", "score_variant", "propose_requirements", "propose_context_part", "create_brief", "ask_to_confirm"]);
 
-export type Change = { kind: "tool"; name: string } | { kind: "turn_ended" };
+export type Change = { kind: "tool"; name: string } | { kind: "turn_ended" } | { kind: "stop_report" };
 
 export function useProjectChat(conversationId: string | null, onChange?: (change: Change) => void) {
   const { chat } = useServices();
@@ -44,6 +45,7 @@ export function useProjectChat(conversationId: string | null, onChange?: (change
             kind: "tool",
             name: names.get(event.call_id) ?? "",
           });
+        if (event.kind === "stop_report") heard.current?.({ kind: "stop_report" });
         if (event.kind === "turn_ended") heard.current?.({ kind: "turn_ended" });
       },
       onLink: (link) => {
@@ -142,6 +144,7 @@ function Said({ line }: { line: Line }) {
     case "stop_report":
       return (
         <div data-said="stop_report" className="rounded-xl border border-rule px-3.5 py-2 text-[15px]">
+          <p className="text-[13px] text-ink-3">Auto stopped · {isStopKind(line.reason) ? reasonText(line.reason) : line.reason}</p>
           <Markdown text={line.report} />
         </div>
       );
@@ -154,8 +157,8 @@ function Said({ line }: { line: Line }) {
 
 const BUSY = "The agent is still answering. Send this again when it is done.";
 
-export function Composer(props: { placeholder: string; onSend: (text: string) => Promise<void>; big?: boolean }) {
-  const { placeholder, onSend, big } = props;
+export function Composer(props: { placeholder: string; onSend: (text: string) => Promise<void>; big?: boolean; tools?: ReactNode; onCycle?: () => void }) {
+  const { placeholder, onSend, big, tools, onCycle } = props;
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -176,6 +179,9 @@ export function Composer(props: { placeholder: string; onSend: (text: string) =>
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
       void submit();
+    } else if (event.key === "Tab" && event.shiftKey && onCycle) {
+      event.preventDefault();
+      onCycle();
     }
   };
   return (
@@ -203,9 +209,12 @@ export function Composer(props: { placeholder: string; onSend: (text: string) =>
         </p>
       ) : null}
       <div className="flex items-center justify-between">
-        <button type="button" disabled title="Coming soon" aria-label="Attach files" className="rounded-lg p-1.5 text-ink-3 disabled:cursor-not-allowed">
-          <Paperclip className="size-[18px]" />
-        </button>
+        <div className="flex items-center gap-1.5">
+          <button type="button" disabled title="Coming soon" aria-label="Attach files" className="rounded-lg p-1.5 text-ink-3 disabled:cursor-not-allowed">
+            <Paperclip className="size-[18px]" />
+          </button>
+          {tools}
+        </div>
         <button
           type="submit"
           disabled={busy || text.trim() === ""}
@@ -219,8 +228,8 @@ export function Composer(props: { placeholder: string; onSend: (text: string) =>
   );
 }
 
-export function ChatPane(props: { lines: readonly Line[]; running: boolean; card: ReactNode; composer: ReactNode }) {
-  const { lines, running, card, composer } = props;
+export function ChatPane(props: { lines: readonly Line[]; running: boolean; card: ReactNode; composer: ReactNode; status?: ReactNode }) {
+  const { lines, running, card, composer, status } = props;
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
     end.current?.scrollIntoView({ block: "end" });
@@ -233,7 +242,10 @@ export function ChatPane(props: { lines: readonly Line[]; running: boolean; card
         {card}
         <div ref={end} />
       </div>
-      <div className="border-t border-rule-2 p-3">{composer}</div>
+      <div className="space-y-2 border-t border-rule-2 p-3">
+        {status}
+        {composer}
+      </div>
     </section>
   );
 }
