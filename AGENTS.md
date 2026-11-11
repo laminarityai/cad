@@ -16,9 +16,30 @@
 
 - Python, fully typed. Strict type checking, the linter and the formatter run in pre-commit and in CI.
 - One directory per feature. There is one obvious way to do each common thing; if you find two, delete one.
-- Layers. The packages under `src/cad` sit in this order, top to bottom: `server` `verify` > `chat` > `operations` > `confirmations` `selections` `agent_measurements` > `auto` `accounts` > `scorecard` > `context_parts` > `variant_sets` > `research` > `briefs` > `projects` > `conversations` > `loads` `geometry` > `checks` > `variants` > `records` > `sandbox` > `tables` `knowledge` `web` > `errors`. A module imports only from layers below its own, and packages that share a layer do not import each other. The `layers` step checks this against the contract in `pyproject.toml`, and a new package fails it until you give the package a place. The contract's `ignore_imports` list counts the upward imports still left. It only shrinks: fix a new upward import instead of adding a line.
+- Layers. The packages under `src/cad` sit in this order, top to bottom: `server` `verify` > `chat` > `operations` > `confirmations` `selections` `agent_measurements` > `auto` `accounts` > `scorecard` > `context_parts` > `variant_sets` > `research` > `briefs` > `projects` > `conversations` > `loads` `geometry` > `checks` > `variants` > `records` > `sandbox` > `tables` `knowledge` `web` > `errors` `data_root` `frozen`. A module imports only from layers below its own, and packages that share a layer do not import each other. The `layers` step checks this against the contract in `pyproject.toml`, and a new package fails it until you give the package a place. The contract's `ignore_imports` list counts the upward imports still left. It only shrinks: fix a new upward import instead of adding a line.
 - Every `quote` in `tables/materials.yaml` is word for word in its cited datasheet. The `materials table` step checks it offline against `tables/datasheet_text/`. After you add or change a row, run `uv run python tools/regen_datasheet_text.py` and commit what it writes.
 - A file-size lint rule fails the build when a file grows too large. Split the file instead of raising the limit.
+
+## Adding things
+
+Each row is the one way. Start in the named file and copy the entry beside yours. The step or test in the last column fails when the addition is done another way or left half done.
+
+| To add | Start in | Checked by |
+| --- | --- | --- |
+| An MCP tool, or a `/v1` route for the page | An `operation(...)` in the feature's module under `src/cad/operations/`. `registry.py` collects them, and its `ROUTES` gives a person-facing one its path. | `api types`, `tests/operations/test_openapi.py` |
+| A route that is not an operation | `HAND_DESCRIBED` in `src/cad/operations/outside.py` | `tests/operations/test_openapi.py` |
+| A check | A module in `src/cad/checks/container/` with `ID`, `SOURCES`, and `run`, listed in `suite.py` `CHECKS`. Standard library only: it runs inside the sandbox. | `tests/checks/test_versions.py`, `tests/checks/test_logic.py` |
+| A requirement kind | A model in `src/cad/briefs/model.py`, added to `Target` | `basedpyright`, at every `assert_never` |
+| A material field | `FIELDS` in `src/cad/tables/fields.py` | `tests/tables/test_fields.py`, `materials table` |
+| An error a tool or a route answers with | Derive from `Refused`, `NotFound`, or `Unavailable` in `src/cad/errors.py` | `tests/operations/test_error_mapping.py` |
+| A record model | Derive from `Frozen` in `src/cad/frozen.py` | `tests/test_frozen.py` |
+| A quantity field | `Length`, `Force`, `Mass`, or `AnyQuantity` from `src/cad/checks/units.py` | |
+| A stored file | `replace` in `src/cad/records/files.py`. A file the agent must not forge goes through `records/signed.py`. | |
+| Text the agent is told | A named constant in `src/cad/operations/guidance.py` | |
+| A package under `src/cad` | A place in the `layers` contract in `pyproject.toml` | `layers` |
+| A server read in the web app | `useResource` in `web/src/state/resource.ts`, calling `request` in `web/src/api/client.ts` | `web lint` |
+| A web feature | A folder under `web/src/features/` | |
+| A test | `tests/<feature>/`, mirroring `src/cad/<feature>/`. Shared helpers go in `tests/support/`, and shared fixtures in `tests/conftest.py`. | `tests/test_support_imports.py` |
 
 ## Verify your work
 

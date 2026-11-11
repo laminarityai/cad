@@ -1,6 +1,9 @@
 import "@testing-library/jest-dom/vitest";
-import { cleanup } from "@testing-library/react";
+import { cleanup, configure } from "@testing-library/react";
 import { afterEach, vi } from "vitest";
+
+// A slow CI runner needs more than the default 1 s for the first render of a file.
+configure({ asyncUtilTimeout: 5000 });
 
 afterEach(() => {
   cleanup();
