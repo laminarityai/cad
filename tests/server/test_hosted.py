@@ -1,3 +1,6 @@
+import os
+import subprocess
+import sys
 from collections.abc import AsyncGenerator, AsyncIterator
 from contextlib import asynccontextmanager
 from dataclasses import replace
@@ -19,6 +22,7 @@ from cad.context_parts.ingest import ingest
 from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.outcome import Build, Built
 from cad.server.hosted import build_app, choose_issuer
+from cad.server.probe import free_port, wait_until_up
 from cad.variants import entry
 
 pytestmark = pytest.mark.anyio
@@ -139,3 +143,27 @@ def test_the_local_issuer_serves_only_on_a_loopback_address(tmp_path: Path) -> N
     assert choose_issuer(tmp_path, "127.0.0.1", 8765, {}).resource == MCP
     with pytest.raises(SystemExit, match="CLERK_PUBLISHABLE_KEY"):
         choose_issuer(tmp_path, "0.0.0.0", 8765, {})
+
+
+@pytest.mark.usefixtures("alone_removing_orphans")
+def test_the_link_cad_http_prints_signs_the_person_in_to_their_workspace(tmp_path: Path) -> None:
+    port = free_port()
+    command = (sys.executable, "-m", "cad.server.hosted", "--root", str(tmp_path))
+    server = subprocess.Popen(
+        (*command, "--port", str(port), "--account", "user_alice"),
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+        env={**os.environ, "ANTHROPIC_API_KEY": "unused"},
+    )
+    try:
+        assert server.stdout is not None
+        link = server.stdout.readline().decode().removeprefix("cad-http: sign in at ").strip()
+        wait_until_up(f"http://127.0.0.1:{port}", server)
+        with httpx2.Client() as client:
+            landed = client.get(link)
+            projects = client.get(f"http://127.0.0.1:{port}/v1/projects")
+    finally:
+        server.terminate()
+        server.wait(10)
+    assert (landed.status_code, landed.headers["location"]) == (303, "/app/")
+    assert projects.status_code == 200, projects.text

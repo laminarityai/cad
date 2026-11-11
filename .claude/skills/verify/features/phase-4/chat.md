@@ -24,7 +24,7 @@ An answer that confirms a requirements item moves the conversation from Plan to 
 
 ## The model
 
-`CAD_CHAT_MODEL` picks it. `scripted:<path>` replays a JSON script (see `src/cad/chat/scripted.py`), and any other value is an Anthropic model id. Unset, it is `claude-sonnet-5-5`, and the server needs `ANTHROPIC_API_KEY` only when a turn runs. Live lanes set `CAD_CHAT_MODEL=claude-haiku-4-5-20251001`, except the exit 1 lane, which sets `claude-sonnet-5-5`. Haiku rebuilds the slot but skips `score_variant`, so its card stays pending. Load the key with `set -a; . ~/.config/cad/anthropic.env; set +a`, and never print it.
+`CAD_CHAT_MODEL` picks it. `scripted:<path>` replays a JSON script (see `src/cad/chat/scripted.py`), and any other value is an Anthropic model id. Unset, it is `claude-sonnet-5-5`, and the server needs `ANTHROPIC_API_KEY` only when a turn runs. Live lanes set `CAD_CHAT_MODEL=claude-haiku-4-5-20251001`, except the exit 1 lane, which sets `claude-sonnet-5-5`. Haiku rebuilds the slot but skips `score_variant`, so its card stays pending. `cad-http` reads the key from `~/.config/cad/anthropic.env` (one line, `ANTHROPIC_API_KEY=...`) when it starts and the variable is not already set; a key already in the environment wins. With neither, it prints one line on stdout that names the file. Never print the key.
 
 ## How to get to it
 

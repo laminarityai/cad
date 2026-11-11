@@ -31,6 +31,9 @@ from cad.records.roots import DATA_ROOT
 ISSUER_URL: Final = "http://127.0.0.1/cad-local-issuer"
 KEY_FILE: Final = "local-issuer.pem"
 TTL_SECONDS: Final = 3600
+# Nothing refreshes a local person token, and the person signs in only by the link cad-http
+# prints, so a session lasts the month instead of dying under an open workspace tab.
+PERSON_TTL_SECONDS: Final = 30 * 24 * 3600
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,7 +90,9 @@ class LocalIssuer:
             claims["conversation"] = conversation
         return self._sign(claims, "at+jwt", ttl)
 
-    def mint_person(self, account: str, ttl: int = TTL_SECONDS, session: str | None = None) -> str:
+    def mint_person(
+        self, account: str, ttl: int = PERSON_TTL_SECONDS, session: str | None = None
+    ) -> str:
         """Clerk refreshes a session's token under the same `sid`; pass `session` to do the same."""
         claims = {
             "sub": account,

@@ -37,12 +37,20 @@ from starlette.routing import Route
 from cad.accounts import lease
 from cad.accounts.clerk import PUBLIC_URL, PUBLISHABLE_KEY, clerk_issuer
 from cad.accounts.local import LocalIssuer
-from cad.accounts.principal import AgentToken
+from cad.accounts.principal import AccountId, AgentToken, account_id
 from cad.accounts.tenants import ACCOUNTS, Tenants
 from cad.accounts.tokens import Issuer, Verifier
-from cad.chat.model import Model, from_environment
+from cad.chat.key_file import load_key
+from cad.chat.model import MODEL_VARIABLE, SCRIPTED_PREFIX, Model, from_environment
 from cad.chat.routes import Chat, chat_routes
-from cad.confirmations.waiting import Door, Opener, page_address, program_opener, sign_in_opener
+from cad.confirmations.waiting import (
+    Door,
+    Opener,
+    page_address,
+    program_opener,
+    sign_in_link,
+    sign_in_opener,
+)
 from cad.confirmations.web import ClerkSignIn, LocalSignIn, SignIn, confirm_routes
 from cad.context_parts.ingest import ingest as read_part
 from cad.context_parts.store import Ingest
@@ -61,6 +69,7 @@ from cad.web.static import DIST, web_routes
 DAILY_CAP_SECONDS: Final = 3600
 PORT: Final = 8765
 GRACEFUL_SHUTDOWN_SECONDS: Final = 3
+LOCAL_PERSON: Final = AccountId("me")
 
 
 class AgentAccess(AccessToken):
@@ -197,6 +206,7 @@ def serve(
     ingest: Ingest = read_part,
     environ: Mapping[str, str] = os.environ,
     hooked: bool = True,
+    person: AccountId = LOCAL_PERSON,
 ) -> None:
     issuer, local, sign_in = _trust(root, host, port, environ)
     if opener is not None and local is None:
@@ -214,6 +224,8 @@ def serve(
         container.remove_orphans()
     tenants = Tenants(root / ACCOUNTS, cap_seconds, door, ingest)
     logging.getLogger(__name__).info("serving %s, tokens from %s", issuer.resource, issuer.url)
+    if local is not None:
+        print(f"cad-http: sign in at {sign_in_link(local, person)}", flush=True)
     with held:
         uvicorn.run(
             build_app(issuer, tenants, sign_in, hooked=hooked),
@@ -241,14 +253,32 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="local issuer only: program the server runs with each sign-in link to the page",
     )
     parser.add_argument(
+        "--account",
+        type=account_id,
+        default=LOCAL_PERSON,
+        help=f"local issuer only: the account the printed sign-in link is for ({LOCAL_PERSON})",
+    )
+    parser.add_argument(
         "--poll-events",
         action="store_true",
         help="serve scorecard events from a 500 ms store read only, as if no job announced itself",
     )
     args = parser.parse_args(argv)
     logging.basicConfig(stream=sys.stderr, level=logging.INFO)
+    if not os.environ.get(MODEL_VARIABLE, "").startswith(SCRIPTED_PREFIX):
+        missing = load_key(os.environ)
+        if missing is not None:
+            print(missing, flush=True)
     opener = None if args.opener is None else program_opener(args.opener)
-    serve(args.root, args.host, args.port, args.cap_seconds, opener, hooked=not args.poll_events)
+    serve(
+        args.root,
+        args.host,
+        args.port,
+        args.cap_seconds,
+        opener,
+        hooked=not args.poll_events,
+        person=args.account,
+    )
     return 0
 
 

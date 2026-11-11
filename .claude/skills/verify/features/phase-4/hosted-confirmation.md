@@ -73,9 +73,9 @@ propose 150
 ## Gotchas
 
 - A snapshot is sealed to the session that opened the page. Every `cad-token person` call is a new session, so mint each token once and reuse it, or a valid POST answers 403.
-- The 401 body for a local server says to sign in with the link the server handed its opener, even on a `cad-http` that has no opener. Sign in with `/local/sign-in?token=<person JWT>&project=<project_id>` and a token from `cad-token person`.
+- A local `cad-http` prints `cad-http: sign in at <link>` on stdout when it starts, for the `--account` it was given (`me` by default). The link has no project and lands on `/app/`. The 401 body for a local server points at that link. To land on one project's page, sign in with `/local/sign-in?token=<person JWT>&project=<project_id>` and a token from `cad-token person`.
 - A GET answers 404 for another account's cookie, but a POST with it answers 403: the POST is refused by the snapshot, not by the route.
-- The person JWT in the sign-in link is good for about an hour and more than once. `spent_token` in `browser.jsonl` and `human.jsonl` is that JWT: grep every transcript for it.
+- The person JWT in the sign-in link is good for 30 days and more than once, and the cookie it sets lasts as long. `spent_token` in `browser.jsonl` and `human.jsonl` is that JWT: grep every transcript for it.
 - `cad-http` takes `--opener` only with the local issuer. With Clerk configured it exits, because Clerk signs people in.
 - A page's `Origin` must be the server's own origin, `http://127.0.0.1:<port>`, as `cad-token --url` and the sign-in link say it. A request through `localhost` is a different origin and answers 403.
 - Kill only the pid you started: `pgrep -fl "cad-http --root $ROOT"`. Never `pkill` by name.

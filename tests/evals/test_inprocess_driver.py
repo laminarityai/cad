@@ -1,4 +1,5 @@
 import json
+from functools import partial
 from pathlib import Path
 from typing import Any, Final
 
@@ -9,6 +10,7 @@ from brief_set import BriefInput, load_set
 from inprocess import SCRIPTED, MissingKey, require_key, run_brief
 
 from cad.auto.model import Bounds
+from cad.chat.key_file import load_key
 
 KEY: Final = "ANTHROPIC_API_KEY"
 HEAVY_CUBE: Final = (
@@ -103,6 +105,7 @@ def test_a_live_model_without_its_key_is_refused_before_any_server_starts(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.delenv(KEY, raising=False)
+    monkeypatch.setattr(run, "load_key", partial(load_key, path=tmp_path / "anthropic.env"))
     (tmp_path / "briefs").mkdir()
     code = run.main(
         [

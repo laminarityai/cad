@@ -41,6 +41,8 @@ from session import run_session
 from summary import markdown, summarize
 from tracefacts import trace_session
 
+from cad.chat.key_file import load_key
+
 MODEL: Final = "sonnet"
 JOBS: Final = 3
 TIMEOUT_S: Final = 1800.0
@@ -147,6 +149,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     inprocess = args.driver == "inprocess"
     args.model = args.model or (SCRIPTED if inprocess else MODEL)
     if inprocess:
+        if args.model != SCRIPTED:
+            load_key(os.environ)
         try:
             require_key(args.model, os.environ)
         except MissingKey as missing:
