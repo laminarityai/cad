@@ -8,8 +8,7 @@ import pytest
 from cad.confirmations import answers
 from cad.confirmations.answers import ItemAnswer, ItemRef, PageAnswer
 from cad.projects.model import ProjectBusy, ProjectId, TamperedProject
-from cad.records import signed
-from cad.variants import key
+from cad.records import key, signed
 
 PROJECT = ProjectId("p-0123456789abcdef")
 OTHER = ProjectId("p-fedcba9876543210")

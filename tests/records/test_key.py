@@ -3,10 +3,10 @@ from pathlib import Path
 
 import pytest
 
+from cad.records.key import key_path
 from cad.sandbox import stage
 from cad.sandbox.outcome import Build, Built, SandboxUnavailable
 from cad.variants import entry
-from cad.variants.key import key_path
 
 TAG = "cad-sandbox:test"
 CODE = "result = Box(1, 1, 1)\n"

@@ -5,8 +5,9 @@ from pathlib import Path
 
 import pytest
 
+from cad.records import key
 from cad.sandbox.outcome import Build, Built, NoResult, SandboxUnavailable
-from cad.variants import entry, key
+from cad.variants import entry
 from cad.variants.entry import (
     NotBuilt,
     OutdatedVariant,

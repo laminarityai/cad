@@ -4,8 +4,8 @@ from pathlib import Path
 from typing import Final
 
 from cad.checks.jobs import JobResult, JobSpec
+from cad.records import key
 from cad.sandbox.outcome import SandboxUnavailable
-from cad.variants import key
 
 JOBS: Final = "jobs"
 ATTEMPT_CAP: Final = 2

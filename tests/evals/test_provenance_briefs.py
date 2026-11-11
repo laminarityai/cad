@@ -22,9 +22,9 @@ from cad.briefs.store import ConfirmedSet
 from cad.checks.result import Verdict
 from cad.confirmations import answers
 from cad.projects.model import ProjectId, new_project_id
+from cad.records import key
 from cad.records.roots import Roots
 from cad.scorecard.model import AwaitingConfirmation, Scorecard
-from cad.variants import key
 
 LIGHT = ({"kind": "max_mass", "mass": {"magnitude": 150, "unit": "g"}}, "under 150 g")
 BOX = (

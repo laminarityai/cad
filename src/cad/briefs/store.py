@@ -32,9 +32,8 @@ from cad.briefs.model import (
 from cad.confirmations.answers import Edit, ItemRef, Ledger, read_ledger
 from cad.errors import NotFound, Refused
 from cad.projects.model import NewProjectId
-from cad.records import signed
+from cad.records import key, signed
 from cad.records.roots import Roots
-from cad.variants import key
 
 BRIEF: Final = "brief.signed"
 PROPOSALS: Final = "proposals"

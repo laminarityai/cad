@@ -8,11 +8,11 @@ from cad.briefs import store
 from cad.briefs.model import Requirement
 from cad.briefs.store import BriefRefused, BriefState, Status
 from cad.projects.model import ProjectRefused
+from cad.records import key
 from cad.records.roots import Roots
 from cad.records.signed import StoreUnusable
 from cad.scorecard.model import AgainstBrief, AwaitingConfirmation, NoBrief, Scorecard
 from cad.scorecard.requirements import NoDecidingResult, assess_requirements
-from cad.variants import key
 
 
 @dataclass(frozen=True, slots=True)

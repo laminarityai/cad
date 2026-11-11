@@ -18,12 +18,12 @@ from cad.context_parts.ingest import Facts, NotAPart
 from cad.context_parts.model import ContextPartRecord, FromVariant, NewerRevision, Outcome
 from cad.errors import Refused
 from cad.projects.model import ProjectBusy, ProjectId, TamperedProject
-from cad.records import signed
+from cad.records import key, signed
 from cad.records.roots import Roots, project_store
 from cad.sandbox import image
 from cad.variant_sets import store as sets
 from cad.variant_sets.model import Member, Revision
-from cad.variants import entry, key
+from cad.variants import entry
 
 CONTEXT_PARTS: Final = "context_parts"
 PARTS: Final = "parts"

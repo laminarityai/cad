@@ -13,8 +13,8 @@ from typing import Final, NewType, Self
 from pydantic import model_validator
 
 from cad.errors import NotFound, Refused
+from cad.records import key
 from cad.sandbox.outcome import Build, Built, SandboxUnavailable
-from cad.variants import key
 
 VARIANTS_ROOT: Final = Path.home() / ".cad" / "variants"
 CODE: Final = "code.py"

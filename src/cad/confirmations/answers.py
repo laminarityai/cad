@@ -12,9 +12,8 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 from cad.accounts.principal import AccountId
 from cad.briefs.model import MAX_NOTE_CHARS
 from cad.projects.model import ProjectBusy, ProjectId, TamperedProject
-from cad.records import signed
+from cad.records import key, signed
 from cad.records.roots import project_store
-from cad.variants import key
 
 type ItemKindName = Literal["requirements", "context_part"]
 MAX_EDIT_CHARS: Final = 200

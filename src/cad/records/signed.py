@@ -11,8 +11,8 @@ from pathlib import Path
 from typing import Final
 
 from cad.errors import Unavailable
+from cad.records import key
 from cad.sandbox.outcome import SandboxUnavailable
-from cad.variants import key
 
 MAX_RECORD_BYTES: Final = 1024 * 1024
 ATTEMPTS: Final = 8
