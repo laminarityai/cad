@@ -1,6 +1,6 @@
 # Phase 3 design: loads, physics and manufacturing checks
 
-Status: the operator approved this design on 2026-11-07. It is a sketch, and nothing in it is built yet. It was written against commit 1a3dee2. Terms follow GLOSSARY.md. Each phase 3 PR is one numbered unit of §4. §7 lists the questions that are still open.
+Status: the operator approved this design on 2026-11-07. Units 1 to 7, 10 and 11 of §4 are built, and units 8 and 9 are deferred. It was written against commit 1a3dee2. Terms follow GLOSSARY.md. Each phase 3 PR is one numbered unit of §4. §7 lists the questions that are still open.
 
 On 2026-11-08 the operator deferred printability indefinitely, and on 2026-11-09 slicing, print time and cost with it. The slice read its print orientation from printability, so the two go together. Phase 3 is FEA under stated loads and Test mode. Every mention below of printability, `slice`, a print process, print time or cost is a record of deferred work. It is not built, and no unit of §4 builds it.
 
@@ -534,11 +534,11 @@ Per-job limits come from `BUDGET`:
 
 ```
 src/cad/loads/model.py                     NEW  LoadCase, Support, Load, Direction (domain, pydantic)
-src/cad/loads/wire.py                      NEW  LoadCase -> LoadCaseWire (host side)
+src/cad/loads/wire.py                      NEVER WRITTEN  LoadCase.wire() in loads/model.py does it
 src/cad/briefs/model.py                    EDIT (after phase 2) 5 kinds, targets, deciding_check, limits, describe
 src/cad/tables/materials.py, validate.py   EDIT E, nu, filament_cost, slicer_filament
-src/cad/tables/processes.py                NEW  ProcessTable, exact-key get, validation
-tables/processes.yaml, tables/prusa/**     NEW
+src/cad/tables/processes.py                NEVER WRITTEN (printability, deferred)  ProcessTable, exact-key get, validation
+tables/processes.yaml, tables/prusa/**     NEVER WRITTEN (printability, deferred)
 src/cad/checks/container/inputs.py         NEW  Input, WIRE_UNITS, Inputs accessor (TAKES-guarded)
 src/cad/checks/container/wire.py           EDIT RequestWire v2, LoadCaseWire, SlicerProfilesWire
 src/cad/checks/container/check.py          EDIT Subject(engines, inputs), TAKES, BUDGET, required_pass()

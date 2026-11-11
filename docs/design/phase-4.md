@@ -1,6 +1,6 @@
 # Phase 4 design: the web app
 
-Status: proposed on 2026-11-08. Nothing in it is built. It was written against commit 2bc3648. Terms follow GLOSSARY.md. Each phase 4 PR is one numbered unit of §4. §7 lists the questions still open for the operator.
+Status: proposed on 2026-11-08. Units 0 to 9 of §4 are built. It was written against commit 2bc3648. Terms follow GLOSSARY.md. Each phase 4 PR is one numbered unit of §4. §7 lists the questions still open for the operator.
 
 The operator made these decisions on 2026-11-08, and this revision records them. The Auto mode ADR, ADR-0010, is approved. The warm per-account zygote is dropped as too costly for an MVP, so builds stay a fresh container per build. SPEC's phase 4 exit no longer has a time target. Accounts and usage limits move from phase 3 to phase 4. A passkey ADR was declined. Hosted confirmation follows the operator's 2026-11-07 direction in #47, recorded as an amendment to ADR-0004 that still needs approval (§4, unit 0).
 

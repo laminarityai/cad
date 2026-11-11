@@ -2,7 +2,7 @@
 
 The person chats with our own agent. The agent runs in the `cad-http` process and reaches the MCP tools through an in-memory `mcp.Client`, with an `AgentToken` built for each turn from the person's session. The token names the account and the conversation and never leaves the process, so the agent's tool list is the registry's agent list and nothing else. The person switches between Plan, Design and Auto mode with `PUT /v1/conversations/{id}/mode`. `set_mode` is person-only, so the agent cannot call it.
 
-Design: `docs/design/phase-4.md` §1a, §2.4 (our own chat agent needs no Clerk token) and §2.5 (modes are conversation state). Unit 8 of §4. The web page that renders the stream is a later unit. This file proves the server half.
+Design: `docs/design/phase-4.md` §1a, §2.4 (our own chat agent needs no Clerk token) and §2.5 (modes are conversation state). Unit 8 of §4. The project workspace in the web app renders the stream: see The web half below.
 
 ## Routes
 

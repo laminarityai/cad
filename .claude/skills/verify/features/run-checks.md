@@ -1,6 +1,6 @@
 # Run checks
 
-`uv run cad-sandbox run-checks <variant_id> <material_key>` runs four checks on a built variant in a second sandbox container and prints a `CheckRun` as JSON. The checks are `closed_solid`, `interference`, `mass` and `extents`. The container has the limits of a build and reads only the variant's BREP, on stdin. The MCP tool `score_variant` calls the same function and stores a scorecard (see [Score variant](./score-variant.md)). A live lane for the checks alone drives this command after `cad-call build_variant`.
+`uv run cad-sandbox run-checks <variant_id> <material_key>` runs four checks on a built variant in a second sandbox container and prints a `CheckRun` as JSON. The checks are `closed_solid`, `interference`, `mass` and `extents`, the quick checks. The suite's other two, `fea` and `fit`, run only through `score_variant`, as background jobs, when a confirmed requirement or context part needs them. The container has the limits of a build and reads only the variant's BREP, on stdin. The MCP tool `score_variant` calls the same function and stores a scorecard (see [Score variant](./score-variant.md)). A live lane for the checks alone drives this command after `cad-call build_variant`.
 
 ## Sub-features
 
