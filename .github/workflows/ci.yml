@@ -69,13 +69,9 @@ jobs:
         run: >-
           mkdir -p ~/.cache/cad-images && docker save --output ~/.cache/cad-images/images.tar
           $(docker images --format '{{.Repository}}:{{.Tag}}' 'cad-*')
-      # tests/fea keeps solver reports by a digest of every input, the image id among them. The
-      # image id holds only while the cached images are reused, so it is part of this key.
+      # tests/fea keeps solver reports under a digest of their inputs, the image ids among them.
       - id: fea
-        run: >-
-          echo "key=fea-$(docker images --quiet --no-trunc 'cad-*' | sort | sha256sum | cut -c1-16)-${{
-          hashFiles('tests/fea/**', 'src/cad/checks/container/**', 'src/cad/sandbox/container.py') }}"
-          >> "$GITHUB_OUTPUT"
+        run: echo "key=fea-$(uv run --locked python tests/fea/cache_key.py)" >> "$GITHUB_OUTPUT"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/cad/fea

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 import pytest
 import trace_store
 
+from cad.agent_measurements import run
 from cad.scorecard.model import AGENT_MEASUREMENT
 
 if TYPE_CHECKING:
@@ -93,7 +94,6 @@ async def test_an_own_measurement_is_information_beside_identical_team_results(
         ("report('x', float('nan'), 'mm')", "not a finite number"),
         ("report('x', 1.0, 'inch')", "has unit 'inch'"),
         ("report('Bad Name', 1.0, 'mm')", "does not match"),
-        ("while True:\n    pass", "timed out after 30 s"),
         ("report('x', 1.0, 'mm'); report('x', 2.0, 'mm')", "reported twice"),
         ("report('a', 1.0, 'mm'); print('x' * 9000); report('b', 1.0, 'mm')", "last 8 KiB"),
     ],
@@ -101,6 +101,17 @@ async def test_an_own_measurement_is_information_beside_identical_team_results(
 async def test_a_broken_measurement_fails_with_its_reason_and_no_value(
     s: Session, person: Person, code: str, reason: str
 ) -> None:
+    assert reason in await failed_measurement(s, person, code)
+
+
+async def test_a_measurement_that_never_ends_is_stopped_at_the_wall_limit(
+    s: Session, person: Person, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(run, "WALL_SECONDS", 5)
+    assert "timed out after 5 s" in await failed_measurement(s, person, "while True:\n    pass")
+
+
+async def failed_measurement(s: Session, person: Person, code: str) -> str:
     brief_id, r2, variant_id = await confirmed(s, person)
     card = await s.call(
         "score_variant",
@@ -111,7 +122,7 @@ async def test_a_broken_measurement_fails_with_its_reason_and_no_value(
     )
     [row] = card["not_verified"]
     assert row["values"] == []
-    assert reason in row["failed"]
+    return str(row["failed"])
 
 
 async def test_a_measurement_of_a_checked_requirement_is_refused(
