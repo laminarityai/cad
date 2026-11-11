@@ -7,10 +7,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Final, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
+from pydantic import Field, ValidationError, model_validator
 
 from cad.accounts.principal import AccountId
 from cad.briefs.model import MAX_NOTE_CHARS
+from cad.frozen import Frozen
 from cad.projects.model import ProjectBusy, ProjectId, TamperedProject
 from cad.records import files, key, signed
 from cad.records.roots import project_store
@@ -21,28 +22,24 @@ ANSWERS: Final = "answers"
 LOG = logging.getLogger(__name__)
 
 
-class _Frozen(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-
-class ItemRef(_Frozen):
+class ItemRef(Frozen):
     kind: ItemKindName
     slot: str
     sha256: str
 
 
-class Edit(_Frozen):
+class Edit(Frozen):
     row: str
     text: Annotated[str, Field(max_length=MAX_EDIT_CHARS)]
 
 
-class ItemAnswer(_Frozen):
+class ItemAnswer(Frozen):
     item: ItemRef
     verdict: Literal["confirmed", "declined"]
     edits: tuple[Edit, ...] = ()
 
 
-class PageAnswer(_Frozen):
+class PageAnswer(Frozen):
     project: str
     answers: Annotated[tuple[ItemAnswer, ...], Field(min_length=1)]
     note: Annotated[str, Field(max_length=MAX_NOTE_CHARS)] = ""

@@ -3,12 +3,13 @@
 import hashlib
 from typing import Annotated, Final, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, model_validator
+from pydantic import Field, TypeAdapter, model_validator
 
 from cad.briefs.model import MadeOf, Requirement
 from cad.briefs.store import ConfirmedSet
 from cad.briefs.words import describe
 from cad.errors import Refused
+from cad.frozen import Frozen
 from cad.research.requests import ResearchRequest
 from cad.scorecard.model import Scorecard
 from cad.tables.materials import PROJECT_PREFIX, MaterialsTable
@@ -24,11 +25,7 @@ class MaterialPinned(Refused):
     pass
 
 
-class _Frozen(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-
-class SetByRequirement(_Frozen):
+class SetByRequirement(Frozen):
     """The person confirmed a made_of requirement, and the card used its key."""
 
     kind: Literal["requirement"] = "requirement"
@@ -36,7 +33,7 @@ class SetByRequirement(_Frozen):
     statement: str
 
 
-class SetByAgent(_Frozen):
+class SetByAgent(Frozen):
     """The agent chose the material. `reason` is the one line it recorded with its choice, and is
     missing when the agent named a key that no slot of the variant set records."""
 
@@ -48,7 +45,7 @@ class SetByAgent(_Frozen):
 type SetBy = Annotated[SetByRequirement | SetByAgent, Field(discriminator="kind")]
 
 
-class MaterialUse(_Frozen):
+class MaterialUse(Frozen):
     key: str
     set_by: SetBy
 

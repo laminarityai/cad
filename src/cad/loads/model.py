@@ -7,8 +7,6 @@ from typing import Annotated, Any, Final, Literal, NewType, assert_never
 
 import pint
 from pydantic import (
-    BaseModel,
-    ConfigDict,
     Field,
     ValidatorFunctionWrapHandler,
     WithJsonSchema,
@@ -22,6 +20,7 @@ from cad.checks.container.wire import (
     SupportWire,
 )
 from cad.checks.result import Measured
+from cad.frozen import FrozenArbitrary
 from cad.tables.materials import magnitude
 
 LoadCaseId = NewType("LoadCaseId", str)
@@ -33,10 +32,6 @@ QUANTITY_SCHEMA: Final[dict[str, Any]] = {
     "required": ["magnitude", "unit"],
     "additionalProperties": False,
 }
-
-
-class _Frozen(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid", arbitrary_types_allowed=True)
 
 
 def positive(dimension: str) -> Callable[[object, ValidatorFunctionWrapHandler], pint.Quantity]:
@@ -64,7 +59,7 @@ type Force = Annotated[
 type HoleCount = Annotated[int, Field(ge=1, le=MAX_HOLES)]
 
 
-class Holes(_Frozen):
+class Holes(FrozenArbitrary):
     """Bolted or screwed through exactly `count` holes, of this bore diameter when given."""
 
     kind: Literal["holes"] = "holes"
@@ -72,13 +67,13 @@ class Holes(_Frozen):
     diameter: Length | None = None
 
 
-class LargestFlat(_Frozen):
+class LargestFlat(FrozenArbitrary):
     """Glued down or sitting on its largest flat face."""
 
     kind: Literal["largest_flat"] = "largest_flat"
 
 
-class FlatEnd(_Frozen):
+class FlatEnd(FrozenArbitrary):
     """Fixed at the flat face across one end of its long axis."""
 
     kind: Literal["flat_end"] = "flat_end"
@@ -94,26 +89,26 @@ class Axis(StrEnum):
     """The common axis direction of the support holes, so only with a `Holes` support."""
 
 
-class Along(_Frozen):
+class Along(FrozenArbitrary):
     kind: Literal["along"] = "along"
     axis: Axis
 
 
-class Across(_Frozen):
+class Across(FrozenArbitrary):
     """Any direction in the plane normal to the axis."""
 
     kind: Literal["across"] = "across"
     axis: Axis
 
 
-class AnyWay(_Frozen):
+class AnyWay(FrozenArbitrary):
     kind: Literal["any"] = "any"
 
 
 type Direction = Annotated[Along | Across | AnyWay, Field(discriminator="kind")]
 
 
-class FarEnd(_Frozen):
+class FarEnd(FrozenArbitrary):
     """At the end farthest from the supports."""
 
     kind: Literal["far_end"] = "far_end"
@@ -121,7 +116,7 @@ class FarEnd(_Frozen):
     direction: Direction
 
 
-class OnHoles(_Frozen):
+class OnHoles(FrozenArbitrary):
     """Hangs from exactly `count` holes that are not supports."""
 
     kind: Literal["on_holes"] = "on_holes"
@@ -134,7 +129,7 @@ class OnHoles(_Frozen):
 type Load = Annotated[FarEnd | OnHoles, Field(discriminator="kind")]
 
 
-class LoadCase(_Frozen):
+class LoadCase(FrozenArbitrary):
     support: Support
     load: Load
 

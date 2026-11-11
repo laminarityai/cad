@@ -8,6 +8,7 @@ from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from cad.briefs.model import BriefId
 from cad.errors import Refused
+from cad.frozen import Frozen
 from cad.projects.model import ProjectId
 from cad.variants.entry import VariantId, variant_id
 from cad.variants.store import BuildResult
@@ -56,12 +57,10 @@ type Reason = Annotated[
 ]
 
 
-class MaterialChoice(BaseModel):
+class MaterialChoice(Frozen):
     """The material the agent chose for a slot when no confirmed made_of names one. A design
     choice like the code: not a requirement, not a verdict. `key` is a materials table row, or
     project- and a key of the agent's own for a material it researched."""
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
 
     key: str
     reason: Reason
@@ -77,11 +76,9 @@ type Differs = Annotated[
 ]
 
 
-class Option(BaseModel):
+class Option(Frozen):
     """What the agent calls a slot and how it differs from the set's other slots. A design note
     like the material choice: never a requirement or a verdict."""
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
 
     label: Label
     differs: Differs
@@ -92,10 +89,8 @@ type Resolve = Callable[[MaterialChoice | None], MaterialChoice | None]
 may not go ahead."""
 
 
-class Revision(BaseModel):
+class Revision(Frozen):
     """One signed record of the set's log: this code became what `slot` shows."""
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
 
     slot: int = Field(ge=1, le=MAX_MEMBERS)
     code: str

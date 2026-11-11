@@ -12,8 +12,6 @@ from datetime import datetime
 from typing import Annotated, Final, Literal, NewType, Self
 
 from pydantic import (
-    BaseModel,
-    ConfigDict,
     Field,
     NonNegativeInt,
     StringConstraints,
@@ -21,6 +19,7 @@ from pydantic import (
 )
 
 from cad.errors import Refused
+from cad.frozen import Frozen
 
 MAX_PICKS: Final = 64
 SELECTION_ID: Final = re.compile(r"^sel-[0-9a-f]{16}$")
@@ -43,14 +42,10 @@ def parse_selection_id(raw: str) -> SelectionId:
     return SelectionId(raw)
 
 
-class _Frozen(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-
 type Index = NonNegativeInt
 
 
-class Picked(_Frozen):
+class Picked(Frozen):
     """What the person picked in the viewer: faces and edges of the variant on screen, numbered
     as its mesh numbers them, or the whole part."""
 
@@ -70,7 +65,7 @@ class Picked(_Frozen):
         return self
 
 
-class Neighbour(_Frozen):
+class Neighbour(Frozen):
     """A face next to a picked face or edge, described so the agent can find it in its code."""
 
     face: int
@@ -79,7 +74,7 @@ class Neighbour(_Frozen):
     radius_mm: float | None
 
 
-class SelectedFace(_Frozen):
+class SelectedFace(Frozen):
     face: int
     type: str
     area_mm2: float
@@ -90,7 +85,7 @@ class SelectedFace(_Frozen):
     adjacent: tuple[Neighbour, ...]
 
 
-class SelectedEdge(_Frozen):
+class SelectedEdge(Frozen):
     edge: int
     type: str
     length_mm: float
@@ -100,18 +95,18 @@ class SelectedEdge(_Frozen):
     between: tuple[Neighbour, ...]
 
 
-class BoundingBox(_Frozen):
+class BoundingBox(Frozen):
     min_mm: Vec
     max_mm: Vec
 
 
-class SelectedPart(_Frozen):
+class SelectedPart(Frozen):
     faces: int
     edges: int
     bounding_box: BoundingBox
 
 
-class SelectionRecord(_Frozen):
+class SelectionRecord(Frozen):
     """One signed selection, bound to the revision's BREP by its sha256. `made_by` names the
     route that made it; the viewer is the only one so far (#79 names the words route)."""
 
@@ -129,7 +124,7 @@ class SelectionRecord(_Frozen):
     made_at: datetime
 
 
-class SelectionNote(_Frozen):
+class SelectionNote(Frozen):
     """What the transcript keeps of a message's selection: the id the agent passes on and the
     words the chat shows, such as 2 faces."""
 

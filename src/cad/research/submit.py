@@ -5,8 +5,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Final, Literal
 
-from pydantic import BaseModel, ConfigDict
-
+from cad.frozen import Frozen
 from cad.projects.model import ProjectId
 from cad.research.fetch import FetchFailed, Page, fetch
 from cad.research.ledger import (
@@ -26,11 +25,7 @@ from cad.tables.quote import on_page, where_written, written_as_one_number
 MAX_QUOTE_LENGTH: Final = 500
 
 
-class _Frozen(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-
-class ResearchAccepted(_Frozen):
+class ResearchAccepted(Frozen):
     """The agent read `value` from `quote`, which the server found on the page at `url`; `value`
     is in the field's canonical `unit`. Checks that read this field for this project now read
     it, labelled researched."""
@@ -45,7 +40,7 @@ class ResearchAccepted(_Frozen):
     record: int
 
 
-class ResearchRefused(_Frozen):
+class ResearchRefused(Frozen):
     """No value was stored. `request`, when present, asks again for this field."""
 
     kind: Literal["refused"] = "refused"

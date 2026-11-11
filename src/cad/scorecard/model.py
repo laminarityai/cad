@@ -11,15 +11,12 @@ from cad.checks.result import (
     Step,
     Verdict,
 )
+from cad.frozen import Frozen
 from cad.scorecard.waiting import Waiting
 from cad.tables.materials import Source
 
 
-class _Frozen(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-
-class Comparison(_Frozen):
+class Comparison(Frozen):
     """One measure of the deciding check, held to one confirmed quantity.
 
     The measured value is the measure called `measure` on the result of `Checked.check_id` in
@@ -32,7 +29,7 @@ class Comparison(_Frozen):
     verdict: Verdict
 
 
-class Checked(_Frozen):
+class Checked(Frozen):
     """A requirement that a check in the suite decides. It is unknown when that check could not
     measure, and it is still covered.
 
@@ -57,7 +54,7 @@ class Checked(_Frozen):
         return self
 
 
-class Unverified(_Frozen):
+class Unverified(Frozen):
     """A requirement that no reviewed check covers. It has no verdict."""
 
     kind: Literal["unverified"] = "unverified"
@@ -68,7 +65,7 @@ class Unverified(_Frozen):
 type RequirementResult = Annotated[Checked | Unverified | Waiting, Field(discriminator="kind")]
 
 
-class AgainstBrief(_Frozen):
+class AgainstBrief(Frozen):
     """The variant was scored against the requirements a person confirmed, in the order they
     saw them. `decision_sha256` names the signed decision, which pins the brief and the
     requirements."""
@@ -87,13 +84,13 @@ class AgainstBrief(_Frozen):
         return self
 
 
-class NoBrief(_Frozen):
+class NoBrief(Frozen):
     """Scored with no brief: the card covers the universal checks and no requirement."""
 
     kind: Literal["no_brief"] = "no_brief"
 
 
-class AwaitingConfirmation(_Frozen):
+class AwaitingConfirmation(Frozen):
     """Scored against a brief whose requirements nobody has confirmed yet, so none is judged."""
 
     kind: Literal["awaiting_confirmation"] = "awaiting_confirmation"
@@ -103,7 +100,7 @@ class AwaitingConfirmation(_Frozen):
 type Basis = Annotated[NoBrief | AwaitingConfirmation | AgainstBrief, Field(discriminator="kind")]
 
 
-class PendingCheck(_Frozen):
+class PendingCheck(Frozen):
     """A check whose background job has not finished. It has no verdict and no number yet: score
     the variant again to see its result."""
 
@@ -119,7 +116,7 @@ class PendingCheck(_Frozen):
 AGENT_MEASUREMENT: Final = "agent's own measurement, not verified"
 
 
-class AgentValue(_Frozen):
+class AgentValue(Frozen):
     """One number the agent's own code reported. It is not a check `Measure`, so nothing written
     for check results accepts it."""
 
@@ -127,7 +124,7 @@ class AgentValue(_Frozen):
     value: Measured
 
 
-class AgentMeasurement(_Frozen):
+class AgentMeasurement(Frozen):
     """Information only: what the agent's own measuring code reported for an unchecked
     requirement. It has no verdict, limit or comparator, its requirement stays unverified, and
     nothing graded may read it. `failed` says why the code gave no values."""

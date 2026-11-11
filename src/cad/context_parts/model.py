@@ -1,11 +1,12 @@
 from datetime import datetime
 from typing import Annotated, Final, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from cad.briefs.model import BriefId, BriefSpan
 from cad.context_parts.ids import PART_ID_PATTERN, ContextPartId, part_id
 from cad.context_parts.ingest import Facts
+from cad.frozen import Frozen
 from cad.projects.model import ProjectId
 
 MAX_NAME_CHARS: Final = 80
@@ -17,11 +18,7 @@ UPDATE_PART: Final = (
 type Outcome = Literal["waiting", "confirmed", "declined"]
 
 
-class _Frozen(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-
-class FromVariant(_Frozen):
+class FromVariant(Frozen):
     kind: Literal["variant"] = "variant"
     variant_id: Annotated[str, Field(pattern=r"^[0-9a-f]{16}$")]
 
@@ -29,7 +26,7 @@ class FromVariant(_Frozen):
 type PartOrigin = Annotated[FromVariant, Field(discriminator="kind")]
 
 
-class ContextPartRecord(_Frozen):
+class ContextPartRecord(Frozen):
     project: ProjectId
     brief_id: BriefId
     name: Annotated[str, Field(min_length=1, max_length=MAX_NAME_CHARS)]
@@ -50,7 +47,7 @@ class ContextPartRecord(_Frozen):
         return part_id(self.brep_sha256)
 
 
-class NewerRevision(_Frozen):
+class NewerRevision(Frozen):
     """The slot a confirmed part came from now shows this newer variant."""
 
     brief_id: BriefId
