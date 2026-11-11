@@ -1,6 +1,6 @@
 """Run one of the web page's npm scripts: `lint`, `test` or `build`. These are the `web lint`,
 `web test` and `web build` steps of `uv run verify`. The page's packages are installed first when
-`web/package-lock.json` is newer than `web/node_modules`.
+`web/node_modules` does not hold what `web/package-lock.json` lists.
 """
 
 import shutil

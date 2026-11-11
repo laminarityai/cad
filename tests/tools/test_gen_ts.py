@@ -69,7 +69,9 @@ def test_a_matching_install_is_kept_when_a_fresh_checkout_gives_the_lock_a_newer
     ],
     ids=["version changed", "package added", "package removed"],
 )
-def test_a_changed_lock_reinstalls(web: Path, commands: list[list[str]], packages: Packages) -> None:
+def test_a_changed_lock_reinstalls(
+    web: Path, commands: list[list[str]], packages: Packages
+) -> None:
     write_packages(web / "package-lock.json", {"": {"name": "web"}, **packages})
     gen_ts.install_if_stale()
     assert [argv[:2] for argv in commands] == [["npm", "ci"]]
