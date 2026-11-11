@@ -10,7 +10,7 @@ from pathlib import Path
 
 from cad.accounts.clerk import PUBLIC_URL, PUBLISHABLE_KEY
 from cad.accounts.local import LocalIssuer
-from tests.chat.support import ALICE, JSON
+from tests.support.chat import ALICE, JSON
 
 EXIT_SECONDS = 8.0
 

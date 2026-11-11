@@ -1,12 +1,5 @@
-from cad.scorecard.material import MaterialUse, ReportedScorecard, SetByAgent, snapshot
-from tests.scorecard.test_score import offline_card
-
-
-def reported(material_key: str = "prusament-pla") -> ReportedScorecard:
-    card = offline_card().model_copy(update={"material_key": material_key})
-    return ReportedScorecard(
-        **dict(card), material=MaterialUse(key=material_key, set_by=SetByAgent())
-    )
+from cad.scorecard.material import snapshot
+from tests.support.scorecard import reported
 
 
 def test_one_card_has_one_etag_and_a_changed_card_has_another() -> None:

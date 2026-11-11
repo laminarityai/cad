@@ -1,99 +1,26 @@
 import threading
 import time
-from collections.abc import Iterator
 from dataclasses import dataclass, field, replace
 from pathlib import Path
 
 import pytest
 
 from cad.checks import job_store
-from cad.checks.jobs import Background, JobResult, JobSpec, Plan, Quick, Refused
+from cad.checks.jobs import JobResult, JobSpec, Plan, Refused
 from cad.checks.lanes import INTERRUPTED, Done, Lanes, Pending
-from cad.checks.report import SPECS, build_request, unknown_for_all
-from cad.checks.result import StepMissing
 from cad.sandbox.meter import Kind, Reservation, charged, metered
 from cad.sandbox.outcome import SandboxUnavailable
-from cad.tables.materials import load_materials
-
-VID = "0123456789abcdef"
-QUICK = Quick()
-FEA = Background(wall_seconds=600, memory_mb=2048, tmpfs_mb=768)
-LONG = 10.0
-
-
-def job(root: Path, budget: Quick | Background = QUICK, material: str = "prusament-pla") -> JobSpec:
-    (root / VID).mkdir(exist_ok=True)
-    checks = SPECS if isinstance(budget, Quick) else SPECS[2:3]
-    return JobSpec(root, VID, "b" * 64, checks, budget, build_request(material, load_materials()))
-
-
-def measured(reason: str) -> JobResult:
-    return JobResult(
-        check_image_digest="sha256:" + "i" * 64,
-        step=StepMissing(reason=reason),
-        results=unknown_for_all(reason),
-    )
-
-
-def opened() -> threading.Event:
-    gate = threading.Event()
-    gate.set()
-    return gate
-
-
-def ran(spec: JobSpec, time: int = 1) -> JobResult:
-    return measured(f"run {time} of job {spec.key}")
-
-
-@dataclass
-class Lane:
-    gate: threading.Event = field(default_factory=opened)
-    error: BaseException | None = None
-    timeouts: int = 0
-
-
-@dataclass
-class GatedRunner:
-    quick: Lane = field(default_factory=Lane)
-    background: Lane = field(default_factory=Lane)
-    runs: list[str] = field(default_factory=list[str])
-
-    def __call__(self, spec: JobSpec) -> JobResult:
-        self.runs.append(spec.key)
-        lane = self.quick if isinstance(spec.budget, Quick) else self.background
-        assert lane.gate.wait(LONG), "the test never opened the gate"
-        if lane.error is not None:
-            error, lane.error = lane.error, None if isinstance(lane.error, Stop) else lane.error
-            raise error
-        if lane.timeouts:
-            lane.timeouts -= 1
-            return measured("the check container ran past 60 s").model_copy(
-                update={"timed_out": True}
-            )
-        return ran(spec, self.runs.count(spec.key))
-
-
-@pytest.fixture
-def runner() -> Iterator[GatedRunner]:
-    made = GatedRunner()
-    yield made
-    made.quick.gate.set()
-    made.background.gate.set()
-
-
-def quick_only(root: Path) -> Plan:
-    return Plan(quick=job(root), background=())
-
-
-def with_fea(root: Path) -> Plan:
-    return Plan(quick=job(root), background=(job(root, FEA),))
-
-
-def wait_for(path: Path) -> None:
-    deadline = time.monotonic() + LONG
-    while not path.exists():
-        assert time.monotonic() < deadline, f"{path.name} never appeared"
-        time.sleep(0.01)
+from tests.support.lanes import (
+    FEA,
+    LONG,
+    GatedRunner,
+    Stop,
+    job,
+    quick_only,
+    ran,
+    wait_for,
+    with_fea,
+)
 
 
 def test_a_second_settle_reads_the_stored_result_and_runs_nothing(
@@ -231,10 +158,6 @@ def test_a_timed_out_run_is_returned_unstored_and_the_next_call_runs_again(
     assert second == ran(job(tmp_path), 2) == job_store.read(job(tmp_path))
     assert Lanes(runner).settle(quick_only(tmp_path), 0).quick == second
     assert len(runner.runs) == 2
-
-
-class Stop(BaseException):
-    pass
 
 
 @pytest.mark.filterwarnings("ignore::pytest.PytestUnhandledThreadExceptionWarning")

@@ -1,10 +1,10 @@
 import pytest
-from fakes import FakeKernel, FakeShape, NoFem
 
 from cad.checks.container import fea
 from cad.checks.container.check import Subject
 from cad.checks.container.inputs import Input, Inputs
 from cad.checks.container.wire import FindingWire, LoadCaseWire, ResultWire, ValueWire
+from tests.support.check_fakes import FakeKernel, FakeShape, NoFem
 
 CASE: LoadCaseWire = {
     "support": {"kind": "flat_end"},

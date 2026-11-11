@@ -8,7 +8,7 @@ import pytest
 from cad.checks import job_store
 from cad.checks.jobs import JobSpec
 from cad.sandbox.outcome import SandboxUnavailable
-from tests.checks.test_lanes import VID, job, measured
+from tests.support.lanes import VID, job, measured
 
 RESULT = measured("stored")
 

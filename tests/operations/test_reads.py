@@ -31,10 +31,10 @@ from cad.variant_sets import store as variant_sets
 from cad.variant_sets.model import MaterialChoice
 from cad.variants import entry
 from cad.variants.entry import UnknownVariant
-from tests.conftest import local_pages
+from tests.support.browser import local_pages
 
 if TYPE_CHECKING:
-    from conftest import Person
+    from tests.support.browser import Person
 
 pytestmark = pytest.mark.anyio
 

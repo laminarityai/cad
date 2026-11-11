@@ -4,7 +4,6 @@ import math
 from dataclasses import dataclass
 
 import pytest
-from fakes import KNOWN, REPORT_CAP, UNREADABLE_BREP, FakeKernel, FakeShape, NoFem, request
 
 from cad.checks.container import closed_solid, interference
 from cad.checks.container.check import Subject
@@ -17,6 +16,15 @@ from cad.checks.container.wire import (
     ResultWire,
     ValueUnknown,
     ValueWire,
+)
+from tests.support.check_fakes import (
+    KNOWN,
+    REPORT_CAP,
+    UNREADABLE_BREP,
+    FakeKernel,
+    FakeShape,
+    NoFem,
+    request,
 )
 
 UNKNOWN: ValueUnknown = {"kind": "unknown", "reason": "no material with key 'x'"}

@@ -1,8 +1,20 @@
 import math
 
 import pytest
-from solids import Solid, apply, rotate, turn_and_move, turned
-from test_anchors import (
+
+from cad.checks.container.anchors import (
+    Bore,
+    Candidate,
+    FarFrom,
+    Patch,
+    Plane,
+    Region,
+    Resolved,
+    Unresolved,
+)
+from cad.checks.container.kernel import Point
+from cad.checks.container.wire import LoadCaseWire
+from tests.support.anchors import (
     ACROSS_HOLES,
     ALONG_LONG,
     BAR,
@@ -20,19 +32,7 @@ from test_anchors import (
     on_holes,
     resolved,
 )
-
-from cad.checks.container.anchors import (
-    Bore,
-    Candidate,
-    FarFrom,
-    Patch,
-    Plane,
-    Region,
-    Resolved,
-    Unresolved,
-)
-from cad.checks.container.kernel import Point
-from cad.checks.container.wire import LoadCaseWire
+from tests.support.solids import Solid, apply, rotate, turn_and_move, turned
 
 MOVE = turn_and_move()
 TOL = 1e-6

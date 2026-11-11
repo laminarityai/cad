@@ -1,10 +1,10 @@
 from pathlib import Path
 
-from cards import genuine_card, trace
 from provenance import NotVerified, Resolved
 
 from cad.scorecard.model import AgentMeasurement, AgentValue
 from cad.tables.materials import UNITS
+from tests.support.cards import genuine_card, trace
 
 ROW = AgentMeasurement(
     requirement_id="r2",

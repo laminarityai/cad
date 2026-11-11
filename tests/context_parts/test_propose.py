@@ -10,7 +10,7 @@ from cad.context_parts.store import confirmed_parts, part_brep, stored_parts
 from cad.projects.model import ProjectId, TamperedProject
 
 if TYPE_CHECKING:
-    from conftest import Session
+    from tests.support.session import Session
 
 pytestmark = pytest.mark.anyio
 TEXT = "A clip that slides onto the rail, at least 0.2 mm clear of it"

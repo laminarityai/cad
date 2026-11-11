@@ -3,7 +3,20 @@ from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from cards import (
+from provenance import (
+    CardTrace,
+    Incomplete,
+)
+from trace_store import SPEC_BY_ID, Tally, exit_code, main, tally
+from tracking import NO_REQUIREMENTS, NoRequirements, describe, outcomes_of, track
+
+from cad.briefs import store as briefs
+from cad.checks.result import Measure
+from cad.projects.model import new_project_id
+from cad.sandbox.outcome import Build, Built
+from cad.scorecard.model import AwaitingConfirmation, Scorecard
+from cad.variants import entry
+from tests.support.cards import (
     BREP,
     BRIEF_TEXT,
     STEP,
@@ -21,19 +34,6 @@ from cards import (
     with_result,
     write_transcript,
 )
-from provenance import (
-    CardTrace,
-    Incomplete,
-)
-from trace_store import SPEC_BY_ID, Tally, exit_code, main, tally
-from tracking import NO_REQUIREMENTS, NoRequirements, describe, outcomes_of, track
-
-from cad.briefs import store as briefs
-from cad.checks.result import Measure
-from cad.projects.model import new_project_id
-from cad.sandbox.outcome import Build, Built
-from cad.scorecard.model import AwaitingConfirmation, Scorecard
-from cad.variants import entry
 
 LIGHT = ({"kind": "max_mass", "mass": {"magnitude": 150, "unit": "g"}}, "under 150 g")
 FRIENDLY = ({"kind": "unchecked", "statement": "looks friendly"}, "looks friendly")

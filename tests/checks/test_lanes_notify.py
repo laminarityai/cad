@@ -1,18 +1,26 @@
 import threading
 import time
-from collections.abc import Iterator
 from dataclasses import replace
 from pathlib import Path
 
 import pytest
-from test_lanes import FEA, LONG, GatedRunner, job, quick_only, ran, wait_for, with_fea
 
 from cad.checks import job_store
 from cad.checks.jobs import JobSpec, Plan, Refused
 from cad.checks.lanes import SUPERSEDED, Done, Lanes
 from cad.sandbox.outcome import SandboxUnavailable
+from tests.support.lanes import (
+    FEA,
+    LONG,
+    VID,
+    GatedRunner,
+    job,
+    quick_only,
+    ran,
+    wait_for,
+    with_fea,
+)
 
-VID = "0123456789abcdef"
 OTHER = "fedcba9876543210"
 
 
@@ -34,14 +42,6 @@ class Heard:
         `settle` can return before they do."""
         with self._changed:
             assert self._changed.wait_for(lambda: len(self.jobs) >= count, LONG)
-
-
-@pytest.fixture
-def runner() -> Iterator[GatedRunner]:
-    made = GatedRunner()
-    yield made
-    made.quick.gate.set()
-    made.background.gate.set()
 
 
 def other_variant(root: Path) -> JobSpec:

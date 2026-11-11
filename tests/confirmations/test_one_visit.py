@@ -13,7 +13,7 @@ from cad.projects.model import ProjectBusy, ProjectId
 from cad.records import signed
 
 if TYPE_CHECKING:
-    from conftest import Session
+    from tests.support.session import Session
 
 pytestmark = pytest.mark.anyio
 

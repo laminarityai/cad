@@ -5,18 +5,6 @@ from pathlib import Path
 import pytest
 import run
 from brief_set import load_set, prompt_for
-from cards import (
-    BREP,
-    BRIEF_TEXT,
-    STEP,
-    VARIANT_ID,
-    confirm_on_page,
-    drafts,
-    genuine_card,
-    judged_card,
-    transcript_of,
-    write_transcript,
-)
 from friction import minutes_to_first_result, read_pages
 from outcome import BriefResult, Friction, Share, Trace, is_finished
 from session import SessionFacts, SessionRun, failure_note
@@ -29,6 +17,18 @@ from cad.projects.model import new_project_id
 from cad.records.roots import Roots
 from cad.sandbox.outcome import Build, Built
 from cad.variants import entry
+from tests.support.cards import (
+    BREP,
+    BRIEF_TEXT,
+    STEP,
+    VARIANT_ID,
+    confirm_on_page,
+    drafts,
+    genuine_card,
+    judged_card,
+    transcript_of,
+    write_transcript,
+)
 
 LIGHT = ({"kind": "max_mass", "mass": {"magnitude": 150, "unit": "g"}}, "under 150 g")
 FRIENDLY = ({"kind": "unchecked", "statement": "looks friendly"}, "looks friendly")

@@ -7,7 +7,7 @@ from cad.confirmations.waiting import Door
 from cad.context_parts.ingest import ingest
 from cad.operations.model import Tenant
 from cad.operations.tenants import Tenants
-from tests.conftest import Person, local_pages
+from tests.support.browser import Person, local_pages
 
 
 @pytest.fixture

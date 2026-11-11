@@ -1,8 +1,16 @@
 import pytest
-from solids import box, box_face, box_shell, brep_bytes, compound, inside_out, loosened
 
 from cad.context_parts.ingest import Facts, NotAPart, ingest, judged
 from cad.sandbox.container import Attended, ContainerState, Job, Ran, TooMuchOutput
+from tests.support.solids import (
+    box,
+    box_face,
+    box_shell,
+    brep_bytes,
+    compound,
+    inside_out,
+    loosened,
+)
 
 JOB = Job("check", "sha256:analysis", (), b"")
 

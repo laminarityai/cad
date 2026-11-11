@@ -4,15 +4,15 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import pytest
-from variant_sets.set_parts import BRACKET, NO_DOCKER, PLATE, THICKER, held, shows
 
 from cad.checks.lanes import LANES
 from cad.variant_sets import store
 from cad.variant_sets.model import MAX_MEMBERS
 from cad.variants.entry import VariantId
+from tests.support.set_parts import BRACKET, NO_DOCKER, PLATE, THICKER, held, shows
 
 if TYPE_CHECKING:
-    from variant_sets.conftest import Session
+    from tests.support.variant_set_session import Session
 
 pytestmark = pytest.mark.anyio
 

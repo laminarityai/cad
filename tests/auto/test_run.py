@@ -21,19 +21,16 @@ from cad.operations.tenants import bind
 from cad.operations.tools import tools
 from cad.sandbox.image import BUILD, image_tag
 from cad.variants import entry
+from tests.support.auto_session import TEXT, running
+from tests.support.rows import UNDER_150
 
 if TYPE_CHECKING:
-    from auto.conftest import Session
+    from tests.support.auto_session import Session
 
 pytestmark = pytest.mark.anyio
 
 NO_DOCKER: Final = "unix:///nonexistent/docker.sock"
 PLATE: Final = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
-TEXT: Final = "A plate under 150 g"
-UNDER_150: Final = {
-    "target": {"kind": "max_mass", "mass": {"magnitude": 150, "unit": "g"}},
-    "quote": "under 150 g",
-}
 PLA_CHOICE: Final = {
     "material_key": "prusament-pla",
     "material_reason": "PLA is light and prints easily",
@@ -50,17 +47,6 @@ CUBE: Final = (
         "quote": "at least 50 g",
     },
 )
-
-
-async def running(s: Session) -> tuple[str, str]:
-    brief_id = await s.confirmed(TEXT, UNDER_150)
-    run = await s.start(
-        brief_id=brief_id,
-        material_key="prusament-pla",
-        material_reason="PLA is light and prints easily",
-    )
-    assert isinstance(run.state, Running)
-    return brief_id, run.run_id
 
 
 def records(s: Session, run_id: str) -> int:

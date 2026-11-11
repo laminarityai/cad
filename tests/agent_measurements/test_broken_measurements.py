@@ -3,12 +3,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
-from holed_plate import confirmed, own
 
 from cad.agent_measurements import run
+from tests.support.holed_plate import confirmed, own
 
 if TYPE_CHECKING:
-    from conftest import Person, Session
+    from tests.support.browser import Person
+    from tests.support.session import Session
 
 pytestmark = pytest.mark.anyio
 

@@ -2,87 +2,28 @@ import re
 from typing import Any
 
 import pytest
-from pydantic import TypeAdapter
 
-from cad.briefs.model import BriefId, BriefSpan, Requirement, RequirementId, Target
+from cad.briefs.model import Requirement
 from cad.briefs.words import describe
-from cad.checks.report import SPECS, unknown_for_all
-from cad.checks.result import CheckResult, Measure, Verdict
+from cad.checks.result import CheckResult, Verdict
 from cad.scorecard import requirements
-from cad.scorecard.model import AgainstBrief, Checked, PendingCheck, RequirementResult, Unverified
+from cad.scorecard.model import AgainstBrief, PendingCheck, Unverified
 from cad.scorecard.waiting import Waiting
 from cad.tables.materials import UNITS
-
-TARGET = TypeAdapter[Target](Target)
-SPEC = {spec.id: spec for spec in SPECS}
-BRIEF = BriefId("1" * 16)
-
-
-def requirement(raw: dict[str, Any], rid: str = "0" * 16) -> Requirement:
-    return Requirement(
-        id=RequirementId(rid),
-        brief_id=BRIEF,
-        target=TARGET.validate_python(raw),
-        origin=BriefSpan(start=0, end=1),
-    )
-
-
-def quantity(magnitude: float, unit: str) -> dict[str, Any]:
-    return {"magnitude": magnitude, "unit": unit}
-
-
-def max_mass(magnitude: float, unit: str = "g") -> Requirement:
-    return requirement({"kind": "max_mass", "mass": quantity(magnitude, unit)})
-
-
-def min_mass(magnitude: float, unit: str = "g") -> Requirement:
-    return requirement({"kind": "min_mass", "mass": quantity(magnitude, unit)})
-
-
-def envelope(*edges: tuple[float, str]) -> Requirement:
-    return requirement({"kind": "envelope", "edges": [quantity(m, u) for m, u in edges]})
-
-
-def result(check_id: str, verdict: Verdict, **measured: tuple[float, str]) -> CheckResult:
-    spec = SPEC[check_id]
-    return CheckResult(
-        check_id=check_id,
-        verdict=verdict,
-        measured=tuple(
-            Measure(name=name.replace("__", ":"), value=UNITS.Quantity(magnitude, unit))
-            for name, (magnitude, unit) in measured.items()
-        ),
-        formula=spec.formula,
-        reason="r",
-        sources=spec.sources,
-        version=spec.version,
-    )
-
-
-def suite(*replacing: CheckResult) -> tuple[CheckResult, ...]:
-    given = {one.check_id: one for one in replacing}
-    return tuple(given.get(one.check_id, one) for one in unknown_for_all("not run"))
-
-
-def weighing(kg: float) -> tuple[CheckResult, ...]:
-    return suite(result("mass", Verdict.PASS, volume=(1.0, "mm^3"), mass=(kg, "kg")))
-
-
-def boxed(smallest: float, middle: float, largest: float) -> tuple[CheckResult, ...]:
-    return suite(
-        result(
-            "extents",
-            Verdict.PASS,
-            sorted_extent__smallest=(smallest, "mm"),
-            sorted_extent__middle=(middle, "mm"),
-            sorted_extent__largest=(largest, "mm"),
-        )
-    )
-
-
-def checked(judged: RequirementResult) -> Checked:
-    assert isinstance(judged, Checked)
-    return judged
+from tests.support.scorecard import (
+    BRIEF,
+    SPEC,
+    boxed,
+    checked,
+    envelope,
+    max_mass,
+    min_mass,
+    quantity,
+    requirement,
+    result,
+    suite,
+    weighing,
+)
 
 
 @pytest.mark.parametrize(

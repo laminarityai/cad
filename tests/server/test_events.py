@@ -32,7 +32,7 @@ from cad.server.hosted import build_app
 from cad.tables.materials import load_materials
 from cad.variants import entry
 from cad.variants.entry import UnknownVariant
-from tests.scorecard.test_snapshot import reported
+from tests.support.scorecard import reported
 
 pytestmark = pytest.mark.anyio
 

@@ -11,7 +11,7 @@ from cad.briefs.model import Target
 from cad.checks.report import SPECS
 
 if TYPE_CHECKING:
-    from conftest import Session
+    from tests.support.session import Session
 
 pytestmark = pytest.mark.anyio
 

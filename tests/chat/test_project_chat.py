@@ -20,7 +20,8 @@ from cad.operations.briefs import (
     list_requirements,
     propose_requirements,
 )
-from tests.chat.support import ALICE, BOB, JSON, TEXT, UNDER_150, Chat, script, step
+from tests.support.chat import ALICE, BOB, JSON, TEXT, Chat, script, step
+from tests.support.rows import UNDER_150
 
 pytestmark = pytest.mark.anyio
 

@@ -3,16 +3,16 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
-from variant_sets.set_parts import NO_DOCKER, PLATE, held, shows
 
 from cad.sandbox.image import BUILD, image_tag
 from cad.variant_sets import store
 from cad.variant_sets.model import MAX_MEMBERS
 from cad.variants import entry
 from cad.variants.entry import VariantId
+from tests.support.set_parts import NO_DOCKER, PLATE, held, shows
 
 if TYPE_CHECKING:
-    from variant_sets.conftest import Session
+    from tests.support.variant_set_session import Session
 
 pytestmark = pytest.mark.anyio
 

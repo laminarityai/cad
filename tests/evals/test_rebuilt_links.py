@@ -2,11 +2,11 @@ import json
 from pathlib import Path
 
 from binding import Unlinked, link
-from cards import VARIANT_ID, genuine_card, trace
 
 from cad.records import key
 from cad.sandbox.outcome import Build, Built
 from cad.variants import entry
+from tests.support.cards import VARIANT_ID, genuine_card, trace
 
 OLD_ID = "fedcba9876543210"
 

@@ -16,7 +16,7 @@ from cad.records.roots import Roots
 from cad.records.signed import StoreUnusable
 
 if TYPE_CHECKING:
-    from conftest import Session
+    from tests.support.session import Session
 
 pytestmark = pytest.mark.anyio
 

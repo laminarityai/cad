@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Final
 import pytest
 
 if TYPE_CHECKING:
-    from auto.conftest import Session
+    from tests.support.auto_session import Session
 
 pytestmark = pytest.mark.anyio
 

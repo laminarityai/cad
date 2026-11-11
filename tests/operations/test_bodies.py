@@ -15,7 +15,7 @@ from cad.operations.scorecards import ScoreVariantInput, score_variant
 from cad.operations.tenants import Tenants
 from cad.operations.variants import BuildVariantInput, build_variant
 from cad.server.hosted import build_app
-from tests.operations.bodies import check
+from tests.support.bodies import check
 
 pytestmark = pytest.mark.anyio
 

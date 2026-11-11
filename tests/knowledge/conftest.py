@@ -11,7 +11,7 @@ from cad.knowledge.corpus import Corpus, load
 from cad.knowledge.search import Index
 
 if TYPE_CHECKING:
-    from conftest import MakeCorpus, MakeIndex
+    from tests.support.knowledge import MakeCorpus, MakeIndex
 
 FRONT_MATTER = """---
 title: {title}

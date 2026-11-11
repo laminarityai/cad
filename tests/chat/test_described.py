@@ -1,8 +1,8 @@
 import pytest
 
 from cad.chat.model import Model
-from tests.chat.support import JSON, Chat, script, step
-from tests.operations.bodies import check
+from tests.support.bodies import check
+from tests.support.chat import JSON, Chat, script, step
 
 pytestmark = pytest.mark.anyio
 
