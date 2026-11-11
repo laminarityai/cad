@@ -14,6 +14,7 @@ from cad.geometry.container.wire import (
     ShapesWire,
     ShapeWire,
     TessellationReport,
+    TopologyWire,
 )
 
 RELATIVE_TOLERANCE: Final = 0.0005
@@ -118,7 +119,7 @@ def tessellate(brep: bytes) -> TessellationReport:
             path = Path(directory) / "variant.brep"
             path.write_bytes(brep)
             shape = build123d.import_brep(str(path))
-        return {"kind": "tessellated", "shapes": _shapes(shape)}
+        return {"kind": "tessellated", "shapes": _shapes(shape), "topology": _topology(shape)}
     except Exception as error:
         return {"kind": "unreadable", "reason": f"{type(error).__name__}: {error}"}
 
@@ -183,6 +184,12 @@ def _mesh(shape: _Shape, tolerance: float) -> ShapeWire:
         mesh["edge_types"].append(EDGE_TYPES.get(edge.geom_type.name, EDGE_TYPES["OTHER"]))
     mesh["obj_vertices"] = _flat(shape.vertices())
     return mesh
+
+
+def _topology(shape: _Shape) -> TopologyWire:
+    """Each face's and edge's facts, in the order `_mesh` numbers them, so faces_<i> in the viewer
+    is entry i."""
+    raise NotImplementedError
 
 
 def _normals(points: Sequence[_Vector], triangles: Sequence[tuple[int, int, int]]) -> list[float]:

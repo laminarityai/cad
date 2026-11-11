@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 from cad.accounts.principal import AccountId
 from cad.chat.model import Block, Message, Text, ToolResult, ToolUse
 from cad.conversations.model import ConversationId
+from cad.selections.model import SelectionNote
 
 TRANSCRIPTS: Final = "chat"
 STOP_NOTICE: Final = "(this call was interrupted before it returned)"
@@ -27,8 +28,12 @@ class _Frozen(BaseModel):
 
 
 class UserSaid(_Frozen):
+    """`selection` is the part of a design the person pointed at in the 3D view when they sent
+    this message."""
+
     kind: Literal["user"] = "user"
     text: str
+    selection: SelectionNote | None = None
 
 
 class Answered(_Frozen):

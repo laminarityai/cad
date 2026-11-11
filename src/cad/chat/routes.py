@@ -42,6 +42,7 @@ from cad.operations.model import Tenant
 from cad.operations.routes import CHALLENGE, PersonOf, session_token
 from cad.projects.membership import project_briefs
 from cad.projects.model import ProjectId, UnknownProject, parse_project_id
+from cad.selections.model import Picked
 
 MAX_MESSAGE_CHARS: Final = 20_000
 KEEPALIVE_SECONDS: Final = 15.0
@@ -58,9 +59,12 @@ _LOG = logging.getLogger(__name__)
 
 
 class Said(BaseModel):
+    """`selection` is what the person picked in the 3D view for this message to change."""
+
     model_config = ConfigDict(extra="forbid")
 
     text: str = Field(min_length=1, max_length=MAX_MESSAGE_CHARS)
+    selection: Picked | None = None
 
 
 class Start(BaseModel):

@@ -671,6 +671,19 @@ export interface components {
             answered: components["schemas"]["Answered"] | null;
         };
         /**
+         * EdgeFacts
+         * @description What one BREP edge is, in the order `shapes` numbers edges. `center` is the point halfway
+         *     along it, `direction` is a line's, `radius` a circle's, and `faces` are the faces it bounds.
+         */
+        EdgeFacts: {
+            type: string;
+            length: number;
+            center: components["schemas"]["Vec"];
+            direction: components["schemas"]["Vec"] | null;
+            radius: number | null;
+            faces: number[];
+        };
+        /**
          * Envelope
          * @description The variant fits inside a box of these three edge lengths, in any orientation.
          *
@@ -692,6 +705,21 @@ export interface components {
             error: string;
         };
         Event: components["schemas"]["UserSaid"] | components["schemas"]["DriverSaid"] | components["schemas"]["AgentSaid"] | components["schemas"]["ToolCalled"] | components["schemas"]["ToolReturned"] | components["schemas"]["StopReport"] | components["schemas"]["TurnFailed"] | components["schemas"]["TurnEnded"];
+        /**
+         * FaceFacts
+         * @description What one BREP face is, in the order `shapes` numbers faces, so faces_<i> in the viewer is
+         *     entry i. Lengths in mm. `normal` points out of the solid at `center`; `axis` and `radius`
+         *     describe a cylinder, cone, sphere or torus and are None for other faces.
+         */
+        FaceFacts: {
+            type: string;
+            area: number;
+            center: components["schemas"]["Vec"];
+            normal: components["schemas"]["Vec"] | null;
+            radius: number | null;
+            axis: components["schemas"]["Vec"] | null;
+            edges: number[];
+        };
         /**
          * FarEnd
          * @description At the end farthest from the supports.
@@ -738,6 +766,7 @@ export interface components {
             /** @default null */
             diameter: components["schemas"]["Length"] | null;
         };
+        Index: number;
         /** @enum {string} */
         ItemKindName: "requirements" | "context_part";
         /** KnowledgeHit */
@@ -1050,6 +1079,20 @@ export interface components {
             run: components["schemas"]["AutoRun"];
             conversation: components["schemas"]["ConversationState"];
         };
+        /**
+         * Picked
+         * @description What the person picked in the viewer: faces and edges of the variant on screen, numbered
+         *     as its mesh numbers them, or the whole part.
+         */
+        Picked: {
+            variant_id: string;
+            /** @default [] */
+            faces?: components["schemas"]["Index"][];
+            /** @default [] */
+            edges?: components["schemas"]["Index"][];
+            /** @default false */
+            part?: boolean;
+        };
         /** ProjectConversation */
         ProjectConversation: {
             conversation_id: string;
@@ -1200,6 +1243,18 @@ export interface components {
             /** @default null */
             research_problem?: string | null;
             etag: string;
+        };
+        /**
+         * SelectionNote
+         * @description What the transcript keeps of a message's selection: the id the agent passes on and the
+         *     words the chat shows, such as 2 faces.
+         */
+        SelectionNote: {
+            selection_id: string;
+            summary: string;
+            brief_id: string;
+            slot: number;
+            revision: number;
         };
         /** ServerInfo */
         ServerInfo: {
@@ -1380,6 +1435,7 @@ export interface components {
             brep_sha256: string;
             version: string;
             shapes: components["schemas"]["ShapesWire"];
+            topology: components["schemas"]["TopologyWire"];
         };
         /** TessellationFailed */
         TessellationFailed: {
@@ -1424,6 +1480,11 @@ export interface components {
             call_id: string;
             text: string;
             is_error: boolean;
+        };
+        /** TopologyWire */
+        TopologyWire: {
+            faces: components["schemas"]["FaceFacts"][];
+            edges: components["schemas"]["EdgeFacts"][];
         };
         /** TurnEnded */
         TurnEnded: {
@@ -1472,7 +1533,11 @@ export interface components {
             proposed: string;
             confirmed: string;
         };
-        /** UserSaid */
+        /**
+         * UserSaid
+         * @description `selection` is the part of a design the person pointed at in the 3D view when they sent
+         *     this message.
+         */
         UserSaid: {
             /**
              * @description discriminator enum property added by openapi-typescript
@@ -1480,6 +1545,8 @@ export interface components {
              */
             kind: "user";
             text: string;
+            /** @default null */
+            selection: components["schemas"]["SelectionNote"] | null;
         };
         /** VariantSetView */
         VariantSetView: {
@@ -1498,6 +1565,11 @@ export interface components {
             mesh: "tessellated" | "failed" | "pending";
             mesh_url: string | null;
         };
+        Vec: [
+            number,
+            number,
+            number
+        ];
         /**
          * Verdict
          * @enum {string}
@@ -1635,9 +1707,11 @@ export type ConversationView = components['schemas']['ConversationView'];
 export type Differs = components['schemas']['Differs'];
 export type Direction = components['schemas']['Direction'];
 export type DriverSaid = components['schemas']['DriverSaid'];
+export type EdgeFacts = components['schemas']['EdgeFacts'];
 export type Envelope = components['schemas']['Envelope'];
 export type Error = components['schemas']['Error'];
 export type Event = components['schemas']['Event'];
+export type FaceFacts = components['schemas']['FaceFacts'];
 export type FarEnd = components['schemas']['FarEnd'];
 export type Field = components['schemas']['Field'];
 export type FlatEnd = components['schemas']['FlatEnd'];
@@ -1645,6 +1719,7 @@ export type Force = components['schemas']['Force'];
 export type GeometryRead = components['schemas']['GeometryRead'];
 export type HoleCount = components['schemas']['HoleCount'];
 export type Holes = components['schemas']['Holes'];
+export type Index = components['schemas']['Index'];
 export type ItemKindName = components['schemas']['ItemKindName'];
 export type KnowledgeHit = components['schemas']['KnowledgeHit'];
 export type KnowledgeHits = components['schemas']['KnowledgeHits'];
@@ -1682,6 +1757,7 @@ export type PartId = components['schemas']['PartId'];
 export type PartWire = components['schemas']['PartWire'];
 export type PendingCheck = components['schemas']['PendingCheck'];
 export type PersonStop = components['schemas']['PersonStop'];
+export type Picked = components['schemas']['Picked'];
 export type ProjectConversation = components['schemas']['ProjectConversation'];
 export type ProjectList = components['schemas']['ProjectList'];
 export type ProjectSummary = components['schemas']['ProjectSummary'];
@@ -1698,6 +1774,7 @@ export type ResearchRequest = components['schemas']['ResearchRequest'];
 export type RevisionView = components['schemas']['RevisionView'];
 export type Running = components['schemas']['Running'];
 export type ScorecardSnapshot = components['schemas']['ScorecardSnapshot'];
+export type SelectionNote = components['schemas']['SelectionNote'];
 export type ServerInfo = components['schemas']['ServerInfo'];
 export type SetBy = components['schemas']['SetBy'];
 export type SetByAgent = components['schemas']['SetByAgent'];
@@ -1722,6 +1799,7 @@ export type TessellationFailed = components['schemas']['TessellationFailed'];
 export type TessellationPending = components['schemas']['TessellationPending'];
 export type ToolCalled = components['schemas']['ToolCalled'];
 export type ToolReturned = components['schemas']['ToolReturned'];
+export type TopologyWire = components['schemas']['TopologyWire'];
 export type TurnEnded = components['schemas']['TurnEnded'];
 export type TurnFailed = components['schemas']['TurnFailed'];
 export type Unchecked = components['schemas']['Unchecked'];
@@ -1730,6 +1808,7 @@ export type UserEdit = components['schemas']['UserEdit'];
 export type UserSaid = components['schemas']['UserSaid'];
 export type VariantSetView = components['schemas']['VariantSetView'];
 export type VariantView = components['schemas']['VariantView'];
+export type Vec = components['schemas']['Vec'];
 export type Verdict = components['schemas']['Verdict'];
 export type Waiting = components['schemas']['Waiting'];
 export type CadAutoModelRead = components['schemas']['cad__auto__model__Read'];
@@ -2232,6 +2311,8 @@ export interface operations {
             content: {
                 "application/json": {
                     text: string;
+                    /** @default null */
+                    selection?: components["schemas"]["Picked"] | null;
                 };
             };
         };
