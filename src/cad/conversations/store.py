@@ -53,6 +53,17 @@ def set_mode(tenant: Tenant, cid: ConversationId, mode: Mode) -> Conversation:
         return _switch(tenant, cid, mode)
 
 
+def confirmed(tenant: Tenant, cid: ConversationId) -> Conversation:
+    """The conversation was just told that the person confirmed requirements. Plan ends there, and
+    Design and Auto stay as they are. Callers call it once per told answer, so a later switch back
+    to Plan stands until the person confirms again."""
+    with _LOCK:
+        held = read(tenant.conversations, cid)
+        if held.mode is not Mode.PLAN:
+            return held
+        return _write(tenant.conversations, cid, held.moved(Mode.DESIGN))
+
+
 def record_event(tenant: Tenant, run_id: str, make: log.Make) -> AutoRun:
     """Every record of a run goes through here. A run that is stopped after it, by any reason,
     takes its conversation out of Auto mode, to Design, when it is the conversation's current

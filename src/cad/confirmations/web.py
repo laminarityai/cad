@@ -120,6 +120,7 @@ KEEP_SESSION_SCRIPT: Final = (
 LOG = logging.getLogger(__name__)
 
 type TenantOf = Callable[[AccountId], Tenant]
+type OnRecorded = Callable[[PersonSession, ProjectId], None]
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,8 +138,14 @@ type SignIn = LocalSignIn | ClerkSignIn
 
 
 def confirm_routes(
-    verifier: Verifier, tenant_of: TenantOf, origin: str, sign_in: SignIn
+    verifier: Verifier,
+    tenant_of: TenantOf,
+    origin: str,
+    sign_in: SignIn,
+    on_recorded: OnRecorded = lambda _person, _project: None,
 ) -> list[Route]:
+    """`on_recorded` runs on the event loop after each recorded answer; the web app's chat
+    passes the call that starts the next turn of each conversation waiting on it."""
     answer = next(one for one in OPERATIONS if one.name == "answer_page")
 
     def signed_in(request: Request) -> tuple[PersonSession, Tenant, ProjectId] | Response:
@@ -196,6 +203,7 @@ def confirm_routes(
         assert isinstance(reply, PageReply)
         if reply.outcome == "recorded":
             tenant.bell.ring()
+            on_recorded(person, project)
         return _plain(STATUS[reply.outcome], *reply.said)
 
     routes = [

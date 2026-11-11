@@ -19,6 +19,7 @@ from mcp.server import MCPServer
 
 from cad.accounts.principal import AgentToken, PersonSession
 from cad.accounts.tenants import Tenants
+from cad.chat import answer_driver
 from cad.chat.auto_driver import AutoDriver
 from cad.chat.log import (
     AgentSaid,
@@ -44,12 +45,15 @@ MAX_RESULT_CHARS: Final = 40_000
 MODE_NOTES: Final[Mapping[Mode, str]] = {
     Mode.PLAN: (
         "This conversation is in Plan mode. Turn the person's words into requirements and ask "
-        "them to confirm. The server refuses build_variant until the person moves the "
-        "conversation to Design mode, and only the person can do that."
+        "them to confirm. The server refuses build_variant in Plan mode. When the person "
+        "confirms, the server moves the conversation to Design mode and starts your next turn "
+        "by itself. After ask_to_confirm returns pending, tell the person to answer on the page "
+        "and end your message."
     ),
     Mode.DESIGN: (
         "This conversation is in Design mode. Build and revise variants when the person asks, "
-        "and report only what the checks returned. You act only when the person writes."
+        "and report only what the checks returned. You act when the person writes or answers the "
+        "confirmation page."
     ),
     Mode.AUTO: (
         "This conversation is in Auto mode. Call auto_start with the brief_id of a brief whose "
@@ -133,6 +137,7 @@ async def _converse(model: Model, tenants: Tenants, token: AgentToken, channel: 
                 results: list[ToolResult] = []
                 for call in calls:
                     result = await _call(client, call)
+                    answer_driver.settle(tenant_of(), channel.events(), call, result)
                     channel.append(
                         ToolReturned(call_id=call.id, text=result.text, is_error=result.is_error)
                     )

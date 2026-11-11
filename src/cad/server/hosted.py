@@ -127,7 +127,9 @@ def build_app(
     )
     app.router.routes.insert(0, _resource_metadata(issuer))
     app.router.routes.extend(person_routes(OPERATIONS, ROUTES, verifier.person, tenants.of))
-    app.router.routes.extend(confirm_routes(verifier, tenants.of, origin(issuer), sign_in))
+    app.router.routes.extend(
+        confirm_routes(verifier, tenants.of, origin(issuer), sign_in, chat.answered)
+    )
     app.router.routes.append(events_route(verifier.person, tenants.of, hooked=hooked))
     app.router.routes.extend(chat_routes(verifier.person, chat))
     app.router.routes.extend(web_routes(web))

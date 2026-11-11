@@ -9,10 +9,18 @@ Design: `docs/design/phase-4.md` §1a, §2.4 (our own chat agent needs no Clerk 
 All three take the person's session (`__session` cookie or Bearer). An agent token gets 401. A conversation id of another account is 404, and nothing of it is read or written.
 
 - `POST /v1/conversations` starts a conversation in Plan mode. Body `{}`, content type `application/json`. Answers 201 with `conversation_id`.
-- `POST /v1/conversations/{id}/messages` takes `{"text": "..."}`, records it and starts one agent turn. 202 with the message's `seq`, 409 while the last turn still runs, 415 for any content type but `application/json`, 422 for an empty or unknown field. A turn starts only on this call.
+- `POST /v1/conversations/{id}/messages` takes `{"text": "..."}`, records it and starts one agent turn. 202 with the message's `seq`, 409 while the last turn still runs, 415 for any content type but `application/json`, 422 for an empty or unknown field. A turn starts on this call, or on a page answer the conversation waits on (below).
 - `GET /v1/conversations/{id}/stream` replays the transcript and then follows it as server-sent events. Each event's `id` is its `seq`. `Last-Event-ID` or `?after=N` resumes. `?follow=false` ends after what is held, for `curl`.
 
-Events are `user`, `agent`, `tool_call`, `tool_result`, `driver` (the reminder below), `stop_report`, `turn_failed` and `turn_ended`. The transcript is `<account base>/conversations/chat/<id>.jsonl`.
+Events are `user`, `agent`, `tool_call`, `tool_result`, `driver` (the Auto reminder, or a page answer with `answered`), `stop_report`, `turn_failed` and `turn_ended`. The transcript is `<account base>/conversations/chat/<id>.jsonl`.
+
+## A page answer starts the next turn
+
+A conversation waits on a project when its last `ask_to_confirm` result is `pending`. Each result carries `answers_recorded`, the count of the project's page answers. When the person answers the page (`POST /projects/{pid}/confirm` answers 200), each open conversation of the account that waits on that project gets a `driver` event with `answered: {"project_id", "through"}` and starts a turn, with no `user` event. The text counts what was confirmed and declined and quotes the note, and holds no URL or token. If a turn is running, the follow-up turn starts when it ends, unless that turn's own `ask_to_confirm` returned the answer. A replayed POST is 409 and starts nothing. A conversation not opened since a restart is told when its stream opens, and a `driver` with `answered` that no turn followed runs then.
+
+An answer that confirms a requirements item moves the conversation from Plan to Design, once: a switch back to Plan stands through later asks. A declined answer wakes the agent and stays in Plan. A first `pending` ask in a project whose older briefs are confirmed stays in Plan.
+
+- **Wake.** Run a script that creates a brief, proposes, calls `ask_to_confirm` and ends. Open the page with `--opener` and confirm. `/stream?follow=false` shows `driver`, the next step's reply and `turn_ended` after the first `turn_ended`, and `GET /v1/conversations/$CID` shows `"mode": "design"`.
 
 ## The model
 
@@ -37,7 +45,7 @@ export PERSON_B=$(uv run cad-token --root "$ROOT" person user_bob)
 
 ## Proof the tests give
 
-`uv run pytest tests/chat -q`: a turn with a tool call, a refused tool, the token built from the session, the agent tool list equal to the registry's agent list, 401, 404, 409, 415 and 422, a stream that resumes, a transcript that survives a restart, and a model that fails ending the turn with a message.
+`uv run pytest tests/chat -q`: a turn with a tool call, a refused tool, the token built from the session, the agent tool list equal to the registry's agent list, 401, 404, 409, 415 and 422, a stream that resumes, a transcript that survives a restart, and a model that fails ending the turn with a message. `tests/chat/test_answer_wakes.py` covers the page answer: one turn per answer, a replay, an answer during a turn, a switch back to Plan, a decline, and restarts.
 
 ## The web half
 
