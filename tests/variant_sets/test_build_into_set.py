@@ -14,7 +14,7 @@ from tests.support.set_parts import BRACKET, NO_DOCKER, PLATE, held, shows
 if TYPE_CHECKING:
     from tests.support.variant_set_session import Session
 
-pytestmark = pytest.mark.anyio
+pytestmark = [pytest.mark.anyio, pytest.mark.docker]
 
 
 async def test_a_member_survives_a_trust_digest_change(

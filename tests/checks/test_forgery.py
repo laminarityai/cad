@@ -18,6 +18,8 @@ from cad.sandbox.outcome import Built
 from cad.variants.entry import StaleVariant
 from cad.variants.store import build_variant
 
+pytestmark = pytest.mark.docker
+
 NO_DOCKER = "unix:///nonexistent/docker.sock"
 
 FORGE_REPORT = """import base64, json, os

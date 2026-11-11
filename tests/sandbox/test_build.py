@@ -30,6 +30,7 @@ def test_there_are_ten_reference_parts() -> None:
 
 
 @pytest.mark.parametrize("part", sorted(PARTS))
+@pytest.mark.docker
 def test_reference_part_builds_and_stores_its_files(
     part: str, built_parts: tuple[Path, Mapping[str, BuildResult]]
 ) -> None:
@@ -46,12 +47,14 @@ def test_reference_part_builds_and_stores_its_files(
     assert (stored / "code.py").read_text() == PARTS[part]
 
 
+@pytest.mark.docker
 def test_a_timed_out_build_is_not_stored(tmp_path: Path) -> None:
     result = build_variant("while True:\n    pass\n", tmp_path, wall_seconds=2)
     assert result.outcome == TimedOut(limit_seconds=2)
     assert list(tmp_path.iterdir()) == []
 
 
+@pytest.mark.docker
 def test_a_changed_comment_is_a_new_variant(tmp_path: Path) -> None:
     first = build_variant("x = 1\n", tmp_path)
     second = build_variant("x = 1\n# again\n", tmp_path)
@@ -69,6 +72,7 @@ def error_text(result: Any) -> str:
 
 
 @pytest.mark.anyio
+@pytest.mark.docker
 async def test_plate_over_mcp_is_built_with_a_brep_and_no_step_file(tmp_path: Path) -> None:
     result = await call(tmp_path, PARTS["plate"])
     assert not result.is_error
@@ -79,6 +83,7 @@ async def test_plate_over_mcp_is_built_with_a_brep_and_no_step_file(tmp_path: Pa
 
 
 @pytest.mark.anyio
+@pytest.mark.docker
 async def test_the_same_code_twice_is_one_variant_built_once(tmp_path: Path) -> None:
     code = "import random\nprint(random.random())\n"
     first = await call(tmp_path, code)
@@ -88,6 +93,7 @@ async def test_the_same_code_twice_is_one_variant_built_once(tmp_path: Path) -> 
 
 
 @pytest.mark.anyio
+@pytest.mark.docker
 async def test_a_stored_variant_is_returned_while_docker_is_down(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -98,6 +104,7 @@ async def test_a_stored_variant_is_returned_while_docker_is_down(
 
 
 @pytest.mark.anyio
+@pytest.mark.docker
 async def test_a_name_error_names_the_missing_name(tmp_path: Path) -> None:
     code = "from build123d import *\nresult = Box(1, 1, 1, align=Alignment.CENTER)\n"
     outcome = (await call(tmp_path, code)).structured_content["outcome"]
@@ -107,6 +114,7 @@ async def test_a_name_error_names_the_missing_name(tmp_path: Path) -> None:
 
 
 @pytest.mark.anyio
+@pytest.mark.docker
 async def test_code_that_never_assigns_result_names_the_contract(tmp_path: Path) -> None:
     outcome = (await call(tmp_path, "x = 1\n")).structured_content["outcome"]
     assert outcome == {

@@ -1,9 +1,13 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from cad.sandbox import container, stage
 from cad.sandbox.container import Job
 from cad.sandbox.image import ANALYSIS, current_image, image_tag
+
+pytestmark = pytest.mark.docker
 
 PROBE = """import json, os, sys
 saved = os.dup(1)

@@ -18,6 +18,8 @@ from cad.scorecard.model import AgainstBrief, Basis, Checked, Scorecard
 from cad.tables.materials import UNITS, Known, MaterialsTable, load_materials, magnitude
 from cad.variants.store import build_variant
 
+pytestmark = pytest.mark.docker
+
 KEY = "prusament-pla"
 CASE = {
     "support": {"kind": "flat_end"},

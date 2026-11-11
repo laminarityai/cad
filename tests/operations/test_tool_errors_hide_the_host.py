@@ -10,7 +10,7 @@ from cad.sandbox.image import BUILD, image_tag
 from cad.server.app import build_server
 from cad.variants import entry, store
 
-pytestmark = pytest.mark.anyio
+pytestmark = [pytest.mark.anyio, pytest.mark.docker]
 
 PLATE = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
 NO_DOCKER = "unix:///nonexistent/docker.sock"

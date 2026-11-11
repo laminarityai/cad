@@ -117,6 +117,7 @@ async def test_a_call_after_the_run_stopped_is_refused_by_the_server(chat: Chat)
     assert kinds(events).count("stop_report") == 1
 
 
+@pytest.mark.docker
 async def test_a_run_that_passes_every_checked_requirement_stops_with_all_pass(
     chat: Chat,
 ) -> None:

@@ -38,6 +38,7 @@ def test_a_new_build_image_gives_a_new_analysis_tag(tmp_path: Path) -> None:
     assert image_tag(replace(ANALYSIS, base=edited)) != image_tag(ANALYSIS)
 
 
+@pytest.mark.docker
 def test_a_new_analysis_context_changes_every_check_version_and_no_variant_id(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

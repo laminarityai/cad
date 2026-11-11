@@ -47,6 +47,7 @@ def started(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     return kinds
 
 
+@pytest.mark.docker
 def test_a_second_score_starts_no_container_and_gives_the_same_card_bytes(
     built: Build, store: Path, started: list[str]
 ) -> None:
@@ -59,6 +60,7 @@ def test_a_second_score_starts_no_container_and_gives_the_same_card_bytes(
     assert second.model_dump_json() == first.model_dump_json()
 
 
+@pytest.mark.docker
 def test_another_material_runs_the_checks_again(
     built: Build, store: Path, started: list[str]
 ) -> None:
@@ -70,6 +72,7 @@ def test_another_material_runs_the_checks_again(
     assert pla.finished[2].number("mass", "g") != petg.finished[2].number("mass", "g")
 
 
+@pytest.mark.docker
 def test_a_tampered_job_result_is_run_again_and_never_trusted(
     built: Build, store: Path, started: list[str]
 ) -> None:

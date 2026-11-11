@@ -10,6 +10,8 @@ from cad.scorecard import score
 from cad.variants import entry
 from cad.variants.store import RebuildFailed, build_variant
 
+pytestmark = pytest.mark.docker
+
 PLATE = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
 OLD_TAG = "cad-sandbox:before-a-deploy"
 

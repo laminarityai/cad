@@ -12,6 +12,8 @@ from cad.sandbox.container import Job, Ran
 from cad.scorecard import score
 from cad.variants import entry
 
+pytestmark = pytest.mark.docker
+
 PLATE = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
 OTHER = "sha256:" + "f" * 64
 

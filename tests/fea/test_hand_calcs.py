@@ -19,6 +19,8 @@ from cad.sandbox.host import Artifacts, build
 from cad.sandbox.image import BUILD, current_image, image_tag
 from cad.sandbox.stage import TARGET, check_mount
 
+pytestmark = pytest.mark.docker
+
 HARNESS: Final = "/opt/fea"
 PROGRAM: Final = (
     f"import sys; sys.path[:0] = [{TARGET!r}, {HARNESS!r}]; from driver import main; main()"

@@ -95,6 +95,7 @@ async def test_the_agent_is_offered_the_agent_tools_and_nothing_a_person_alone_m
     assert "Plan mode" in recording.systems[0]
 
 
+@pytest.mark.docker
 async def test_a_mode_the_person_sets_reaches_the_next_message_and_the_prompt(
     chat: Chat, recording: Recording
 ) -> None:

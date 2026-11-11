@@ -5,6 +5,8 @@ import pytest
 
 from cad.checks.result import CheckRun, Verdict
 
+pytestmark = pytest.mark.docker
+
 PLATE = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
 NONE = "dimensionless"
 STAR_IMPORT = "from build123d import *\n"

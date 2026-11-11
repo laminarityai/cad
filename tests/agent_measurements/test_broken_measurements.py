@@ -25,12 +25,14 @@ pytestmark = pytest.mark.anyio
         ("report('a', 1.0, 'mm'); print('x' * 9000); report('b', 1.0, 'mm')", "last 8 KiB"),
     ],
 )
+@pytest.mark.docker
 async def test_a_broken_measurement_fails_with_its_reason_and_no_value(
     s: Session, person: Person, code: str, reason: str
 ) -> None:
     assert reason in await failed_measurement(s, person, code)
 
 
+@pytest.mark.docker
 async def test_a_measurement_that_never_ends_is_stopped_at_the_wall_limit(
     s: Session, person: Person, monkeypatch: pytest.MonkeyPatch
 ) -> None:

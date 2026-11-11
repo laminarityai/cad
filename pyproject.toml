@@ -142,6 +142,7 @@ addopts = "-ra --import-mode=importlib"
 # cannot interrupt a test blocked in a worker thread, so use the thread method.
 timeout = 300
 timeout_method = "thread"
+markers = ["docker: starts a Docker container; `-m \"not docker\"` leaves it out"]
 pythonpath = [
     "tests",
     "tools",

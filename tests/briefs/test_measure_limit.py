@@ -90,6 +90,7 @@ async def volume_row(s: Session, brief_id: str, code: str) -> dict[str, Any]:
     return row
 
 
+@pytest.mark.docker
 async def test_a_plate_under_the_confirmed_volume_passes_and_one_over_it_fails(s: Session) -> None:
     brief_id = await confirmed_brief(s)
     light = await volume_row(s, brief_id, PLATE_20_CM3)

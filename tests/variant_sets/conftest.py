@@ -16,8 +16,9 @@ from tests.support.variant_set_session import Session
 
 @pytest.fixture(scope="session")
 def built_parts(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """The parts these tests build, built once per worker. Each test gets its own copy, so a
-    build of one of them is a store hit and every set, brief and record still starts empty."""
+    """The parts these tests build, built once per worker. Each test marked docker gets its own
+    copy, so a build of one of them is a store hit and every set, brief and record still starts
+    empty. A test without the mark starts from an empty store and so needs no Docker."""
     root = tmp_path_factory.mktemp("set-parts") / "variants"
     for code in (PLATE, THICKER, BRACKET):
         build_variant(code, root)
@@ -25,9 +26,11 @@ def built_parts(tmp_path_factory: pytest.TempPathFactory) -> Path:
 
 
 @pytest.fixture
-async def s(tmp_path: Path, built_parts: Path) -> AsyncIterator[Session]:
-    shutil.copytree(built_parts, tmp_path / "variants")
-    shutil.copy2(key_path(built_parts), key_path(tmp_path / "variants"))
+async def s(tmp_path: Path, request: pytest.FixtureRequest) -> AsyncIterator[Session]:
+    if request.node.get_closest_marker("docker"):
+        built: Path = request.getfixturevalue("built_parts")
+        shutil.copytree(built, tmp_path / "variants")
+        shutil.copy2(key_path(built), key_path(tmp_path / "variants"))
     person = Person(answer="confirm")
     server = build_server(
         tmp_path / "variants",

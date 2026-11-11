@@ -17,6 +17,8 @@ from cad.variants import entry
 from cad.variants.entry import UnknownVariant
 from cad.variants.store import build_variant
 
+pytestmark = pytest.mark.docker
+
 PARTS = Path(__file__).parents[1] / "sandbox/parts"
 AGREEMENT = 0.005
 
