@@ -6,6 +6,7 @@ from cad.checks import jobs
 from cad.checks.lanes import LANES, WAIT_SECONDS, Done, Lanes, Pending, Settled
 from cad.checks.report import SPECS, CheckSpec, Request, build_request, reads_of, unknown_for_all
 from cad.checks.result import CheckResult
+from cad.errors import Refused
 from cad.sandbox import host, image
 from cad.sandbox.outcome import Built
 from cad.scorecard.model import Basis, NoBrief, PendingCheck, Scorecard
@@ -19,7 +20,7 @@ type Assess = Callable[[Results], Basis]
 NO_DEMAND: Final = jobs.Demand()
 
 
-class NotScored(entry.VariantRefused):
+class NotScored(Refused):
     def __init__(self, vid: str) -> None:
         super().__init__(
             f"variant {vid} has no stored check result for this material to read; "

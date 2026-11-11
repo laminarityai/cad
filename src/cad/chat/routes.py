@@ -18,7 +18,7 @@ from typing import Final
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response, StreamingResponse
+from starlette.responses import Response, StreamingResponse
 from starlette.routing import Route
 
 from cad.accounts.principal import PersonSession
@@ -39,7 +39,7 @@ from cad.conversations.model import (
     conversation_id,
 )
 from cad.operations.model import Tenant
-from cad.operations.routes import CHALLENGE, PersonOf, session_token
+from cad.operations.routes import PersonOf, refuse, session_person
 from cad.projects.membership import project_briefs
 from cad.projects.model import ProjectId, ProjectRefused, UnknownProject, parse_project_id
 from cad.sandbox.outcome import SandboxUnavailable
@@ -196,49 +196,43 @@ class Chat:
 
 
 def chat_routes(person_of: PersonOf, chat: Chat) -> list[Route]:
-    def person(request: Request) -> PersonSession | Response:
-        found = person_of(session_token(request))
-        if found is None:
-            return _error(401, "sign in: this route takes a Clerk session token", CHALLENGE)
-        return found
-
     def known(request: Request, person: PersonSession) -> tuple[ConversationId, Channel] | Response:
         try:
             cid = conversation_id(request.path_params["conversation_id"])
         except NotAConversation as error:
-            return _error(422, str(error))
+            return refuse(422, str(error))
         channel = chat.channel(person, cid)
         if channel is None:
-            return _error(404, f"no conversation {cid} in this account")
+            return refuse(404, f"no conversation {cid} in this account")
         return cid, channel
 
     async def create(request: Request) -> Response:
-        who = person(request)
+        who = session_person(person_of, request)
         if isinstance(who, Response):
             return who
         if not _is_json(request):
-            return _error(415, "send application/json")
+            return refuse(415, "send application/json")
         try:
             start = Start.model_validate_json(await request.body())
         except ValidationError as error:
-            return _error(422, str(error))
+            return refuse(422, str(error))
         tenant = chat.tenants.of(who.account)
         if start.brief_id is not None and start.project_id is None:
-            return _error(422, "send project_id with brief_id")
+            return refuse(422, "send project_id with brief_id")
         if start.brief_id is not None and not _holds(tenant, start.project_id, start.brief_id):
-            return _error(404, f"no brief {start.brief_id} in project {start.project_id}")
+            return refuse(404, f"no brief {start.brief_id} in project {start.project_id}")
         if start.project_id is not None and not _is_project(tenant, start.project_id):
-            return _error(404, f"no project {start.project_id} in this account")
+            return refuse(404, f"no project {start.project_id} in this account")
         cid = conversation_id(f"c_{secrets.token_hex(8)}")
         held = store.create(tenant, cid, start.project_id, start.brief_id)
         return _json(ConversationCreated(conversation_id=cid, mode=held.mode), 201)
 
     async def send(request: Request) -> Response:
-        who = person(request)
+        who = session_person(person_of, request)
         if isinstance(who, Response):
             return who
         if not _is_json(request):
-            return _error(415, "send application/json")
+            return refuse(415, "send application/json")
         found = known(request, who)
         if isinstance(found, Response):
             return found
@@ -246,7 +240,7 @@ def chat_routes(person_of: PersonOf, chat: Chat) -> list[Route]:
         try:
             said = Said.model_validate_json(await request.body())
         except ValidationError as error:
-            return _error(422, str(error))
+            return refuse(422, str(error))
         picked = None
         if said.selection is not None:
             minted = await _mint(chat.tenants.of(who.account), cid, said.selection)
@@ -255,11 +249,11 @@ def chat_routes(person_of: PersonOf, chat: Chat) -> list[Route]:
             picked = minted
         seq = chat.start(who, cid, channel, said.text, picked)
         if seq is None:
-            return _error(409, "the agent is still answering the last message")
+            return refuse(409, "the agent is still answering the last message")
         return _json(MessageSent(seq=seq), 202)
 
     async def stream(request: Request) -> Response:
-        who = person(request)
+        who = session_person(person_of, request)
         if isinstance(who, Response):
             return who
         found = known(request, who)
@@ -272,7 +266,7 @@ def chat_routes(person_of: PersonOf, chat: Chat) -> list[Route]:
             header = request.headers.get("last-event-id")
             seen = int(header) if header else asked.after
         except (ValidationError, ValueError):
-            return _error(422, "after and Last-Event-ID are event numbers, follow is a boolean")
+            return refuse(422, "after and Last-Event-ID are event numbers, follow is a boolean")
         return StreamingResponse(
             _events(channel, max(seen, 0), asked.follow),
             media_type="text/event-stream",
@@ -282,13 +276,13 @@ def chat_routes(person_of: PersonOf, chat: Chat) -> list[Route]:
     async def project_conversation(request: Request) -> Response:
         """The project's one conversation, made on the first read, so every brief of the project
         opens the same chat without an id in the URL."""
-        who = person(request)
+        who = session_person(person_of, request)
         if isinstance(who, Response):
             return who
         tenant = chat.tenants.of(who.account)
         raw = request.path_params["project_id"]
         if not _is_project(tenant, raw):
-            return _error(404, f"no project {raw} in this account")
+            return refuse(404, f"no project {raw} in this account")
         project = parse_project_id(raw)
         # No await from the read to the create, so two reads on this loop make one conversation.
         cid = store.of_project(tenant.conversations, project)
@@ -336,15 +330,15 @@ async def _mint(tenant: Tenant, cid: ConversationId, picked: Picked) -> Selectio
     try:
         project = store.read(tenant.conversations, cid).project_id
     except UnknownConversation:
-        return _error(404, f"no conversation {cid} in this account")
+        return refuse(404, f"no conversation {cid} in this account")
     if project is None:
-        return _error(422, "pick something in a project: this conversation has none")
+        return refuse(422, "pick something in a project: this conversation has none")
     try:
         record = await asyncio.to_thread(mint.mint, tenant, parse_project_id(project), picked)
     except (SelectionRefused, VariantRefused, ProjectRefused) as error:
-        return _error(422, str(error))
+        return refuse(422, str(error))
     except SandboxUnavailable as error:
-        return _error(503, str(error))
+        return refuse(503, str(error))
     return mint.note(record)
 
 
@@ -374,7 +368,3 @@ def _is_json(request: Request) -> bool:
 
 def _json(body: BaseModel, status: int) -> Response:
     return Response(body.model_dump_json(), status, media_type="application/json")
-
-
-def _error(status: int, message: str, headers: dict[str, str] | None = None) -> Response:
-    return JSONResponse({"error": message}, status, headers=headers)

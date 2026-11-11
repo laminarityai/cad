@@ -4,6 +4,8 @@ from typing import Annotated, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from cad.errors import Unavailable
+
 LOG = logging.getLogger(__name__)
 
 
@@ -56,7 +58,7 @@ class Build(BaseModel):
     output: str
 
 
-class SandboxUnavailable(Exception):
+class SandboxUnavailable(Unavailable):
     @classmethod
     def hiding_host(cls, message: str, error: Exception | str, path: Path | None = None) -> Self:
         LOG.error("%s%s: %s", message, "" if path is None else f" ({path})", error)

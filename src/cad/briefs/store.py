@@ -30,6 +30,7 @@ from cad.briefs.model import (
     requirement_id,
 )
 from cad.confirmations.answers import Edit, ItemRef, Ledger, read_ledger
+from cad.errors import NotFound, Refused
 from cad.projects.model import NewProjectId
 from cad.records import signed
 from cad.records.roots import Roots
@@ -42,11 +43,11 @@ ID_PATTERN: Final = re.compile(r"[0-9a-f]{16}")
 LOG = logging.getLogger(__name__)
 
 
-class BriefRefused(Exception):
+class BriefRefused(Refused):
     """Agent-facing. The message names the brief id, never a host path."""
 
 
-class UnknownBrief(BriefRefused):
+class UnknownBrief(BriefRefused, NotFound):
     pass
 
 

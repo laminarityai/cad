@@ -16,7 +16,8 @@ from cad.confirmations.answers import Found, ItemRef, read_ledger
 from cad.context_parts.ids import ContextPartId
 from cad.context_parts.ingest import Facts, NotAPart
 from cad.context_parts.model import ContextPartRecord, FromVariant, NewerRevision, Outcome
-from cad.projects.model import ProjectBusy, ProjectId, ProjectRefused, TamperedProject
+from cad.errors import Refused
+from cad.projects.model import ProjectBusy, ProjectId, TamperedProject
 from cad.records import signed
 from cad.records.roots import Roots, project_store
 from cad.sandbox import image
@@ -31,7 +32,7 @@ LOG = logging.getLogger(__name__)
 type Ingest = Callable[[bytes], Facts | NotAPart]
 
 
-class BadContextPart(ProjectRefused):
+class BadContextPart(Refused):
     pass
 
 

@@ -21,8 +21,9 @@ from typing import Final
 
 import pint
 
-from cad.research.quote import on_page
-from cad.tables.materials import FIELD_UNITS, TABLE_PATH, UNITS, Known, MaterialsTable
+from cad.tables.fields import FIELDS
+from cad.tables.materials import TABLE_PATH, UNITS, Known, MaterialsTable
+from cad.tables.quote import on_page
 
 STORE = TABLE_PATH.parent / "datasheet_text"
 HEADER = "url: "
@@ -88,7 +89,7 @@ def cover(quotes: Iterable[str], extractions: Iterable[Extraction]) -> tuple[lis
 
 def citations(table: MaterialsTable) -> Iterator[Citation]:
     for material in table.materials.values():
-        for field in FIELD_UNITS:
+        for field in FIELDS:
             value = material.value(field)
             if isinstance(value, Known):
                 source = value.source
@@ -105,10 +106,12 @@ def citations(table: MaterialsTable) -> Iterator[Citation]:
                 )
 
 
-def written_in(value: Decimal, quote: str) -> bool:
+def written_in_text_layer(value: Decimal, quote: str) -> bool:
     """Whether some number in the quote, read with "." or "," as its decimal mark or as digit
     grouping, equals `value`: 1.24 is written in "1,24 g/cm3" and 8960 in "8 960 kg/m3".
-    "193 x 103" is 193000, never 193 or 103: a PDF text layer drops the raise of 10³.
+    "193 x 103" is 193000, never 193 or 103: a PDF text layer drops the raise of 10³. Unlike
+    `cad.tables.quote.written_as_one_number`, which research uses, it reads no "1.24e3" and does
+    read digits that follow a letter.
 
     The power-of-ten reading also matches a dimension such as "3 x 104 mm", which reads as 30000.
     No current row is affected, and the quote check alone does not catch it."""
@@ -174,7 +177,7 @@ def quote_problems(table: MaterialsTable, store: Path = STORE) -> list[str]:
                 f" {citation.url}: {citation.quote!r}. Run `{REGEN}`: it reads the datasheet again"
                 " and fails if the quote is not in it word for word."
             )
-        if not written_in(citation.value, citation.quote):
+        if not written_in_text_layer(citation.value, citation.quote):
             problems.append(
                 f"{citation.key} {citation.field}: {citation.value} is not written in its quote"
                 f" {citation.quote!r}. Write the value as the quote prints it, in the quote's unit."

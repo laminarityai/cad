@@ -4,9 +4,9 @@ from typing import Final
 from pydantic import BaseModel, ConfigDict
 
 from cad.checks.result import CheckResult, ReadMissing
-from cad.research.fields import SPECS, Field
 from cad.research.overlay import Dropped
 from cad.scorecard.model import PendingCheck
+from cad.tables.fields import FIELDS, Field
 from cad.tables.materials import MaterialsTable, Unknown, row_or_blank
 
 SUBMIT: Final = "submit_research"
@@ -38,7 +38,7 @@ def request_for(
     problems: Sequence[str] = (),
     then: str = RESCORE,
 ) -> ResearchRequest:
-    spec = SPECS[field]
+    spec = FIELDS[field]
     if brief_id is None:
         first = (
             "Score the variant again with a brief_id first: researched values are stored for "
@@ -111,4 +111,4 @@ def requests_before_scoring(
 
 
 def _field(name: str) -> Field | None:
-    return next((field for field in SPECS if field == name), None)
+    return next((field for field in FIELDS if field == name), None)

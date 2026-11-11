@@ -2,7 +2,7 @@ from decimal import Decimal
 
 import pytest
 
-from cad.research.quote import on_page, written_in
+from cad.tables.quote import on_page, written_as_one_number
 
 
 @pytest.mark.parametrize(
@@ -61,7 +61,7 @@ def test_a_quote_whose_words_or_numbers_differ_is_not_on_the_page(quote: str, te
     ],
 )
 def test_a_number_is_written_in_the_quote_in_the_pages_own_format(value: str, quote: str) -> None:
-    assert written_in(Decimal(value), quote)
+    assert written_as_one_number(Decimal(value), quote)
 
 
 @pytest.mark.parametrize(
@@ -79,9 +79,9 @@ def test_a_number_is_written_in_the_quote_in_the_pages_own_format(value: str, qu
     ],
 )
 def test_digits_that_are_not_the_whole_number_are_not_the_value(value: str, quote: str) -> None:
-    assert not written_in(Decimal(value), quote)
+    assert not written_as_one_number(Decimal(value), quote)
 
 
 def test_a_comma_number_reads_both_ways() -> None:
-    assert written_in(Decimal("1.337"), "1,337")
-    assert written_in(Decimal("1337"), "1,337")
+    assert written_as_one_number(Decimal("1.337"), "1,337")
+    assert written_as_one_number(Decimal("1337"), "1,337")

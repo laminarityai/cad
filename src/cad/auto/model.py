@@ -7,17 +7,17 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from cad.briefs.model import MAX_NOTE_CHARS
 from cad.conversations.model import ConversationId
+from cad.errors import NotFound, Refused
 from cad.projects.model import ProjectId
-from cad.variants.entry import VariantRefused
 
 RUN_ID: Final = re.compile(r"^((?:p|pb)-[0-9a-f]{16})-r[0-9a-f]{16}$")
 
 
-class RunRefused(VariantRefused):
+class RunRefused(Refused):
     pass
 
 
-class UnknownRun(RunRefused):
+class UnknownRun(RunRefused, NotFound):
     pass
 
 

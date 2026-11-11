@@ -1,4 +1,6 @@
-"""Nothing here parses a unit expression: a spelling that is not a key is refused."""
+"""The fields a materials row holds. For each: its canonical unit, its plausible range, and the
+unit spellings research converts into the canonical unit. Nothing here parses a unit expression:
+a spelling that is not a key is refused."""
 
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -8,8 +10,6 @@ from typing import Final, Literal
 type Field = Literal[
     "density", "elastic_modulus", "poisson_ratio", "yield_strength", "tensile_strength"
 ]
-
-MAX_QUOTE_LENGTH: Final = 500
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,8 +86,10 @@ def _strength(label: str) -> FieldSpec:
     return FieldSpec(label, "MPa", 0.1, 5000.0, _PRESSURE_UNITS, "MPa or GPa")
 
 
-SPECS: Final[dict[Field, FieldSpec]] = {
+FIELDS: Final[Mapping[Field, FieldSpec]] = {
     "density": FieldSpec("density", "kg/m^3", 500.0, 20000.0, _DENSITY_UNITS, "g/cm^3 or kg/m^3"),
+    "yield_strength": _strength("yield strength"),
+    "tensile_strength": _strength("tensile strength"),
     "elastic_modulus": FieldSpec(
         "elastic modulus", "MPa", 10.0, 500000.0, _PRESSURE_UNITS, "MPa or GPa"
     ),
@@ -100,6 +102,4 @@ SPECS: Final[dict[Field, FieldSpec]] = {
         "an empty string, since it has no unit",
         exclusive=True,
     ),
-    "yield_strength": _strength("yield strength"),
-    "tensile_strength": _strength("tensile strength"),
 }

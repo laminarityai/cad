@@ -4,7 +4,7 @@ from typing import Final, NewType
 
 from pydantic import BaseModel, ConfigDict
 
-from cad.variants.entry import VariantRefused
+from cad.errors import NotFound, Refused
 
 ConversationId = NewType("ConversationId", str)
 
@@ -40,9 +40,9 @@ class Conversation(BaseModel):
         return self.model_copy(update={"mode": mode, "auto_run": auto_run})
 
 
-class ModeRefused(VariantRefused):
+class ModeRefused(Refused):
     pass
 
 
-class UnknownConversation(ModeRefused):
+class UnknownConversation(NotFound):
     pass

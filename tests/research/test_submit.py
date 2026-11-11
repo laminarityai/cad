@@ -7,7 +7,6 @@ from cad.briefs.store import create_brief
 from cad.projects.model import ProjectId, new_project_id
 from cad.records.roots import Roots
 from cad.research.fetch import FetchFailed, Page
-from cad.research.fields import SPECS, Field
 from cad.research.ledger import Ledger, read_ledger
 from cad.research.overlay import overlay, project_table
 from cad.research.submit import (
@@ -17,6 +16,7 @@ from cad.research.submit import (
     ResearchRefused,
     submit,
 )
+from cad.tables.fields import FIELDS, Field
 from cad.tables.materials import (
     FromResearch,
     Known,
@@ -135,7 +135,7 @@ def test_the_agents_reading_of_an_ordinary_quote_is_accepted_in_the_canonical_un
     answer = submit(table, roots.projects, question, fetcher=page(ARTICLE))
     assert isinstance(answer, ResearchAccepted), answer
     assert answer.value == pytest.approx(canonical)
-    assert (answer.unit, answer.url, answer.quote) == (SPECS[field].canonical_unit, URL, quote)
+    assert (answer.unit, answer.url, answer.quote) == (FIELDS[field].canonical_unit, URL, quote)
 
 
 def test_a_value_not_written_in_the_quote_is_refused_before_the_fetch(roots: Roots) -> None:

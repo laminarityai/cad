@@ -2,7 +2,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import cast
+from typing import Final, cast
 
 import pytest
 from starlette.routing import Route
@@ -21,6 +21,17 @@ from cad.server.hosted import build_app
 
 ROOT = Path(__file__).resolve().parents[2]
 SKIPPED = {"HEAD", "OPTIONS"}
+NOT_API: Final = {
+    ("*", "/mcp"): "the MCP transport; its tools are described by the tool list",
+    ("GET", "/.well-known/oauth-protected-resource/mcp"): "RFC 9728 metadata for MCP clients",
+    ("GET", "/projects/{project_id}/confirm"): "the confirmation page, HTML for the browser",
+    ("POST", "/projects/{project_id}/confirm"): "the confirmation page's form post",
+    ("GET", "/local/sign-in"): "the local server's sign-in redirect, never hosted",
+    ("GET", "/"): "redirects to the web app",
+    ("GET", "/app"): "redirects to the web app",
+    ("GET", "/app/"): "the web app's static files",
+    ("GET", "/app/{path:path}"): "the web app's static files",
+}
 DOCUMENT = document(every_route())
 PATHS = cast(dict[str, dict[str, Json]], DOCUMENT["paths"])
 
@@ -59,12 +70,13 @@ def test_every_web_route_the_app_mounts_is_described(tmp_path: Path) -> None:
     mounted = {
         (method, route.path)
         for route in app.router.routes
-        if isinstance(route, Route) and route.path.startswith("/v1/")
-        for method in (route.methods or set()) - SKIPPED
+        if isinstance(route, Route)
+        for method in (route.methods or {"*"}) - SKIPPED
     }
-    assert mounted == set(described()), (
+    assert mounted - set(NOT_API) == set(described()), (
         "describe a new route in the registry ROUTES or in cad.operations.outside.HAND_DESCRIBED"
     )
+    assert set(NOT_API) <= mounted
 
 
 def test_a_templated_name_is_a_path_parameter_and_every_other_argument_is_not() -> None:

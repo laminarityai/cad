@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
+from cad.errors import Unavailable
 from cad.sandbox.outcome import SandboxUnavailable
 from cad.variants import key
 
@@ -27,7 +28,7 @@ class Store:
         return key.key_path(self.root).is_file()
 
 
-class StoreUnusable(Exception):
+class StoreUnusable(Unavailable):
     pass
 
 

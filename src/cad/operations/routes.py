@@ -17,18 +17,12 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 from cad.accounts.principal import AccountId, PersonSession
-from cad.auto.model import UnknownRun
-from cad.briefs.store import UnknownBrief
-from cad.conversations.model import UnknownConversation
+from cad.errors import NotFound, Refused, Unavailable
 from cad.operations.model import Audience, Operation, Tenant
-from cad.operations.tools import REFUSALS, UNAVAILABLE
-from cad.projects.model import UnknownProject
 from cad.sandbox.meter import metered
-from cad.variants.entry import UnknownVariant
 
 SESSION_COOKIE: Final = "__session"
 CHALLENGE: Final = {"WWW-Authenticate": 'Bearer realm="cad", error="invalid_token"'}
-NOT_FOUND: Final = (UnknownVariant, UnknownBrief, UnknownProject, UnknownConversation, UnknownRun)
 IMMUTABLE: Final = "private, max-age=31536000, immutable"
 
 type PersonOf = Callable[[str], PersonSession | None]
@@ -62,9 +56,9 @@ def person_route(served: Served, one: Operation, person_of: PersonOf, tenant_of:
         raise ValueError(f"{one.name} is not for the person, so it has no web route")
 
     async def endpoint(request: Request) -> Response:
-        person = person_of(session_token(request))
-        if person is None:
-            return refuse(401, "sign in: this route takes a Clerk session token", CHALLENGE)
+        person = session_person(person_of, request)
+        if isinstance(person, Response):
+            return person
         tenant = tenant_of(person.account)
         sent = (
             await _request_body(request) if served.method != "GET" else dict(request.query_params)
@@ -86,12 +80,8 @@ def person_route(served: Served, one: Operation, person_of: PersonOf, tenant_of:
                     result = await cast(Awaitable[object], one.run(tenant, arguments))
             else:
                 result = await anyio.to_thread.run_sync(run)
-        except NOT_FOUND as error:
-            return refuse(404, f"{type(error).__name__}: {error}")
-        except REFUSALS as error:
-            return refuse(400, f"{type(error).__name__}: {error}")
-        except UNAVAILABLE as error:
-            return refuse(503, str(error))
+        except (Refused, Unavailable) as error:
+            return refusal(error)
         body = _body(one, result)
         if not served.immutable:
             return Response(body, media_type="application/json")
@@ -135,6 +125,22 @@ def session_token(request: Request) -> str:
     if scheme.lower() == "bearer" and token.strip():
         return token.strip()
     return request.cookies.get(SESSION_COOKIE, "")
+
+
+def session_person(person_of: PersonOf, request: Request) -> PersonSession | Response:
+    """The signed-in person, or the 401 a route answers when the request carries no valid Clerk
+    session token."""
+    person = person_of(session_token(request))
+    if person is None:
+        return refuse(401, "sign in: this route takes a Clerk session token", CHALLENGE)
+    return person
+
+
+def refusal(error: Refused | Unavailable) -> Response:
+    if isinstance(error, Unavailable):
+        return refuse(503, str(error))
+    status = 404 if isinstance(error, NotFound) else 400
+    return refuse(status, f"{type(error).__name__}: {error}")
 
 
 def refuse(status: int, message: str, headers: dict[str, str] | None = None) -> Response:
