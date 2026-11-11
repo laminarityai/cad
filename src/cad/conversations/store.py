@@ -1,6 +1,4 @@
 import json
-import os
-import secrets
 import threading
 from collections.abc import Callable
 from dataclasses import replace
@@ -11,6 +9,7 @@ from cad.auto import log
 from cad.auto.model import AutoRun, PersonStopped, Running, RunRefused, Stopped, UnknownRun
 from cad.conversations.model import Conversation, ConversationId, Mode, UnknownConversation
 from cad.operations.model import Tenant
+from cad.records import files
 
 _LOCK: Final = threading.RLock()
 
@@ -155,10 +154,5 @@ def _read_if_known(tenant: Tenant, run_id: str) -> AutoRun | None:
 
 def _write(directory: Path, cid: ConversationId, held: Conversation) -> Conversation:
     directory.mkdir(parents=True, exist_ok=True)
-    temporary = directory / f".{cid}-{secrets.token_hex(8)}.tmp"
-    try:
-        temporary.write_text(json.dumps(held.model_dump(mode="json")))
-        os.replace(temporary, directory / f"{cid}.json")
-    finally:
-        temporary.unlink(missing_ok=True)
+    files.replace(directory / f"{cid}.json", json.dumps(held.model_dump(mode="json")).encode())
     return held

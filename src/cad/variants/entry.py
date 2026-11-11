@@ -1,7 +1,6 @@
 import hashlib
 import json
 import logging
-import os
 import re
 import secrets
 import shutil
@@ -104,12 +103,7 @@ class Entry:
     brep_sha256: str
 
     def attach_step(self, step: bytes) -> str:
-        temporary = self.directory / f".step-{secrets.token_hex(8)}"
-        try:
-            temporary.write_bytes(step)
-            os.replace(temporary, self.directory / STEP)
-        finally:
-            temporary.unlink(missing_ok=True)
+        files.replace(self.directory / STEP, step)
         return hashlib.sha256(step).hexdigest()
 
 

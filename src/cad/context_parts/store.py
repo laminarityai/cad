@@ -1,7 +1,6 @@
 import hashlib
 import logging
 import os
-import secrets
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -286,12 +285,7 @@ def _write_brep(directory: Path, brep: bytes, brep_sha256: str) -> None:
     if held is not None and hashlib.sha256(held).hexdigest() == brep_sha256:
         return
     directory.mkdir(parents=True, exist_ok=True)
-    temporary = directory / f".pending-{secrets.token_hex(8)}"
-    try:
-        temporary.write_bytes(brep)
-        os.replace(temporary, path)
-    finally:
-        temporary.unlink(missing_ok=True)
+    files.replace(path, brep)
 
 
 def _left_by_crashed_first_proposal(directory: Path) -> bool:
