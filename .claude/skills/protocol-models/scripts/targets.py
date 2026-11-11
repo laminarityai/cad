@@ -16,6 +16,8 @@ class Check:
 JOB_LANES: Final = Check("JobLanes", "JobLanes.tla", "JobLanes.cfg")
 JOB_LANES_CAP: Final = Check("JobLanesCap", "JobLanes.tla", "JobLanesCap.cfg")
 ANSWERS: Final = Check("Answers", "Answers.tla", "Answers.cfg")
+CARRY_ON: Final = Check("CarryOn", "CarryOn.tla", "CarryOn.cfg")
+CARRY_ON_LIVE: Final = Check("CarryOnLive", "CarryOn.tla", "CarryOnLive.cfg")
 CHECKS: Final = (
     JOB_LANES,
     JOB_LANES_CAP,
@@ -29,6 +31,9 @@ CHECKS: Final = (
     Check("JobLanesPeek", "JobLanes.tla", "JobLanesPeek.cfg", finding="PeekMeansInterrupted"),
     ANSWERS,
     Check("AnswersStale", "Answers.tla", "AnswersStale.cfg", finding="StaleWritesNothing"),
+    CARRY_ON,
+    CARRY_ON_LIVE,
+    Check("CarryOnCut", "CarryOn.tla", "CarryOnCut.cfg", finding="PlanEndsOncePerConfirm"),
 )
 
 
@@ -213,5 +218,66 @@ MUTANTS: Final = (
             ),
         ),
         "OnlyTenantPersonsAnswer",
+    ),
+    Mutant(
+        "deliver-ignores-running",
+        "_deliver stops returning while a turn runs, so an answer that lands mid-turn starts a"
+        " second turn beside it",
+        CARRY_ON,
+        (("CanDeliver(c) == ~running[c] /\\ ", "CanDeliver(c) == "),),
+        "NoDeliveryWhileRunning",
+    ),
+    Mutant(
+        "pending-ask-ends-plan",
+        "settle calls store.confirmed for a pending result too, so the first ask on a new brief"
+        " ends Plan over an older brief's confirm",
+        CARRY_ON,
+        (("ends == ~asked[c] /\\ Confirms(s, n)", "ends == Confirms(s, n)"),),
+        "PendingAskKeepsPlan",
+    ),
+    Mutant(
+        "delivery-keeps-waiting",
+        "waiting_on stops treating a delivery as the end of the wait, so the done callback"
+        " delivers the same answers again",
+        CARRY_ON,
+        (
+            (
+                "wait' = [c \\in Convs |-> IF c \\in D THEN None ELSE wait[c]]",
+                "wait' = wait",
+            ),
+        ),
+        "NoAnswerToldTwice",
+    ),
+    Mutant(
+        "plan-ends-on-level",
+        "_deliver ends Plan when any answer in the ledger confirms, not only a new one, so a"
+        " delivery of a decline overrides the person's switch back to Plan",
+        CARRY_ON,
+        (("Confirms(wait[c], Len(ledger))", "Confirms(0, Len(ledger))"),),
+        "PlanEndsOnlyOnAnEdge",
+    ),
+    Mutant(
+        "heal-after-act",
+        "catch_up restarts a turn when the transcript holds any delivery, not only a DriverSaid"
+        " tail, so a reopened stream runs a delivery's turn again",
+        CARRY_ON,
+        (("IF ~running[c] /\\ tail[c] THEN", "IF ~running[c] /\\ dels[c] > 0 THEN"),),
+        "OneTurnPerDelivery",
+    ),
+    Mutant(
+        "no-restart-heal",
+        "catch_up drops the restart heal, so a crash between a delivery and its turn leaves the"
+        " conversation silent",
+        CARRY_ON_LIVE,
+        (("IF ~running[c] /\\ tail[c] THEN", "IF FALSE THEN"),),
+        "Temporal",
+    ),
+    Mutant(
+        "answered-count-before-items",
+        "ask_to_confirm reads answers_recorded only before the items, so an answer that lands"
+        " between the two reads returns answered, ends the wait and is never told",
+        CARRY_ON_LIVE,
+        (("rec' = [rec EXCEPT ![c] = Len(ledger)]", "rec' = [rec EXCEPT ![c] = seen[c]]"),),
+        "Temporal",
     ),
 )
