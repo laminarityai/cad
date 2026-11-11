@@ -183,7 +183,7 @@ describe("the explorer", () => {
     parts: [{ name: "rail", size: "30 × 20 × 10 mm", state: "confirmed" as const }],
     sources: [
       { url: "https://www.example.com/pla", title: "PLA datasheet", page: "p. 2", retrieved: "2026-11-10", standard: null, quote: "q" },
-      { url: "https://example.com/pla-2", title: "PLA datasheet", page: "p. 3", retrieved: "2026-11-10", standard: null, quote: "q" },
+      { url: "https://example.com/pla-2", title: "PLA datasheet: Mechanical", page: "p. 3", retrieved: "2026-11-10", standard: null, quote: "q" },
       { url: "https://example.org/petg", title: "", page: "", retrieved: "2026-11-10", standard: null, quote: "q" },
     ],
     dispatch,
@@ -216,6 +216,7 @@ describe("the explorer", () => {
     await userEvent.click(screen.getByRole("button", { name: /^PLA datasheet/ }));
     expect(container.querySelectorAll("[data-file=source]")).toHaveLength(2);
     expect(screen.getByRole("link", { name: "p. 2" })).toHaveAttribute("href", "https://www.example.com/pla");
+    expect(screen.getByRole("link", { name: "Mechanical, p. 3" })).toHaveAttribute("href", "https://example.com/pla-2");
     await userEvent.click(screen.getByRole("button", { name: /^example\.org/ }));
     expect(screen.getByRole("link", { name: "example.org" })).toHaveAttribute("href", "https://example.org/petg");
     await userEvent.click(screen.getByRole("button", { name: "Files" }));

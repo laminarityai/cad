@@ -145,6 +145,12 @@ def walk(run: Path, out: Path, given: dict[str, str]) -> None:
         step("fit toggle", page, "() => document.querySelector('[data-fit-toggle]')")
         step("lid drawn", page, drawn)
         idle(page)
+        step(
+            "lid checked",
+            page,
+            "() => !/Checking/.test(document.querySelector('section[aria-label=Checks]')"
+            "?.innerText ?? 'Checking')",
+        )
         toggle = page.locator("[data-fit-toggle]")
         if toggle.get_attribute("aria-pressed") != "true":
             toggle.click()

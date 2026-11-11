@@ -86,7 +86,14 @@ function siteOf(url: string): string {
   }
 }
 
-const documentOf = (one: Source) => one.title.trim() || siteOf(one.url);
+const TITLE_PARTS = /\s+[|–—-]\s+|:\s+/;
+
+const documentOf = (one: Source) => one.title.split(TITLE_PARTS)[0]?.trim() || siteOf(one.url);
+
+function pageOf(one: Source): string {
+  const rest = one.title.split(TITLE_PARTS).slice(1).join(" · ").trim();
+  return [rest, one.page].filter(Boolean).join(", ") || siteOf(one.url);
+}
 
 function byDocument(sources: Source[]): [string, Source[]][] {
   const groups = new Map<string, Source[]>();
@@ -119,7 +126,7 @@ function SourceFolder({ name, pages }: { name: string; pages: Source[] }) {
             <li key={one.url} data-file="source">
               <a href={one.url} target="_blank" rel="noreferrer" title={one.url} className={cn(ROW, "text-[14px] text-accent hover:bg-panel-2/60")}>
                 <Link2 className="size-4 shrink-0" />
-                <span className="truncate underline">{one.page || siteOf(one.url)}</span>
+                <span className="truncate underline">{pageOf(one)}</span>
               </a>
             </li>
           ))}
