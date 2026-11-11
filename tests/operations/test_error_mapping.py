@@ -49,6 +49,7 @@ EXPECTED: Final[dict[str, Answer]] = {
     "cad.errors.NotFound": ("404 named", "named"),
     "cad.errors.Refused": ("400 named", "named"),
     "cad.errors.Unavailable": ("503 plain", "plain"),
+    "cad.geometry.exports.model.UnknownExport": ("404 named", "named"),
     "cad.geometry.model.UnknownMesh": ("404 named", "named"),
     "cad.knowledge.corpus.InvalidCorpus": (None, None),
     "cad.projects.model.ProjectBusy": ("400 named", "named"),

@@ -106,6 +106,18 @@ def test_a_mesh_names_its_etag_and_a_304_and_a_scorecard_does_not() -> None:
     assert "304" not in card
 
 
+def test_a_download_is_an_octet_stream_that_names_its_attachment_header_and_no_schema() -> None:
+    file = described()[("GET", "/v1/exports/{version}/{brep_sha256}.{format}")]
+    ok = cast(Json, cast(Json, file["responses"])["200"])
+    content = cast(Json, ok["content"])
+    assert content == {
+        "application/octet-stream": {"schema": {"type": "string", "format": "binary"}}
+    }
+    assert {"Content-Disposition", "ETag", "Cache-Control"} <= set(cast(Json, ok["headers"]))
+    assert "304" in cast(Json, file["responses"])
+    assert "Download" not in cast(Json, cast(Json, DOCUMENT["components"])["schemas"])
+
+
 def test_an_input_model_is_not_a_schema_but_every_reference_resolves() -> None:
     schemas = cast(dict[str, Json], cast(Json, DOCUMENT["components"])["schemas"])
     assert not [name for name in schemas if name.endswith("Input")]
