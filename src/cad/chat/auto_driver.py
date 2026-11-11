@@ -93,7 +93,6 @@ class AutoDriver:
         return NUDGE.format(run_id=self.run_id)
 
     def _statements(self, brief_id: str) -> dict[str, str]:
-        """Each requirement the brief ever proposed, by id, in the words the person read."""
         roots = self.tenant.roots
         try:
             proposals = briefs.read_state(roots, brief_id).proposals

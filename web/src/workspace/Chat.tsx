@@ -1,5 +1,3 @@
-/* The project's one chat. Agent text is Markdown. Tool calls fold into one quiet line. What waits on
- * the person is a card the page draws, never agent text. */
 import { Check, ChevronDown, Paperclip, SendHorizontal } from "lucide-react";
 import { useEffect, useReducer, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useServices } from "@/app/context";
@@ -22,13 +20,10 @@ export const DOING: Record<string, string> = {
 
 const WORKED = "worked";
 
-/** A tool's result that changes what the workspace shows. */
 export const CHANGES_PAGE: ReadonlySet<string> = new Set(["build_variant", "score_variant", "propose_requirements", "propose_context_part", "create_brief", "ask_to_confirm"]);
 
 export type Change = { kind: "tool"; name: string } | { kind: "turn_ended" };
 
-/** Follow the conversation. `onChange` hears each tool result, by the tool's name, and each turn's
- * end. */
 export function useProjectChat(conversationId: string | null, onChange?: (change: Change) => void) {
   const { chat } = useServices();
   const [state, dispatch] = useReducer(chatReducer, conversationId, chatStart);
@@ -115,7 +110,6 @@ function Activity({ lines }: { lines: Extract<Line, { kind: "tool" }>[] }) {
   );
 }
 
-/** The person reads what they did, never the prompt the model was given. */
 export function driverText(text: string): string | null {
   const [, confirmed, declined] = /confirmed (\d+) and declined (\d+)/.exec(text) ?? [];
   if (confirmed === undefined || declined === undefined) return null;

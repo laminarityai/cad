@@ -1,5 +1,3 @@
-/* The center of the page: slot tabs, one 3D view that fills the space, and the slot's revisions to
- * step back through. */
 import { Box, ChevronLeft, ChevronRight, Crosshair } from "lucide-react";
 import { useState, type Dispatch } from "react";
 import type { Shapes } from "@/features/viewer/engine";

@@ -117,8 +117,6 @@ class MaterialsTable:
         return material
 
     def name_of(self, key: str) -> str:
-        """The name a person reads: the row's name, or the key without the prefix for a material
-        only the project has, whose row is named by its key."""
         found = self.materials.get(key)
         return (key if found is None else found.name).removeprefix(PROJECT_PREFIX)
 

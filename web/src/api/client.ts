@@ -42,7 +42,6 @@ export interface Api {
   brief(briefId: string): Promise<BriefView>;
   conversation(projectId: string): Promise<ProjectConversation>;
   confirmation(projectId: string): Promise<ConfirmationCard>;
-  /** Posts the Confirm card's form to the page's own handler, the one place an answer is written. */
   answer(projectId: string, form: URLSearchParams): Promise<Answered>;
   scorecard(variantId: string, briefId: string, materialKey: string | null): Promise<ScorecardSnapshot>;
   variantSet(projectId: string, briefId: string, materialKey?: string): Promise<VariantSetView>;

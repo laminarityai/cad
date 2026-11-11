@@ -1,6 +1,3 @@
-/* The page's view model. One project is the page: its briefs (the parts), each brief's options
- * (slots) and their revisions, what waits on the person, the parts a design must fit, and the
- * project's one chat. Every value is read from /v1. */
 import type { Api } from "@/api/client";
 import type { BriefView, ConfirmationCard, ContextPartView, MemberView, Outcome, VariantSetView } from "@/api/types";
 
@@ -36,9 +33,7 @@ export interface Brief {
   title: string;
   state: BriefState;
   slots: Slot[];
-  /** Each slot's own material, by slot number. */
   materialOf: Record<number, Material | null>;
-  /** The confirmed parts this brief must fit, drawn ghosted with each option. */
   fits: Fit[];
 }
 
@@ -135,11 +130,9 @@ export async function loadWorkspace(api: Api, projectId: string): Promise<Worksp
   };
 }
 
-/* What the person has chosen on the page. None of it is in the URL. */
 export interface View {
   briefId: string | null;
   slotOf: Record<string, number>;
-  /** null shows the newest revision of the slot. */
   revisionOf: Record<string, number | null>;
 }
 

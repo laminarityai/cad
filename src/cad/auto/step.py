@@ -143,9 +143,6 @@ def _stop(state: Running, reason: StopReason) -> Stopped:
 def report(
     history: tuple[Standing, ...], reason: StopReason, said: Mapping[str, str] = NO_STATEMENTS
 ) -> str:
-    """The stop's report. The agent reads requirements by id; `said` maps each id to the plain
-    statement the person reads instead."""
-
     def named(rids: Sequence[str]) -> str:
         return ", ".join(said.get(rid, rid) for rid in rids)
 

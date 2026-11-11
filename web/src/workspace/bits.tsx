@@ -1,4 +1,3 @@
-/* Status marks and the checks panel. */
 import { ChevronDown, CircleCheck, CircleDashed, CircleX, LoaderCircle, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -73,7 +72,6 @@ export function Checks({ card, material }: { card: Card | undefined; material: M
   const [more, setMore] = useState(false);
   const snapshot = card?.snapshot ?? null;
   const { asked, also } = snapshot ? linesOf(snapshot) : { asked: [], also: [] };
-  /* A failure or an unknown always shows. Only passes fold away. */
   const loud = also.filter((one) => one.status !== "pass" && one.status !== "researched");
   const quiet = also.filter((one) => one.status === "pass" || one.status === "researched");
   return (

@@ -75,8 +75,6 @@ class Requirements:
 
 
 def plain_names(roots: Roots, brief_id: str) -> dict[str, str]:
-    """The names a person reads for what a brief's requirements name by id or key: each context
-    part of its project and each material of its table."""
     project = store.read_brief(roots, brief_id).project
     table = project_table(host.materials_table(), roots.projects, project).table
     names = {key: table.name_of(key) for key in table.materials}

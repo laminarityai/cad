@@ -1,6 +1,3 @@
-/* A small Markdown renderer for agent replies (paragraphs, lists, tables, headings, code, bold,
- * italic, inline code, links). It builds React elements, never HTML strings, so agent text cannot
- * inject markup. */
 import type { ReactNode } from "react";
 
 function inline(text: string, key: string): ReactNode[] {

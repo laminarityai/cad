@@ -1,5 +1,3 @@
-/* The scorecard of each variant on screen, and the short rows the page draws from it. A row says
- * what was asked, a status and, at most, one number. */
 import { useEffect, useState } from "react";
 import { useServices } from "@/app/context";
 import type { Connection } from "@/api/events";
@@ -15,7 +13,6 @@ export interface Card {
 
 export interface CardKey {
   variantId: string;
-  /** The slot's own material; null scores with whatever the brief names. */
   materialKey: string | null;
   briefId: string;
 }
@@ -63,7 +60,6 @@ export function useCards(keys: CardKey[]): Record<string, Card> {
   return cards;
 }
 
-/** The first clause only; the whole statement is behind a click. */
 function short(statement: string): string {
   const first = statement.split(/(?<=[a-z0-9)])[.(]\s/)[0] ?? statement;
   return first.length > 70 ? `${first.slice(0, 68)}…` : first;
@@ -120,7 +116,6 @@ function statusOf(verdict: string, researched: boolean): Status {
   return verdict === "fail" ? "fail" : "unknown";
 }
 
-/** What the person asked for first, then every other check, each one short. */
 export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
   const results = snapshot.results;
   const done = (id: string) => results.find((one): one is DoneCheck => !isRunning(one) && one.check_id === id);

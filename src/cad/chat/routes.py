@@ -64,8 +64,6 @@ class Said(BaseModel):
 
 
 class Start(BaseModel):
-    """The project the page shows, and the brief when it shows one."""
-
     model_config = ConfigDict(extra="forbid")
 
     project_id: str | None = None

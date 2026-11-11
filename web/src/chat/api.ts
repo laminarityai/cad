@@ -12,7 +12,6 @@ export interface Follower {
 export type Unfollow = () => void;
 
 export interface ChatApi {
-  /** A chat of its own with no project, which its first brief binds, or the chat of `projectId`. */
   create(projectId?: string): Promise<ConversationCreated>;
   read(conversationId: string): Promise<ConversationView>;
   send(conversationId: string, text: string): Promise<MessageSent>;

@@ -33,7 +33,6 @@ def create(
 
 
 def of_project(directory: Path, project_id: str) -> ConversationId | None:
-    """The project's conversation: the newest one bound to it, when there are several."""
     found = [
         (path.stat().st_mtime, cid)
         for path in directory.glob("c_*.json")
@@ -43,8 +42,6 @@ def of_project(directory: Path, project_id: str) -> ConversationId | None:
 
 
 def started(tenant: Tenant, cid: ConversationId, project_id: str) -> None:
-    """A brief was created in a conversation bound to no project, so the conversation becomes
-    that project's. A conversation already bound keeps its project."""
     with _LOCK:
         try:
             held = read(tenant.conversations, cid)

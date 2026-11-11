@@ -204,8 +204,6 @@ export function Workspace() {
   return <Gate resource={resource}>{(model) => <Page model={model} reload={reload} />}</Gate>;
 }
 
-/** A chat with no project yet. The agent's first create_brief makes the project and binds this chat
- * to it, and the page then becomes that project's workspace. */
 export function Start() {
   const { chat } = useServices();
   const navigate = useNavigate();

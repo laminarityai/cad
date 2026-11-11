@@ -73,7 +73,6 @@ def step(name: str, page: Page, check: str, seconds: int = AGENT_SECONDS) -> Non
 
 
 def idle(page: Page) -> None:
-    """The agent's turn is over: the chat is not busy for three seconds running."""
     quiet = "() => !document.querySelector('section[aria-label=Chat][aria-busy=true]')"
     for _ in range(3):
         page.wait_for_timeout(1000)

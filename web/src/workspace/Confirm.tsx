@@ -1,5 +1,3 @@
-/* What waits on the person, drawn from the server's read of the project's confirmation page, never
- * from agent text. Its form is the page's form, posted to the page's handler. */
 import { Undo2, X } from "lucide-react";
 import { useState } from "react";
 import { useServices } from "@/app/context";
@@ -24,8 +22,6 @@ export function formOf(card: Card, answer: "confirm" | "decline", declined: Read
   return form;
 }
 
-/** `onAnswered` reloads the workspace: after a recorded answer the card is gone, and after a 409
- * (an item changed since it was drawn) it draws again from the new read. */
 export function ConfirmCard({ projectId, card, onAnswered }: { projectId: string; card: Card; onAnswered: (recorded: boolean) => void }) {
   const { api } = useServices();
   const [declined, setDeclined] = useState<ReadonlySet<number>>(new Set());

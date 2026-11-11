@@ -1,5 +1,3 @@
-/* The project as an IDE-style tree. Each part is a folder of its options. The Files folder holds
- * the parts a design must fit and the sources the checks cite. */
 import { Box, ChevronRight, Folder, FolderOpen, Link2, Plus } from "lucide-react";
 import { useState, type Dispatch, type ReactNode } from "react";
 import type { Source } from "@/api/types";

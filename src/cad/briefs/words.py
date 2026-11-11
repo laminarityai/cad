@@ -33,8 +33,6 @@ def measure_limit_words(target: MeasureLimit) -> str:
 
 
 def describe(requirement: Requirement, names: Mapping[str, str] = NO_NAMES) -> str:
-    """The plain words the tools show the agent. The page shows a person the same words with
-    `names`, which maps a context part's id and a material's key to the name a person reads."""
     target = requirement.target
     match target:
         case ClosedSolid():

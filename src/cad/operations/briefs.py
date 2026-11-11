@@ -194,8 +194,6 @@ class ListRequirementsInput(Input):
 
 
 def create_brief(tenant: Tenant, arguments: CreateBriefInput) -> BriefCreated:
-    """In a chat, a brief with no project_id joins the conversation's project, and the first brief
-    of a conversation that has none makes its project the conversation's."""
     first = source.first_words(tenant, arguments.text)
     cid = tenant.conversation
     asked = arguments.project_id
