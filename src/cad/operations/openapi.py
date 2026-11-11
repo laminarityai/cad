@@ -8,7 +8,7 @@ from pydantic.json_schema import GenerateJsonSchema, JsonSchemaMode
 from pydantic_core import CoreSchema, core_schema
 
 from cad.operations.model import Audience, Operation
-from cad.operations.routes import Served
+from cad.operations.routes import FILE_TYPE, Served
 
 type Json = dict[str, object]
 
@@ -44,6 +44,7 @@ class Untitled(GenerateJsonSchema):
 
 
 REGISTRY_FAILURES: Final = (400, 401, 404, 422, 503)
+FILE_SCHEMA: Final[Json] = {"type": "string", "format": "binary"}
 
 
 @dataclass(frozen=True, slots=True)
@@ -54,6 +55,7 @@ class Described:
     input: type[BaseModel]
     output: type[BaseModel] | TypeAliasType
     immutable: bool = False
+    download: bool = False
     status: int = 200
     events: str = ""
     requires_json_body: bool = False
@@ -72,6 +74,7 @@ def from_registry(operations: Iterable[Operation], routes: Mapping[str, Served])
             input=one.input,
             output=one.output,
             immutable=routes[one.name].immutable,
+            download=routes[one.name].download,
         )
         for one in reachable
     ]
@@ -82,13 +85,14 @@ def document(described: Sequence[Described]) -> Json:
     wanted: list[tuple[str, JsonSchemaMode, CoreSchema]] = []
     for one in described:
         wanted.append((one.name, "validation", TypeAdapter(one.input).core_schema))
-        wanted.append(
-            (
-                one.name,
-                "serialization",
-                TypeAdapter[object](cast(type[object], one.output)).core_schema,
+        if not one.download:
+            wanted.append(
+                (
+                    one.name,
+                    "serialization",
+                    TypeAdapter[object](cast(type[object], one.output)).core_schema,
+                )
             )
-        )
     made, definitions = generator.generate_definitions(wanted)
     schemas = {**definitions, ERROR: _error_schema()}
     paths: dict[str, Json] = {}
@@ -97,7 +101,7 @@ def document(described: Sequence[Described]) -> Json:
         item[one.method.lower()] = _operation(
             one,
             _input_fields(made[(one.name, "validation")], schemas),
-            made[(one.name, "serialization")],
+            FILE_SCHEMA if one.download else made[(one.name, "serialization")],
         )
     used = _schemas_named_by(paths, schemas) | {ERROR}
     return {
@@ -197,15 +201,21 @@ def _parameter(name: str, where: str, required: bool, schema: Json) -> Json:
 
 
 def _responses(one: Described, output: Json) -> Json:
-    media = "text/event-stream" if one.events else "application/json"
+    media = "text/event-stream" if one.events else FILE_TYPE if one.download else "application/json"
     ok: Json = {"description": one.events or "the result", "content": {media: {"schema": output}}}
     responses: Json = {str(one.status): ok}
+    headers = {name: {"schema": {"type": "string"}} for name in _headers(one)}
+    if headers:
+        ok["headers"] = headers
     if one.immutable:
-        ok["headers"] = {
-            "ETag": {"schema": {"type": "string"}},
-            "Cache-Control": {"schema": {"type": "string"}},
-        }
         responses["304"] = {"description": "the client's copy, named by If-None-Match, is current"}
     for status in one.failures:
         responses[str(status)] = {"$ref": f"#/components/responses/{FAILURES[status][0]}"}
     return dict(sorted(responses.items()))
+
+
+def _headers(one: Described) -> list[str]:
+    return [
+        *(["Content-Disposition"] if one.download else []),
+        *(["ETag", "Cache-Control"] if one.immutable else []),
+    ]

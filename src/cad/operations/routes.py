@@ -18,12 +18,13 @@ from starlette.routing import Route
 
 from cad.accounts.principal import AccountId, PersonSession
 from cad.errors import NotFound, Refused, Unavailable
-from cad.operations.model import Audience, Operation, Tenant
+from cad.operations.model import Audience, Download, Operation, Tenant
 from cad.sandbox.meter import metered
 
 SESSION_COOKIE: Final = "__session"
 CHALLENGE: Final = {"WWW-Authenticate": 'Bearer realm="cad", error="invalid_token"'}
 IMMUTABLE: Final = "private, max-age=31536000, immutable"
+FILE_TYPE: Final = "application/octet-stream"
 
 type PersonOf = Callable[[str], PersonSession | None]
 type TenantOf = Callable[[AccountId], Tenant]
@@ -34,6 +35,8 @@ class Served:
     path: str
     immutable: bool = False
     method: str = "GET"
+    download: bool = False
+    """The operation returns a `Download`, and the route sends its bytes as an attachment."""
 
 
 def person_routes(
@@ -54,6 +57,8 @@ def person_routes(
 def person_route(served: Served, one: Operation, person_of: PersonOf, tenant_of: TenantOf) -> Route:
     if Audience.PERSON not in one.audience:
         raise ValueError(f"{one.name} is not for the person, so it has no web route")
+    if served.download != (one.output is Download):
+        raise ValueError(f"{one.name} is a download exactly when its output is a Download")
 
     async def endpoint(request: Request) -> Response:
         person = session_person(person_of, request)
@@ -82,14 +87,18 @@ def person_route(served: Served, one: Operation, person_of: PersonOf, tenant_of:
                 result = await anyio.to_thread.run_sync(run)
         except (Refused, Unavailable) as error:
             return refusal(error)
-        body = _body(one, result)
+        if isinstance(result, Download):
+            body, media_type = result.data, FILE_TYPE
+            attached = {"Content-Disposition": f'attachment; filename="{result.filename}"'}
+        else:
+            body, media_type, attached = _body(one, result), "application/json", {}
         if not served.immutable:
-            return Response(body, media_type="application/json")
+            return Response(body, media_type=media_type, headers=attached)
         etag = f'"{hashlib.sha256(body).hexdigest()}"'
         headers = {"ETag": etag, "Cache-Control": IMMUTABLE}
         if _matches(request, etag):
             return Response(status_code=304, headers=headers)
-        return Response(body, media_type="application/json", headers=headers)
+        return Response(body, media_type=media_type, headers={**headers, **attached})
 
     return Route(served.path, endpoint, methods=[served.method], name=one.name)
 
