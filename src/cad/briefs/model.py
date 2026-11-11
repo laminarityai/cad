@@ -21,6 +21,7 @@ from pydantic import (
 )
 
 from cad.briefs.bindable import BINDABLE
+from cad.checks.container import closed_solid, extents, fea, fit, mass
 from cad.checks.result import Comparator
 from cad.checks.units import AnyQuantity, Length, Mass, number
 from cad.context_parts.ids import PART_ID_PATTERN, ContextPartId
@@ -180,7 +181,6 @@ class MaxClearance(FrozenArbitrary):
     clearance: Length
 
 
-type Loaded = MinSafetyFactor | MaxDeflection
 type Target = Annotated[
     ClosedSolid
     | MaxMass
@@ -201,19 +201,39 @@ def deciding_check(target: Target) -> CheckId | None:
     """The one table from a requirement to the check that decides it. None is unverified."""
     match target:
         case ClosedSolid():
-            return CheckId("closed_solid")
+            return CheckId(closed_solid.ID)
         case MaxMass() | MinMass():
-            return CheckId("mass")
+            return CheckId(mass.ID)
         case Envelope():
-            return CheckId("extents")
+            return CheckId(extents.ID)
         case MeasureLimit():
             return target.check_id
         case Unchecked() | MadeOf():
             return None
         case MinSafetyFactor() | MaxDeflection():
-            return CheckId("fea")
+            return CheckId(fea.ID)
         case MinClearance() | MaxClearance():
-            return CheckId("fit")
+            return CheckId(fit.ID)
+        case _:
+            assert_never(target)
+
+
+def load_of(target: Target) -> LoadCase | None:
+    match target:
+        case MinSafetyFactor() | MaxDeflection():
+            return target.load
+        case (
+            ClosedSolid()
+            | MaxMass()
+            | MinMass()
+            | Envelope()
+            | MeasureLimit()
+            | Unchecked()
+            | MadeOf()
+            | MinClearance()
+            | MaxClearance()
+        ):
+            return None
         case _:
             assert_never(target)
 

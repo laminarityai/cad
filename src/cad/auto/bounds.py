@@ -1,10 +1,23 @@
 import math
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Final, Literal
+from typing import Final, Literal, assert_never
 
 from cad.auto.model import Bounds, Read
-from cad.briefs.model import Envelope, MadeOf, MaxMass, MeasureLimit, MinMass, Requirement
+from cad.briefs.model import (
+    ClosedSolid,
+    Envelope,
+    MadeOf,
+    MaxClearance,
+    MaxDeflection,
+    MaxMass,
+    MeasureLimit,
+    MinClearance,
+    MinMass,
+    MinSafetyFactor,
+    Requirement,
+    Unchecked,
+)
 from cad.checks.result import Comparator
 from cad.scorecard.requirements import UNIT_CONVERSION_NOISE
 from cad.tables.materials import FromResearch, Known, MaterialsTable, magnitude
@@ -48,8 +61,18 @@ def bounds_conflicts(
                 mass_lo.append(_Bound(grams, f"min_mass {grams:g} g", rid))
             case MadeOf():
                 made_of = one
-            case _:
+            case (
+                ClosedSolid()
+                | MeasureLimit()
+                | Unchecked()
+                | MinSafetyFactor()
+                | MaxDeflection()
+                | MinClearance()
+                | MaxClearance()
+            ):
                 pass
+            case _:
+                assert_never(one.target)
     found = [_conflict("volume", volume_lo, volume_hi)]
     tightest = min(volume_hi, key=lambda bound: bound.value, default=None)
     if made_of is not None and tightest is not None:
