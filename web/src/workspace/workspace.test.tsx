@@ -33,12 +33,13 @@ function wrap(api: Api, chat = new FakeChat()) {
 }
 
 describe("loadWorkspace", () => {
-  it("reads each slot's material by name, the brief's confirmed fits, and what waits on the person", async () => {
+  it("reads each slot's option and material by name, the brief's confirmed fits, and what waits on the person", async () => {
     const set = setOf(["v1", "v2"]);
     const [first, second] = set.members;
     if (!first || !second) throw new Error("two members");
     first.material = { key: "prusament-pla", set_by: { kind: "agent_argument", statement: "The agent chose this material.", reason: "light" } };
     first.material_name = "Prusament PLA";
+    first.option = { label: "Rounded corners", differs: "3 mm fillets on every edge" };
     const api = fakeApi([], {
       project: vi.fn(() =>
         Promise.resolve({
@@ -56,7 +57,8 @@ describe("loadWorkspace", () => {
     const model = await loadWorkspace(api, "p1");
     const [one] = model.briefs;
     expect(one?.state).toBe("waiting");
-    expect(one?.slots.map((slot) => slot.label)).toEqual(["Option 1", "Option 2"]);
+    expect(one?.slots.map((slot) => slot.label)).toEqual(["Rounded corners", "Option 2"]);
+    expect(one?.slots[0]?.differs).toBe("3 mm fillets on every edge");
     expect(one?.materialOf[1] && materialLabel(one.materialOf[1])).toBe("Prusament PLA · chosen by the agent");
     expect(one?.materialOf[2]).toBeNull();
     expect(one?.fits).toEqual([{ name: "rail", variantId: "v9" }]);

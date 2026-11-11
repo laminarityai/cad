@@ -70,9 +70,7 @@ MODE_NOTES: Final[Mapping[Mode, str]] = {
 
 OPEN_PROJECT: Final = (
     "This conversation is the chat of project {project_id}. Its briefs, oldest first, each with "
-    "its brief_id and its first words:
-{briefs}
-The person's page shows every brief of this "
+    "its brief_id and its first words:\n{briefs}\nThe person's page shows every brief of this "
     "project. A new part is a new brief in this project: call create_brief with this project_id. "
     "A slot they name is a slot of the brief they are talking about; ask which brief only when "
     "it is unclear. Call variant_set with this project_id and that brief_id for each slot's "

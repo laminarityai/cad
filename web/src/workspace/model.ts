@@ -73,8 +73,8 @@ function materialOf(member: MemberView): Material | null {
 function slotsOf(set: VariantSetView | null): Slot[] {
   return (set?.members ?? []).map((member) => ({
     slot: member.slot,
-    label: `Option ${String(member.slot)}`,
-    differs: "",
+    label: member.option?.label ?? `Option ${String(member.slot)}`,
+    differs: member.option?.differs ?? "",
     revisions: member.revisions.map((one) => ({
       n: one.revision,
       variantId: one.variant_id,
