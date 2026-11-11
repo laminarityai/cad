@@ -40,7 +40,7 @@ def quoted(roots: Roots, brief_id: str, number: int) -> list[str]:
 def test_a_quote_only_a_later_message_holds_adds_it_and_proposes_on_the_same_brief(
     roots: Roots,
 ) -> None:
-    brief = store.create_brief(roots, TEXT, new_project_id(), transcript_seq=1)
+    brief = store.create_brief(roots, TEXT, new_project_id(), seq=1)
     store.propose(roots, brief.id, [UNDER_150])
     before = store.read_state(roots, brief.id).brief_sha256
     second = store.propose(roots, brief.id, [UNDER_150, HOLDS_20_N], HEARD)
@@ -53,7 +53,7 @@ def test_a_quote_only_a_later_message_holds_adds_it_and_proposes_on_the_same_bri
 
 
 def test_a_retry_adds_the_message_once_and_proposes_nothing_new(roots: Roots) -> None:
-    brief = store.create_brief(roots, TEXT, new_project_id(), transcript_seq=1)
+    brief = store.create_brief(roots, TEXT, new_project_id(), seq=1)
     first = store.propose(roots, brief.id, [HOLDS_20_N], HEARD)
     again = store.propose(roots, brief.id, [HOLDS_20_N], HEARD)
     assert again.proposal.number == first.proposal.number == 1
@@ -73,7 +73,7 @@ def test_words_from_an_outside_client_are_added_once(roots: Roots) -> None:
 
 
 def test_a_quote_no_message_holds_is_refused_with_the_fix_and_adds_nothing(roots: Roots) -> None:
-    brief = store.create_brief(roots, TEXT, new_project_id(), transcript_seq=1)
+    brief = store.create_brief(roots, TEXT, new_project_id(), seq=1)
     unsaid = Draft(UNDER_150.target, "under 90 g")
     hint = said.Words(newest_first=HEARD.newest_first, refusal_hint="quote the person's own words")
     with pytest.raises(store.BadProposal, match=r"requirements\[1\].*quote the person's own words"):
