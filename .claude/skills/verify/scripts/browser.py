@@ -5,7 +5,7 @@
     uv run python .claude/skills/verify/scripts/browser.py set <dir> [answer=.] [edit=.] [delay=.]
     uv run python .claude/skills/verify/scripts/browser.py status <dir>
     uv run python .claude/skills/verify/scripts/browser.py stop <dir>
-    uv run python .claude/skills/verify/scripts/browser.py web shot|watch|chat <run> <path> <name>
+    uv run python .claude/skills/verify/scripts/browser.py web shot|watch|walk <run> <path> <name>
         (see web_drive.py)
 
 `start` launches one headless Chromium behind a daemon on 127.0.0.1 and returns once it answers.

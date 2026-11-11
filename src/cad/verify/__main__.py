@@ -17,7 +17,7 @@ def select_steps(only: Sequence[str] | None, *, every: bool = False) -> Sequence
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="verify",
-        description="Run the fast verify steps in order. CI runs every step on each PR.",
+        description="Run the fast verify steps side by side. CI runs every step on each PR.",
     )
     choice = parser.add_mutually_exclusive_group()
     choice.add_argument("--all", action="store_true", help="run every step, the slow ones too")

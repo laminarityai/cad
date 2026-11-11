@@ -9,8 +9,8 @@ What the user asks for, in their own words, together with any images, drawings o
 _Avoid_: Spec, prompt, request
 
 **Project**:
-Everything gathered for one job: one or more briefs, their sources, and the context parts a new part must fit. A brief is created in one project and never moves to another. Variant sets, confirmed table values and the user's reviews of agent-written checks belong to the project.
-_Avoid_: Workspace, job, design
+Everything gathered for one job: one or more briefs, their sources, and the context parts a new part must fit. A brief is created in one project and never moves to another. Variant sets, confirmed table values and the user's reviews of agent-written checks belong to the project. The web app shows a project on one page, its workspace.
+_Avoid_: Job, design
 
 **Context part**:
 An existing CAD part, uploaded or read from a CAD tool, that a person confirmed into a project, such as a rail a new part clips onto. Checks measure new parts against it, and an edit may produce a new part from it. A part taken from a variant goes out of date when its slot gets a newer revision. Proposing that revision updates the part: it keeps its id and the requirements on it, and checks measure the new geometry once the person confirms it.
@@ -29,8 +29,8 @@ One local web page per project, opened by the server, that lists everything wait
 _Avoid_: Elicitation, approval form
 
 **Variant**:
-One candidate design produced for a brief.
-_Avoid_: Option, candidate, design
+One candidate design produced for a brief. The agent and the web app call it an option when they speak to the user.
+_Avoid_: Candidate, design
 
 **Variant set**:
 The variants built for one brief against the requirements the user confirmed, which the user compares side by side. A set holds at most five, one per slot. Requirements confirmed later start a new set. A variant keeps its place in its set when a server update gives its code a new variant id.

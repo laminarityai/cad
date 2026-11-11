@@ -9,11 +9,13 @@ The full suite takes about 10 minutes on this laptop and about 3 minutes in CI, 
 
 ## While you work
 
-Run the tests for the directory you changed. Each takes seconds:
+Run the tests for the directory you changed, on four workers:
 
 ```
-uv run pytest -q -x tests/<feature>
+uv run pytest -q -x -n 4 --dist loadfile tests/<feature>
 ```
+
+Most directories take seconds. The ones that start sandbox containers take minutes. `tests/shard_seconds.json` records over 80 s each for `tests/checks` (about 290 s), `tests/variant_sets`, `tests/briefs`, `tests/agent_measurements`, `tests/sandbox`, `tests/fea` and `tests/scorecard`. In those, run the one file you changed.
 
 Run the web tests when you change `web/`:
 
@@ -23,7 +25,7 @@ uv run verify --only "web test"
 
 ## Before you push
 
-Run the fast steps. They take about 45 seconds. The pre-commit hooks run the same steps on each commit:
+Run the fast steps. They run side by side and take about 15 seconds. The pre-commit hooks run the type checks, lint, format, file size and materials table steps on every commit. They run `api types`, the web steps and `protocol models` only when the commit changes the files `.pre-commit-config.yaml` names for each. The other slow steps run only in CI:
 
 ```
 uv run verify

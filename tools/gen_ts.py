@@ -7,6 +7,7 @@ status is 1 when they differ. That is the `api types` step of `uv run verify`.
 """
 
 import argparse
+import fcntl
 import json
 import shutil
 import subprocess
@@ -22,6 +23,7 @@ TYPES = WEB / "src" / "api" / "types.ts"
 GENERATOR = WEB / "node_modules" / ".bin" / "openapi-typescript"
 INSTALLED = WEB / "node_modules" / ".package-lock.json"
 LOCK = WEB / "package-lock.json"
+INSTALLING = WEB / ".install.lock"
 NO_NODE = (
     "gen_ts: node and npm are not on PATH, and the api types step needs them. "
     "Install Node 22 or later (macOS: brew install node), then run it again."
@@ -33,32 +35,56 @@ def packages(lock: Path) -> dict[str, dict[str, object]]:
     return {path: entry for path, entry in document["packages"].items() if path}
 
 
-def install_matches_lock() -> bool:
-    """Whether `node_modules` holds what the lock says, judged by content, never by mtime.
+def holds(entry: dict[str, object] | None) -> tuple[object, ...] | None:
+    """What an entry installs. npm on Linux drops other keys, such as `libc`, from the entries it
+    writes into `node_modules`."""
+    if entry is None:
+        return None
+    return tuple(entry.get(key) for key in ("version", "resolved", "integrity", "link"))
+
+
+def unlike_lock() -> list[str]:
+    """The paths where `node_modules` does not hold what the lock says, judged by content, never
+    by mtime.
 
     A fresh worktree checks the lock out with a new mtime. npm writes `.package-lock.json` as the
     lock's `packages` map without the root entry, and without the optional packages built for
     another platform, so every lock entry must be installed unless it is optional.
     """
     if not GENERATOR.exists():
-        return False
+        return [str(GENERATOR)]
     try:
         wanted, installed = packages(LOCK), packages(INSTALLED)
     except (OSError, ValueError, KeyError):
-        return False
-    return all(wanted.get(path) == entry for path, entry in installed.items()) and all(
-        path in installed or entry.get("optional") is True for path, entry in wanted.items()
-    )
+        return [str(INSTALLED)]
+    changed = [path for path, entry in installed.items() if holds(wanted.get(path)) != holds(entry)]
+    absent = [
+        path
+        for path, entry in wanted.items()
+        if path not in installed and entry.get("optional") is not True
+    ]
+    return changed + absent
+
+
+def install_matches_lock() -> bool:
+    return not unlike_lock()
 
 
 def install_if_stale() -> None:
-    if install_matches_lock():
-        return
-    subprocess.run(
-        ["npm", "ci", "--no-audit", "--no-fund", "--prefix", str(WEB)],
-        check=True,
-        stdout=subprocess.DEVNULL,
-    )
+    """`verify` runs the web steps side by side, so the first one to take the lock installs and
+    the others wait, then find the install fresh. An install that still reads as stale would make
+    every later step install again, under the steps already running, so it fails here."""
+    with INSTALLING.open("w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if install_matches_lock():
+            return
+        subprocess.run(
+            ["npm", "ci", "--no-audit", "--no-fund", "--prefix", str(WEB)],
+            check=True,
+            stdout=subprocess.DEVNULL,
+        )
+        if unlike := unlike_lock():
+            raise SystemExit(f"gen_ts: npm ci left node_modules unlike the lock at {unlike[:8]}")
 
 
 def generate(into: Path) -> None:

@@ -23,7 +23,7 @@ This directory is the maintained source for verifying what a user of cad sees: t
 
 ## Features
 
-Cost: **free** is `cad-call` alone (about 8 s of server start per call). **docker** starts a container for new code or a new check run. **browser** needs `browser.py start` once per run. **live** is a model session, which costs money and minutes. Each row's cheapest proof is the first one to run. Run the costlier rows only when the claim is about them.
+Cost: **free** is `cad-call` alone. The cost table in `../SKILL.md` gives the time per path. **docker** starts a container for new code or a new check run. **browser** needs `browser.py start` once per run. **live** is a model session, which costs money and minutes. Each row's cheapest proof is the first one to run. Run the costlier rows only when the claim is about them.
 
 | Feature | Covers | Cheapest proof | Costlier proofs |
 |---|---|---|---|
@@ -42,12 +42,12 @@ Cost: **free** is `cad-call` alone (about 8 s of server start per call). **docke
 | [Hosted MCP and accounts](./hosted-mcp.md) | `cad-http`: `/mcp` over HTTP, the metadata, token kinds per route, tenancy, the lease, the usage cap | free: curl and `cad-call --url` with `cad-token` tokens | operator: `claude mcp login cad` against a Clerk instance |
 | [Geometry](./geometry.md) | the person-only `geometry` operation: the mesh of a variant from the analysis image, for three-cad-viewer | free: pending, stored, retried (`tests/geometry/test_lane.py`). docker: the mesh volume against the `mass` check, and a screenshot in three-cad-viewer (`scripts/geometry.py`) | none: no agent reaches it |
 
-## Phase 4 web app: NOT YET BUILT
+## Phase 4 web app
 
-`docs/design/phase-4.md` designs these surfaces. Unit 3 landed as [Hosted MCP and accounts](./hosted-mcp.md), unit 4 as [Hosted confirmation](./phase-4/hosted-confirmation.md) and unit 5 as [Geometry](./geometry.md), and the rest do not exist yet. Each file names the check that §4 Sequencing gives the unit, the proof to write into the map when the unit lands, and the parts of the design it comes from. It names no selector, because the UI does not exist. When a unit lands, replace its file with a real recipe that follows the four-section shape of the files above.
+`docs/design/phase-4.md` designs these surfaces, and each is built. Unit 3 is [Hosted MCP and accounts](./hosted-mcp.md), unit 4 [Hosted confirmation](./phase-4/hosted-confirmation.md) and unit 5 [Geometry](./geometry.md).
 
-- [Web shell](./phase-4/web-shell.md): the viewer and scorecards over SSE. Unit 6. Unit 5, geometry, is built: see [Geometry](./geometry.md).
+- [Web shell](./phase-4/web-shell.md): the React app at `/app`, its viewers and its scorecards. Unit 6.
 - [Auto mode](./phase-4/auto-mode.md): the server-held Auto run and its stops. Units 7 and 9.
-- [Chat](./phase-4/chat.md): the chat runtime and mode switcher. Unit 8.
+- [Chat](./phase-4/chat.md): the chat routes, the mode switcher and the project workspace. Unit 8.
 
-Units 1 and 2 change tools that exist. Unit 1 adds `slot` to `build_variant`: update [Build variant](./build-variant.md) with its check (two builds into slot 2, the first in its history). Unit 2 moved the tools into a registry and deleted `scorecard.json`: [Score variant](./score-variant.md) reads a card back through `scorecard`.
+Units 1 and 2 change tools that exist. Unit 1 added `slot` to `build_variant` ([Build variant](./build-variant.md)). Unit 2 moved the tools into a registry and deleted `scorecard.json`: [Score variant](./score-variant.md) reads a card back through `scorecard`.

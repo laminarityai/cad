@@ -11,8 +11,7 @@ What a user touches today:
 - **The confirmation page** in the signed-in web app. `ask_to_confirm` hands the server's opener a local sign-in link, which lands on `/projects/<project_id>/confirm` with a session cookie. Drive it in a real browser with `browser.py`, and its refusals with `human.py` and `curl`: [features/phase-4/hosted-confirmation.md](features/phase-4/hosted-confirmation.md).
 
 - **The MCP server over HTTP** (`uv run cad-http`), with accounts. Drive it with `curl` and `cad-call --url`: [features/hosted-mcp.md](features/hosted-mcp.md).
-
-The rest of the phase 4 web app (chat, viewer, live scorecards, Auto mode) is designed in `docs/design/phase-4.md` and not built. [features/phase-4/](features/phase-4/) names the proof to write when each unit lands.
+- **The web app** at `/app` on `cad-http`: the project workspace with the chat, the viewers, the scorecards and Auto mode. Drive it in a real browser with `browser.py web shot` and `browser.py web walk`: [Chat](features/phase-4/chat.md), [Web shell](features/phase-4/web-shell.md) and [Auto mode](features/phase-4/auto-mode.md).
 
 Run every command from the repo root. Run each command as written, and replace only a `<placeholder>` or a `$VARIABLE` this file sets.
 
@@ -52,7 +51,7 @@ uv run python .claude/skills/verify/scripts/browser.py start "$CAD_BROWSER"
 - `build-image` is needed only for recipes that start a container. It prints `sandbox image cad-sandbox:<tag> is current` and then the same line for `cad-analysis:<tag>`, or builds a missing image, which takes minutes. With Docker down it prints the cause and exits 1.
 - `browser.py start` is needed only for recipes that open the confirmation page. It returns when the browser answers, and prints `browser ready: {...}` and `opener: <path>`. Running it again on the same directory reuses the running browser.
 
-There is no long-running server. Each `cad-call` and each Claude Code session starts its own server and stops it.
+Each stdio `cad-call` and each Claude Code session starts its own server and stops it. `uv run cad-http` is the long-running server. `cad-call --url` talks to it, and so do the web app and `curl`.
 
 ## Doctor
 
@@ -79,7 +78,7 @@ claude --version
 HOME="$CAD_HOME" uv run cad-call <tool> '<json args>'
 ```
 
-It prints the MCP result as JSON and exits 1 when the result is an error and 2 when the arguments are not a JSON object. Tools: `server_info`, `build_variant`, `score_variant`, `scorecard`, `list_materials`, `create_brief`, `propose_requirements`, `propose_context_part`, `ask_to_confirm`, `list_requirements`, `search_knowledge`, `submit_research`. `jq -Rs '{code: .}' < <file>.py` turns a build123d file into the arguments `build_variant` takes. The stdio client passes the server only `HOME`, `LOGNAME`, `PATH`, `SHELL`, `TERM` and `USER`.
+It prints the MCP result as JSON and exits 1 when the result is an error and 2 when the arguments are not a JSON object. `server_info` lists the agent's tools in `structuredContent.tools`. `jq -Rs '{code: .}' < <file>.py` turns a build123d file into the arguments `build_variant` takes. The stdio client passes the server only `HOME`, `LOGNAME`, `PATH`, `SHELL`, `TERM` and `USER`.
 
 ### The confirmation page in a real browser
 
@@ -125,7 +124,7 @@ The session's server inherits the environment, so `CAD_HUMAN_ANSWER`, `CAD_HUMAN
 uv run verify --all
 ```
 
-CI runs this on every PR, so run it here only to debug ([run-tests](../run-tests/SKILL.md)). It runs the type checks, lint, format, file size, materials table, sandbox image, tests, and the `app` step, which fails unless `server_info` reports `git rev-parse HEAD`. A dirty tree prints `dirty=True` and does not fail.
+CI runs this on every PR, so run it here only to debug. [run-tests](../run-tests/SKILL.md) says which steps to run on this laptop, and `src/cad/verify/steps.py` lists every step. The `app` step fails unless `server_info` reports `git rev-parse HEAD`. A dirty tree prints `dirty=True` and does not fail.
 
 ## Evidence
 
@@ -153,6 +152,8 @@ pgrep -fl "$PWD/.venv/bin/python.*(-m cad\.server|bin/cad-server)"
 - `scripts/browser.py start|set|status|stop <dir>` and the opener `<dir>/bin/open <url>`: the person in a real browser. Use it for every proof of the confirmation page.
 - `scripts/human.py <sign-in link>`, with `CAD_HUMAN_LOG=<path>`: a headless person over plain HTTP, with a cookie jar. Use it only where a browser cannot help: the brief-set eval (`evals/briefs/`), which runs many sessions in parallel, and the HTTP probes a browser cannot make, a GET with no session and a replayed POST (see [Briefs](features/briefs.md)). Other refusals are `curl` probes: [Hosted confirmation](features/phase-4/hosted-confirmation.md).
 - `scripts/geometry.py <dir> <part.py>...`: build and score parts through the MCP server, read each mesh through the person-only `geometry` operation, compare its volume with the `mass` check, and screenshot it in three-cad-viewer. See [Geometry](features/geometry.md).
+- `scripts/browser.py web shot|watch|walk ...` (in `scripts/web_drive.py`): a signed-in person on the web app of a local `cad-http`, signed in with the `__session` cookie its `local-issuer.pem` signs. `shot` writes a screenshot and the ARIA tree of one route. `watch` was written for the deleted set view and exits 1 on the workspace (see Web shell). `walk` (`scripts/web_walk.py`) is one live walk of the project workspace. See [Web shell](features/phase-4/web-shell.md) and [Chat](features/phase-4/chat.md).
+- `scripts/clerk_session.py <out> expired|signed-out|double`: the Clerk session expiry repro for the confirmation page, against a stand-in Clerk Frontend API. See [Hosted confirmation](features/phase-4/hosted-confirmation.md).
 - `scripts/claude_session.py [--model <alias>] [--opener <program>] [--home <dir> | --real-home] "<prompt>" <transcript.json>`: a headless Claude Code session. `--home` overrides `$CAD_HOME`. `--real-home` uses your own `HOME`, only when the operator asks.
 
 Feature recipes: [features/README.md](features/README.md).

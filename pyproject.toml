@@ -62,7 +62,11 @@ target-version = "py312"
 extend-exclude = ["proto", "evals/bakeoff/grade.py", "evals/bakeoff/runs"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+select = ["E", "F", "I", "INP", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+# Every directory under src/cad is a package with an __init__.py. Scripts and tests are not.
+"!src/**" = ["INP001"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
