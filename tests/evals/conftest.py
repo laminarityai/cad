@@ -1,10 +1,10 @@
 from pathlib import Path
 
 import pytest
-from cards import BREP, STEP, VARIANT_ID
 
 from cad.sandbox.outcome import Build, Built
 from cad.variants import entry
+from tests.support.cards import BREP, STEP, VARIANT_ID
 
 
 @pytest.fixture

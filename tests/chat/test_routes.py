@@ -3,7 +3,7 @@ import json
 import pytest
 
 from cad.chat.model import Model
-from tests.chat.support import ALICE, BOB, JSON, Chat, call, script, step
+from tests.support.chat import ALICE, BOB, JSON, Chat, call, script, step
 
 pytestmark = pytest.mark.anyio
 

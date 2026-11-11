@@ -4,9 +4,7 @@ import pytest
 
 from cad.conversations import store
 from cad.operations.tenants import Tenants
-from tests.conversations.test_mode import ALICE, CID, tenants
-
-__all__ = ["tenants"]
+from tests.support.conversations import ALICE, CID
 
 
 def test_a_conversation_is_stored_under_a_new_directory_as_its_json(tenants: Tenants) -> None:

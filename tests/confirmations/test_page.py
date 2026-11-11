@@ -17,7 +17,8 @@ from cad.confirmations.answers import ItemAnswer, PageAnswer
 from cad.projects.model import ProjectId
 
 if TYPE_CHECKING:
-    from conftest import Person, Proposed, Session
+    from tests.support.browser import Person
+    from tests.support.session import Proposed, Session
 
 pytestmark = pytest.mark.anyio
 ROW = "0123456789abcdef"

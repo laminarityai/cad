@@ -8,7 +8,8 @@ import pytest
 from cad.checks import job_store
 
 if TYPE_CHECKING:
-    from conftest import Person, Session
+    from tests.support.browser import Person
+    from tests.support.session import Session
 
 pytestmark = pytest.mark.anyio
 

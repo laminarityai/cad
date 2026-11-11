@@ -11,7 +11,7 @@ from cad.conversations import store
 from cad.conversations.model import ConversationId, Mode
 from cad.operations.registry import OPERATIONS
 from cad.operations.tools import agent_operations
-from tests.chat.support import ALICE, JSON, Chat, call, script, step
+from tests.support.chat import ALICE, JSON, Chat, call, script, step
 
 pytestmark = pytest.mark.anyio
 

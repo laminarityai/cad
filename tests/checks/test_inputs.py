@@ -1,5 +1,4 @@
 import pytest
-from fakes import REPORT_CAP, FakeKernel, request
 
 from cad.checks.container import mass
 from cad.checks.container.inputs import WIRE_UNITS, Input, Inputs, Undeclared
@@ -7,6 +6,7 @@ from cad.checks.container.runner import run
 from cad.checks.report import DEPENDENCIES, IMAGE_TAG, QUICK, build_request, specs
 from cad.tables.fields import FIELDS
 from cad.tables.materials import UNITS, load_materials
+from tests.support.check_fakes import REPORT_CAP, FakeKernel, request
 
 
 def test_every_input_names_a_table_field_and_converts_to_its_wire_unit() -> None:

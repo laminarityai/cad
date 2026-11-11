@@ -1,6 +1,4 @@
 import hashlib
-from collections.abc import AsyncIterator
-from pathlib import Path
 
 import httpx2
 import pytest
@@ -10,9 +8,7 @@ from starlette.routing import Route
 from cad.accounts.local import LocalIssuer
 from cad.accounts.principal import AccountId
 from cad.chat.routes import CHAT_ROUTES
-from cad.confirmations.waiting import Door
-from cad.confirmations.web import CARD_PATH, LocalSignIn
-from cad.context_parts.ingest import ingest
+from cad.confirmations.web import CARD_PATH
 from cad.geometry import job, store
 from cad.geometry.model import Tessellated, TessellationFailed
 from cad.operations.events import EVENTS_PATH
@@ -23,12 +19,11 @@ from cad.operations.tenants import Tenants
 from cad.operations.tools import agent_operations
 from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.outcome import Build, Built
-from cad.server.hosted import build_app
 from cad.variants import entry
+from tests.support.hosted import BASE
 
 pytestmark = pytest.mark.anyio
 
-BASE = "http://127.0.0.1:8765"
 RAIL = b"CASCADE Topology V3, a rail\n"
 SHA = hashlib.sha256(RAIL).hexdigest()
 ALICE, BOB = AccountId("user_alice"), AccountId("user_bob")
@@ -57,23 +52,6 @@ def tessellated(name: str) -> Tessellated:
 
 def mesh_path() -> str:
     return f"/v1/geometry/{job.VERSION}/{SHA}.json"
-
-
-@pytest.fixture
-def local(tmp_path: Path) -> LocalIssuer:
-    return LocalIssuer.open(tmp_path, BASE)
-
-
-@pytest.fixture
-def tenants(tmp_path: Path) -> Tenants:
-    return Tenants(tmp_path / "accounts", 60, Door(wait_seconds=0.3), ingest)
-
-
-@pytest.fixture
-async def app(local: LocalIssuer, tenants: Tenants) -> AsyncIterator[Starlette]:
-    app = build_app(local.issuer(), tenants, LocalSignIn(local))
-    async with app.router.lifespan_context(app):
-        yield app
 
 
 def client(app: Starlette, token: str, scheme: str = "cookie") -> httpx2.AsyncClient:

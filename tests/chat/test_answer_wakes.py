@@ -25,7 +25,8 @@ from cad.operations import confirmation
 from cad.operations.tenants import Tenants
 from cad.projects.model import ProjectId
 from cad.server.hosted import build_app
-from tests.chat.support import ALICE, TEXT, UNDER_150, Chat, call, script, step
+from tests.support.chat import ALICE, TEXT, Chat, call, script, step
+from tests.support.rows import UNDER_150
 
 pytestmark = pytest.mark.anyio
 
@@ -84,7 +85,7 @@ def pages() -> Pages:
 
 
 @pytest.fixture
-def tenants(tmp_path: Path, pages: Pages) -> Tenants:
+def chat_tenants(tmp_path: Path, pages: Pages) -> Tenants:
     return Tenants(tmp_path / "accounts", 600, Door(open_page=pages, wait_seconds=1.0), ingest)
 
 
@@ -275,11 +276,11 @@ async def test_a_first_pending_ask_in_a_project_with_confirmed_briefs_stays_in_p
 
 
 @pytest.fixture
-async def restarted(local: LocalIssuer, tenants: Tenants, model: Model) -> AsyncIterator[Chat]:
+async def restarted(local: LocalIssuer, chat_tenants: Tenants, model: Model) -> AsyncIterator[Chat]:
     """A second server process over the same account store, with nothing in memory."""
-    app = build_app(local.issuer(), tenants, LocalSignIn(local), model)
+    app = build_app(local.issuer(), chat_tenants, LocalSignIn(local), model)
     async with app.router.lifespan_context(app):
-        yield Chat(app, local, tenants)
+        yield Chat(app, local, chat_tenants)
 
 
 async def test_a_delivery_a_restart_cut_off_runs_once_when_the_conversation_opens(

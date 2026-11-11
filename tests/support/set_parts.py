@@ -8,7 +8,7 @@ from typing import TYPE_CHECKING, Final
 from cad.variant_sets import store
 
 if TYPE_CHECKING:
-    from variant_sets.conftest import Session
+    from tests.support.variant_set_session import Session
 
 PARTS: Final = Path(__file__).parents[1] / "sandbox/parts"
 PLATE: Final = (PARTS / "plate.py").read_text()

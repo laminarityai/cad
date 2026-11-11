@@ -1,10 +1,10 @@
 import pytest
-from fakes import REPORT_CAP
-from solids import box, box_face, brep_bytes, compound, cut
 
 from cad.checks.container.kernel import Shape, ocp_kernel
 from cad.checks.container.runner import run
 from cad.checks.container.wire import RequestWire, ResultWire
+from tests.support.check_fakes import REPORT_CAP
+from tests.support.solids import box, box_face, brep_bytes, compound, cut
 
 KERNEL = ocp_kernel()
 RAIL = box(300, 18, 12)

@@ -5,7 +5,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from conftest import Person, Session
+    from tests.support.browser import Person
+    from tests.support.session import Session
 
 HOLED_PLATE = (
     "from build123d import *\nresult = Box(40, 20, 3) - Pos(10, 0, 0) * Cylinder(2.1, 3)\n"

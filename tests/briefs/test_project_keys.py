@@ -12,7 +12,8 @@ from cad.research.submit import Question, ResearchAccepted, submit
 from cad.tables.materials import TABLE_PATH, load_materials
 
 if TYPE_CHECKING:
-    from conftest import Person, Session
+    from tests.support.browser import Person
+    from tests.support.session import Session
 
 pytestmark = pytest.mark.anyio
 

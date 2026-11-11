@@ -6,7 +6,8 @@ import pytest
 from cad.accounts.principal import AccountId
 from cad.briefs import store
 from cad.chat.model import Model
-from tests.chat.support import ALICE, TEXT, UNDER_150, Chat, call, script, step
+from tests.support.chat import ALICE, TEXT, Chat, call, script, step
+from tests.support.rows import UNDER_150
 
 pytestmark = pytest.mark.anyio
 

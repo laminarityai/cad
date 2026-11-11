@@ -9,7 +9,7 @@ import pytest
 from cad.knowledge.corpus import Corpus, InvalidCorpus
 
 if TYPE_CHECKING:
-    from conftest import MakeCorpus
+    from tests.support.knowledge import MakeCorpus
 
 DENSITY = '## Density\n"Density 1.24 g/cm3".\n\n'
 FIRST_BODY_LINE = 9

@@ -14,11 +14,6 @@ LEGACY_STORE = Path(__file__).parents[1] / "records" / "legacy"
 LEGACY_ID = BriefId("8482796846afca28")
 
 
-@pytest.fixture
-def roots(tmp_path: Path) -> Roots:
-    return Roots(tmp_path / "briefs", tmp_path / "projects")
-
-
 def created(roots: Roots, project: str | None = None) -> tuple[BriefId, NewProjectId]:
     chosen = project_for_new_brief(roots, project)
     return store.create_brief(roots, TEXT, chosen).id, chosen

@@ -12,9 +12,8 @@ from cad.operations import reads
 from cad.projects.model import ProjectId
 
 if TYPE_CHECKING:
-    from conftest import Session
-
     from cad.operations.model import Tenant
+    from tests.support.session import Session
 
 pytestmark = pytest.mark.anyio
 TEXT = "A clip that slides onto the rail, at least 0.2 mm clear of it, under 150 g"

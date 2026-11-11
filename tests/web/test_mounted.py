@@ -8,8 +8,7 @@ from cad.confirmations.web import LocalSignIn
 from cad.context_parts.ingest import ingest
 from cad.operations.tenants import Tenants
 from cad.server.hosted import build_app
-
-BASE = "http://127.0.0.1:8765"
+from tests.support.hosted import BASE
 
 
 def test_the_hosted_app_serves_the_page_without_a_session_and_keeps_its_other_routes(

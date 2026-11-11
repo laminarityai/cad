@@ -5,18 +5,7 @@ from cad.accounts.local import LocalIssuer
 from cad.confirmations.web import LocalSignIn
 from cad.operations.tenants import Tenants
 from cad.server.hosted import build_app
-from tests.conversations.test_mode import (
-    ALICE,
-    CID,
-    app,
-    http,
-    local,
-    start_briefless_run,
-    stop,
-    tenants,
-)
-
-__all__ = ["app", "local", "tenants"]
+from tests.support.conversations import ALICE, CID, http, start_briefless_run, stop
 
 pytestmark = pytest.mark.anyio
 

@@ -9,7 +9,7 @@ from cad.context_parts.store import confirmed_parts, fitted_by
 from cad.projects.model import ProjectId
 
 if TYPE_CHECKING:
-    from conftest import Session
+    from tests.support.session import Session
 
 pytestmark = pytest.mark.anyio
 

@@ -1,6 +1,6 @@
 import pytest
 
-from tests.conftest import Session
+from tests.support.session import Session
 
 pytestmark = pytest.mark.anyio
 

@@ -1,12 +1,11 @@
 import math
 
-from solids import Solid, apply, box, turn_and_move, turned
-from test_anchors import FLAT_END, KERNEL, case
-
 from cad.checks.container.anchors import Candidate, FarFrom, Resolved, Unresolved, resolve
 from cad.checks.container.elastic import Face, region_faces
 from cad.checks.container.mesher import TetMesh
 from cad.checks.container.vectors import Point, add, scale
+from tests.support.anchors import FLAT_END, KERNEL, case
+from tests.support.solids import Solid, apply, box, turn_and_move, turned
 
 LENGTH, WIDTH, THICK = 200.0, 100.0, 5.0
 WIDE = box(LENGTH, WIDTH, THICK)

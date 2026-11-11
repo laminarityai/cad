@@ -2,17 +2,6 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from cards import (
-    BRIEF_TEXT,
-    confirm,
-    confirm_on_page,
-    drafts,
-    genuine_card,
-    judged_card,
-    reasons,
-    roots_beside,
-    trace,
-)
 from confirmation import Misjudged, Superseded, Unconfirmed
 from provenance import ConfirmedStep, Resolved, Unresolved
 from tracking import RequirementOutcome, outcomes_of
@@ -25,6 +14,16 @@ from cad.projects.model import ProjectId, new_project_id
 from cad.records import key
 from cad.records.roots import Roots
 from cad.scorecard.model import AwaitingConfirmation, Scorecard
+from tests.support.cards import (
+    BRIEF_TEXT,
+    confirm,
+    confirm_on_page,
+    drafts,
+    genuine_card,
+    judged_card,
+    reasons,
+    trace,
+)
 
 LIGHT = ({"kind": "max_mass", "mass": {"magnitude": 150, "unit": "g"}}, "under 150 g")
 BOX = (
@@ -33,11 +32,6 @@ BOX = (
 )
 FRIENDLY = ({"kind": "unchecked", "statement": "looks friendly"}, "looks friendly")
 FIRST_LIMIT = "basis.requirements[0].comparisons[0].limit"
-
-
-@pytest.fixture
-def roots(store: Path) -> Roots:
-    return roots_beside(store)
 
 
 @pytest.fixture

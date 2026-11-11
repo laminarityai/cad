@@ -1,13 +1,6 @@
 from pathlib import Path
 
 from binding import bind
-from cards import (
-    BREP_SHA,
-    VARIANT_ID,
-    genuine_card,
-    result_of,
-    trace,
-)
 from provenance import (
     Incomplete,
     Resolved,
@@ -16,6 +9,7 @@ from provenance import (
 from cad.checks.result import StepMissing
 from cad.sandbox.outcome import Build, NoResult
 from cad.variants import entry
+from tests.support.cards import BREP_SHA, VARIANT_ID, genuine_card, result_of, trace
 
 
 def test_a_card_with_no_results_is_incomplete_with_no_number(store: Path) -> None:

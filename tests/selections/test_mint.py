@@ -17,7 +17,7 @@ from cad.selections.model import (
     UnknownSelection,
     parse_selection_id,
 )
-from tests.selections.support import TOP, Project, confirmed, failed, joined, stored_mesh
+from tests.support.selections import TOP, Project, confirmed, failed, joined, stored_mesh
 
 pytestmark = pytest.mark.anyio
 

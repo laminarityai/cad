@@ -1,5 +1,4 @@
 import shutil
-from pathlib import Path
 
 import pytest
 from pydantic import TypeAdapter
@@ -23,11 +22,6 @@ HOLDS_20_N = Draft(
 HEARD = said.Words(
     newest_first=(said.Spoken(7, LATER), said.Spoken(3, "an older message about a 20 N bag"))
 )
-
-
-@pytest.fixture
-def roots(tmp_path: Path) -> Roots:
-    return Roots(tmp_path / "briefs", tmp_path / "projects")
 
 
 def quoted(roots: Roots, brief_id: str, number: int) -> list[str]:

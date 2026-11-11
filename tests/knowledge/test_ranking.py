@@ -11,7 +11,7 @@ import pytest
 from cad.knowledge.search import MAX_TEXT_CHARS, Hit
 
 if TYPE_CHECKING:
-    from conftest import MakeIndex
+    from tests.support.knowledge import MakeIndex
 
 
 def ids(hits: Sequence[Hit]) -> list[str]:

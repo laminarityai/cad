@@ -8,7 +8,7 @@ from cad.context_parts.store import confirmed_parts
 from cad.projects.model import ProjectId
 
 if TYPE_CHECKING:
-    from conftest import Proposed, Session
+    from tests.support.session import Proposed, Session
 
 pytestmark = pytest.mark.anyio
 

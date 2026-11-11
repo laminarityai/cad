@@ -8,7 +8,7 @@ import pytest
 from cad.scorecard.material import AGENT_CHOSE
 
 if TYPE_CHECKING:
-    from variant_sets.conftest import Session
+    from tests.support.variant_set_session import Session
 
 pytestmark = pytest.mark.anyio
 

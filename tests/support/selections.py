@@ -17,7 +17,7 @@ from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.outcome import Build, Built
 from cad.variant_sets import store as variant_sets
 from cad.variants import entry
-from tests.conftest import RAIL
+from tests.support.rows import RAIL
 
 TEXT = "A plate under 150 g"
 UNDER_150 = RequirementDraft.model_validate(

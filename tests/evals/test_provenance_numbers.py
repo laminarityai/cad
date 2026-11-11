@@ -2,16 +2,6 @@ import typing
 from dataclasses import replace
 from pathlib import Path
 
-from cards import (
-    KEY,
-    genuine_card,
-    reasons,
-    result_of,
-    roots_beside,
-    table,
-    trace,
-    with_result,
-)
 from provenance import (
     CheckStep,
     Resolved,
@@ -26,6 +16,16 @@ from cad.checks.report import SPECS
 from cad.checks.result import CheckResult, Measure, Measured, Verdict
 from cad.scorecard.model import Scorecard
 from cad.tables.materials import UNITS, Known, MaterialsTable, Unknown
+from tests.support.cards import (
+    KEY,
+    genuine_card,
+    reasons,
+    result_of,
+    roots_beside,
+    table,
+    trace,
+    with_result,
+)
 
 
 def test_a_genuine_scorecard_resolves_every_number_and_has_no_failure(store: Path) -> None:

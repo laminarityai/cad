@@ -9,8 +9,8 @@ from cad.chat.log import person_said
 from cad.chat.model import Message, Model, Text, ToolSpec
 from cad.conversations.model import ConversationId
 from cad.operations.model import Tenant
-from tests.chat.support import ALICE, JSON, Chat, script, step
-from tests.selections.support import TOP, confirmed, joined, stored_mesh
+from tests.support.chat import ALICE, JSON, Chat, script, step
+from tests.support.selections import TOP, confirmed, joined, stored_mesh
 
 pytestmark = pytest.mark.anyio
 

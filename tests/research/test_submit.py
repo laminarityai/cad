@@ -1,5 +1,4 @@
 from datetime import date
-from pathlib import Path
 
 import pytest
 
@@ -33,11 +32,6 @@ GIT = load_materials()
 
 def page(text: str = TEXT, url: str = URL) -> Fetch:
     return lambda asked: Page(url, "PLA data", text, "ab" * 32)
-
-
-@pytest.fixture
-def roots(tmp_path: Path) -> Roots:
-    return Roots(tmp_path / "briefs", tmp_path / "projects")
 
 
 def ask(

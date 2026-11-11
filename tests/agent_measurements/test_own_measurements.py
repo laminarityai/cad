@@ -5,12 +5,13 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 import trace_store
-from holed_plate import HOLE, confirmed, own
 
 from cad.scorecard.model import AGENT_MEASUREMENT
+from tests.support.holed_plate import HOLE, confirmed, own
 
 if TYPE_CHECKING:
-    from conftest import Person, Session
+    from tests.support.browser import Person
+    from tests.support.session import Session
 
 pytestmark = pytest.mark.anyio
 

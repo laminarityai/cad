@@ -6,8 +6,8 @@ import pytest
 from pydantic import ValidationError
 
 from cad.checks import job_store
-from cad.checks.report import IMAGE_TAG, unknown_for_all
-from cad.checks.result import Comparator, StepMissing, Verdict
+from cad.checks.report import IMAGE_TAG
+from cad.checks.result import Comparator, Verdict
 from cad.sandbox.image import BUILD, current_image, image_tag
 from cad.scorecard import score
 from cad.scorecard.model import (
@@ -22,27 +22,14 @@ from cad.scorecard.model import (
 )
 from cad.tables.materials import UNITS
 from cad.variants import entry
+from tests.support.scorecard import UNBUILT_ID, offline_card
 
 PLATE = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
 PLATE_SHELL = PLATE + "from build123d import Shell\nresult = Shell(result.faces()[:-1])\n"
 PLATE_VOLUME_MM3 = 29509.72
 CHECK_IDS = ["closed_solid", "interference", "mass", "extents"]
-UNBUILT_ID = "0123456789abcdef"
 
 type Build = Callable[[str], str]
-
-
-def offline_card(basis: Basis | None = None) -> Scorecard:
-    return Scorecard(
-        variant_id=UNBUILT_ID,
-        material_key="prusament-pla",
-        table_version="t" * 64,
-        check_image_digest="sha256:" + "i" * 64,
-        brep_sha256="b" * 64,
-        step=StepMissing(reason="offline"),
-        results=unknown_for_all("offline"),
-        basis=NoBrief() if basis is None else basis,
-    )
 
 
 LIGHT = Checked(

@@ -16,7 +16,7 @@ from cad.operations.tools import tools
 from cad.operations.variants import BuildVariantInput, build_variant
 
 if TYPE_CHECKING:
-    from auto.conftest import Session
+    from tests.support.auto_session import Session
 
 pytestmark = pytest.mark.anyio
 

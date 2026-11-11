@@ -31,7 +31,7 @@ from cad.projects.model import ProjectId
 from cad.server.hosted import build_app
 
 if TYPE_CHECKING:
-    from conftest import Person
+    from tests.support.browser import Person
 
 pytestmark = pytest.mark.anyio
 ALICE = AccountId("user_alice")

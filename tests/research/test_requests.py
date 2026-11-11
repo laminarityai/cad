@@ -11,7 +11,7 @@ from cad.scorecard import material, requirements
 from cad.scorecard.material import ReportedScorecard
 from cad.scorecard.model import Checked, NoBrief, PendingCheck, Scorecard
 from cad.tables.materials import MaterialsTable, load_materials
-from tests.scorecard.test_requirements import max_mass, result
+from tests.support.scorecard import max_mass, result
 
 GIT = load_materials()
 FEA = next(spec for spec in SPECS if spec.id == "fea")

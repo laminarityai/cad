@@ -8,11 +8,10 @@ from cad.auto import log
 from cad.auto.model import Asked, Event, PersonStopped, Running, Stopped
 from cad.conversations import store
 from cad.conversations.model import Conversation, Mode
-
-from .test_run import TEXT, UNDER_150, running
+from tests.support.auto_session import TEXT, UNDER_150, running
 
 if TYPE_CHECKING:
-    from auto.conftest import Session
+    from tests.support.auto_session import Session
 
 pytestmark = pytest.mark.anyio
 

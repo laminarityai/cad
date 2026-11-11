@@ -32,11 +32,6 @@ SHELF = Draft(
 type Tamper = Callable[[Roots, BriefId, BriefId], None]
 
 
-@pytest.fixture
-def roots(tmp_path: Path) -> Roots:
-    return Roots(tmp_path / "briefs", tmp_path / "projects")
-
-
 def answer_on_page(roots: Roots, brief_id: BriefId, number: int, answer: Answer) -> bool:
     state = store.read_state(roots, brief_id)
     proposed = state.proposal(number)

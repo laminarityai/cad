@@ -3,15 +3,6 @@ from datetime import date
 from pathlib import Path
 
 import pytest
-from cards import (
-    BRIEF_TEXT,
-    genuine_card,
-    lines,
-    roots_beside,
-    table,
-    transcript_of,
-    write_transcript,
-)
 from mcp import Client
 from provenance import BoundStep, CardTrace, ResearchedStep, Resolved, trace_card
 from trace_store import SPEC_BY_ID, main
@@ -29,6 +20,15 @@ from cad.scorecard import material
 from cad.scorecard.model import AwaitingConfirmation
 from cad.server.app import build_server
 from cad.tables.materials import UNITS, Known, MaterialsTable
+from tests.support.cards import (
+    BRIEF_TEXT,
+    genuine_card,
+    lines,
+    roots_beside,
+    table,
+    transcript_of,
+    write_transcript,
+)
 
 PLATE = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
 URL = "https://example.org/pla"

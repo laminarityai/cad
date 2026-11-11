@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Final
 import pytest
 
 if TYPE_CHECKING:
-    from conftest import Session
+    from tests.support.session import Session
 
 pytestmark = pytest.mark.anyio
 CUBE_TEXT: Final = "A block that fits in a 20 mm cube, PLA, at least 50 g"
