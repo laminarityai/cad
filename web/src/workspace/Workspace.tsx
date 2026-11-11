@@ -1,12 +1,10 @@
-/* Throwaway prototype (proto/project-workspace): the project is the page. Two layouts behind a
- * switch in the top bar, A (project rail left, chat right) and B (chat left, checks right). */
 import { Files as FilesIcon, Plus } from "lucide-react";
-import { useEffect, useReducer, useRef, useState, type Dispatch, type ReactNode } from "react";
+import { useReducer, useRef, useState, type Dispatch, type ReactNode } from "react";
 import type { Line } from "@/chat/state";
 import { Navigate, useParams } from "react-router-dom";
 import { useServices } from "@/app/context";
 import { Gate } from "@/components/Gate";
-import { useNarrow } from "@/features/set/useNarrow";
+import { useNarrow } from "./useNarrow";
 import { cn } from "@/lib/utils";
 import { useResource } from "@/state/resource";
 import { Checks } from "./bits";
@@ -15,8 +13,6 @@ import { ChatPane, Composer, ConfirmCard, useProjectChat } from "./Chat";
 import { loadWorkspace, viewReducer, viewStart, type Ask, type Brief, type ProjectFile, type View, type ViewAction, type Workspace as Model } from "./model";
 import { BriefList, Files, typeOf } from "./Nav";
 import { SlotTabs, Stage } from "./Stage";
-
-type Layout = "A" | "B";
 
 const RESEARCHED: CheckLine = {
   key: "mock:researched",
@@ -79,29 +75,13 @@ function useUploads() {
   return { files, asks, add };
 }
 
-function TopBar(props: { title: string; layout: Layout; setLayout: (layout: Layout) => void; children?: ReactNode }) {
+function TopBar(props: { title: string; children?: ReactNode }) {
   return (
     <header className="flex h-14 shrink-0 items-center gap-4 border-b border-rule bg-panel px-4">
       <span className="text-[17px] font-semibold tracking-tight">cad</span>
       <span className="text-ink-3">/</span>
       <span className="truncate text-[16px] font-medium">{props.title}</span>
       <div className="min-w-0 flex-1">{props.children}</div>
-      <div className="hidden items-center gap-1 rounded-full border border-dashed border-rule p-0.5 text-[12px] text-ink-3 sm:flex" title="Prototype only">
-        layout
-        {(["A", "B"] as const).map((one) => (
-          <button
-            key={one}
-            type="button"
-            onClick={() => {
-              props.setLayout(one);
-            }}
-            className={cn("rounded-full px-2 py-0.5", props.layout === one ? "bg-ink text-background" : "")}
-          >
-            {one}
-          </button>
-        ))}
-      </div>
-      <span className="grid size-8 place-items-center rounded-full bg-accent/20 text-[14px] font-semibold text-accent">K</span>
     </header>
   );
 }
@@ -178,7 +158,6 @@ function shownVariant(brief: Brief | undefined, view: View): string | null {
 function Page({ model }: { model: Model }) {
   const { chat: chatApi } = useServices();
   const narrow = useNarrow();
-  const [layout, setLayout] = useState<Layout>(() => (location.hash.includes("layout=A") ? "A" : "B"));
   const [tab, setTab] = useState<"chat" | "design" | "checks" | "files">(() => (location.hash.includes("tab=chat") ? "chat" : "design"));
   const [view, dispatch] = useReducer(viewReducer, viewStart);
   const [confirmedAt, setConfirmedAt] = useState(false);
@@ -202,16 +181,6 @@ function Page({ model }: { model: Model }) {
     setTab("chat");
     document.querySelector<HTMLTextAreaElement>("textarea[aria-label=Message]")?.focus();
   };
-
-  useEffect(() => {
-    const keydown = (event: KeyboardEvent) => {
-      if (event.key === "L" && event.shiftKey && event.altKey) setLayout((was) => (was === "A" ? "B" : "A"));
-    };
-    window.addEventListener("keydown", keydown);
-    return () => {
-      window.removeEventListener("keydown", keydown);
-    };
-  }, []);
 
   if (!brief) return <Navigate to="/" />;
   const checks = <Checks card={shown ? cards[shown] : undefined} material={brief.material} extra={research ? [RESEARCHED] : undefined} />;
@@ -272,7 +241,7 @@ function Page({ model }: { model: Model }) {
     ] as const;
     return (
       <div className="flex h-dvh flex-col bg-background text-ink">
-        <TopBar title={model.title} layout={layout} setLayout={setLayout} />
+        <TopBar title={model.title} />
         <div className="border-b border-rule-2 px-3 py-2">
           <BriefChips briefs={model.briefs} current={brief.id} dispatch={dispatch} onNew={onNew} />
         </div>
@@ -301,22 +270,9 @@ function Page({ model }: { model: Model }) {
     );
   }
 
-  if (layout === "A") {
-    return (
-      <div className="flex h-dvh flex-col bg-background text-ink">
-        <TopBar title={model.title} layout={layout} setLayout={setLayout} />
-        <div className="grid min-h-0 flex-1 grid-cols-[272px_minmax(0,1fr)_320px_400px]">
-          <aside className="min-h-0 overflow-y-auto border-r border-rule bg-panel">{nav}</aside>
-          {center}
-          <aside className="min-h-0 overflow-y-auto border-l border-rule bg-panel">{checks}</aside>
-          <aside className="min-h-0 border-l border-rule bg-panel">{chatPane}</aside>
-        </div>
-      </div>
-    );
-  }
   return (
     <div className="flex h-dvh flex-col bg-background text-ink">
-      <TopBar title={model.title} layout={layout} setLayout={setLayout}>
+      <TopBar title={model.title}>
         <BriefChips briefs={model.briefs} current={brief.id} dispatch={dispatch} onNew={onNew} />
       </TopBar>
       <div className="grid min-h-0 flex-1 grid-cols-[minmax(360px,420px)_minmax(0,1fr)_340px]">
@@ -344,7 +300,7 @@ export function Workspace() {
   return <Gate resource={resource}>{(model) => <Page model={model} />}</Gate>;
 }
 
-function Start() {
+export function Start() {
   const { chat } = useServices();
   return (
     <div className="flex min-h-dvh flex-col bg-background text-ink">
