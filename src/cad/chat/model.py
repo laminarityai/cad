@@ -9,30 +9,28 @@ tests and evals. `CAD_CHAT_MODEL` selects it.
 from collections.abc import Mapping, Sequence
 from typing import Annotated, Any, Final, Literal, Protocol
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
+
+from cad.frozen import Frozen
 
 DEFAULT_MODEL: Final = "claude-sonnet-5-5"
 MODEL_VARIABLE: Final = "CAD_CHAT_MODEL"
 SCRIPTED_PREFIX: Final = "scripted:"
 
 
-class _Frozen(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-
-class Text(_Frozen):
+class Text(Frozen):
     kind: Literal["text"] = "text"
     text: str
 
 
-class ToolUse(_Frozen):
+class ToolUse(Frozen):
     kind: Literal["tool_use"] = "tool_use"
     id: str
     name: str
     input: dict[str, Any]
 
 
-class ToolResult(_Frozen):
+class ToolResult(Frozen):
     kind: Literal["tool_result"] = "tool_result"
     call_id: str
     text: str
@@ -42,7 +40,7 @@ class ToolResult(_Frozen):
 type Block = Annotated[Text | ToolUse | ToolResult, Field(discriminator="kind")]
 
 
-class Message(_Frozen):
+class Message(Frozen):
     role: Literal["user", "assistant"]
     blocks: tuple[Block, ...]
 
@@ -51,7 +49,7 @@ class Message(_Frozen):
         return tuple(one for one in self.blocks if isinstance(one, ToolUse))
 
 
-class ToolSpec(_Frozen):
+class ToolSpec(Frozen):
     name: str
     description: str
     input_schema: dict[str, Any]

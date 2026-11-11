@@ -6,8 +6,9 @@ from datetime import date
 from pathlib import Path
 from typing import Final
 
-from pydantic import BaseModel, ConfigDict, ValidationError
+from pydantic import ValidationError
 
+from cad.frozen import Frozen
 from cad.projects.model import ProjectBusy, ProjectId
 from cad.records import signed
 from cad.records.roots import project_store
@@ -18,9 +19,7 @@ _OPERATOR: Final = "the operator must delete the project's research directory"
 LOG = logging.getLogger(__name__)
 
 
-class ResearchedRecord(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
+class ResearchedRecord(Frozen):
     project: str
     key: str
     field: Field

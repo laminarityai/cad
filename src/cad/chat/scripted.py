@@ -23,30 +23,27 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, cast
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from cad.chat.model import Message, ModelUnavailable, Text, ToolResult, ToolSpec, ToolUse
+from cad.frozen import Frozen
 
 REFERENCE: Final = re.compile(r"\$\{([A-Za-z0-9_]+)\.([^}]+)\}")
 FILE_PREFIX: Final = "@file:"
 EXHAUSTED: Final = "The script has no more steps."
 
 
-class _Frozen(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-
-class Call(_Frozen):
+class Call(Frozen):
     name: str
     input: dict[str, Any] = Field(default_factory=dict[str, Any])
 
 
-class Step(_Frozen):
+class Step(Frozen):
     text: str = ""
     calls: tuple[Call, ...] = ()
 
 
-class Script(_Frozen):
+class Script(Frozen):
     steps: tuple[Step, ...]
 
 

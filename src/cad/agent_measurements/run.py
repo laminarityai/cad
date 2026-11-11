@@ -13,12 +13,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Annotated, Final, cast
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import Field
 
 from cad.agent_measurements.script import MARK, compose
 from cad.briefs.model import Unchecked
 from cad.briefs.store import ConfirmedSet
 from cad.errors import Refused
+from cad.frozen import Frozen
 from cad.sandbox import host, image
 from cad.sandbox.outcome import (
     BuildFailed,
@@ -49,9 +50,7 @@ TOO_LARGE: Final = "part too large to measure here"
 CUT: Final = "not reported: its output was lost or cut to the last 8 KiB"
 
 
-class OwnMeasurementRequest(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
+class OwnMeasurementRequest(Frozen):
     requirement_id: str
     title: Annotated[str, Field(min_length=1, max_length=80)]
     code: Annotated[str, Field(min_length=1, max_length=MAX_CODE_CHARS)]

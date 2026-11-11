@@ -6,14 +6,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Final, NewType
 
-from pydantic import BaseModel, ConfigDict
-
 from cad.checks.container import fea, fit
 from cad.checks.container.check import Background, Budget, Quick
 from cad.checks.container.wire import LoadCaseWire
 from cad.checks.report import IMAGE_TAG, QUICK, SPECS, CheckSpec, Request, build_request, parse
 from cad.checks.result import CheckResult, Step, StepMissing
 from cad.context_parts.ids import ContextPartId
+from cad.frozen import Frozen
 from cad.sandbox import container, host, image, stage
 from cad.sandbox.outcome import SandboxUnavailable
 from cad.tables.materials import MaterialsTable
@@ -77,9 +76,7 @@ class Plan:
     background: tuple[JobSpec, ...]
 
 
-class JobResult(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
+class JobResult(Frozen):
     check_image_digest: str
     step: Step
     results: tuple[CheckResult, ...]

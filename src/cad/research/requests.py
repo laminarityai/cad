@@ -1,9 +1,8 @@
 from collections.abc import Iterable, Sequence
 from typing import Final
 
-from pydantic import BaseModel, ConfigDict
-
 from cad.checks.result import CheckResult, ReadMissing
+from cad.frozen import Frozen
 from cad.research.overlay import Dropped
 from cad.scorecard.model import PendingCheck
 from cad.tables.fields import FIELDS, Field
@@ -13,12 +12,10 @@ SUBMIT: Final = "submit_research"
 RESCORE: Final = "Then call score_variant again."
 
 
-class ResearchRequest(BaseModel):
+class ResearchRequest(Frozen):
     """`low` and `high` bound the value in `unit` that the server accepts; when `exclusive`, the
     bounds themselves are refused. `problems` says why an earlier answer for the same field gave
     no value."""
-
-    model_config = ConfigDict(frozen=True, extra="forbid")
 
     brief_id: str | None
     key: str

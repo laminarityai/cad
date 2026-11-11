@@ -12,22 +12,19 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Annotated, Any, Final, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
+from pydantic import Field, TypeAdapter, ValidationError
 
 from cad.accounts.principal import AccountId
 from cad.chat.model import Block, Message, Text, ToolResult, ToolUse
 from cad.conversations.model import ConversationId
+from cad.frozen import Frozen
 from cad.selections.model import SelectionNote
 
 TRANSCRIPTS: Final = "chat"
 STOP_NOTICE: Final = "(this call was interrupted before it returned)"
 
 
-class _Frozen(BaseModel):
-    model_config = ConfigDict(frozen=True, extra="forbid")
-
-
-class UserSaid(_Frozen):
+class UserSaid(Frozen):
     """`selection` is the part of a design the person pointed at in the 3D view when they sent
     this message."""
 
@@ -36,14 +33,14 @@ class UserSaid(_Frozen):
     selection: SelectionNote | None = None
 
 
-class Answered(_Frozen):
+class Answered(Frozen):
     """The conversation is told every answer in the project's ledger up to `through`."""
 
     project_id: str
     through: int
 
 
-class DriverSaid(_Frozen):
+class DriverSaid(Frozen):
     """The server speaking to the model: the Auto driver's reminder that the run has not stopped,
     or, with `answered`, the person's answer to the confirmation page."""
 
@@ -52,26 +49,26 @@ class DriverSaid(_Frozen):
     answered: Answered | None = None
 
 
-class AgentSaid(_Frozen):
+class AgentSaid(Frozen):
     kind: Literal["agent"] = "agent"
     text: str
 
 
-class ToolCalled(_Frozen):
+class ToolCalled(Frozen):
     kind: Literal["tool_call"] = "tool_call"
     call_id: str
     name: str
     input: dict[str, Any]
 
 
-class ToolReturned(_Frozen):
+class ToolReturned(Frozen):
     kind: Literal["tool_result"] = "tool_result"
     call_id: str
     text: str
     is_error: bool
 
 
-class StopReport(_Frozen):
+class StopReport(Frozen):
     """An Auto run stopped. `report` is the server's, from the signed run log."""
 
     kind: Literal["stop_report"] = "stop_report"
@@ -80,12 +77,12 @@ class StopReport(_Frozen):
     report: str
 
 
-class TurnFailed(_Frozen):
+class TurnFailed(Frozen):
     kind: Literal["turn_failed"] = "turn_failed"
     message: str
 
 
-class TurnEnded(_Frozen):
+class TurnEnded(Frozen):
     kind: Literal["turn_ended"] = "turn_ended"
 
 
@@ -102,7 +99,7 @@ type Event = Annotated[
 ]
 
 
-class Stamped(_Frozen):
+class Stamped(Frozen):
     seq: int
     event: Event
 
