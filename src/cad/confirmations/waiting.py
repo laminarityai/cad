@@ -41,12 +41,18 @@ def program_opener(program: str) -> Opener:
 OS_OPEN: Final = program_opener("open")
 
 
-def sign_in_opener(issuer: LocalIssuer, opener: Opener) -> OpenPage:
-    def open_page(account: AccountId, project: ProjectId) -> None:
-        query = urlencode({"token": issuer.mint_person(account), "project": project})
-        opener(PageUrl(f"{issuer.origin}/local/sign-in?{query}"))
+def sign_in_link(
+    issuer: LocalIssuer, account: AccountId, project: ProjectId | None = None
+) -> PageUrl:
+    """The link lands on the project's page, or on the workspace with no project."""
+    query = {"token": issuer.mint_person(account)}
+    if project is not None:
+        query["project"] = project
+    return PageUrl(f"{issuer.origin}/local/sign-in?{urlencode(query)}")
 
-    return open_page
+
+def sign_in_opener(issuer: LocalIssuer, opener: Opener) -> OpenPage:
+    return lambda account, project: opener(sign_in_link(issuer, account, project))
 
 
 def page_address(origin: str) -> PageAddress:

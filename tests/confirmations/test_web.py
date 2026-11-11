@@ -21,11 +21,11 @@ from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
 from playwright.async_api import Browser, Error, Playwright, Route, async_playwright
 
-from cad.accounts.local import LocalIssuer
+from cad.accounts.local import PERSON_TTL_SECONDS, LocalIssuer
 from cad.accounts.principal import AccountId
 from cad.accounts.tenants import Tenants
 from cad.confirmations import answers
-from cad.confirmations.waiting import Door, page_address
+from cad.confirmations.waiting import Door, page_address, sign_in_link
 from cad.confirmations.web import CLERK_CHALLENGES, CLERK_JS, ClerkSignIn, LocalSignIn, SignIn
 from cad.projects.model import ProjectId
 from cad.server.hosted import build_app
@@ -220,6 +220,14 @@ async def test_a_bad_sign_in_link_sets_no_cookie(hosted: Hosted) -> None:
         "bad project": 400,
     }
     assert not [name for name, (_, headers) in seen.items() if headers.get("Set-Cookie")]
+
+
+async def test_a_sign_in_link_with_no_project_lands_on_the_workspace_for_a_month(
+    hosted: Hosted,
+) -> None:
+    status, headers = exchange(str(sign_in_link(hosted.local, ALICE)))
+    assert (status, headers["Location"]) == (303, "/app/")
+    assert f"Max-Age={PERSON_TTL_SECONDS}" in headers["Set-Cookie"]
 
 
 async def test_the_page_answers_with_its_security_headers(alice: Person) -> None:

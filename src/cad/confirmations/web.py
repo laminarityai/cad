@@ -8,9 +8,9 @@
     GET  /v1/projects/<pid>/confirmation
                                    200 JSON: what the page shows, sealed for the person, as the
                                    chat's card; 401 JSON; 404 JSON no such project
-    GET  /local/sign-in?token=<person JWT>&project=<pid>
-                                   303 to the page with the session cookie; only when the server
-                                   trusts the local issuer
+    GET  /local/sign-in?token=<person JWT>[&project=<pid>]
+                                   303 to the page, or to the workspace with no project, with the
+                                   session cookie; only when the server trusts the local issuer
 
 Only a person session passes, so an agent's access token gets 401. No log record carries the
 token or the cookie.
@@ -29,7 +29,7 @@ from starlette.requests import Request
 from starlette.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from starlette.routing import Route
 
-from cad.accounts.local import LocalIssuer
+from cad.accounts.local import PERSON_TTL_SECONDS, LocalIssuer
 from cad.accounts.principal import AccountId, PersonSession
 from cad.accounts.tokens import Verifier
 from cad.briefs.store import BriefRefused
@@ -47,6 +47,7 @@ from cad.projects.model import ProjectId, ProjectRefused, parse_project_id
 from cad.records.signed import StoreUnusable
 from cad.sandbox.meter import metered
 from cad.sandbox.outcome import SandboxUnavailable
+from cad.web.static import PREFIX
 
 MAX_BODY_BYTES: Final = 64 * 1024
 CSP: Final = (
@@ -76,9 +77,9 @@ REFUSED: Final = (
 )
 NOT_A_FORM: Final = "The answer was not sent as a form."
 LOCAL_SIGN_IN: Final = (
-    "Sign in with the link the server handed its opener. Ask the agent to call ask_to_confirm "
-    "again for a new one."
+    "Sign in with the link cad-http printed when it started. Restart cad-http for a new one."
 )
+WORKSPACE: Final = f"{PREFIX}/"
 CLERK_JS: Final = "/npm/@clerk/clerk-js@5.128.1/dist/clerk.browser.js"
 # Clerk's CSP guide names these hosts for clerk-js: bot protection and fraud protection.
 CLERK_CHALLENGES: Final = "https://challenges.cloudflare.com https://*.protect.clerk.com"
@@ -261,12 +262,21 @@ def _local_sign_in(verifier: Verifier) -> Callable[[Request], Response]:
         token = request.query_params.get("token", "")
         if verifier.person(token) is None:
             return _plain(401, LOCAL_SIGN_IN)
-        try:
-            project = parse_project_id(request.query_params.get("project", ""))
-        except ProjectRefused:
-            return _plain(400, NO_PROJECT)
-        response = RedirectResponse(f"/projects/{project}/confirm", 303, headers=HEADERS)
-        response.set_cookie(SESSION_COOKIE, token, httponly=True, samesite="lax", path="/")
+        landing = WORKSPACE
+        if "project" in request.query_params:
+            try:
+                landing = f"/projects/{parse_project_id(request.query_params['project'])}/confirm"
+            except ProjectRefused:
+                return _plain(400, NO_PROJECT)
+        response = RedirectResponse(landing, 303, headers=HEADERS)
+        response.set_cookie(
+            SESSION_COOKIE,
+            token,
+            max_age=PERSON_TTL_SECONDS,
+            httponly=True,
+            samesite="lax",
+            path="/",
+        )
         return response
 
     return sign_in
