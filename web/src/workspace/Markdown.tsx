@@ -1,6 +1,6 @@
-/* Throwaway prototype: a small Markdown renderer for agent replies (paragraphs, lists, tables,
- * headings, code, bold, italic, inline code, links). It builds React elements, never HTML strings,
- * so agent text cannot inject markup. The real build picks a renderer (an open call). */
+/* A small Markdown renderer for agent replies (paragraphs, lists, tables, headings, code, bold,
+ * italic, inline code, links). It builds React elements, never HTML strings, so agent text cannot
+ * inject markup. */
 import type { ReactNode } from "react";
 
 function inline(text: string, key: string): ReactNode[] {
@@ -14,7 +14,12 @@ function inline(text: string, key: string): ReactNode[] {
     const token = match[0];
     const k = `${key}-${String(n++)}`;
     if (token.startsWith("**")) out.push(<strong key={k}>{inline(token.slice(2, -2), k)}</strong>);
-    else if (token.startsWith("`")) out.push(<code key={k} className="rounded bg-panel-2 px-1 font-mono text-[0.9em]">{token.slice(1, -1)}</code>);
+    else if (token.startsWith("`"))
+      out.push(
+        <code key={k} className="rounded bg-panel-2 px-1 font-mono text-[0.9em]">
+          {token.slice(1, -1)}
+        </code>,
+      );
     else if (token.startsWith("[")) {
       const close = token.indexOf("](");
       const href = token.slice(close + 2, -1);

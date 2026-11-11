@@ -176,3 +176,15 @@
     opacity: 0.35;
   }
 }
+
+/* three-cad-viewer ships unlayered CSS that paints the body and its canvas white or grey by its own
+ * theme. Unlayered rules here win back the page's colours. */
+html body {
+  background-color: var(--bg);
+}
+[data-viewer] [data-theme] {
+  --tcv-bg-color: var(--panel-2);
+}
+[data-viewer] .tcv_cad_viewer {
+  background-color: var(--panel-2);
+}

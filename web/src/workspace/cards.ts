@@ -1,10 +1,10 @@
-/* Throwaway prototype: one scorecard stream per variant on screen, and the short rows the page
- * draws from it. A row says what was asked, a status and, at most, one number. */
+/* The scorecard of each variant on screen, and the short rows the page draws from it. A row says
+ * what was asked, a status and, at most, one number. */
 import { useEffect, useState } from "react";
-import { requestJson } from "@/api/client";
+import { useServices } from "@/app/context";
 import type { Connection } from "@/api/events";
 import { restore, type DoneCheck, type RunningCheck, type Scorecard } from "@/api/snapshot";
-import type { ScorecardSnapshot, Source } from "@/api/types";
+import type { Source } from "@/api/types";
 
 const POLL_MS = 1500;
 
@@ -15,15 +15,17 @@ export interface Card {
 
 export interface CardKey {
   variantId: string;
-  materialKey: string;
+  /** The slot's own material; null scores with whatever the brief names. */
+  materialKey: string | null;
   briefId: string;
 }
 
 /** Polls each card instead of streaming it: a browser holds six connections per host, and the
- * chat stream and the meshes need theirs. The real build streams only the slot on screen. */
+ * chat stream and the meshes need theirs. */
 export function useCards(keys: CardKey[]): Record<string, Card> {
+  const { api } = useServices();
   const [cards, setCards] = useState<Record<string, Card>>({});
-  const joined = keys.map((one) => `${one.variantId}|${one.materialKey}|${one.briefId}`).join(",");
+  const joined = keys.map((one) => `${one.variantId}|${one.materialKey ?? ""}|${one.briefId}`).join(",");
   useEffect(() => {
     let live = true;
     const entries = [...new Set(joined.split(",").filter(Boolean))];
@@ -31,12 +33,22 @@ export function useCards(keys: CardKey[]): Record<string, Card> {
       await Promise.all(
         entries.map(async (entry) => {
           const [variantId = "", materialKey = "", briefId = ""] = entry.split("|");
-          const query = new URLSearchParams({ material_key: materialKey, brief_id: briefId });
           try {
-            const wire = await requestJson<ScorecardSnapshot>("GET", `/v1/variants/${encodeURIComponent(variantId)}/scorecard?${query.toString()}`);
-            if (live) setCards((now) => ({ ...now, [variantId]: { snapshot: restore(wire), connection: "live" } }));
+            const wire = await api.scorecard(variantId, briefId, materialKey === "" ? null : materialKey);
+            if (live)
+              setCards((now) => ({
+                ...now,
+                [variantId]: { snapshot: restore(wire), connection: "live" },
+              }));
           } catch {
-            if (live) setCards((now) => ({ ...now, [variantId]: { snapshot: now[variantId]?.snapshot ?? null, connection: "reconnecting" } }));
+            if (live)
+              setCards((now) => ({
+                ...now,
+                [variantId]: {
+                  snapshot: now[variantId]?.snapshot ?? null,
+                  connection: "reconnecting",
+                },
+              }));
           }
         }),
       );
@@ -47,7 +59,7 @@ export function useCards(keys: CardKey[]): Record<string, Card> {
       live = false;
       clearInterval(timer);
     };
-  }, [joined]);
+  }, [api, joined]);
   return cards;
 }
 
@@ -57,7 +69,7 @@ function short(statement: string): string {
   return first.length > 70 ? `${first.slice(0, 68)}…` : first;
 }
 
-export type Status ="pass" | "fail" | "unknown" | "running" | "unchecked" | "researched";
+export type Status = "pass" | "fail" | "unknown" | "running" | "unchecked" | "researched";
 
 export interface Line {
   key: string;
@@ -119,13 +131,29 @@ export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
     for (const one of snapshot.basis.requirements) {
       const key = `req:${one.requirement_id}`;
       if (one.kind === "unverified") {
-        asked.push({ key, label: short(one.statement), status: "unchecked", value: "", why: one.statement, formula: "", sources: [] });
+        asked.push({
+          key,
+          label: short(one.statement),
+          status: "unchecked",
+          value: "",
+          why: one.statement,
+          formula: "",
+          sources: [],
+        });
         continue;
       }
       covered.add(one.check_id);
       const result = done(one.check_id);
       if (one.kind === "waiting" || running(one.check_id)) {
-        asked.push({ key, label: short(one.statement), status: "running", value: "", why: "", formula: "", sources: [] });
+        asked.push({
+          key,
+          label: short(one.statement),
+          status: "running",
+          value: "",
+          why: "",
+          formula: "",
+          sources: [],
+        });
         continue;
       }
       const researched = "basis" in one && one.basis === "researched";
@@ -144,11 +172,23 @@ export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
     .filter((one) => !covered.has(one.check_id))
     .map((one) => {
       const label = CHECK_NAMES[one.check_id] ?? one.check_id.replace(/_/g, " ");
-      if (isRunning(one)) return { key: `check:${one.check_id}`, label, status: "running" as const, value: "", why: "", formula: one.formula, sources: one.sources };
+      if (isRunning(one))
+        return {
+          key: `check:${one.check_id}`,
+          label,
+          status: "running" as const,
+          value: "",
+          why: "",
+          formula: one.formula,
+          sources: one.sources,
+        };
       return {
         key: `check:${one.check_id}:${one.instance}`,
         label,
-        status: statusOf(one.verdict, one.reads.some((read) => read.kind === "researched")),
+        status: statusOf(
+          one.verdict,
+          one.reads.some((read) => read.kind === "researched"),
+        ),
         value: valueOf(one),
         why: one.reason,
         formula: one.formula,
@@ -158,13 +198,20 @@ export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
   return { asked, also };
 }
 
-export function summaryOf(card: Card | undefined): { status: Status | "none"; text: string } {
+export function summaryOf(card: Card | undefined): {
+  status: Status | "none";
+  text: string;
+} {
   if (!card?.snapshot) return { status: "none", text: card ? "Checking" : "" };
   const { asked, also } = linesOf(card.snapshot);
   const all = [...asked, ...also];
   if (all.some((one) => one.status === "running")) return { status: "running", text: "Checking" };
   const fails = all.filter((one) => one.status === "fail").length;
-  if (fails > 0) return { status: "fail", text: `${String(fails)} fail${fails === 1 ? "s" : ""}` };
+  if (fails > 0)
+    return {
+      status: "fail",
+      text: `${String(fails)} fail${fails === 1 ? "s" : ""}`,
+    };
   if (all.some((one) => one.status === "unknown")) return { status: "unknown", text: "Unknowns" };
   return { status: "pass", text: "All pass" };
 }

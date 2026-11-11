@@ -1,4 +1,4 @@
-/* Throwaway prototype: status marks and the checks panel. */
+/* Status marks and the checks panel. */
 import { ChevronDown, CircleCheck, CircleDashed, CircleX, LoaderCircle, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
@@ -65,22 +65,24 @@ function Row({ line }: { line: Line }) {
   );
 }
 
-export function Checks({ card, material, extra }: { card: Card | undefined; material: Material | null; extra?: Line[] }) {
+export function materialLabel(material: Material): string {
+  return `${material.name} · ${material.chosenBy === "agent" ? "chosen by the agent" : "from your words"}`;
+}
+
+export function Checks({ card, material }: { card: Card | undefined; material: Material | null }) {
   const [more, setMore] = useState(false);
   const snapshot = card?.snapshot ?? null;
   const { asked, also } = snapshot ? linesOf(snapshot) : { asked: [], also: [] };
-  const chosenBy = snapshot?.material.set_by.kind === "agent_argument" ? "agent" : material?.chosenBy;
-  const allAlso = [...(extra ?? []), ...also];
   /* A failure or an unknown always shows. Only passes fold away. */
-  const loud = allAlso.filter((one) => one.status !== "pass" && one.status !== "researched");
-  const quiet = allAlso.filter((one) => one.status === "pass" || one.status === "researched");
+  const loud = also.filter((one) => one.status !== "pass" && one.status !== "researched");
+  const quiet = also.filter((one) => one.status === "pass" || one.status === "researched");
   return (
     <section aria-label="Checks" className="flex min-h-0 flex-col">
       <header className="flex items-baseline justify-between gap-2 px-4 pb-2 pt-3">
         <h2 className="text-[16px] font-semibold">Checks</h2>
         {material ? (
-          <span className="text-[13px] text-ink-2" title={chosenBy === "agent" ? "The agent chose this. Ask in chat to change it." : "From your words"}>
-            {material.name} · {chosenBy === "agent" ? "chosen by the agent" : "from your words"}
+          <span data-material className="text-[13px] text-ink-2" title={material.chosenBy === "agent" ? "Ask in the chat to change it." : undefined}>
+            {materialLabel(material)}
           </span>
         ) : null}
       </header>
