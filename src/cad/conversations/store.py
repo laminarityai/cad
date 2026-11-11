@@ -1,16 +1,14 @@
 import json
-import os
-import secrets
 import threading
 from collections.abc import Callable
-from dataclasses import replace
 from pathlib import Path
 from typing import Final
 
 from cad.auto import log
 from cad.auto.model import AutoRun, PersonStopped, Running, RunRefused, Stopped, UnknownRun
 from cad.conversations.model import Conversation, ConversationId, Mode, UnknownConversation
-from cad.operations.model import Tenant
+from cad.records import files
+from cad.records.roots import Roots
 
 _LOCK: Final = threading.RLock()
 
@@ -25,11 +23,11 @@ def read(directory: Path, cid: ConversationId) -> Conversation:
 
 
 def create(
-    tenant: Tenant, cid: ConversationId, project_id: str | None = None, brief_id: str | None = None
+    directory: Path, cid: ConversationId, project_id: str | None = None, brief_id: str | None = None
 ) -> Conversation:
     with _LOCK:
         held = Conversation(project_id=project_id, brief_id=brief_id)
-        return _write(tenant.conversations, cid, held)
+        return _write(directory, cid, held)
 
 
 def of_project(directory: Path, project_id: str) -> ConversationId | None:
@@ -41,78 +39,66 @@ def of_project(directory: Path, project_id: str) -> ConversationId | None:
     return max(found)[1] if found else None
 
 
-def started(tenant: Tenant, cid: ConversationId, project_id: str) -> None:
+def started(directory: Path, cid: ConversationId, project_id: str) -> None:
     with _LOCK:
         try:
-            held = read(tenant.conversations, cid)
+            held = read(directory, cid)
         except UnknownConversation:
             return
         if held.project_id is None:
-            _write(tenant.conversations, cid, held.model_copy(update={"project_id": project_id}))
+            _write(directory, cid, held.model_copy(update={"project_id": project_id}))
 
 
-def bind(tenant: Tenant, cid: ConversationId | None) -> Tenant:
-    """An agent token's conversation with no record binds as Plan, which builds nothing."""
-    if cid is None:
-        return tenant
-    try:
-        held = read(tenant.conversations, cid)
-    except UnknownConversation:
-        held = Conversation()
-    return replace(
-        tenant,
-        conversation=cid,
-        mode=held.mode,
-        auto_run=held.auto_run if held.mode is Mode.AUTO else None,
-    )
-
-
-def set_mode(tenant: Tenant, cid: ConversationId, mode: Mode) -> Conversation:
+def set_mode(roots: Roots, directory: Path, cid: ConversationId, mode: Mode) -> Conversation:
     with _LOCK:
-        return _switch(tenant, cid, mode)
+        return _switch(roots, directory, cid, mode)
 
 
-def confirmed(tenant: Tenant, cid: ConversationId) -> Conversation:
+def confirmed(directory: Path, cid: ConversationId) -> Conversation:
     """The conversation was just told that the person confirmed requirements. Plan ends there, and
     Design and Auto stay as they are. Callers call it once per told answer, so a later switch back
     to Plan stands until the person confirms again."""
     with _LOCK:
-        held = read(tenant.conversations, cid)
+        held = read(directory, cid)
         if held.mode is not Mode.PLAN:
             return held
-        return _write(tenant.conversations, cid, held.moved(Mode.DESIGN))
+        return _write(directory, cid, held.moved(Mode.DESIGN))
 
 
-def record_event(tenant: Tenant, run_id: str, make: log.Make) -> AutoRun:
+def record_event(roots: Roots, directory: Path, run_id: str, make: log.Make) -> AutoRun:
     """Every record of a run goes through here. A run that is stopped after it, by any reason,
     takes its conversation out of Auto mode, to Design, when it is the conversation's current
     run (ADR-0010). It also does so for a run already stopped, so a crash between the stop and
     the write heals on the next call. A stopped earlier run leaves a conversation that moved on."""
     with _LOCK:
-        run = log.append_event(tenant.roots, run_id, make)
+        run = log.append_event(roots, run_id, make)
         if isinstance(run.state, Stopped):
             cid = run.state.start.conversation
-            held = read(tenant.conversations, cid)
+            held = read(directory, cid)
             if held.auto_run == run_id:
-                _write(tenant.conversations, cid, held.moved(Mode.DESIGN))
+                _write(directory, cid, held.moved(Mode.DESIGN))
         return run
 
 
-def stop_by_person(tenant: Tenant, run_id: str) -> tuple[AutoRun, Conversation]:
-    run = record_event(tenant, run_id, lambda _: PersonStopped())
-    return run, read(tenant.conversations, run.state.start.conversation)
+def stop_by_person(roots: Roots, directory: Path, run_id: str) -> tuple[AutoRun, Conversation]:
+    run = record_event(roots, directory, run_id, lambda _: PersonStopped())
+    return run, read(directory, run.state.start.conversation)
 
 
 def start_run(
-    tenant: Tenant, cid: ConversationId, brief_id: str, open_under_lock: Callable[[], AutoRun]
+    roots: Roots,
+    directory: Path,
+    cid: ConversationId,
+    brief_id: str,
+    open_under_lock: Callable[[], AutoRun],
 ) -> AutoRun:
     with _LOCK:
-        held = read(tenant.conversations, cid)
+        held = read(directory, cid)
         if held.mode is not Mode.AUTO:
             raise RunRefused(f"the person switched this conversation to {held.mode} mode")
-        current = None if held.auto_run is None else _read_if_known(tenant, held.auto_run)
+        current = None if held.auto_run is None else _read_if_known(roots, held.auto_run)
         if current is not None and isinstance(current.state, Stopped):
-            _write(tenant.conversations, cid, held.moved(Mode.DESIGN))
+            _write(directory, cid, held.moved(Mode.DESIGN))
             raise RunRefused(
                 f"auto run {current.run_id} has stopped, so this conversation moved to Design "
                 "mode; only the person can start a new Auto run"
@@ -129,36 +115,31 @@ def start_run(
         run = open_under_lock()
         running = isinstance(run.state, Running)
         moved = held.moved(Mode.AUTO, run.run_id) if running else held.moved(Mode.DESIGN)
-        _write(tenant.conversations, cid, moved.model_copy(update={"last_run": run.run_id}))
+        _write(directory, cid, moved.model_copy(update={"last_run": run.run_id}))
         return run
 
 
-def last_run(tenant: Tenant, held: Conversation) -> AutoRun | None:
-    return None if held.last_run is None else _read_if_known(tenant, held.last_run)
+def last_run(roots: Roots, held: Conversation) -> AutoRun | None:
+    return None if held.last_run is None else _read_if_known(roots, held.last_run)
 
 
-def _switch(tenant: Tenant, cid: ConversationId, mode: Mode) -> Conversation:
-    held = read(tenant.conversations, cid)
+def _switch(roots: Roots, directory: Path, cid: ConversationId, mode: Mode) -> Conversation:
+    held = read(directory, cid)
     if mode is Mode.AUTO and held.mode is Mode.AUTO:
         return held
-    if held.auto_run is not None and _read_if_known(tenant, held.auto_run) is not None:
-        log.stop_by_person(tenant.roots, held.auto_run)
-    return _write(tenant.conversations, cid, held.moved(mode))
+    if held.auto_run is not None and _read_if_known(roots, held.auto_run) is not None:
+        log.stop_by_person(roots, held.auto_run)
+    return _write(directory, cid, held.moved(mode))
 
 
-def _read_if_known(tenant: Tenant, run_id: str) -> AutoRun | None:
+def _read_if_known(roots: Roots, run_id: str) -> AutoRun | None:
     try:
-        return log.read_run(tenant.roots, run_id)
+        return log.read_run(roots, run_id)
     except UnknownRun:
         return None
 
 
 def _write(directory: Path, cid: ConversationId, held: Conversation) -> Conversation:
     directory.mkdir(parents=True, exist_ok=True)
-    temporary = directory / f".{cid}-{secrets.token_hex(8)}.tmp"
-    try:
-        temporary.write_text(json.dumps(held.model_dump(mode="json")))
-        os.replace(temporary, directory / f"{cid}.json")
-    finally:
-        temporary.unlink(missing_ok=True)
+    files.replace(directory / f"{cid}.json", json.dumps(held.model_dump(mode="json")).encode())
     return held

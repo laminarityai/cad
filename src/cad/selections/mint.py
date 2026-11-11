@@ -2,13 +2,14 @@
 
 import secrets
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Final
 
 from cad.geometry.container.wire import EdgeFacts, FaceFacts, TopologyWire
 from cad.geometry.lane import TESSELLATIONS
 from cad.geometry.model import Tessellated, TessellationFailed
-from cad.operations.model import Tenant
 from cad.projects.model import ProjectId
+from cad.records.roots import Roots
 from cad.sandbox import image
 from cad.selections import store
 from cad.selections.model import (
@@ -29,15 +30,17 @@ from cad.variants import entry
 MESH_WAIT_SECONDS: Final = 5.0
 
 
-def mint(tenant: Tenant, project: ProjectId, picked: Picked) -> SelectionRecord:
+def mint(
+    roots: Roots, project: ProjectId, picked: Picked, *, variants: Path, geometry: Path
+) -> SelectionRecord:
     """Find the slot and revision of the project that shows `picked.variant_id`, read the
     topology of its BREP, check every picked number is in range, describe each pick, then sign
     and store the record. Raises SelectionRefused with a message the person can read when the
     variant is not in the project, its mesh is not ready, or a number is out of range."""
     tag = image.image_tag(image.BUILD)
-    key, slot, revision = _revision_of(tenant, project, picked.variant_id, tag)
-    held = entry.open_entry(tenant.variants, picked.variant_id, tag)
-    read = TESSELLATIONS.read(tenant.geometry, held, wait_seconds=MESH_WAIT_SECONDS)
+    key, slot, revision = _revision_of(roots, project, picked.variant_id, tag)
+    held = entry.open_entry(variants, picked.variant_id, tag)
+    read = TESSELLATIONS.read(geometry, held, wait_seconds=MESH_WAIT_SECONDS)
     if isinstance(read, TessellationFailed):
         raise SelectionRefused(f"this design has no mesh to pick from: {read.reason}")
     if not isinstance(read, Tessellated):
@@ -67,7 +70,7 @@ def mint(tenant: Tenant, project: ProjectId, picked: Picked) -> SelectionRecord:
         else None,
         made_at=datetime.now(UTC),
     )
-    store.save(tenant.roots.projects, record)
+    store.save(roots.projects, record)
     return record
 
 
@@ -92,10 +95,10 @@ def _summary(faces: int, edges: int) -> str:
 
 
 def _revision_of(
-    tenant: Tenant, project: ProjectId, variant_id: str, tag: str
+    roots: Roots, project: ProjectId, variant_id: str, tag: str
 ) -> tuple[SetKey, int, int]:
     found: list[tuple[SetKey, int, int, bool]] = []
-    for key, member in variant_sets.project_slots(tenant.roots.projects, project):
+    for key, member in variant_sets.project_slots(roots.projects, project):
         for number, revision in enumerate(member.revisions, start=1):
             if variant_id in (revision.built_as, revision.live_id(tag)):
                 found.append((key, member.slot, number, revision is member.latest))

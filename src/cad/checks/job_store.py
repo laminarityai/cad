@@ -1,11 +1,9 @@
-import os
-import secrets
 from pathlib import Path
 from typing import Final
 
 from cad.checks.jobs import JobResult, JobSpec
+from cad.records import files, key
 from cad.sandbox.outcome import SandboxUnavailable
-from cad.variants import key
 
 JOBS: Final = "jobs"
 ATTEMPT_CAP: Final = 2
@@ -52,17 +50,13 @@ def end_attempt(job: JobSpec) -> None:
 
 
 def _replace(job: JobSpec, path: Path, data: bytes, what: str) -> None:
-    temporary = path.with_name(f".{path.name}-{secrets.token_hex(8)}")
     try:
         path.parent.mkdir(exist_ok=True)
-        temporary.write_bytes(data)
-        os.replace(temporary, path)
+        files.replace(path, data)
     except OSError as error:
         raise SandboxUnavailable.hiding_host(
             f"cannot store the {what} of a job for variant {job.variant_id}", error, path
         ) from error
-    finally:
-        temporary.unlink(missing_ok=True)
 
 
 def _attempt_path(job: JobSpec) -> Path:

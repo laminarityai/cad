@@ -137,12 +137,14 @@ def build_variant(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResul
             "build_variant is refused in Plan mode: the person switches this conversation to "
             "Design or Auto mode in the web app"
         )
-    running = gate(tenant, arguments.brief_id)
+    running = gate(
+        tenant.roots, tenant.conversations, tenant.auto_run, tenant.mode, arguments.brief_id
+    )
     if running is not None and arguments.brief_id is not None and arguments.slot is not None:
         variant_sets.refuse_a_slot_out_of_turn(tenant.roots, arguments.brief_id, arguments.slot)
     option = _option(arguments.label, arguments.differs)
     vid = entry.variant_id(arguments.code, image.image_tag(image.BUILD))
-    with stops_at_the_limit(tenant, vid):
+    with stops_at_the_limit(tenant.roots, tenant.conversations, tenant.auto_run, vid):
         if arguments.brief_id is not None:
             resolve = chooser(
                 tenant, arguments.brief_id, arguments.material_key, arguments.material_reason

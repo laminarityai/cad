@@ -16,12 +16,13 @@
 
 - Python, fully typed. Strict type checking, the linter and the formatter run in pre-commit and in CI.
 - One directory per feature. There is one obvious way to do each common thing; if you find two, delete one.
+- Layers. The packages under `src/cad` sit in this order, top to bottom: `server` `verify` > `chat` > `operations` > `confirmations` `selections` `agent_measurements` > `auto` `accounts` > `scorecard` > `context_parts` > `variant_sets` > `research` > `briefs` > `projects` > `conversations` > `loads` `geometry` > `checks` > `variants` > `records` > `sandbox` > `tables` `knowledge` `web` > `errors`. A module imports only from layers below its own, and packages that share a layer do not import each other. The `layers` step checks this against the contract in `pyproject.toml`, and a new package fails it until you give the package a place. The contract's `ignore_imports` list counts the upward imports still left. It only shrinks: fix a new upward import instead of adding a line.
 - Every `quote` in `tables/materials.yaml` is word for word in its cited datasheet. The `materials table` step checks it offline against `tables/datasheet_text/`. After you add or change a row, run `uv run python tools/regen_datasheet_text.py` and commit what it writes.
 - A file-size lint rule fails the build when a file grows too large. Split the file instead of raising the limit.
 
 ## Verify your work
 
-`uv run verify` runs the fast steps side by side in about 15 seconds: type checking, lint, the format check, the file-size check, the materials table, the API types and the web lint, tests and build. `uv run verify --all` adds the slow steps: protocol models, the sandbox image, pytest and the app step. The app step starts the MCP server and fails unless `server_info` reports the SHA that `git rev-parse HEAD` gives.
+`uv run verify` runs the fast steps side by side in about 15 seconds: type checking, lint, the format check, the file-size check, the layers check, the materials table, the API types and the web lint, tests and build. `uv run verify --all` adds the slow steps: protocol models, the sandbox image, pytest and the app step. The app step starts the MCP server and fails unless `server_info` reports the SHA that `git rev-parse HEAD` gives.
 
 CI runs every step on every PR in about 3 minutes, and CI is the gate. Locally, run the tests for what you changed and `uv run verify`, then push and watch CI. Do not run `--all` on this laptop. It takes about 10 minutes. Do one live walk per PR, at the end, and never wait on another agent's PR. [.claude/skills/run-tests/SKILL.md](.claude/skills/run-tests/SKILL.md) says how.
 

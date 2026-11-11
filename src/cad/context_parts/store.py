@@ -1,7 +1,6 @@
 import hashlib
 import logging
 import os
-import secrets
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -18,12 +17,12 @@ from cad.context_parts.ingest import Facts, NotAPart
 from cad.context_parts.model import ContextPartRecord, FromVariant, NewerRevision, Outcome
 from cad.errors import Refused
 from cad.projects.model import ProjectBusy, ProjectId, TamperedProject
-from cad.records import signed
+from cad.records import files, key, signed
 from cad.records.roots import Roots, project_store
 from cad.sandbox import image
 from cad.variant_sets import store as sets
 from cad.variant_sets.model import Member, Revision
-from cad.variants import entry, key
+from cad.variants import entry
 
 CONTEXT_PARTS: Final = "context_parts"
 PARTS: Final = "parts"
@@ -240,7 +239,7 @@ def _ids(revision: Revision, tag: str) -> set[str]:
 def part_brep(projects: Path, part: ConfirmedPart) -> bytes:
     record = part.record
     path = projects / record.project / PARTS / f"{record.brep_sha256}.brep"
-    data = signed.read_regular(path, entry.MAX_FILE_BYTES)
+    data = files.read_regular(path, entry.MAX_FILE_BYTES)
     if data is None or hashlib.sha256(data).hexdigest() != record.brep_sha256:
         LOG.error("%s is missing or does not match its SHA-256", path)
         raise TamperedProject(
@@ -282,20 +281,15 @@ def _current(parts: tuple[Stored, ...]) -> dict[ContextPartId, Stored]:
 
 def _write_brep(directory: Path, brep: bytes, brep_sha256: str) -> None:
     path = directory / f"{brep_sha256}.brep"
-    held = signed.read_regular(path, entry.MAX_FILE_BYTES)
+    held = files.read_regular(path, entry.MAX_FILE_BYTES)
     if held is not None and hashlib.sha256(held).hexdigest() == brep_sha256:
         return
     directory.mkdir(parents=True, exist_ok=True)
-    temporary = directory / f".pending-{secrets.token_hex(8)}"
-    try:
-        temporary.write_bytes(brep)
-        os.replace(temporary, path)
-    finally:
-        temporary.unlink(missing_ok=True)
+    files.replace(path, brep)
 
 
 def _left_by_crashed_first_proposal(directory: Path) -> bool:
-    return signed.is_directory(directory) and all(
+    return files.is_directory(directory) and all(
         path.name.startswith(".") for path in directory.iterdir()
     )
 

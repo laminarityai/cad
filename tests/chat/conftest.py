@@ -4,11 +4,11 @@ from pathlib import Path
 import pytest
 
 from cad.accounts.local import LocalIssuer
-from cad.accounts.tenants import Tenants
 from cad.chat.model import Model
 from cad.confirmations.waiting import Door
 from cad.confirmations.web import LocalSignIn
 from cad.context_parts.ingest import ingest
+from cad.operations.tenants import Tenants
 from cad.server.hosted import build_app
 from tests.chat.support import BASE, Chat, script, step
 from tests.conftest import Person, local_pages

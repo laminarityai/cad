@@ -11,11 +11,11 @@ from starlette.testclient import TestClient
 
 import cad
 from cad.accounts.principal import AccountId, PersonSession
-from cad.accounts.tenants import open_tenant
 from cad.confirmations.waiting import Door
 from cad.context_parts.ingest import ingest
 from cad.operations.model import Audience, Input, Tenant, operation
 from cad.operations.routes import Served, person_route
+from cad.operations.tenants import open_tenant
 from cad.operations.tools import agent_facing
 from cad.records.roots import Roots
 

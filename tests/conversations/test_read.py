@@ -2,8 +2,8 @@ import pytest
 from starlette.applications import Starlette
 
 from cad.accounts.local import LocalIssuer
-from cad.accounts.tenants import Tenants
 from cad.confirmations.web import LocalSignIn
+from cad.operations.tenants import Tenants
 from cad.server.hosted import build_app
 from tests.conversations.test_mode import (
     ALICE,

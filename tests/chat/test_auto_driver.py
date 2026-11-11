@@ -49,7 +49,8 @@ def confirmed() -> list[Step]:
 
 
 def auto(chat: Chat, cid: str) -> None:
-    store.set_mode(chat.tenants.of(AccountId(ALICE)), ConversationId(cid), Mode.AUTO)
+    tenant = chat.tenants.of(AccountId(ALICE))
+    store.set_mode(tenant.roots, tenant.conversations, ConversationId(cid), Mode.AUTO)
 
 
 def run_of(chat: Chat, cid: str) -> Any:
@@ -147,7 +148,7 @@ class PressesStop:
             tenant = self.chat.tenants.of(AccountId(ALICE))
             held = store.read(tenant.conversations, ConversationId(self.cid))
             assert held.auto_run is not None
-            store.stop_by_person(tenant, held.auto_run)
+            store.stop_by_person(tenant.roots, tenant.conversations, held.auto_run)
         return await self.inner.reply(system, messages, tools)
 
 
@@ -217,7 +218,7 @@ def stop(chat: Chat, cid: str) -> None:
     tenant = chat.tenants.of(AccountId(ALICE))
     held = store.read(tenant.conversations, ConversationId(cid))
     assert held.auto_run is not None
-    store.stop_by_person(tenant, held.auto_run)
+    store.stop_by_person(tenant.roots, tenant.conversations, held.auto_run)
 
 
 async def test_the_persons_stop_during_a_text_only_reply_is_reported_once(chat: Chat) -> None:

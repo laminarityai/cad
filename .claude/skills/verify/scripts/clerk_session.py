@@ -31,7 +31,6 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from cad.accounts.local import LocalIssuer
 from cad.accounts.principal import AccountId
-from cad.accounts.tenants import Tenants
 from cad.confirmations.waiting import Door
 from cad.confirmations.web import CLERK_JS, ClerkSignIn
 from cad.context_parts.ingest import ingest
@@ -44,6 +43,7 @@ from cad.operations.briefs import (
     list_requirements,
     propose_requirements,
 )
+from cad.operations.tenants import Tenants
 from cad.server.hosted import build_app
 
 TTL = 10

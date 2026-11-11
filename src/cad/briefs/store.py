@@ -32,9 +32,8 @@ from cad.briefs.model import (
 from cad.confirmations.answers import Edit, ItemRef, Ledger, read_ledger
 from cad.errors import NotFound, Refused
 from cad.projects.model import NewProjectId
-from cad.records import signed
+from cad.records import files, key, signed
 from cad.records.roots import Roots
-from cad.variants import key
 
 BRIEF: Final = "brief.signed"
 PROPOSALS: Final = "proposals"
@@ -171,12 +170,12 @@ def create_brief(
 
 
 def stored_briefs(roots: Roots) -> list[BriefId]:
-    if not signed.is_directory(roots.briefs):
+    if not files.is_directory(roots.briefs):
         return []
     return [
         BriefId(path.name)
         for path in roots.briefs.iterdir()
-        if ID_PATTERN.fullmatch(path.name) and signed.is_directory(path)
+        if ID_PATTERN.fullmatch(path.name) and files.is_directory(path)
     ]
 
 
@@ -297,7 +296,7 @@ def confirmed_requirements(roots: Roots, raw_id: str) -> ConfirmedSet | None:
 
 def _read_brief(root: Path, brief_id: BriefId) -> tuple[Brief, str]:
     directory = root / brief_id
-    if not signed.is_directory(directory):
+    if not files.is_directory(directory):
         raise UnknownBrief(f"no brief {brief_id} is stored; store it with create_brief")
     record = _read_signed(root, f"{brief_id}/brief", directory / BRIEF)
     brief = _parse(root, brief_id, Brief, record)
@@ -371,7 +370,7 @@ def _parse[M: BaseModel](root: Path, brief_id: BriefId, model: type[M], record: 
 
 def _slots(root: Path, brief_id: BriefId, kind: str) -> dict[int, Path]:
     directory = root / brief_id / kind
-    if not signed.is_directory(directory):
+    if not files.is_directory(directory):
         raise TamperedBrief(_report(root, brief_id))
     found: dict[int, Path] = {}
     for path in directory.iterdir():

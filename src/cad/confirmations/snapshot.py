@@ -16,7 +16,7 @@ from pydantic import TypeAdapter, ValidationError
 from cad.accounts.principal import PersonSession
 from cad.confirmations.answers import ItemRef
 from cad.projects.model import ProjectId
-from cad.variants import key
+from cad.records import key
 
 ITEMS: TypeAdapter[tuple[ItemRef, ...]] = TypeAdapter(tuple[ItemRef, ...])
 

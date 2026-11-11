@@ -17,6 +17,7 @@ from cad.conversations import store
 from cad.conversations.model import ConversationId, Mode
 from cad.operations.model import Tenant
 from cad.operations.registry import OPERATIONS
+from cad.operations.tenants import bind
 from cad.operations.tools import tools
 from cad.records.roots import Roots
 from cad.sandbox import container
@@ -88,7 +89,7 @@ class Session:
             assert f"RunNotHeld: auto run {run_id} is not this conversation's" in text, text
             text = await self.refusal("auto_ask", run_id=run_id, note="again")
             assert f"RunNotHeld: auto run {run_id} is not this conversation's" in text, text
-        store.set_mode(self.tenant, self.conversation, Mode.AUTO)
+        store.set_mode(self.tenant.roots, self.tenant.conversations, self.conversation, Mode.AUTO)
         again = await self.start(
             brief_id=brief_id,
             material_key="prusament-pla",
@@ -118,7 +119,7 @@ class Session:
 
     @property
     def bound(self) -> Tenant:
-        return store.bind(self.tenant, self.conversation)
+        return bind(self.tenant, self.conversation)
 
     @property
     def roots(self) -> Roots:
@@ -161,8 +162,8 @@ async def s(tmp_path: Path, meter: Ledger, person: "Person") -> AsyncIterator[Se
         meter=meter,
     )
     cid = ConversationId("c1")
-    store.create(tenant, cid)
-    store.set_mode(tenant, cid, Mode.AUTO)
-    served = tools(lambda: store.bind(tenant, cid), OPERATIONS)
+    store.create(tenant.conversations, cid)
+    store.set_mode(tenant.roots, tenant.conversations, cid, Mode.AUTO)
+    served = tools(lambda: bind(tenant, cid), OPERATIONS)
     async with Client(MCPServer("cad", tools=served)) as client:
         yield Session(client, tenant, meter, cid)

@@ -11,7 +11,7 @@ from cad.briefs import store as briefs
 from cad.briefs.model import BriefId
 from cad.checks.lanes import LANES, Lanes
 from cad.projects.model import ProjectId
-from cad.records import signed
+from cad.records import files, signed
 from cad.records.roots import Roots, project_store
 from cad.sandbox.outcome import Built
 from cad.variant_sets.model import (
@@ -38,7 +38,7 @@ from cad.variant_sets.placement import Design, Placement, place, shown
 from cad.variants import store as variants
 from cad.variants.entry import VariantId
 
-MAX_MEMBER_BYTES: Final = signed.MAX_RECORD_BYTES // 2
+MAX_MEMBER_BYTES: Final = files.MAX_RECORD_BYTES // 2
 LOG = logging.getLogger(__name__)
 
 
@@ -186,7 +186,7 @@ def choice_of(root: Path, key: SetKey, variant_id: str, image_tag: str) -> Mater
 def project_slots(root: Path, project: ProjectId) -> tuple[tuple[SetKey, Member], ...]:
     """Every slot of every variant set in the project, with the set that holds it."""
     sets = root / project / "sets"
-    if not signed.is_directory(sets):
+    if not files.is_directory(sets):
         return ()
     found: list[tuple[SetKey, Member]] = []
     for revisions in sorted(sets.glob("*/*/revisions")):
@@ -218,7 +218,7 @@ def members(root: Path, key: SetKey) -> tuple[Member, ...]:
     directory = _directory(root, key)
     with _without_host_paths(key, directory):
         _refuse_the_old_layout(root, key)
-        if not signed.is_directory(directory):
+        if not files.is_directory(directory):
             return ()
         records = signed.read_numbered(project_store(root), directory, _revision_slot(key))
     if records is None:
@@ -235,7 +235,7 @@ def _refuse_the_old_layout(root: Path, key: SetKey) -> None:
     sets = root / key.project / "sets"
     old = (
         min((*sets.glob("*/members"), *sets.glob("*/*/members")), default=None)
-        if signed.is_directory(sets)
+        if files.is_directory(sets)
         else None
     )
     if old is None:

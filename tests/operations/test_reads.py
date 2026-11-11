@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 import pytest
 
 from cad.accounts.principal import AccountId
-from cad.accounts.tenants import Tenants
 from cad.briefs.store import UnknownBrief
 from cad.confirmations.waiting import Door
 from cad.context_parts.ingest import ingest
@@ -24,6 +23,7 @@ from cad.operations.briefs import (
 from cad.operations.confirmation import AskToConfirmInput, ask_to_confirm
 from cad.operations.model import Tenant
 from cad.operations.server import NoArguments
+from cad.operations.tenants import Tenants
 from cad.projects.model import UnknownProject
 from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.outcome import Build, Built

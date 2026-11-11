@@ -12,7 +12,6 @@ import pytest
 
 from cad.accounts.local import LocalIssuer
 from cad.accounts.principal import AccountId
-from cad.accounts.tenants import Tenants
 from cad.chat.log import Answered, Channel, DriverSaid, transcript_path
 from cad.chat.model import Message, Model, ToolSpec
 from cad.chat.scripted import Scripted, Step
@@ -23,6 +22,7 @@ from cad.context_parts.ingest import ingest
 from cad.conversations import store
 from cad.conversations.model import ConversationId, Mode
 from cad.operations import confirmation
+from cad.operations.tenants import Tenants
 from cad.projects.model import ProjectId
 from cad.server.hosted import build_app
 from tests.chat.support import ALICE, TEXT, UNDER_150, Chat, call, script, step
@@ -240,7 +240,8 @@ async def test_a_switch_back_to_plan_stands_through_the_next_ask(chat: Chat) -> 
         cid = await waiting(chat, client)
         assert await answer(chat, client, cid) == 200
         await chat.finish()
-        store.set_mode(chat.tenants.of(AccountId(ALICE)), ConversationId(cid), Mode.PLAN)
+        tenant = chat.tenants.of(AccountId(ALICE))
+        store.set_mode(tenant.roots, tenant.conversations, ConversationId(cid), Mode.PLAN)
         steps = (
             *asked(),
             step("Built."),

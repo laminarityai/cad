@@ -31,6 +31,12 @@ repos:
         language: system
         pass_filenames: false
         always_run: true
+      - id: layers
+        name: layers
+        entry: uv run verify --only layers
+        language: system
+        pass_filenames: false
+        files: ^(src/cad/|pyproject\.toml)
       - id: materials-table
         name: materials table
         entry: uv run verify --only "materials table"

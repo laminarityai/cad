@@ -180,4 +180,5 @@ def test_a_swapped_slot_is_tampering(things: Store) -> None:
 def test_no_signed_record_code_feeds_a_variant_id_or_a_check_version() -> None:
     records_directory = Path(signed.__file__).parent
     assert records_directory not in entry.TRUSTED_DIRECTORIES
-    assert [f for f in report.DEPENDENCIES.files if f.startswith("cad/records/")] == []
+    feeding = [f for f in report.DEPENDENCIES.files if f.startswith("cad/records/")]
+    assert feeding == ["cad/records/__init__.py", "cad/records/files.py", "cad/records/key.py"]

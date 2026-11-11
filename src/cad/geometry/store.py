@@ -1,16 +1,16 @@
-import os
 import re
-import secrets
 from pathlib import Path
 from typing import Final
 
 from pydantic import TypeAdapter, ValidationError
 
+from cad.data_root import DATA_ROOT
 from cad.geometry import job
 from cad.geometry.model import Stored
+from cad.records import files
 from cad.sandbox.outcome import SandboxUnavailable
 
-GEOMETRY_ROOT: Final = Path.home() / ".cad" / "geometry"
+GEOMETRY_ROOT: Final = DATA_ROOT / "geometry"
 SHA256: Final = re.compile(r"[0-9a-f]{64}")
 STORED: Final = TypeAdapter[Stored](Stored)
 
@@ -32,14 +32,10 @@ def read(root: Path, brep_sha256: str) -> Stored | None:
 
 def write(root: Path, stored: Stored) -> None:
     target = path(root, stored.brep_sha256)
-    temporary = target.with_name(f".{target.name}-{secrets.token_hex(8)}")
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
-        temporary.write_bytes(stored.model_dump_json().encode())
-        os.replace(temporary, target)
+        files.replace(target, stored.model_dump_json().encode())
     except OSError as error:
         raise SandboxUnavailable.hiding_host(
             f"cannot store the mesh of BREP {stored.brep_sha256}", error, target
         ) from error
-    finally:
-        temporary.unlink(missing_ok=True)

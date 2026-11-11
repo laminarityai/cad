@@ -24,9 +24,9 @@ jobs:
       - run: uv sync --locked
       - run: >-
           uv run --locked verify --only basedpyright --only "basedpyright skills"
-          --only "ruff check" --only "ruff format" --only "file size" --only "materials table"
-          --only "api types" --only "web lint" --only "web test" --only "web build"
-          --only app
+          --only "ruff check" --only "ruff format" --only "file size" --only layers
+          --only "materials table" --only "api types" --only "web lint" --only "web test"
+          --only "web build" --only app
 
   # TLC's verdict depends only on the skill's files, so a pull request that changes neither them
   # nor the code they cover skips it. A push to main always runs it.

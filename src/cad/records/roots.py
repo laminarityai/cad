@@ -2,9 +2,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
+from cad.data_root import DATA_ROOT
 from cad.records import signed
 
-DATA_ROOT: Final = Path.home() / ".cad"
 BRIEFS_ROOT: Final = DATA_ROOT / "briefs"
 PROJECTS_ROOT: Final = DATA_ROOT / "projects"
 PROJECT_STORE_NAME: Final = "project"

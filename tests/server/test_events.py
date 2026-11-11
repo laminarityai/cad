@@ -13,7 +13,6 @@ from starlette.routing import Route
 
 from cad.accounts.local import LocalIssuer
 from cad.accounts.principal import AccountId, PersonSession
-from cad.accounts.tenants import Tenants
 from cad.checks.jobs import JobSpec, Quick
 from cad.checks.lanes import Listener
 from cad.checks.report import SPECS, build_request
@@ -24,6 +23,7 @@ from cad.operations import events
 from cad.operations.events import events_route
 from cad.operations.model import Tenant
 from cad.operations.scorecards import ScorecardInput
+from cad.operations.tenants import Tenants
 from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.outcome import Build, Built
 from cad.scorecard.material import ScorecardSnapshot, snapshot

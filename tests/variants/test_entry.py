@@ -5,8 +5,9 @@ from pathlib import Path
 
 import pytest
 
+from cad.records import key
 from cad.sandbox.outcome import Build, Built, NoResult, SandboxUnavailable
-from cad.variants import entry, key
+from cad.variants import entry
 from cad.variants.entry import (
     NotBuilt,
     OutdatedVariant,
@@ -279,3 +280,20 @@ def test_an_older_entry_stored_before_rebuilds_is_refused_and_not_rebuilt(tmp_pa
     with pytest.raises(StaleVariant, match=f"variant {vid} was stored before") as raised:
         open_entry(tmp_path, vid, TAG)
     assert not isinstance(raised.value, OutdatedVariant)
+
+
+def test_a_step_that_cannot_be_written_raises_the_os_error_and_leaves_no_temporary(
+    tmp_path: Path,
+) -> None:
+    opened = open_entry(tmp_path, stored(tmp_path), TAG)
+    before = sorted(path.name for path in opened.directory.iterdir())
+    opened.directory.chmod(0o555)
+    try:
+        with pytest.raises(PermissionError):
+            opened.attach_step(b"STEP")
+    finally:
+        opened.directory.chmod(0o755)
+    (opened.directory / "result.step" / "occupied").mkdir(parents=True)
+    with pytest.raises(OSError):
+        opened.attach_step(b"STEP")
+    assert sorted(path.name for path in opened.directory.iterdir()) == [*before, "result.step"]

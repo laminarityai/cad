@@ -2,12 +2,12 @@ from pathlib import Path
 
 import pytest
 
-from cad.accounts.tenants import open_tenant
 from cad.confirmations.waiting import Door
 from cad.context_parts.ingest import ingest
 from cad.geometry.lane import Tessellations
 from cad.geometry.model import Tessellated, TessellationFailed, mesh_volume
 from cad.operations.geometry import GeometryInput, geometry
+from cad.operations.tenants import open_tenant
 from cad.records.roots import Roots
 from cad.sandbox import image
 from cad.sandbox.host import run_checks

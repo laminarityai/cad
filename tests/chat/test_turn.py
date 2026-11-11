@@ -100,7 +100,8 @@ async def test_a_mode_the_person_sets_reaches_the_next_message_and_the_prompt(
 ) -> None:
     async with chat.client() as client:
         cid = await chat.conversation(client)
-        store.set_mode(chat.tenants.of(AccountId(ALICE)), ConversationId(cid), Mode.DESIGN)
+        tenant = chat.tenants.of(AccountId(ALICE))
+        store.set_mode(tenant.roots, tenant.conversations, ConversationId(cid), Mode.DESIGN)
         await chat.say(client, cid, "make a hook")
         await chat.finish()
         events = await chat.events(client, cid)

@@ -10,9 +10,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from cad.checks.result import StepStored
+from cad.records import key
 from cad.sandbox.outcome import SandboxUnavailable
 from cad.scorecard.model import Scorecard
-from cad.variants import entry, key
+from cad.variants import entry
 
 
 @dataclass(frozen=True, slots=True)

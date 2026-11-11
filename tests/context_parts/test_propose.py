@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -146,3 +147,27 @@ async def test_a_clearance_names_only_a_part_its_project_stores(s: Session) -> N
         "fit",
         f"At least 0.2 mm clear of context part {part['part_id']}",
     )
+
+
+async def test_the_part_brep_is_stored_once_with_no_temporary(s: Session) -> None:
+    created = await brief(s)
+    await propose(s, created)
+    parts = s.roots.projects / created["project_id"] / "parts"
+    [brep] = parts.iterdir()
+    assert brep.name == f"{hashlib.sha256(brep.read_bytes()).hexdigest()}.brep"
+
+
+async def test_an_unwritable_parts_directory_fails_the_proposal_and_leaves_no_temporary(
+    s: Session,
+) -> None:
+    created = await brief(s)
+    parts = s.roots.projects / created["project_id"] / "parts"
+    parts.mkdir(parents=True)
+    parts.chmod(0o555)
+    try:
+        failed = await propose(s, created)
+    finally:
+        parts.chmod(0o755)
+    assert "Error executing tool propose_context_part" in failed
+    assert list(parts.iterdir()) == []
+    assert records(s, created["project_id"]) == []

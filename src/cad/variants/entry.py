@@ -1,22 +1,21 @@
 import hashlib
 import json
 import logging
-import os
 import re
 import secrets
 import shutil
-import stat
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, NewType, Self
 
 from pydantic import model_validator
 
+from cad.data_root import DATA_ROOT
 from cad.errors import NotFound, Refused
+from cad.records import files, key
 from cad.sandbox.outcome import Build, Built, SandboxUnavailable
-from cad.variants import key
 
-VARIANTS_ROOT: Final = Path.home() / ".cad" / "variants"
+VARIANTS_ROOT: Final = DATA_ROOT / "variants"
 CODE: Final = "code.py"
 MANIFEST: Final = "build.json"
 MAC: Final = "build.mac"
@@ -105,12 +104,7 @@ class Entry:
     brep_sha256: str
 
     def attach_step(self, step: bytes) -> str:
-        temporary = self.directory / f".step-{secrets.token_hex(8)}"
-        try:
-            temporary.write_bytes(step)
-            os.replace(temporary, self.directory / STEP)
-        finally:
-            temporary.unlink(missing_ok=True)
+        files.replace(self.directory / STEP, step)
         return hashlib.sha256(step).hexdigest()
 
 
@@ -144,7 +138,7 @@ def save(root: Path, vid: VariantId, code: str, build: Build, brep: bytes | None
 
 
 def read_manifest(root: Path, vid: VariantId) -> Manifest | None:
-    if not _is_directory(root / vid):
+    if not files.is_directory(root / vid):
         return None
     manifest = _signed_manifest(root, vid)
     if manifest is None:
@@ -157,9 +151,9 @@ def read_manifest(root: Path, vid: VariantId) -> Manifest | None:
 def open_entry(root: Path, raw_id: str, image_tag: str) -> Entry:
     vid = parse_variant_id(raw_id)
     directory = root / vid
-    if not _is_directory(directory):
+    if not files.is_directory(directory):
         raise UnknownVariant(f"no variant {vid} is stored; build its code with build_variant")
-    code = _read_regular(directory / CODE)
+    code = files.read_regular(directory / CODE, MAX_FILE_BYTES)
     manifest = _signed_manifest(root, vid)
     if _stored_id(code, image_tag) != vid:
         raise _outdated_or_refused(vid, code, manifest)
@@ -170,7 +164,7 @@ def open_entry(root: Path, raw_id: str, image_tag: str) -> Entry:
             f"variant {vid} has no shape: its build ended as {manifest.outcome.kind}; "
             "fix the code and build it again"
         )
-    brep = _read_regular(directory / BREP)
+    brep = files.read_regular(directory / BREP, MAX_FILE_BYTES)
     brep_sha256 = hashlib.sha256(brep or b"").hexdigest()
     if brep is None or brep_sha256 != manifest.brep_sha256:
         raise StaleVariant(f"variant {vid} has a result.brep that its build did not store")
@@ -207,8 +201,8 @@ def _outdated_or_refused(
 
 
 def _signed_manifest(root: Path, vid: VariantId) -> Manifest | None:
-    record = _read_regular(root / vid / MANIFEST)
-    mac = _read_regular(root / vid / MAC)
+    record = files.read_regular(root / vid / MANIFEST, MAX_FILE_BYTES)
+    mac = files.read_regular(root / vid / MAC, MAX_FILE_BYTES)
     if record is None or mac is None or not key.verify(root, vid, record, mac):
         return None
     try:
@@ -227,22 +221,3 @@ def _report_unsigned(root: Path, vid: VariantId) -> str:
         f"variant {vid} has a build record this store did not sign or cannot read; "
         "the operator must delete it from the variant store"
     )
-
-
-def _is_directory(path: Path) -> bool:
-    try:
-        return stat.S_ISDIR(path.lstat().st_mode)
-    except OSError:
-        return False
-
-
-def _read_regular(path: Path) -> bytes | None:
-    try:
-        descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
-    except OSError:
-        return None
-    with os.fdopen(descriptor, "rb") as file:
-        if not stat.S_ISREG(os.fstat(file.fileno()).st_mode):
-            return None
-        data = file.read(MAX_FILE_BYTES + 1)
-    return None if len(data) > MAX_FILE_BYTES else data
