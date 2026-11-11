@@ -71,9 +71,9 @@ def slug(text: str) -> str:
 
 def stem_of(tenant: Tenant, brief_id: str, variant_id: str) -> str:
     """`{brief name}-{option label}-rev{n}`: what the page shows for the revision, from the brief's
-    confirmed variant set. A variant that is no revision of the brief is refused."""
+    variant set. A variant that is no revision of the brief is refused."""
     brief = briefs.read_brief(tenant.roots, brief_id)
-    key = variant_sets.confirmed_key(tenant.roots, brief_id)
+    key = variant_sets.set_key(tenant.roots, brief_id)
     for member in variant_sets.members(tenant.roots.projects, key):
         for number, revision in enumerate(member.revisions, start=1):
             if revision.built_as == variant_id:

@@ -78,7 +78,7 @@ async def a_confirmed_set(tenant: Tenant, name: str | None) -> tuple[str, str, s
     )
     answer = await ask_to_confirm(tenant, AskToConfirmInput(project_id=created.project_id))
     assert answer.status == "answered"
-    key = variant_sets.confirmed_key(tenant.roots, created.brief_id)
+    key = variant_sets.set_key(tenant.roots, created.brief_id)
     ids: list[str] = []
     for code in ("result = 1", "result = 2"):
         vid = entry.variant_id(code, image_tag(BUILD))
