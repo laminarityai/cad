@@ -66,6 +66,26 @@ class MaterialChoice(BaseModel):
     reason: Reason
 
 
+type Label = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=40, pattern=r"^[^\n\r]+$"),
+]
+type Differs = Annotated[
+    str,
+    StringConstraints(strip_whitespace=True, min_length=1, max_length=160, pattern=r"^[^\n\r]+$"),
+]
+
+
+class Option(BaseModel):
+    """What the agent calls a slot and how it differs from the set's other slots. A design note
+    like the material choice: never a requirement or a verdict."""
+
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    label: Label
+    differs: Differs
+
+
 type Resolve = Callable[[MaterialChoice | None], MaterialChoice | None]
 """Given the slot's latest choice, the choice the new revision records. Refuses when the build
 may not go ahead."""
@@ -82,6 +102,7 @@ class Revision(BaseModel):
     built_as: VariantId
     joined_at: datetime
     material: MaterialChoice | None = None
+    option: Option | None = None
 
     def live_id(self, image_tag: str) -> VariantId:
         return variant_id(self.code, image_tag)

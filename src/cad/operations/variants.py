@@ -15,8 +15,11 @@ from cad.scorecard import material
 from cad.variant_sets import store as variant_sets
 from cad.variant_sets.model import (
     MAX_MEMBERS,
+    Differs,
     Joined,
+    Label,
     MaterialChoice,
+    Option,
     Reason,
     Resolve,
     SetBuildResult,
@@ -38,7 +41,12 @@ BUILD_VARIANT = (
     "Pass brief_id once the user has confirmed the brief's requirements: a built variant then "
     f"joins the brief's variant set, which holds up to {MAX_MEMBERS} variants for the user to "
     "compare, and variant_set names its slot and revision. Build 3 to 5 different variants, each "
-    "in its own slot. To change a variant the user asked about, such as making a wall thicker, "
+    "in its own slot, that differ in a way the person would choose between, not in small "
+    "dimensions. Give each a label of a few words and differs, one line saying how it differs "
+    "from the others. On a revision, omit both to keep the slot's label, or pass both to change "
+    "them. A part that must fit another part is modelled in that other part's frame, its origin "
+    "and axes, so the fit check and the page show them together. To change a variant the user "
+    "asked about, such as making a wall thicker, "
     f"build the edited code with brief_id and that variant's slot, 1 to {MAX_MEMBERS}: it becomes "
     "the slot's next revision, and the set shows it in place of the old one, which stays in the "
     "slot's history. The person never chooses the material. When a confirmed made_of "
@@ -97,6 +105,19 @@ class BuildVariantInput(Input):
     slot: Annotated[int | None, Field(strict=True)] = None
     material_key: MaterialKey | None = None
     material_reason: Reason | None = None
+    label: Label | None = None
+    differs: Differs | None = None
+
+
+def _option(label: str | None, differs: str | None) -> Option | None:
+    if label is None and differs is None:
+        return None
+    if label is None or differs is None:
+        raise SetRefused(
+            "label and differs go together: pass both to name the option, or neither to keep the "
+            "slot's. Nothing was built."
+        )
+    return Option(label=label, differs=differs)
 
 
 def chooser(tenant: Tenant, brief_id: str, key: str | None, reason: str | None) -> Resolve:
@@ -119,6 +140,7 @@ def build_variant(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResul
     running = gate(tenant, arguments.brief_id)
     if running is not None and arguments.brief_id is not None and arguments.slot is not None:
         variant_sets.refuse_a_slot_out_of_turn(tenant.roots, arguments.brief_id, arguments.slot)
+    option = _option(arguments.label, arguments.differs)
     vid = entry.variant_id(arguments.code, image.image_tag(image.BUILD))
     with stops_at_the_limit(tenant, vid):
         if arguments.brief_id is not None:
@@ -132,6 +154,7 @@ def build_variant(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResul
                 arguments.code,
                 arguments.slot,
                 resolve,
+                option,
             )
             return with_out_of_date(tenant, arguments.brief_id, built)
         if arguments.slot is not None:
@@ -140,6 +163,10 @@ def build_variant(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResul
             raise SetRefused(
                 "material_key and material_reason record a choice in a brief's variant set, "
                 "so pass brief_id too"
+            )
+        if option is not None:
+            raise SetRefused(
+                "label and differs name a slot of a brief's variant set, so pass brief_id too"
             )
         built = store.build_variant(arguments.code, tenant.variants)
     return SetBuildResult(variant_id=built.variant_id, outcome=built.outcome, output=built.output)

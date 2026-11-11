@@ -53,7 +53,7 @@ def test_the_token_is_built_from_the_verified_session_and_names_one_conversation
 def recording() -> Recording:
     return Recording(
         script(
-            step("Looking.", call("create_brief", text="a hook")),
+            step("Looking.", call("create_brief")),
             step("Building.", call("build_variant", code="result = None")),
             step("It was refused."),
         )

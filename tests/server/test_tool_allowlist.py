@@ -7,13 +7,21 @@ pytestmark = pytest.mark.anyio
 
 ALLOWED_ARGUMENTS = {
     "server_info": set[str](),
-    "build_variant": {"code", "brief_id", "slot", "material_key", "material_reason"},
+    "build_variant": {
+        "code",
+        "brief_id",
+        "slot",
+        "material_key",
+        "material_reason",
+        "label",
+        "differs",
+    },
     # own_measurements is the agent's measuring code, shown as not verified, never a verdict.
     "score_variant": {"variant_id", "material_key", "brief_id", "own_measurements"},
     "scorecard": {"variant_id", "material_key", "brief_id"},
     "list_materials": set[str](),
     "create_brief": {"text", "project_id"},
-    "propose_requirements": {"brief_id", "requirements"},
+    "propose_requirements": {"brief_id", "requirements", "said"},
     "ask_to_confirm": {"project_id"},
     "list_requirements": {"brief_id"},
     "propose_context_part": {"brief_id", "quote", "name", "variant_id"},

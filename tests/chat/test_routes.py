@@ -11,7 +11,7 @@ pytestmark = pytest.mark.anyio
 @pytest.fixture
 def model() -> Model:
     return script(
-        step("Storing it.", call("create_brief", text="a hook")),
+        step("Storing it.", call("create_brief")),
         step("Stored."),
     )
 

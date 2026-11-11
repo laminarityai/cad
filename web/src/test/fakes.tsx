@@ -19,6 +19,7 @@ export function setOf(variants: string[]): VariantSetView {
       revision: 1,
       revisions: [{ revision: 1, variant_id: variant, code_sha256: "e".repeat(64), joined_at: "2026-11-10T00:00:00Z" }],
       material: null,
+      option: null,
       card_etag: null,
     })),
   };

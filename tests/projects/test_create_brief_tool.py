@@ -57,3 +57,31 @@ async def test_create_brief_refuses_a_project_it_cannot_join(
     assert result.is_error
     assert refusal in result.content[0].text
     assert not (tmp_path / "briefs").exists()
+
+
+async def test_an_outside_client_passes_the_persons_words_and_their_later_words(
+    tmp_path: Path,
+) -> None:
+    later = {
+        "target": {"kind": "max_mass", "mass": {"magnitude": 120, "unit": "g"}},
+        "quote": "under 120 g",
+    }
+    async with Client(build_server(roots=roots(tmp_path))) as client:
+        missing: Any = await client.call_tool("create_brief", {})
+        made: Any = await client.call_tool("create_brief", {"text": "a hook"})
+        brief_id = made.structured_content["brief_id"]
+        unsaid: Any = await client.call_tool(
+            "propose_requirements", {"brief_id": brief_id, "requirements": [later]}
+        )
+        said: Any = await client.call_tool(
+            "propose_requirements",
+            {"brief_id": brief_id, "requirements": [later], "said": "keep it under 120 g"},
+        )
+        listed: Any = await client.call_tool("list_requirements", {"brief_id": brief_id})
+    assert missing.is_error
+    assert "pass text" in missing.content[0].text
+    assert made.structured_content["text"] == "a hook"
+    assert unsaid.is_error
+    assert "pass the person's new words as said" in unsaid.content[0].text
+    assert said.structured_content["proposal"] == 1
+    assert listed.structured_content["text"] == "a hook\n\nkeep it under 120 g"

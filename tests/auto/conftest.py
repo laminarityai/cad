@@ -10,6 +10,7 @@ from mcp.server import MCPServer
 
 from cad.auto.log import read_run
 from cad.auto.model import AutoRun
+from cad.chat.log import Channel, UserSaid, transcript_path
 from cad.confirmations.waiting import Bell, Door
 from cad.context_parts.ingest import ingest
 from cad.conversations import store
@@ -96,7 +97,10 @@ class Session:
         assert again.run_id != run_id
 
     async def confirmed(self, text: str, *requirements: dict[str, Any]) -> str:
-        brief = await self.call("create_brief", text=text)
+        Channel(transcript_path(self.tenant.conversations, self.conversation)).append(
+            UserSaid(text=text)
+        )
+        brief = await self.call("create_brief")
         brief_id = brief["brief_id"]
         await self.propose(brief_id, *requirements)
         answer = await self.call("ask_to_confirm", project_id=brief["project_id"])

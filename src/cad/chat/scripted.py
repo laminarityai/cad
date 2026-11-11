@@ -2,7 +2,7 @@
 
 ```json
 {"steps": [
-  {"text": "I will build it.", "calls": [{"name": "create_brief", "input": {"text": "a hook"}}]},
+  {"text": "I will build it.", "calls": [{"name": "create_brief"}]},
   {"calls": [{"name": "propose_requirements", "input": {"brief_id": "${create_brief.brief_id}"}}]},
   {"text": "Done."}
 ]}

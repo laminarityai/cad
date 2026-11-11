@@ -23,7 +23,7 @@ RUN: Final = "${auto_start.run_id}"
 
 def confirmed() -> list[Step]:
     return [
-        step("Storing the brief.", call("create_brief", text=TEXT)),
+        step("Storing the brief.", call("create_brief")),
         step(
             "Proposing requirements.",
             call(
@@ -82,7 +82,7 @@ async def test_a_run_the_agent_stops_is_reported_from_the_signed_log_and_ends_th
     async with chat.client() as client:
         cid = await chat.conversation(client)
         auto(chat, cid)
-        await chat.say(client, cid, "build me a plate")
+        await chat.say(client, cid, TEXT)
         await chat.finish()
         events = await chat.events(client, cid)
     run = run_of(chat, cid)
@@ -104,7 +104,7 @@ async def test_a_call_after_the_run_stopped_is_refused_by_the_server(chat: Chat)
     async with chat.client() as client:
         cid = await chat.conversation(client)
         auto(chat, cid)
-        await chat.say(client, cid, "build me a plate")
+        await chat.say(client, cid, TEXT)
         await chat.finish()
         await chat.say(client, cid, "try again")
         await chat.finish()
@@ -123,7 +123,7 @@ async def test_a_run_that_passes_every_checked_requirement_stops_with_all_pass(
     async with chat.client() as client:
         cid = await chat.conversation(client)
         auto(chat, cid)
-        await chat.say(client, cid, "build me a plate")
+        await chat.say(client, cid, TEXT)
         await chat.finish()
         events = await chat.events(client, cid)
     assert isinstance(run_of(chat, cid).state, Stopped)
@@ -161,7 +161,7 @@ async def test_the_persons_stop_during_a_turn_refuses_the_next_call_and_is_repor
         chat.app.state.chat.model = PressesStop(
             script(*confirmed(), revise, revise), chat, cid, after=4
         )
-        await chat.say(client, cid, "build me a plate")
+        await chat.say(client, cid, TEXT)
         await chat.finish()
         events = await chat.events(client, cid)
     held = store.read(chat.tenants.of(AccountId(ALICE)).conversations, ConversationId(cid))
@@ -178,7 +178,7 @@ async def test_an_agent_that_ends_its_message_with_the_run_going_is_reminded_a_f
     async with chat.client() as client:
         cid = await chat.conversation(client)
         auto(chat, cid)
-        await chat.say(client, cid, "build me a plate")
+        await chat.say(client, cid, TEXT)
         await chat.finish()
         events = await chat.events(client, cid)
     assert kinds(events).count("driver") == 3
@@ -196,7 +196,7 @@ async def test_a_reminder_is_followed_by_the_agents_next_step(chat: Chat) -> Non
     async with chat.client() as client:
         cid = await chat.conversation(client)
         auto(chat, cid)
-        await chat.say(client, cid, "build me a plate")
+        await chat.say(client, cid, TEXT)
         await chat.finish()
         events = await chat.events(client, cid)
     assert "driver" in kinds(events)
@@ -227,7 +227,7 @@ async def test_the_persons_stop_during_a_text_only_reply_is_reported_once(chat: 
         chat.app.state.chat.model = PressesStop(
             script(*confirmed(), step("All good, done."), step("Hello again.")), chat, cid, after=4
         )
-        await chat.say(client, cid, "build me a plate")
+        await chat.say(client, cid, TEXT)
         await chat.finish()
         first = await chat.events(client, cid)
         await chat.say(client, cid, "thanks")
@@ -247,7 +247,7 @@ async def test_a_stop_pressed_between_turns_is_reported_when_the_next_turn_start
     async with chat.client() as client:
         cid = await chat.conversation(client)
         auto(chat, cid)
-        await chat.say(client, cid, "build me a plate")
+        await chat.say(client, cid, TEXT)
         await chat.finish()
         assert "stop_report" not in kinds(await chat.events(client, cid))
         run_id = run_of(chat, cid).run_id
@@ -267,7 +267,7 @@ async def test_a_run_of_another_conversation_is_never_reported_here(chat: Chat) 
     async with chat.client() as client:
         theirs = await chat.conversation(client)
         auto(chat, theirs)
-        await chat.say(client, theirs, "build me a plate")
+        await chat.say(client, theirs, TEXT)
         await chat.finish()
         run = run_of(chat, theirs)
         assert isinstance(run.state, Stopped)
@@ -290,7 +290,7 @@ async def test_a_tampered_run_log_fails_the_turn_with_a_message_that_names_it(
     async with chat.client() as client:
         cid = await chat.conversation(client)
         auto(chat, cid)
-        await chat.say(client, cid, "build me a plate")
+        await chat.say(client, cid, TEXT)
         await chat.finish()
         tenant = chat.tenants.of(AccountId(ALICE))
         run_id = run_of(chat, cid).run_id

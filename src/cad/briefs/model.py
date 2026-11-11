@@ -36,6 +36,7 @@ BriefId = NewType("BriefId", str)
 RequirementId = NewType("RequirementId", str)
 CheckId = NewType("CheckId", str)
 MAX_BRIEF_CHARS: Final = 64 * 1024
+SAID_SEPARATOR: Final = "\n\n"
 MAX_REQUIREMENTS: Final = 64
 MAX_STATEMENT_CHARS: Final = 500
 MAX_NOTE_CHARS: Final = 2000
@@ -308,11 +309,20 @@ class Brief(_Frozen):
     text: Annotated[str, Field(min_length=1, max_length=MAX_BRIEF_CHARS)]
     created_at: datetime
     project_id: Annotated[NewProjectId, Field(pattern=NEW_PROJECT_ID.pattern)] | None = None
+    transcript_seq: int | None = None
 
     @property
     def project(self) -> ProjectId:
         """A brief stored before projects has no project_id and is alone in pb-<brief_id>."""
         return legacy_project(self.id) if self.project_id is None else self.project_id
+
+
+class Said(_Frozen):
+    brief_id: BriefId
+    number: Annotated[int, Field(ge=1)]
+    text: Annotated[str, Field(min_length=1, max_length=MAX_BRIEF_CHARS)]
+    transcript_seq: int | None
+    said_at: datetime
 
 
 class Requirement(_Frozen):

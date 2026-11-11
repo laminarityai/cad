@@ -21,6 +21,7 @@ from cad.variant_sets.model import (
     Member,
     NotConfirmed,
     NotJoined,
+    Option,
     Resolve,
     Revision,
     SetBuildResult,
@@ -33,7 +34,7 @@ from cad.variant_sets.model import (
     code_sha256,
     group,
 )
-from cad.variant_sets.placement import Placement, place, shown
+from cad.variant_sets.placement import Design, Placement, place, shown
 from cad.variants import store as variants
 from cad.variants.entry import VariantId
 
@@ -48,6 +49,7 @@ def build_into_set(
     code: str,
     slot: int | None,
     resolve: Resolve,
+    option: Option | None = None,
     lanes: Lanes = LANES,
 ) -> SetBuildResult:
     root = roots.projects
@@ -55,14 +57,14 @@ def build_into_set(
     held = members(root, key)
     sha256 = code_sha256(code)
     try:
-        choice = _resolved(held, sha256, slot, resolve)
-        place(held, sha256, choice, slot)
+        design = _resolved(held, sha256, slot, resolve, option)
+        place(held, sha256, design, slot)
     except SetFull:
         raise _full(key) from None
-    _record(code, 1, VariantId("0" * 16), key, choice)
+    _record(code, 1, VariantId("0" * 16), key, design)
     built = variants.build_variant(code, variants_root)
     joined = (
-        join(root, key, code, built.variant_id, slot, resolve)
+        join(root, key, code, built.variant_id, slot, resolve, option)
         if built.outcome == Built()
         else NotJoined()
     )
@@ -102,10 +104,14 @@ def _no_choice(previous: MaterialChoice | None) -> MaterialChoice | None:
 
 
 def _resolved(
-    held: tuple[Member, ...], sha256: str, slot: int | None, resolve: Resolve
-) -> MaterialChoice | None:
+    held: tuple[Member, ...], sha256: str, slot: int | None, resolve: Resolve, option: Option | None
+) -> Design:
     slot_now = shown(held, sha256, slot)
-    return resolve(None if slot_now is None else slot_now.latest.material)
+    latest = None if slot_now is None else slot_now.latest
+    return Design(
+        material=resolve(None if latest is None else latest.material),
+        option=option or (None if latest is None else latest.option),
+    )
 
 
 def join(
@@ -115,6 +121,7 @@ def join(
     built_as: VariantId,
     slot: int | None = None,
     resolve: Resolve = _no_choice,
+    option: Option | None = None,
 ) -> Joined:
     """Make `code` what `slot` shows, as a new revision. With no slot, new code takes a free one.
 
@@ -128,8 +135,8 @@ def join(
         outcome.clear()
         try:
             held = group(_parse(key, directory, existing))
-            choice = _resolved(held, sha256, slot, resolve)
-            placed = place(held, sha256, choice, slot)
+            design = _resolved(held, sha256, slot, resolve, option)
+            placed = place(held, sha256, design, slot)
         except SetFull:
             outcome.append(_full(key, built_as))
             return None
@@ -138,7 +145,7 @@ def join(
             outcome.append(SlotRefused(f"{error} {kept}"))
             return None
         outcome.append(placed)
-        return None if placed.unchanged else _record(code, placed.slot, built_as, key, choice)
+        return None if placed.unchanged else _record(code, placed.slot, built_as, key, design)
 
     with _without_host_paths(key, directory):
         directory.mkdir(parents=True, exist_ok=True)
@@ -149,9 +156,7 @@ def join(
     return Joined(slot=result.slot, revision=result.revision, already_member=result.unchanged)
 
 
-def _record(
-    code: str, slot: int, built_as: VariantId, key: SetKey, material: MaterialChoice | None
-) -> bytes:
+def _record(code: str, slot: int, built_as: VariantId, key: SetKey, design: Design) -> bytes:
     record = (
         Revision(
             slot=slot,
@@ -159,7 +164,8 @@ def _record(
             code_sha256=code_sha256(code),
             built_as=built_as,
             joined_at=datetime.now(UTC),
-            material=material,
+            material=design.material,
+            option=design.option,
         )
         .model_dump_json()
         .encode()

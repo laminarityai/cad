@@ -7,6 +7,7 @@ from cad.variant_sets.model import (
     MaterialChoice,
     MaterialMissing,
     Member,
+    Option,
     SetFull,
     SlotRefused,
 )
@@ -56,12 +57,16 @@ def shown(held: tuple[Member, ...], sha256: str, slot: int | None) -> Member | N
     return next((m for m in held if m.slot == slot), None)
 
 
-def place(
-    held: tuple[Member, ...], sha256: str, material: MaterialChoice | None, slot: int | None
-) -> Placement:
+@dataclass(frozen=True, slots=True)
+class Design:
+    material: MaterialChoice | None
+    option: Option | None
+
+
+def place(held: tuple[Member, ...], sha256: str, design: Design, slot: int | None) -> Placement:
     """Where code goes in a set. Raises SetFull when new code has no slot to take."""
     if slot is None:
-        return _unslotted(held, sha256, material)
+        return _unslotted(held, sha256, design)
     if not 1 <= slot <= MAX_MEMBERS:
         raise SlotRefused(f"slot {slot} is not a slot: a set has slots 1 to {MAX_MEMBERS}")
     twin = next((m for m in held if m.slot != slot and m.latest.code_sha256 == sha256), None)
@@ -73,25 +78,26 @@ def place(
     current = next((m for m in held if m.slot == slot), None)
     if current is None:
         return Placement(slot, 1, unchanged=False)
-    return _revising(current, sha256, material)
+    return _revising(current, sha256, design)
 
 
-def _revising(current: Member, sha256: str, material: MaterialChoice | None) -> Placement:
-    unchanged = _same(current, sha256, material)
+def _revising(current: Member, sha256: str, design: Design) -> Placement:
+    unchanged = _same(current, sha256, design)
     count = len(current.revisions)
     return Placement(current.slot, count if unchanged else count + 1, unchanged)
 
 
-def _same(member: Member, sha256: str, material: MaterialChoice | None) -> bool:
+def _same(member: Member, sha256: str, design: Design) -> bool:
     latest = member.latest
     chosen = None if latest.material is None else latest.material.key
-    return latest.code_sha256 == sha256 and chosen == (None if material is None else material.key)
+    asked = None if design.material is None else design.material.key
+    return latest.code_sha256 == sha256 and chosen == asked and latest.option == design.option
 
 
-def _unslotted(held: tuple[Member, ...], sha256: str, material: MaterialChoice | None) -> Placement:
+def _unslotted(held: tuple[Member, ...], sha256: str, design: Design) -> Placement:
     holder = shown(held, sha256, None)
     if holder is not None:
-        return _revising(holder, sha256, material)
+        return _revising(holder, sha256, design)
     taken = {m.slot for m in held}
     free = next((n for n in range(1, MAX_MEMBERS + 1) if n not in taken), None)
     if free is None:
