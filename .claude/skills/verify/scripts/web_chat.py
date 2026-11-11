@@ -32,7 +32,7 @@ SLOT_LOG = """
 () => {
   window.__slotLog = [];
   const read = () => {
-    const t = document.querySelector("[data-slot-tile='1']");
+    const t = document.querySelector("[data-stage]");
     const m = t && /revision (\\d+)/.exec(t.textContent || "");
     const host = t && t.querySelector("[data-draws]");
     return { rev: m ? Number(m[1]) : 0, draws: host ? Number(host.dataset.draws) : 0 };
@@ -68,7 +68,7 @@ def swap_start(
 
 def tiles(page: Page) -> dict[str, Any]:
     return page.evaluate(
-        "() => { const t = document.querySelector('[data-slot-tile=\"1\"]');"
+        "() => { const t = document.querySelector('[data-stage]');"
         " if (!t) return {revision: 0, tones: []};"
         " const m = /revision (\\d+)/.exec(t.textContent || '');"
         " return {revision: m ? Number(m[1]) : 0,"
@@ -87,7 +87,7 @@ def pick_mode(page: Page, label: str) -> None:
 
 
 def say(page: Page, text: str) -> None:
-    box = page.get_by_label("Message to the agent")
+    box = page.get_by_label("Message", exact=True)
     box.fill(text)
     box.press("Enter")
 
@@ -149,7 +149,7 @@ def chat(run: Path, path: str, name: str, given: dict[str, str]) -> int:
             lambda r: meshes.append(time.time()) if "/v1/geometry/" in r.url and r.ok else None,
         )
         open_tab(page, "Model")
-        page.locator("[data-slot-tile='1'] button").first.click()
+        page.locator("[data-stage] button").first.click()
         open_tab(page, "Chat")
         pick_mode(page, "Plan")
         found["plan_picked"] = mode_of(page) == "plan"
@@ -188,7 +188,7 @@ def chat(run: Path, path: str, name: str, given: dict[str, str]) -> int:
                 t_pending = at
             if t_pending and tones and "pending" not in tones:
                 t_verdict = at
-            ready = "[data-slot-tile='1'] [data-mesh=ready] canvas"
+            ready = "[data-stage] [data-mesh=ready] canvas"
             if t_revision and not t_mesh and page.locator(ready).count():
                 t_mesh = at
             if t_pending and not shot_pending:

@@ -5,13 +5,12 @@
     uv run python .claude/skills/verify/scripts/browser.py web chat <run> <path> <name> [options]
 
 <run> is the data root of a local `cad-http` (its `local-issuer.pem` signs the sign-in token),
-<path> is a route of the app such as `/projects/<id>/briefs/<id>`, and <name> is the prefix of the
-files written into <run>. Options: --url (the server, default http://127.0.0.1:8765), --account
+<path> is a route of the app such as `/projects/<id>`, and <name> is the prefix of the files
+written into <run>. Options: --url (the server, default http://127.0.0.1:8765), --account
 (default user_web_proof), --width, --height, --scheme (light or dark), --seconds (watch, default
-120), --material (a material key to pick in the page's select before it starts), --tab (a
-narrow-screen tab to show: Chat, Model or Scorecard).
+120), --tab (a narrow-screen pane to show: Chat, Design, Checks or Files).
 
-`shot` opens the page, waits until every viewer has drawn, and writes <name>.png and
+`shot` opens the page, waits until the option on screen has drawn, and writes <name>.png and
 <name>.aria.yml (the page's accessibility tree). `watch` opens the page and polls its rows while
 something else scores the variants. It writes <name>-pending.png when it first sees a pending row,
 <name>-done.png once none is left, and <name>.sse.jsonl (every scorecard event the page received,
@@ -68,7 +67,6 @@ def options(argv: list[str]) -> tuple[list[str], dict[str, str]]:
         "height": "900",
         "scheme": "light",
         "seconds": "120",
-        "material": "",
         "tab": "",
         "ask": "make the wall 4 mm",
         "video": "",
@@ -103,29 +101,23 @@ def open_page(playwright: Any, run: Path, path: str, given: dict[str, str]) -> t
 
 
 def drawn(page: Page) -> None:
-    page.wait_for_selector("[data-slot-tile]", timeout=30_000)
+    page.wait_for_selector("[data-slot-tab]", timeout=30_000)
     page.wait_for_function(
         "() => { const v = [...document.querySelectorAll('[data-viewer]')];"
-        " const t = document.querySelectorAll('[data-slot-tile]').length;"
-        " return v.length === t && v.every((one) => one.querySelector('canvas')); }",
+        " return v.length > 0 && v.every((one) => one.querySelector('canvas')); }",
         timeout=60_000,
     )
     page.wait_for_timeout(500)
 
 
 def open_tab(page: Page, name: str) -> None:
-    tab = page.get_by_role("tab", name=name)
+    tab = page.get_by_role("navigation", name="Panes").get_by_role("button", name=name)
     if tab.count():
         tab.click()
         page.wait_for_timeout(300)
 
 
 def pick_material(page: Page, given: dict[str, str]) -> None:
-    if given["material"]:
-        if not page.locator("select").first.is_visible():
-            open_tab(page, "Scorecard")
-        page.select_option("select", given["material"])
-        page.wait_for_timeout(500)
     if given["tab"]:
         open_tab(page, given["tab"])
 
