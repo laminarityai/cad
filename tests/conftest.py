@@ -9,7 +9,6 @@ import threading
 import time
 import urllib.error
 import urllib.request
-import zlib
 from collections.abc import AsyncIterator, Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from email.message import Message
@@ -32,6 +31,8 @@ from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.outcome import Build, BuildFailed, Built
 from cad.server.app import LocalPage, build_server
 from cad.variants import entry
+
+pytest_plugins = ("shards",)
 
 TEXT = "A wall bracket for a 2 kg shelf, under 150 g, fits in 120 x 80 x 40 mm, printable in PETG"
 UNDER_150 = {
@@ -329,24 +330,6 @@ def _refuse_home_writes(event: str, arguments: tuple[object, ...]) -> None:
 
 
 sys.addaudithook(_refuse_home_writes)
-
-
-def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    """Keep one shard's files when CAD_TEST_SHARD is `index/count`, as CI's parallel jobs set it.
-
-    A file stays whole, so its module fixtures still run once.
-    """
-    shard = os.environ.get("CAD_TEST_SHARD")
-    if not shard:
-        return
-    index, count = (int(part) for part in shard.split("/"))
-    kept: list[pytest.Item] = []
-    dropped: list[pytest.Item] = []
-    for item in items:
-        name = item.path.relative_to(config.rootpath).as_posix()
-        (kept if zlib.crc32(name.encode()) % count == index - 1 else dropped).append(item)
-    config.hook.pytest_deselected(items=dropped)
-    items[:] = kept
 
 
 @pytest.fixture(name="home_writes", autouse=True)
