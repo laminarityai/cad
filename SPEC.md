@@ -57,7 +57,8 @@ You switch modes in the chat, the way you switch modes in Claude Code.
 - **Plan mode.** The agent asks questions and turns the brief into requirements, without making geometry. It ends when you confirm the requirements.
 - **Design mode** is the default. The agent makes variants, runs checks, shows scorecards, and stops for you to pick a variant or ask for a change.
 - **Auto mode.** The agent revises variants against the checks without stopping. It stops in three cases. The first is that every requirement passes, which the checks decide. The second is that it needs a decision only you can make, such as relaxing one of two conflicting requirements, changing a requirement you confirmed, or using a source it found. The third is that the agent judges it is stuck, in which case it reports what it tried and asks how to proceed. There is no budget. An account's usage limit also ends a run when it refuses a build.
-- **Test mode.** Deeper, slower analysis of one chosen variant, such as full FEA and tolerance stack-ups.
+
+Deeper analysis is not a mode. When you ask whether a chosen variant will hold a load, or a requirement needs it, the agent runs slower analysis of that one variant, such as full FEA and tolerance stack-ups, in whichever mode you are in.
 
 ### Checks
 
@@ -125,7 +126,7 @@ The first version is built in five phases, in this order. Each phase ends when i
    - Exit: Claude Code, connected to the server, produces scorecards for the 10 bake-off parts that agree with the bake-off grader, and the sandbox blocks network access and enforces its limits.
 2. **Briefs, requirements and scorecards.** Plan mode, 3 to 5 variants, scorecards that list unverified requirements, sources and researched values, the knowledge base, agent-written checks with per-project review, and context parts with the fit check.
    - Exit: on the private brief set, across at least five domains, every number on every scorecard traces to a confirmed source. The one exception is an agent's own measurement, which is counted as not verified.
-3. **Physics and manufacturing.** FEA under stated loads and Test mode.
+3. **Physics and manufacturing.** FEA under stated loads and deeper analysis of one chosen variant.
    - Exit: FEA results land within a stated error of hand calculations on beam and plate cases with known answers.
 4. **Web app.** Chat, 3D viewer, scorecards, the mode switcher, Auto mode with its stopping rules, and accounts with usage limits.
    - Exit: a change asked for in chat rebuilds the variant and updates its scorecard without a page reload, and Auto mode stops correctly on a brief whose requirements conflict.
