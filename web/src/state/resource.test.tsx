@@ -200,6 +200,17 @@ describe("useResources", () => {
     expect(result.current.resources).toEqual({ b: { status: "ok", data: "B" }, c: { status: "ok", data: "C" } });
   });
 
+  it("keeps the data of a key that stays when its read after a key change fails", async () => {
+    let down = false;
+    const load = (key: string) => (down ? Promise.reject(new Error("server restarting")) : Promise.resolve(key.toUpperCase()));
+    const { result, rerender } = renderHook(({ keys }) => useResources(keys, load), { initialProps: { keys: ["a"] } });
+    await settle();
+    down = true;
+    rerender({ keys: ["a", "b"] });
+    await settle();
+    expect(result.current.resources).toEqual({ a: { status: "ok", data: "A" }, b: { status: "error", message: "server restarting" } });
+  });
+
   it("follows each key on its own, and a sign-out ends only the key that had it", async () => {
     const calls: string[] = [];
     const load = (key: string) => {

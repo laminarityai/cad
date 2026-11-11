@@ -14,8 +14,7 @@ type State<T> = Record<string, Resource<T>>;
 type Action<T> =
   | { type: "begin"; keys: readonly string[] }
   | { type: "done"; key: string; data: T }
-  | { type: "failed"; key: string; error: unknown }
-  | { type: "refresh_failed"; key: string; error: unknown };
+  | { type: "failed"; key: string; error: unknown };
 
 const LOADING = { status: "loading" } as const;
 
@@ -33,9 +32,7 @@ function reduce<T>(state: State<T>, action: Action<T>): State<T> {
       return Object.fromEntries(action.keys.map((key) => [key, state[key] ?? LOADING]));
     case "done":
       return { ...state, [action.key]: { status: "ok", data: action.data } };
-    case "failed":
-      return { ...state, [action.key]: failed(action.error) };
-    case "refresh_failed": {
+    case "failed": {
       const before = state[action.key];
       const next = failed<T>(action.error);
       return { ...state, [action.key]: before?.status === "ok" && next.status === "error" ? before : next };
@@ -57,7 +54,7 @@ export interface LoadedSet<T> {
 
 /** Load each of `keys` once. With `followMs`, load again that long after each load ends while the tab
  * is visible, and again the moment it becomes visible, so the data on screen follows the server. A
- * follow-up load that fails for any reason but sign-out or not-found keeps the data on screen, so a
+ * load that fails for any reason but sign-out or not-found keeps the data already on screen, so a
  * server restart does not blank the page. A key that stays in `keys` keeps its data while the others
  * change; a key that leaves is forgotten. `load` gets a signal that aborts when the keys change or the
  * page leaves. */
@@ -77,12 +74,12 @@ export function useResources<T>(keys: readonly string[], load: (key: string, sig
       const run = { ended: false, reading: false, queued: false };
       const going = () => live && !run.ended;
       const queued = () => run.queued;
-      const once = async (first: boolean) => {
+      const once = async () => {
         try {
           const data = await latest.current(key, abort.signal);
           if (going()) dispatch({ type: "done", key, data });
         } catch (error) {
-          if (going()) dispatch(first ? { type: "failed", key, error } : { type: "refresh_failed", key, error });
+          if (going()) dispatch({ type: "failed", key, error });
           if (final(error)) run.ended = true;
         }
       };
@@ -95,13 +92,13 @@ export function useResources<T>(keys: readonly string[], load: (key: string, sig
         run.reading = true;
         do {
           run.queued = false;
-          await once(false);
+          await once();
         } while (going() && queued());
         run.reading = false;
       };
       const follow = async () => {
         run.reading = true;
-        await once(true);
+        await once();
         run.reading = false;
         if (queued()) await readCoalesced();
         while (going() && followMs !== undefined) {
