@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { ServicesProvider } from "@/app/context";
-import { Workspace } from "@/workspace/Workspace";
+import { Workspace } from "@/features/workspace/Workspace";
 import { FakeChat, FakeViewer, fakeApi, runningRun, stoppedRun } from "@/test/fakes";
 import type { Mode } from "@/api/types";
 import { nextMode } from "./modes";

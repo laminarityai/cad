@@ -1,6 +1,6 @@
 import { createContext, useContext, type ReactNode } from "react";
 import { httpApi, type Api } from "@/api/client";
-import { httpChat, type ChatApi } from "@/chat/api";
+import { httpChat, type ChatApi } from "@/features/chat/api";
 import { threeCadViewer, type ViewerEngine } from "@/features/viewer/engine";
 
 export interface Services {

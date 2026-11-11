@@ -2,9 +2,9 @@ import { Check, ChevronDown, Crosshair, Paperclip, SendHorizontal, X } from "luc
 import { useEffect, useReducer, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useServices } from "@/app/context";
 import { Refused } from "@/api/client";
-import { chatReducer, chatStart, type Line } from "@/chat/state";
+import { chatReducer, chatStart, type Line } from "@/features/chat/state";
 import { cn } from "@/lib/utils";
-import { isStopKind, reasonText } from "@/mode/run";
+import { isStopKind, reasonText } from "@/features/mode/run";
 import { Markdown } from "./Markdown";
 
 export const DOING: Record<string, string> = {
