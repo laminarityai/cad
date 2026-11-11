@@ -177,7 +177,10 @@ describe("the explorer", () => {
     slot: 1,
     cards: {},
     parts: [{ name: "rail", size: "30 × 20 × 10 mm", state: "confirmed" as const }],
-    sources: [{ url: "https://example.com/pla", title: "PLA datasheet", page: "p", retrieved: "2026-11-10", standard: null, quote: "q" }],
+    sources: [
+      { url: "https://example.com/pla", title: "PLA datasheet", page: "p. 2", retrieved: "2026-11-10", standard: null, quote: "q" },
+      { url: "https://example.com/pla#3", title: "PLA datasheet", page: "p. 3", retrieved: "2026-11-10", standard: null, quote: "q" },
+    ],
     dispatch,
     onNew,
   });
@@ -203,11 +206,13 @@ describe("the explorer", () => {
 
   it("lists the context parts and the cited sources under Files, and folders collapse", async () => {
     const { container } = render(<Explorer {...props()} />);
-    expect(container.querySelectorAll("[data-file]")).toHaveLength(2);
-    expect(screen.getByRole("link", { name: "PLA datasheet" })).toHaveAttribute("href", "https://example.com/pla");
+    expect(container.querySelectorAll("[data-file]")).toHaveLength(1);
+    await userEvent.click(screen.getByRole("button", { name: /^PLA datasheet/ }));
+    expect(container.querySelectorAll("[data-file=source]")).toHaveLength(2);
+    expect(screen.getByRole("link", { name: "p. 2" })).toHaveAttribute("href", "https://example.com/pla");
     await userEvent.click(screen.getByRole("button", { name: "Files" }));
     expect(screen.getByRole("button", { name: "Files" })).toHaveAttribute("aria-expanded", "false");
-    expect(container.querySelectorAll("[data-file]")).toHaveLength(0);
+    expect(container.querySelectorAll("[data-file], [data-source-folder]")).toHaveLength(0);
     await userEvent.click(screen.getByRole("button", { name: "Hook options" }));
     expect(container.querySelector("[data-slot-node]")).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Hook options" }));

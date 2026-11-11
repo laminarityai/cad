@@ -86,7 +86,9 @@ export function Checks({ card, material }: { card: Card | undefined; material: M
           </span>
         ) : null}
       </header>
-      {!snapshot ? (
+      {!card ? (
+        <p className="px-4 py-3 text-[15px] text-ink-3">Checks show once an option is built.</p>
+      ) : !snapshot ? (
         <p className="flex items-center gap-2 px-4 py-3 text-[15px] text-ink-2">
           <LoaderCircle className="size-4 motion-safe:animate-spin" /> Checking
         </p>

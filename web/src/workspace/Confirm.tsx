@@ -106,7 +106,7 @@ export function ConfirmCard({ projectId, card, onAnswered }: { projectId: string
                             [key]: event.target.value,
                           }));
                         }}
-                        className="mt-1 w-40 rounded-md border border-rule bg-panel px-2 py-1 text-[14px] outline-none focus:border-accent"
+                        className="mt-1 w-56 max-w-full rounded-md border border-rule bg-panel px-2 py-1 text-[14px] outline-none focus:border-accent"
                       />
                     ) : null}
                   </li>

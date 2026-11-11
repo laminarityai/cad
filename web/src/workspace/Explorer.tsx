@@ -80,6 +80,47 @@ function Part(props: { brief: Brief; current: boolean; slot: number | undefined;
   );
 }
 
+function byTitle(sources: Source[]): [string, Source[]][] {
+  const groups = new Map<string, Source[]>();
+  for (const one of sources) groups.set(one.title, [...(groups.get(one.title) ?? []), one]);
+  return [...groups];
+}
+
+function SourceFolder({ title, pages }: { title: string; pages: Source[] }) {
+  const [open, setOpen] = useState(false);
+  const FolderIcon = open ? FolderOpen : Folder;
+  return (
+    <li data-source-folder>
+      <button
+        type="button"
+        aria-expanded={open}
+        title={title}
+        onClick={() => {
+          setOpen((was) => !was);
+        }}
+        className={cn(ROW, "w-full text-[14px] hover:bg-panel-2/60")}
+      >
+        <Chevron open={open} />
+        <FolderIcon className="size-4 shrink-0 text-ink-2" />
+        <span className="min-w-0 flex-1 truncate">{title}</span>
+        <span className="text-[12px] text-ink-3">{pages.length}</span>
+      </button>
+      {open ? (
+        <Children>
+          {pages.map((one) => (
+            <li key={one.url} data-file="source">
+              <a href={one.url} target="_blank" rel="noreferrer" title={one.url} className={cn(ROW, "text-[14px] text-accent hover:bg-panel-2/60")}>
+                <Link2 className="size-4 shrink-0" />
+                <span className="truncate underline">{one.page || one.title}</span>
+              </a>
+            </li>
+          ))}
+        </Children>
+      ) : null}
+    </li>
+  );
+}
+
 function Files(props: { parts: Part[]; sources: Source[]; open: boolean; toggle: () => void }) {
   const { parts, sources, open, toggle } = props;
   const FolderIcon = open ? FolderOpen : Folder;
@@ -108,13 +149,8 @@ function Files(props: { parts: Part[]; sources: Source[]; open: boolean; toggle:
               {one.state === "declined" ? <span className="text-[12px] text-ink-3">Declined</span> : null}
             </li>
           ))}
-          {sources.map((one) => (
-            <li key={one.url} data-file="source">
-              <a href={one.url} target="_blank" rel="noreferrer" title={one.title} className={cn(ROW, "text-[14px] text-accent hover:bg-panel-2/60")}>
-                <Link2 className="size-4 shrink-0" />
-                <span className="truncate underline">{one.title}</span>
-              </a>
-            </li>
+          {byTitle(sources).map(([title, pages]) => (
+            <SourceFolder key={title} title={title} pages={pages} />
           ))}
           {parts.length === 0 && sources.length === 0 ? <li className="px-2 py-1 text-[13px] text-ink-3">Nothing yet</li> : null}
         </Children>
