@@ -110,7 +110,7 @@ describe("Auto run status", () => {
 
   it("stops the run, says the person stopped it, and moves the switcher to Design", async () => {
     const chat = new FakeChat();
-    chat.say({ kind: "user", text: "go" });
+    chat.say({ kind: "user", text: "go", selection: null });
     autoRunning(chat);
     mount(chat, "auto");
     await userEvent.click(await screen.findByRole("button", { name: "Stop" }));

@@ -1,7 +1,9 @@
-import { useReducer, useState, type Dispatch } from "react";
+import { useEffect, useReducer, useState, type Dispatch } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useServices } from "@/app/context";
 import { Gate } from "@/components/Gate";
+import { summaryOf, toPicked, useSelection, type Selection } from "@/features/viewer/selection";
+import type { OnPick } from "@/features/viewer/engine";
 import { cn } from "@/lib/utils";
 import { ModePicker } from "@/mode/ModePicker";
 import { RunStatus } from "@/mode/RunStatus";
@@ -41,7 +43,15 @@ function slotOf(brief: Brief, view: View) {
   return brief.slots.find((one) => one.slot === chosen) ?? brief.slots[0];
 }
 
-function Center({ brief, view, cards, dispatch }: { brief: Brief; view: View; cards: ReturnType<typeof useCards>; dispatch: Dispatch<ViewAction> }) {
+function Center(props: {
+  brief: Brief;
+  view: View;
+  cards: ReturnType<typeof useCards>;
+  dispatch: Dispatch<ViewAction>;
+  selection: Selection | null;
+  onPick: OnPick;
+}) {
+  const { brief, view, cards, dispatch, selection, onPick } = props;
   const slot = slotOf(brief, view);
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -63,6 +73,8 @@ function Center({ brief, view, cards, dispatch }: { brief: Brief; view: View; ca
               dispatch={dispatch}
               briefId={brief.id}
               fit={brief.fits[0] ?? null}
+              selection={selection}
+              onPick={onPick}
             />
           </div>
         </>
@@ -80,6 +92,8 @@ function shown(brief: Brief, view: View): { variantId: string; slot: number } | 
   const revision = slot.revisions[n - 1];
   return revision ? { variantId: revision.variantId, slot: slot.slot } : null;
 }
+
+const SELECTED_PLACEHOLDER = "Ask for a change to the selection, such as: make this thicker";
 
 type Pane = "explorer" | "design" | "chat";
 
@@ -101,9 +115,19 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
     if (change.kind === "turn_ended" || change.kind === "stop_report" || AUTO_TOOLS.has(change.name)) auto.reload();
     if (change.kind === "turn_ended" || (change.kind === "tool" && CHANGES_PAGE.has(change.name))) reload();
   });
-  const placeholder = forNewPart ? "Describe the new part" : auto.mode === "plan" ? "Describe what you need" : "Ask for a change, such as: make the wall 4 mm";
   const withSets = model.briefs.filter((one) => one.slots.length > 0);
   const brief = model.briefs.find((one) => one.id === view.briefId) ?? withSets[withSets.length - 1] ?? model.briefs[0];
+  const onScreen = brief ? shown(brief, view) : null;
+  const { selection, onPick, clear } = useSelection(onScreen?.variantId ?? null);
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") clear();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [clear]);
   const keys: CardKey[] = model.briefs.flatMap((one) =>
     one.slots.flatMap((slot) =>
       slot.revisions.map((rev) => ({
@@ -114,6 +138,7 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
     ),
   );
   const cards = useCards(keys);
+  const placeholder = selection ? SELECTED_PLACEHOLDER : forNewPart ? "Describe the new part" : auto.mode === "plan" ? "Describe what you need" : "Ask for a change, such as: make the wall 4 mm";
   const sources = sourcesOf(cards);
   const waiting = model.confirmation !== null && model.confirmation.snapshot !== answered;
   const onNew = () => {
@@ -125,7 +150,6 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
   };
 
   if (!brief) return <Navigate to="/new" replace />;
-  const onScreen = shown(brief, view);
   const checks = <Checks card={onScreen ? cards[onScreen.variantId] : undefined} material={onScreen ? (brief.materialOf[onScreen.slot] ?? null) : null} />;
   const confirmation = model.confirmation;
   const card =
@@ -143,8 +167,10 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
   const composer = (
     <Composer
       placeholder={placeholder}
+      selection={selection ? { label: summaryOf(selection), onRemove: clear } : null}
       onSend={async (text) => {
-        await chatApi.send(model.conversationId, text);
+        await chatApi.send(model.conversationId, text, selection ? toPicked(selection) : undefined);
+        clear();
       }}
       tools={<ModePicker mode={auto.mode} onPick={(mode) => void auto.pick(mode)} />}
       onCycle={() => void auto.cycle()}
@@ -152,7 +178,7 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
   );
   const status = <RunStatus mode={auto.mode} run={auto.run} problem={auto.problem} onStop={() => void auto.stop()} />;
   const chatPane = <ChatPane lines={chat.lines} running={chat.turn === "running"} card={card} composer={composer} status={status} />;
-  const center = <Center brief={brief} view={view} cards={cards} dispatch={dispatch} />;
+  const center = <Center brief={brief} view={view} cards={cards} dispatch={dispatch} selection={selection} onPick={onPick} />;
 
   const explorer = (
     <Explorer briefs={model.briefs} current={brief.id} slot={slotOf(brief, view)?.slot} cards={cards} parts={model.parts} sources={sources} dispatch={dispatch} onNew={onNew} />

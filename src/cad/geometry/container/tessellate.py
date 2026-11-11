@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Final, Protocol, cast
 
 from cad.checks.container.channel import serve
+from cad.geometry.container.topology import Shape, topology
 from cad.geometry.container.wire import (
     BoundingBoxWire,
     Location,
@@ -118,7 +119,11 @@ def tessellate(brep: bytes) -> TessellationReport:
             path = Path(directory) / "variant.brep"
             path.write_bytes(brep)
             shape = build123d.import_brep(str(path))
-        return {"kind": "tessellated", "shapes": _shapes(shape)}
+        return {
+            "kind": "tessellated",
+            "shapes": _shapes(shape),
+            "topology": topology(cast(Shape, shape)),
+        }
     except Exception as error:
         return {"kind": "unreadable", "reason": f"{type(error).__name__}: {error}"}
 

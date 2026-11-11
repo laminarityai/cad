@@ -48,6 +48,10 @@ _Avoid_: Default material, assumed material
 One signed entry in a slot's history, made when new code is built into the slot. A change the user asks for in chat adds a revision to the slot it changes and takes no new slot. Earlier revisions stay readable.
 _Avoid_: Version, edit, draft
 
+**Selection**:
+The faces, edges or whole part of one revision that the user pointed at in the 3D view when they sent a message. Only the user makes one, and the server signs it. The agent reads it by its sel- id with read_selection and never makes one. It is where a change goes, never a load or a check input.
+_Avoid_: Highlight, pick, annotation
+
 **Check**:
 A fixed, deterministic test of a variant against a requirement or an engineering standard, which the agent cannot change.
 _Avoid_: Validator, test, verification

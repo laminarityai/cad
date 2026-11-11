@@ -61,4 +61,12 @@ def tessellate(brep: bytes, brep_sha256: str) -> Ran:
         return failed(f"the tessellation container sent a malformed mesh: {error.errors()[0]}")
     if report["kind"] == "unreadable":
         return failed(f"the BREP could not be tessellated: {report['reason']}", lasting=True)
-    return Ran(Tessellated(brep_sha256=brep_sha256, version=VERSION, shapes=report["shapes"]), True)
+    return Ran(
+        Tessellated(
+            brep_sha256=brep_sha256,
+            version=VERSION,
+            shapes=report["shapes"],
+            topology=report["topology"],
+        ),
+        True,
+    )

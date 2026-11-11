@@ -2,7 +2,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from cad.geometry.container.wire import ShapesWire, ShapeWire
+from cad.geometry.container.wire import ShapesWire, ShapeWire, TopologyWire
 from cad.variants.entry import UnknownVariant
 
 
@@ -21,6 +21,7 @@ class Tessellated(_Frozen):
     brep_sha256: str
     version: str
     shapes: ShapesWire
+    topology: TopologyWire
 
 
 class TessellationFailed(_Frozen):

@@ -17,6 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 from cad.accounts.principal import AccountId
 from cad.chat.model import Block, Message, Text, ToolResult, ToolUse
 from cad.conversations.model import ConversationId
+from cad.selections.model import SelectionNote
 
 TRANSCRIPTS: Final = "chat"
 STOP_NOTICE: Final = "(this call was interrupted before it returned)"
@@ -27,8 +28,12 @@ class _Frozen(BaseModel):
 
 
 class UserSaid(_Frozen):
+    """`selection` is the part of a design the person pointed at in the 3D view when they sent
+    this message."""
+
     kind: Literal["user"] = "user"
     text: str
+    selection: SelectionNote | None = None
 
 
 class Answered(_Frozen):
@@ -217,7 +222,7 @@ def messages_of(events: Sequence[Event]) -> list[Message]:
         match event:
             case UserSaid() | DriverSaid():
                 close_calls()
-                add("user", Text(text=event.text))
+                add("user", Text(text=_told(event)))
             case AgentSaid():
                 add("assistant", Text(text=event.text))
             case ToolCalled():
@@ -231,6 +236,21 @@ def messages_of(events: Sequence[Event]) -> list[Message]:
                 pass
     close_calls()
     return messages
+
+
+def _told(event: UserSaid | DriverSaid) -> str:
+    """What the model reads for a message: the person's words, then, when they pointed at part of
+    a design, one server line that names it. Only the server writes that line."""
+    if not isinstance(event, UserSaid) or event.selection is None:
+        return event.text
+    picked = event.selection
+    return (
+        f"{event.text}\n\n[server: the person selected {picked.summary} of slot {picked.slot}, "
+        f"revision {picked.revision}, brief {picked.brief_id}, in the 3D view when they sent "
+        f"this message. This, these and it in the message mean that selection. Call "
+        f"read_selection with {picked.selection_id} to see what it covers, then build the "
+        f"slot's next revision.]"
+    )
 
 
 def line(stamped: Stamped) -> str:
