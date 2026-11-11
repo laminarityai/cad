@@ -9,7 +9,7 @@ another account's geometry.
 """
 
 import threading
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Final
 
@@ -17,6 +17,8 @@ from cad.accounts.meter import USAGE, AccountMeter
 from cad.accounts.principal import AccountId
 from cad.confirmations.waiting import Bell, Door
 from cad.context_parts.store import Ingest
+from cad.conversations import store as conversations
+from cad.conversations.model import Conversation, ConversationId, Mode, UnknownConversation
 from cad.operations.model import Tenant
 from cad.records.roots import Roots
 
@@ -75,3 +77,19 @@ class Tenants:
                 )
                 self._open[account] = tenant
             return tenant
+
+
+def bind(tenant: Tenant, cid: ConversationId | None) -> Tenant:
+    """An agent token's conversation with no record binds as Plan, which builds nothing."""
+    if cid is None:
+        return tenant
+    try:
+        held = conversations.read(tenant.conversations, cid)
+    except UnknownConversation:
+        held = Conversation()
+    return replace(
+        tenant,
+        conversation=cid,
+        mode=held.mode,
+        auto_run=held.auto_run if held.mode is Mode.AUTO else None,
+    )

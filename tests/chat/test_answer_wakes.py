@@ -240,7 +240,8 @@ async def test_a_switch_back_to_plan_stands_through_the_next_ask(chat: Chat) -> 
         cid = await waiting(chat, client)
         assert await answer(chat, client, cid) == 200
         await chat.finish()
-        store.set_mode(chat.tenants.of(AccountId(ALICE)), ConversationId(cid), Mode.PLAN)
+        tenant = chat.tenants.of(AccountId(ALICE))
+        store.set_mode(tenant.roots, tenant.conversations, ConversationId(cid), Mode.PLAN)
         steps = (
             *asked(),
             step("Built."),

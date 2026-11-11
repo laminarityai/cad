@@ -17,6 +17,7 @@ from cad.conversations.model import ConversationId, Mode
 from cad.operations.auto import StartInput, auto_start
 from cad.operations.briefs import CreateBriefInput, create_brief
 from cad.operations.registry import OPERATIONS
+from cad.operations.tenants import bind
 from cad.operations.tools import tools
 from cad.sandbox.image import BUILD, image_tag
 from cad.variants import entry
@@ -79,7 +80,7 @@ async def test_auto_start_is_refused_outside_an_auto_mode_conversation(
     if mode is None:
         served = tools(lambda: s.tenant, OPERATIONS)
     else:
-        store.set_mode(s.tenant, s.conversation, mode)
+        store.set_mode(s.tenant.roots, s.tenant.conversations, s.conversation, mode)
         served = tools(lambda: s.bound, OPERATIONS)
     async with Client(MCPServer("cad", tools=served)) as client:
         result = await client.call_tool(
@@ -105,9 +106,9 @@ async def test_two_concurrent_starts_of_one_brief_make_one_run(s: Session) -> No
         material_reason="PLA is light and prints easily",
     )
     other = ConversationId("c-other")
-    store.create(s.tenant, other)
-    store.set_mode(s.tenant, other, Mode.AUTO)
-    callers = [s.bound, s.bound, store.bind(s.tenant, other)]
+    store.create(s.tenant.conversations, other)
+    store.set_mode(s.tenant.roots, s.tenant.conversations, other, Mode.AUTO)
+    callers = [s.bound, s.bound, bind(s.tenant, other)]
     with ThreadPoolExecutor(3) as pool:
         racers = [(caller, pool.submit(auto_start, caller, arguments)) for caller in callers]
         outcomes = [(caller.conversation, racer.exception()) for caller, racer in racers]
@@ -268,7 +269,7 @@ async def test_starting_a_brief_with_a_live_run_returns_that_run(s: Session) -> 
 async def test_starting_a_brief_whose_run_stopped_starts_a_new_run(s: Session) -> None:
     brief_id, run_id = await running(s)
     await s.call("auto_ask", run_id=run_id, note="stuck")
-    store.set_mode(s.tenant, s.conversation, Mode.AUTO)
+    store.set_mode(s.tenant.roots, s.tenant.conversations, s.conversation, Mode.AUTO)
     again = await s.start(
         brief_id=brief_id,
         material_key="prusament-pla",

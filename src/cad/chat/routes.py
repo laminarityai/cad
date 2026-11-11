@@ -159,7 +159,7 @@ class Chat:
             ledger = read_ledger(tenant.roots.projects, waiting.project)
             found = answer_driver.delivery(waiting, ledger)
             if found is not None and found.ends_plan:
-                store.confirmed(tenant, cid)
+                store.confirmed(tenant.conversations, cid)
         except Exception:
             # The page answer is recorded already, so a store that cannot be read must not fail
             # it. The conversation is told when it is next opened.
@@ -224,7 +224,7 @@ def chat_routes(person_of: PersonOf, chat: Chat) -> list[Route]:
         if start.project_id is not None and not _is_project(tenant, start.project_id):
             return refuse(404, f"no project {start.project_id} in this account")
         cid = conversation_id(f"c_{secrets.token_hex(8)}")
-        held = store.create(tenant, cid, start.project_id, start.brief_id)
+        held = store.create(tenant.conversations, cid, start.project_id, start.brief_id)
         return _json(ConversationCreated(conversation_id=cid, mode=held.mode), 201)
 
     async def send(request: Request) -> Response:
@@ -288,7 +288,7 @@ def chat_routes(person_of: PersonOf, chat: Chat) -> list[Route]:
         cid = store.of_project(tenant.conversations, project)
         if cid is None:
             cid = conversation_id(f"c_{secrets.token_hex(8)}")
-            store.create(tenant, cid, project)
+            store.create(tenant.conversations, cid, project)
         return _json(ProjectConversation(conversation_id=cid), 200)
 
     return [
@@ -334,7 +334,14 @@ async def _mint(tenant: Tenant, cid: ConversationId, picked: Picked) -> Selectio
     if project is None:
         return refuse(422, "pick something in a project: this conversation has none")
     try:
-        record = await asyncio.to_thread(mint.mint, tenant, parse_project_id(project), picked)
+        record = await asyncio.to_thread(
+            mint.mint,
+            tenant.roots,
+            parse_project_id(project),
+            picked,
+            variants=tenant.variants,
+            geometry=tenant.geometry,
+        )
     except (SelectionRefused, VariantRefused, ProjectRefused) as error:
         return refuse(422, str(error))
     except SandboxUnavailable as error:

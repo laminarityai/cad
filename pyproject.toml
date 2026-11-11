@@ -84,13 +84,13 @@ layers = [
     "operations",
     "confirmations | selections | agent_measurements",
     "auto | accounts",
-    "conversations",
     "scorecard",
     "context_parts",
     "variant_sets",
     "research",
     "briefs",
     "projects",
+    "conversations",
     "loads | geometry",
     "checks",
     "variants",
@@ -102,12 +102,6 @@ layers = [
 # Each line is an upward import that is still there. The list only shrinks: fix a new upward
 # import instead of adding it here. A line that no longer matches an import fails the step.
 ignore_imports = [
-    # Tenant is an operations type: these go when each function takes the values it uses.
-    "cad.auto.gate -> cad.operations.model",
-    "cad.briefs.source -> cad.operations.model",
-    "cad.confirmations.card -> cad.operations.model",
-    "cad.conversations.store -> cad.operations.model",
-    "cad.selections.mint -> cad.operations.model",
     # HTTP routes that run operations and chat: these go when the modules move up to server.
     "cad.confirmations.web -> cad.operations.confirmation",
     "cad.confirmations.web -> cad.operations.model",

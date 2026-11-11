@@ -174,7 +174,7 @@ def auto_start(tenant: Tenant, arguments: StartInput) -> AutoRun:
             fresh = not log.exists(roots, run_id)
             if fresh:
                 log.create_run(roots, run_id, started)
-            run = record_proposals(tenant, run_id)
+            run = record_proposals(tenant.roots, tenant.conversations, run_id)
             if fresh or isinstance(run.state, Running):
                 if run.state.start.conversation != cid:
                     raise RunNotHeld(
@@ -184,14 +184,16 @@ def auto_start(tenant: Tenant, arguments: StartInput) -> AutoRun:
                 return run
             number += 1
 
-    return conversations.start_run(tenant, cid, confirmed.brief_id, open_under_lock)
+    return conversations.start_run(
+        tenant.roots, tenant.conversations, cid, confirmed.brief_id, open_under_lock
+    )
 
 
 def auto_revise(tenant: Tenant, arguments: ReviseInput) -> RevisedRun:
     roots, run_id = tenant.roots, arguments.run_id
     _refuse_unless_held(tenant, run_id)
     brief_id = log.read_run(roots, run_id).state.start.brief_id
-    running = gate(tenant, brief_id)
+    running = gate(tenant.roots, tenant.conversations, tenant.auto_run, tenant.mode, brief_id)
     assert running is not None
     sha = code_sha256(arguments.code)
     if _tried(running, sha):
@@ -200,7 +202,7 @@ def auto_revise(tenant: Tenant, arguments: ReviseInput) -> RevisedRun:
         variant_sets.refuse_a_slot_out_of_turn(roots, brief_id, arguments.slot)
     revision = len(running.history) + 1
     vid = entry.variant_id(arguments.code, image.image_tag(image.BUILD))
-    with stops_at_the_limit(tenant, vid):
+    with stops_at_the_limit(tenant.roots, tenant.conversations, tenant.auto_run, vid):
         start = running.start
         resolve = chooser(tenant, brief_id, start.material_key, start.material_reason)
         built = variant_sets.build_into_set(
@@ -229,7 +231,7 @@ def auto_revise(tenant: Tenant, arguments: ReviseInput) -> RevisedRun:
             return None
         return Revised(standing=standing.model_copy(update={"revision": len(state.history) + 1}))
 
-    run = conversations.record_event(tenant, run_id, make)
+    run = conversations.record_event(tenant.roots, tenant.conversations, run_id, make)
     stale = with_out_of_date(tenant, brief_id, built).context_parts_out_of_date
     return RevisedRun(
         run_id=run.run_id, state=run.state, settling=run.settling, context_parts_out_of_date=stale
@@ -249,7 +251,7 @@ def _refuse_unless_held(tenant: Tenant, run_id: str) -> None:
 
 
 def auto_stop(tenant: Tenant, arguments: StopInput) -> PersonStop:
-    run, held = conversations.stop_by_person(tenant, arguments.run_id)
+    run, held = conversations.stop_by_person(tenant.roots, tenant.conversations, arguments.run_id)
     conversation = ConversationState(
         conversation_id=run.state.start.conversation, mode=held.mode, auto_run=held.auto_run
     )
@@ -258,9 +260,9 @@ def auto_stop(tenant: Tenant, arguments: StopInput) -> PersonStop:
 
 def auto_ask(tenant: Tenant, arguments: AskInput) -> AutoRun:
     _refuse_unless_held(tenant, arguments.run_id)
-    record_proposals(tenant, arguments.run_id)
+    record_proposals(tenant.roots, tenant.conversations, arguments.run_id)
     return conversations.record_event(
-        tenant, arguments.run_id, lambda _: Asked(note=arguments.note)
+        tenant.roots, tenant.conversations, arguments.run_id, lambda _: Asked(note=arguments.note)
     )
 
 

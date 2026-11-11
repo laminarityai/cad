@@ -53,13 +53,12 @@ from cad.confirmations.waiting import (
 from cad.confirmations.web import ClerkSignIn, LocalSignIn, SignIn, confirm_routes
 from cad.context_parts.ingest import ingest as read_part
 from cad.context_parts.store import Ingest
-from cad.conversations import store
 from cad.operations.events import events_route
 from cad.operations.guidance import INSTRUCTIONS
 from cad.operations.model import Tenant
 from cad.operations.registry import OPERATIONS, ROUTES
 from cad.operations.routes import person_routes
-from cad.operations.tenants import ACCOUNTS, Tenants
+from cad.operations.tenants import ACCOUNTS, Tenants, bind
 from cad.operations.tools import tools
 from cad.records.roots import DATA_ROOT
 from cad.sandbox import container, meter
@@ -116,7 +115,7 @@ def build_app(
         token = get_access_token()
         if not isinstance(token, AgentAccess):
             raise PermissionError("an MCP call reached a tool with no verified agent token")
-        return store.bind(tenants.of(token.agent.account), token.agent.conversation)
+        return bind(tenants.of(token.agent.account), token.agent.conversation)
 
     server = MCPServer(
         "cad",
