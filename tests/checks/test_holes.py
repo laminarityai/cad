@@ -123,7 +123,7 @@ def test_an_opening_that_is_not_a_round_hole_makes_the_result_unknown(
 ) -> None:
     found = run(solid)
     assert found["verdict"] == "unknown"
-    assert "not round holes" in found["reason"]
+    assert "openings that are not round holes" in found["reason"]
     assert count_of(found, "unclassified_openings") >= 1
     assert count_of(found, "hole_count") == round_holes
 

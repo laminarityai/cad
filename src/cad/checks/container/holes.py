@@ -93,8 +93,9 @@ def run(subject: Subject) -> FindingWire:
     if open_ended:
         return finding(
             "unknown",
-            f"{open_ended} openings are not round holes (a slot, a polygon, an oval or a circle "
-            f"no hole explains), so the holes are not all measured; round holes in mm: {sizes}",
+            f"openings that are not round holes: {open_ended} (a slot, a polygon, an oval or a "
+            f"circle no hole explains), so the holes are not all measured; "
+            f"round holes in mm: {sizes}",
             *measured,
         )
     return finding("pass", f"{len(diameters)} round holes, diameters in mm: {sizes}", *measured)
