@@ -32,10 +32,10 @@ pytestmark = pytest.mark.anyio
 PROJECT = "${create_brief.project_id}"
 
 
-def asked(text: str = TEXT, **joined: str) -> list[Step]:
+def asked(**joined: str) -> list[Step]:
     """A Plan turn: store the brief, propose, ask, and end the message while the page waits."""
     return [
-        step("Storing the brief.", call("create_brief", text=text, **joined)),
+        step("Storing the brief.", call("create_brief", **joined)),
         step(
             "Proposing.",
             call(
@@ -106,7 +106,7 @@ def kinds(events: Sequence[Any]) -> list[str]:
     return [one["kind"] for one in events]
 
 
-async def waiting(chat: Chat, client: httpx2.AsyncClient, text: str = "make a plate") -> str:
+async def waiting(chat: Chat, client: httpx2.AsyncClient, text: str = TEXT) -> str:
     """A conversation whose agent asked, got pending, and ended its turn."""
     cid = await chat.conversation(client)
     await chat.say(client, cid, text)
@@ -262,8 +262,8 @@ async def test_a_first_pending_ask_in_a_project_with_confirmed_briefs_stays_in_p
         assert await answer(chat, client, first) == 200
         await chat.finish()
         project = project_of(await chat.events(client, first))
-        chat.app.state.chat.model = script(*asked("A second plate under 150 g", project_id=project))
-        second = await waiting(chat, client, "and a second plate in the same project")
+        chat.app.state.chat.model = script(*asked(project_id=project))
+        second = await waiting(chat, client, "and a second plate under 150 g in the same project")
         events = await chat.events(client, second)
     result = json.loads(
         next(one for one in reversed(events) if one["kind"] == "tool_result")["text"]
