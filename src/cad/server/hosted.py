@@ -40,7 +40,8 @@ from cad.accounts.local import LocalIssuer
 from cad.accounts.principal import AccountId, AgentToken, account_id
 from cad.accounts.tenants import ACCOUNTS, Tenants
 from cad.accounts.tokens import Issuer, Verifier
-from cad.chat.model import Model, from_environment
+from cad.chat.key_file import load_key
+from cad.chat.model import MODEL_VARIABLE, SCRIPTED_PREFIX, Model, from_environment
 from cad.chat.routes import Chat, chat_routes
 from cad.confirmations.waiting import (
     Door,
@@ -264,6 +265,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
     logging.basicConfig(stream=sys.stderr, level=logging.INFO)
+    if not os.environ.get(MODEL_VARIABLE, "").startswith(SCRIPTED_PREFIX):
+        missing = load_key(os.environ)
+        if missing is not None:
+            print(missing, flush=True)
     opener = None if args.opener is None else program_opener(args.opener)
     serve(
         args.root,

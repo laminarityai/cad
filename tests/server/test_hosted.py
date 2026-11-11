@@ -1,3 +1,4 @@
+import os
 import subprocess
 import sys
 from collections.abc import AsyncGenerator, AsyncIterator
@@ -152,6 +153,7 @@ def test_the_link_cad_http_prints_signs_the_person_in_to_their_workspace(tmp_pat
         (*command, "--port", str(port), "--account", "user_alice"),
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
+        env={**os.environ, "ANTHROPIC_API_KEY": "unused"},
     )
     try:
         assert server.stdout is not None
