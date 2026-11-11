@@ -72,12 +72,25 @@ def scan(page: Page, wanted: str) -> list[tuple[float, float]]:
     return hits
 
 
-def apart(points: list[tuple[float, float]]) -> tuple[tuple[float, float], tuple[float, float]]:
-    for a in points:
-        for b in points:
-            if abs(a[0] - b[0]) + abs(a[1] - b[1]) > APART_PX:
-                return a, b
-    raise Missed(f"no two edges {APART_PX} px apart among {len(points)} edge hits")
+def picks(page: Page) -> int:
+    found = page.locator("[data-picks]")
+    return int(found.first.get_attribute("data-picks") or 0) if found.count() else 0
+
+
+def two_edges(page: Page, points: list[tuple[float, float]]) -> None:
+    """Shift-click hits until one adds a second edge. A hit on the first edge toggles it off."""
+    if not points:
+        raise Missed("no click selected an edge")
+    click(page, *points[0])
+    for point in points[1:]:
+        if abs(point[0] - points[0][0]) + abs(point[1] - points[0][1]) <= APART_PX:
+            continue
+        click(page, *point, shift=True)
+        if picks(page) == 2:
+            return
+        if picks(page) == 0:
+            click(page, *points[0])
+    raise Missed(f"no two different edges among {len(points)} edge hits")
 
 
 def ask(page: Page, out: Path, text: str, revision: int, name: str) -> None:
@@ -119,9 +132,7 @@ def walk(run: Path, out: Path, given: dict[str, str]) -> None:
         shoot(page, out, "select-1-face")
         ask(page, out, given["thicker"], 2, "select-2-thicker")
         page.wait_for_timeout(2000)
-        first, second = apart(scan(page, "edge"))
-        click(page, *first)
-        click(page, *second, shift=True)
+        two_edges(page, scan(page, "edge"))
         step("edges picked", page, "() => document.querySelector('[data-picks=\"2\"]')", 10)
         shoot(page, out, "select-3-edges")
         ask(page, out, given["round"], 3, "select-4-rounded")
