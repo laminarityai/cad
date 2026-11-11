@@ -13,14 +13,13 @@ from cad.variant_sets.model import (
     Joined,
     SetFull,
     SetKey,
-    SetRefused,
     SlotRefused,
     TamperedSet,
 )
 from cad.variants import entry
 from cad.variants.entry import VariantId
 
-KEY = SetKey(ProjectId("p-" + "1" * 16), BriefId("2" * 16), "3" * 64)
+KEY = SetKey(ProjectId("p-" + "1" * 16), BriefId("2" * 16))
 
 
 def join(root: Path, code: str, key: SetKey = KEY, slot: int | None = None) -> Joined:
@@ -32,7 +31,7 @@ def shown(root: Path, key: SetKey = KEY) -> list[str]:
 
 
 def members_directory(root: Path, key: SetKey) -> Path:
-    return root / key.project / "sets" / key.brief_id / key.decision_sha256 / "revisions"
+    return root / key.project / "sets" / key.brief_id / "revisions"
 
 
 def test_a_set_lives_in_the_project_store_and_signs_with_the_projects_key(tmp_path: Path) -> None:
@@ -89,20 +88,23 @@ def test_a_set_has_no_members_until_one_joins(tmp_path: Path) -> None:
 
 @pytest.mark.parametrize(
     "old_path",
-    [("7" * 64, "members"), ("2" * 16, "7" * 64, "members")],
-    ids=["by decision", "by brief and decision"],
+    [
+        ("7" * 64, "members"),
+        ("2" * 16, "7" * 64, "members"),
+        ("2" * 16, "7" * 64, "revisions"),
+    ],
+    ids=["by decision", "by brief and decision", "by brief, decision and revisions"],
 )
-def test_a_set_saved_under_an_old_layout_is_refused_by_name(
-    tmp_path: Path, caplog: pytest.LogCaptureFixture, old_path: tuple[str, ...]
+def test_a_set_saved_under_an_old_layout_is_not_read_and_reads_as_empty(
+    tmp_path: Path, old_path: tuple[str, ...]
 ) -> None:
     old = tmp_path / KEY.project / "sets" / Path(*old_path)
     old.mkdir(parents=True)
     (old / "0001.signed").write_bytes(b"x")
-    with pytest.raises(SetRefused) as refused:
-        store.members(tmp_path, KEY)
-    assert str(old.relative_to(tmp_path)) in str(refused.value)
-    assert str(tmp_path) not in str(refused.value)
-    assert str(old) in caplog.text
+    assert store.members(tmp_path, KEY) == ()
+    assert store.project_slots(tmp_path, KEY.project) == ()
+    assert join(tmp_path, "a").slot == 1
+    assert shown(tmp_path) == ["a"]
 
 
 def test_a_tampered_member_names_the_brief_and_no_host_path(
@@ -119,15 +121,8 @@ def test_a_tampered_member_names_the_brief_and_no_host_path(
     assert str(tmp_path) in caplog.text
 
 
-@pytest.mark.parametrize(
-    "other",
-    [
-        SetKey(KEY.project, KEY.brief_id, "5" * 64),
-        SetKey(KEY.project, BriefId("6" * 16), KEY.decision_sha256),
-    ],
-    ids=["another answer", "another brief"],
-)
-def test_a_member_copied_into_another_set_is_tampering(tmp_path: Path, other: SetKey) -> None:
+def test_a_member_copied_into_another_brief_is_tampering(tmp_path: Path) -> None:
+    other = SetKey(KEY.project, BriefId("6" * 16))
     join(tmp_path, "a")
     join(tmp_path, "b", other)
     shutil.copy(

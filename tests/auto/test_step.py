@@ -21,8 +21,11 @@ from cad.auto.model import (
     Unsettled,
 )
 from cad.auto.step import fold, report, standing_of
+from cad.briefs.assumptions import Assumption
 from cad.checks.result import ReadResearched, StepMissing, Verdict
 from cad.conversations.model import ConversationId
+from cad.scorecard import assumed
+from cad.scorecard.material import MaterialUse, ReportedScorecard, SetByAgent
 from cad.scorecard.model import (
     AgainstBrief,
     AgentMeasurement,
@@ -34,6 +37,7 @@ from cad.scorecard.model import (
 )
 from cad.scorecard.requirements import UNCONFIRMED_PART
 from cad.scorecard.waiting import Waiting
+from tests.support.scorecard import TARGET
 
 START: Final = Started(
     conversation=ConversationId("c1"),
@@ -232,3 +236,24 @@ def test_an_agent_measurement_cannot_change_the_run(verdict: Verdict) -> None:
     assert with_agent == plain
     assert run(Revised(standing=with_agent)) == run(Revised(standing=plain))
     assert dict(plain.marks)["r2"] is Mark.UNVERIFIED
+
+
+def test_an_assumption_on_the_card_changes_no_standing() -> None:
+    plain = card(checked("r1", PASS), unverified("r2"))
+    held = ReportedScorecard(
+        **dict(plain),
+        material=MaterialUse(key="prusament-pla", set_by=SetByAgent()),
+        assumptions=assumed.rows(
+            [
+                Assumption(
+                    target=TARGET.validate_python(
+                        {"kind": "max_mass", "mass": {"magnitude": 1, "unit": "g"}}
+                    ),
+                    why="x",
+                )
+            ],
+            (),
+        ),
+    )
+    assert held.assumptions
+    assert standing_of(held, 1, "c" * 64) == standing_of(plain, 1, "c" * 64)

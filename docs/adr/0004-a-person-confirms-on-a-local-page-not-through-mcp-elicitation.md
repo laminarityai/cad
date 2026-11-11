@@ -112,3 +112,39 @@ They are unchanged. An agent that reaches the server only through MCP cannot ans
 
 - **Keep the separate page and link to it from the chat.** It changes nothing in the guarantee, but the person leaves the conversation and has to come back and say they confirmed.
 - **Let the agent render the confirmation as Markdown with buttons.** Rejected. The agent's text would then decide which rows the person sees, and a row could say something different from what the check reads.
+
+## Amendment (2026-11-11): assumptions, and a variant set that belongs to the brief
+
+The operator decided this on 2026-11-11. It is the first step toward a brief that builds without waiting. This amendment does not yet change when the agent builds.
+
+The opening sentence of this ADR, "A check reads only requirements that a person confirmed", is replaced. A check may now measure before a person confirms anything. What holds is the core claim: a requirement verdict compares a check's measure with a target a person confirmed.
+
+### The agent's own numbers are assumptions
+
+The agent often needs a number the person did not state, such as a load to design a shelf bracket against. Before this amendment it had two bad choices. It could ask, which is friction, or it could propose the number as a requirement, which asks the person to confirm a target they never set.
+
+An assumption is its own record. `propose_requirements` takes `assumptions` beside `requirements`, each a target and one line of why. The server stores them as a numbered, signed set per brief (`briefs/assumptions.py`), and each call replaces the set in force.
+
+- An assumption is never on the Confirm card and is never confirmed.
+- An assumption never gets a verdict. The scorecard lists it under `assumptions`, with the measure beside the assumed value. The row has no pass or fail field, and Auto never revises against it.
+- A call with only `assumptions` writes no proposal, so it never asks the person again and never stops an Auto run.
+- The person turns an assumption into a target by stating it. The agent then proposes it as a requirement that quotes their words.
+
+The fea check runs under an assumed load, so the person sees how the design does. That load is an input the agent set. This is allowed only because no requirement verdict rests on that result. The assumption's row names the result, and the page shows it there and never among the checks that passed.
+
+### The agent sorts stated from assumed
+
+The server does not check that a requirement's number is written in the words it quotes. The quote must still be in the brief or in the person's later words. The Confirm card shows the quote beside the target, and the person's click is the guard.
+
+### The variant set belongs to the brief
+
+A variant set was keyed by the brief and the signed decision, so each new confirmation started an empty set. It is now keyed by the brief alone. A build joins the set whether or not anything is confirmed, and a later confirmation, edit or decline removes nothing. The scorecard decides what each variant is judged against, not the set.
+
+Sets stored under the old key are not read and are not migrated. The product is not deployed, so only local projects lose their set membership.
+
+### Considered options
+
+- **Refuse a requirement whose number is not in its quote.** Rejected by the operator. "Yes, make that a target" after the agent names an assumption would be refused, and the person would have to retype the number.
+- **Give an assumption a labelled verdict, counted apart like a researched value.** Rejected by the operator. A researched value is read from a cited page. An assumption is the agent's own number, and a pass against it would let the agent grade its own design.
+- **Keep assumptions as prose in the agent's reply.** Rejected. The check could not measure against them, and the next turn could not read them back.
+

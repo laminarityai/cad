@@ -18,7 +18,7 @@ NO_DOCKER: Final = "unix:///nonexistent/docker.sock"
 
 
 def held(s: Session, brief_id: str) -> list[store.Member]:
-    key = store.confirmed_key(s.roots, brief_id)
+    key = store.set_key(s.roots, brief_id)
     return list(store.members(s.tmp / "projects", key))
 
 

@@ -24,6 +24,11 @@ from cad.variants import entry
 from tests.support.auto_session import TEXT, running
 from tests.support.rows import UNDER_150
 
+LIGHTER: Final = {
+    "target": {"kind": "max_mass", "mass": {"magnitude": 100, "unit": "g"}},
+    "quote": "under 150 g",
+}
+
 if TYPE_CHECKING:
     from tests.support.auto_session import Session
 
@@ -129,7 +134,7 @@ async def test_proposing_requirements_under_a_run_stops_it(
     s: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     brief_id, run_id = await running(s)
-    await s.propose(brief_id, UNDER_150)
+    await s.propose(brief_id, LIGHTER)
     monkeypatch.setenv("DOCKER_HOST", NO_DOCKER)
     text = await s.refusal("build_variant", code=PLATE, brief_id=brief_id)
     assert "New requirements were proposed, and only the person can confirm them" in text

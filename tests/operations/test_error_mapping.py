@@ -70,7 +70,6 @@ EXPECTED: Final[dict[str, Answer]] = {
     "cad.tables.materials.InvalidTable": (None, None),
     "cad.tables.materials.UnknownMaterial": (None, None),
     "cad.variant_sets.model.MaterialMissing": ("400 named", "named"),
-    "cad.variant_sets.model.NotConfirmed": ("400 named", "named"),
     "cad.variant_sets.model.SetBusy": ("400 named", "named"),
     "cad.variant_sets.model.SetFull": ("400 named", "named"),
     "cad.variant_sets.model.SetRefused": ("400 named", "named"),

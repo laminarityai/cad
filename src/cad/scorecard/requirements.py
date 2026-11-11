@@ -5,7 +5,7 @@ requirement shapes no check result. The server passes its judgment in, and the t
 again to re-derive a stored card.
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from typing import Final, assert_never
 
 from cad.briefs.model import (
@@ -72,10 +72,11 @@ OVERLAPS: Final = (
 ERROR_BOUNDS: Final = {spec.id: spec.error_bounds for spec in SPECS}
 
 
-def demand(confirmed: ConfirmedSet | None, parts: Mapping[ContextPartId, PartBrep]) -> Demand:
-    held = () if confirmed is None else confirmed.requirements
+def demand(targets: Iterable[Target], parts: Mapping[ContextPartId, PartBrep]) -> Demand:
+    """The loads of every target a card may show, confirmed, awaiting Confirm or assumed, so the
+    measure exists before the click and an assumed load shows its measure."""
     return Demand(
-        loads={load.id: load.wire() for one in held if (load := load_of(one.target)) is not None},
+        loads={load.id: load.wire() for one in targets if (load := load_of(one)) is not None},
         parts=parts,
     )
 
@@ -149,7 +150,7 @@ def judge(
     if check_id is None:
         return Unverified(requirement_id=requirement.id, statement=statement)
     wanted = instance(requirement.target)
-    result = _result_of(results, check_id, wanted)
+    result = result_of(results, check_id, wanted)
     if result is None:
         if not isinstance(requirement.target, MinClearance | MaxClearance):
             named = f" for load case {wanted}" if wanted else ""
@@ -198,7 +199,7 @@ def judge(
     )
 
 
-def _result_of(
+def result_of(
     results: Sequence[CheckResult | PendingCheck], check_id: str, wanted: str
 ) -> CheckResult | PendingCheck | None:
     return next(

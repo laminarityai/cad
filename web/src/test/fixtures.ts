@@ -79,6 +79,7 @@ export function snapshot(
       unverified_requirements: [],
     },
     not_verified: [],
+    assumptions: [],
     material: { key: "prusament-pla", set_by: { kind: "agent_argument", statement: "The agent chose this material." } },
     research: [],
     research_problem: null,

@@ -102,6 +102,21 @@ def test_proposing_the_same_undecided_set_again_writes_nothing(roots: Roots) -> 
     assert statuses(roots, brief_id) == [Status.PROPOSED]
 
 
+def test_proposing_a_set_equal_to_the_confirmed_one_appends_nothing(roots: Roots) -> None:
+    brief_id = proposed(roots, UNDER_150, SHELF)
+    answer_on_page(roots, brief_id, 1, Confirmed())
+    again = store.propose(roots, brief_id, [UNDER_150, SHELF])
+    assert again.proposal.number == 1
+    assert statuses(roots, brief_id) == [Status.CONFIRMED]
+
+
+def test_proposing_a_set_equal_to_a_declined_one_appends_a_new_proposal(roots: Roots) -> None:
+    brief_id = proposed(roots, UNDER_150)
+    answer_on_page(roots, brief_id, 1, Declined(note="lighter"))
+    store.propose(roots, brief_id, [UNDER_150])
+    assert statuses(roots, brief_id) == [Status.DECLINED, Status.PROPOSED]
+
+
 def test_a_person_confirms_a_whole_set(roots: Roots) -> None:
     brief_id = proposed(roots, UNDER_150, SHELF)
     answer_on_page(roots, brief_id, 1, Confirmed())

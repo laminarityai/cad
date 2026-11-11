@@ -140,8 +140,14 @@ export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
       });
     }
   }
+  // A result that read a load the agent assumed is a measure under the agent's own number. The
+  // assumption's row shows it, so it is never listed as a check that passed.
+  const underAssumed = new Set(
+    snapshot.assumptions.filter((one) => one.instance !== "").map((one) => `${one.check_id}:${one.instance}`),
+  );
   const also: Line[] = results
     .filter((one) => !covered.has(one.check_id))
+    .filter((one) => !underAssumed.has(`${one.check_id}:${one.instance}`))
     .map((one) => {
       const label = CHECK_NAMES[one.check_id] ?? one.check_id.replace(/_/g, " ");
       if (isRunning(one))
@@ -168,6 +174,31 @@ export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
       };
     });
   return { asked, also };
+}
+
+export interface Assumed {
+  key: string;
+  label: string;
+  why: string;
+  values: { measure: string; assumed: string; measured: string | null }[];
+}
+
+function quantity(one: { magnitude: number; unit: string }): string {
+  return one.unit === "kg" ? `${num(one.magnitude * 1000)} g` : `${num(one.magnitude)} ${one.unit}`;
+}
+
+/** What the agent assumed, with the measure beside it. It has no status, so `summaryOf` never counts it. */
+export function assumedOf(snapshot: Scorecard): Assumed[] {
+  return snapshot.assumptions.map((one, index) => ({
+    key: `assumed:${String(index)}`,
+    label: short(one.statement),
+    why: one.why,
+    values: one.values.map((value) => ({
+      measure: value.measure,
+      assumed: quantity(value.assumed),
+      measured: value.measured ? quantity(value.measured) : null,
+    })),
+  }));
 }
 
 export function summaryOf(card: Card | undefined): {

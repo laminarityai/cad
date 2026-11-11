@@ -21,7 +21,7 @@ from cad.scorecard import material, score
 from cad.scorecard.material import MaterialUse
 from cad.tables.materials import MaterialsTable
 from cad.variant_sets import store as variant_sets
-from cad.variant_sets.model import MAX_MEMBERS, Member, NotConfirmed, Option
+from cad.variant_sets.model import MAX_MEMBERS, Member, Option
 from cad.variants import entry
 
 LIST_PROJECTS = "The signed-in person's projects, newest first, each with its briefs."
@@ -38,7 +38,7 @@ VARIANT_SET = (
     "when neither named one. A member's card_etag is the etag of its scorecard for that "
     "material, or for material_key when you pass it. It is empty when the variant was never "
     "scored for that material. material_name is the name a person reads for the material. A "
-    "brief with no confirmed requirements has an empty set."
+    "brief nothing was built for has an empty set."
 )
 VIEW = (
     "What the viewer needs for one built variant: the hash that names its BREP, whether its mesh "
@@ -127,7 +127,6 @@ class MemberView(BaseModel):
 class VariantSetView(BaseModel):
     project_id: str
     brief_id: str
-    decision_sha256: str | None
     limit: int = MAX_MEMBERS
     members: tuple[MemberView, ...]
 
@@ -192,19 +191,13 @@ def variant_set(tenant: Tenant, arguments: VariantSetInput) -> VariantSetView:
     brief_id = arguments.brief_id
     if briefs.read_brief(tenant.roots, brief_id).project != arguments.project_id:
         raise UnknownProject(f"brief {brief_id} is not in project {arguments.project_id}")
-    try:
-        key = variant_sets.confirmed_key(tenant.roots, brief_id)
-    except NotConfirmed:
-        return VariantSetView(
-            project_id=arguments.project_id, brief_id=brief_id, decision_sha256=None, members=()
-        )
+    key = variant_sets.set_key(tenant.roots, brief_id)
     confirmed = briefs.confirmed_requirements(tenant.roots, brief_id)
     table = brief_table(tenant.roots, brief_id).table
     pinned = material.pinned_key(confirmed, table)
     return VariantSetView(
         project_id=arguments.project_id,
         brief_id=brief_id,
-        decision_sha256=key.decision_sha256,
         members=tuple(
             _member(tenant, brief_id, arguments.material_key, confirmed, pinned, table, one)
             for one in variant_sets.members(tenant.roots.projects, key)

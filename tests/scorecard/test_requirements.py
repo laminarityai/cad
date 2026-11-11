@@ -282,3 +282,9 @@ def test_the_page_names_the_part_and_the_clearance() -> None:
     assert (
         describe(clearance("max_clearance", 0.5)) == f"At most 0.5 mm clear of context part {RAIL}"
     )
+
+
+def test_demand_reads_the_load_of_every_target_it_is_given_assumed_ones_included() -> None:
+    confirmed, assumed_load = safety(2).target, deflection(1).target
+    asked = requirements.demand([confirmed, max_mass(150).target, assumed_load], {})
+    assert set(asked.loads) == {requirements.instance(confirmed)}

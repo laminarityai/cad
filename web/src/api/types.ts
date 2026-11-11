@@ -446,6 +446,42 @@ export interface components {
              */
             kind: "any";
         };
+        /**
+         * AssumedRow
+         * @description The agent filled in this value. The measure of the deciding check is beside it, and it is
+         *     never graded. `instance` names the result of `check_id` that read the assumed load, which is
+         *     a measure under the agent's own number and never a passed check.
+         */
+        AssumedRow: {
+            /**
+             * @default assumed
+             * @constant
+             */
+            kind: "assumed";
+            /**
+             * @default assumed by the agent, no verdict
+             * @constant
+             */
+            label: "assumed by the agent, no verdict";
+            statement: string;
+            why: string;
+            check_id: string;
+            instance: string;
+            values: components["schemas"]["AssumedValue"][];
+        };
+        /** AssumedValue */
+        AssumedValue: {
+            measure: string;
+            assumed: components["schemas"]["Measured"];
+            measured: components["schemas"]["Measured"] | null;
+        };
+        /** AssumptionRow */
+        AssumptionRow: {
+            target: components["schemas"]["Target"];
+            plain: string;
+            why: string;
+            check: string | null;
+        };
         /** AutoRun */
         AutoRun: {
             run_id: string;
@@ -519,6 +555,8 @@ export interface components {
             name: string | null;
             proposals: components["schemas"]["ProposalView"][];
             confirmed_proposal: number | null;
+            /** @default [] */
+            assumptions?: components["schemas"]["AssumptionRow"][];
         };
         /** CardEditable */
         CardEditable: {
@@ -1239,6 +1277,8 @@ export interface components {
             not_verified?: components["schemas"]["AgentMeasurement"][];
             material: components["schemas"]["MaterialUse"];
             /** @default [] */
+            assumptions?: components["schemas"]["AssumedRow"][];
+            /** @default [] */
             research?: components["schemas"]["ResearchRequest"][];
             /** @default null */
             research_problem?: string | null;
@@ -1552,7 +1592,6 @@ export interface components {
         VariantSetView: {
             project_id: string;
             brief_id: string;
-            decision_sha256: string | null;
             /** @default 5 */
             limit: number;
             members: components["schemas"]["MemberView"][];
@@ -1681,6 +1720,9 @@ export type AllPass = components['schemas']['AllPass'];
 export type Along = components['schemas']['Along'];
 export type Answered = components['schemas']['Answered'];
 export type AnyWay = components['schemas']['AnyWay'];
+export type AssumedRow = components['schemas']['AssumedRow'];
+export type AssumedValue = components['schemas']['AssumedValue'];
+export type AssumptionRow = components['schemas']['AssumptionRow'];
 export type AutoRun = components['schemas']['AutoRun'];
 export type AutoState = components['schemas']['AutoState'];
 export type AwaitingConfirmation = components['schemas']['AwaitingConfirmation'];

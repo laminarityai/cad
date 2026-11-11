@@ -16,6 +16,7 @@ from cad.briefs.model import (
     MinMass,
     MinSafetyFactor,
     Requirement,
+    Target,
     Unchecked,
     amount,
 )
@@ -33,7 +34,10 @@ def measure_limit_words(target: MeasureLimit) -> str:
 
 
 def describe(requirement: Requirement, names: Mapping[str, str] = NO_NAMES) -> str:
-    target = requirement.target
+    return describe_target(requirement.target, names)
+
+
+def describe_target(target: Target, names: Mapping[str, str] = NO_NAMES) -> str:
     match target:
         case ClosedSolid():
             return "The part is one closed solid"

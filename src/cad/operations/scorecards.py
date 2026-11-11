@@ -5,7 +5,10 @@ from pydantic import Field
 
 from cad.agent_measurements import run as own
 from cad.auto.gate import gate, stops_at_the_limit
+from cad.briefs import assumptions as assuming
 from cad.briefs import store as briefs
+from cad.briefs.assumptions import Assumption
+from cad.briefs.model import Target
 from cad.briefs.store import ConfirmedSet
 from cad.checks import jobs
 from cad.confirmations.requirements import plain_names
@@ -17,10 +20,10 @@ from cad.operations.research import brief_table, with_research
 from cad.records.roots import Roots
 from cad.research.overlay import ProjectTable
 from cad.sandbox import image
-from cad.scorecard import material, requirements, score
+from cad.scorecard import assumed, material, requirements, score
 from cad.tables.materials import KEY_PATTERN
 from cad.variant_sets import store as variant_sets
-from cad.variant_sets.model import MaterialChoice, MaterialMissing, SetKey
+from cad.variant_sets.model import MaterialChoice, MaterialMissing
 
 MAX_KEY_CHARS: Final = 64
 type MaterialKey = Annotated[
@@ -137,6 +140,7 @@ class Judged:
     table: ProjectTable
     material_key: str
     choice: MaterialChoice | None
+    assumptions: tuple[Assumption, ...]
 
 
 def _context(roots: Roots, brief_id: str) -> dict[ContextPartId, jobs.PartBrep]:
@@ -147,14 +151,43 @@ def _context(roots: Roots, brief_id: str) -> dict[ContextPartId, jobs.PartBrep]:
     }
 
 
-def _slot_choice(
-    tenant: Tenant, confirmed: ConfirmedSet, brief_id: str, variant_id: str
-) -> MaterialChoice | None:
-    project = briefs.read_brief(tenant.roots, brief_id).project
-    key = SetKey(project, confirmed.brief_id, confirmed.decision_sha256)
+def _slot_choice(tenant: Tenant, brief_id: str, variant_id: str) -> MaterialChoice | None:
+    key = variant_sets.set_key(tenant.roots, brief_id)
     return variant_sets.choice_of(
         tenant.roots.projects, key, variant_id, image.image_tag(image.BUILD)
     )
+
+
+def _assumed(tenant: Tenant, brief_id: str) -> tuple[Assumption, ...]:
+    held = assuming.in_force(tenant.roots, brief_id)
+    return () if held is None else held.assumptions
+
+
+def _targets(
+    tenant: Tenant,
+    brief_id: str,
+    confirmed: ConfirmedSet | None,
+    assumed_by_agent: tuple[Assumption, ...],
+) -> list[Target]:
+    """Every target a card may show a measure for: confirmed, awaiting Confirm, or assumed."""
+    latest = briefs.read_state(tenant.roots, brief_id).latest
+    awaiting = latest.requirements if latest and latest.status is briefs.Status.PROPOSED else ()
+    held = () if confirmed is None else confirmed.requirements
+    return [
+        *(one.target for one in held),
+        *(one.target for one in awaiting),
+        *(one.target for one in assumed_by_agent),
+    ]
+
+
+def with_assumptions(
+    card: material.ReportedScorecard, tenant: Tenant, basis: Judged, brief_id: str | None
+) -> material.ReportedScorecard:
+    if brief_id is None or not basis.assumptions:
+        return card
+    names = plain_names(tenant.roots, brief_id)
+    rows = assumed.rows(basis.assumptions, card.results, names)
+    return card.model_copy(update={"assumptions": rows})
 
 
 def judged(
@@ -164,6 +197,7 @@ def judged(
     agent chose for the variant's slot."""
     confirmed = None
     assess, demand = score.no_brief, score.NO_DEMAND
+    held = ()
     if brief_id is not None:
         confirmed = briefs.confirmed_requirements(tenant.roots, brief_id)
         assess = (
@@ -171,12 +205,15 @@ def judged(
             if confirmed is None
             else requirements.against(confirmed, plain_names(tenant.roots, brief_id))
         )
-        demand = requirements.demand(confirmed, _context(tenant.roots, brief_id))
+        held = _assumed(tenant, brief_id)
+        demand = requirements.demand(
+            _targets(tenant, brief_id, confirmed, held), _context(tenant.roots, brief_id)
+        )
     table = brief_table(tenant.roots, brief_id)
     pinned = material.pinned_key(confirmed, table.table)
     choice = None
-    if brief_id is not None and confirmed is not None and pinned is None and variant_id:
-        choice = _slot_choice(tenant, confirmed, brief_id, variant_id)
+    if brief_id is not None and pinned is None and variant_id:
+        choice = _slot_choice(tenant, brief_id, variant_id)
     named = None if material_key is None else table.table.row_key(material_key)
     key = named or pinned or (None if choice is None else choice.key)
     if key is None:
@@ -186,7 +223,7 @@ def judged(
             "material the agent chose for this variant's slot"
         )
     material.refuse_other_material(confirmed, key, table.table)
-    return Judged(confirmed, assess, demand, table, key, choice)
+    return Judged(confirmed, assess, demand, table, key, choice, held)
 
 
 def score_variant(tenant: Tenant, arguments: ScoreVariantInput) -> material.ReportedScorecard:
@@ -208,6 +245,7 @@ def score_variant(tenant: Tenant, arguments: ScoreVariantInput) -> material.Repo
     card = with_research(
         material.reported(scored, basis.confirmed, basis.choice), basis.table, arguments.brief_id
     )
+    card = with_assumptions(card, tenant, basis, arguments.brief_id)
     if arguments.own_measurements:
         rows = own.measure(tenant.variants, card.variant_id, arguments.own_measurements)
         card = own.attach(card, rows)
@@ -225,7 +263,8 @@ def scorecard(tenant: Tenant, arguments: ScorecardInput) -> material.ScorecardSn
         table=basis.table.table,
     )
     reported = material.reported(peeked, basis.confirmed, basis.choice)
-    return material.snapshot(with_research(reported, basis.table, arguments.brief_id))
+    card = with_research(reported, basis.table, arguments.brief_id)
+    return material.snapshot(with_assumptions(card, tenant, basis, arguments.brief_id))
 
 
 def names_a_material(tenant: Tenant, arguments: ScorecardInput) -> bool:

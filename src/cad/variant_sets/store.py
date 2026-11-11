@@ -19,7 +19,6 @@ from cad.variant_sets.model import (
     Joined,
     MaterialChoice,
     Member,
-    NotConfirmed,
     NotJoined,
     Option,
     Resolve,
@@ -53,7 +52,7 @@ def build_into_set(
     lanes: Lanes = LANES,
 ) -> SetBuildResult:
     root = roots.projects
-    key = confirmed_key(roots, brief_id)
+    key = set_key(roots, brief_id)
     held = members(root, key)
     sha256 = code_sha256(code)
     try:
@@ -87,16 +86,9 @@ def _drop_replaced(
         lanes.drop_unstarted(variants_root, replaced)
 
 
-def confirmed_key(roots: Roots, brief_id: str) -> SetKey:
-    state = briefs.read_state(roots, brief_id)
-    confirmed = state.confirmed
-    if confirmed is None or confirmed.answered is None:
-        raise NotConfirmed(
-            f"brief {state.brief.id} has no confirmed requirements, so it has no variant set "
-            "yet. Call ask_to_confirm with its project, and build with this brief_id once the user "
-            "confirms. A build without brief_id joins no set."
-        )
-    return SetKey(state.brief.project, state.brief.id, confirmed.answered.sha256)
+def set_key(roots: Roots, brief_id: str) -> SetKey:
+    brief = briefs.read_brief(roots, brief_id)
+    return SetKey(brief.project, brief.id)
 
 
 def _no_choice(previous: MaterialChoice | None) -> MaterialChoice | None:
@@ -189,8 +181,8 @@ def project_slots(root: Path, project: ProjectId) -> tuple[tuple[SetKey, Member]
     if not files.is_directory(sets):
         return ()
     found: list[tuple[SetKey, Member]] = []
-    for revisions in sorted(sets.glob("*/*/revisions")):
-        key = SetKey(project, BriefId(revisions.parent.parent.name), revisions.parent.name)
+    for revisions in sorted(sets.glob("*/revisions")):
+        key = SetKey(project, BriefId(revisions.parent.name))
         found.extend((key, member) for member in members(root, key))
     return tuple(found)
 
@@ -198,7 +190,7 @@ def project_slots(root: Path, project: ProjectId) -> tuple[tuple[SetKey, Member]
 def refuse_a_slot_out_of_turn(roots: Roots, brief_id: str, slot: int) -> None:
     """An Auto revision changes a slot its set holds, or takes the next free one. Auto revisions
     are recorded one at a time, so unlike parallel builds they never need a later slot first."""
-    key = confirmed_key(roots, brief_id)
+    key = set_key(roots, brief_id)
     taken = [member.slot for member in members(roots.projects, key)]
     free = next((n for n in range(1, MAX_MEMBERS + 1) if n not in taken), None)
     if slot in taken or slot == free:
@@ -217,34 +209,12 @@ def refuse_a_slot_out_of_turn(roots: Roots, brief_id: str, slot: int) -> None:
 def members(root: Path, key: SetKey) -> tuple[Member, ...]:
     directory = _directory(root, key)
     with _without_host_paths(key, directory):
-        _refuse_the_old_layout(root, key)
         if not files.is_directory(directory):
             return ()
         records = signed.read_numbered(project_store(root), directory, _revision_slot(key))
     if records is None:
         raise TamperedSet(_report(key, directory))
     return group(_parse(key, directory, records))
-
-
-def _refuse_the_old_layout(root: Path, key: SetKey) -> None:
-    """Older sets sit at <project>/sets/<decision>/members, or at
-    <project>/sets/<brief>/<decision>/members, one member per record and no slot in it.
-
-    This version does not read them, so it refuses rather than ignore them without a word.
-    """
-    sets = root / key.project / "sets"
-    old = (
-        min((*sets.glob("*/members"), *sets.glob("*/*/members")), default=None)
-        if files.is_directory(sets)
-        else None
-    )
-    if old is None:
-        return
-    LOG.error("%s holds variant sets in a layout this version does not read", old)
-    raise SetRefused(
-        f"the project store holds variant sets in an old layout, at {old.relative_to(root)}, "
-        "which this version does not read; the operator must move or delete that directory"
-    )
 
 
 def _parse(key: SetKey, directory: Path, records: tuple[bytes, ...]) -> tuple[Revision, ...]:
@@ -273,20 +243,15 @@ def _without_host_paths(key: SetKey, directory: Path) -> Generator[None]:
 
 
 def _directory(root: Path, key: SetKey) -> Path:
-    return root / key.project / "sets" / key.brief_id / key.decision_sha256 / "revisions"
+    return root / key.project / "sets" / key.brief_id / "revisions"
 
 
 def _revision_slot(key: SetKey) -> Callable[[int], str]:
-    return lambda number: (
-        f"{key.project}/sets/{key.brief_id}/{key.decision_sha256}/revisions/{number}"
-    )
+    return lambda number: f"{key.project}/sets/{key.brief_id}/revisions/{number}"
 
 
 def _full(key: SetKey, built_as: VariantId | None = None) -> SetFull:
-    advice = (
-        "Score those variants and show them to the user to compare. "
-        "Requirements the user confirms later start a new, empty set."
-    )
+    advice = "Score those variants and show them to the user to compare."
     held = f"the variant set of brief {key.brief_id} holds {MAX_MEMBERS} variants, its limit"
     if built_as is None:
         return SetFull(f"{held}, so this code was not built. {advice}")

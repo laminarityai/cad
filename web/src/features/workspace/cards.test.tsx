@@ -4,7 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ServicesProvider } from "@/app/context";
 import { FakeChat, FakeViewer, fakeApi } from "@/test/fakes";
 import { massResult, snapshot } from "@/test/fixtures";
-import { useCards, type CardKey } from "./cards";
+import { restore } from "@/api/snapshot";
+import { assumedOf, linesOf, summaryOf, useCards, type CardKey } from "./cards";
 
 const settle = () => act(() => vi.advanceTimersByTimeAsync(0));
 const tick = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
@@ -71,5 +72,41 @@ describe("useCards", () => {
     expect(result.current.v1?.snapshot?.variant_id).toBe("v1");
     await settle();
     expect(Object.keys(result.current).sort()).toEqual(["v1", "v2"]);
+  });
+});
+
+describe("what the agent assumed", () => {
+  const assumedRow = {
+    kind: "assumed" as const,
+    label: "assumed by the agent, no verdict" as const,
+    statement: "Mass at most 120 g",
+    why: "a light part prints fast",
+    check_id: "mass",
+    instance: "",
+    values: [{ measure: "mass", assumed: { magnitude: 120, unit: "g" }, measured: { magnitude: 0.2, unit: "kg" } }],
+  };
+
+  it("lists the measure beside the assumed value and counts as neither a pass nor a fail", () => {
+    const plain = restore(snapshot("v1", [], [massResult()]));
+    const held = restore({ ...snapshot("v1", [], [massResult()]), assumptions: [assumedRow] });
+    expect(assumedOf(plain)).toEqual([]);
+    expect(assumedOf(held)).toEqual([
+      {
+        key: "assumed:0",
+        label: "Mass at most 120 g",
+        why: "a light part prints fast",
+        values: [{ measure: "mass", assumed: "120 g", measured: "200 g" }],
+      },
+    ]);
+    expect(summaryOf({ snapshot: held })).toEqual(summaryOf({ snapshot: plain }));
+  });
+
+  it("never lists a result that read an assumed load as a check that passed", () => {
+    const underLoad = { ...massResult(), check_id: "fea", instance: "load-1" };
+    const assumedLoad = { ...assumedRow, check_id: "fea", instance: "load-1", values: [] };
+    const plain = restore(snapshot("v1", [], [massResult(), underLoad]));
+    const held = restore({ ...snapshot("v1", [], [massResult(), underLoad]), assumptions: [assumedLoad] });
+    expect(linesOf(plain).also.map((one) => one.key)).toEqual(["check:mass:", "check:fea:load-1"]);
+    expect(linesOf(held).also.map((one) => one.key)).toEqual(["check:mass:"]);
   });
 });

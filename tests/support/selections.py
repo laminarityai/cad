@@ -115,6 +115,6 @@ async def confirmed(tenant: Tenant) -> Project:
 def joined(tenant: Tenant, brief: str, code: str, slot: int | None = None) -> str:
     vid = entry.variant_id(code, image_tag(BUILD))
     entry.save(tenant.variants, vid, code, Build(outcome=Built(), output=""), RAIL)
-    key = variant_sets.confirmed_key(tenant.roots, brief)
+    key = variant_sets.set_key(tenant.roots, brief)
     variant_sets.join(tenant.roots.projects, key, code, entry.VariantId(vid), slot)
     return vid
