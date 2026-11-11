@@ -11,7 +11,6 @@ in the middle of a turn. The token never leaves this process.
 import json
 import logging
 import secrets
-from collections.abc import Mapping
 from typing import Final
 
 from mcp import Client
@@ -34,7 +33,12 @@ from cad.chat.log import (
 from cad.chat.model import Message, Model, ModelUnavailable, Text, ToolResult, ToolSpec, ToolUse
 from cad.conversations import store
 from cad.conversations.model import ConversationId, Mode
-from cad.operations.guidance import INSTRUCTIONS
+from cad.operations.guidance import (
+    CHAT_MODE_NOTES,
+    CHAT_ON_THE_PAGE,
+    CHAT_OPEN_PROJECT,
+    INSTRUCTIONS,
+)
 from cad.operations.model import Tenant
 from cad.operations.registry import OPERATIONS
 from cad.operations.tenants import Tenants, bind
@@ -46,59 +50,6 @@ CLIENT_ID: Final = "cad-chat"
 MAX_STEPS: Final = 100
 MAX_RESULT_CHARS: Final = 40_000
 FIRST_WORDS: Final = 120
-MODE_NOTES: Final[Mapping[Mode, str]] = {
-    Mode.PLAN: (
-        "This conversation is in Plan mode. Turn the person's words into requirements and ask "
-        "them to confirm. The server refuses build_variant in Plan mode. When the person "
-        "confirms, the server moves the conversation to Design mode and starts your next turn "
-        "by itself. After ask_to_confirm returns pending, the page shows a Confirm card in this "
-        "chat: tell the person in one short sentence to confirm it there, and end your message."
-    ),
-    Mode.DESIGN: (
-        "This conversation is in Design mode. Build and revise variants when the person asks, "
-        "and report only what the checks returned. You act when the person writes or answers the "
-        "confirmation page."
-    ),
-    Mode.AUTO: (
-        "This conversation is in Auto mode. Call auto_start with the brief_id of a brief whose "
-        "requirements the person confirmed, then call auto_revise with new build123d code for "
-        "the failing requirements until the run stops. Call auto_ask when you are stuck or the "
-        "person must decide. The server decides when the run stops, and the person can press "
-        "Stop at any time. Never call set_mode: only the person switches modes."
-    ),
-}
-
-OPEN_PROJECT: Final = (
-    "This conversation is the chat of project {project_id}. Its briefs, oldest first, each with "
-    "its brief_id and its first words:\n{briefs}\nThe person's page shows every brief of this "
-    "project. A new part is a new brief in this project: call create_brief with this project_id. "
-    "A slot they name is a slot of the brief they are talking about; ask which brief only when "
-    "it is unclear. Call variant_set with this project_id and that brief_id for each slot's "
-    "variant_id and revision, and variant_code for the code a variant was built from. To change "
-    "a slot, edit that code and build it with build_variant, that brief_id and that slot. A "
-    "change to a slot stays in its brief: a revision when no number is stated, and a new "
-    "proposal on that brief when one is. Then score the new variant with score_variant and that "
-    "brief_id: only that runs the checks, and the person's scorecard waits on it. The "
-    "material is the one the brief's made_of requirement confirms (list_requirements shows it). "
-    "When none does, choose one for each variant and pass it to build_variant as material_key "
-    "with a one-line material_reason: omit both to keep the slot's choice. When the person asks "
-    "for a particular material, propose it as a made_of requirement for them to confirm. Never "
-    "ask the person to choose a material. Do not "
-    "ask the person for code, a brief, a material or an id that these tools return."
-)
-
-ON_THE_PAGE: Final = (
-    "The person reads this chat beside their project page. The page shows every brief, every "
-    "variant in its own tab with its 3D view, its scorecard as it runs, and each slot's earlier "
-    "revisions, and it updates by itself after each build and score. So never restate a "
-    "scorecard, a check result, a measurement, a list of variants or an id in your reply, and "
-    "never write a table. After you build or score, reply in one or two short sentences that "
-    "say what changed and point at the page, for example: Built 3 lid options, see the tabs. "
-    "When the person must choose, ask one short question. When you need the person to confirm, "
-    "call ask_to_confirm: the page draws the items in this chat with a Confirm button, so do "
-    "not list them yourself. Never ask the person for an id, a mode or a material."
-)
-
 _LOG = logging.getLogger(__name__)
 
 
@@ -180,7 +131,7 @@ async def _converse(model: Model, tenants: Tenants, token: AgentToken, channel: 
 
 
 def _system(tenant: Tenant) -> str:
-    parts = [INSTRUCTIONS, MODE_NOTES[tenant.mode or Mode.PLAN], ON_THE_PAGE]
+    parts = [INSTRUCTIONS, CHAT_MODE_NOTES[tenant.mode or Mode.PLAN], CHAT_ON_THE_PAGE]
     if tenant.conversation is not None:
         held = store.read(tenant.conversations, tenant.conversation)
         if held.project_id is not None:
@@ -193,7 +144,7 @@ def _open_project(tenant: Tenant, project: ProjectId) -> str:
         f"- {brief_id}: {_first_words(briefs.read_brief(tenant.roots, brief_id).text)}"
         for brief_id in project_briefs(tenant.roots, project)
     ]
-    return OPEN_PROJECT.format(project_id=project, briefs="\n".join(lines) or "- none yet")
+    return CHAT_OPEN_PROJECT.format(project_id=project, briefs="\n".join(lines) or "- none yet")
 
 
 def _first_words(text: str) -> str:
