@@ -18,6 +18,7 @@
 - One directory per feature. There is one obvious way to do each common thing; if you find two, delete one.
 - Layers. The packages under `src/cad` sit in this order, top to bottom: `server` `verify` > `chat` > `operations` > `confirmations` `selections` `agent_measurements` > `auto` `accounts` > `scorecard` > `context_parts` > `variant_sets` > `research` > `briefs` > `projects` > `conversations` > `loads` `geometry` > `checks` > `variants` > `records` > `sandbox` > `tables` `knowledge` `web` > `errors` `data_root` `frozen`. A module imports only from layers below its own, and packages that share a layer do not import each other. The `layers` step checks this against the contract in `pyproject.toml`, and a new package fails it until you give the package a place. The contract's `ignore_imports` list counts the upward imports still left. It only shrinks: fix a new upward import instead of adding a line.
 - Every `quote` in `tables/materials.yaml` is word for word in its cited datasheet. The `materials table` step checks it offline against `tables/datasheet_text/`. After you add or change a row, run `uv run python tools/regen_datasheet_text.py` and commit what it writes.
+- `tables/fasteners.yaml` is read by exact metric size (`M5`), and the `holes` requirement judges against it. The same step checks each row's `quote` against `tables/datasheet_text/`, and the same command regenerates the text.
 - A file-size lint rule fails the build when a file grows too large. Split the file instead of raising the limit.
 
 ## Adding things
@@ -30,6 +31,7 @@ Each row is the one way. Start in the named file and copy the entry beside yours
 | A route that is not an operation | `HAND_DESCRIBED` in `src/cad/operations/outside.py` | `tests/operations/test_openapi.py` |
 | A check | A module in `src/cad/checks/container/` with `ID`, `SOURCES`, and `run`, listed in `suite.py` `CHECKS`. Standard library only: it runs inside the sandbox. | `tests/checks/test_versions.py`, `tests/checks/test_logic.py` |
 | A requirement kind | A model in `src/cad/briefs/model.py`, added to `Target` | `basedpyright`, at every `assert_never` |
+| A fastener size | A row in `tables/fasteners.yaml`, then `uv run python tools/regen_datasheet_text.py` | `materials table`, `tests/tables/test_fasteners.py` |
 | A material field | `FIELDS` in `src/cad/tables/fields.py` | `tests/tables/test_fields.py`, `materials table` |
 | An error a tool or a route answers with | Derive from `Refused`, `NotFound`, or `Unavailable` in `src/cad/errors.py` | `tests/operations/test_error_mapping.py` |
 | A record model | Derive from `Frozen` in `src/cad/frozen.py` | `tests/test_frozen.py` |
