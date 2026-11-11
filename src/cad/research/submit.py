@@ -9,7 +9,6 @@ from pydantic import BaseModel, ConfigDict
 
 from cad.projects.model import ProjectId
 from cad.research.fetch import FetchFailed, Page, fetch
-from cad.research.fields import SPECS, Field
 from cad.research.ledger import (
     AlreadyStored,
     Ledger,
@@ -19,9 +18,10 @@ from cad.research.ledger import (
     read_ledger,
 )
 from cad.research.overlay import fill, overlay
-from cad.research.quote import on_page, where_written, written_in
 from cad.research.requests import ResearchRequest, request_for
+from cad.tables.fields import FIELDS, Field
 from cad.tables.materials import FromResearch, Known, MaterialsTable, row_or_blank
+from cad.tables.quote import on_page, where_written, written_as_one_number
 
 
 class _Frozen(BaseModel):
@@ -111,7 +111,7 @@ def submit(
         key=question.key,
         field=question.field,
         magnitude=magnitude,
-        unit=SPECS[question.field].canonical_unit,
+        unit=FIELDS[question.field].canonical_unit,
         url=page.url,
         title=page.title,
         quote=question.quote,
@@ -176,7 +176,7 @@ class _Asker:
 
 
 def _already_answered(question: Question, held: Known) -> ResearchAccepted | None:
-    unit = SPECS[question.field].canonical_unit
+    unit = FIELDS[question.field].canonical_unit
     same = (held.source.url, held.source.quote) == (question.url, question.quote)
     if not same or not isinstance(held.basis, FromResearch):
         return None
@@ -194,7 +194,7 @@ def _already_answered(question: Question, held: Known) -> ResearchAccepted | Non
 
 
 def _in_canonical_unit(question: Question) -> float | _Refusal:
-    spec = SPECS[question.field]
+    spec = FIELDS[question.field]
     factor = _factor(spec.units, question.unit.strip())
     if factor is None:
         spellings = ", ".join(repr(one) for one in spec.units)
@@ -203,7 +203,7 @@ def _in_canonical_unit(question: Question) -> float | _Refusal:
             f"pass one of {spellings}"
         )
     written = Decimal(repr(question.value))
-    if not written_in(written, question.quote):
+    if not written_as_one_number(written, question.quote):
         return _Refusal(
             f"the value {written} is not written in the quote as one number; pass the number as "
             "the quote writes it, in the unit the page gives it, and a quote that contains it"

@@ -7,7 +7,7 @@ import pytest
 import yaml
 
 from cad.tables.materials import (
-    FIELD_UNITS,
+    FIELDS,
     TABLE_PATH,
     InvalidTable,
     Known,
@@ -198,7 +198,7 @@ def test_a_material_the_table_lacks_is_named_as_the_projects_own_row() -> None:
     assert table.row_key("project-prusament-pla") == "prusament-pla"
     assert table.row_key("project-project-prusament-pla") == "prusament-pla"
     blank = table.get_material("project-acme-silk-pla")
-    assert {blank.value(field) for field in FIELD_UNITS} == {Unknown()}
+    assert {blank.value(field) for field in FIELDS} == {Unknown()}
 
 
 def test_a_second_load_reuses_the_parse_and_an_edited_table_is_read_again(tmp_path: Path) -> None:

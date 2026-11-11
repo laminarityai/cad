@@ -1,6 +1,7 @@
-"""The server's two checks on a researched value. The agent reads the value and its unit from
-the page; the server checks only that the quote is on the page and that the value is written
-in the quote as one number. Nothing here reads a unit, a label or a sentence."""
+"""The server's two checks on a quote: that it is on a page, and that a value is written in it as
+one number. Research makes both on a researched value; the datasheet check uses `on_page`. The
+agent reads the value and its unit from the page. Nothing here reads a unit, a label or a
+sentence."""
 
 import re
 import unicodedata
@@ -30,11 +31,13 @@ def on_page(quote: str, text: str) -> bool:
     return False
 
 
-def written_in(value: Decimal, quote: str) -> bool:
+def written_as_one_number(value: Decimal, quote: str) -> bool:
     """Whether the quote writes `value` as one number, with "." or "," as its decimal mark or
     as digit grouping: 1.24 is written in "1.24" and "1,24", but not in "124" or "1.245", and
     1240 is written in "1.24e3".
-    Digits that follow a letter, as in "D638" or "cm3", are not a number."""
+    Digits that follow a letter, as in "D638" or "cm3", are not a number, and "193 x 103" writes
+    193 and 103. `cad.tables.datasheet_text.written_in_text_layer` reads a PDF text layer
+    instead."""
     return any(reading == value for _, reading in _readings(_fold(quote).casefold()))
 
 
