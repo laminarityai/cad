@@ -31,7 +31,7 @@ The full user research is in the report *AI CAD harness user needs*. The knowled
 2. **Requirements.** The agent turns the brief into checkable requirements and shows where each one came from. You confirm them.
 3. **Variants.** The agent builds 3 to 5 parametric variants.
 4. **Checks.** Every variant gets a scorecard. This step is what sets us apart.
-5. **Change and export.** You pick a variant, ask in chat for any change, and send it to Onshape. The agent edits the variant and rebuilds it, and the checks run again.
+5. **Change and export.** You pick a variant, ask in chat for any change, and send it to Onshape. The agent edits the variant and rebuilds it, and the checks run again. You can download the option on screen as STEP, STL or 3MF from the workspace page.
 
 Attachments are context, not input to convert. The agent reads them for intent and dimensions, and every dimension it takes from an image becomes a requirement you confirm, with the others, before any variant is built.
 

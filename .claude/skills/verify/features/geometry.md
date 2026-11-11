@@ -1,6 +1,6 @@
 # Geometry
 
-`geometry(variant_id)` is a person-only operation in `src/cad/operations/geometry.py`. It returns the variant's mesh in three-cad-viewer's shapes format. The analysis image tessellates the BREP that the checks measured, in the background, once per BREP. The mesh is stored under `$CAD_HOME/.cad/geometry/<version>/<brep_sha256>.json`, where the version names the analysis image and the tessellator sources. It has no MCP tool, because an agent has no use for a mesh, and no HTTP route until the web shell (phase 4 unit 6) mounts one.
+`geometry(variant_id)` is a person-only operation in `src/cad/operations/geometry.py`. It returns the variant's mesh in three-cad-viewer's shapes format. The analysis image tessellates the BREP that the checks measured, in the background, once per BREP. The mesh is stored under `$CAD_HOME/.cad/geometry/<version>/<brep_sha256>.json`, where the version names the analysis image and the tessellator sources. It has no MCP tool, because an agent has no use for a mesh, and its HTTP route is `GET /v1/variants/{variant_id}/geometry`, which the web shell's viewer reads.
 
 ## Sub-features
 
@@ -12,7 +12,7 @@
 
 ## How to get to it (user POV)
 
-Nothing reaches it yet. Unit 6 serves it at `GET /v1/geometry/...` and renders it in the viewer next to the scorecard.
+The workspace page's viewer reads it at `GET /v1/variants/{variant_id}/geometry`, next to the scorecard. [Download](./download.md) is the file a person takes away.
 
 ## Driving it with geometry.py
 

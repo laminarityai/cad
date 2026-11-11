@@ -3,14 +3,15 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from enum import Flag, auto
 from pathlib import Path
-from typing import TypeAliasType
+from typing import Annotated, TypeAliasType
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, StringConstraints
 
 from cad.accounts.principal import AccountId
 from cad.confirmations.waiting import Bell, Door
 from cad.context_parts.store import Ingest
 from cad.conversations.model import ConversationId, Mode
+from cad.frozen import Frozen
 from cad.records.roots import Roots
 from cad.sandbox.meter import Meter
 
@@ -42,6 +43,15 @@ class Tenant:
 
 class Input(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+
+class Download(Frozen):
+    """What an operation returns when its route answers with a file: the route sends `data` as it
+    is, as an attachment saved under `filename`. The pattern keeps a name from breaking the header
+    it goes in."""
+
+    filename: Annotated[str, StringConstraints(pattern=r"^[a-z0-9][a-z0-9.-]*$")]
+    data: bytes
 
 
 @dataclass(frozen=True, slots=True)

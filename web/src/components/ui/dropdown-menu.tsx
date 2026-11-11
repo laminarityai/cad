@@ -39,4 +39,14 @@ function DropdownMenuRadioItem({ className, ...props }: React.ComponentProps<typ
   );
 }
 
-export { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem };
+function DropdownMenuItem({ className, ...props }: React.ComponentProps<typeof DropdownMenuPrimitive.Item>) {
+  return (
+    <DropdownMenuPrimitive.Item
+      data-slot="dropdown-menu-item"
+      className={cn("flex cursor-default flex-col gap-0.5 border-t border-rule-2 px-3 py-2.5 text-left outline-none first:border-t-0 focus:bg-muted", className)}
+      {...props}
+    />
+  );
+}
+
+export { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem };

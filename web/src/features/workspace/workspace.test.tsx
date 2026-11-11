@@ -1,8 +1,8 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type { ReactNode } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ServicesProvider } from "@/app/context";
 import { Refused, type Api } from "@/api/client";
 import type { ConfirmationCard } from "@/api/types";
@@ -11,9 +11,10 @@ import { brief } from "@/test/fixtures";
 import { materialLabel } from "./bits";
 import { activityText, ChatPane, Composer, driverText } from "./Chat";
 import { ConfirmCard, formOf } from "./Confirm";
+import { Download } from "./Download";
 import { Explorer } from "./Explorer";
 import { loadWorkspace, type Brief } from "./model";
-import { Start } from "./Workspace";
+import { Start, Workspace } from "./Workspace";
 
 const card = (items: number): ConfirmationCard & { snapshot: string } => ({
   snapshot: "s1",
@@ -236,5 +237,112 @@ describe("the explorer", () => {
     const add = screen.getByRole("button", { name: "Add files" });
     expect(add).toBeDisabled();
     expect(add).toHaveAttribute("title", "Coming soon");
+  });
+});
+
+describe("the download menu", () => {
+  const saved: { href: string | null; download: string }[] = [];
+
+  function savesLinks() {
+    saved.length = 0;
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      saved.push({ href: this.getAttribute("href"), download: this.download });
+    });
+  }
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const pick = async (label: "STEP" | "STL" | "3MF") => {
+    await userEvent.click(screen.getByRole("button", { name: /Download/ }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: new RegExp(`^${label}`) }));
+  };
+
+  it("offers STEP, STL and 3MF", async () => {
+    render(<Download variantId="v1" briefId="b1" />, { wrapper: wrap(fakeApi(["v1"])) });
+    await userEvent.click(screen.getByRole("button", { name: /Download/ }));
+    const items = await screen.findAllByRole("menuitem");
+    expect(items.map((one) => one.querySelector("b")?.textContent)).toEqual(["STEP", "STL", "3MF"]);
+  });
+
+  it("says Preparing while the server makes the files, then saves the file under the server's name", async () => {
+    savesLinks();
+    const url = "/v1/exports/0123456789ab/" + "b".repeat(64) + ".stl?name=desk-box-option-1-rev2";
+    const exportOf = vi
+      .fn<Api["exportOf"]>()
+      .mockResolvedValueOnce({ kind: "pending" })
+      .mockResolvedValueOnce({ kind: "pending" })
+      .mockResolvedValueOnce({ kind: "ready", url, filename: "desk-box-option-1-rev2.stl" });
+    render(<Download variantId="v1" briefId="b1" />, { wrapper: wrap(fakeApi(["v1"], { exportOf })) });
+    await pick("STL");
+    const button = screen.getByRole("button", { name: "Preparing…" });
+    expect(button).toBeDisabled();
+    expect(saved).toEqual([]);
+    expect(await screen.findByRole("button", { name: "Download" }, { timeout: 3000 })).toBeEnabled();
+    expect(saved).toEqual([{ href: url, download: "desk-box-option-1-rev2.stl" }]);
+    expect(exportOf).toHaveBeenCalledTimes(3);
+    expect(exportOf).toHaveBeenLastCalledWith("v1", "b1", "stl");
+  });
+
+  it("says why when the server cannot make the file, and offers the menu again", async () => {
+    savesLinks();
+    const exportOf = vi.fn<Api["exportOf"]>().mockResolvedValue({ kind: "failed", reason: "the files are over 64 MiB" });
+    render(<Download variantId="v1" briefId="b1" />, { wrapper: wrap(fakeApi(["v1"], { exportOf })) });
+    await pick("3MF");
+    expect(await screen.findByRole("alert")).toHaveTextContent("the files are over 64 MiB");
+    expect(screen.getByRole("button", { name: "Download" })).toBeEnabled();
+    expect(saved).toEqual([]);
+  });
+
+  it("says what the server refused with when the ask itself fails", async () => {
+    savesLinks();
+    const exportOf = vi.fn<Api["exportOf"]>().mockRejectedValue(new Refused(400, "variant v1 was not built"));
+    render(<Download variantId="v1" briefId="b1" />, { wrapper: wrap(fakeApi(["v1"], { exportOf })) });
+    await pick("STEP");
+    expect(await screen.findByRole("alert")).toHaveTextContent("variant v1 was not built");
+  });
+
+  it("downloads the revision on the stage, not the newest", async () => {
+    savesLinks();
+    const set = setOf(["v1"]);
+    const [member] = set.members;
+    if (!member) throw new Error("one member");
+    member.revision = 2;
+    member.revisions = [
+      { revision: 1, variant_id: "v1", code_sha256: "e".repeat(64), joined_at: "2026-11-10T00:00:00Z" },
+      { revision: 2, variant_id: "v1b", code_sha256: "f".repeat(64), joined_at: "2026-11-10T01:00:00Z" },
+    ];
+    const exportOf = vi.fn<Api["exportOf"]>().mockResolvedValue({ kind: "ready", url: "/v1/exports/x", filename: "x.step" });
+    const api = fakeApi(["v1"], {
+      project: vi.fn(() =>
+        Promise.resolve({ project_id: "p1", briefs: [{ brief_id: "b1", created_at: "2026-11-10T00:00:00Z", proposals: 1, confirmed_proposal: 1 }], context_parts: [] }),
+      ),
+      variantSet: vi.fn(() => Promise.resolve(set)),
+      exportOf,
+    });
+    render(
+      <ServicesProvider services={{ api, viewer: new FakeViewer(), chat: new FakeChat() }}>
+        <MemoryRouter initialEntries={["/projects/p1"]}>
+          <Routes>
+            <Route path="projects/:projectId" element={<Workspace />} />
+          </Routes>
+        </MemoryRouter>
+      </ServicesProvider>,
+    );
+    await userEvent.click(await screen.findByRole("button", { name: /Download/ }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: /^STEP/ }));
+    await waitFor(() => {
+      expect(saved).toHaveLength(1);
+    });
+    expect(exportOf).toHaveBeenLastCalledWith("v1b", "b1", "step");
+    await userEvent.click(screen.getByRole("button", { name: "Earlier revision" }));
+    await userEvent.click(await screen.findByRole("button", { name: /Download/ }));
+    await userEvent.click(await screen.findByRole("menuitem", { name: /^STL/ }));
+    await waitFor(() => {
+      expect(saved).toHaveLength(2);
+    });
+    expect(exportOf).toHaveBeenLastCalledWith("v1", "b1", "stl");
+    expect(within(screen.getByRole("region", { name: "Chat" })).queryByRole("button", { name: /Download/ })).toBeNull();
   });
 });

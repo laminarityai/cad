@@ -4,6 +4,7 @@
     uv run python .claude/skills/verify/scripts/browser.py web watch <run> <path> <name> [options]
     uv run python .claude/skills/verify/scripts/browser.py web walk <run> <out> [options]
     uv run python .claude/skills/verify/scripts/browser.py web select <run> <out> [options]
+    uv run python .claude/skills/verify/scripts/browser.py web download <run> <out> [options]
 
 <run> is the data root of a local `cad-http` (its `local-issuer.pem` signs the sign-in token),
 <path> is a route of the app such as `/projects/<id>`, and <name> is the prefix of the files
@@ -20,7 +21,8 @@ went from running to a verdict, when a running line showed anything but `Checkin
 page navigated after it loaded.
 
 `walk` is one live walk of the project workspace: see web_walk.py. `select` is one live walk of
-pointing at a design and asking for a change to it: see web_select.py.
+pointing at a design and asking for a change to it: see web_select.py. `download` is one live walk
+of the Download menu and a check of the three files it saves: see web_download.py.
 """
 
 from __future__ import annotations
@@ -182,6 +184,10 @@ def main(argv: list[str]) -> int:
             from web_walk import main as walk
 
             return walk(argv[1:])
+        case ["download", *_]:
+            from web_download import main as download
+
+            return download(argv[1:])
         case ["select", *_]:
             from web_select import main as select
 

@@ -2,6 +2,8 @@ import { confirmUrl } from "./confirmation";
 import type {
   BriefView,
   ConfirmationCard,
+  ExportFormat,
+  ExportView,
   GeometryRead,
   MaterialListings,
   ProjectConversation,
@@ -51,6 +53,7 @@ export interface Api {
   view(variantId: string): Promise<VariantView>;
   mesh(meshUrl: string): Promise<Tessellated>;
   geometry(variantId: string): Promise<GeometryRead>;
+  exportOf(variantId: string, briefId: string, format: ExportFormat): Promise<ExportView>;
 }
 
 export interface Answered {
@@ -142,4 +145,5 @@ export const httpApi: Api = {
   view: (variant_id) => request("get", "/v1/variants/{variant_id}", { path: { variant_id } }),
   mesh: (meshUrl) => fetchJson("GET", meshUrl),
   geometry: (variant_id) => request("get", "/v1/variants/{variant_id}/geometry", { path: { variant_id } }),
+  exportOf: (variant_id, brief_id, format) => request("get", "/v1/variants/{variant_id}/exports/{format}", { path: { variant_id, format }, query: { brief_id } }),
 };

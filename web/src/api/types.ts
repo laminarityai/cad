@@ -148,6 +148,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/variants/{variant_id}/exports/{format}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["export"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/exports/{version}/{brep_sha256}.{format}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["export_file"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/projects": {
         parameters: {
             query?: never;
@@ -743,6 +775,36 @@ export interface components {
             error: string;
         };
         Event: components["schemas"]["UserSaid"] | components["schemas"]["DriverSaid"] | components["schemas"]["AgentSaid"] | components["schemas"]["ToolCalled"] | components["schemas"]["ToolReturned"] | components["schemas"]["StopReport"] | components["schemas"]["TurnFailed"] | components["schemas"]["TurnEnded"];
+        /** ExportFailure */
+        ExportFailure: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "failed";
+            reason: string;
+        };
+        /** @enum {string} */
+        ExportFormat: "step" | "stl" | "3mf";
+        /** ExportPreparing */
+        ExportPreparing: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "pending";
+        };
+        /** ExportReady */
+        ExportReady: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "ready";
+            url: string;
+            filename: string;
+        };
+        ExportView: components["schemas"]["ExportReady"] | components["schemas"]["ExportPreparing"] | components["schemas"]["ExportFailure"];
         /**
          * FaceFacts
          * @description What one BREP face is, in the order `shapes` numbers faces, so faces_<i> in the viewer is
@@ -1753,6 +1815,11 @@ export type EdgeFacts = components['schemas']['EdgeFacts'];
 export type Envelope = components['schemas']['Envelope'];
 export type Error = components['schemas']['Error'];
 export type Event = components['schemas']['Event'];
+export type ExportFailure = components['schemas']['ExportFailure'];
+export type ExportFormat = components['schemas']['ExportFormat'];
+export type ExportPreparing = components['schemas']['ExportPreparing'];
+export type ExportReady = components['schemas']['ExportReady'];
+export type ExportView = components['schemas']['ExportView'];
 export type FaceFacts = components['schemas']['FaceFacts'];
 export type FarEnd = components['schemas']['FarEnd'];
 export type Field = components['schemas']['Field'];
@@ -2105,6 +2172,77 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["GeometryRead"];
                 };
+            };
+            400: components["responses"]["Refused"];
+            401: components["responses"]["SignedOut"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Malformed"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    export: {
+        parameters: {
+            query: {
+                brief_id: string;
+            };
+            header?: never;
+            path: {
+                format: components["schemas"]["ExportFormat"];
+                variant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description the result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExportView"];
+                };
+            };
+            400: components["responses"]["Refused"];
+            401: components["responses"]["SignedOut"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Malformed"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    export_file: {
+        parameters: {
+            query?: {
+                name?: string;
+            };
+            header?: never;
+            path: {
+                brep_sha256: string;
+                format: components["schemas"]["ExportFormat"];
+                version: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description the result */
+            200: {
+                headers: {
+                    "Content-Disposition"?: string;
+                    ETag?: string;
+                    "Cache-Control"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            /** @description the client's copy, named by If-None-Match, is current */
+            304: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             400: components["responses"]["Refused"];
             401: components["responses"]["SignedOut"];

@@ -2,7 +2,7 @@ import { act } from "@testing-library/react";
 import { vi } from "vitest";
 import type { Api } from "@/api/client";
 import type { ChatApi, Follower } from "@/api/chat";
-import type { AutoRun, ConversationState, ConversationView, Event, Mode, Picked, PersonStop, StopReason, Tessellated, VariantSetView } from "@/api/types";
+import type { AutoRun, ConversationState, ConversationView, Event, ExportFormat, Mode, Picked, PersonStop, StopReason, Tessellated, VariantSetView } from "@/api/types";
 import type { Mounted, OnPick, Shapes, ViewerEngine } from "@/features/viewer/engine";
 import type { Pick } from "@/features/viewer/selection";
 import { brief } from "./fixtures";
@@ -65,6 +65,9 @@ export function fakeApi(variants: string[], overrides: Partial<Api> = {}): Api {
     ),
     mesh: vi.fn((url: string) => Promise.resolve(meshOf(url))),
     geometry: vi.fn((variantId: string) => Promise.resolve(meshOf(variantId))),
+    exportOf: vi.fn((variantId: string, _briefId: string, format: ExportFormat) =>
+      Promise.resolve({ kind: "ready" as const, url: `/v1/exports/0123456789ab/${"b".repeat(64)}.${format}?name=${variantId}`, filename: `${variantId}.${format}` }),
+    ),
     ...overrides,
   };
 }
