@@ -79,3 +79,36 @@ The title of this ADR records the phase 2 decision. The file keeps its name so t
 - **A passkey touch for each confirmation.** Declined by the operator on 2026-11-08. It closes the signed-in-browser gap, but it adds WebAuthn, enrolment and recovery for a gap the operator already accepted.
 
 The operator approved this amendment on 2026-11-09.
+
+## Amendment (2026-11-10): the person confirms in the chat
+
+The person works in one place, the project workspace, and its chat is where they say what they want. Sending them to a separate confirmation page broke that: in the friction walk of 2026-11-10 the person came back and typed "I confirmed", 4 times out of 4 (#203). The operator asked for the change: "I should be able to just confirm in the chat" (#196). The rules of this ADR do not change. Only the person can answer. Only a request handler for a signed-in person writes the answer. The projects key signs each `PageAnswer`, and status is derived from signed records.
+
+### The web app draws the card, not the agent
+
+When something waits on the person in the project, the web app draws a Confirm card in the project's chat from `GET /v1/projects/{project_id}/confirmation`. That read is a person-only route. It returns the same items and rows the page shows, and the snapshot sealed for the signed-in person, or no snapshot and no items when nothing waits. Agent text never draws the card. The agent's words cannot add a row, change a row or press a button. Each row shows what will be checked in plain words and the brief's words it was taken from. A context part shows by its name and size.
+
+The person declines an item, not a row, and adds a note when they decline, which the agent reads before it proposes again. On a row with a number they can type a new number. One press of Confirm answers every item.
+
+The material is not a row. When the brief names no material the agent chooses one, and the workspace labels it "chosen by the agent", or "from your words" when the brief names it. The person changes it by saying so in the chat.
+
+### The answer is the same signed record
+
+The card posts its form to the page's handler, `POST /projects/{project_id}/confirm`, with the snapshot it read. An item added or replaced after the card was drawn records nothing, and the card redraws. `PageAnswer` is unchanged. No MCP tool answers it, and no agent token is accepted on the handler.
+
+### The agent carries on by itself
+
+Recording an answer starts the conversation's next turn, so the person types nothing (#203). Once a brief's requirements are confirmed, the server moves the conversation out of planning. The person never chooses a mode. The confirmation answer flow stays model-checked by the `protocol models` step.
+
+### Outside clients
+
+An MCP client other than the web app still gets URL-mode elicitation, or "waiting in the web app", as the earlier 2026-11-08 amendment says. The standalone page at `/projects/<pid>/confirm` stays for those clients, with no redirect.
+
+### The guarantee and its gap
+
+They are unchanged. An agent that reaches the server only through MCP cannot answer the card. A process that drives the person's signed-in browser could still press Confirm, which this ADR already accepts.
+
+### Considered options
+
+- **Keep the separate page and link to it from the chat.** It changes nothing in the guarantee, but the person leaves the conversation and has to come back and say they confirmed.
+- **Let the agent render the confirmation as Markdown with buttons.** Rejected. The agent's text would then decide which rows the person sees, and a row could say something different from what the check reads.
