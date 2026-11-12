@@ -321,6 +321,23 @@ Each step is one PR, after option A merges.
 2. **Proposals, page, card and tracer.** The models and wire, `describe_case` and the words test, the parse rules, the result rule in `propose_requirements`, the page note, `load_case` on `Checked` and `Waiting`, the line in the Auto stop report, the tracer rule and count, and the guidance. Pointers in §2.1 of the phase 3 design and in the recommendation of fea load anchors. Harness cases 2, 5, 6 and 7. Report how often an honest description is stuck because an `unknown` `fea` result counts as a result.
 3. **Show where.** The `fea` result names the faces of the deciding candidate's support and load, and the 3D view highlights them on the card, for reviewed phrases too.
 
+### Build step 2, as built
+
+Built on branch `feat/fea-described-load-proposals`. Where it differs from the text above or settles what it left open:
+
+- **Where the rule lives.** `briefs/described.py` holds the pure rule (`check_proposed`). `variant_sets/stressed.py` reads the stored results, because `variant_sets` sits above `briefs` and `checks` in the import layers. `propose_requirements` calls both.
+- **The result rule reads every revision of every slot.** Any stored signed `fea` job result of the brief's variant set counts, whatever its verdict. A variant built outside the set and scored with the brief's `brief_id` is not seen. That gap is left open.
+- **Assumptions refuse a described case.** `assume()` raises for one. An assumption takes an agent-supplied force, and the measure-only result it runs would lock the brief. The note did not say this.
+- **An assumed or awaiting reviewed-phrase load also creates a stored `fea` result.** So it closes the window for a later described case. See the stuck report below.
+- **The `hole_axis` direction rule applies to described cases only.** A reviewed case stored before the rule still reads.
+- **The label.** `Checked` and `Waiting` carry `load_case: "described"`, set by `scorecard.requirements.labelled`. Auto adds `Standing.described` and `AllPass.described` beside `agent_checked`, and does not add a `Mark`, because a described row can also be researched.
+- **The tracer.** `By.DESCRIBED` sits outside the reviewed count and takes precedence over researched. `evals/briefs/confirmation.py` fails a card whose label differs from its confirmed load case, in either direction.
+- **The page and the card.** A described row carries `note` (the sentence in the table above). The page and the chat Confirm card both show it. The scorecard row shows the label, keeps the full words in its expanded panel, and the card summary counts described passes apart.
+- **Versions.** Every `fea` result went stale, as expected, because `wire.py` and `terms.py` changed. The protocol models are unchanged. No covered file was touched.
+- **Not built.** Highlighting faces (step 3).
+
+**How often an honest description is stuck.** Not measured. No corpus of briefs with their stored results exists in the repo (the 19 parts of the load anchors note were not kept), and a number needs real conversations. Two things are known. First, any stored `fea` result closes the window, including a measure-only result of an assumed or awaiting reviewed-phrase load that came out `unknown` (a hook resolves to `unknown` under the reviewed phrases). Second, the live walk saw a result close the window early: the first revision scored the described load as `unknown` within the check's stated error, and from then on only that description, or the same one with a new force, was allowed. To measure it, take the stored `fea` results of finished Auto and chat runs, and count the briefs where the first result is `unknown`, or is measure-only, and a later proposal described a load that the refusal rejected. Report the count over all briefs with a stated load.
+
 Each of these needs its own evidence and issue: supports that rest ([#254](https://github.com/laminarityai/cad/issues/254)), displacement loads, and a describer that sees only the person's words.
 
 ## What it decides
