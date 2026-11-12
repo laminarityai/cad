@@ -27,7 +27,7 @@ export function RunStatus(props: { run: RunView | null; problem: string | null; 
             ) : (
               <>
                 <p role="status" className="text-[15px]">
-                  Stopped · {reasonText(run.reason)}
+                  Stopped · {reasonText(run.reason, run.agentChecked)}
                 </p>
                 {run.note !== "" ? <p className="pt-0.5 text-[14px] text-ink-2">{run.note}</p> : null}
               </>

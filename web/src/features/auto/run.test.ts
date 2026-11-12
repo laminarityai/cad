@@ -1,0 +1,25 @@
+import { describe, expect, it } from "vitest";
+import type { AutoRun } from "@/api/types";
+import { stoppedRun } from "@/test/fakes";
+import { reasonText, viewOf } from "./run";
+
+function allPassOn(agentChecked: string[]): AutoRun {
+  const run = stoppedRun("run_1", "all_pass", "Every checked requirement passes.");
+  if (run.state.kind !== "stopped" || run.state.reason.kind !== "all_pass") throw new Error("the fake run should have stopped on all pass");
+  return { ...run, state: { ...run.state, reason: { ...run.state.reason, agent_checked: agentChecked } } };
+}
+
+describe("an Auto run that stops with every requirement passing", () => {
+  it("says how many passes rest on the agent's check", () => {
+    const view = viewOf(allPassOn(["r2"]));
+    if (view.status !== "stopped") throw new Error("the run should read as stopped");
+    expect(view.agentChecked).toBe(1);
+    expect(reasonText(view.reason, view.agentChecked)).toBe("every checked requirement passes, 1 on the agent's check");
+  });
+
+  it("says nothing of the agent's check when none was counted", () => {
+    const view = viewOf(allPassOn([]));
+    if (view.status !== "stopped") throw new Error("the run should read as stopped");
+    expect(reasonText(view.reason, view.agentChecked)).toBe("every checked requirement passes");
+  });
+});

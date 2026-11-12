@@ -2,7 +2,7 @@ import type { AutoRun, StopReason } from "@/api/types";
 
 export type RunView =
   | { runId: string; status: "running"; revisions: number; settling: boolean }
-  | { runId: string; status: "stopped"; revisions: number; reason: StopKind; note: string; report: string };
+  | { runId: string; status: "stopped"; revisions: number; reason: StopKind; agentChecked: number; note: string; report: string };
 
 export type StopKind = StopReason["kind"];
 
@@ -12,10 +12,12 @@ const STOP_KINDS: ReadonlySet<string> = new Set<StopKind>(["all_pass", "needs_pe
 
 export const isStopKind = (kind: string): kind is StopKind => STOP_KINDS.has(kind);
 
-export function reasonText(kind: StopKind): string {
+export function reasonText(kind: StopKind, agentChecked = 0): string {
   switch (kind) {
     case "all_pass":
-      return "every checked requirement passes";
+      return agentChecked > 0
+        ? `every checked requirement passes, ${String(agentChecked)} on the agent's check`
+        : "every checked requirement passes";
     case "needs_person":
       return "it needs you";
     case "account_limit":
@@ -35,6 +37,7 @@ export function viewOf(run: AutoRun): RunView {
     status: "stopped",
     revisions: run.state.history.length,
     reason: reason.kind,
+    agentChecked: reason.kind === "all_pass" ? reason.agent_checked.length : 0,
     note: reason.kind === "needs_person" ? reason.note : "",
     report: run.state.report,
   };
@@ -53,5 +56,5 @@ export function autoRunOf(text: string): AutoRun | null {
 export function stoppedBy(run: RunView): RunView {
   return run.status === "stopped"
     ? run
-    : { runId: run.runId, status: "stopped", revisions: run.revisions, reason: "stopped_by_person", note: "", report: "You stopped the Auto run. Nothing more builds under it." };
+    : { runId: run.runId, status: "stopped", revisions: run.revisions, reason: "stopped_by_person", agentChecked: 0, note: "", report: "You stopped the Auto run. Nothing more builds under it." };
 }
