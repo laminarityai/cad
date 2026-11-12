@@ -65,6 +65,22 @@ describe("the Checks pane", () => {
     expect(summaryOf({ snapshot: restore(wire) })).toEqual({ status: "agent", text: "All pass, 1 on the agent's check" });
   });
 
+  it("labels a verdict on a load case the agent described, and counts it apart in the summary", () => {
+    const described = { ...mass("pass"), check_id: "fea", requirement_id: "r5", statement: "Holds 49 N", load_case: "described" as const };
+    const wire = snapshot("v1", [described], [massResult()]);
+    const { container } = render(<Checks card={{ snapshot: restore(wire) }} material={null} />);
+    const row = container.querySelector('[data-line="pass"]');
+    if (!(row instanceof HTMLElement)) throw new Error("the described row is missing");
+    expect(within(row).getByText("load case the agent described, not reviewed by our team")).toBeInTheDocument();
+    expect(summaryOf({ snapshot: restore(wire) })).toEqual({ status: "pass", text: "All pass, 1 on a load case the agent described" });
+  });
+
+  it("leaves a reviewed load case with no label", () => {
+    const wire = snapshot("v1", [mass("pass")], [massResult()]);
+    const { container } = render(<Checks card={{ snapshot: restore(wire) }} material={null} />);
+    expect(container.querySelector("[data-tag]")).toBeNull();
+  });
+
   it("shows what you asked, what awaits your Confirm and what the agent assumed as three groups", () => {
     const wire = { ...snapshot("v1", [mass("pass")], [massResult()]), awaiting: [waiting], assumptions: [assumed] };
     render(<Checks card={{ snapshot: restore(wire) }} material={null} />);
