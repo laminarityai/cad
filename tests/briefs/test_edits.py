@@ -61,7 +61,18 @@ ACCEPTED = [
     (BOX, "1 x 0.5 x 0.25 m", "Fits inside a box of 1 m x 0.5 m x 0.25 m"),
     (BOX, "6 x 4 x 2 in", "Fits inside a box of 6 in x 4 in x 2 in"),
     (BOX, "6 x 4 x 2 inches", "Fits inside a box of 6 in x 4 in x 2 in"),
-    (SHAFT, "6 mm", "2 holes of 6 mm diameter"),
+    # The words gained the tolerance the card now states. The text still reads the same.
+    (SHAFT, "6 mm", "2 holes of 6 mm, within \u00b10.05 mm"),
+    (SHAFT, "8 mm H7", "2 holes of 8 mm, H7 (8.000 to 8.015 mm)"),
+    (SHAFT, "8 mm \u00b1 0.1 mm", "2 holes of 8 mm, within \u00b10.1 mm"),
+    (SHAFT, "8 mm +/- 0.1", "2 holes of 8 mm, within \u00b10.1 mm"),
+    (SHAFT, "8 mm +/- 0.1 mm", "2 holes of 8 mm, within \u00b10.1 mm"),
+    (SHAFT, "H9", "2 holes of 8 mm, H9 (8.000 to 8.036 mm)"),
+    (SHAFT, "\u00b1 0.2 mm", "2 holes of 8 mm, within \u00b10.2 mm"),
+    (SHAFT, "12 mm ISO 2768-m", "2 holes of 12 mm, ISO 2768-m (11.800 to 12.200 mm)"),
+    (M5, "close", "2 holes that fit an M5 bolt, close series (5.3 mm)"),
+    (M5, "Coarse series", "2 holes that fit an M5 bolt, coarse series (5.8 mm)"),
+    (M5, "any", "2 holes that fit an M5 bolt"),
 ]
 
 
@@ -176,6 +187,47 @@ def test_only_rows_with_a_number_offer_a_field() -> None:
     ]
 
 
-def test_a_plain_hole_offers_its_diameter_and_a_fastener_hole_offers_no_field() -> None:
-    assert [placeholder(requirement(t)) for t in (SHAFT, M5)] == ["8 mm", None]
-    assert "no number to change" in changed(M5, "4 mm")
+def test_a_plain_hole_offers_its_diameter_and_tolerance_and_a_clearance_hole_its_series() -> None:
+    h7 = {**SHAFT, "tolerance": {"kind": "class", "key": "H7"}}
+    close = {**M5, "series": "close"}
+    assert [placeholder(requirement(t)) for t in (SHAFT, h7, M5, close)] == [
+        "8 mm \u00b1 0.05 mm",
+        "8 mm H7",
+        "any series",
+        "close series",
+    ]
+
+
+def test_a_tapped_hole_offers_no_field() -> None:
+    tapped = {"kind": "fastener_holes", "size": "M4", "fit": "tapped"}
+    assert placeholder(requirement(tapped)) is None
+    assert "no number to change" in changed(tapped, "close")
+
+
+def test_what_the_person_does_not_type_stays_as_proposed() -> None:
+    h7 = {**SHAFT, "tolerance": {"kind": "class", "key": "H7"}}
+    assert changed(h7, "10 mm") == "2 holes of 10 mm, H7 (10.000 to 10.015 mm)"
+    assert changed(h7, "\u00b1 0.1 mm") == "2 holes of 8 mm, within \u00b10.1 mm"
+
+
+@pytest.mark.parametrize(
+    ("text", "says"),
+    [
+        ("8 mm H6", "write it as 8 mm"),
+        ("8 mm h7", "write it as 8 mm"),
+        ("500 mm ISO 2768-f", "ISO 2768-f covers sizes from 0.5 mm up to 400 mm"),
+        ("200 mm H7", "H7 covers sizes over 0 mm up to 120 mm"),
+        ("8 mm \u00b1 9 mm", "leaves no hole"),
+        ("8 mm \u00b1", "write it as 8 mm"),
+        ("8 mm H7 H8", "write it as 8 mm"),
+    ],
+)
+def test_a_hole_text_that_names_no_class_or_band_is_refused_with_the_way_to_write_it(
+    text: str, says: str
+) -> None:
+    assert says in changed(SHAFT, text)
+
+
+def test_a_clearance_hole_refuses_a_series_it_does_not_have() -> None:
+    assert "close, medium, coarse or any" in changed(M5, "fine")
+    assert "close, medium, coarse or any" in changed(M5, "4 mm")

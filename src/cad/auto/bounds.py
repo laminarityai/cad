@@ -4,10 +4,10 @@ from dataclasses import dataclass
 from typing import Final, Literal, assert_never
 
 from cad.auto.model import Bounds, Read
+from cad.briefs.holes import FastenerHoles, PlainHoles
 from cad.briefs.model import (
     ClosedSolid,
     Envelope,
-    FastenerHoles,
     MadeOf,
     MaxClearance,
     MaxDeflection,
@@ -16,7 +16,6 @@ from cad.briefs.model import (
     MinClearance,
     MinMass,
     MinSafetyFactor,
-    PlainHoles,
     Requirement,
     Unchecked,
 )

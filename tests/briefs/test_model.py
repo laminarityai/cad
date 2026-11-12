@@ -3,11 +3,12 @@ from typing import Any
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
+from cad.briefs.holes import DEFAULT_TOLERANCE, PlainHoles
+from cad.briefs.kind import Kind
 from cad.briefs.model import (
     BriefId,
     BriefSpan,
     Envelope,
-    Kind,
     Limit,
     Requirement,
     RequirementId,
@@ -50,6 +51,45 @@ def grams(magnitude: float, unit: str = "g") -> dict[str, Any]:
         {"kind": "min_clearance", "part": "rail", "clearance": grams(0.2, "mm")},
         {"kind": "min_clearance", "part": "part-" + "a" * 16, "clearance": grams(0.2)},
         {"kind": "warp_drive"},
+        {"kind": "plain_holes", "diameter": grams(8, "mm"), "tolerance": {"kind": "class"}},
+        {
+            "kind": "plain_holes",
+            "diameter": grams(8, "mm"),
+            "tolerance": {"kind": "class", "key": "h7"},
+        },
+        {
+            "kind": "plain_holes",
+            "diameter": grams(8, "mm"),
+            "tolerance": {"kind": "class", "key": "H6"},
+        },
+        {
+            "kind": "plain_holes",
+            "diameter": grams(200, "mm"),
+            "tolerance": {"kind": "class", "key": "H7"},
+        },
+        {
+            "kind": "plain_holes",
+            "diameter": grams(8, "mm"),
+            "tolerance": {"kind": "plus_minus", "within": grams(8, "mm")},
+        },
+        {
+            "kind": "plain_holes",
+            "diameter": grams(8, "mm"),
+            "tolerance": {"kind": "plus_minus", "within": grams(0.1, "g")},
+        },
+        {
+            "kind": "plain_holes",
+            "diameter": grams(8, "mm"),
+            "tolerance": {"kind": "plus_minus", "within": grams(0, "mm")},
+        },
+        {
+            "kind": "plain_holes",
+            "diameter": grams(8, "mm"),
+            "tolerance": {"kind": "class", "key": "H7", "within": grams(1, "mm")},
+        },
+        {"kind": "plain_holes", "diameter": grams(8, "mm"), "tolerance": None},
+        {"kind": "fastener_holes", "size": "M5", "fit": "tapped", "series": "close"},
+        {"kind": "fastener_holes", "size": "M5", "fit": "clearance", "series": "fine"},
     ],
 )
 def test_a_target_that_does_not_fit_its_kind_is_refused(raw: dict[str, Any]) -> None:
@@ -114,7 +154,28 @@ def test_every_kind_has_one_deciding_check_or_is_unverified() -> None:
         ),
         (
             {"kind": "plain_holes", "diameter": grams(8, "mm"), "count": 3},
-            "3 holes of 8 mm diameter",
+            "3 holes of 8 mm, within \u00b10.05 mm",
+        ),
+        (
+            {
+                "kind": "plain_holes",
+                "diameter": grams(8, "mm"),
+                "count": 1,
+                "tolerance": {"kind": "class", "key": "H7"},
+            },
+            "1 hole of 8 mm, H7 (8.000 to 8.015 mm)",
+        ),
+        (
+            {
+                "kind": "plain_holes",
+                "diameter": grams(8, "mm"),
+                "tolerance": {"kind": "plus_minus", "within": grams(0.1, "mm")},
+            },
+            "A hole of 8 mm, within \u00b10.1 mm",
+        ),
+        (
+            {"kind": "fastener_holes", "size": "M5", "fit": "clearance", "series": "close"},
+            "A hole that fits an M5 bolt, close series (5.3 mm)",
         ),
     ],
 )
@@ -224,3 +285,32 @@ def test_a_holes_target_names_a_table_size_a_fit_and_a_whole_count(raw: dict[str
 def test_a_made_of_key_must_have_the_shape_of_a_table_key(key: str) -> None:
     with pytest.raises(ValidationError):
         target({"kind": "made_of", "material": key})
+
+
+def test_a_stored_plain_hole_with_no_tolerance_loads_as_the_default() -> None:
+    old = target({"kind": "plain_holes", "diameter": grams(8, "mm")})
+    assert isinstance(old, PlainHoles)
+    assert old.tolerance == DEFAULT_TOLERANCE
+    assert old.tolerance.model_dump(mode="json") == {
+        "kind": "plus_minus",
+        "within": {"magnitude": 0.05, "unit": "mm"},
+    }
+
+
+@pytest.mark.parametrize(
+    ("tolerance", "diameter", "says"),
+    [
+        ({"kind": "class", "key": "H7"}, 200, "H7 covers sizes over 0 mm up to 120 mm"),
+        (
+            {"kind": "class", "key": "ISO 2768-c"},
+            0.4,
+            "ISO 2768-c covers sizes from 0.5 mm up to 400 mm",
+        ),
+        ({"kind": "class", "key": "H5"}, 8, "no tolerance class 'H5'"),
+    ],
+)
+def test_a_class_that_does_not_cover_the_diameter_is_refused_naming_the_range(
+    tolerance: dict[str, Any], diameter: float, says: str
+) -> None:
+    with pytest.raises(ValidationError, match=says):
+        target({"kind": "plain_holes", "diameter": grams(diameter, "mm"), "tolerance": tolerance})

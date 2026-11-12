@@ -4,6 +4,10 @@ The page stores the typed text in the signed PageAnswer (`cad.confirmations.answ
 module turns that text into the requirement the person confirmed. The page runs it before it
 records the answer, and the brief store runs it again on every read, so what checks read is
 exactly what the person typed. Only the number changes: the kind and the brief span stay.
+
+A plain hole's row takes a diameter, a tolerance, or both: "6 mm", "8 mm H7", "8 mm +/- 0.1 mm",
+"H7" or "+/- 0.1 mm". What is not typed stays as proposed. A clearance hole of a fastener takes its
+series: "close", "medium", "coarse", or "any" for the whole range.
 """
 
 import re
@@ -14,10 +18,17 @@ from typing import Final, Literal, assert_never
 import pint
 from pydantic import ValidationError
 
+from cad.briefs.holes import (
+    ByClass,
+    FastenerHoles,
+    HoleFit,
+    HoleTolerance,
+    PlainHoles,
+    PlusMinus,
+)
 from cad.briefs.model import (
     ClosedSolid,
     Envelope,
-    FastenerHoles,
     MadeOf,
     MaxClearance,
     MaxDeflection,
@@ -26,7 +37,6 @@ from cad.briefs.model import (
     MinClearance,
     MinMass,
     MinSafetyFactor,
-    PlainHoles,
     Requirement,
     Unchecked,
     amount,
@@ -34,7 +44,9 @@ from cad.briefs.model import (
 )
 from cad.briefs.words import describe
 from cad.confirmations.answers import Edit
+from cad.tables.fasteners import ClearanceSeries
 from cad.tables.materials import UNITS
+from cad.tables.tolerances import load_tolerances
 
 type Dimension = Literal["mass", "length"]
 
@@ -80,6 +92,9 @@ MAX_DIGITS: Final = 6
 AMOUNT: Final = re.compile(r"\s*([0-9]+(?:\.[0-9]+)?|\.[0-9]+)\s*([A-Za-z]+)?\s*")
 NOT_PLAIN_DIGITS: Final = re.compile(r"[0-9][,eE][0-9+-]")
 EDGES: Final = re.compile(r"[x\u00d7]", re.IGNORECASE)  # x or the multiplication sign
+PLUS_OR_MINUS: Final = re.compile(r"\s*(?:\u00b1|\+\s*/\s*-|\+\s*-)\s*")
+SERIES: Final = re.compile(r"\s*(close|medium|coarse|any)(?:\s+(?:series|fit))?\s*", re.IGNORECASE)
+ANY_SERIES: Final = "any"
 
 
 @dataclass(frozen=True, slots=True)
@@ -99,17 +114,14 @@ def placeholder(requirement: Requirement) -> str | None:
     """What the page shows in the row's empty edit field, or None when the row has no number."""
     target = requirement.target
     match target:
-        case (
-            ClosedSolid()
-            | MeasureLimit()
-            | Unchecked()
-            | MadeOf()
-            | MinSafetyFactor()
-            | FastenerHoles()
-        ):
+        case ClosedSolid() | MeasureLimit() | Unchecked() | MadeOf() | MinSafetyFactor():
             return None
+        case FastenerHoles():
+            if target.fit is HoleFit.TAPPED:
+                return None
+            return "any series" if target.series is None else f"{target.series.value} series"
         case PlainHoles():
-            return amount(target.diameter)
+            return f"{amount(target.diameter)} {_tolerance_text(target.tolerance)}"
         case MaxMass() | MinMass():
             return amount(target.mass)
         case MaxDeflection():
@@ -120,6 +132,17 @@ def placeholder(requirement: Requirement) -> str | None:
             return " x ".join(amount(edge) for edge in target.edges)
         case _:
             assert_never(target)
+
+
+def _tolerance_text(tolerance: HoleTolerance) -> str:
+    """The tolerance as the page reads it back, so a person edits from what they see."""
+    match tolerance:
+        case PlusMinus(within=within):
+            return f"\u00b1 {amount(within)}"
+        case ByClass(key=key):
+            return key
+        case _:
+            assert_never(tolerance)
 
 
 def apply_edits(
@@ -146,18 +169,14 @@ def _edited(requirement: Requirement, text: str) -> Requirement | str:
     target = requirement.target
     try:
         match target:
-            case (
-                ClosedSolid()
-                | MeasureLimit()
-                | Unchecked()
-                | MadeOf()
-                | MinSafetyFactor()
-                | FastenerHoles()
-            ):
+            case ClosedSolid() | MeasureLimit() | Unchecked() | MadeOf() | MinSafetyFactor():
                 return "This row has no number to change."
+            case FastenerHoles() if target.fit is HoleFit.TAPPED:
+                return "This row has no number to change."
+            case FastenerHoles():
+                new = target.model_copy(update={"series": _series(text)})
             case PlainHoles():
-                [diameter] = _quantities(text, LENGTH)
-                new = PlainHoles(diameter=diameter, count=target.count)
+                new = _plain_hole(target, text)
             case MaxMass() | MinMass():
                 [mass] = _quantities(text, MASS)
                 new = type(target).model_validate({"mass": mass})
@@ -186,6 +205,63 @@ def _edited(requirement: Requirement, text: str) -> Requirement | str:
 
 class _Unreadable(Exception):
     pass
+
+
+def _series(text: str) -> ClearanceSeries | None:
+    found = SERIES.fullmatch(text)
+    if found is None:
+        raise _Unreadable("Write close, medium, coarse or any, such as close.")
+    word = found.group(1).lower()
+    return None if word == ANY_SERIES else ClearanceSeries(word)
+
+
+def _plain_hole(target: PlainHoles, text: str) -> PlainHoles:
+    """The hole with the diameter and the tolerance the text names, and the rest as it was."""
+    keys = sorted(load_tolerances().classes, key=len, reverse=True)
+    shown = f"{amount(target.diameter)} {_tolerance_text(target.tolerance)}"
+    try:
+        return _read_plain_hole(target, text, keys)
+    except _Unreadable as error:
+        raise _Unreadable(f"{error} To change the tolerance, write it as {shown}.") from error
+
+
+def _read_plain_hole(target: PlainHoles, text: str, keys: list[str]) -> PlainHoles:
+    signed = PLUS_OR_MINUS.split(text, maxsplit=1)
+    tolerance = target.tolerance
+    if len(signed) == 2:
+        [diameter_text, wide] = signed
+        unit = AMOUNT.fullmatch(diameter_text)
+        spelled = (
+            f"{wide} {unit.group(2)}" if unit and unit.group(2) and not _has_unit(wide) else wide
+        )
+        [within] = _quantities(spelled, LENGTH)
+        tolerance = PlusMinus(within=within)
+    else:
+        diameter_text = text
+        named = next((key for key in keys if _ends_with_word(text, key)), None)
+        if named is not None:
+            diameter_text = text[: len(text.rstrip()) - len(named)]
+            tolerance = ByClass(key=named)
+    if not diameter_text.strip():
+        return (
+            target.model_copy(update={"tolerance": tolerance})
+            if tolerance is not target.tolerance
+            else target
+        )
+    [diameter] = _quantities(diameter_text, LENGTH)
+    return PlainHoles(diameter=diameter, count=target.count, tolerance=tolerance)
+
+
+def _has_unit(amount_text: str) -> bool:
+    found = AMOUNT.fullmatch(amount_text)
+    return found is not None and found.group(2) is not None
+
+
+def _ends_with_word(text: str, word: str) -> bool:
+    stripped = text.rstrip()
+    return stripped.endswith(word) and (
+        len(stripped) == len(word) or stripped[-len(word) - 1].isspace()
+    )
 
 
 def _quantities(text: str, shape: _Shape) -> list[pint.Quantity]:

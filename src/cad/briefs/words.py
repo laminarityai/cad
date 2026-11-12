@@ -3,11 +3,10 @@ from types import MappingProxyType
 from typing import Final, assert_never
 
 from cad.briefs.bindable import BINDABLE
+from cad.briefs.holes import ByClass, FastenerHoles, HoleFit, PlainHoles, PlusMinus
 from cad.briefs.model import (
     ClosedSolid,
     Envelope,
-    FastenerHoles,
-    HoleFit,
     Length,
     MadeOf,
     MaxClearance,
@@ -17,7 +16,6 @@ from cad.briefs.model import (
     MinClearance,
     MinMass,
     MinSafetyFactor,
-    PlainHoles,
     Requirement,
     Target,
     Unchecked,
@@ -25,7 +23,9 @@ from cad.briefs.model import (
 )
 from cad.checks.result import Comparator
 from cad.loads.words import describe_case
-from cad.tables.materials import PROJECT_PREFIX
+from cad.tables.fasteners import load_fasteners
+from cad.tables.materials import PROJECT_PREFIX, magnitude
+from cad.tables.tolerances import load_tolerances
 
 NO_NAMES: Final[Mapping[str, str]] = MappingProxyType({})
 
@@ -70,7 +70,7 @@ def describe_target(target: Target, names: Mapping[str, str] = NO_NAMES) -> str:
         case FastenerHoles():
             return _holes(target.count, _for_a_bolt(target))
         case PlainHoles():
-            return _holes(target.count, f"of {amount(target.diameter)} diameter")
+            return _holes(target.count, _of_a_diameter(target))
         case _:
             assert_never(target)
 
@@ -85,7 +85,23 @@ def _holes(count: int | None, what: str) -> str:
 def _for_a_bolt(target: FastenerHoles) -> str:
     if target.fit is HoleFit.TAPPED:
         return f"tapped for {target.size}"
-    return f"that fit{{s}} an {target.size} bolt"
+    fits = f"that fit{{s}} an {target.size} bolt"
+    if target.series is None:
+        return fits
+    diameter = load_fasteners().get(target.size).clearance.diameter_mm(target.series)
+    return f"{fits}, {target.series.value} series ({diameter:g} mm)"
+
+
+def _of_a_diameter(target: PlainHoles) -> str:
+    """ "of 8 mm, H7 (8.000 to 8.015 mm)", or "of 8 mm, within ±0.05 mm"."""
+    match target.tolerance:
+        case PlusMinus(within=within):
+            return f"of {amount(target.diameter)}, within \u00b1{amount(within)}"
+        case ByClass(key=key):
+            band = load_tolerances().limits(key, magnitude(target.diameter, "mm"))
+            return (
+                f"of {amount(target.diameter)}, {key} ({band.low_mm:.3f} to {band.high_mm:.3f} mm)"
+            )
 
 
 def _clearance(clearance: Length, part: str, names: Mapping[str, str]) -> str:

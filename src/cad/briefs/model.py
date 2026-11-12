@@ -9,7 +9,6 @@ import json
 import math
 from dataclasses import dataclass
 from datetime import datetime
-from enum import StrEnum
 from typing import Annotated, Final, Literal, NewType, assert_never
 
 import pint
@@ -21,6 +20,8 @@ from pydantic import (
 )
 
 from cad.briefs.bindable import BINDABLE
+from cad.briefs.holes import FastenerHoles, PlainHoles
+from cad.briefs.kind import Kind
 from cad.checks.container import closed_solid, extents, fea, fit, holes, mass
 from cad.checks.result import Comparator
 from cad.checks.units import AnyQuantity, Length, Mass, number
@@ -28,7 +29,6 @@ from cad.context_parts.ids import PART_ID_PATTERN, ContextPartId
 from cad.frozen import Frozen
 from cad.loads.model import LoadCase
 from cad.projects.model import NEW_PROJECT_ID, NewProjectId, ProjectId, legacy_project
-from cad.tables.fasteners import MAX_SIZE_CHARS, SIZE_PATTERN, UnknownFastener, load_fasteners
 from cad.tables.materials import KEY_PATTERN, UNITS, magnitude
 
 BriefId = NewType("BriefId", str)
@@ -44,22 +44,6 @@ MAX_REQUIREMENTS: Final = 64
 MAX_STATEMENT_CHARS: Final = 500
 MAX_NOTE_CHARS: Final = 2000
 MAX_MATERIAL_KEY_CHARS: Final = 64
-
-
-class Kind(StrEnum):
-    CLOSED_SOLID = "closed_solid"
-    MAX_MASS = "max_mass"
-    MIN_MASS = "min_mass"
-    ENVELOPE = "envelope"
-    MEASURE_LIMIT = "measure_limit"
-    UNCHECKED = "unchecked"
-    MADE_OF = "made_of"
-    MIN_SAFETY_FACTOR = "min_safety_factor"
-    MAX_DEFLECTION = "max_deflection"
-    MIN_CLEARANCE = "min_clearance"
-    MAX_CLEARANCE = "max_clearance"
-    FASTENER_HOLES = "fastener_holes"
-    PLAIN_HOLES = "plain_holes"
 
 
 class ClosedSolid(Frozen):
@@ -182,43 +166,6 @@ class MaxClearance(Frozen):
     kind: Literal[Kind.MAX_CLEARANCE] = Kind.MAX_CLEARANCE
     part: PartId
     clearance: Length
-
-
-class HoleFit(StrEnum):
-    """What a hole is for: a bolt passes through it, or a thread is cut in it."""
-
-    CLEARANCE = "clearance"
-    TAPPED = "tapped"
-
-
-type RequiredCount = Annotated[int, Field(ge=1, le=256)]
-
-
-class FastenerHoles(Frozen):
-    """Holes for a metric size, such as 2 that fit an M5 bolt or are tapped for M4. `size` is an
-    exact key of the fasteners table. With no `count` one such hole is enough, else exactly that."""
-
-    kind: Literal[Kind.FASTENER_HOLES] = Kind.FASTENER_HOLES
-    size: Annotated[str, Field(pattern=f"^{SIZE_PATTERN.pattern}$", max_length=MAX_SIZE_CHARS)]
-    fit: HoleFit
-    count: RequiredCount | None = None
-
-    @field_validator("size")
-    @classmethod
-    def _in_the_table(cls, size: str) -> str:
-        try:
-            load_fasteners().get(size)
-        except UnknownFastener as error:
-            raise ValueError(str(error)) from error
-        return size
-
-
-class PlainHoles(Frozen):
-    """Holes of a stated diameter, such as an 8 mm hole for a shaft. `count` works as above."""
-
-    kind: Literal[Kind.PLAIN_HOLES] = Kind.PLAIN_HOLES
-    diameter: Length
-    count: RequiredCount | None = None
 
 
 type Target = Annotated[

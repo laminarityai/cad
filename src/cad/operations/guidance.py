@@ -65,9 +65,14 @@ CONTEXT_PARTS = (
 
 HOLES = (
     "Holes the brief states are a fastener_holes requirement (a metric size such as M5, a fit of "
-    "clearance or tapped, and the count when it says one) or a plain_holes requirement (a "
-    "diameter and the count). Copy the size as the person wrote it. The holes check decides it "
-    "from the table, and a slot or hexagon makes it unknown, not a pass."
+    "clearance or tapped, the count when it says one, and for a clearance fit the series close, "
+    "medium or coarse only when it names one) or a plain_holes requirement (a diameter, the "
+    "count, and the tolerance). Copy the size as the person wrote it. For a plain hole copy the "
+    "tolerance the person wrote: a class such as H7 or ISO 2768-m is a class tolerance with that "
+    'exact key, and "plus or minus 0.1" is a plus_minus tolerance of 0.1 mm. When the brief '
+    "states none, leave the tolerance out and the default of 0.05 mm applies. Never choose a "
+    "class, a series or a number the person did not write. The holes check decides it from the "
+    "tables, and a slot or hexagon makes it unknown, not a pass."
 )
 
 RESEARCH = (
