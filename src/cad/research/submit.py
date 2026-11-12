@@ -7,7 +7,7 @@ from typing import Final, Literal
 
 from cad.frozen import Frozen
 from cad.projects.model import ProjectId
-from cad.research.fetch import FetchFailed, Page, fetch
+from cad.research.fetch import FetchFailed, Page, PdfText
 from cad.research.ledger import (
     AlreadyStored,
     Ledger,
@@ -17,6 +17,7 @@ from cad.research.ledger import (
     read_ledger,
 )
 from cad.research.overlay import fill, overlay
+from cad.research.pdf import fetch_source
 from cad.research.requests import ResearchRequest, request_for
 from cad.tables.fields import FIELDS, Field
 from cad.tables.materials import FromResearch, Known, MaterialsTable, row_or_blank
@@ -26,9 +27,9 @@ MAX_QUOTE_LENGTH: Final = 500
 
 
 class ResearchAccepted(Frozen):
-    """The agent read `value` from `quote`, which the server found on the page at `url`; `value`
-    is in the field's canonical `unit`. Checks that read this field for this project now read
-    it, labelled researched."""
+    """The agent read `value` from `quote`, which the server found on the page at `url`, or on
+    `page` of the PDF at `url`; `value` is in the field's canonical `unit`. Checks that read this
+    field for this project now read it, labelled researched."""
 
     kind: Literal["accepted"] = "accepted"
     key: str
@@ -38,6 +39,7 @@ class ResearchAccepted(Frozen):
     url: str
     quote: str
     record: int
+    page: int | None = None
 
 
 class ResearchRefused(Frozen):
@@ -51,7 +53,7 @@ class ResearchRefused(Frozen):
 
 
 type ResearchAnswer = ResearchAccepted | ResearchRefused
-type Fetch = Callable[[str], Page | FetchFailed]
+type Fetch = Callable[[str], Page | PdfText | FetchFailed]
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,7 +73,7 @@ def submit(
     projects: Path,
     question: Question,
     *,
-    fetcher: Fetch = fetch,
+    fetcher: Fetch = fetch_source,
     today: Callable[[], date] = date.today,
 ) -> ResearchAnswer:
     ask = _Asker(question)
@@ -86,7 +88,7 @@ def submit(
         )
     held = material.value(question.field)
     if isinstance(held, Known):
-        again = _already_answered(question, held)
+        again = _already_answered(question, held, ledger)
         if again is not None:
             return again
         kind = "researched" if isinstance(held.basis, FromResearch) else "cited"
@@ -98,36 +100,46 @@ def submit(
     magnitude = _in_canonical_unit(question)
     if isinstance(magnitude, _Refusal):
         return ask(magnitude.reason)
-    page = fetcher(question.url)
-    if isinstance(page, FetchFailed):
-        return ask(page.reason)
-    if not on_page(question.quote, page.text):
-        return ask(_not_on_page(question, page.url, page.text))
+    fetched = fetcher(question.url)
+    if isinstance(fetched, FetchFailed):
+        return ask(fetched.reason)
+    pages = (fetched.text,) if isinstance(fetched, Page) else fetched.pages
+    found = next(
+        (n for n, text in enumerate(pages, start=1) if on_page(question.quote, text)), None
+    )
+    if found is None:
+        return ask(_not_on_page(question, fetched, "\n".join(pages)))
     record = ResearchedRecord(
         project=question.project,
         key=question.key,
         field=question.field,
         magnitude=magnitude,
         unit=FIELDS[question.field].canonical_unit,
-        url=page.url,
-        title=page.title,
+        url=fetched.url,
+        title=fetched.title,
         quote=question.quote,
         retrieved=today(),
-        sha256=page.sha256,
+        sha256=fetched.sha256,
+        page=found if isinstance(fetched, PdfText) else None,
     )
     stored = append_record(
         projects, question.project, record, _admit_at_append(git, question.project, record)
     )
     if isinstance(stored, Turned):
         return ask(stored.reason, other_source_could_answer=stored.other_source_could_answer)
+    return _accepted(record, stored.number)
+
+
+def _accepted(record: ResearchedRecord, number: int) -> ResearchAccepted:
     return ResearchAccepted(
-        key=question.key,
-        field=question.field,
+        key=record.key,
+        field=record.field,
         value=record.magnitude,
         unit=record.unit,
         url=record.url,
         quote=record.quote,
-        record=stored.number,
+        record=number,
+        page=record.page,
     )
 
 
@@ -172,22 +184,15 @@ class _Asker:
         return ResearchRefused(key=one.key, field=one.field, reason=reason, request=request)
 
 
-def _already_answered(question: Question, held: Known) -> ResearchAccepted | None:
-    unit = FIELDS[question.field].canonical_unit
-    same = (held.source.url, held.source.quote) == (question.url, question.quote)
-    if not same or not isinstance(held.basis, FromResearch):
+def _already_answered(question: Question, held: Known, ledger: Ledger) -> ResearchAccepted | None:
+    if not isinstance(held.basis, FromResearch):
         return None
-    if held.magnitude_in(unit) != _in_canonical_unit(question):
+    record = ledger.records[held.basis.record - 1]
+    if (record.url, record.quote) != (question.url, question.quote):
         return None
-    return ResearchAccepted(
-        key=question.key,
-        field=question.field,
-        value=held.magnitude_in(unit),
-        unit=unit,
-        url=held.source.url,
-        quote=held.source.quote,
-        record=held.basis.record,
-    )
+    if record.magnitude != _in_canonical_unit(question):
+        return None
+    return _accepted(record, held.basis.record)
 
 
 def _in_canonical_unit(question: Question) -> float | _Refusal:
@@ -223,10 +228,15 @@ def _factor(units: Mapping[str, Decimal], unit: str) -> Decimal | None:
     return factors.pop() if len(factors) == 1 else None
 
 
-def _not_on_page(question: Question, url: str, text: str) -> str:
+def _not_on_page(question: Question, fetched: Page | PdfText, text: str) -> str:
+    where = (
+        f"on {fetched.url} as the server fetched it"
+        if isinstance(fetched, Page)
+        else f"on any one page of the PDF at {fetched.url} as the server read its text"
+    )
     reason = (
-        f"the quote does not appear on {url} as the server fetched it; copy its words and "
-        "numbers in the page's order, and start and end it on whole numbers"
+        f"the quote does not appear {where}; copy its words and numbers in the page's order, "
+        "and start and end it on whole numbers"
     )
     written = where_written(Decimal(repr(question.value)), text)
     if not written:

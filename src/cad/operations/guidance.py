@@ -74,7 +74,8 @@ HOLES = (
 
 RESEARCH = (
     "A material value the table lacks is researched, not left unknown. When a scorecard's "
-    "research lists a request, answer each one with submit_research: a public page, the "
+    "research lists a request, answer each one with submit_research: a public web page or "
+    "PDF datasheet, the "
     "quote on it that states the value, and the value and unit as that quote writes them, "
     "never a number you estimated, computed or converted. Then score again. A result labelled "
     "researched rests on a value read from that cited quote: report a pass on it as "

@@ -83,6 +83,14 @@ repos:
         always_run: true
         # Slow: CI runs it on every PR. Run it here with `uvx pre-commit run --hook-stage manual`.
         stages: [manual]
+      - id: reader-image
+        name: reader image
+        entry: uv run verify --only "reader image"
+        language: system
+        pass_filenames: false
+        always_run: true
+        # Slow: CI runs it on every PR. Run it here with `uvx pre-commit run --hook-stage manual`.
+        stages: [manual]
       - id: pytest
         name: pytest
         entry: uv run verify --only pytest

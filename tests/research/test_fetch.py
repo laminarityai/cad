@@ -5,7 +5,7 @@ from email.message import Message
 import pytest
 
 from cad.research import fetch as fetching
-from cad.research.fetch import FetchFailed, Page, Response, Target, fetch
+from cad.research.fetch import FetchFailed, Page, PdfFile, Response, Target, fetch
 
 PUBLIC = "93.184.215.14"
 HTML = (
@@ -148,8 +148,11 @@ def test_endless_redirects_stop() -> None:
     ("response", "said"),
     [
         (Response(404, headers(Content_Type="text/html"), b""), "HTTP 404"),
-        (ok(b"%PDF", "application/pdf"), "application/pdf"),
-        (ok(b"x" * (fetching.MAX_BYTES + 1)), "larger than"),
+        (ok(b"<html>gone</html>", "application/pdf"), "says it is a PDF, but"),
+        (ok(b"%PDF", "application/pdf"), "says it is a PDF, but"),
+        (ok(b"\x89PNG", "image/png"), "only HTML, plain text and PDF"),
+        (ok(b"x" * (fetching.MAX_BYTES + 1)), "larger than 4 MiB"),
+        (ok(b"%PDF-1.7" + b"x" * fetching.MAX_PDF_BYTES, "application/pdf"), "PDF larger than"),
     ],
 )
 def test_a_page_the_server_cannot_read_is_refused(response: Response, said: str) -> None:
@@ -159,6 +162,20 @@ def test_a_page_the_server_cannot_read_is_refused(response: Response, said: str)
     )
     assert isinstance(failed, FetchFailed)
     assert said in failed.reason
+
+
+@pytest.mark.parametrize(
+    "kind", ["application/pdf", "application/pdf;charset=UTF-8", "application/octet-stream"]
+)
+def test_a_pdf_is_known_by_its_header_and_handed_on_unread(kind: str) -> None:
+    body = b"%PDF-1.7\n" + b"x" * (fetching.MAX_BYTES + 1)
+    transport, _ = serve(ok(body, kind))
+    fetched = fetch(
+        "https://example.org/tds.pdf",
+        resolve=resolver({"example.org": [PUBLIC]}),
+        transport=transport,
+    )
+    assert fetched == PdfFile("https://example.org/tds.pdf", body, hashlib.sha256(body).hexdigest())
 
 
 def test_a_host_that_does_not_resolve_is_refused() -> None:

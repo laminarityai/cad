@@ -25,7 +25,7 @@ import pypdfium2  # pyright: ignore[reportMissingTypeStubs]
 from pdfminer.high_level import extract_text as miner_text
 from pypdf import PdfReader
 
-from cad.research.fetch import USER_AGENT, FetchFailed, fetch
+from cad.research.fetch import USER_AGENT, FetchFailed, PdfFile, fetch
 from cad.tables.datasheet_text import (
     STORE,
     Citation,
@@ -112,6 +112,8 @@ def extractions_of(document: Document) -> list[Extraction] | str:
     page = fetch(document.url)
     if isinstance(page, FetchFailed):
         return page.reason
+    if isinstance(page, PdfFile):
+        return pdf_extractions(pdf_of(document, page.body))
     # A web page's text is mostly the whitespace of its markup; `on_page` ignores it.
     return [lambda: [" ".join(page.text.split())]]
 

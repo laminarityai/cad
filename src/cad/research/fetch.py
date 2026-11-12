@@ -13,11 +13,18 @@ from typing import Final
 from urllib.parse import quote, urljoin, urlsplit
 
 MAX_BYTES: Final = 4 * 1024 * 1024
+# Of the 30 PDFs the tables cite, 29 measured 5.1 MB or less on 2026-11-11. The other is a
+# 1733-page handbook of 71 MB, which no research question needs whole.
+MAX_PDF_BYTES: Final = 16 * 1024 * 1024
 TIMEOUT_SECONDS: Final = 15.0
 MAX_REDIRECTS: Final = 5
 PORT: Final = 443
 USER_AGENT: Final = "cad-research/1 (reads one cited page; https://github.com/laminarityai/cad)"
 TEXT_TYPES: Final = frozenset({"text/html", "application/xhtml+xml", "text/plain"})
+PDF_TYPE: Final = "application/pdf"
+# A reader finds the header anywhere in the first 1024 bytes, and servers mislabel PDFs.
+PDF_MAGIC: Final = b"%PDF-"
+PDF_HEADER_WITHIN: Final = 1024
 SKIPPED_TAGS: Final = frozenset({"script", "style", "noscript", "template", "svg"})
 # Every character RFC 3986 allows in a path, and "%" so a URL already encoded stays as it is.
 _URL_SAFE: Final = "/%:@!$&'()*+,;=-._~"
@@ -55,6 +62,26 @@ class Page:
 
 
 @dataclass(frozen=True, slots=True)
+class PdfFile:
+    """Fetched bytes that are a PDF, not yet read. The host never parses them."""
+
+    url: str
+    body: bytes
+    sha256: str
+
+
+@dataclass(frozen=True, slots=True)
+class PdfText:
+    """A PDF as the reader read it: the text of each page, in order. `sha256` hashes the bytes
+    the server fetched."""
+
+    url: str
+    title: str
+    pages: tuple[str, ...]
+    sha256: str
+
+
+@dataclass(frozen=True, slots=True)
 class FetchFailed:
     reason: str
 
@@ -65,7 +92,7 @@ class _Refused(Exception):
 
 def fetch(
     url: str, *, resolve: Resolve | None = None, transport: Transport | None = None
-) -> Page | FetchFailed:
+) -> Page | PdfFile | FetchFailed:
     resolve = resolve or _resolve
     transport = transport or tls_get
     deadline = time.monotonic() + TIMEOUT_SECONDS
@@ -176,13 +203,13 @@ def tls_get(
             target.path,
             headers={
                 "User-Agent": USER_AGENT,
-                "Accept": "text/html, application/xhtml+xml, text/plain",
+                "Accept": "text/html, application/xhtml+xml, text/plain, application/pdf",
                 "Accept-Encoding": "identity",
             },
         )
         response = connection.getresponse()
         body = bytearray()
-        while len(body) <= MAX_BYTES:
+        while len(body) <= MAX_PDF_BYTES:
             chunk = response.read1(64 * 1024)
             if not chunk:
                 break
@@ -199,14 +226,21 @@ def _left(deadline: float) -> float:
     return left
 
 
-def _page(url: str, response: Response) -> Page:
+def _page(url: str, response: Response) -> Page | PdfFile:
     if response.status != 200:
         raise _Refused(f"{url} answered HTTP {response.status}, not 200")
-    if len(response.body) > MAX_BYTES:
-        raise _Refused(f"{url} is larger than {MAX_BYTES // 2**20} MiB")
+    body = response.body
     kind = response.headers.get_content_type()
+    if PDF_MAGIC in body[:PDF_HEADER_WITHIN]:
+        if len(body) > MAX_PDF_BYTES:
+            raise _Refused(f"{url} is a PDF larger than {MAX_PDF_BYTES // 2**20} MiB")
+        return PdfFile(url, body, hashlib.sha256(body).hexdigest())
+    if kind == PDF_TYPE:
+        raise _Refused(f"{url} says it is a PDF, but what it sent is not one")
+    if len(body) > MAX_BYTES:
+        raise _Refused(f"{url} is larger than {MAX_BYTES // 2**20} MiB")
     if kind not in TEXT_TYPES:
-        raise _Refused(f"{url} is {kind}; the server reads only HTML and plain text pages")
+        raise _Refused(f"{url} is {kind}; the server reads only HTML, plain text and PDF")
     charset = response.headers.get_content_charset() or "utf-8"
     try:
         decoded = response.body.decode(charset, errors="replace")

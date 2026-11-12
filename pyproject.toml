@@ -19,6 +19,7 @@ cad-call = "cad.server.call:main"
 cad-http = "cad.server.hosted:main"
 cad-token = "cad.accounts.local:main"
 cad-sandbox = "cad.sandbox.__main__:main"
+cad-reader = "cad.research.pdf:main"
 
 [dependency-groups]
 dev = [
