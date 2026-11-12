@@ -65,6 +65,15 @@ def timoshenko_tip(
     return bending + BEAM_P * length / (SHEAR_COEFFICIENT * shear_modulus * area)
 
 
+def pressed_plate_tip(material: Material) -> float:
+    """The tip deflection of a cantilever loaded at half its length."""
+    length, at = SHELF_X, SHELF_X / 2
+    second_moment, area = SHELF_Y * SHELF_T**3 / 12, SHELF_Y * SHELF_T
+    shear_modulus = material.elastic_modulus / (2 * (1 + material.poisson_ratio))
+    bending = SHELF_P * at**2 * (3 * length - at) / (6 * material.elastic_modulus * second_moment)
+    return bending + SHELF_P * at / (SHEAR_COEFFICIENT * shear_modulus * area)
+
+
 def rounded_second_moment(width: float, height: float, radius: float) -> float:
     """The rectangle's I about its width axis, less at each corner an r by r square less the
     quarter disc the fillet keeps."""
@@ -117,9 +126,9 @@ PLATE_BACK = Region(
 )
 ARM_TIP = Region((Plane((BEAM_L, 0.0, 0.0), (1.0, 0.0, 0.0)),), (BEAM_L, BEAM_B / 2, BEAM_H / 2))
 
-SHELF_X, SHELF_Y, SHELF_T, SHELF_P = 52.0, 50.0, 5.0, 10.0
-"""A plate whose middle axis is y, held at its end y = 0 and pressed into the middle of its top."""
-SHELF_ROOT = Region((Plane(ORIGIN, (0.0, -1.0, 0.0)),), (SHELF_X / 2, 0.0, SHELF_T / 2))
+SHELF_X, SHELF_Y, SHELF_T, SHELF_P = 160.0, 40.0, 6.0, 10.0
+"""A plate held at its end x = 0 and pressed into the middle of its top."""
+SHELF_ROOT = Region((Plane(ORIGIN, (-1.0, 0.0, 0.0)),), (0.0, SHELF_Y / 2, SHELF_T / 2))
 SHELF_TOP = (SHELF_X / 2, SHELF_Y / 2, SHELF_T)
 SHELF_MIDDLE = Region((Disc(SHELF_TOP, Z, 0.1 * math.sqrt(SHELF_X * SHELF_Y)),), SHELF_TOP)
 
@@ -296,12 +305,12 @@ CASES: tuple[Case, ...] = (
         fixed=SHELF_ROOT,
         loaded=SHELF_MIDDLE,
         force=(0.0, 0.0, -SHELF_P),
-        measure="max_von_mises",
-        expected=SHELF_P * (SHELF_Y / 2) * (SHELF_T / 2) / (SHELF_X * SHELF_T**3 / 12),
-        tolerance=0.25,
+        measure="max_displacement",
+        expected=pressed_plate_tip(NO_POISSON),
+        tolerance=0.03,
         reference=(
-            "EndOf(middle), OnLargestFlat(middle), Into: root sigma = P(a/2)c/I over the whole "
-            "width; the plate carries more of the moment under the load, measured +18.5%"
+            "FlatEnd, OnLargestFlat(middle), Into: tip delta = Pa^2(3L-a)/(6EI) + Pa/(kGA) "
+            "with a = L/2, Timoshenko & Gere"
         ),
     ),
     Case(

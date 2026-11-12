@@ -22,8 +22,8 @@ from cases import (
 from cad.checks.container.regions import Bore, Disc, FarFrom, Patch, Plane, Region
 from cad.checks.container.terms import (
     Away,
-    EndOf,
     Facing,
+    FlatEnd,
     Holes,
     Into,
     LoadCase,
@@ -52,7 +52,7 @@ C_FRAME = cut(
 SOLIDS: dict[str, tuple[Solid, LoadCase]] = {
     "plate pressed in the middle": (
         box(SHELF_X, SHELF_Y, SHELF_T),
-        LoadCase(EndOf("middle"), OnLargestFlat(middle=True), Into()),
+        LoadCase(FlatEnd(), OnLargestFlat(middle=True), Into()),
     ),
     "clamp pried apart": (C_FRAME, LoadCase(Facing(), OnOpposite(middle=False), Into())),
     "hook pulled from its curl": (
