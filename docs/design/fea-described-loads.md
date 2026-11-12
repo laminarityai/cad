@@ -32,7 +32,7 @@ The six novice briefs:
 
 These were decided before this note:
 
-- The agent never decides whether a design is good, and nothing lets it place a load where it does least harm on a variant it has seen.
+- The agent never decides whether a design is good, and nothing lets it place a load where it does least harm on a variant whose stress result it has seen.
 - No per-revision face picking. Auto runs without a person step for each revision.
 - The person states intent and confirms targets, and the agent decides the rest.
 - By analogy with agent-written checks, what the agent authors is confirmed by the person, labelled and counted apart. The draft of this note also took their timing, so nothing new was written once a brief had variants. On 2026-11-11 the operator replaced that with the result rule, under which nothing new is written once the brief has a `fea` result.
