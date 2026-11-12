@@ -225,7 +225,7 @@ def auto_revise(tenant: Tenant, arguments: ReviseInput) -> RevisedRun:
                 material_key=running.start.material_key,
                 brief_id=brief_id,
             )
-            standing = standing_of(_settled(tenant, scored), revision, sha)
+            standing = standing_of(score_until_settled(tenant, scored), revision, sha)
             if isinstance(standing, Unsettled):
                 return RevisedRun(run_id=run_id, state=running, settling=True)
         else:
@@ -249,7 +249,9 @@ def auto_revise(tenant: Tenant, arguments: ReviseInput) -> RevisedRun:
     )
 
 
-def _settled(tenant: Tenant, scored: scorecards.ScoreVariantInput) -> material.ReportedScorecard:
+def score_until_settled(
+    tenant: Tenant, scored: scorecards.ScoreVariantInput
+) -> material.ReportedScorecard:
     """Score again while a check is pending, for up to `SETTLE_SECONDS`, so a revision records
     slow checks such as fea instead of leaving the agent to wait on them. Auto runs only in the
     web app's own chat, which sets no time limit on a tool call. A stop ends the wait, because
