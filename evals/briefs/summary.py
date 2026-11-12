@@ -48,6 +48,7 @@ class Overall(Frozen):
     traced: int
     strict_pass: Share
     coverage: Share
+    agent_coverage: Share
     median_confirmation_pages: float | None
     median_minutes_to_first_result: float | None
     cost_usd: float
@@ -76,6 +77,7 @@ def summarize(results: Sequence[BriefResult], missing: Sequence[str], model: str
         traced=sum(one.traced for one in traces),
         strict_pass=pooled([one.strict_pass for one in traces]),
         coverage=pooled([one.coverage for one in traces]),
+        agent_coverage=pooled([one.agent_coverage for one in traces]),
         median_confirmation_pages=statistics.median(pages) if pages else None,
         median_minutes_to_first_result=statistics.median(minutes) if minutes else None,
         cost_usd=sum(one.cost_usd or 0.0 for one in results),
@@ -94,6 +96,8 @@ def markdown(summary: Summary, missing: Sequence[str]) -> str:
         f"traced: {overall.traced}/{overall.briefs}",
         f"strict pass rate: {percent(overall.strict_pass)}",
         f"requirements covered by reviewed checks: {percent(overall.coverage)}",
+        "requirements covered by agent-written checks the person approved: "
+        f"{percent(overall.agent_coverage)}",
         f"confirmation pages per brief: median {_number(overall.median_confirmation_pages)}",
         f"minutes to first result: median {_number(overall.median_minutes_to_first_result)}",
         f"cost: ${overall.cost_usd:.2f}",

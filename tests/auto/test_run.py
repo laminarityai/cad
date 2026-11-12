@@ -319,7 +319,12 @@ async def test_a_revision_that_passes_every_checked_requirement_stops_the_run(
     done = await s.call("auto_revise", run_id=run_id, code=PLATE)
     while done["settling"]:
         done = await s.call("auto_revise", run_id=run_id, code=PLATE)
-    assert done["state"]["reason"] == {"kind": "all_pass", "researched": [], "unverified": []}
+    assert done["state"]["reason"] == {
+        "kind": "all_pass",
+        "researched": [],
+        "unverified": [],
+        "agent_checked": [],
+    }
     assert "Every checked requirement passes." in done["state"]["report"]
     assert s.meter.asked.count("build") == 1
     asked = list(s.meter.asked)

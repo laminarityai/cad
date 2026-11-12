@@ -1,6 +1,6 @@
 # Agent-written checks are frozen, gated and approved for one project
 
-Status: Accepted. The operator made every decision below on 2026-11-11. This ADR records them and supersedes ADR-0008. Built so far: `write_check` and its gates, the person's approval on the confirmation page, and the labelled verdict on the scorecard and in the web app. Not built yet: Auto counting these verdicts, the tracer's count of them, and rerunning stored checks when a team check changes.
+Status: Accepted. The operator made every decision below on 2026-11-11. This ADR records them and supersedes ADR-0008. Built so far: `write_check` and its gates, the person's approval on the confirmation page, the labelled verdict on the scorecard and in the web app, Auto counting these verdicts (a pass is the mark `pass_agent_check`, listed apart in the stop report, and a fail is revised against), and the tracer's count of them on a line of their own. Not built yet: rerunning stored checks when a team check changes.
 
 How "repeat and turn" holds in the code: on a scored variant, a container that runs only team code turns the part before any agent code sees it, so the agent's code never holds the motion. When the check is written, the probe shapes are turned inside the container that runs the agent's code. That catches code that depends on orientation by accident, and a determined agent could get around it, so the turn on the scored variant is the one that enforces the rule.
 

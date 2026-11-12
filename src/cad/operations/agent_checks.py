@@ -66,6 +66,19 @@ class CheckWritten(Frozen):
     next_step: str
 
 
+def approved_checks(roots: Roots, confirmed: ConfirmedSet) -> list[verdicts.Approved]:
+    """Each confirmed agent_limit whose check the person approved. A check that is declined, or
+    still waits on the person, decides nothing and is left out."""
+    project = briefs.read_brief(roots, confirmed.brief_id).project
+    return [
+        verdicts.Approved(requirement, requirement.target, stored)
+        for requirement in confirmed.requirements
+        if isinstance(requirement.target, AgentLimit)
+        and (stored := find(roots.projects, project, requirement.target.check_sha256))
+        and confirming.outcome(roots, project, stored) == "confirmed"
+    ]
+
+
 def with_agent_checks(
     card: ReportedScorecard,
     roots: Roots,
@@ -82,13 +95,7 @@ def with_agent_checks(
     if confirmed is None or not isinstance(basis, AgainstBrief):
         return card
     project = briefs.read_brief(roots, confirmed.brief_id).project
-    approved = [
-        verdicts.Approved(requirement, requirement.target, stored)
-        for requirement in confirmed.requirements
-        if isinstance(requirement.target, AgentLimit)
-        and (stored := find(roots.projects, project, requirement.target.check_sha256))
-        and confirming.outcome(roots, project, stored) == "confirmed"
-    ]
+    approved = approved_checks(roots, confirmed)
     if not approved:
         return card
     if run:

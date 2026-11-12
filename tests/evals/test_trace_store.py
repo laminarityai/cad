@@ -227,6 +227,7 @@ COUNTS = Tally(
     stale=0,
     unresolved=0,
     not_verified=0,
+    agent_checked=0,
 )
 
 
@@ -235,6 +236,7 @@ COUNTS = Tally(
     [
         (COUNTS, 0),
         (replace(COUNTS, numbers=4, not_verified=1), 0),
+        (replace(COUNTS, numbers=4, agent_checked=1), 0),
         (replace(COUNTS, cards=0), 1),
         (replace(COUNTS, numbers=0, resolved=0), 1),
         (replace(COUNTS, unreadable=1), 1),

@@ -58,4 +58,5 @@ def trace_session(home: Path, transcript: Path) -> Trace:
         agent_measurements=tuple(measured),
         strict_pass=_share(tracking.strict_pass_rate),
         coverage=_share(tracking.reviewed_coverage),
+        agent_coverage=_share(tracking.agent_coverage),
     )

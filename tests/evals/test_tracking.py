@@ -12,7 +12,7 @@ from tracking import (
     track,
 )
 
-from cad.checks.result import Comparator, ReadResearched, Verdict
+from cad.checks.result import ReadResearched, Verdict
 from cad.scorecard.model import (
     AgainstBrief,
     AgentChecked,
@@ -21,8 +21,8 @@ from cad.scorecard.model import (
     Unverified,
 )
 from cad.scorecard.waiting import Waiting
-from cad.tables.materials import UNITS
 from tests.support.cards import genuine_card
+from tests.support.scorecard import agent_checked
 
 RESEARCH = ReadResearched(field="density", url="https://example.com", quote="1.2", sha256="")
 
@@ -135,22 +135,7 @@ def test_no_requirement_no_check_decides_reads_none() -> None:
 
 
 def test_a_pass_by_an_agent_written_check_counts_apart_and_not_as_reviewed() -> None:
-    strain = UNITS.Quantity(0.75, "percent")
-    agent = AgentChecked(
-        requirement_id="strain",
-        statement="Snap arm strain is at most 2 %",
-        check_sha256="a" * 64,
-        title="Snap arm strain",
-        formula="k * h * y / l**2",
-        version="v",
-        verdict=Verdict.PASS,
-        reason="",
-        value=strain,
-        comparator=Comparator.AT_MOST,
-        limit=UNITS.Quantity(2, "percent"),
-        inputs=(),
-        pages=(),
-    )
+    agent = agent_checked("strain", Verdict.PASS)
     tracking = track(judged(checked("cited", Verdict.PASS), agent))
     assert tracking.reviewed_coverage == Ratio(1, 2)
     assert tracking.strict_pass_rate == Ratio(1, 2)

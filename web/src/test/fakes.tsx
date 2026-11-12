@@ -202,7 +202,7 @@ export function stoppedRun(runId: string, kind: StopReason["kind"], report: stri
   const reasons: {
     [K in StopReason["kind"]]: Extract<StopReason, { kind: K }>;
   } = {
-    all_pass: { kind: "all_pass", researched: [], unverified: [] },
+    all_pass: { kind: "all_pass", researched: [], unverified: [], agent_checked: [] },
     needs_person: {
       kind: "needs_person",
       why: "agent_asked",

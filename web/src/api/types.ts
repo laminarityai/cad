@@ -543,6 +543,8 @@ export interface components {
             kind: "all_pass";
             researched: string[];
             unverified: string[];
+            /** @default [] */
+            agent_checked: string[];
         };
         /** Along */
         Along: {
@@ -1164,7 +1166,7 @@ export interface components {
          * Mark
          * @enum {string}
          */
-        Mark: "pass" | "pass_researched" | "fail" | "unknown" | "unverified" | "awaits_person";
+        Mark: "pass" | "pass_researched" | "pass_agent_check" | "fail" | "unknown" | "unverified" | "awaits_person";
         Mass: {
             magnitude: number;
             unit: string;

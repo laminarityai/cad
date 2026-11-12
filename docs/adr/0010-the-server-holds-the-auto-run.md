@@ -10,7 +10,7 @@ The server holds each Auto run. The web backend runs the LLM turns and calls the
 
 A run stops in these cases:
 
-- **Every requirement passes.** The server decides this from the signed scorecards of the run. A revision counts only once its scorecard has no pending check, so a run never passes on a pending row. Only `Checked` rows count, so an agent measurement (ADR-0008) cannot make a run pass. A pass that rests on research counts, and the stop report says it "passes on researched data" (ADR-0009). An `Unverified` requirement counts as neither pass nor fail, and the stop report lists it. Otherwise a brief with an unchecked requirement could never end its run.
+- **Every requirement passes.** The server decides this from the signed scorecards of the run. A revision counts only once its scorecard has no pending check, so a run never passes on a pending row. Only `Checked` rows count, so an agent measurement (ADR-0008) cannot make a run pass. A pass that rests on research counts, and the stop report says it "passes on researched data" (ADR-0009). A pass of an agent-written check the person approved counts too, and the stop report lists it apart, labelled (ADR-0011). An `Unverified` requirement counts as neither pass nor fail, and the stop report lists it. Otherwise a brief with an unchecked requirement could never end its run.
 - **The agent needs the person.** The agent calls `auto_ask` with a note when it judges that it is stuck, or that it needs a decision only the person can make, such as which of two conflicting requirements to relax. The note says what the agent tried. The server also stops the run in three cases it can see itself. The operator decided on 2026-11-09 to keep all three:
   - A tool call under the run proposes requirements, because only the person can confirm them. Changing a requirement the person confirmed always means proposing a new one, so this case covers it too.
   - A scorecard row of the latest revision is waiting on the person's confirmation.
@@ -88,7 +88,7 @@ The agent calls `auto_start` when a scored option fails a requirement that the p
 - A stop holds the conversation (below).
 - Another conversation holds a running run on the brief (`RunNotHeld`, unchanged).
 
-A run revises only against `Checked` rows of the confirmed set. An assumption and a target that waits for Confirm are never in a run's basis.
+A run revises only against `Checked` rows of the confirmed set, and the `AgentChecked` rows of agent-written checks the person approved (ADR-0011). An assumption and a target that waits for Confirm are never in a run's basis.
 
 `auto_start` reads the brief three times, outside the lock: the proposal watermark, then whether a proposal waits, then the confirmed set. The order matters. A proposal that lands after the watermark stops the run at its first gate. If the pending check came first, a proposal between the two reads would sit inside the watermark under a running run. If the confirmed set came first, a proposal confirmed before the pending check would change the decision under the run.
 

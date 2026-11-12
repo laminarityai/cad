@@ -53,6 +53,7 @@ def a_trace(**changes: object) -> Trace:
         agent_measurements=(),
         strict_pass=Share(numerator=1, denominator=2),
         coverage=Share(numerator=2, denominator=2),
+        agent_coverage=Share(numerator=0, denominator=2),
     )
     return base.model_copy(update=changes)
 
@@ -212,6 +213,7 @@ def test_the_summary_pools_requirements_and_names_untraced_numbers() -> None:
                 untraced=("v1: mass.volume = 3: Stale old",),
                 strict_pass=Share(numerator=0, denominator=4),
                 coverage=Share(numerator=1, denominator=4),
+                agent_coverage=Share(numerator=2, denominator=4),
             ),
         ),
         a_result("c", None, status="session_failed", note="timed out"),
@@ -225,7 +227,10 @@ def test_the_summary_pools_requirements_and_names_untraced_numbers() -> None:
     )
     assert summary.overall.strict_pass == Share(numerator=1, denominator=6)
     assert summary.overall.coverage == Share(numerator=3, denominator=6)
+    assert summary.overall.agent_coverage == Share(numerator=2, denominator=6)
     text = markdown(summary, ["d"])
+    assert "requirements covered by reviewed checks: 3/6 (50%)" in text
+    assert "requirements covered by agent-written checks the person approved: 2/6 (33%)" in text
     assert "v1: mass.volume = 3: Stale old" in text
     assert "SESSION FAILED: timed out" in text
     assert "| d | - | not run" in text

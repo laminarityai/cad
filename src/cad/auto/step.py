@@ -24,15 +24,25 @@ from cad.auto.model import (
     Unsettled,
 )
 from cad.checks.result import Verdict
-from cad.scorecard.model import AgainstBrief, AgentChecked, Checked, Scorecard, Unverified
+from cad.scorecard.model import (
+    AGENT_CHECK,
+    AgainstBrief,
+    AgentChecked,
+    Checked,
+    Scorecard,
+    Unverified,
+)
 from cad.scorecard.requirements import UNCONFIRMED_PART
 from cad.scorecard.waiting import Waiting
 
 NO_STATEMENTS: Final[Mapping[str, str]] = MappingProxyType({})
-PASSING: Final = frozenset({Mark.PASS, Mark.PASS_RESEARCHED, Mark.UNVERIFIED})
+PASSING: Final = frozenset(
+    {Mark.PASS, Mark.PASS_RESEARCHED, Mark.PASS_AGENT_CHECK, Mark.UNVERIFIED}
+)
 WORDS: Final = {
     Mark.PASS: "passes",
     Mark.PASS_RESEARCHED: "passes on researched data",
+    Mark.PASS_AGENT_CHECK: f"passes the {AGENT_CHECK}",
     Mark.FAIL: "fails",
     Mark.UNKNOWN: "unknown: the check could not decide, and it is not a pass",
     Mark.UNVERIFIED: "not checked: no check covers it, so it is neither pass nor fail",
@@ -55,8 +65,7 @@ def standing_of(card: Scorecard, revision: int, code_sha256: str) -> Standing | 
             case Unverified():
                 marks.append((row.requirement_id, Mark.UNVERIFIED))
             case AgentChecked():
-                # Auto does not yet revise against an agent-written check (ADR-0011).
-                marks.append((row.requirement_id, Mark.UNVERIFIED))
+                marks.append((row.requirement_id, _agent_mark(row)))
             case Waiting():
                 return Unsettled()
             case _:
@@ -78,6 +87,16 @@ def _mark(row: Checked) -> Mark:
             return Mark.FAIL
         case Verdict.UNKNOWN:
             return Mark.AWAITS_PERSON if row.reason == UNCONFIRMED_PART else Mark.UNKNOWN
+
+
+def _agent_mark(row: AgentChecked) -> Mark:
+    match row.verdict:
+        case Verdict.PASS:
+            return Mark.PASS_AGENT_CHECK
+        case Verdict.FAIL:
+            return Mark.FAIL
+        case Verdict.UNKNOWN:
+            return Mark.UNKNOWN
 
 
 def fold(events: Sequence[Event]) -> AutoState:
@@ -124,6 +143,7 @@ def _revised(state: Running, standing: Standing) -> AutoState:
             state,
             AllPass(
                 researched=_ids(standing, Mark.PASS_RESEARCHED),
+                agent_checked=_ids(standing, Mark.PASS_AGENT_CHECK),
                 unverified=_ids(standing, Mark.UNVERIFIED),
             ),
         )
@@ -170,6 +190,8 @@ def _reason(reason: StopReason, named: Callable[[Sequence[str]], str]) -> str:
             line = "Every checked requirement passes."
             if reason.researched:
                 line += f" These pass on researched data: {named(reason.researched)}."
+            if reason.agent_checked:
+                line += f" These pass an {AGENT_CHECK}: {named(reason.agent_checked)}."
             if reason.unverified:
                 line += (
                     " No check covers these, so they count as neither pass nor fail: "

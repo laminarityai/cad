@@ -28,6 +28,7 @@ from cad.scorecard import assumed
 from cad.scorecard.material import MaterialUse, ReportedScorecard, SetByAgent
 from cad.scorecard.model import (
     AgainstBrief,
+    AgentChecked,
     AgentMeasurement,
     Checked,
     PendingCheck,
@@ -37,7 +38,7 @@ from cad.scorecard.model import (
 )
 from cad.scorecard.requirements import UNCONFIRMED_PART
 from cad.scorecard.waiting import Waiting
-from tests.support.scorecard import TARGET
+from tests.support.scorecard import TARGET, agent_checked
 
 START: Final = Started(
     conversation=ConversationId("c1"),
@@ -90,6 +91,9 @@ def card(
             unverified_requirements=tuple(
                 r.requirement_id for r in rows if isinstance(r, Unverified)
             ),
+            agent_checked_requirements=tuple(
+                r.requirement_id for r in rows if isinstance(r, AgentChecked)
+            ),
         ),
         not_verified=agent,
     )
@@ -117,6 +121,12 @@ PASS, FAIL, UNKNOWN = Verdict.PASS, Verdict.FAIL, Verdict.UNKNOWN
             AllPass(researched=("r2",), unverified=()),
         ),
         ((checked("r1", PASS), unverified("r2")), AllPass(researched=(), unverified=("r2",))),
+        (
+            (checked("r1", PASS), agent_checked("r2", PASS), unverified("r3")),
+            AllPass(researched=(), unverified=("r3",), agent_checked=("r2",)),
+        ),
+        ((checked("r1", PASS), agent_checked("r2", FAIL)), None),
+        ((checked("r1", PASS), agent_checked("r2", UNKNOWN)), None),
         ((checked("r1", PASS), checked("r2", FAIL)), None),
         ((checked("r1", PASS), checked("r2", UNKNOWN, "no measure")), None),
         ((unverified("r1"), checked("r2", FAIL)), None),
@@ -133,7 +143,9 @@ def test_a_settled_revision_stops_the_run_only_by_the_table(
     if reason is None:
         assert isinstance(state, Running)
         assert state.failing == tuple(
-            r.requirement_id for r in rows if isinstance(r, Checked) and r.verdict is not PASS
+            r.requirement_id
+            for r in rows
+            if isinstance(r, Checked | AgentChecked) and r.verdict is not PASS
         )
     else:
         assert isinstance(state, Stopped)
@@ -165,6 +177,17 @@ def test_the_report_labels_research_and_lists_the_unverified() -> None:
     assert "- requirement r1: passes on researched data" in state.report
     assert "neither pass nor fail: r2" in state.report
     assert "Revisions tried: 1" in state.report
+
+
+def test_the_report_lists_an_agent_check_pass_apart_with_its_label() -> None:
+    rows = (checked("r1", PASS), agent_checked("r2", PASS))
+    state = run(Revised(standing=settle(card(*rows))))
+    assert isinstance(state, Stopped)
+    assert "- requirement r2: passes the agent-written check you approved" in state.report
+    assert "These pass an agent-written check you approved, not reviewed by our team: r2." in (
+        state.report
+    )
+    assert "r1" not in state.reason.model_dump()["agent_checked"]
 
 
 def test_the_persons_report_names_each_requirement_by_its_statement() -> None:

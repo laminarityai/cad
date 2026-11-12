@@ -2,15 +2,22 @@
 decides: what the agent_checks tests write, gate and score."""
 
 from collections.abc import Mapping
+from datetime import UTC, date, datetime
 from typing import Any, Final
 
 from pydantic import TypeAdapter
 
 from cad.agent_checks.model import CheckDraft
+from cad.agent_checks.store import StoredCheck
+from cad.agent_checks.write import write_check
 from cad.briefs import store
 from cad.briefs.model import Target
 from cad.briefs.origins import FileQuote
-from cad.briefs.store import Draft
+from cad.briefs.store import ConfirmedSet, Draft
+from cad.confirmations import agent_checks as confirming
+from cad.confirmations import answers
+from cad.confirmations.answers import ItemAnswer, PageAnswer
+from cad.context_parts.model import Outcome
 from cad.projects.model import new_project_id
 from cad.records.roots import Roots
 from cad.research.fetch import FetchFailed, Page
@@ -113,3 +120,32 @@ def unchecked_brief(roots: Roots, *, from_a_file: bool = False) -> tuple[str, st
     proposed = store.propose(roots, brief.id, [Draft(UNCHECKED, STRAIN, cited)])
     [requirement] = proposed.requirements
     return brief.id, requirement.id
+
+
+def write(roots: Roots) -> tuple[str, StoredCheck]:
+    brief_id, requirement_id = unchecked_brief(roots)
+    stored = write_check(
+        roots,
+        brief_id,
+        requirement_id,
+        snap_fit(),
+        fetcher=fetching(),
+        today=lambda: date(2026, 11, 12),
+    )
+    return brief_id, stored
+
+
+def answer(roots: Roots, brief_id: str, stored: StoredCheck, check: Outcome) -> ConfirmedSet:
+    """The person confirms the requirements on the page and answers the check with `check`."""
+    store.propose(roots, brief_id, [agent_limit(stored.sha256)])
+    state = store.read_state(roots, brief_id)
+    project = state.brief.project
+    assert confirming.AgentChecks(roots).pending(project) == (confirming.ref(project, stored),)
+    items = [ItemAnswer(item=state.proposals[-1].ref, verdict="confirmed")]
+    if check != "waiting":
+        items.append(ItemAnswer(item=confirming.ref(project, stored), verdict=check))
+    page = PageAnswer(project=project, answers=tuple(items), decided_at=datetime.now(UTC))
+    assert answers.append_answer(roots.projects, project, page)
+    confirmed = store.confirmed_requirements(roots, brief_id)
+    assert confirmed is not None
+    return confirmed
