@@ -14,8 +14,8 @@ from cad.briefs.model import deciding_check, limits
 from cad.briefs.words import NO_NAMES, describe_target
 from cad.checks.result import CheckResult, Measured
 from cad.frozen import Frozen
-from cad.scorecard.model import PendingCheck
 from cad.scorecard.requirements import instance, result_of
+from cad.scorecard.unjudged import MeasureOnly, Reported
 
 
 class AssumedValue(Frozen):
@@ -27,7 +27,7 @@ class AssumedValue(Frozen):
 class AssumedRow(Frozen):
     """The agent filled in this value. The measure of the deciding check is beside it, and it is
     never graded. `instance` names the result of `check_id` that read the assumed load, which is
-    a measure under the agent's own number and never a passed check."""
+    reported as a `MeasureOnly` with no verdict."""
 
     kind: Literal["assumed"] = "assumed"
     label: Literal["assumed by the agent, no verdict"] = "assumed by the agent, no verdict"
@@ -40,7 +40,7 @@ class AssumedRow(Frozen):
 
 def rows(
     assumptions: Sequence[Assumption],
-    results: Sequence[CheckResult | PendingCheck],
+    results: Sequence[Reported],
     names: Mapping[str, str] = NO_NAMES,
 ) -> tuple[AssumedRow, ...]:
     return tuple(_row(one, results, names) for one in assumptions)
@@ -48,7 +48,7 @@ def rows(
 
 def _row(
     assumption: Assumption,
-    results: Sequence[CheckResult | PendingCheck],
+    results: Sequence[Reported],
     names: Mapping[str, str],
 ) -> AssumedRow:
     target = assumption.target
@@ -57,7 +57,7 @@ def _row(
         raise ValueError("an assumption names a target that a check decides")
     reads = instance(target)
     result = result_of(results, check_id, reads)
-    measures = result.measured if isinstance(result, CheckResult) else ()
+    measures = result.measured if isinstance(result, CheckResult | MeasureOnly) else ()
     found = {one.name: one.value for one in measures}
     return AssumedRow(
         statement=describe_target(target, names),

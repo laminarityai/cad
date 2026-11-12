@@ -129,7 +129,6 @@ ignore_imports = [
     "cad.sandbox.host -> cad.variants.entry",
     # These go when PendingCheck moves next to CheckResult in checks.result and MaterialPinned
     # moves into variant_sets.
-    "cad.research.requests -> cad.scorecard.model",
     "cad.variant_sets.placement -> cad.scorecard.material",
     # This goes when person_said moves out of the chat log, or briefs.source into operations.
     "cad.briefs.source -> cad.chat.log",

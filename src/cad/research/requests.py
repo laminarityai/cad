@@ -1,15 +1,19 @@
 from collections.abc import Iterable, Sequence
-from typing import Final
+from typing import Final, Protocol
 
-from cad.checks.result import CheckResult, ReadMissing
+from cad.checks.result import Read, ReadMissing
 from cad.frozen import Frozen
 from cad.research.overlay import Dropped
-from cad.scorecard.model import PendingCheck
 from cad.tables.fields import FIELDS, Field
 from cad.tables.materials import MaterialsTable, Unknown, row_or_blank
 
 SUBMIT: Final = "submit_research"
 RESCORE: Final = "Then call score_variant again."
+
+
+class Reading(Protocol):
+    @property
+    def reads(self) -> tuple[Read, ...]: ...
 
 
 class ResearchRequest(Frozen):
@@ -67,7 +71,7 @@ def request_for(
 
 
 def requests_on(
-    results: Iterable[CheckResult | PendingCheck],
+    results: Iterable[Reading],
     material_key: str,
     table: MaterialsTable,
     brief_id: str | None,

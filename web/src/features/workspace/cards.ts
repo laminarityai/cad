@@ -1,6 +1,6 @@
 import { useServices } from "@/app/context";
 import { useResources } from "@/state/resource";
-import { restore, type DoneCheck, type RunningCheck, type Scorecard } from "@/api/snapshot";
+import { restore, type DoneCheck, type ResultLine, type RunningCheck, type Scorecard } from "@/api/snapshot";
 import type { Source } from "@/api/types";
 
 const POLL_MS = 1500;
@@ -64,7 +64,8 @@ const CHECK_NAMES: Record<string, string> = {
   holes: "Holes",
 };
 
-const isRunning = (one: DoneCheck | RunningCheck): one is RunningCheck => "kind" in one;
+const isRunning = (one: ResultLine): one is RunningCheck => "kind" in one && one.kind === "pending";
+const isDone = (one: ResultLine): one is DoneCheck => !("kind" in one);
 
 function num(magnitude: number): string {
   return String(Number(magnitude.toPrecision(3)));
@@ -101,7 +102,7 @@ function statusOf(verdict: string, researched: boolean): Status {
 
 export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
   const results = snapshot.results;
-  const done = (id: string) => results.find((one): one is DoneCheck => !isRunning(one) && one.check_id === id);
+  const done = (id: string) => results.find((one): one is DoneCheck => isDone(one) && one.check_id === id);
   const running = (id: string) => results.some((one) => isRunning(one) && one.check_id === id);
   const asked: Line[] = [];
   const covered = new Set<string>();
@@ -146,14 +147,10 @@ export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
       });
     }
   }
-  // A result that read a load the agent assumed, or one the person stated and has not confirmed, is
-  // a measure and no verdict. Its row shows it, so it is never listed as a check that passed.
-  const underAssumed = new Set(
-    [...snapshot.assumptions, ...snapshot.awaiting].filter((one) => one.instance !== "").map((one) => `${one.check_id}:${one.instance}`),
-  );
+  // A result with no verdict read a load nobody confirmed. Its assumed or awaiting row shows its measure.
   const also: Line[] = results
     .filter((one) => !covered.has(one.check_id))
-    .filter((one) => !underAssumed.has(`${one.check_id}:${one.instance}`))
+    .filter((one): one is DoneCheck | RunningCheck => isDone(one) || isRunning(one))
     .map((one) => {
       const label = CHECK_NAMES[one.check_id] ?? one.check_id.replace(/_/g, " ");
       if (isRunning(one))

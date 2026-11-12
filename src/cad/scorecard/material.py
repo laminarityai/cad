@@ -14,6 +14,7 @@ from cad.research.requests import ResearchRequest
 from cad.scorecard.assumed import AssumedRow
 from cad.scorecard.awaiting import AwaitingRow
 from cad.scorecard.model import Scorecard
+from cad.scorecard.unjudged import Reported
 from cad.tables.materials import PROJECT_PREFIX, MaterialsTable
 from cad.variant_sets.model import MaterialChoice
 
@@ -58,8 +59,12 @@ class ReportedScorecard(Scorecard):
     says why the project's researched values cannot be read; while it is set, no request is
     made, because no answer could be stored. `assumptions` lists the values the agent filled in,
     each beside its measure and none with a verdict. `awaiting` lists each stated target that waits
-    for the person's Confirm, beside its measure and with no verdict."""
+    for the person's Confirm, beside its measure and with no verdict. A result under a load that
+    only those read, and no confirmed target, is in `results` as a `MeasureOnly`, with no
+    verdict."""
 
+    # The card is frozen, so widening its results cannot put a MeasureOnly into a stored card.
+    results: tuple[Reported, ...]  # pyright: ignore[reportIncompatibleVariableOverride]
     material: MaterialUse
     assumptions: tuple[AssumedRow, ...] = Field(default=(), exclude_if=lambda one: not one)
     awaiting: tuple[AwaitingRow, ...] = Field(default=(), exclude_if=lambda one: not one)

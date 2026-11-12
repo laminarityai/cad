@@ -482,7 +482,7 @@ export interface components {
          * AssumedRow
          * @description The agent filled in this value. The measure of the deciding check is beside it, and it is
          *     never graded. `instance` names the result of `check_id` that read the assumed load, which is
-         *     a measure under the agent's own number and never a passed check.
+         *     reported as a `MeasureOnly` with no verdict.
          */
         AssumedRow: {
             /**
@@ -537,8 +537,8 @@ export interface components {
         /**
          * AwaitingRow
          * @description The person stated this target and has not confirmed it, so it is not judged. `instance`
-         *     names the result of `check_id` that read its load, which is a measure and never a passed
-         *     check.
+         *     names the result of `check_id` that read its load, which the card reports as a `MeasureOnly`
+         *     with no verdict.
          */
         AwaitingRow: {
             /**
@@ -1071,6 +1071,34 @@ export interface components {
                 unit: string;
             };
         };
+        /**
+         * MeasureOnly
+         * @description A check result under a load nobody confirmed: its measures, formula and sources, and no
+         *     verdict. The awaiting or assumed row with the same `check_id` and `instance` sets its measure
+         *     beside the stated or assumed value.
+         */
+        MeasureOnly: {
+            /**
+             * @default measure_only
+             * @constant
+             */
+            kind: "measure_only";
+            /**
+             * @default measured under a load you have not confirmed, no verdict
+             * @constant
+             */
+            label: "measured under a load you have not confirmed, no verdict";
+            check_id: string;
+            measured: components["schemas"]["Measure"][];
+            formula: string;
+            reason: string;
+            sources: components["schemas"]["Source"][];
+            version: string;
+            /** @default  */
+            instance?: string;
+            /** @default [] */
+            reads?: components["schemas"]["cad__checks__result__Read"][];
+        };
         Measured: components["schemas"]["QuantityJson"];
         /** MemberView */
         MemberView: {
@@ -1332,6 +1360,7 @@ export interface components {
             quote: string;
             sha256: string;
         };
+        Reported: components["schemas"]["CheckResult"] | components["schemas"]["PendingCheck"] | components["schemas"]["MeasureOnly"];
         RequiredCount: number;
         /** Requirement */
         Requirement: {
@@ -1397,7 +1426,7 @@ export interface components {
             check_image_digest: string;
             brep_sha256: string;
             step: components["schemas"]["Step"];
-            results: (components["schemas"]["CheckResult"] | components["schemas"]["PendingCheck"])[];
+            results: components["schemas"]["Reported"][];
             /** @default [] */
             pending: string[];
             basis: components["schemas"]["Basis"];
@@ -1922,6 +1951,7 @@ export type MaxDeflection = components['schemas']['MaxDeflection'];
 export type MaxMass = components['schemas']['MaxMass'];
 export type Measure = components['schemas']['Measure'];
 export type MeasureLimit = components['schemas']['MeasureLimit'];
+export type MeasureOnly = components['schemas']['MeasureOnly'];
 export type Measured = components['schemas']['Measured'];
 export type MemberView = components['schemas']['MemberView'];
 export type MessageSent = components['schemas']['MessageSent'];
@@ -1949,6 +1979,7 @@ export type QuantityJson = components['schemas']['QuantityJson'];
 export type ReadCited = components['schemas']['ReadCited'];
 export type ReadMissing = components['schemas']['ReadMissing'];
 export type ReadResearched = components['schemas']['ReadResearched'];
+export type Reported = components['schemas']['Reported'];
 export type RequiredCount = components['schemas']['RequiredCount'];
 export type Requirement = components['schemas']['Requirement'];
 export type RequirementResult = components['schemas']['RequirementResult'];
