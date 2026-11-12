@@ -7,7 +7,7 @@ The viewer tools feature turns on measuring, sectioning and exploding in the 3D 
 The evidence comes from a prototype run on 2026-11-12. The run flipped the library flags locally and drove the workspace in headless Chromium against an L bracket with two 5.5 mm holes and a 6 mm fillet. The design note [viewer-tools.md](../design/viewer-tools.md) has the numbers and the screenshots. Three findings shaped the decision:
 
 - The library's mesh numbers are close to the kernel's. They are exact for planes and straight edges. A circle edge's length came out 0.16% to 0.41% short. The library gives no radius for a cylinder face.
-- With the library's measure tools on, its hover line showed numbers such as "plane: area ≈ 1692.50" under the part, with nothing to say that no check measured them ([screenshot](../review/viewer-tools-library-distance.png)).
+- The library's hover line showed numbers such as "plane: area ≈ 1692.50" under the part, with nothing to say that no check measured them ([screenshot](../review/viewer-tools-library-distance.png)). The line does not depend on the measure flag. The app on `main` already draws it, half hidden behind the pick hint ([screenshot from the selection PR](../review/select-1-face.png)).
 - A selection sends face and edge indices only. The server resolves them against the stored topology, signs a selection record, and the agent reads exact kernel numbers for it with `read_selection`. No number travels from the browser.
 
 ## The decision
@@ -58,7 +58,7 @@ The cost: the mesh box and the check's box come from different code. On the brac
 - **ADR-0011** holds. A check the agent writes and the person approves may one day measure a gap the person points at. It would read the geometry with its own code, never the browser's number.
 - The guidance in `src/cad/operations/guidance.py` does not change. The agent still states only the numbers a check returned.
 - The readout and the agent can show different numbers for one selection. For two picks, the agent has no number at all. The design note keeps the readout's wording close to what `read_selection` returns, so the two read alike.
-- The library's own measure tools stay off. The library's measure flag also turns on its unlabelled hover line, so that flag stays off as well. The readout reads the library's mesh backend directly.
+- The library's own measure tools stay off. The readout reads the library's mesh backend directly. The app hides the library's hover line, which shows unlabelled numbers on `main` today.
 
 ## Considered options
 
