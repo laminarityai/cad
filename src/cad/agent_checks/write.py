@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from datetime import UTC, date, datetime
 
-from cad.agent_checks import example, gates, store
+from cad.agent_checks import example, gates, probes, store
 from cad.agent_checks.model import AgentCheck, CheckDraft
 from cad.agent_checks.store import CheckRefused, StoredCheck
 from cad.briefs import store as briefs
@@ -31,6 +31,7 @@ def write_check(
     pages = example.Pages(fetcher or fetch_source, today)
     cited = _passed(example.sources(draft, pages))
     worked = _passed(example.worked_example(draft, shaped, cited, pages))
+    _refuse(probes.repeat_and_turn(draft, shaped))
     check = AgentCheck(
         project=project,
         brief_id=brief_id,

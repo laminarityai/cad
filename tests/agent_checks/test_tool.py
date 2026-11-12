@@ -13,7 +13,7 @@ from tests.support.agent_checks import fetching, snap_fit
 if TYPE_CHECKING:
     from tests.support.session import Session
 
-pytestmark = pytest.mark.anyio
+pytestmark = [pytest.mark.anyio, pytest.mark.usefixtures("no_sandbox")]
 
 STRAIN = {
     "target": {"kind": "unchecked", "statement": "the arm flexes at most 2% strain"},

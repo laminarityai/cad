@@ -4,7 +4,8 @@ from typing import Annotated, Final
 
 from pydantic import Field
 
-from cad.agent_measurements import run as own
+from cad.agent_checks import harness, own
+from cad.agent_checks.model import MAX_CODE_CHARS, UNITS
 from cad.auto.gate import gate, stops_at_the_limit
 from cad.briefs import assumptions as assuming
 from cad.briefs import store as briefs
@@ -34,10 +35,10 @@ type MaterialKey = Annotated[
 OWN_MEASUREMENTS = (
     "For a confirmed requirement of kind unchecked, you may pass own_measurements: up to "
     f"{own.MAX_SNIPPETS} entries, each a requirement_id, a short title and build123d Python code "
-    f"of at most {own.MAX_CODE_CHARS // 1024} KiB. The code sees `part`, the scored shape, and "
+    f"of at most {MAX_CODE_CHARS // 1024} KiB. The code sees `part`, the scored shape, and "
     "calls report(name, value, unit) with a name of lowercase letters, digits and underscores, "
-    f"a finite number and a unit of {', '.join(own.UNIT_NAMES)}. It runs in the build sandbox "
-    f"after the checks, all entries in one run of at most {own.WALL_SECONDS} seconds. Each entry "
+    f"a finite number and a unit of {', '.join(UNITS)}. It runs in the build sandbox after "
+    f"the checks, all entries in one run of at most {harness.WALL_SECONDS} seconds. Each entry "
     'becomes a not_verified row labelled "agent\'s own measurement, not verified": its values, '
     "or failed with the reason. The row has no verdict, its requirement stays in "
     "unverified_requirements, and no check or requirement reads it. own_measurements without a "

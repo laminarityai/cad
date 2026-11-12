@@ -27,8 +27,16 @@ GUIDE_TEXT: Final = (
 EXAMPLE_QUOTE: Final = (
     "a beam of thickness 2 mm and length 20 mm, deflected 1 mm, reaches a strain of 0.75 %"
 )
-# Reports the arm's thickness, length and deflection from the stored part.
+# Reports the arm's thickness, length and deflection from its edge lengths, which turning and
+# moving the part leaves alone.
 GEOMETRY: Final = """
+lengths = sorted(edge.length for edge in part.edges())
+report("h", lengths[0], "mm")
+report("l", lengths[-1], "mm")
+report("y", lengths[0] / 2, "mm")
+"""
+# The same from the axis-aligned bounding box, which turning the part changes.
+BOUNDING_BOX: Final = """
 box = part.bounding_box()
 report("h", box.size.Z, "mm")
 report("l", box.size.X, "mm")

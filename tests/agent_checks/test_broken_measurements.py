@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from cad.agent_measurements import run
+from cad.agent_checks import harness
 from tests.support.holed_plate import confirmed, own
 
 if TYPE_CHECKING:
@@ -36,7 +36,7 @@ async def test_a_broken_measurement_fails_with_its_reason_and_no_value(
 async def test_a_measurement_that_never_ends_is_stopped_at_the_wall_limit(
     s: Session, person: Person, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(run, "WALL_SECONDS", 5)
+    monkeypatch.setattr(harness, "WALL_SECONDS", 5)
     assert "timed out after 5 s" in await failed_measurement(s, person, "while True:\n    pass")
 
 

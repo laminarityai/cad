@@ -84,7 +84,7 @@ layers = [
     "chat",
     "operations",
     "uploads",
-    "confirmations | selections | agent_measurements",
+    "confirmations | selections",
     "auto | accounts",
     "agent_checks",
     "scorecard",
@@ -153,5 +153,4 @@ pythonpath = [
     "tests/evals",
     "tests/checks",
     "tests/fea",
-    "tests/agent_measurements",
 ]

@@ -30,6 +30,8 @@ from tests.support.agent_checks import (
     unchecked_brief,
 )
 
+pytestmark = pytest.mark.usefixtures("no_sandbox")
+
 
 def project_of(roots: Roots, brief_id: str) -> ProjectId:
     return briefs.read_brief(roots, brief_id).project
