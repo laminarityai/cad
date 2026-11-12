@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Final
 
 from cad.geometry.exports import job, store
-from cad.geometry.exports.model import ExportPending, ExportRead
+from cad.geometry.exports.model import Exported, ExportFailed, ExportPending, ExportRead
 from cad.geometry.flights import Flights
 from cad.variants.entry import Entry
 
@@ -17,7 +17,7 @@ class Exports:
 
     def __init__(self, run: Run = job.export) -> None:
         self._run = run
-        self._flights = Flights[job.Ran]("cad-export")
+        self._flights = Flights[Exported | ExportFailed]("cad-export")
 
     def read(self, root: Path, held: Entry, wait_seconds: float = 0.0) -> ExportRead:
         """The stored record, or the outcome of a job started for it that ends within
@@ -26,20 +26,25 @@ class Exports:
         if stored is not None:
             return stored
         try:
-            return self._take_off(root, held).result(timeout=wait_seconds).read
+            return self._take_off(root, held).result(timeout=wait_seconds)
         except TimeoutError:
             return ExportPending(brep_sha256=held.brep_sha256)
 
-    def _take_off(self, root: Path, held: Entry) -> Future[job.Ran]:
+    def _take_off(self, root: Path, held: Entry) -> Future[Exported | ExportFailed]:
         return self._flights.take_off(
             store.path(root, held.brep_sha256, "json"), lambda: self._export(root, held)
         )
 
-    def _export(self, root: Path, held: Entry) -> job.Ran:
+    def _export(self, root: Path, held: Entry) -> Exported | ExportFailed:
+        # A read that found nothing stored can take off just after the last job stored its record
+        # and landed, so the flight looks again before it runs a job.
+        stored = store.read(root, held.brep_sha256)
+        if stored is not None:
+            return stored
         outcome = self._run(held.brep, held.brep_sha256)
         if outcome.lasting:
             store.write(root, outcome)
-        return outcome
+        return outcome.read
 
 
 EXPORTS: Final = Exports()

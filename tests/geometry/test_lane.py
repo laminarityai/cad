@@ -7,7 +7,7 @@ import pytest
 
 from cad.geometry import job, store
 from cad.geometry.lane import Tessellations
-from cad.geometry.model import TessellationFailed, TessellationPending
+from cad.geometry.model import Tessellated, TessellationFailed, TessellationPending
 from cad.sandbox.meter import Kind, Reservation, charged, metered
 from cad.sandbox.outcome import SandboxUnavailable
 from cad.variants.entry import Entry, VariantId
@@ -40,6 +40,23 @@ def test_a_read_while_the_job_runs_is_pending_and_starts_no_second_job(tmp_path:
     assert lanes.read(tmp_path, HELD) == TessellationPending(brep_sha256=SHA)
     assert lanes.read(tmp_path, HELD) == TessellationPending(brep_sha256=SHA)
     run.gate.set()
+    assert lanes.read(tmp_path, HELD, wait_seconds=5) == run.ran.read
+    assert run.calls == 1
+
+
+def test_a_read_that_missed_the_mesh_just_before_the_job_stored_it_starts_no_second_job(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run = Gated(failed("unreadable", lasting=True))
+    run.gate.set()
+    lanes = Tessellations(run)
+    assert lanes.read(tmp_path, HELD, wait_seconds=5) == run.ran.read
+    real, missed = store.read, [None]
+
+    def misses_once(root: Path, brep_sha256: str) -> Tessellated | TessellationFailed | None:
+        return missed.pop() if missed else real(root, brep_sha256)
+
+    monkeypatch.setattr(store, "read", misses_once)
     assert lanes.read(tmp_path, HELD, wait_seconds=5) == run.ran.read
     assert run.calls == 1
 

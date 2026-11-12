@@ -67,6 +67,23 @@ def test_a_read_while_the_job_runs_is_pending_and_starts_no_second_job_then_it_i
     ]
 
 
+def test_a_read_that_missed_the_record_just_before_the_job_stored_it_starts_no_second_job(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    run = Gated(made())
+    run.gate.set()
+    lane = Exports(run)
+    assert lane.read(tmp_path, HELD, wait_seconds=5) == EXPORTED
+    real, missed = store.read, [None]
+
+    def misses_once(root: Path, brep_sha256: str) -> Exported | ExportFailed | None:
+        return missed.pop() if missed else real(root, brep_sha256)
+
+    monkeypatch.setattr(store, "read", misses_once)
+    assert lane.read(tmp_path, HELD, wait_seconds=5) == EXPORTED
+    assert run.calls == 1
+
+
 def test_a_stored_export_is_read_with_no_job(tmp_path: Path) -> None:
     run = Gated(made())
     run.gate.set()
