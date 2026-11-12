@@ -1,6 +1,6 @@
 # Agent-written checks are frozen, gated and approved for one project
 
-Status: Proposed. The operator made every decision below on 2026-11-11. This ADR records them and supersedes ADR-0008. The operator has not yet approved its text. None of it is built yet.
+Status: Accepted. The operator made every decision below on 2026-11-11. This ADR records them and supersedes ADR-0008. None of it is built yet.
 
 Most requirements a novice writes have no check, so most scorecards say "not checked" (#49). On the brief-set run of 2026-11-08, reviewed checks covered 56 of 103 requirements. ADR-0008 ruled that nothing the agent writes decides a requirement, because gates on reference shapes could not tell an honest geometry check from one written to flatter the agent's designs. On 2026-11-11 the operator reversed that ruling: agent-written checks get built, gated, and reviewed for each project by the person, labelled and counted apart. This ADR records how. ADR-0008's finding still stands. No gate tells an honest geometry measure from a flattering one, and this design does not claim to.
 
