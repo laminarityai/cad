@@ -47,43 +47,50 @@ The placement is its own record, not a new kind of `AgentCheck`. Adding a `kind`
 # src/cad/agent_checks/placement.py, on the host.
 MAX_PLACEMENTS_PER_BRIEF: Final = 4
 
+
 class PlacementDraft(Frozen):
-	brief_id: str
-	account: str
-	"""The agent's words for where the part is held and loaded. The page shows them as the
-	agent's words, beside the words the server writes."""
-	code: Annotated[str, Field(min_length=1, max_length=MAX_CODE_CHARS)]
-	"""build123d. Defines `place(part)`, which calls `candidate(support=..., load=...)`."""
-	probe: Annotated[str, Field(min_length=1, max_length=MAX_CODE_CHARS)]
-	"""build123d code for one sample shape, as `CheckDraft.probe`."""
+    brief_id: str
+    account: str
+    """The agent's words for where the part is held and loaded. The page shows them as the
+    agent's words, beside the words the server writes."""
+    code: Annotated[str, Field(min_length=1, max_length=MAX_CODE_CHARS)]
+    """build123d. Defines `place(part)`, which calls `candidate(support=..., load=...)`."""
+    probe: Annotated[str, Field(min_length=1, max_length=MAX_CODE_CHARS)]
+    """build123d code for one sample shape, as `CheckDraft.probe`."""
+
 
 class Placement(Frozen):
-	number: int
-	draft: PlacementDraft
-	sha256: str
+    number: int
+    draft: PlacementDraft
+    sha256: str
+
 
 # In the sandbox, from the team preamble that harness.py writes.
 def candidate(support: Iterable[Face], load: Iterable[Face]) -> None: ...
 
+
 # What a run returns, after the preamble maps each Face to its index.
 @dataclass(frozen=True, slots=True)
 class PlacedCandidate:
-	support: frozenset[int]
-	load: frozenset[int]
+    support: frozenset[int]
+    load: frozenset[int]
+
 
 @dataclass(frozen=True, slots=True)
 class Placed:
-	candidates: tuple[PlacedCandidate, ...]
+    candidates: tuple[PlacedCandidate, ...]
+
 
 # src/cad/loads/model.py: one new support kind and one new load kind.
 class PlacedSupport(Frozen):
-	kind: Literal["placed"] = "placed"
-	placement: Sha256
+    kind: Literal["placed"] = "placed"
+    placement: Sha256
+
 
 class PlacedLoad(Frozen):
-	kind: Literal["placed"] = "placed"
-	placement: Sha256
-	direction: Direction
+    kind: Literal["placed"] = "placed"
+    placement: Sha256
+    direction: Direction
 ```
 
 The code reads only `part`, the stored shape as a build123d `Part`, and the build123d names. It does not get the brief, the requirement, any result, the other variants, the context parts or the network. The harness already gives this much and no more (read, `src/cad/agent_checks/harness.py`). `place(part)` calls `candidate` 1 to `CANDIDATE_LIMIT` times. Each call names a nonempty support and a nonempty load that share no face. Every candidate is solved and the worst kept, so code that cannot tell two faces apart returns both.
