@@ -6,6 +6,7 @@ from typing import Final, Literal, assert_never
 from cad.auto.model import Bounds, Read
 from cad.briefs.holes import FastenerHoles, PlainHoles
 from cad.briefs.model import (
+    AgentLimit,
     ClosedSolid,
     Envelope,
     FitsWith,
@@ -74,6 +75,7 @@ def bounds_conflicts(
                 | FastenerHoles()
                 | PlainHoles()
                 | FitsWith()
+                | AgentLimit()
             ):
                 pass
             case _:

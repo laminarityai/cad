@@ -5,10 +5,11 @@ import anyio.to_thread
 from pydantic import BaseModel, Field
 
 from cad.accounts.principal import PersonSession
+from cad.agent_checks.store import StoredCheck
 from cad.briefs import store
 from cad.briefs.model import Declined
 from cad.briefs.store import BriefState, Status
-from cad.confirmations import page, snapshot
+from cad.confirmations import agent_checks, page, snapshot
 from cad.confirmations.answers import read_ledger
 from cad.confirmations.items import Refused, pending
 from cad.confirmations.page import AlreadyAnswered, Changed, Recorded
@@ -25,16 +26,19 @@ from cad.projects.model import (
     UnknownProject,
     parse_project_id,
 )
+from cad.records.roots import Roots
 
 ASK_TO_CONFIRM = (
     "Ask the user to confirm everything waiting on them in a project, on the project's one "
     "confirmation page in the web app: the newest proposed requirements of every brief in the "
-    "project and every context part proposed with propose_context_part. One click there confirms "
-    "or declines the whole page, and only the signed-in user can press it. A client that can "
-    "open a page for the user is asked to open it. Waits up to about 20 seconds, then returns "
-    "each brief's newest proposal and each context part as waiting, confirmed, or declined with "
-    "the user's note. waiting is not an answer. This tool never confirms anything. A confirmed "
-    "context part whose slot now shows a newer revision has newer_revision: " + UPDATE_PART
+    "project, every context part proposed with propose_context_part, and every agent-written "
+    "check a proposed requirement names. One click there confirms or declines the whole page, "
+    "and only the signed-in user can press it. A client that can open a page for the user is "
+    "asked to open it. Waits up to about 20 seconds, then returns each brief's newest proposal, "
+    "each context part and each agent-written check as waiting, confirmed, or declined with "
+    "the user's note. A confirmed agent_check is one the person approved. waiting is not an "
+    "answer. This tool never confirms anything. A confirmed context part whose slot now shows a "
+    "newer revision has newer_revision: " + UPDATE_PART
 )
 ANSWER_PAGE = "Record the signed-in person's answer to a project's confirmation page."
 NEXT: Final = {
@@ -83,10 +87,24 @@ class ContextPartItem(BaseModel):
     newer_revision: NewerRevision | None = None
 
 
+class AgentCheckItem(BaseModel):
+    """An agent-written check a requirement names. Confirmed means the person approved it."""
+
+    kind: Literal["agent_check"] = "agent_check"
+    check_sha256: str
+    title: str
+    brief_id: str
+    outcome: Outcome
+    note: str = ""
+
+
+type Item = RequirementsItem | ContextPartItem | AgentCheckItem
+
+
 class AskResult(BaseModel):
     project_id: str
     status: Literal["nothing_to_confirm", "pending", "answered"]
-    items: list[RequirementsItem | ContextPartItem]
+    items: list[Item]
     next: str
     answers_recorded: int = Field(
         description="How many answers the project's page has recorded when the items were read."
@@ -121,6 +139,16 @@ def _part_item(part: Stored, newer: dict[ContextPartId, NewerRevision]) -> Conte
         box_max=facts.box_max,
         note=part.note,
         newer_revision=newer.get(part.record.id),
+    )
+
+
+def _check_item(roots: Roots, project: ProjectId, stored: StoredCheck) -> AgentCheckItem:
+    return AgentCheckItem(
+        check_sha256=stored.sha256,
+        title=stored.check.title,
+        brief_id=stored.check.brief_id,
+        outcome=agent_checks.outcome(roots, project, stored),
+        note=agent_checks.note(roots, project, stored),
     )
 
 
@@ -160,9 +188,12 @@ async def ask_to_confirm(tenant: Tenant, arguments: AskToConfirmInput) -> AskRes
     # Counted before the items while one waits, so it never counts an answer they do not show.
     recorded = len(read_ledger(tenant.roots.projects, project).answers)
     found = [_item(store.read_state(tenant.roots, brief_id)) for brief_id in briefs]
-    items: list[RequirementsItem | ContextPartItem] = [item for item in found if item is not None]
+    items: list[Item] = [item for item in found if item is not None]
     newer = newer_revisions(tenant.roots.projects, project)
     items.extend(_part_item(part, newer) for part in newest_parts(tenant.roots.projects, project))
+    items.extend(
+        _check_item(tenant.roots, project, one) for one in agent_checks.named(tenant.roots, project)
+    )
     outcomes = {item.outcome for item in items}
     status: Literal["nothing_to_confirm", "pending", "answered"] = (
         "pending" if "waiting" in outcomes else "answered" if items else "nothing_to_confirm"

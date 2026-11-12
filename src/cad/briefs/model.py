@@ -176,6 +176,25 @@ class FitsWith(Frozen):
     part: PartId
 
 
+class AgentLimit(Frozen):
+    """The result of an agent-written check, frozen before any variant of the brief existed, held
+    to the person's number (ADR-0011). `limit` is None when the check's source writes the limit.
+    It decides only once the person approves the check on the confirmation page too, and its
+    verdict is labelled as one our team has not reviewed."""
+
+    kind: Literal[Kind.AGENT_LIMIT] = Kind.AGENT_LIMIT
+    check_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+    comparator: Comparator
+    limit: AnyQuantity | None
+
+    @field_validator("limit")
+    @classmethod
+    def _finite(cls, limit: pint.Quantity | None) -> pint.Quantity | None:
+        if limit is not None and not math.isfinite(number(limit)):
+            raise ValueError("the limit must be a finite number")
+        return limit
+
+
 ON_PART: Final = (MinClearance, MaxClearance, FitsWith)
 """The targets that name a context part, which the fit check decides against that part."""
 
@@ -194,13 +213,15 @@ type Target = Annotated[
     | MaxClearance
     | FastenerHoles
     | PlainHoles
-    | FitsWith,
+    | FitsWith
+    | AgentLimit,
     Field(discriminator="kind"),
 ]
 
 
 def deciding_check(target: Target) -> CheckId | None:
-    """The one table from a requirement to the check that decides it. None is unverified."""
+    """The one table from a requirement to the team check that decides it. None is unverified,
+    unless an agent-written check the person approved decides it."""
     match target:
         case ClosedSolid():
             return CheckId(closed_solid.ID)
@@ -210,7 +231,7 @@ def deciding_check(target: Target) -> CheckId | None:
             return CheckId(extents.ID)
         case MeasureLimit():
             return target.check_id
-        case Unchecked() | MadeOf():
+        case Unchecked() | MadeOf() | AgentLimit():
             return None
         case MinSafetyFactor() | MaxDeflection():
             return CheckId(fea.ID)
@@ -239,6 +260,7 @@ def load_of(target: Target) -> LoadCase | None:
             | FastenerHoles()
             | PlainHoles()
             | FitsWith()
+            | AgentLimit()
         ):
             return None
         case _:
@@ -254,7 +276,15 @@ class Limit:
 
 def limits(target: Target) -> tuple[Limit, ...]:
     match target:
-        case ClosedSolid() | Unchecked() | MadeOf() | FastenerHoles() | PlainHoles() | FitsWith():
+        case (
+            ClosedSolid()
+            | Unchecked()
+            | MadeOf()
+            | FastenerHoles()
+            | PlainHoles()
+            | FitsWith()
+            | AgentLimit()
+        ):
             return ()
         case MaxMass():
             return (Limit("mass", Comparator.AT_MOST, target.mass),)

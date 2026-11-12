@@ -90,6 +90,7 @@ export function snapshot(
       decision_sha256: "c".repeat(64),
       requirements,
       unverified_requirements: [],
+      agent_checked_requirements: [],
     },
     not_verified: [],
     assumptions: [],

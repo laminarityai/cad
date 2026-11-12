@@ -5,6 +5,7 @@ from typing import Final, assert_never
 from cad.briefs.bindable import BINDABLE
 from cad.briefs.holes import ByClass, FastenerHoles, HoleFit, PlainHoles, PlusMinus
 from cad.briefs.model import (
+    AgentLimit,
     ClosedSolid,
     Envelope,
     FitsWith,
@@ -35,6 +36,14 @@ def measure_limit_words(target: MeasureLimit) -> str:
     words = BINDABLE[(target.check_id, target.measure)].words
     bound = "at most" if target.comparator is Comparator.AT_MOST else "at least"
     return f"{words[0].upper()}{words[1:]} is {bound} {amount(target.limit)}"
+
+
+def agent_limit_words(target: AgentLimit, names: Mapping[str, str] = NO_NAMES) -> str:
+    """`names` maps a check's sha256 to its title, which plain_names reads from the project."""
+    title = names.get(target.check_sha256) or f"Agent-written check {target.check_sha256[:12]}"
+    bound = "at most" if target.comparator is Comparator.AT_MOST else "at least"
+    limit = "the limit its source gives" if target.limit is None else amount(target.limit)
+    return f"{title} is {bound} {limit}"
 
 
 def describe(requirement: Requirement, names: Mapping[str, str] = NO_NAMES) -> str:
@@ -75,6 +84,8 @@ def describe_target(target: Target, names: Mapping[str, str] = NO_NAMES) -> str:
         case FitsWith():
             name = names.get(target.part)
             return f"Fits with {name or f'context part {target.part}'} without overlapping it"
+        case AgentLimit():
+            return agent_limit_words(target, names)
         case _:
             assert_never(target)
 

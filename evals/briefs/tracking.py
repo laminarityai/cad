@@ -11,7 +11,14 @@ from enum import StrEnum
 from typing import Final, assert_never
 
 from cad.checks.result import Verdict
-from cad.scorecard.model import AgainstBrief, Checked, RequirementResult, Scorecard, Unverified
+from cad.scorecard.model import (
+    AgainstBrief,
+    AgentChecked,
+    Checked,
+    RequirementResult,
+    Scorecard,
+    Unverified,
+)
 from cad.scorecard.waiting import Waiting
 
 NO_REQUIREMENTS: Final = "no requirements"
@@ -23,6 +30,7 @@ class By(StrEnum):
     TEAM = "a team check on reviewed table values"
     RESEARCHED = "a team check on researched values"
     WAITING = "a team check that has not reported yet"
+    AGENT_CHECK = "an agent-written check the person approved"
     NONE = "no check"
 
 
@@ -93,7 +101,7 @@ def outcomes_of(card: Scorecard) -> tuple[RequirementOutcome, ...]:
     return tuple(
         RequirementOutcome(
             one.requirement_id,
-            one.verdict if isinstance(one, Checked) else Verdict.UNKNOWN,
+            one.verdict if isinstance(one, Checked | AgentChecked) else Verdict.UNKNOWN,
             by_of(one),
             one.statement,
         )
@@ -107,6 +115,8 @@ def by_of(result: RequirementResult) -> By:
             return By.RESEARCHED if result.basis == "researched" else By.TEAM
         case Waiting():
             return By.WAITING
+        case AgentChecked():
+            return By.AGENT_CHECK
         case Unverified():
             return By.NONE
         case _:

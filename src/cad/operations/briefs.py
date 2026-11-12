@@ -3,6 +3,7 @@ from typing import Annotated, Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from cad.agent_checks import limits
 from cad.briefs import assumptions, clearances, made_of, source, store
 from cad.briefs.assumptions import MAX_ASSUMPTIONS, Assumption
 from cad.briefs.bindable import BINDABLE
@@ -76,8 +77,11 @@ PROPOSE_REQUIREMENTS = (
     "from propose_context_part or list_files, and a clearance length, which the fit check "
     "decides against that part with the variant built in the part's frame; fits_with with a "
     "part, when the brief says the new part fits with it and states no clearance, which the "
-    "fit check passes when the two do not overlap; or unchecked with a statement, for anything "
-    "no check decides. A load has a support, which is holes (a count "
+    "fit check passes when the two do not overlap; agent_limit with the check_sha256 "
+    "write_check returned for an agent-written check of this brief, its comparator, and the "
+    "person's limit in a unit like the check's, or limit null when the check's source writes "
+    "the limit, which the check decides once the person approves it; or unchecked with a "
+    "statement, for anything no check decides. A load has a support, which is holes (a count "
     "and an optional bore diameter), largest_flat or flat_end, and a load, which is far_end or "
     "on_holes (a count and an optional diameter), each with a force such as {magnitude: 49, "
     "unit: N} and a direction: along or across the long axis or the hole_axis, or any. Propose "
@@ -298,6 +302,9 @@ def propose_requirements(tenant: Tenant, arguments: ProposeRequirementsInput) ->
             _draft(tenant, project, index, one) for index, one in enumerate(arguments.requirements)
         ]
         clearances.check_proposed([one.target for one in drafts], parts)
+        limits.check_proposed(
+            tenant.roots.projects, project, arguments.brief_id, [one.target for one in drafts]
+        )
         drafts = made_of.with_row_keys(drafts, table.table)
         store.propose(tenant.roots, arguments.brief_id, drafts, words)
     held = assumptions.in_force(tenant.roots, arguments.brief_id)

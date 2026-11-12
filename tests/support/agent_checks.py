@@ -88,6 +88,20 @@ def fetching(pages: Mapping[str, str] | None = None) -> Fetch:
     )
 
 
+def agent_limit(check_sha256: str, percent: float | None = 2.0) -> Draft:
+    """The strain requirement proposed again, held to the frozen check and the person's 2 %."""
+    limit = None if percent is None else {"magnitude": percent, "unit": "%"}
+    target = TypeAdapter[Target](Target).validate_python(
+        {
+            "kind": "agent_limit",
+            "check_sha256": check_sha256,
+            "comparator": "at_most",
+            "limit": limit,
+        }
+    )
+    return Draft(target, STRAIN)
+
+
 def unchecked_brief(roots: Roots, *, from_a_file: bool = False) -> tuple[str, str]:
     """A brief whose one requirement is the unchecked strain, and that requirement's id."""
     brief = store.create_brief(roots, TEXT, new_project_id(), seq=1)

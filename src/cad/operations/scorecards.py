@@ -16,6 +16,7 @@ from cad.checks import jobs
 from cad.confirmations.requirements import plain_names
 from cad.context_parts.ids import ContextPartId
 from cad.context_parts.store import fit_targets, part_brep
+from cad.operations.agent_checks import with_agent_checks
 from cad.operations.guidance import NOT_VERIFIED, RULE
 from cad.operations.model import BOTH, Audience, Input, Tenant, operation
 from cad.operations.research import brief_table, with_research
@@ -284,6 +285,9 @@ def score_variant(tenant: Tenant, arguments: ScoreVariantInput) -> material.Repo
         material.reported(scored, basis.confirmed, basis.choice), basis.table, arguments.brief_id
     )
     card = with_assumptions(card, tenant, basis, arguments.brief_id)
+    card = with_agent_checks(
+        card, tenant.roots, tenant.variants, basis.confirmed, basis.table.table, run=True
+    )
     if arguments.own_measurements:
         rows = own.measure(tenant.variants, card.variant_id, arguments.own_measurements)
         card = own.attach(card, rows)
@@ -302,7 +306,11 @@ def scorecard(tenant: Tenant, arguments: ScorecardInput) -> material.ScorecardSn
     )
     reported = material.reported(peeked, basis.confirmed, basis.choice)
     card = with_research(reported, basis.table, arguments.brief_id)
-    return material.snapshot(with_assumptions(card, tenant, basis, arguments.brief_id))
+    card = with_assumptions(card, tenant, basis, arguments.brief_id)
+    card = with_agent_checks(
+        card, tenant.roots, tenant.variants, basis.confirmed, basis.table.table, run=False
+    )
+    return material.snapshot(card)
 
 
 def names_a_material(tenant: Tenant, arguments: ScorecardInput) -> bool:

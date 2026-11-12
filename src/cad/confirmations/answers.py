@@ -16,7 +16,7 @@ from cad.projects.model import ProjectBusy, ProjectId, TamperedProject
 from cad.records import files, key, signed
 from cad.records.roots import project_store
 
-type ItemKindName = Literal["requirements", "context_part"]
+type ItemKindName = Literal["requirements", "context_part", "agent_check"]
 MAX_EDIT_CHARS: Final = 200
 ANSWERS: Final = "answers"
 LOG = logging.getLogger(__name__)

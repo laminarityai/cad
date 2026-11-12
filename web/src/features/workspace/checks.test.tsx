@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { restore } from "@/api/snapshot";
 import { massResult, mass, snapshot } from "@/test/fixtures";
 import { Checks } from "./bits";
+import { summaryOf } from "./cards";
 
 const waiting = {
   kind: "awaiting" as const,
@@ -24,7 +25,46 @@ const assumed = {
   values: [],
 };
 
+const LABEL = "agent-written check you approved, not reviewed by our team" as const;
+
+function agentChecked(verdict: "pass" | "fail", strain: number) {
+  return {
+    kind: "agent_checked" as const,
+    label: LABEL,
+    requirement_id: "r3",
+    statement: "Snap-fit strain is at most 2 %",
+    check_sha256: "a".repeat(64),
+    title: "Snap-fit strain",
+    formula: "1.5 * h * y / l ** 2",
+    version: "v",
+    verdict,
+    reason: verdict === "pass" ? "The agent-written check's value meets the limit you confirmed." : "The agent-written check's value does not meet the limit you confirmed.",
+    value: { magnitude: strain, unit: "%" },
+    comparator: "at_most" as const,
+    limit: { magnitude: 2, unit: "%" },
+    inputs: [],
+    pages: ["https://example.com/snap-fit-guide"],
+  };
+}
+
 describe("the Checks pane", () => {
+  it("labels a verdict an agent-written check reached, pass or fail", () => {
+    for (const [verdict, strain] of [["pass", 1.5], ["fail", 3]] as const) {
+      const wire = snapshot("v1", [agentChecked(verdict, strain)], [massResult()]);
+      const { container, unmount } = render(<Checks card={{ snapshot: restore(wire) }} material={null} />);
+      const row = container.querySelector(`[data-line="${verdict === "pass" ? "agent" : "fail"}"]`);
+      if (!(row instanceof HTMLElement)) throw new Error("the agent-written check's row is missing");
+      expect(within(row).getByText(LABEL)).toBeInTheDocument();
+      expect(within(row).getByText(`${String(strain)} %`)).toBeInTheDocument();
+      unmount();
+    }
+  });
+
+  it("counts an agent-written check's pass apart in the card summary", () => {
+    const wire = snapshot("v1", [mass("pass"), agentChecked("pass", 1.5)], [massResult()]);
+    expect(summaryOf({ snapshot: restore(wire) })).toEqual({ status: "agent", text: "All pass, 1 on the agent's check" });
+  });
+
   it("shows what you asked, what awaits your Confirm and what the agent assumed as three groups", () => {
     const wire = { ...snapshot("v1", [mass("pass")], [massResult()]), awaiting: [waiting], assumptions: [assumed] };
     render(<Checks card={{ snapshot: restore(wire) }} material={null} />);

@@ -42,7 +42,8 @@ function short(statement: string): string {
   return first.length > 70 ? `${first.slice(0, 68)}…` : first;
 }
 
-export type Status = "pass" | "fail" | "unknown" | "running" | "unchecked" | "researched";
+/** `agent` is a pass by an agent-written check the person approved, which our team has not reviewed. */
+export type Status = "pass" | "fail" | "unknown" | "running" | "unchecked" | "researched" | "agent";
 
 export interface Line {
   key: string;
@@ -51,7 +52,9 @@ export interface Line {
   value: string;
   why: string;
   formula: string;
-  sources: Source[];
+  sources: Pick<Source, "url" | "title">[];
+  /** The label a verdict carries when no reviewed check reached it. */
+  tag?: string;
 }
 
 const CHECK_NAMES: Record<string, string> = {
@@ -123,6 +126,19 @@ export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
           why: one.statement,
           formula: "",
           sources: [],
+        });
+        continue;
+      }
+      if (one.kind === "agent_checked") {
+        asked.push({
+          key,
+          label: short(one.statement),
+          status: one.verdict === "pass" ? "agent" : statusOf(one.verdict, false),
+          value: one.value ? quantity(one.value) : "",
+          why: `${one.reason} ${one.title}: ${one.formula}, limit ${quantity(one.limit)}.`,
+          formula: one.formula,
+          sources: one.pages.map((url) => ({ url, title: url })),
+          tag: one.label,
         });
         continue;
       }
@@ -244,6 +260,8 @@ export function summaryOf(card: Card | undefined): {
       text: `${String(fails)} fail${fails === 1 ? "s" : ""}`,
     };
   if (all.some((one) => one.status === "unknown")) return { status: "unknown", text: "Unknowns" };
+  const agent = all.filter((one) => one.status === "agent").length;
+  if (agent > 0) return { status: "agent", text: `All pass, ${String(agent)} on the agent's check` };
   return { status: "pass", text: "All pass" };
 }
 

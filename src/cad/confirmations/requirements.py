@@ -2,10 +2,11 @@ import re
 from collections.abc import Mapping, Sequence
 from typing import Final
 
+from cad.agent_checks.store import checks_of
 from cad.briefs import store
 from cad.briefs.bindable import BINDABLE
 from cad.briefs.edits import apply_edits, placeholder
-from cad.briefs.model import MadeOf, MeasureLimit, Requirement, Target, deciding_check
+from cad.briefs.model import AgentLimit, MadeOf, MeasureLimit, Requirement, Target, deciding_check
 from cad.briefs.origins import quoted
 from cad.briefs.store import ProposalState, Status, TamperedBrief
 from cad.briefs.words import describe
@@ -20,6 +21,9 @@ from cad.sandbox import host
 
 SLOT: Final = re.compile(r"([0-9a-f]{16})/proposal/([1-9][0-9]{0,3})")
 TITLE: Final = "Requirements for your brief"
+AGENT_DECIDES: Final = (
+    "Decided by the agent-written check below once you approve it. Our team has not reviewed it"
+)
 
 
 class Requirements:
@@ -72,6 +76,7 @@ def plain_names(roots: Roots, brief_id: str) -> dict[str, str]:
     table = project_table(host.materials_table(), roots.projects, project).table
     names = {key: table.name_of(key) for key in table.materials}
     names.update((one.record.id, one.record.name) for one in stored_parts(roots.projects, project))
+    names.update((one.sha256, one.check.title) for one in checks_of(roots.projects, project))
     return names
 
 
@@ -94,6 +99,8 @@ def _row(requirement: Requirement, text: str, names: Mapping[str, str]) -> Row:
 def _decides(target: Target) -> str:
     if isinstance(target, MadeOf):
         return "Fixes the material that scoring uses"
+    if isinstance(target, AgentLimit):
+        return AGENT_DECIDES
     check = deciding_check(target)
     if check is None:
         return "No reviewed check: unverified"

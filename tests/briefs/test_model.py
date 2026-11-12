@@ -126,6 +126,7 @@ def test_every_kind_has_one_deciding_check_or_is_unverified() -> None:
         Kind.FASTENER_HOLES: "holes",
         Kind.PLAIN_HOLES: "holes",
         Kind.FITS_WITH: "fit",
+        Kind.AGENT_LIMIT: None,
     }
 
 
@@ -247,6 +248,12 @@ EXAMPLES: dict[Kind, dict[str, Any]] = {
     Kind.FASTENER_HOLES: {"kind": "fastener_holes", "size": "M5", "fit": "clearance", "count": 2},
     Kind.PLAIN_HOLES: {"kind": "plain_holes", "diameter": grams(8, "mm")},
     Kind.FITS_WITH: {"kind": "fits_with", "part": PART},
+    Kind.AGENT_LIMIT: {
+        "kind": "agent_limit",
+        "check_sha256": "a" * 64,
+        "comparator": "at_most",
+        "limit": {"magnitude": 2, "unit": "%"},
+    },
 }
 
 
