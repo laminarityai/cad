@@ -56,7 +56,7 @@ def test_a_number_its_quote_does_not_write_names_the_row(tmp_path: Path) -> None
 
 
 def test_a_quote_that_is_on_no_stored_page_names_the_row(tmp_path: Path) -> None:
-    path = edited(tmp_path, 'quote: "5 5.3 5.5 5.8"', 'quote: "5 5.3 5.5 5.9"')
+    path = edited(tmp_path, 'quote: "M5 5,3 5,5 5,8"', 'quote: "M5 5,3 5,5 5,9"')
     problems = quote_problems(load_materials(), fasteners=load_fasteners(path))
     assert any(
         one.startswith("M5 clearance close_mm: the quote is not in the stored text")
