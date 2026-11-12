@@ -91,7 +91,7 @@ def test_every_module_scoring_loads_feeds_the_check_versions() -> None:
 
 
 @pytest.mark.parametrize(
-    "outside", ["cad/briefs/", "cad/scorecard/requirements.py", "cad/agent_measurements/"]
+    "outside", ["cad/briefs/", "cad/scorecard/requirements.py", "cad/agent_checks/"]
 )
 def test_judging_requirements_is_outside_what_check_versions_hash(outside: str) -> None:
     inside = [path for path in report.DEPENDENCIES.files if path.startswith(outside)]

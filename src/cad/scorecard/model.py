@@ -62,25 +62,70 @@ class Unverified(Frozen):
     statement: str
 
 
-type RequirementResult = Annotated[Checked | Unverified | Waiting, Field(discriminator="kind")]
+AGENT_CHECK: Final = "agent-written check you approved, not reviewed by our team"
+
+
+class AgentCheckValue(Frozen):
+    """One value an agent-written check's formula read: `read` names where it came from, such as
+    geometry:h, team:mass:volume, material:elastic_modulus or source:k."""
+
+    name: str
+    read: str
+    value: Measured
+
+
+class AgentChecked(Frozen):
+    """A requirement an agent-written check decided: the agent wrote the check before any variant
+    of its brief existed, the server gated and froze it, and the person approved it, but our team
+    has not reviewed it (ADR-0011). Report its verdict with its label, never as a plain pass. It
+    is counted apart from what reviewed checks decide. `value` is the formula's result, None when
+    the check could not measure; `reason` says why."""
+
+    kind: Literal["agent_checked"] = "agent_checked"
+    label: Literal["agent-written check you approved, not reviewed by our team"] = AGENT_CHECK
+    requirement_id: str
+    statement: str
+    check_sha256: str
+    title: str
+    formula: str
+    version: str
+    verdict: Verdict
+    reason: str
+    value: Measured | None
+    comparator: Comparator
+    limit: Measured
+    inputs: tuple[AgentCheckValue, ...]
+    pages: tuple[str, ...]
+
+
+type RequirementResult = Annotated[
+    Checked | Unverified | Waiting | AgentChecked, Field(discriminator="kind")
+]
 
 
 class AgainstBrief(Frozen):
     """The variant was scored against the requirements a person confirmed, in the order they
     saw them. `decision_sha256` names the signed decision, which pins the brief and the
-    requirements."""
+    requirements. `agent_checked_requirements` lists the ones an agent-written check decided,
+    which count apart from what reviewed checks cover."""
 
     kind: Literal["against_brief"] = "against_brief"
     brief_id: str
     decision_sha256: str
     requirements: tuple[RequirementResult, ...]
     unverified_requirements: tuple[str, ...]
+    agent_checked_requirements: tuple[str, ...] = ()
 
     @model_validator(mode="after")
     def _lists_the_unverified_entries(self) -> Self:
         ids = tuple(one.requirement_id for one in self.requirements if isinstance(one, Unverified))
         if ids != self.unverified_requirements:
             raise ValueError("unverified_requirements must list the Unverified requirements")
+        agent = tuple(
+            one.requirement_id for one in self.requirements if isinstance(one, AgentChecked)
+        )
+        if agent != self.agent_checked_requirements:
+            raise ValueError("agent_checked_requirements must list the AgentChecked requirements")
         return self
 
 

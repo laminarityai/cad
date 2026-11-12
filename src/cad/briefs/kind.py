@@ -18,3 +18,4 @@ class Kind(StrEnum):
     FASTENER_HOLES = "fastener_holes"
     PLAIN_HOLES = "plain_holes"
     FITS_WITH = "fits_with"
+    AGENT_LIMIT = "agent_limit"

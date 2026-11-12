@@ -24,7 +24,7 @@ from cad.auto.model import (
     Unsettled,
 )
 from cad.checks.result import Verdict
-from cad.scorecard.model import AgainstBrief, Checked, Scorecard, Unverified
+from cad.scorecard.model import AgainstBrief, AgentChecked, Checked, Scorecard, Unverified
 from cad.scorecard.requirements import UNCONFIRMED_PART
 from cad.scorecard.waiting import Waiting
 
@@ -53,6 +53,9 @@ def standing_of(card: Scorecard, revision: int, code_sha256: str) -> Standing | 
             case Checked():
                 marks.append((row.requirement_id, _mark(row)))
             case Unverified():
+                marks.append((row.requirement_id, Mark.UNVERIFIED))
+            case AgentChecked():
+                # Auto does not yet revise against an agent-written check (ADR-0011).
                 marks.append((row.requirement_id, Mark.UNVERIFIED))
             case Waiting():
                 return Unsettled()

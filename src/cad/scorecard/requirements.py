@@ -11,6 +11,7 @@ from typing import Final, assert_never
 from cad.briefs.holes import FastenerHoles, PlainHoles
 from cad.briefs.model import (
     ON_PART,
+    AgentLimit,
     ClosedSolid,
     Envelope,
     FitsWith,
@@ -103,6 +104,7 @@ def instance(target: Target) -> str:
             | MadeOf()
             | FastenerHoles()
             | PlainHoles()
+            | AgentLimit()
         ):
             return ""
         case _:

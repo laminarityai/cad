@@ -10,7 +10,8 @@
 <path> is a route of the app such as `/projects/<id>`, and <name> is the prefix of the files
 written into <run>. Options: --url (the server, default http://127.0.0.1:8765), --account
 (default user_web_proof), --width, --height, --scheme (light or dark), --seconds (watch, default
-120), --tab (a narrow-screen pane to show: Explorer, Design or Chat).
+120), --tab (a narrow-screen pane to show: Explorer, Design or Chat), --slot (shot: the option tab
+to show, by its number).
 
 `shot` opens the page, waits until the option on screen has drawn, and writes <name>.png and
 <name>.aria.yml (the page's accessibility tree). `watch` opens the page and polls the check lines
@@ -60,6 +61,7 @@ def options(argv: list[str]) -> tuple[list[str], dict[str, str]]:
         "scheme": "light",
         "seconds": "120",
         "tab": "",
+        "slot": "",
         "ask": "make the wall 4 mm",
         "video": "",
         "live": "",
@@ -118,6 +120,9 @@ def shot(run: Path, path: str, name: str, given: dict[str, str]) -> int:
         browser, page = open_page(playwright, run, path, given)
         drawn(page)
         pick_material(page, given)
+        if given["slot"]:
+            page.locator(f"[data-slot-tab='{given['slot']}']").click()
+            drawn(page)
         page.screenshot(path=str(run / f"{name}.png"))
         (run / f"{name}.aria.yml").write_text(page.locator("body").aria_snapshot())
         browser.close()

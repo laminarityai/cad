@@ -18,6 +18,7 @@ export const DOING: Record<string, string> = {
   create_brief: "started a part",
   ask_to_confirm: "asked you",
   submit_research: "researched",
+  write_check: "wrote a check",
   search_knowledge: "looked it up",
 };
 

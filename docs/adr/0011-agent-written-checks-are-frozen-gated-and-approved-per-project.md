@@ -1,6 +1,8 @@
 # Agent-written checks are frozen, gated and approved for one project
 
-Status: Accepted. The operator made every decision below on 2026-11-11. This ADR records them and supersedes ADR-0008. None of it is built yet.
+Status: Accepted. The operator made every decision below on 2026-11-11. This ADR records them and supersedes ADR-0008. Built so far: `write_check` and its gates, the person's approval on the confirmation page, and the labelled verdict on the scorecard and in the web app. Not built yet: Auto counting these verdicts, the tracer's count of them, and rerunning stored checks when a team check changes.
+
+How "repeat and turn" holds in the code: on a scored variant, a container that runs only team code turns the part before any agent code sees it, so the agent's code never holds the motion. When the check is written, the probe shapes are turned inside the container that runs the agent's code. That catches code that depends on orientation by accident, and a determined agent could get around it, so the turn on the scored variant is the one that enforces the rule.
 
 Most requirements a novice writes have no check, so most scorecards say "not checked" (#49). On the brief-set run of 2026-11-08, reviewed checks covered 56 of 103 requirements. ADR-0008 ruled that nothing the agent writes decides a requirement, because gates on reference shapes could not tell an honest geometry check from one written to flatter the agent's designs. On 2026-11-11 the operator reversed that ruling: agent-written checks get built, gated, and reviewed for each project by the person, labelled and counted apart. This ADR records how. ADR-0008's finding still stands. No gate tells an honest geometry measure from a flattering one, and this design does not claim to.
 

@@ -3,6 +3,7 @@ from collections.abc import Mapping
 from typing import Final
 
 from cad.operations import (
+    agent_checks,
     auto,
     briefs,
     confirmation,
@@ -54,6 +55,7 @@ OPERATIONS: Final[tuple[Operation, ...]] = (
     *files.OPERATIONS,
     *knowledge.OPERATIONS,
     *research.OPERATIONS,
+    *agent_checks.OPERATIONS,
     *auto.OPERATIONS,
     *conversations.OPERATIONS,
     *geometry.OPERATIONS,

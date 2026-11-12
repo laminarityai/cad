@@ -27,6 +27,7 @@ from cad.briefs.holes import (
     PlusMinus,
 )
 from cad.briefs.model import (
+    AgentLimit,
     ClosedSolid,
     Envelope,
     FitsWith,
@@ -116,7 +117,13 @@ def placeholder(requirement: Requirement) -> str | None:
     target = requirement.target
     match target:
         case (
-            ClosedSolid() | MeasureLimit() | Unchecked() | MadeOf() | MinSafetyFactor() | FitsWith()
+            ClosedSolid()
+            | MeasureLimit()
+            | Unchecked()
+            | MadeOf()
+            | MinSafetyFactor()
+            | FitsWith()
+            | AgentLimit()
         ):
             return None
         case FastenerHoles():
@@ -179,6 +186,7 @@ def _edited(requirement: Requirement, text: str) -> Requirement | str:
                 | MadeOf()
                 | MinSafetyFactor()
                 | FitsWith()
+                | AgentLimit()
             ):
                 return "This row has no number to change."
             case FastenerHoles() if target.fit is HoleFit.TAPPED:

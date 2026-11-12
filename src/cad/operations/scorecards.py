@@ -4,7 +4,8 @@ from typing import Annotated, Final
 
 from pydantic import Field
 
-from cad.agent_measurements import run as own
+from cad.agent_checks import harness, own
+from cad.agent_checks.model import MAX_CODE_CHARS, UNITS
 from cad.auto.gate import gate, stops_at_the_limit
 from cad.briefs import assumptions as assuming
 from cad.briefs import store as briefs
@@ -15,6 +16,7 @@ from cad.checks import jobs
 from cad.confirmations.requirements import plain_names
 from cad.context_parts.ids import ContextPartId
 from cad.context_parts.store import fit_targets, part_brep
+from cad.operations.agent_checks import with_agent_checks
 from cad.operations.guidance import NOT_VERIFIED, RULE
 from cad.operations.model import BOTH, Audience, Input, Tenant, operation
 from cad.operations.research import brief_table, with_research
@@ -34,10 +36,10 @@ type MaterialKey = Annotated[
 OWN_MEASUREMENTS = (
     "For a confirmed requirement of kind unchecked, you may pass own_measurements: up to "
     f"{own.MAX_SNIPPETS} entries, each a requirement_id, a short title and build123d Python code "
-    f"of at most {own.MAX_CODE_CHARS // 1024} KiB. The code sees `part`, the scored shape, and "
+    f"of at most {MAX_CODE_CHARS // 1024} KiB. The code sees `part`, the scored shape, and "
     "calls report(name, value, unit) with a name of lowercase letters, digits and underscores, "
-    f"a finite number and a unit of {', '.join(own.UNIT_NAMES)}. It runs in the build sandbox "
-    f"after the checks, all entries in one run of at most {own.WALL_SECONDS} seconds. Each entry "
+    f"a finite number and a unit of {', '.join(UNITS)}. It runs in the build sandbox after "
+    f"the checks, all entries in one run of at most {harness.WALL_SECONDS} seconds. Each entry "
     'becomes a not_verified row labelled "agent\'s own measurement, not verified": its values, '
     "or failed with the reason. The row has no verdict, its requirement stays in "
     "unverified_requirements, and no check or requirement reads it. own_measurements without a "
@@ -283,6 +285,9 @@ def score_variant(tenant: Tenant, arguments: ScoreVariantInput) -> material.Repo
         material.reported(scored, basis.confirmed, basis.choice), basis.table, arguments.brief_id
     )
     card = with_assumptions(card, tenant, basis, arguments.brief_id)
+    card = with_agent_checks(
+        card, tenant.roots, tenant.variants, basis.confirmed, basis.table.table, run=True
+    )
     if arguments.own_measurements:
         rows = own.measure(tenant.variants, card.variant_id, arguments.own_measurements)
         card = own.attach(card, rows)
@@ -301,7 +306,11 @@ def scorecard(tenant: Tenant, arguments: ScorecardInput) -> material.ScorecardSn
     )
     reported = material.reported(peeked, basis.confirmed, basis.choice)
     card = with_research(reported, basis.table, arguments.brief_id)
-    return material.snapshot(with_assumptions(card, tenant, basis, arguments.brief_id))
+    card = with_assumptions(card, tenant, basis, arguments.brief_id)
+    card = with_agent_checks(
+        card, tenant.roots, tenant.variants, basis.confirmed, basis.table.table, run=False
+    )
+    return material.snapshot(card)
 
 
 def names_a_material(tenant: Tenant, arguments: ScorecardInput) -> bool:

@@ -9,6 +9,7 @@ import type { Material } from "./model";
 const DOT: Record<Status | "none", string> = {
   pass: "bg-pass",
   researched: "bg-res",
+  agent: "bg-accent",
   fail: "bg-fail",
   unknown: "bg-unk",
   running: "bg-wait motion-safe:animate-pulse",
@@ -23,6 +24,7 @@ export function Dot({ status, className }: { status: Status | "none"; className?
 const PILL: Record<Status, { text: string; tone: string; Icon: typeof CircleCheck }> = {
   pass: { text: "Pass", tone: "text-pass", Icon: CircleCheck },
   researched: { text: "Pass", tone: "text-res", Icon: Sparkles },
+  agent: { text: "Pass", tone: "text-accent", Icon: CircleCheck },
   fail: { text: "Fail", tone: "text-fail", Icon: CircleX },
   unknown: { text: "Unknown", tone: "text-unk", Icon: CircleDashed },
   running: { text: "Checking", tone: "text-wait", Icon: LoaderCircle },
@@ -43,6 +45,11 @@ function Row({ line }: { line: Line }) {
         <span className="shrink-0 text-right">
           {line.value ? <span className="block font-mono text-[14px] tabular-nums">{line.value}</span> : <span className={cn("block text-[13px]", pill.tone)}>{pill.text}</span>}
           {line.status === "researched" ? <span className="block text-[12px] text-res">researched</span> : null}
+          {line.tag ? (
+            <span data-tag className="block max-w-48 text-[12px] leading-tight text-accent">
+              {line.tag}
+            </span>
+          ) : null}
         </span>
       </CollapsibleTrigger>
       <CollapsiblePanel className="space-y-1.5 px-4 pb-3 pl-11 text-[14px] text-ink-2">

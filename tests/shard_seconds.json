@@ -1,7 +1,8 @@
 {
   "tests/accounts/test_tokens.py": 2,
-  "tests/agent_measurements/test_broken_measurements.py": 72,
-  "tests/agent_measurements/test_own_measurements.py": 42,
+  "tests/agent_checks/test_broken_measurements.py": 72,
+  "tests/agent_checks/test_own_measurements.py": 42,
+  "tests/agent_checks/test_turned_sandbox.py": 61,
   "tests/auto/test_material_choice.py": 7,
   "tests/auto/test_run.py": 13,
   "tests/auto/test_run_from_token.py": 10,

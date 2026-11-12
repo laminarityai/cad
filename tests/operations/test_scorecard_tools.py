@@ -6,6 +6,7 @@ import pytest
 from mcp import Client
 
 from cad.operations.guidance import (
+    AGENT_CHECKS,
     BUILD_FIRST,
     CHANGES,
     CONTEXT_PARTS,
@@ -256,6 +257,7 @@ async def test_the_server_tells_every_client_that_only_check_results_are_measure
             MATERIAL,
             DEEPER_ANALYSIS,
             RESEARCH,
+            AGENT_CHECKS,
             NOT_VERIFIED,
         )
     )

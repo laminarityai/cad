@@ -411,7 +411,8 @@ export interface components {
          * AgainstBrief
          * @description The variant was scored against the requirements a person confirmed, in the order they
          *     saw them. `decision_sha256` names the signed decision, which pins the brief and the
-         *     requirements.
+         *     requirements. `agent_checked_requirements` lists the ones an agent-written check decided,
+         *     which count apart from what reviewed checks cover.
          */
         AgainstBrief: {
             /**
@@ -423,6 +424,71 @@ export interface components {
             decision_sha256: string;
             requirements: components["schemas"]["RequirementResult"][];
             unverified_requirements: string[];
+            /** @default [] */
+            agent_checked_requirements: string[];
+        };
+        /**
+         * AgentCheckValue
+         * @description One value an agent-written check's formula read: `read` names where it came from, such as
+         *     geometry:h, team:mass:volume, material:elastic_modulus or source:k.
+         */
+        AgentCheckValue: {
+            name: string;
+            read: string;
+            value: components["schemas"]["Measured"];
+        };
+        /**
+         * AgentChecked
+         * @description A requirement an agent-written check decided: the agent wrote the check before any variant
+         *     of its brief existed, the server gated and froze it, and the person approved it, but our team
+         *     has not reviewed it (ADR-0011). Report its verdict with its label, never as a plain pass. It
+         *     is counted apart from what reviewed checks decide. `value` is the formula's result, None when
+         *     the check could not measure; `reason` says why.
+         */
+        AgentChecked: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "agent_checked";
+            /**
+             * @default agent-written check you approved, not reviewed by our team
+             * @constant
+             */
+            label: "agent-written check you approved, not reviewed by our team";
+            requirement_id: string;
+            statement: string;
+            check_sha256: string;
+            title: string;
+            formula: string;
+            version: string;
+            verdict: components["schemas"]["Verdict"];
+            reason: string;
+            value: components["schemas"]["Measured"] | null;
+            comparator: components["schemas"]["Comparator"];
+            limit: components["schemas"]["Measured"];
+            inputs: components["schemas"]["AgentCheckValue"][];
+            pages: string[];
+        };
+        /**
+         * AgentLimit
+         * @description The result of an agent-written check, frozen before any variant of the brief existed, held
+         *     to the person's number (ADR-0011). `limit` is None when the check's source writes the limit.
+         *     It decides only once the person approves the check on the confirmation page too, and its
+         *     verdict is labelled as one our team has not reviewed.
+         */
+        AgentLimit: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "agent_limit";
+            check_sha256: string;
+            comparator: components["schemas"]["Comparator"];
+            limit: {
+                magnitude: number;
+                unit: string;
+            } | null;
         };
         /**
          * AgentMeasurement
@@ -1027,7 +1093,7 @@ export interface components {
         };
         Index: number;
         /** @enum {string} */
-        ItemKindName: "requirements" | "context_part";
+        ItemKindName: "requirements" | "context_part" | "agent_check";
         /** KnowledgeHit */
         KnowledgeHit: {
             id: string;
@@ -1499,7 +1565,7 @@ export interface components {
             target: components["schemas"]["Target"];
             origin: components["schemas"]["Origin"];
         };
-        RequirementResult: components["schemas"]["Checked"] | components["schemas"]["Unverified"] | components["schemas"]["Waiting"];
+        RequirementResult: components["schemas"]["Checked"] | components["schemas"]["Unverified"] | components["schemas"]["Waiting"] | components["schemas"]["AgentChecked"];
         /** RequirementRow */
         RequirementRow: {
             requirement: components["schemas"]["Requirement"];
@@ -1750,7 +1816,7 @@ export interface components {
             kind: "stopped_by_person";
         };
         Support: components["schemas"]["Holes"] | components["schemas"]["LargestFlat"] | components["schemas"]["FlatEnd"];
-        Target: components["schemas"]["ClosedSolid"] | components["schemas"]["MaxMass"] | components["schemas"]["MinMass"] | components["schemas"]["Envelope"] | components["schemas"]["MeasureLimit"] | components["schemas"]["Unchecked"] | components["schemas"]["MadeOf"] | components["schemas"]["MinSafetyFactor"] | components["schemas"]["MaxDeflection"] | components["schemas"]["MinClearance"] | components["schemas"]["MaxClearance"] | components["schemas"]["FastenerHoles"] | components["schemas"]["PlainHoles"] | components["schemas"]["FitsWith"];
+        Target: components["schemas"]["ClosedSolid"] | components["schemas"]["MaxMass"] | components["schemas"]["MinMass"] | components["schemas"]["Envelope"] | components["schemas"]["MeasureLimit"] | components["schemas"]["Unchecked"] | components["schemas"]["MadeOf"] | components["schemas"]["MinSafetyFactor"] | components["schemas"]["MaxDeflection"] | components["schemas"]["MinClearance"] | components["schemas"]["MaxClearance"] | components["schemas"]["FastenerHoles"] | components["schemas"]["PlainHoles"] | components["schemas"]["FitsWith"] | components["schemas"]["AgentLimit"];
         /**
          * Tessellated
          * @description The mesh of one BREP, made in the analysis image, as three-cad-viewer renders it.
@@ -2014,6 +2080,9 @@ export type AccountLimit = components['schemas']['AccountLimit'];
 export type Across = components['schemas']['Across'];
 export type Added = components['schemas']['Added'];
 export type AgainstBrief = components['schemas']['AgainstBrief'];
+export type AgentCheckValue = components['schemas']['AgentCheckValue'];
+export type AgentChecked = components['schemas']['AgentChecked'];
+export type AgentLimit = components['schemas']['AgentLimit'];
 export type AgentMeasurement = components['schemas']['AgentMeasurement'];
 export type AgentSaid = components['schemas']['AgentSaid'];
 export type AgentValue = components['schemas']['AgentValue'];

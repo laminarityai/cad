@@ -31,6 +31,9 @@ ALLOWED_ARGUMENTS = {
     "read_file": {"project_id", "file_id"},
     "search_knowledge": {"query", "k"},
     "submit_research": {"brief_id", "key", "field", "value", "unit", "url", "quote"},
+    # The agent's own check, written before any variant exists. The server gates and freezes it,
+    # and it decides nothing until the person approves it on the confirmation page.
+    "write_check": {"brief_id", "requirement_id", "check"},
     # The agent gives code or a note; the run's verdict comes from the server's scorecards.
     "auto_start": {"brief_id", "material_key", "material_reason"},
     "auto_revise": {"run_id", "code", "slot"},

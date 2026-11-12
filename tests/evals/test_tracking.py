@@ -12,9 +12,16 @@ from tracking import (
     track,
 )
 
-from cad.checks.result import ReadResearched, Verdict
-from cad.scorecard.model import AgainstBrief, Checked, RequirementResult, Unverified
+from cad.checks.result import Comparator, ReadResearched, Verdict
+from cad.scorecard.model import (
+    AgainstBrief,
+    AgentChecked,
+    Checked,
+    RequirementResult,
+    Unverified,
+)
 from cad.scorecard.waiting import Waiting
+from cad.tables.materials import UNITS
 from tests.support.cards import genuine_card
 
 RESEARCH = ReadResearched(field="density", url="https://example.com", quote="1.2", sha256="")
@@ -39,11 +46,13 @@ def checked(requirement_id: str, verdict: Verdict, *, researched: bool = False) 
 
 def judged(*requirements: RequirementResult) -> tuple[RequirementOutcome, ...]:
     unverified = tuple(one.requirement_id for one in requirements if isinstance(one, Unverified))
+    agent = tuple(one.requirement_id for one in requirements if isinstance(one, AgentChecked))
     basis = AgainstBrief(
         brief_id="b",
         decision_sha256="d" * 64,
         requirements=requirements,
         unverified_requirements=unverified,
+        agent_checked_requirements=agent,
     )
     return outcomes_of(genuine_card(basis=basis))
 
@@ -76,6 +85,7 @@ def test_a_researched_verdict_and_a_cited_one_each_land_on_their_own_line() -> N
         By.TEAM: Decided(1, 1),
         By.RESEARCHED: Decided(1, 1),
         By.WAITING: Decided(1, 0),
+        By.AGENT_CHECK: Decided(0, 0),
         By.NONE: Decided(0, 0),
     }
     assert describe_apart(tracking)[:2] == [
@@ -122,3 +132,26 @@ def test_no_requirement_no_check_decides_reads_none() -> None:
     assert describe_apart(track(judged(checked("mass", Verdict.PASS))))[-1] == (
         "requirements no check decides, by keyword family: none"
     )
+
+
+def test_a_pass_by_an_agent_written_check_counts_apart_and_not_as_reviewed() -> None:
+    strain = UNITS.Quantity(0.75, "percent")
+    agent = AgentChecked(
+        requirement_id="strain",
+        statement="Snap arm strain is at most 2 %",
+        check_sha256="a" * 64,
+        title="Snap arm strain",
+        formula="k * h * y / l**2",
+        version="v",
+        verdict=Verdict.PASS,
+        reason="",
+        value=strain,
+        comparator=Comparator.AT_MOST,
+        limit=UNITS.Quantity(2, "percent"),
+        inputs=(),
+        pages=(),
+    )
+    tracking = track(judged(checked("cited", Verdict.PASS), agent))
+    assert tracking.reviewed_coverage == Ratio(1, 2)
+    assert tracking.strict_pass_rate == Ratio(1, 2)
+    assert tracking.by[By.AGENT_CHECK] == Decided(1, 1)
