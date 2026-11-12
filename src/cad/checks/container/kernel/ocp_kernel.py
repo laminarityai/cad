@@ -38,6 +38,7 @@ from cad.checks.container.vectors import cross, dot, sub, unit
 
 STEP_TIME_STAMP = "2000-01-01T00:00:00"
 STEP_SCHEMA = "AP214IS"
+INSIDE_TOL_MM = 1e-7
 
 
 class OcpKernel:
@@ -178,7 +179,7 @@ class OcpKernel:
         ocp.topexp.MapShapesAndAncestors_s(shape, ocp.edge, ocp.face, walls)
         found: list[Opening] = []
         reach = self._reacher(shape)
-        for found_face in self._explore(shape, ocp.face, ocp.any_shape):
+        for index, found_face in enumerate(self._explore(shape, ocp.face, ocp.any_shape)):
             face = ocp.topods.Face_s(found_face)
             info = _face_info(ocp, face, reach)
             if not isinstance(info.surface, Flat):
@@ -189,7 +190,7 @@ class OcpKernel:
                     continue
                 edges = self._explore(wire, ocp.edge, ocp.any_shape)
                 if self._runs_into_material(face, info, edges, walls):
-                    found.append(Opening(tuple(self._arc(edge) for edge in edges)))
+                    found.append(Opening(tuple(self._arc(edge) for edge in edges), index))
         return tuple(found)
 
     def _runs_into_material(
@@ -244,6 +245,11 @@ class OcpKernel:
             moments=principal.Moments(),
             spans=((x0, x1), (y0, y1), (z0, z1)),
         )
+
+    def inside(self, shape: Shape, point: Point) -> bool:
+        ocp = self._ocp
+        classifier = ocp.new_classifier(shape, ocp.new_point(*point), INSIDE_TOL_MM)
+        return classifier.State() == ocp.state_in
 
     def common_volume(self, first: Shape, second: Shape) -> float | None:
         common = self._ocp.new_common(first, second)

@@ -3,8 +3,9 @@ import math
 import pytest
 
 from cad.checks.container import anchors
-from cad.checks.container.anchors import geometry, resolve
+from cad.checks.container.anchors import resolve
 from cad.checks.container.elastic import Face, region_faces
+from cad.checks.container.features import geometry
 from cad.checks.container.mesher import TetMesh
 from cad.checks.container.regions import Candidate, FarFrom, Region, Resolved, Unresolved
 from cad.checks.container.terms import of_wire

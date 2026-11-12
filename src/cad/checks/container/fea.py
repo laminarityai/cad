@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Final
 
-from cad.checks.container import anchors, closed_solid, interference, terms
+from cad.checks.container import anchors, closed_solid, features, interference, terms
 from cad.checks.container.calculix import Material, NodalField, SolveFailed
 from cad.checks.container.check import (
     DIMENSIONLESS,
@@ -25,9 +25,8 @@ from cad.checks.container.elastic import (
     worst_displacement,
     worst_von_mises,
 )
-from cad.checks.container.features import extent as extent_of
 from cad.checks.container.inputs import Input, Inputs
-from cad.checks.container.kernel import FaceInfo, Inertia, Unreadable
+from cad.checks.container.kernel import FaceInfo, Inertia, Shape, Unreadable
 from cad.checks.container.mesher import (
     MESH_CHANGE_LIMIT,
     MeshFailed,
@@ -42,7 +41,7 @@ from cad.checks.container.vectors import Point, cross, dot, norm, sub
 from cad.checks.container.wire import FindingWire, MeasuredWire, SourceLiteral
 
 ID = "fea"
-_END_DEG: Final = math.degrees(anchors.END_CONE_RAD)
+_END_DEG: Final = math.degrees(features.END_CONE_RAD)
 _FAR_DEG: Final = math.degrees(anchors.FAR_CONE_RAD)
 FORMULA = (
     "linear static finite element analysis of the confirmed load case: 10-node tetrahedra "
@@ -142,19 +141,24 @@ def run(subject: Subject) -> FindingWire:
     unmet = required_pass(subject, REQUIRES, "load")
     if unmet is not None:
         return unmet
+    case = subject.inputs.load_case()
+    return assessed(subject, shape, terms.of_wire(case), case["load"]["force_n"])
+
+
+def assessed(subject: Subject, shape: Shape, case: terms.LoadCase, force: float) -> FindingWire:
+    """The check on a load case written in terms, once the wire is parsed and the shape is known
+    to be one closed solid."""
     echoed, material, yield_mpa = _material(subject.inputs)
     if isinstance(material, str):
         return finding("unknown", material, *echoed)
-    case = subject.inputs.load_case()
-    part = anchors.geometry(subject.kernel, shape)
-    resolved = anchors.resolve(terms.of_wire(case), part)
+    part = features.geometry(subject.kernel, shape)
+    resolved = anchors.resolve(case, part)
     if isinstance(resolved, Unresolved):
         return finding("unknown", f"the load case does not resolve: {resolved.reason}", *echoed)
     sizes = mesh_sizes_of(part.faces, part.inertia)
     meshes = mesh_pair(subject.fem.mesh, sizes)
     if isinstance(meshes, MeshFailed):
         return finding("unknown", meshes.reason, *echoed)
-    force = case["load"]["force_n"]
     coarse = solve_at(subject.fem, meshes.coarse, sizes.coarse, resolved, material, force)
     if isinstance(coarse, Unsolved):
         return finding("unknown", coarse.reason, *echoed)
@@ -163,13 +167,13 @@ def run(subject: Subject) -> FindingWire:
         return finding("unknown", fine.reason, *echoed)
     clamped = clamps_a_face(resolved)
     return judged(
-        coarse, fine, yield_mpa, extent_of(part.inertia), echoed, clamped, meshes.over_cap
+        coarse, fine, yield_mpa, features.extent(part.inertia), echoed, clamped, meshes.over_cap
     )
 
 
 def mesh_sizes_of(faces: Sequence[FaceInfo], inertia: Inertia) -> MeshSizes:
     wall = 2 * inertia.volume / sum(face.area for face in faces)
-    return mesh_sizes(wall, extent_of(inertia))
+    return mesh_sizes(wall, features.extent(inertia))
 
 
 def clamps_a_face(resolved: Resolved) -> bool:

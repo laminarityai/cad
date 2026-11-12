@@ -4,64 +4,63 @@ into a basis for each pair. Every pair is a candidate, and the check keeps the w
 
 import math
 from collections.abc import Sequence
-from dataclasses import dataclass
 from typing import Final, assert_never
 
+from cad.checks.container import described
 from cad.checks.container.features import (
-    ANGLE_TOL_RAD,
-    FLUSH_TOL_FRACTION,
+    AREA_TIE_FRACTION,
+    Geometry,
     Hole,
     axis_span,
-    bounding_flats,
-    coplanar,
     distinct_planes,
+    ends_along,
     extent,
+    farthest_flats,
     hole_region,
     holes,
     long_axis,
     normal_plane,
     parallel,
-    projected,
     sized,
 )
-from cad.checks.container.kernel import FaceInfo, Flat, Inertia, Kernel, Point, Shape
+from cad.checks.container.kernel import FaceInfo, Flat, Inertia, Point
 from cad.checks.container.regions import Bore, Candidate, FarFrom, Region, Resolved, Unresolved
 from cad.checks.container.terms import (
     Across,
     Along,
     AnyWay,
+    Away,
     Axis,
     Direction,
+    Each,
+    EndOf,
+    Facing,
     FarEnd,
     FlatEnd,
     Holes,
+    InOneFlatFace,
+    Into,
     LargestFlat,
     Load,
     LoadCase,
+    OnFarthest,
     OnHoles,
+    OnLargestFlat,
+    OnOpposite,
     Support,
 )
-from cad.checks.container.vectors import angle, dot, norm, scale, sub, unit
+from cad.checks.container.vectors import norm, scale, sub, unit
 
-AREA_TIE_FRACTION: Final = 1e-6
-END_CONE_RAD: Final = math.radians(30)
 FAR_CONE_RAD: Final = math.radians(45)
 OFF_CENTER_FRACTION: Final = 0.01
-
-
-@dataclass(frozen=True, slots=True)
-class Geometry:
-    """The kernel's summary of one solid, which is all the rules read."""
-
-    faces: tuple[FaceInfo, ...]
-    inertia: Inertia
-
-
-def geometry(kernel: Kernel, shape: Shape) -> Geometry:
-    return Geometry(kernel.faces(shape), kernel.inertia(shape))
+CANDIDATE_LIMIT: Final = 4
+"""The most candidates a described load case may give. Each is a solve at two mesh sizes."""
 
 
 def resolve(case: LoadCase, part: Geometry) -> Resolved | Unresolved:
+    refused = _refused(case)
+    if refused is not None:
+        return refused
     supports = support_regions(case.support, part)
     if isinstance(supports, Unresolved):
         return supports
@@ -71,10 +70,15 @@ def resolve(case: LoadCase, part: Geometry) -> Resolved | Unresolved:
         if isinstance(loads, Unresolved):
             return loads
         for load in loads:
-            basis = direction_basis(case.direction, case.support, support, part)
+            basis = direction_basis(case.direction, case.support, support, load, part)
             if isinstance(basis, Unresolved):
                 return basis
             candidates.append(Candidate(support, load, basis))
+    if case.described and len(candidates) > CANDIDATE_LIMIT:
+        return Unresolved(
+            f"the load case gives {len(candidates)} pairs of support and load, over the limit "
+            f"of {CANDIDATE_LIMIT}"
+        )
     return Resolved(tuple(candidates))
 
 
@@ -82,11 +86,19 @@ def support_regions(support: Support, part: Geometry) -> tuple[Region, ...] | Un
     match support:
         case Holes():
             held = support_holes(support, part)
-            return held if isinstance(held, Unresolved) else (hole_region(held),)
+            return held if isinstance(held, Unresolved) else (hole_region(held, part.faces),)
         case LargestFlat():
             return largest_flats(part.faces, part.inertia)
         case FlatEnd():
             return flat_ends(part.faces, part.inertia)
+        case EndOf():
+            return described.end_of(support, part)
+        case Facing():
+            return described.facing(part)
+        case Each():
+            return described.each(support, part)
+        case InOneFlatFace():
+            return described.in_one_flat_face(support, part)
         case _:
             assert_never(support)
 
@@ -100,12 +112,25 @@ def load_regions(
         case OnHoles():
             loaded = load_holes(load, support, part)
             return loaded if isinstance(loaded, Unresolved) else (loaded,)
+        case OnLargestFlat():
+            flats = described.on_largest_flat(load, region, part)
+            return flats or Unresolved("every largest flat face of the part is a support face")
+        case OnOpposite():
+            return (described.opposite(region, part, load.middle),)
+        case OnFarthest():
+            found = described.on_farthest(load, region, part)
+            named = described.named(load.curve, load.diameter_mm)
+            return found or Unresolved(f"the part has no {named} outside the supports")
         case _:
             assert_never(load)
 
 
 def direction_basis(
-    direction: Direction, support: Support, region: Region, part: Geometry
+    direction: Direction,
+    support: Support,
+    region: Region,
+    load: Region | FarFrom,
+    part: Geometry,
 ) -> tuple[Point, ...] | Unresolved:
     match direction:
         case AnyWay():
@@ -116,8 +141,24 @@ def direction_basis(
         case Across(axis):
             found = _named_axis(axis, support, region, part)
             return found if isinstance(found, Unresolved) else normal_plane(found)
+        case Into():
+            assert isinstance(load, Region)
+            return described.into(load)
+        case Away():
+            if isinstance(load, FarFrom):
+                return Unresolved("pulling away from the supports needs a load on faces")
+            return described.away(region, load, part)
         case _:
             assert_never(direction)
+
+
+def _refused(case: LoadCase) -> Unresolved | None:
+    """The pairings of terms that name nothing, which parsing will refuse."""
+    if isinstance(case.load, OnOpposite) and not isinstance(case.support, Facing):
+        return Unresolved("a load on the opposite face needs a support on one of two facing faces")
+    if isinstance(case.direction, Into) and not isinstance(case.load, OnLargestFlat | OnOpposite):
+        return Unresolved("pressing into the face needs a load on a flat face")
+    return None
 
 
 def far_ends(
@@ -147,21 +188,6 @@ def far_from(support: Region, inertia: Inertia) -> tuple[FarFrom, ...] | Unresol
     return (FarFrom(support.centroid, axis), FarFrom(support.centroid, scale(axis, -1)))
 
 
-def farthest_flats(
-    faces: Sequence[FaceInfo], way: Point, cone: float, inertia: Inertia
-) -> tuple[Region, ...]:
-    """The flat faces that bound the part, face within `cone` of `way`, and whose centroid
-    reaches farthest along it, each with the faces flush with it. Faces tied for farthest are
-    each a region."""
-    tol = FLUSH_TOL_FRACTION * extent(inertia)
-    facing = [face for face, flat in bounding_flats(faces, tol) if angle(flat.normal, way) <= cone]
-    if not facing:
-        return ()
-    farthest = max(dot(face.centroid, way) for face in facing)
-    tied = [face for face in facing if dot(face.centroid, way) >= farthest - tol]
-    return distinct_planes(tied, faces, inertia)
-
-
 def support_holes(support: Holes, part: Geometry) -> tuple[Hole, ...] | Unresolved:
     found = holes(part.faces, part.inertia)
     return _counted(found, support.count, support.diameter_mm, "support")
@@ -176,7 +202,7 @@ def load_holes(load: OnHoles, support: Support, part: Geometry) -> Region | Unre
         held = found
     free = tuple(hole for hole in holes(part.faces, part.inertia) if hole not in held)
     counted = _counted(free, load.count, load.diameter_mm, "loaded")
-    return counted if isinstance(counted, Unresolved) else hole_region(counted)
+    return counted if isinstance(counted, Unresolved) else hole_region(counted, part.faces)
 
 
 def largest_flats(faces: Sequence[FaceInfo], inertia: Inertia) -> tuple[Region, ...] | Unresolved:
@@ -185,7 +211,7 @@ def largest_flats(faces: Sequence[FaceInfo], inertia: Inertia) -> tuple[Region, 
         return Unresolved("the part has no planar face to sit on")
     largest = max(face.area for face in flats)
     tied = [face for face in flats if face.area >= largest * (1 - AREA_TIE_FRACTION)]
-    return distinct_planes(tied, flats, inertia)
+    return distinct_planes(tied, faces, inertia)
 
 
 def flat_ends(faces: Sequence[FaceInfo], inertia: Inertia) -> tuple[Region, ...] | Unresolved:
@@ -200,30 +226,13 @@ def flat_ends(faces: Sequence[FaceInfo], inertia: Inertia) -> tuple[Region, ...]
     return found
 
 
-def ends_along(
-    faces: Sequence[FaceInfo], inertia: Inertia, span: Sequence[Point]
-) -> tuple[Region, ...]:
-    tol = FLUSH_TOL_FRACTION * extent(inertia)
-    ways: list[Point] = []
-    for _, flat in bounding_flats(faces, tol):
-        toward = projected(flat.normal, span)
-        if norm(toward) < math.cos(END_CONE_RAD):
-            continue
-        way = unit(toward)
-        if not any(angle(way, seen) <= ANGLE_TOL_RAD for seen in ways):
-            ways.append(way)
-    regions: list[Region] = []
-    for way in ways:
-        for region in farthest_flats(faces, way, END_CONE_RAD, inertia):
-            if not any(coplanar(region.patches[0], seen.patches[0], tol) for seen in regions):
-                regions.append(region)
-    return tuple(regions)
-
-
 def _named_axis(name: Axis, support: Support, region: Region, part: Geometry) -> Point | Unresolved:
     if name == "long":
         return long_axis(part.inertia)
-    if not isinstance(support, Holes):
+    through_holes = isinstance(support, Holes | InOneFlatFace) or (
+        isinstance(support, Each) and support.curve == "hole"
+    )
+    if not through_holes:
         return Unresolved("the hole axis needs a support through holes")
     bores = [patch for patch in region.patches if isinstance(patch, Bore)]
     axis = bores[0].axis

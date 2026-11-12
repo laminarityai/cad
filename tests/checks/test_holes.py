@@ -152,14 +152,14 @@ def circle(radius: float, sweep: float = 2 * math.pi) -> Arc:
 
 
 def test_two_half_circles_are_one_whole_circle() -> None:
-    whole = Opening((circle(3, math.pi), circle(3, math.pi)))
+    whole = Opening((circle(3, math.pi), circle(3, math.pi)), 0)
     assert holes.whole_circle(whole, 1e-4) is not None
 
 
 def test_half_a_circle_and_a_line_are_not() -> None:
-    assert holes.whole_circle(Opening((circle(3, math.pi), None)), 1e-4) is None
-    assert holes.whole_circle(Opening((circle(3, math.pi),)), 1e-4) is None
+    assert holes.whole_circle(Opening((circle(3, math.pi), None), 0), 1e-4) is None
+    assert holes.whole_circle(Opening((circle(3, math.pi),), 0), 1e-4) is None
 
 
 def test_arcs_of_two_radii_are_not_one_circle() -> None:
-    assert holes.whole_circle(Opening((circle(3, math.pi), circle(4, math.pi))), 1e-4) is None
+    assert holes.whole_circle(Opening((circle(3, math.pi), circle(4, math.pi)), 0), 1e-4) is None

@@ -2,7 +2,8 @@ import math
 from collections.abc import Sequence
 
 from cad.checks.container import anchors
-from cad.checks.container.anchors import geometry, resolve
+from cad.checks.container.anchors import resolve
+from cad.checks.container.features import geometry
 from cad.checks.container.kernel import ocp_kernel
 from cad.checks.container.regions import Bore, FarFrom, Region, Resolved, Unresolved
 from cad.checks.container.terms import of_wire

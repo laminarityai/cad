@@ -6,6 +6,7 @@ from cad.checks.container.kernel import Point
 from cad.checks.container.regions import (
     Bore,
     Candidate,
+    Disc,
     FarFrom,
     Patch,
     Plane,
@@ -91,6 +92,8 @@ def moved_patch(patch: Patch) -> Patch:
             return Bore(apply(MOVE, origin), rotate(MOVE, axis), radius, t0, t1)
         case Plane(point, normal):
             return Plane(apply(MOVE, point), rotate(MOVE, normal))
+        case Disc(center, normal, radius):
+            return Disc(apply(MOVE, center), rotate(MOVE, normal), radius)
 
 
 def same_place(first: Region | FarFrom, second: Region | FarFrom) -> bool:

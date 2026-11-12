@@ -2,11 +2,20 @@
 reads only normals, axes, centroids and areas, never the model's frame."""
 
 import math
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Final
 
-from cad.checks.container.kernel import FaceInfo, Flat, Inertia, Point, Round
+from cad.checks.container.kernel import (
+    FaceInfo,
+    Flat,
+    Inertia,
+    Kernel,
+    Opening,
+    Point,
+    Round,
+    Shape,
+)
 from cad.checks.container.regions import Bore, Patch, Plane, Region, Unresolved
 from cad.checks.container.vectors import add, angle, cross, dot, norm, scale, sub, unit
 
@@ -17,6 +26,28 @@ DIAMETER_TOL_MM: Final = 0.05
 DIAMETER_TOL_FRACTION: Final = 0.01
 FLUSH_TOL_FRACTION: Final = 1e-4
 LONG_TIE_FRACTION: Final = 0.01
+END_CONE_RAD: Final = math.radians(30)
+AREA_TIE_FRACTION: Final = 1e-6
+
+
+@dataclass(frozen=True, slots=True)
+class Geometry:
+    """The kernel's summary of one solid, which is all the rules read."""
+
+    faces: tuple[FaceInfo, ...]
+    inertia: Inertia
+    openings: Callable[[], tuple[Opening, ...]]
+    inside: Callable[[Point], bool]
+    """Whether a point lies in the material."""
+
+
+def geometry(kernel: Kernel, shape: Shape) -> Geometry:
+    return Geometry(
+        kernel.faces(shape),
+        kernel.inertia(shape),
+        lambda: kernel.openings(shape),
+        lambda point: kernel.inside(shape, point),
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +76,49 @@ def holes(faces: Sequence[FaceInfo], inertia: Inertia) -> tuple[Hole, ...]:
     add up to a full turn, so a fillet or a slot end is not one and a counterbore's coaxial faces
     are one hole."""
     offset_tol = OFFSET_TOL_FRACTION * extent(inertia)
+    found: list[Hole] = []
+    for group in _hole_groups(faces, offset_tol):
+        smallest = min(face_round(face).radius for face in group)
+        bores = tuple(f for f in group if face_round(f).radius - smallest <= offset_tol)
+        first = face_round(group[0])
+        found.append(Hole(first.origin, first.axis, smallest, bores))
+    return tuple(found)
+
+
+def inner_curves(faces: Sequence[FaceInfo], inertia: Inertia) -> tuple[Hole, ...]:
+    """Concave cylindrical faces that are no part of a hole, grouped by axis line and radius. Each
+    group is one inner curve, in the same shape as a hole, with every face of the group a bore."""
+    offset_tol = OFFSET_TOL_FRACTION * extent(inertia)
+    in_holes = [face for hole in _hole_groups(faces, offset_tol) for face in hole]
+    groups: list[list[FaceInfo]] = []
+    for face in faces:
+        if not (isinstance(face.surface, Round) and face.surface.concave):
+            continue
+        if any(face is one for one in in_holes):
+            continue
+        line = face.surface
+        group = next(
+            (
+                g
+                for g in groups
+                if same_line(face_round(g[0]), line, offset_tol)
+                and abs(face_round(g[0]).radius - line.radius) <= offset_tol
+            ),
+            None,
+        )
+        if group is None:
+            groups.append([face])
+        else:
+            group.append(face)
+    return tuple(
+        Hole(face_round(g[0]).origin, face_round(g[0]).axis, face_round(g[0]).radius, tuple(g))
+        for g in groups
+    )
+
+
+def _hole_groups(faces: Sequence[FaceInfo], offset_tol: float) -> list[list[FaceInfo]]:
+    """Concave cylindrical faces grouped by axis line, keeping the groups whose angular spans add
+    up to a full turn."""
     groups: list[list[FaceInfo]] = []
     for face in faces:
         if not (isinstance(face.surface, Round) and face.surface.concave):
@@ -58,15 +132,8 @@ def holes(faces: Sequence[FaceInfo], inertia: Inertia) -> tuple[Hole, ...]:
             groups.append([face])
         else:
             group.append(face)
-    found: list[Hole] = []
-    for group in groups:
-        if sum(face_round(face).span for face in group) < 2 * math.pi - FULL_TURN_SLACK_RAD:
-            continue
-        smallest = min(face_round(face).radius for face in group)
-        bores = tuple(f for f in group if face_round(f).radius - smallest <= offset_tol)
-        first = face_round(group[0])
-        found.append(Hole(first.origin, first.axis, smallest, bores))
-    return tuple(found)
+    turn = 2 * math.pi - FULL_TURN_SLACK_RAD
+    return [g for g in groups if sum(face_round(f).span for f in g) >= turn]
 
 
 def sized(found: tuple[Hole, ...], diameter_mm: float | None) -> tuple[Hole, ...]:
@@ -79,9 +146,14 @@ def matches(diameter: float, wanted_mm: float) -> bool:
     return abs(diameter - wanted_mm) <= max(DIAMETER_TOL_MM, DIAMETER_TOL_FRACTION * wanted_mm)
 
 
-def hole_region(found: tuple[Hole, ...]) -> Region:
+def hole_region(found: tuple[Hole, ...], faces: Sequence[FaceInfo]) -> Region:
     bores = [face for hole in found for face in hole.bores]
-    return Region(tuple(hole.bore() for hole in found), centroid(bores))
+    return Region(tuple(hole.bore() for hole in found), centroid(bores), indices(faces, bores))
+
+
+def indices(faces: Sequence[FaceInfo], chosen: Sequence[FaceInfo]) -> frozenset[int]:
+    """Where each of `chosen`, taken from `faces` itself, sits in `faces`."""
+    return frozenset(i for i, face in enumerate(faces) if any(face is one for one in chosen))
 
 
 def long_axis(inertia: Inertia) -> Point | Unresolved:
@@ -120,9 +192,9 @@ def face_round(face: FaceInfo) -> Round:
 
 
 def distinct_planes(
-    chosen: Sequence[FaceInfo], flats: Sequence[FaceInfo], inertia: Inertia
+    chosen: Sequence[FaceInfo], faces: Sequence[FaceInfo], inertia: Inertia
 ) -> tuple[Region, ...]:
-    """A region for each plane among `chosen`, with every face of `flats` flush with it."""
+    """A region for each plane among `chosen`, with every flat face of `faces` flush with it."""
     tol = FLUSH_TOL_FRACTION * extent(inertia)
     regions: list[Region] = []
     for face in chosen:
@@ -130,8 +202,8 @@ def distinct_planes(
         plane = Plane(face.centroid, face.surface.normal)
         if any(flush(face, region.patches[0], tol) for region in regions):
             continue
-        level = [other for other in flats if flush(other, plane, tol)]
-        regions.append(Region((plane,), centroid(level)))
+        level = [other for other in faces if flush(other, plane, tol)]
+        regions.append(Region((plane,), centroid(level), indices(faces, level)))
     return tuple(regions)
 
 
@@ -190,3 +262,38 @@ def centroid(faces: Sequence[FaceInfo]) -> Point:
 
 def along(line: Round, v: float) -> Point:
     return add(line.origin, scale(line.axis, v))
+
+
+def farthest_flats(
+    faces: Sequence[FaceInfo], way: Point, cone: float, inertia: Inertia
+) -> tuple[Region, ...]:
+    """The flat faces that bound the part, face within `cone` of `way`, and whose centroid
+    reaches farthest along it, each with the faces flush with it. Faces tied for farthest are
+    each a region."""
+    tol = FLUSH_TOL_FRACTION * extent(inertia)
+    facing = [face for face, flat in bounding_flats(faces, tol) if angle(flat.normal, way) <= cone]
+    if not facing:
+        return ()
+    farthest = max(dot(face.centroid, way) for face in facing)
+    tied = [face for face in facing if dot(face.centroid, way) >= farthest - tol]
+    return distinct_planes(tied, faces, inertia)
+
+
+def ends_along(
+    faces: Sequence[FaceInfo], inertia: Inertia, span: Sequence[Point]
+) -> tuple[Region, ...]:
+    tol = FLUSH_TOL_FRACTION * extent(inertia)
+    ways: list[Point] = []
+    for _, flat in bounding_flats(faces, tol):
+        toward = projected(flat.normal, span)
+        if norm(toward) < math.cos(END_CONE_RAD):
+            continue
+        way = unit(toward)
+        if not any(angle(way, seen) <= ANGLE_TOL_RAD for seen in ways):
+            ways.append(way)
+    regions: list[Region] = []
+    for way in ways:
+        for region in farthest_flats(faces, way, END_CONE_RAD, inertia):
+            if not any(coplanar(region.patches[0], seen.patches[0], tol) for seen in regions):
+                regions.append(region)
+    return tuple(regions)

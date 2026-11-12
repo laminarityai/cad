@@ -91,6 +91,10 @@ class _Box(Protocol):
     def Get(self) -> tuple[float, float, float, float, float, float]: ...
 
 
+class _Classifier(Protocol):
+    def State(self) -> object: ...
+
+
 class _Tolerance(Protocol):
     def Tolerance(self, shape: Shape, mode: int) -> float:
         """A positive mode gives the largest tolerance, 0 the mean, a negative one the smallest."""
@@ -197,6 +201,7 @@ class Ocp:
     new_tolerance: Callable[[], _Tolerance]
     new_common: Callable[[Shape, Shape], _Boolean]
     new_distance: Callable[[], _Distance]
+    new_classifier: Callable[[Shape, Xyz, float], _Classifier]
     new_writer: Callable[[], _Writer]
     new_header: Callable[[_Model], _Header]
     new_hstring: Callable[[str], object]
@@ -230,6 +235,7 @@ class Ocp:
     ret_done: object
     extrema_min: object
     extrema_grad: object
+    state_in: object
 
 
 def _module(name: str) -> ModuleType:
@@ -262,6 +268,10 @@ def load_ocp() -> Ocp:
         ),
         new_distance=cast(
             Callable[[], _Distance], _module("BRepExtrema").BRepExtrema_DistShapeShape
+        ),
+        new_classifier=cast(
+            Callable[[Shape, Xyz, float], _Classifier],
+            _module("BRepClass3d").BRepClass3d_SolidClassifier,
         ),
         new_writer=cast(Callable[[], _Writer], step_control.STEPControl_Writer),
         new_header=cast(Callable[[_Model], _Header], header.APIHeaderSection_MakeHeader),
@@ -296,4 +306,5 @@ def load_ocp() -> Ocp:
         ret_done=_module("IFSelect").IFSelect_RetDone,
         extrema_min=extrema.Extrema_ExtFlag_MIN,
         extrema_grad=extrema.Extrema_ExtAlgo_Grad,
+        state_in=top_abs.TopAbs_IN,
     )
