@@ -45,11 +45,12 @@ Confirming a brief needs no model: create the brief, propose and call `ask_to_co
 uv sync --frozen
 uv run playwright install chromium
 uv run cad-sandbox build-image
+uv run cad-reader build-image
 uv run python .claude/skills/verify/scripts/browser.py start "$CAD_BROWSER"
 ```
 
 - `playwright install chromium` is needed once per machine. It deletes browsers of other Playwright versions that it thinks are unused.
-- `build-image` is needed only for recipes that start a container. It prints `sandbox image cad-sandbox:<tag> is current` and then the same line for `cad-analysis:<tag>`, or builds a missing image, which takes minutes. With Docker down it prints the cause and exits 1.
+- `build-image` is needed only for recipes that start a container. It prints `sandbox image cad-sandbox:<tag> is current` and then the same line for `cad-analysis:<tag>`, or builds a missing image, which takes minutes. With Docker down it prints the cause and exits 1. `cad-reader build-image` does the same for `cad-reader:<tag>`, the image that reads a researched PDF.
 - `browser.py start` is needed only for recipes that open the confirmation page. It returns when the browser answers, and prints `browser ready: {...}` and `opener: <path>`. Running it again on the same directory reuses the running browser.
 
 Each stdio `cad-call` and each Claude Code session starts its own server and stops it. `uv run cad-http` is the long-running server. `cad-call --url` talks to it, and so do the web app and `curl`.

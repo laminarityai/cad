@@ -48,7 +48,8 @@ def request_for(
     else:
         first = ""
     instruction = (
-        f"{first}research {field} for {key}: find a public https page that states the "
+        f"{first}research {field} for {key}: find a public https web page or PDF datasheet "
+        "that states the "
         f"{spec.label} of this material, and call {SUBMIT} with brief_id, key {key!r}, field "
         f"{field!r}, the value and its unit ({spec.unit_hint}) as the page writes them, the "
         "page's URL, and the quote you read the value from, copied from the "

@@ -25,7 +25,7 @@ These four facts decide the shape. Each one rules out a managed container servic
 Two smaller facts set the instance size and the image flow.
 
 - **Two containers run at once, and the number is a constant.** `SLOTS` is a semaphore of `DOCKER_MEMORY_BUDGET_MB // MEMORY_MB`, which is 4096 // 2048. Each container gets 2 GB and 2 CPUs. A larger instance does not raise throughput until that constant changes. (Read.)
-- **The server never pulls an image.** `docker run` passes `--pull never`. The host must already hold `cad-sandbox:<hash>` and `cad-analysis:<hash>`, where the hash covers the Dockerfile and `requirements.txt`. The two images are about 1.7 GB and 2.5 GB. (Read.)
+- **The server never pulls an image.** `docker run` passes `--pull never`. The host must already hold `cad-sandbox:<hash>`, `cad-analysis:<hash>` and `cad-reader:<hash>`, where the hash covers the Dockerfile and `requirements.txt`. The first two images are about 1.7 GB and 2.5 GB (read). The reader is 225 MB (measured 2026-11-11).
 
 The server process is light. Its runtime dependencies are `anthropic`, `mcp`, `packaging`, `pint`, `pyjwt`, and `pyyaml`. A `uv sync --no-dev` virtual environment is 65 MB. (Measured.) The CAD kernel lives only in the images.
 
@@ -38,7 +38,7 @@ person or MCP client
         |  HTTP 8765, from the ALB security group only
    EC2 instance, x86_64, Ubuntu 24.04
      systemd: cad-http --host 0.0.0.0 --root /var/lib/cad
-     Docker Engine: cad-sandbox and cad-analysis containers, no network
+     Docker Engine: cad-sandbox, cad-analysis and cad-reader containers, no network
      /var/lib/cad on its own encrypted EBS volume
         |  outbound 443
    Anthropic API, Clerk, ECR, S3, Secrets Manager, pages the research step fetches
@@ -112,13 +112,13 @@ A release is one commit on `main` that passed CI. The server's layout on the hos
 A `deploy` workflow in GitHub Actions, started by hand with a SHA, does this:
 
 1. It assumes an AWS role through GitHub's OIDC provider. No long-lived AWS key is stored in GitHub.
-2. It builds both images with `uv run cad-sandbox build-image` and pushes them to ECR under the same tags.
+2. It builds the three images with `uv run cad-sandbox build-image` and `uv run cad-reader build-image` and pushes them to ECR under the same tags.
 3. It builds the web app, writes `git bundle create release.bundle HEAD`, and uploads the bundle and `web/dist` to `s3://<bucket>/releases/<sha>/`.
 4. It runs `/opt/cad/bin/deploy <sha>` on the instance through Systems Manager and fails if the script fails.
 
 The `deploy` script on the instance:
 
-1. Pulls both images from ECR and tags them with the bare names the server looks up.
+1. Pulls the three images from ECR and tags them with the bare names the server looks up.
 2. Fetches the bundle into `/opt/cad/releases/<sha>` and checks out the SHA.
 3. Runs `uv sync --locked --no-dev` and unpacks `web/dist`. Git ignores both, so the tree stays clean.
 4. Proves the release before any person sees it. With a temporary `HOME`, it runs `cad-call server_info` and `cad-call build_variant` over stdio. The first must report the SHA and `dirty: false`. The second must return `built`, which proves Docker and both image tags.
