@@ -40,8 +40,8 @@ def main() -> None:
 class BrepFem:
     brep: bytes
 
-    def mesh(self, size_mm: float) -> TetMesh | MeshFailed:
-        return tet_mesh(self.brep, size_mm)
+    def mesh(self, size_mm: float, floor_mm: float) -> TetMesh | MeshFailed:
+        return tet_mesh(self.brep, size_mm, floor_mm)
 
     def solve(
         self,

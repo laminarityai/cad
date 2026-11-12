@@ -17,16 +17,13 @@ from cad.checks.container.elastic import (
     worst_von_mises,
 )
 from cad.checks.container.kernel import Unreadable, ocp_kernel
-from cad.checks.container.mesher import MeshFailed, TetMesh, tet_mesh
+from cad.checks.container.mesher import MeshFailed, TetMesh, mesh_pair, tet_mesh
 from cad.checks.container.vectors import norm, sub, unit
 
 REGION_TOLERANCE = 1e-4
 
 
-def solved(case: Case, brep: bytes, size_mm: float) -> dict[str, object]:
-    mesh = tet_mesh(brep, size_mm)
-    if isinstance(mesh, MeshFailed):
-        return {"failed": mesh.reason}
+def solved(case: Case, mesh: TetMesh, size_mm: float) -> dict[str, object]:
     tol = REGION_TOLERANCE * extent(mesh)
     fixed = region_faces(mesh, case.fixed, tol)
     loaded = selected(mesh, case.loaded, tol)
@@ -69,5 +66,13 @@ def main() -> None:
     shape = kernel.read_brep(brep)
     assert not isinstance(shape, Unreadable), shape.reason
     sizes = fea.mesh_sizes_of(kernel.faces(shape), kernel.inertia(shape))
-    report = {"coarse": solved(case, brep, sizes.coarse), "fine": solved(case, brep, sizes.fine)}
+    meshes = mesh_pair(lambda size, floor: tet_mesh(brep, size, floor), sizes)
+    if isinstance(meshes, MeshFailed):
+        sys.stdout.write(json.dumps({"failed": meshes.reason}))
+        return
+    report = {
+        "coarse": solved(case, meshes.coarse, sizes.coarse),
+        "fine": solved(case, meshes.fine, sizes.fine),
+        "over_cap": None if meshes.over_cap is None else meshes.over_cap.reason,
+    }
     sys.stdout.write(json.dumps(report))

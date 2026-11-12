@@ -26,6 +26,7 @@ PROGRAM: Final = (
     f"import sys; sys.path[:0] = [{TARGET!r}, {HARNESS!r}]; from driver import main; main()"
 )
 DETERMINISM_CASE: Final = "cantilever tip"
+OVER_CAP_CASE: Final = "filleted cantilever tip"
 CACHE: Final = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "cad" / "fea"
 
 
@@ -97,7 +98,9 @@ def reports(breps: Mapping[str, bytes]) -> Mapping[str, bytes]:
 
 
 def mesh(report: bytes, which: str) -> dict[str, float]:
-    found = json.loads(report)[which]
+    whole = json.loads(report)
+    assert "failed" not in whole, whole["failed"]
+    found = whole[which]
     assert "failed" not in found, found["failed"]
     return found
 
@@ -125,6 +128,14 @@ def test_the_coarse_and_fine_mesh_agree_within_the_fea_gate(
     coarse = mesh(reports[name], "coarse")["max_displacement"]
     fine = mesh(reports[name], "fine")["max_displacement"]
     assert abs(fine - coarse) / fine <= MESH_CHANGE_LIMIT
+
+
+def test_only_the_part_over_the_node_cap_is_meshed_with_the_floor(
+    reports: Mapping[str, bytes],
+) -> None:
+    floored = {name: json.loads(report)["over_cap"] for name, report in reports.items()}
+    assert {name for name, over_cap in floored.items() if over_cap} == {OVER_CAP_CASE}
+    assert "above the cap of 150000" in floored[OVER_CAP_CASE]
 
 
 def test_solving_the_same_case_twice_gives_the_same_bytes(
