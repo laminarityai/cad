@@ -78,3 +78,37 @@ Every support stays fixed, and every load stays a force. A part that rests, slid
 - **Agent-written code that picks the faces, gated like an agent-written check.** Not chosen on 2026-11-11, because code can single out any face, and the person cannot read it, so the words on the page would be the agent's account of the code. Approved by the operator on 2026-11-12, after build step 1 measured that the terms decide 2 of the 12 stuck corpus parts and 3 of the 6 novice briefs. The operator's rule is that the agent may write code for any test the team does not have. It is not built yet. It needs its own design, with the gates, the label and the separate count of an agent-written check ([ADR-0011](0011-agent-written-checks-are-frozen-gated-and-approved-per-project.md)). Until then a case no term says stays not checked.
 - **The person picks faces for each revision (#79).** Rejected by the operator. Auto revises without the person.
 - **A server model call that writes the terms from the person's words alone.** Not chosen now. The result rule already allows a described load case on a brief that has variants, so this would add only a new description after the brief has a stress result. The cost is a second model in the path of every verdict on a load.
+
+## Amendment (2026-11-12): load faces that agent-written code places
+
+Status: Accepted, not built. The operator approved agent-written code that picks the support and load faces on 2026-11-12, with the rule that the agent may write code for any test the team does not have. The rules below are the design's picks for how. [Load faces that agent-written code places](../design/fea-agent-placed-loads.md) gives the design, the gates and the build steps. Build step 1 measures what a placement decides beyond the terms, and it may change the constants or stop the work.
+
+### The agent may write code that finds the faces
+
+A load case may be placed. A placement is a frozen record that holds build123d code, the agent's account of it in words, and a probe shape. The code receives only the stored part and returns 1 to 4 candidates, each a support and a load that share no face. Team code maps the faces to kernel face indices. The reviewed `fea` check builds its regions from the indices and keeps the worst candidate. No agent code runs in the `fea` job. The direction stays a term, the server writes the words for the force and the direction, and the force is the person's number.
+
+The agent still never names a face index and never chooses a frame. A run on a copy that a team-only container turned by a motion the agent cannot compute must return the same faces.
+
+### Written under the result rule, not the blind rule
+
+`write_placement` and `propose_requirements` apply the result rule above to a placed load case, as to a described one. A placement may be written and replaced until any variant of the brief has a stored `fea` result, and never after. A changed placement is a new record and a new load case.
+
+This contradicts the blind rule of ADR-0011 for this record. The code can be fitted to the shapes of the variants that exist. It is never written knowing a stress result. The blind rule would leave every load stated after the options are built not checked.
+
+### Gates that ADR-0011 does not have
+
+Team code in the `fea` check adds three gates, and each failure gives `unknown`:
+
+- **Bounded area.** A support or a load may not cover more than a share of the part's surface area that build step 1 measures.
+- **Mirror.** A support and a load of one face or one hole gain every look-alike pair at the same distance and angle as candidates, and the worst is kept.
+- **Drift.** On a later revision of a slot, the faces' kinds and counts must match the first scored revision's, and the lever between the support and the load may not fall below 0.9 of it.
+
+ADR-0011's units and worked-example gates do not apply, because a placement has no formula.
+
+### Approved, labelled and counted apart
+
+The person approves a placement on the confirmation page, beside its requirement, after seeing the held and loaded faces highlighted on each built option, or on the probe when none is built. Approval means "these are the faces I meant". A verdict carries `load_case: "placed"` and reads "load placed by agent-written code you approved, not reviewed by our team". The tracer counts these verdicts on their own line, apart from described ones and outside its headline count. Auto counts a pass toward its stop, and the stop report names it.
+
+### What this replaces
+
+The amendment of 2026-11-11 said that the agent "writes no code that finds one". That holds for described load cases. For a placed load case, the agent writes the code, and the gates above and the person's approval are the defence. They are weaker than the fixed rules of a term. A choice between places that do not look alike, on the options the person saw, is defended only by the person's approval.
