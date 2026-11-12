@@ -81,7 +81,7 @@ Every support stays fixed, and every load stays a force. A part that rests, slid
 
 ## Amendment (2026-11-12): load faces that agent-written code places
 
-Status: Proposed. The operator approved agent-written code that picks the support and load faces on 2026-11-12, with the rule that the agent may write code for any test the team does not have. [Load faces that agent-written code places](../design/fea-agent-placed-loads.md) gives the design, the gates and the build steps. This amendment records the rules that change.
+Status: Accepted, not built. The operator approved agent-written code that picks the support and load faces on 2026-11-12, with the rule that the agent may write code for any test the team does not have. The rules below are the design's picks for how. [Load faces that agent-written code places](../design/fea-agent-placed-loads.md) gives the design, the gates and the build steps. Build step 1 measures what a placement decides beyond the terms, and it may change the constants or stop the work.
 
 ### The agent may write code that finds the faces
 
