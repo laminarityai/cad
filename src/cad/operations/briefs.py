@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from cad.briefs import assumptions, clearances, made_of, source, store
 from cad.briefs.assumptions import MAX_ASSUMPTIONS, Assumption
+from cad.briefs.bindable import BINDABLE
 from cad.briefs.edits import placeholder
 from cad.briefs.model import (
     MAX_BRIEF_CHARS,
@@ -52,8 +53,13 @@ PROPOSE_REQUIREMENTS = (
     "brief. The target kind is closed_solid; max_mass or min_mass with a mass "
     "such as {magnitude: 150, unit: g}; envelope with three edge lengths; measure_limit, which "
     "holds one team check's measure to a limit the user confirms, with check_id, measure, a "
-    "comparator (at_most or at_least) and a limit such as {magnitude: 30, unit: cm^3}, and "
-    "today the only measure is check_id mass, measure volume, which takes a volume; made_of with a "
+    "comparator (at_most or at_least) and a limit such as {magnitude: 30, unit: cm^3} in the "
+    "measure's unit or one of its kind; the measures are "
+    + "; ".join(
+        f"check_id {check}, measure {measure}: {bound.words}, in {bound.unit}"
+        for (check, measure), bound in BINDABLE.items()
+    )
+    + "; made_of with a "
     "material, only when the brief names one, quoting its words (at most one per brief). When the "
     "brief names no material, propose no made_of and do not ask the person for one: you choose "
     "it for each variant when you build it. When the brief names one, call "

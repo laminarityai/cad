@@ -61,7 +61,8 @@ def test_every_bindable_measure_is_one_a_team_check_reports_in_the_same_unit() -
     assert BINDABLE
     for (check_id, measure), bound in BINDABLE.items():
         assert check_id in measures, f"{check_id} is not a registered check"
-        assert measures[check_id][measure] == bound.unit
+        family = measure.split(":", 1)[0]
+        assert measures[check_id][family] == bound.unit
 
 
 async def confirmed_brief(s: Session) -> str:
