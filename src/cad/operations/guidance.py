@@ -122,6 +122,29 @@ NOT_VERIFIED = (
     "on it to reach a verdict."
 )
 
+LOAD_CASES: Final = (
+    "A load case is how a part is held and where the force acts. Pick its terms from the "
+    "schema of min_safety_factor and max_deflection. A load case that uses a term beyond the "
+    "five reviewed phrases, such as a support at the flat faces that face each other across a "
+    "gap or a load on the middle of the largest flat face, is a described load case. You "
+    "compose the terms from the shape of the part, and the server writes the words the person "
+    "confirms. Never write those words, never name a face, and never put a number in a load "
+    "case beyond the force or deflection the person stated. A described load case is accepted "
+    "only before any fea result exists for the brief. An unknown fea result counts, and so "
+    "does the measure-only result of an assumed load. Once one exists, the server refuses a "
+    "new described load case and tells you so: use a reviewed phrase, or say it is not "
+    "checked. The same load case with a new force is accepted. A support that rests, slides "
+    "or pivots is not checked. A pass on a described load case is labelled load_case "
+    "described. Report it as a pass on a load case you described and the person confirmed, "
+    "never as a reviewed verdict or a plain pass."
+)
+
+AUTO_DESCRIBED: Final = (
+    "A requirement on a described load case counts in an Auto run like any confirmed one. The "
+    "stop's all_pass lists those requirements apart as described. Report such a pass as a "
+    "pass on a load case you described, not reviewed by our team."
+)
+
 AUTO_AGENT_CHECKS: Final = (
     "A requirement an approved agent-written check decides counts in an Auto run, so the run "
     "may start on it. A check the person declined or has not approved decides nothing and does "
@@ -163,6 +186,7 @@ INSTRUCTIONS: Final = " ".join(
         WALLS,
         MATERIAL,
         DEEPER_ANALYSIS,
+        LOAD_CASES,
         RESEARCH,
         AGENT_CHECKS,
         NOT_VERIFIED,

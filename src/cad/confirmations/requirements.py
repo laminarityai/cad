@@ -6,7 +6,15 @@ from cad.agent_checks.store import checks_of
 from cad.briefs import store
 from cad.briefs.bindable import BINDABLE
 from cad.briefs.edits import apply_edits, placeholder
-from cad.briefs.model import AgentLimit, MadeOf, MeasureLimit, Requirement, Target, deciding_check
+from cad.briefs.model import (
+    AgentLimit,
+    MadeOf,
+    MeasureLimit,
+    Requirement,
+    Target,
+    deciding_check,
+    load_of,
+)
 from cad.briefs.origins import quoted
 from cad.briefs.store import ProposalState, Status, TamperedBrief
 from cad.briefs.words import describe
@@ -21,6 +29,10 @@ from cad.sandbox import host
 
 SLOT: Final = re.compile(r"([0-9a-f]{16})/proposal/([1-9][0-9]{0,3})")
 TITLE: Final = "Requirements for your brief"
+DESCRIBED_DECIDES: Final = (
+    "Decided by the {check} check, on a load case the agent described from fixed terms. "
+    "The server wrote these words from those terms, and our team has not reviewed this load case"
+)
 AGENT_DECIDES: Final = (
     "Decided by the agent-written check below once you approve it. Our team has not reviewed it"
 )
@@ -104,6 +116,9 @@ def _decides(target: Target) -> str:
     check = deciding_check(target)
     if check is None:
         return "No reviewed check: unverified"
+    case = load_of(target)
+    if case is not None and case.described:
+        return DESCRIBED_DECIDES.format(check=check)
     if isinstance(target, MeasureLimit):
         words = BINDABLE[(target.check_id, target.measure)].words
         return f"Decided by the {check} check, which measures {words}"
