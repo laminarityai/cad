@@ -1,4 +1,4 @@
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Annotated, Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -22,6 +22,7 @@ from cad.briefs.origins import FILE_ID_PATTERN
 from cad.briefs.store import BriefState, ProposalState, Status
 from cad.briefs.words import describe, describe_target
 from cad.checks.report import QUICK, closure
+from cad.confirmations.requirements import plain_names
 from cad.context_parts.store import stored_parts
 from cad.conversations import store as conversations
 from cad.conversations.model import ConversationId, UnknownConversation
@@ -193,7 +194,7 @@ class BriefView(BaseModel):
     assumptions: list[AssumptionRow] = Field(default=[], exclude_if=lambda one: not one)
 
 
-def _view(state: BriefState, proposed: ProposalState) -> ProposalView:
+def _view(state: BriefState, proposed: ProposalState, names: Mapping[str, str]) -> ProposalView:
     confirmed = state.confirmed
     in_force = {r.id for r in confirmed.requirements} if confirmed else set[str]()
     return ProposalView(
@@ -203,7 +204,7 @@ def _view(state: BriefState, proposed: ProposalState) -> ProposalView:
         requirements=[
             RequirementRow(
                 requirement=r,
-                plain=describe(r),
+                plain=describe(r, names),
                 check=deciding_check(r.target),
                 status="confirmed" if r.id in in_force else "proposed",
                 edited_by_user=_user_edit(was, r),
@@ -213,11 +214,13 @@ def _view(state: BriefState, proposed: ProposalState) -> ProposalView:
     )
 
 
-def _assumed(held: assumptions.AssumptionSet | None) -> list[AssumptionRow]:
+def _assumed(
+    held: assumptions.AssumptionSet | None, names: Mapping[str, str]
+) -> list[AssumptionRow]:
     return [
         AssumptionRow(
             target=one.target,
-            plain=describe_target(one.target),
+            plain=describe_target(one.target, names),
             why=one.why,
             check=deciding_check(one.target),
         )
@@ -316,13 +319,14 @@ def propose_requirements(tenant: Tenant, arguments: ProposeRequirementsInput) ->
             parts,
         )
     state = store.read_state(tenant.roots, arguments.brief_id)
-    shown = None if state.latest is None else _view(state, state.latest)
+    names = plain_names(tenant.roots, arguments.brief_id)
+    shown = None if state.latest is None else _view(state, state.latest, names)
     return Proposed(
         brief_id=state.brief.id,
         proposal=None if shown is None else shown.proposal,
         status=None if shown is None else shown.status,
         requirements=[] if shown is None else shown.requirements,
-        assumptions=_assumed(held),
+        assumptions=_assumed(held, names),
         research=_made_of_requests(table, arguments.brief_id, drafts),
     )
 
@@ -340,14 +344,15 @@ def _draft(tenant: Tenant, project: ProjectId, index: int, one: RequirementDraft
 def list_requirements(tenant: Tenant, arguments: ListRequirementsInput) -> BriefView:
     state = store.read_state(tenant.roots, arguments.brief_id)
     confirmed = state.confirmed
+    names = plain_names(tenant.roots, arguments.brief_id)
     return BriefView(
         brief_id=state.brief.id,
         project_id=state.brief.project,
         text=state.brief.text,
         name=state.brief.name,
-        proposals=[_view(state, p) for p in state.proposals],
+        proposals=[_view(state, p, names) for p in state.proposals],
         confirmed_proposal=confirmed.proposal.number if confirmed else None,
-        assumptions=_assumed(assumptions.in_force(tenant.roots, arguments.brief_id)),
+        assumptions=_assumed(assumptions.in_force(tenant.roots, arguments.brief_id), names),
     )
 
 

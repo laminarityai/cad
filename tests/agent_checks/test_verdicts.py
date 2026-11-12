@@ -2,21 +2,14 @@
 once the person approved it. The sandbox runs are given: test_turned_sandbox.py runs them."""
 
 from collections.abc import Callable, Sequence
-from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
 
 from cad.agent_checks import turned, verdicts
 from cad.agent_checks.model import AgentCheck
-from cad.agent_checks.store import StoredCheck
-from cad.agent_checks.write import write_check
-from cad.briefs import store as briefs
 from cad.briefs.store import ConfirmedSet
 from cad.checks.result import Verdict
-from cad.confirmations import agent_checks as confirming
-from cad.confirmations import answers
-from cad.confirmations.answers import ItemAnswer, PageAnswer
 from cad.context_parts.model import Outcome
 from cad.operations.agent_checks import with_agent_checks
 from cad.records.roots import Roots
@@ -27,40 +20,11 @@ from cad.scorecard import material
 from cad.scorecard.model import AGENT_CHECK, AgainstBrief, AgentChecked, Unverified
 from cad.tables.materials import UNITS
 from cad.variants import entry
-from tests.support.agent_checks import agent_limit, fetching, snap_fit, unchecked_brief
+from tests.support.agent_checks import answer, write
 from tests.support.cards import BREP, genuine_card, judged_card, table
 
 pytestmark = pytest.mark.usefixtures("no_sandbox")
 CODE = "result = Box(20, 5, 2)"
-
-
-def write(roots: Roots) -> tuple[str, StoredCheck]:
-    brief_id, requirement_id = unchecked_brief(roots)
-    stored = write_check(
-        roots,
-        brief_id,
-        requirement_id,
-        snap_fit(),
-        fetcher=fetching(),
-        today=lambda: date(2026, 11, 12),
-    )
-    return brief_id, stored
-
-
-def answer(roots: Roots, brief_id: str, stored: StoredCheck, check: Outcome) -> ConfirmedSet:
-    """The person confirms the requirements on the page and answers the check with `check`."""
-    briefs.propose(roots, brief_id, [agent_limit(stored.sha256)])
-    state = briefs.read_state(roots, brief_id)
-    project = state.brief.project
-    assert confirming.AgentChecks(roots).pending(project) == (confirming.ref(project, stored),)
-    items = [ItemAnswer(item=state.proposals[-1].ref, verdict="confirmed")]
-    if check != "waiting":
-        items.append(ItemAnswer(item=confirming.ref(project, stored), verdict=check))
-    page = PageAnswer(project=project, answers=tuple(items), decided_at=datetime.now(UTC))
-    assert answers.append_answer(roots.projects, project, page)
-    confirmed = briefs.confirmed_requirements(roots, brief_id)
-    assert confirmed is not None
-    return confirmed
 
 
 type Run = Callable[[bytes, Sequence[AgentCheck]], tuple[turned.Measured, ...]]

@@ -27,7 +27,9 @@ from cad.briefs.model import MAX_NOTE_CHARS, deciding_check
 from cad.context_parts.model import UPDATE_PART
 from cad.conversations import store as conversations
 from cad.operations import scorecards
+from cad.operations.agent_checks import approved_checks
 from cad.operations.conversations import ConversationState
+from cad.operations.guidance import AUTO_AGENT_CHECKS
 from cad.operations.model import Audience, Input, Tenant, operation
 from cad.operations.variants import MAX_CODE_CHARS, chooser, with_out_of_date
 from cad.sandbox import image
@@ -47,7 +49,9 @@ AUTO_START = (
     "requirement that a check decides, when a proposal on the brief waits for the person, and "
     "after any stop in this conversation until the person writes or answers. A run revises "
     "only against confirmed requirements that a check decides. An assumption and a target that "
-    "waits for the person never count. The run uses the confirmed made_of material. When no "
+    "waits for the person never count. "
+    + AUTO_AGENT_CHECKS
+    + " The run uses the confirmed made_of material. When no "
     "requirement names one, you choose it, because the person never does: pass material_key, a "
     "key from list_materials or one of your own for a material the table lacks, and "
     "material_reason, one line saying why it suits the part. Without both the start is "
@@ -84,7 +88,9 @@ AUTO_REVISE = (
     "unknown: revise against those. Only the check results on the scorecard the server "
     "computed decide a mark, and your own measurements never count. unverified means no check "
     "covers the requirement, and it counts as neither pass nor fail. pass_researched rests on a "
-    'researched value: report it as "passes on researched data". When settling is true, the '
+    'researched value: report it as "passes on researched data". '
+    + AUTO_AGENT_CHECKS
+    + " When settling is true, the "
     "latest scorecard still has a pending check and nothing was recorded: call auto_revise "
     "again with the same code to wait for it. Code the run already recorded is not built "
     "again, and nothing new is recorded. Every build and check container is charged to the "
@@ -156,12 +162,14 @@ def auto_start(tenant: Tenant, arguments: StartInput) -> AutoRun:
             "after they answer it"
         )
     confirmed = briefs.confirmed_requirements(roots, arguments.brief_id)
-    if confirmed is None or all(
-        deciding_check(one.target) is None for one in confirmed.requirements
+    if confirmed is None or not (
+        any(deciding_check(one.target) is not None for one in confirmed.requirements)
+        or approved_checks(roots, confirmed)
     ):
         raise briefs.BriefRefused(
             f"brief {arguments.brief_id} has no confirmed requirement that a check decides, "
-            "so there is nothing to revise against"
+            "or that an agent-written check the person approved decides, so there is nothing "
+            "to revise against"
         )
     pinned = material.pinned_by(confirmed) is not None
     if not pinned and (arguments.material_key is None or arguments.material_reason is None):

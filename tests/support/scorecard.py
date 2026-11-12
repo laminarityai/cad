@@ -5,9 +5,10 @@ from pydantic import TypeAdapter
 from cad.briefs.model import BriefId, Requirement, RequirementId, Target
 from cad.briefs.origins import BriefSpan
 from cad.checks.report import SPECS, unknown_for_all
-from cad.checks.result import CheckResult, Measure, StepMissing, Verdict
+from cad.checks.result import CheckResult, Comparator, Measure, StepMissing, Verdict
 from cad.scorecard.material import MaterialUse, ReportedScorecard, SetByAgent
 from cad.scorecard.model import (
+    AgentChecked,
     Basis,
     Checked,
     NoBrief,
@@ -106,4 +107,22 @@ def reported(material_key: str = "prusament-pla") -> ReportedScorecard:
     card = offline_card().model_copy(update={"material_key": material_key})
     return ReportedScorecard(
         **dict(card), material=MaterialUse(key=material_key, set_by=SetByAgent())
+    )
+
+
+def agent_checked(rid: str, verdict: Verdict) -> AgentChecked:
+    return AgentChecked(
+        requirement_id=rid,
+        statement="Snap arm strain is at most 2 %",
+        check_sha256="a" * 64,
+        title="Snap arm strain",
+        formula="k * h * y / l**2",
+        version="v",
+        verdict=verdict,
+        reason="",
+        value=UNITS.Quantity(0.75, "percent") if verdict is not Verdict.UNKNOWN else None,
+        comparator=Comparator.AT_MOST,
+        limit=UNITS.Quantity(2, "percent"),
+        inputs=(),
+        pages=(),
     )

@@ -122,6 +122,16 @@ NOT_VERIFIED = (
     "on it to reach a verdict."
 )
 
+AUTO_AGENT_CHECKS: Final = (
+    "A requirement an approved agent-written check decides counts in an Auto run, so the run "
+    "may start on it. A check the person declined or has not approved decides nothing and does "
+    "not count. A pass on it is the mark pass_agent_check, and the stop's all_pass lists those "
+    "requirements apart as agent_checked. Report such a pass as a pass of an agent-written "
+    "check the person approved, not reviewed by our team, and never as a reviewed verdict, a "
+    "reviewed check or a plain pass. A fail on it is a fail like any other, so revise against "
+    "it. The check is frozen, so only the design can move."
+)
+
 AGENT_CHECKS = (
     "When the person states a number no team check decides, such as a snap-fit's strain or a "
     "pin's shear stress, and a public page gives the formula with a worked example, propose it "
@@ -129,7 +139,9 @@ AGENT_CHECKS = (
     "variant of its brief. After the first variant you cannot. The check decides nothing until "
     "the person approves it on the confirmation page. Its verdict is labelled as an "
     "agent-written check the person approved, not reviewed by our team, and you report it with "
-    "that label."
+    "that label, never as a reviewed verdict and never as a plain pass. Once the person approves "
+    "it, an Auto run counts its pass toward every requirement passing and revises against its "
+    "fail: " + AUTO_AGENT_CHECKS
 )
 
 MATERIAL = (
@@ -163,8 +175,9 @@ CHAT_AUTO: Final = (
     "You act when the person writes or answers the confirmation page. After ask_to_confirm "
     "returns pending, the page shows a Confirm card in this chat. Tell the person in one short "
     "sentence to confirm it there, and end your message. When a scored option fails a "
-    "requirement the person confirmed and a check decides, call auto_start with its brief_id, "
-    "then call auto_revise with new build123d code for the failing requirements until the run "
+    "requirement the person confirmed and a check decides, or an agent-written check the "
+    "person approved decides, call auto_start with its brief_id, then call auto_revise with "
+    "new build123d code for the failing requirements until the run "
     "stops. Call auto_ask when you are stuck or the person must decide. The server decides when "
     "the run stops, and the person can press Stop at any time. After a stop, give the person "
     "the stop's report and end your message: nothing builds in this conversation until the "

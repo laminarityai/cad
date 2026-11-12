@@ -48,6 +48,7 @@ def run_project(run_id: str) -> ProjectId:
 class Mark(StrEnum):
     PASS = "pass"
     PASS_RESEARCHED = "pass_researched"
+    PASS_AGENT_CHECK = "pass_agent_check"
     FAIL = "fail"
     UNKNOWN = "unknown"
     UNVERIFIED = "unverified"
@@ -80,6 +81,7 @@ class AllPass(Frozen):
     kind: Literal["all_pass"] = "all_pass"
     researched: tuple[str, ...]
     unverified: tuple[str, ...]
+    agent_checked: tuple[str, ...] = ()
 
 
 class NeedsPerson(Frozen):
