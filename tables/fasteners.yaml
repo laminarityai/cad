@@ -6,9 +6,9 @@
 # written in its quote: `uv run python -m cad.tables.validate` checks both offline.
 sources:
   clearance: &clearance
-    url: https://alb02.internal.nbk1560.com/en/resources/other/article/technical-20-diameter-of-clearance-holes-and-counterbores-for-bolts-and-screws
-    title: "NBK, technical article: Diameter of Clearance Holes and Counterbores for Bolts and Screws (the table follows ISO 273)"
-    page: the table of bolt hole diameters, the row of the nominal thread diameter; Grade 1, Grade 2 and Grade 3 are the close, medium and coarse series
+    url: https://de.wikipedia.org/wiki/Durchgangsloch
+    title: "Wikipedia (German), Durchgangsloch: the table of clearance holes of DIN EN 20273, the German edition of ISO 273"
+    page: the table Durchgangsbohrungen für metrische Schrauben, the row of the thread; fein, mittel and grob are the fine (close), medium and coarse series, in mm with a decimal comma
     retrieved: 2026-11-11
     standard: ISO 273
   tapped: &tapped
@@ -26,7 +26,7 @@ fasteners:
       coarse_mm: 2.6
       source:
         <<: *clearance
-        quote: "2 2.2 2.4 2.6"
+        quote: "M2 2,2 2,4 2,6"
     tapped:
       minor_min_mm: 1.567
       minor_max_mm: 1.679
@@ -42,7 +42,7 @@ fasteners:
       coarse_mm: 3.6
       source:
         <<: *clearance
-        quote: "3 3.2 3.4 3.6"
+        quote: "M3 3,2 3,4 3,6"
     tapped:
       minor_min_mm: 2.459
       minor_max_mm: 2.599
@@ -58,7 +58,7 @@ fasteners:
       coarse_mm: 4.8
       source:
         <<: *clearance
-        quote: "4 4.3 4.5 4.8"
+        quote: "M4 4,3 4,5 4,8"
     tapped:
       minor_min_mm: 3.242
       minor_max_mm: 3.422
@@ -74,7 +74,7 @@ fasteners:
       coarse_mm: 5.8
       source:
         <<: *clearance
-        quote: "5 5.3 5.5 5.8"
+        quote: "M5 5,3 5,5 5,8"
     tapped:
       minor_min_mm: 4.134
       minor_max_mm: 4.334
@@ -90,7 +90,7 @@ fasteners:
       coarse_mm: 7
       source:
         <<: *clearance
-        quote: "6 6.4 6.6 7"
+        quote: "M6 6,4 6,6 7"
     tapped:
       minor_min_mm: 4.917
       minor_max_mm: 5.153
@@ -106,7 +106,7 @@ fasteners:
       coarse_mm: 10
       source:
         <<: *clearance
-        quote: "8 8.4 9 10"
+        quote: "M8 8,4 9 10"
     tapped:
       minor_min_mm: 6.647
       minor_max_mm: 6.912
@@ -122,7 +122,7 @@ fasteners:
       coarse_mm: 12
       source:
         <<: *clearance
-        quote: "10 10.5 11 12"
+        quote: "M10 10,5 11 12"
     tapped:
       minor_min_mm: 8.376
       minor_max_mm: 8.676
@@ -138,7 +138,7 @@ fasteners:
       coarse_mm: 14.5
       source:
         <<: *clearance
-        quote: "12 13 13.5 14.5"
+        quote: "M12 13 13,5 14,5"
     tapped:
       minor_min_mm: 10.106
       minor_max_mm: 10.441
