@@ -67,6 +67,14 @@ _Avoid_: Validator, test, verification
 **Universal check**:
 A check that applies to every variant whatever it is, such as building as a closed solid, interference, mass, extents (the bounding box), round holes, manufacturability, or FEA under stated loads.
 
+**Load case**:
+Where a part is held, where the load acts, and the load's force and direction, in a requirement the fea check decides. It finds regions by fixed rules that read only the geometry, never by a face the agent names, and the user confirms its words (ADR-0007). A reviewed phrase, such as "the bores of exactly 2 holes of 5.5 mm", is one our team wrote and reviewed.
+_Avoid_: Boundary condition, fixture
+
+**Described load case**:
+A load case that uses a term beyond the reviewed phrases, such as "one of two flat faces that face each other across a gap". The agent combines it from a fixed list of terms before the brief has any variant, the server writes its words, and the user confirms them. Every verdict on it is labelled described and counted apart (ADR-0007).
+_Avoid_: Custom load, agent load, free-form load
+
 **Domain check**:
 A check that applies only to one kind of design, such as gear tooth strength or bolted joint preload, and comes from an engineering skill.
 
