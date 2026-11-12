@@ -389,4 +389,10 @@ The operator approved route 4 on 2026-11-11. Items 2, 3, 4 and 8 were approved a
 7. **Bands and tolerances.** Constants that build step 1 measures, starting from 1% for ties, as `LONG_TIE_FRACTION` is now, and 1° for facing faces. Measured: they stay. No measured part came near them (What it decides).
 8. **The page note.** Approved as written. The pick is two sentences on a described row. Without it the person may not see that the agent wrote the description.
 9. **Supports that rest.** The operator decided that supports that rest, slide or pivot stay unverified. They are their own piece of work ([#254](https://github.com/laminarityai/cad/issues/254)). Treating them as fixed would give a pass the part may not earn.
-10. **How big the list is.** The operator approved the terms now, four supports and three loads, each tied to a brief. Agent-written code that picks the faces (route 3) is deferred, not rejected. The operator decides on it after build step 1 reports what the terms cover, measured on the corpus and the novice briefs. A nested grammar would cover more, at the cost of words that grow long and are hard to keep distinct.
+10. **How big the list is.** The operator approved the terms now, four supports and three loads, each tied to a brief. Agent-written code that picks the faces (route 3) was deferred until build step 1 reported what the terms cover. A nested grammar would cover more, at the cost of words that grow long and are hard to keep distinct.
+
+The operator answered three calls on 2026-11-12, after that report:
+
+- **Agent-written code that picks the faces is approved.** The operator's rule is that the agent may write code for any test the team does not have. It is not built, and it needs its own design with the gates, the label and the separate count of an agent-written check (ADR-0011). The terms stay, and no new term is added for one stuck part.
+- **A curl hooked on a rail stays not checked** until supports that rest exist ([#254](https://github.com/laminarityai/cad/issues/254)). The operator asked not to settle single cases one at a time, so this note's pick stands.
+- **A press on the middle of a small face.** A later step sizes the mesh to the pressed disc. Until then such a press on a small face gives `unknown`.
