@@ -27,6 +27,8 @@ EXPECTED: Final[dict[str, Answer]] = {
     "cad.accounts.clerk.ClerkMisconfigured": (None, None),
     "cad.accounts.lease.LeaseHeld": (None, None),
     "cad.accounts.principal.NotAnAccount": (None, None),
+    "cad.agent_checks.formula._Unworkable": (None, None),
+    "cad.agent_checks.store.CheckRefused": ("400 named", "named"),
     "cad.agent_measurements.run.MeasurementRefused": ("400 named", "named"),
     "cad.auto.model.RunNotHeld": ("400 named", "named"),
     "cad.auto.model.RunRefused": ("400 named", "named"),

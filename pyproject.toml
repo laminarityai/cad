@@ -86,6 +86,7 @@ layers = [
     "uploads",
     "confirmations | selections | agent_measurements",
     "auto | accounts",
+    "agent_checks",
     "scorecard",
     "context_parts",
     "variant_sets",

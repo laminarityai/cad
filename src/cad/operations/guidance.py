@@ -122,6 +122,16 @@ NOT_VERIFIED = (
     "on it to reach a verdict."
 )
 
+AGENT_CHECKS = (
+    "When the person states a number no team check decides, such as a snap-fit's strain or a "
+    "pin's shear stress, and a public page gives the formula with a worked example, propose it "
+    "as unchecked, then write your own check for it with write_check before you build any "
+    "variant of its brief. After the first variant you cannot. The check decides nothing until "
+    "the person approves it on the confirmation page. Its verdict is labelled as an "
+    "agent-written check the person approved, not reviewed by our team, and you report it with "
+    "that label."
+)
+
 MATERIAL = (
     "The person never chooses a material. When a confirmed made_of requirement names one, use "
     "it. Otherwise choose one for each variant yourself, from list_materials or a material the "
@@ -144,6 +154,7 @@ INSTRUCTIONS: Final = " ".join(
         MATERIAL,
         DEEPER_ANALYSIS,
         RESEARCH,
+        AGENT_CHECKS,
         NOT_VERIFIED,
     )
 )
