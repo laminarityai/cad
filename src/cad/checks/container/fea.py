@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Final
 
-from cad.checks.container import anchors, closed_solid, interference
+from cad.checks.container import anchors, closed_solid, interference, terms
 from cad.checks.container.calculix import Material, NodalField, SolveFailed
 from cad.checks.container.check import (
     DIMENSIONLESS,
@@ -25,6 +25,7 @@ from cad.checks.container.elastic import (
     worst_displacement,
     worst_von_mises,
 )
+from cad.checks.container.features import extent as extent_of
 from cad.checks.container.inputs import Input, Inputs
 from cad.checks.container.kernel import FaceInfo, Inertia, Unreadable
 from cad.checks.container.mesher import (
@@ -145,12 +146,11 @@ def run(subject: Subject) -> FindingWire:
     if isinstance(material, str):
         return finding("unknown", material, *echoed)
     case = subject.inputs.load_case()
-    faces = subject.kernel.faces(shape)
-    inertia = subject.kernel.inertia(shape)
-    resolved = anchors.resolve(case, faces, inertia)
+    part = anchors.geometry(subject.kernel, shape)
+    resolved = anchors.resolve(terms.of_wire(case), part)
     if isinstance(resolved, Unresolved):
         return finding("unknown", f"the load case does not resolve: {resolved.reason}", *echoed)
-    sizes = mesh_sizes_of(faces, inertia)
+    sizes = mesh_sizes_of(part.faces, part.inertia)
     meshes = mesh_pair(subject.fem.mesh, sizes)
     if isinstance(meshes, MeshFailed):
         return finding("unknown", meshes.reason, *echoed)
@@ -163,13 +163,13 @@ def run(subject: Subject) -> FindingWire:
         return finding("unknown", fine.reason, *echoed)
     clamped = clamps_a_face(resolved)
     return judged(
-        coarse, fine, yield_mpa, anchors.extent(inertia), echoed, clamped, meshes.over_cap
+        coarse, fine, yield_mpa, extent_of(part.inertia), echoed, clamped, meshes.over_cap
     )
 
 
 def mesh_sizes_of(faces: Sequence[FaceInfo], inertia: Inertia) -> MeshSizes:
     wall = 2 * inertia.volume / sum(face.area for face in faces)
-    return mesh_sizes(wall, anchors.extent(inertia))
+    return mesh_sizes(wall, extent_of(inertia))
 
 
 def clamps_a_face(resolved: Resolved) -> bool:
@@ -244,7 +244,7 @@ def solve_at(
 ) -> Solved | Unsolved:
     peaks: list[Peaks] = []
     for candidate in resolved.candidates:
-        found = _unit_peaks(fem, mesh, candidate, resolved.basis, material)
+        found = _unit_peaks(fem, mesh, candidate, material)
         if isinstance(found, Unsolved):
             return found
         peaks.append(found)
@@ -259,7 +259,7 @@ def solve_at(
 
 
 def _unit_peaks(
-    fem: Fem, mesh: TetMesh, candidate: Candidate, basis: Sequence[Point], material: Material
+    fem: Fem, mesh: TetMesh, candidate: Candidate, material: Material
 ) -> Peaks | Unsolved:
     tol = TOL_FRACTION * extent(mesh)
     fixed = region_faces(mesh, candidate.support, tol)
@@ -268,7 +268,7 @@ def _unit_peaks(
     loaded = region_faces(mesh, candidate.load, tol)
     if isinstance(loaded, Unresolved):
         return Unsolved(f"the load has no mesh faces: {loaded.reason}")
-    unit_loads = [spread(mesh, loaded, way) for way in basis]
+    unit_loads = [spread(mesh, loaded, way) for way in candidate.basis]
     fields = fem.solve(mesh, material, face_nodes(fixed), unit_loads)
     if isinstance(fields, SolveFailed):
         return Unsolved(f"the solve failed: {fields.reason}")

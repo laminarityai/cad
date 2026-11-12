@@ -3,10 +3,11 @@ import math
 import pytest
 
 from cad.checks.container import anchors
-from cad.checks.container.anchors import resolve
+from cad.checks.container.anchors import geometry, resolve
 from cad.checks.container.elastic import Face, region_faces
 from cad.checks.container.mesher import TetMesh
 from cad.checks.container.regions import Candidate, FarFrom, Region, Resolved, Unresolved
+from cad.checks.container.terms import of_wire
 from cad.checks.container.vectors import Point, add, scale
 from tests.support.anchors import FLAT_END, KERNEL, case
 from tests.support.solids import Solid, apply, box, turn_and_move, turned
@@ -58,7 +59,7 @@ def boundary_and_far_end(
 
 
 def clamped_at(solid: Solid, root: Point) -> Candidate:
-    found = resolve(case(FLAT_END), KERNEL.faces(solid), KERNEL.inertia(solid))
+    found = resolve(of_wire(case(FLAT_END)), geometry(KERNEL, solid))
     assert isinstance(found, Resolved), found
     (candidate,) = (c for c in found.candidates if math.dist(c.support.centroid, root) <= TOL)
     return candidate

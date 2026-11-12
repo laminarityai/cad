@@ -1,8 +1,9 @@
 import pytest
 
-from cad.checks.container import anchors, fea
-from cad.checks.container.kernel import Point
-from cad.checks.container.regions import FarFrom, Plane, Region, Unresolved
+from cad.checks.container import fea
+from cad.checks.container.features import face_round
+from cad.checks.container.kernel import Point, Round
+from cad.checks.container.regions import FarFrom, Plane, Region
 from cad.checks.container.wire import (
     HolesWire,
 )
@@ -69,9 +70,9 @@ def test_a_pin_of_the_bore_radius_is_not_a_hole() -> None:
 
 def test_concave_fillets_and_slot_ends_of_the_bore_radius_are_not_holes() -> None:
     faces = KERNEL.faces(FILLETED)
-    concave = [f for f in faces if isinstance(f.surface, anchors.Round) and f.surface.concave]
+    concave = [f for f in faces if isinstance(f.surface, Round) and f.surface.concave]
     assert len(concave) >= 2 + 4 + 2
-    assert {round(anchors.face_round(f).radius, 6) for f in concave} == {2.75}
+    assert {round(face_round(f).radius, 6) for f in concave} == {2.75}
     found = bores(held(FILLETED, holes(2)))
     assert sorted(bore_ends(b)[0][:2] for b in found) == [(10, 10), (70, 10)]
 
@@ -100,11 +101,8 @@ def test_a_load_on_holes_takes_the_holes_that_are_not_supports() -> None:
 
 
 def across_holes(solid: Solid) -> tuple[Point, ...]:
-    basis = anchors.direction_basis(
-        ACROSS_HOLES, holes(2), KERNEL.faces(solid), KERNEL.inertia(solid)
-    )
-    assert not isinstance(basis, Unresolved), basis
-    return basis
+    (candidate,) = must(solid, case(holes(2), far_end(ACROSS_HOLES))).candidates[:1]
+    return candidate.basis
 
 
 def test_the_hole_axis_is_the_axis_the_support_holes_share() -> None:

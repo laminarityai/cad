@@ -52,13 +52,13 @@ class FarFrom:
 class Candidate:
     support: Region
     load: Region | FarFrom
+    basis: tuple[Point, ...]
+    """An orthonormal basis of the directions the load may take."""
 
 
 @dataclass(frozen=True, slots=True)
 class Resolved:
     candidates: tuple[Candidate, ...]
-    basis: tuple[Point, ...]
-    """An orthonormal basis of the directions the load may take."""
 
 
 @dataclass(frozen=True, slots=True)

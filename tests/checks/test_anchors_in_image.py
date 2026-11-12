@@ -14,7 +14,8 @@ saved = os.dup(1)
 os.dup2(2, 1)
 sys.path.insert(0, "/opt/trusted")
 from build123d import Align, Box, Cylinder, Pos, Rot
-from cad.checks.container.anchors import resolve
+from cad.checks.container.anchors import geometry, resolve
+from cad.checks.container.terms import of_wire
 from cad.checks.container.regions import Resolved
 from cad.checks.container.kernel import ocp_kernel
 
@@ -37,13 +38,13 @@ case = {
 found = []
 for part in (plate, Pos(100, -40, 7) * Rot(30, 50, 70) * plate):
     shape = part.wrapped
-    resolved = resolve(case, kernel.faces(shape), kernel.inertia(shape))
+    resolved = resolve(of_wire(case), geometry(kernel, shape))
     assert isinstance(resolved, Resolved), resolved
     (candidate,) = resolved.candidates
     found.append({
         "radii": sorted(round(bore.radius, 9) for bore in candidate.support.patches),
         "lengths": sorted(round(bore.t1 - bore.t0, 9) for bore in candidate.support.patches),
-        "basis": len(resolved.basis),
+        "basis": len(candidate.basis),
     })
 
 MIN = (Align.MIN, Align.MIN, Align.MIN)
@@ -81,7 +82,7 @@ for name, part in (("l_bracket", l_bracket), ("t_arm", t_arm)):
     for placed in (part, Pos(100, -40, 7) * Rot(30, 50, 70) * part):
         shape = placed.wrapped
         inertia = kernel.inertia(shape)
-        resolved = resolve(ends, kernel.faces(shape), inertia)
+        resolved = resolve(of_wire(ends), geometry(kernel, shape))
         assert isinstance(resolved, Resolved), resolved
         seen.append({
             "frame_free": sorted(frame_free(c, inertia) for c in resolved.candidates),
