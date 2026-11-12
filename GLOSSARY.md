@@ -79,7 +79,7 @@ A number that the agent's own measuring code reported for a requirement no check
 _Avoid_: Agent check, own check, self-check
 
 **Researched value**:
-A material value the tables lack, which the agent read from a public page. The server fetched that page, checked that the agent's quote is on it and writes the agent's number, and cites it. A check reads it only in that project. Every result and verdict that rests on it is labelled researched and counted apart (ADR-0009).
+A material value the tables lack, which the agent read from a public web page or PDF datasheet. The server fetched that page, checked that the agent's quote is on it and writes the agent's number, and cites it. A check reads it only in that project. Every result and verdict that rests on it is labelled researched and counted apart (ADR-0009).
 _Avoid_: Candidate value, extracted value, parsed value
 
 **Unverified requirement**:

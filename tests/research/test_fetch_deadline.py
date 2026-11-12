@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.x509.oid import NameOID
 
 from cad.research import fetch as fetching
-from cad.research.fetch import FetchFailed, Page, Response, Target, fetch
+from cad.research.fetch import FetchFailed, Page, PdfFile, Response, Target, fetch
 
 PUBLIC = "93.184.215.14"
 LIMIT = 1.0
@@ -85,12 +85,12 @@ def serve_drip(tmp_path: Path, first: bytes, drop: bytes) -> Iterator[Drip]:
     server.join(5)
 
 
-def fetch_from(drip: Drip) -> tuple[Page | FetchFailed | None, float]:
+def fetch_from(drip: Drip) -> tuple[Page | PdfFile | FetchFailed | None, float]:
     def transport(target: Target, deadline: float) -> Response:
         local = dataclasses.replace(target, address="127.0.0.1")
         return fetching.tls_get(local, deadline, port=drip.port, context=drip.trust)
 
-    answer: list[Page | FetchFailed] = []
+    answer: list[Page | PdfFile | FetchFailed] = []
     began = time.monotonic()
     worker = threading.Thread(
         target=lambda: answer.append(

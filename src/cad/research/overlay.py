@@ -1,6 +1,7 @@
 import dataclasses
 from dataclasses import dataclass
 from pathlib import Path
+from urllib.parse import urldefrag
 
 from cad.projects.model import ProjectId
 from cad.research.ledger import Ledger, ResearchedRecord, read_ledger
@@ -78,9 +79,18 @@ def fill(
         return [f"{where} already has a {held} value, which a researched value never replaces"]
     value = Known(
         UNITS.Quantity(record.magnitude, record.unit),
-        Source(record.url, record.title, PAGE, record.retrieved, None, record.quote),
+        _source(record),
         FromResearch(record.sha256, number),
     )
     filled = dataclasses.replace(material, **{record.field: value})
     problems = rule_problems(filled)
     return problems or filled
+
+
+def _source(record: ResearchedRecord) -> Source:
+    """A PDF is cited at its page: `#page=3` opens it there in a browser (RFC 8118)."""
+    if record.page is None:
+        return Source(record.url, record.title, PAGE, record.retrieved, None, record.quote)
+    url = f"{urldefrag(record.url).url}#page={record.page}"
+    where = f"page {record.page} of the PDF the server fetched"
+    return Source(url, record.title, where, record.retrieved, None, record.quote)

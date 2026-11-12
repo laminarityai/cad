@@ -27,6 +27,7 @@ def test_steps_run_in_the_documented_order() -> None:
         "web build",
         "protocol models",
         "sandbox image",
+        "reader image",
         "pytest",
         "app",
     ]
@@ -122,7 +123,7 @@ def test_only_runs_the_named_steps_in_verify_order() -> None:
 def test_a_bare_run_skips_the_slow_steps_that_ci_runs() -> None:
     names = [step.name for step in select_steps(None)]
     assert names == [step.name for step in STEPS if not step.slow]
-    assert {"pytest", "sandbox image", "protocol models", "app"}.isdisjoint(names)
+    assert {"pytest", "sandbox image", "reader image", "protocol models", "app"}.isdisjoint(names)
 
 
 def test_all_runs_every_step() -> None:

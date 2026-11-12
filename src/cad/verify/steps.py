@@ -75,6 +75,7 @@ STEPS: tuple[Step, ...] = (
     ),
     Step("protocol models", (PYTHON, str(MODELS / "scripts" / "check_models.py")), slow=True),
     Step("sandbox image", (PYTHON, "-m", "cad.sandbox", "build-image"), slow=True),
+    Step("reader image", (PYTHON, "-m", "cad.research.pdf", "build-image"), slow=True),
     Step("pytest", (PYTHON, "-m", "pytest", "-q", "-n", "4", "--dist", "loadfile"), slow=True),
     Step("app", (PYTHON, "-m", "cad.server.probe"), show_output=True, slow=True),
 )

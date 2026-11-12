@@ -79,7 +79,7 @@ jobs:
       - if: steps.images.outputs.cache-hit == 'true'
         run: docker load --input ~/.cache/cad-images/images.tar
       - run: uv sync --locked
-      - run: uv run --locked verify --only "sandbox image"
+      - run: uv run --locked verify --only "sandbox image" --only "reader image"
       - if: steps.images.outputs.cache-hit != 'true'
         run: >-
           mkdir -p ~/.cache/cad-images && docker save --output ~/.cache/cad-images/images.tar

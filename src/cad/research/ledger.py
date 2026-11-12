@@ -6,7 +6,8 @@ from datetime import date
 from pathlib import Path
 from typing import Final
 
-from pydantic import ValidationError
+import pydantic
+from pydantic import PositiveInt, ValidationError
 
 from cad.frozen import Frozen
 from cad.projects.model import ProjectBusy, ProjectId
@@ -30,6 +31,8 @@ class ResearchedRecord(Frozen):
     quote: str
     retrieved: date
     sha256: str
+    # The page of a PDF the quote is on, counted from 1. A web page has none.
+    page: PositiveInt | None = pydantic.Field(default=None, exclude_if=lambda one: one is None)
 
 
 @dataclass(frozen=True, slots=True)

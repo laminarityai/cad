@@ -27,11 +27,15 @@ SUBMIT_RESEARCH = (
     "Answer a research request from a score_variant card or a propose_requirements reply. "
     "Pass the request's brief_id, key and field; the value and its unit as the page writes "
     'them, such as 0.36 with unit "" for a Poisson\'s ratio or 3.5 with unit "GPa"; the URL '
-    "of a public https page that states the value; and the quote you read it from, copied "
-    'from that page, such as "the Poisson ratio = 0.36" or a table row. The server fetches '
-    "the page, checks that the quote is on it and that the value is written in the quote, "
-    "converts your unit, and stores the page as the value's citation. Spacing, punctuation, "
-    "markup and case in the quote may differ from the page; its words and numbers may not. "
+    "of a public https web page or PDF datasheet that states the value; and the quote you "
+    'read it from, copied from that page, such as "the Poisson ratio = 0.36" or a table row. '
+    "The server fetches the page, reads a PDF's text in a sandbox, checks that the quote is "
+    "on it, on one page of a PDF, and that the value is written in the quote, converts your "
+    "unit, and stores the page as the value's citation, with the PDF page number. Spacing, "
+    "punctuation, markup and case in the quote may differ from the page; its words and "
+    "numbers may not. A PDF's text can run a table column by column, so when a PDF quote is "
+    "refused, quote the words the reason shows around the value. A scanned PDF has no text "
+    "and is refused. "
     "A source for a near material, such as generic PLA for a PLA brand, is allowed. accepted "
     "means the brief's project now has a researched value for that field, and only that "
     "project. refused gives the reason and, when another page could answer, a new request: "

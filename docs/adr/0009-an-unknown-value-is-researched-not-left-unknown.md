@@ -103,3 +103,20 @@ The quote reader in `cad.sources` is deleted, because research was its only user
 ## Amended 2026-11-09
 
 The operator deferred printability on 2026-11-08 and slicing, print time and cost on 2026-11-09, indefinitely. The phase 3 cases above that depend on them wait too: a `printed_on` process with no row, `max_print_time` and `max_cost`, process fields, slicer profiles and filament prices. The rule is unchanged, and applies to them when they return.
+
+## Amended 2026-11-11: research reads a PDF datasheet
+
+Many values for E, Poisson's ratio, yield strength and density are published only in PDF datasheets, and `submit_research` refused PDFs (#119). The server now reads them. Everything above still holds, and these rules are added:
+
+- The host never parses a PDF. It fetches the bytes under the rules in "Fetching", caps them at 16 MiB and hashes them. The text is read in a third image, `cad-reader` (python-slim with pypdfium2 pinned by hash). The image runs with no network, read-only, and with the usual container limits: 30 s, 512 MB, at most 200 pages and 4,000,000 characters. The host checks the reader's report and replaces control, bidirectional and private characters with a space, so that a stray glyph never joins two numbers.
+- A body is a PDF when its first 1024 bytes hold `%PDF-`, whatever its content type says. A body labelled `application/pdf` that is not a PDF is refused. A scanned PDF, which has no text layer, is refused, and so are a PDF that needs a password, a damaged one and one over the bounds. Each refusal is one plain sentence and asks for another source.
+- The quote must be on one page of the PDF, by the same `on_page` check as a web page, and the number by the same `written_as_one_number`. The record keeps that page number. The citation opens the PDF at that page (`#page=N`) and says "page N of the PDF the server fetched". The scorecard label is unchanged.
+- A PDF read is a container job, so it counts against the account's container-seconds as a `check`, like an export. Fetching a web page starts no container and costs nothing.
+- The reader's code and image are kept out of `src/cad/sandbox/`. A PDF read therefore changes no check version, mesh version or variant id.
+
+These numbers were measured on 2026-11-11 on the 30 PDFs that the tables cite, fetched with the server's own User-Agent. Every host answered 200.
+
+- 29 of the PDFs are 5.1 MB or smaller, and the longest of those has 33 pages. The other is a 71 MB handbook of 1733 pages, which the size cap refuses.
+- Each read took 0.4 to 0.6 s, including the container start.
+- `on_page` finds 70 of the 77 distinct table quotes on one PDFium page. The other 7 come from tables that PDFium reads column by column. For those, the refusal shows the agent where the PDF writes the number, so the agent can quote those words.
+- A match that let a quote's pieces come in any order found 75 of the 77. It also accepted 3 of 74 quotes whose number had been changed, because the changed number was printed elsewhere on the same page. A different number must never be accepted, so that match was not adopted.
