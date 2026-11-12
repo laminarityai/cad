@@ -12,6 +12,9 @@ is either
 A number in the card's `not_verified` list is the agent's own measurement. It is
 `NotVerified`, never resolved, and it fails nothing: ADR-0008 keeps it out of the exit.
 
+The result and inputs of an approved agent-written check (ADR-0011) are `AgentCheckedNumber`,
+counted apart and never resolved. Its limit resolves to the person's confirmation.
+
 Any other number is unresolved: no rule places it. A number of a check scored at an older version,
 or against an older table, is stale: score the variant again.
 
@@ -28,18 +31,19 @@ shows where a number came from and not that the geometry produced it; `agree.py`
 
 import math
 from collections import Counter
-from collections.abc import Iterator, Mapping, Sequence
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal, cast
+from typing import Literal
 
 import pint
 from binding import Unbound, Unlinked, bind, link
+from cardnumbers import Found, numbers_in, path_of
 from confirmation import BasisFailure, Shown, check_basis
 from fitted import Unfitted, check_fits
 
 from cad.briefs.holes import FastenerHoles, PlainHoles
-from cad.briefs.model import Requirement, limits
+from cad.briefs.model import AgentLimit, Requirement, limits
 from cad.briefs.words import describe
 from cad.checks.container.check import Quick
 from cad.checks.report import CheckSpec
@@ -47,7 +51,7 @@ from cad.checks.result import CheckResult, Measure
 from cad.records.roots import Roots
 from cad.scorecard.holes import band
 from cad.scorecard.material import ReportedScorecard
-from cad.scorecard.model import AgainstBrief, Checked, Scorecard
+from cad.scorecard.model import AgainstBrief, AgentChecked, Checked, Scorecard
 from cad.tables.fields import FIELDS, Field
 from cad.tables.materials import (
     UNITS,
@@ -60,8 +64,6 @@ from cad.tables.materials import (
 )
 
 REL_TOL = 1e-9
-
-type Where = tuple[str | int, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -131,7 +133,14 @@ class NotVerified:
     reason: str = "agent's own measurement"
 
 
-type Outcome = Resolved | Stale | Unresolved | NotVerified
+@dataclass(frozen=True, slots=True)
+class AgentCheckedNumber:
+    """A number an approved agent-written check produced or read. Our team has not reviewed it."""
+
+    reason: str = "agent-written check you approved, not reviewed by our team"
+
+
+type Outcome = Resolved | Stale | Unresolved | NotVerified | AgentCheckedNumber
 
 
 @dataclass(frozen=True, slots=True)
@@ -163,12 +172,6 @@ class CardTrace:
     basis: BasisKind | None = None
 
 
-@dataclass(frozen=True, slots=True)
-class Found:
-    where: Where
-    value: str
-
-
 def trace_card(
     card: Scorecard,
     root: Path,
@@ -192,23 +195,6 @@ def trace_card(
     return CardTrace(card.variant_id, failures, numbers, card.basis.kind)
 
 
-def numbers_in(data: object, where: Where = ()) -> Iterator[Found]:
-    """Every quantity and every bare int or float in dumped card data, with where it sits."""
-    if isinstance(data, Mapping):
-        fields = cast(Mapping[str, object], data)
-        magnitude = fields.get("magnitude")
-        if set(fields) == {"magnitude", "unit"} and isinstance(magnitude, int | float):
-            yield Found(where, f"{magnitude:g} {fields['unit']}")
-            return
-        for name, item in fields.items():
-            yield from numbers_in(item, (*where, name))
-    elif isinstance(data, list | tuple):
-        for index, item in enumerate(cast(Sequence[object], data)):
-            yield from numbers_in(item, (*where, index))
-    elif isinstance(data, int | float) and not isinstance(data, bool):
-        yield Found(where, f"{data:g}")
-
-
 def _place(
     card: Scorecard,
     found: Found,
@@ -216,7 +202,7 @@ def _place(
     specs: Mapping[str, CheckSpec],
     shown: Shown | None,
 ) -> Traced:
-    path = _path(found.where)
+    path = path_of(found.where)
     match found.where:
         case ("results", int() as index, "measured", int() as place, "value"):
             result = card.results[index]
@@ -231,6 +217,10 @@ def _place(
             return Traced(path, found.value, _bound(field, bound, found.value))
         case ("basis", "requirements", int() as index, "comparisons", int() as place, "limit"):
             return Traced(path, found.value, _confirmed(card, index, place, shown))
+        case ("basis", "requirements", int() as index, "limit"):
+            return Traced(path, found.value, _agent_limit(card, index, shown))
+        case ("basis", "requirements", int() as index, "value" | "inputs", *_):
+            return Traced(path, found.value, AgentCheckedNumber())
         case ("not_verified", *_):
             return Traced(path, found.value, NotVerified())
         case _:
@@ -265,6 +255,32 @@ def _confirmed(card: Scorecard, index: int, place: int, shown: Shown | None) -> 
     return Resolved((step,))
 
 
+def _agent_limit(card: Scorecard, index: int, shown: Shown | None) -> Outcome:
+    """The person's confirmed number, or the check's own when its source writes the limit."""
+    basis = card.basis
+    assert isinstance(basis, AgainstBrief)
+    entry = basis.requirements[index]
+    assert isinstance(entry, AgentChecked)
+    if shown is None:
+        return Unresolved(f"the brief store shows no confirmation {basis.decision_sha256[:12]}")
+    requirement = next((r for r in shown.requirements if r.id == entry.requirement_id), None)
+    if requirement is None:
+        return Unresolved(f"requirement {entry.requirement_id} is not in the confirmed set")
+    target = requirement.target
+    if not isinstance(target, AgentLimit):
+        return Unresolved(f"requirement {entry.requirement_id} confirmed no agent-written limit")
+    if target.limit is None:
+        return AgentCheckedNumber()
+    if not _same(entry.limit, target.limit):
+        return Unresolved(
+            f"the card's limit is {entry.limit:g~P}, but the person confirmed {target.limit:g~P}"
+        )
+    confirmed = ConfirmedStep(
+        basis.brief_id, basis.decision_sha256, requirement.id, describe(requirement)
+    )
+    return Resolved((confirmed,))
+
+
 def _band(
     entry: Checked, requirement: Requirement, place: int, brief_id: str, decision_sha256: str
 ) -> Outcome:
@@ -295,10 +311,6 @@ def _same(held: pint.Quantity, expected: pint.Quantity) -> bool:
     except pint.DimensionalityError:
         return False
     return math.isclose(value, magnitude(expected, unit), rel_tol=REL_TOL)
-
-
-def _path(where: Where) -> str:
-    return "".join(f"[{part}]" if isinstance(part, int) else f".{part}" for part in where)[1:]
 
 
 def _trace(

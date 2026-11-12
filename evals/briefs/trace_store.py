@@ -27,6 +27,7 @@ from binding import Unbound, Unlinked
 from confirmation import Misjudged, Superseded, Unconfirmed
 from fitted import Unfitted
 from provenance import (
+    AgentCheckedNumber,
     BoundStep,
     CardFailure,
     CardTrace,
@@ -80,6 +81,7 @@ class Tally:
     stale: int
     unresolved: int
     not_verified: int
+    agent_checked: int
 
 
 def tally(traces: Sequence[CardTrace]) -> Tally:
@@ -103,6 +105,7 @@ def tally(traces: Sequence[CardTrace]) -> Tally:
         stale=sum(isinstance(outcome, Stale) for outcome in numbers),
         unresolved=sum(isinstance(outcome, Unresolved) for outcome in numbers),
         not_verified=sum(isinstance(outcome, NotVerified) for outcome in numbers),
+        agent_checked=sum(isinstance(outcome, AgentCheckedNumber) for outcome in numbers),
     )
 
 
@@ -207,8 +210,13 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"unresolved: {counts.unresolved}"
     )
     print(f"agent measurements: {counts.not_verified}, not verified")
+    print(f"numbers of agent-written checks the person approved: {counts.agent_checked}")
     print(f"strict pass rate: {describe(tracking.strict_pass_rate)}")
     print(f"requirements covered by reviewed checks: {describe(tracking.reviewed_coverage)}")
+    print(
+        "requirements covered by agent-written checks the person approved: "
+        f"{describe(tracking.agent_coverage)}"
+    )
     for line in describe_apart(tracking):
         print(line)
     if not counts.cards:
@@ -253,7 +261,7 @@ def _print(trace: CardTrace, steps: bool) -> None:
 def _line(one: Traced) -> str:
     head = f"{one.label} = {one.value}"
     outcome = one.outcome
-    if isinstance(outcome, Stale | Unresolved | NotVerified):
+    if isinstance(outcome, Stale | Unresolved | NotVerified | AgentCheckedNumber):
         return f"{type(outcome).__name__.upper()} {head}: {outcome.reason}"
     chain = " -> ".join(_step(step) for step in outcome.steps)
     return f"{head} -> {chain}"

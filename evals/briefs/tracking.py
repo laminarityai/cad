@@ -90,6 +90,7 @@ class Decided:
 class Tracking:
     strict_pass_rate: Share
     reviewed_coverage: Share
+    agent_coverage: Share
     by: Mapping[By, Decided]
     uncovered: Mapping[str, int]
 
@@ -138,6 +139,9 @@ def track(outcomes: tuple[RequirementOutcome, ...]) -> Tracking:
             len(outcomes),
         ),
         reviewed_coverage=_share(sum(1 for one in outcomes if one.reviewed), len(outcomes)),
+        agent_coverage=_share(
+            sum(1 for one in outcomes if one.by is By.AGENT_CHECK), len(outcomes)
+        ),
         by={
             by: Decided(
                 sum(1 for one in outcomes if one.by is by),

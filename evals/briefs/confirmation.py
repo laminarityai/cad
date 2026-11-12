@@ -4,14 +4,23 @@ from dataclasses import dataclass
 
 import pint
 
+from cad.agent_checks.store import find
 from cad.briefs import store
-from cad.briefs.model import Requirement
+from cad.briefs.model import AgentLimit, Requirement, Target
 from cad.briefs.store import BriefRefused, BriefState, Status
+from cad.confirmations import agent_checks
 from cad.projects.model import ProjectRefused
 from cad.records import key
 from cad.records.roots import Roots
 from cad.records.signed import StoreUnusable
-from cad.scorecard.model import AgainstBrief, AwaitingConfirmation, NoBrief, Scorecard
+from cad.scorecard.model import (
+    AgainstBrief,
+    AgentChecked,
+    AwaitingConfirmation,
+    NoBrief,
+    Scorecard,
+    Unverified,
+)
 from cad.scorecard.requirements import NoDecidingResult, assess_requirements
 
 
@@ -94,7 +103,7 @@ def _against(roots: Roots, card: Scorecard, basis: AgainstBrief) -> BasisCheck:
                 f"but proposal {in_force.proposal.number} is confirmed since"
             )
         )
-    misjudged = _misjudged(card, basis, shown)
+    misjudged = _misjudged(roots, card, basis, shown)
     if misjudged is not None:
         failures.append(misjudged)
     return BasisCheck(shown, tuple(failures))
@@ -109,13 +118,19 @@ def _state(roots: Roots, brief_id: str) -> BriefState | Unconfirmed:
         return Unconfirmed(str(error))
 
 
-def _misjudged(card: Scorecard, basis: AgainstBrief, shown: Shown) -> Misjudged | None:
+def _misjudged(
+    roots: Roots, card: Scorecard, basis: AgainstBrief, shown: Shown
+) -> Misjudged | None:
     try:
         derived = assess_requirements(
             basis.brief_id, basis.decision_sha256, shown.requirements, card.results
         )
     except (NoDecidingResult, pint.DimensionalityError) as error:
         return Misjudged(f"cannot judge the confirmed requirements: {error}")
+    unapproved = _unapproved_agent_check(roots, basis, shown)
+    if unapproved is not None:
+        return unapproved
+    derived = _holding_agent_rows(derived, basis)
     if derived == basis:
         return None
     if len(derived.requirements) != len(basis.requirements):
@@ -129,3 +144,54 @@ def _misjudged(card: Scorecard, basis: AgainstBrief, shown: Shown) -> Misjudged 
         if held != again
     )
     return Misjudged(f"requirement {differs} is not what its check results give")
+
+
+def _unapproved_agent_check(roots: Roots, basis: AgainstBrief, shown: Shown) -> Misjudged | None:
+    """An agent-written check decides a requirement only when it is the one the confirmed
+    agent_limit names and the person approved it on the confirmation page."""
+    targets: dict[str, Target] = {one.id: one.target for one in shown.requirements}
+    project = store.read_brief(roots, basis.brief_id).project
+    for row in basis.requirements:
+        if not isinstance(row, AgentChecked):
+            continue
+        target = targets.get(row.requirement_id)
+        held = (
+            find(roots.projects, project, target.check_sha256)
+            if isinstance(target, AgentLimit)
+            else None
+        )
+        if held is None or held.sha256 != row.check_sha256:
+            return Misjudged(
+                f"requirement {row.requirement_id} is decided by an agent-written check "
+                "that its confirmed agent_limit does not name"
+            )
+        if agent_checks.outcome(roots, project, held) != "confirmed":
+            return Misjudged(
+                f"requirement {row.requirement_id} is decided by an agent-written check "
+                "the person did not approve"
+            )
+    return None
+
+
+def _holding_agent_rows(derived: AgainstBrief, basis: AgainstBrief) -> AgainstBrief:
+    """`derived` leaves an approved agent-written check's requirement Unverified, because only the
+    team results are on hand. Put the card's own row in its place, so the rest still compares."""
+    held = {one.requirement_id: one for one in basis.requirements if isinstance(one, AgentChecked)}
+    rows = tuple(
+        held[one.requirement_id]
+        if isinstance(one, Unverified) and one.requirement_id in held
+        else one
+        for one in derived.requirements
+    )
+    return AgainstBrief.model_validate(
+        {
+            **dict(derived),
+            "requirements": rows,
+            "unverified_requirements": tuple(
+                one.requirement_id for one in rows if isinstance(one, Unverified)
+            ),
+            "agent_checked_requirements": tuple(
+                one.requirement_id for one in rows if isinstance(one, AgentChecked)
+            ),
+        }
+    )
