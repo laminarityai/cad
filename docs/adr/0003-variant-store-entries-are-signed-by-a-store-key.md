@@ -27,3 +27,11 @@ The trust model does not change. The rebuild runs only code whose hash the store
 - An entry whose `code.py` does not match `code_sha256`.
 
 `cad-sandbox run-checks` does not rebuild, and it still reports a stale entry as `StaleVariant`. A rebuild that does not build is refused as `RebuildFailed`, with the build outcome. The server deletes no entry, old or new. Only the operator deletes entries.
+
+## Amendment (2026-11-11): builds that read supplied parts
+
+[ADR-0012](0012-a-supplied-part-is-read-by-the-build-and-never-graded.md) lets build code read a part the person supplied, and place and copy a component. A variant is then more than its code, so the id and the signed record cover the parts too. The variant id hashes the image tag, `TRUST_DIGEST`, the code, and for each part the build read its id, the SHA-256 of its BREP and its placements. `build.json` records the same list, and the MAC covers it with the rest of the record.
+
+A rebuild of a stale entry reads that list and fetches each part's BREP from the project store by its SHA-256, not by the part's id. A part that kept its id under newer geometry therefore rebuilds the old variant with the old geometry. A BREP whose bytes no longer match the recorded SHA-256 refuses the rebuild as `RebuildFailed`.
+
+The parts reach the build on stdin, after the code. "Build containers have no mounts" stands.

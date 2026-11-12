@@ -163,3 +163,14 @@ What this replaces. It replaces the sentence of the 2026-11-10 amendment that sa
 - **Give an assumption a labelled verdict, counted apart like a researched value.** Rejected by the operator. A researched value is read from a cited page. An assumption is the agent's own number, and a pass against it would let the agent grade its own design.
 - **Keep assumptions as prose in the agent's reply.** Rejected. The check could not measure against them, and the next turn could not read them back.
 
+## Amendment (2026-11-11): a person's upload confirms the part
+
+[ADR-0012](0012-a-supplied-part-is-read-by-the-build-and-never-graded.md) lets a person add a STEP or STL file to a project. The operator decided on 2026-11-11 that uploading counts as confirming. The rules of this ADR do not change. Only the person can answer. Only a request handler for a signed-in person writes a confirmation. The projects key signs it, and status is derived from signed records.
+
+`POST /v1/projects/{project_id}/files` is a second person-only handler that records a confirmation. It accepts only a person session, as the card's routes do, and no MCP tool reaches it. It writes the part's context-part record with the origin `FromUpload`, which names the account and the session that sent the file, and the projects key signs it. The store derives "confirmed" from that signed record, so the part never waits on the card.
+
+The part's row keeps a Decline control. `POST /v1/projects/{project_id}/parts/{part_id}/decline` is person-only too. It appends a `PageAnswer` that declines the part, with the person's note, to the project's ledger. A part is answered once, so a declined upload stays declined. Sending the same file again proposes it afresh, and that upload confirms it again.
+
+The same route takes PDF, Markdown, plain text, PNG and JPEG files and stores them as project sources. A source needs no confirmation, because a check never reads it. A requirement that quotes it is confirmed on the card like any other.
+
+"No tool takes a path, a program or a URL" stands. The upload is a web route, not a tool. The guarantee and its gap are unchanged: an agent that reaches the server only through MCP cannot upload or decline, and a process that drives the person's signed-in browser could, as this ADR already accepts.
