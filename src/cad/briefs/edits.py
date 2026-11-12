@@ -174,7 +174,9 @@ def _edited(requirement: Requirement, text: str) -> Requirement | str:
             case FastenerHoles() if target.fit is HoleFit.TAPPED:
                 return "This row has no number to change."
             case FastenerHoles():
-                new = target.model_copy(update={"series": _series(text)})
+                new = FastenerHoles(
+                    size=target.size, fit=target.fit, count=target.count, series=_series(text)
+                )
             case PlainHoles():
                 new = _plain_hole(target, text)
             case MaxMass() | MinMass():
@@ -242,13 +244,9 @@ def _read_plain_hole(target: PlainHoles, text: str, keys: list[str]) -> PlainHol
         if named is not None:
             diameter_text = text[: len(text.rstrip()) - len(named)]
             tolerance = ByClass(key=named)
-    if not diameter_text.strip():
-        return (
-            target.model_copy(update={"tolerance": tolerance})
-            if tolerance is not target.tolerance
-            else target
-        )
-    [diameter] = _quantities(diameter_text, LENGTH)
+    diameter = target.diameter
+    if diameter_text.strip():
+        [diameter] = _quantities(diameter_text, LENGTH)
     return PlainHoles(diameter=diameter, count=target.count, tolerance=tolerance)
 
 

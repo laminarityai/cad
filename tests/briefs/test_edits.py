@@ -228,6 +228,12 @@ def test_a_hole_text_that_names_no_class_or_band_is_refused_with_the_way_to_writ
     assert says in changed(SHAFT, text)
 
 
+def test_a_tolerance_typed_alone_is_held_to_the_diameter_already_on_the_row() -> None:
+    wide = {**SHAFT, "diameter": {"magnitude": 200, "unit": "mm"}}
+    assert "H7 covers sizes over 0 mm up to 120 mm" in changed(wide, "H7")
+    assert "leaves no hole" in changed(SHAFT, "\u00b1 9 mm")
+
+
 def test_a_clearance_hole_refuses_a_series_it_does_not_have() -> None:
     assert "close, medium, coarse or any" in changed(M5, "fine")
     assert "close, medium, coarse or any" in changed(M5, "4 mm")
