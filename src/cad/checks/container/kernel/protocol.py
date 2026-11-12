@@ -75,9 +75,10 @@ class Arc:
 class Opening:
     """The inner boundary of a flat face where the material is missing, as the mouth of a hole,
     a slot or a pocket is. `edges` holds one entry per edge: an `Arc` for a circular edge and
-    None for any other."""
+    None for any other. `face` is the flat face's index in `faces`' explorer order."""
 
     edges: tuple[Arc | None, ...]
+    face: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -237,6 +238,11 @@ class Kernel(Protocol):
         ...
 
     def inertia(self, shape: Shape) -> Inertia: ...
+
+    def inside(self, shape: Shape, point: Point) -> bool:
+        """Whether the point lies in the material, not on or outside its boundary
+        (BRepClass3d_SolidClassifier at 1e-7 mm)."""
+        ...
 
     def common_volume(self, first: Shape, second: Shape) -> float | None: ...
 

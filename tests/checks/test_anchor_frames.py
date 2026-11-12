@@ -6,6 +6,7 @@ from cad.checks.container.kernel import Point
 from cad.checks.container.regions import (
     Bore,
     Candidate,
+    Disc,
     FarFrom,
     Patch,
     Plane,
@@ -91,6 +92,8 @@ def moved_patch(patch: Patch) -> Patch:
             return Bore(apply(MOVE, origin), rotate(MOVE, axis), radius, t0, t1)
         case Plane(point, normal):
             return Plane(apply(MOVE, point), rotate(MOVE, normal))
+        case Disc(center, normal, radius):
+            return Disc(apply(MOVE, center), rotate(MOVE, normal), radius)
 
 
 def same_place(first: Region | FarFrom, second: Region | FarFrom) -> bool:
@@ -111,7 +114,12 @@ def same_place(first: Region | FarFrom, second: Region | FarFrom) -> bool:
 
 
 def same_candidate(first: Candidate, second: Candidate) -> bool:
-    return same_place(first.support, second.support) and same_place(first.load, second.load)
+    turned_basis = tuple(rotate(MOVE, vector) for vector in first.basis)
+    return (
+        same_place(first.support, second.support)
+        and same_place(first.load, second.load)
+        and projector(second.basis) == pytest.approx(projector(turned_basis), abs=TOL)
+    )
 
 
 def projector(basis: tuple[Point, ...]) -> list[float]:
@@ -130,5 +138,3 @@ def test_turning_and_moving_the_part_changes_no_resolved_anchor(
     assert len(after.candidates) == len(before.candidates)
     for candidate in before.candidates:
         assert any(same_candidate(candidate, other) for other in after.candidates), candidate
-    turned_basis = tuple(rotate(MOVE, vector) for vector in before.basis)
-    assert projector(after.basis) == pytest.approx(projector(turned_basis), abs=TOL)

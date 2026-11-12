@@ -3,8 +3,10 @@ from collections.abc import Sequence
 
 from cad.checks.container import anchors
 from cad.checks.container.anchors import resolve
+from cad.checks.container.features import geometry
 from cad.checks.container.kernel import ocp_kernel
 from cad.checks.container.regions import Bore, FarFrom, Region, Resolved, Unresolved
+from cad.checks.container.terms import of_wire
 from cad.checks.container.wire import (
     DirectionWire,
     HolesWire,
@@ -92,7 +94,7 @@ def case(support: SupportWire, load: LoadWire | None = None) -> LoadCaseWire:
 
 
 def resolved(solid: Solid, wanted: LoadCaseWire) -> Resolved | Unresolved:
-    return resolve(wanted, KERNEL.faces(solid), KERNEL.inertia(solid))
+    return resolve(of_wire(wanted), geometry(KERNEL, solid))
 
 
 def must(solid: Solid, wanted: LoadCaseWire) -> Resolved:
@@ -108,7 +110,7 @@ def reason(solid: Solid, wanted: LoadCaseWire) -> str:
 
 
 def held(solid: Solid, support: SupportWire) -> Region:
-    found = anchors.support_regions(support, KERNEL.faces(solid), KERNEL.inertia(solid))
+    found = anchors.support_regions(of_wire(case(support)).support, geometry(KERNEL, solid))
     assert not isinstance(found, Unresolved), found
     (region,) = found
     return region

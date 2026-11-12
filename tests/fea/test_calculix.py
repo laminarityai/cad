@@ -21,6 +21,7 @@ TET = TetMesh(
     ),
     tets=((0, 1, 2, 3, 4, 5, 6, 7, 8, 9),),
     faces=(),
+    surfaces=(),
 )  # fmt: skip
 
 
@@ -88,7 +89,7 @@ def mesher(over_cap_below: float) -> Mesher:
     def mesh(size_mm: float, floor_mm: float) -> TetMesh | MeshFailed:
         if not floor_mm and size_mm < over_cap_below:
             return OverCap(OVER)
-        return TetMesh(((size_mm, floor_mm, 0.0),), (), ())
+        return TetMesh(((size_mm, floor_mm, 0.0),), (), (), ())
 
     return mesh
 

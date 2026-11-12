@@ -248,10 +248,10 @@ These rules hold for every term:
 
 - A candidate is one support region with one load region. The check solves every candidate over the direction's subspace and keeps the worst result, as it does for a tie now.
 - A load region never uses a face of its support region.
-- More than 4 candidates gives `unknown`, and the reason gives the count. The limit keeps a job inside its 600 s budget. The number is inferred, and step 1 measures it.
+- A described case with more than 4 candidates gives `unknown`, and the reason gives the count. The limit keeps a job inside its 600 s budget. Step 1 measured it (see What it decides). It applies only to described cases, because the reviewed `largest_flat` rule already gives 6 candidates on a cube.
 - The 1% bands, the 1° tolerance and the disc fraction are constants in the check. The agent cannot change them.
 - A hole support keeps its keep-out of 0.5 × the bore. An inner-curve support gets the same keep-out, 0.5 × its diameter. Every flat support, `EndOf` and `Facing` included, carries the clamped-face note.
-- A region is a set of BREP faces. The `Plane` patch that `region_faces` tests against now is a whole plane, so it also takes a coplanar face elsewhere on the part. A described term must not do that. Step 1 measures whether gmsh keeps one surface tag per BREP face, and a region is then its faces' triangles. It is inferred that gmsh does, because it reads the BREP through OCC.
+- A region is a set of BREP faces, and it takes the mesh triangles on those faces by gmsh surface tag. Step 1 measured that gmsh keeps one tag per BREP face, in the kernel's order, on all 24 parts it read (§2.1 of the phase 3 design). The check does not rest on that order alone: when the mesh and the kernel count different faces, or a tagged triangle lies off the surface the kernel reads on its face, the result is unknown. A middle disc also keeps only the triangles wholly inside it.
 
 ## How each property holds
 
@@ -286,10 +286,10 @@ These rules hold for every term:
 2. Parse and words: each refused pairing, and a test that enumerates every pairing of terms and directions and finds no two with the same words, and none with a reviewed phrase's words.
 3. `tests/checks/test_anchors_in_image.py`: the hook, a two-curl rail hook, a clamp, a shelf, `sb_arm` and `sb_l_bracket` resolve to the same faces under the existing rotations and moves.
 4. `tests/fea/cases.py`, with each bound measured first, as §2.9 of the phase 3 design did:
-   - A plate fixed at one end of its middle axis and pressed into the middle of its largest flat face. The expected value is the beam root stress for a point load at mid-span.
+   - A plate fixed at one flat end and pressed into the middle of its largest flat face, `FlatEnd`, `OnLargestFlat(middle)` and `Into`. Built against the tip deflection of a cantilever loaded at half its length, on a 160 × 40 × 2.5 plate, measured +0.13% on the fine mesh. The plate is thin so that the disc is about 3.5 coarse elements in radius. On a 6 mm plate the disc was 1.6 elements in radius, and the triangles wholly inside it covered 70% of it in the arm64 image and 48% in CI's amd64 image, where gmsh builds a different mesh. So a press on the middle decides only when the disc is a few elements wide, and near that edge the answer can differ between machines. Sizing the mesh to the disc would remove the edge. That is not built. A first version held a 52 × 50 plate across its middle axis and read the root stress. It was 18.5% over the beam value, because a wide, short plate carries more of the moment under the load than a beam does, so it proved little. Host tests cover `EndOf(middle)`.
    - A bar with two equal holes, `Each(HOLE)` and `OnFarthest(HOLE)`, across the hole axis. Both candidates give the same result, and it matches beam theory outside the keep-out.
-   - A C-frame clamp, `Facing`, `OnOpposite` and `Into`. The expected value is M/Z + F/A at the back of the C.
-   - A half-ring hook on an arm held by 2 holes, `OnFarthest(INNER_CURVE)`. The expected value is the Winkler-Bach curved-beam stress at the section in line with the load.
+   - A C-frame clamp, `Facing`, `OnOpposite` and `Into`. Built against the jaw tip's displacement by Castigliano, not M/Z + F/A: the stress at the back of the C peaks at re-entrant corners and at the clamped jaw, where it depends on the mesh.
+   - A J hook, a shank held by 2 holes with a half ring below it, `OnFarthest(INNER_CURVE)` and `Away`. The expected value is the Winkler-Bach curved-beam stress at the curl's root.
    - An L bracket with 2 holes in each leg, `InOneFlatFace(2)`. The result equals the worse of the two single-face solves.
 5. Proposals: on a brief with variants and no `fea` result, a new described case is accepted and may replace an earlier one. Once any variant has a `fea` result, `unknown` included, a new described case is refused, the same `unit_case` with a new force is accepted, and a proposal that leaves one out is refused unless the person declined since.
 6. Scorecard and tracer: a verdict on a described case carries the label, the tracer fails a card whose label does not match its confirmed load case, and the summary counts described verdicts apart.
@@ -317,29 +317,47 @@ These rules hold for every term:
 
 Each step is one PR, after option A merges.
 
-1. **One resolver, and the terms.** In the container only. First move the five phrases' rules into one function that returns candidates for any term, with no change to their results. Check that by scoring the corpus before and after. Then add the seven terms, `middle`, `Into`, `Away`, the candidate limit and the kernel query that tells whether a point is inside the solid. Measure whether gmsh keeps a surface tag per BREP face, and use the tags if it does. Harness cases 1, 3 and 4. Measure the candidate limit, the middle disc and the bands. Report what the terms cover, measured on the corpus and the novice briefs, so the operator can decide on agent-written code that picks the faces. Every check version moves. Nothing can propose a described case yet.
+1. **One resolver, and the terms.** Built on branch `feat/fea-described-load-terms`. In the container only. First move the five phrases' rules into one function that returns candidates for any term, with no change to their results. Check that by scoring the corpus before and after. Then add the seven terms, `middle`, `Into`, `Away`, the candidate limit and the kernel query that tells whether a point is inside the solid. Measure whether gmsh keeps a surface tag per BREP face, and use the tags if it does. Harness cases 1, 3 and 4. Measure the candidate limit, the middle disc and the bands. Report what the terms cover, measured on the corpus and the novice briefs, so the operator can decide on agent-written code that picks the faces. Every check version moves. Nothing can propose a described case yet.
 2. **Proposals, page, card and tracer.** The models and wire, `describe_case` and the words test, the parse rules, the result rule in `propose_requirements`, the page note, `load_case` on `Checked` and `Waiting`, the line in the Auto stop report, the tracer rule and count, and the guidance. Pointers in §2.1 of the phase 3 design and in the recommendation of fea load anchors. Harness cases 2, 5, 6 and 7. Report how often an honest description is stuck because an `unknown` `fea` result counts as a result.
 3. **Show where.** The `fea` result names the faces of the deciding candidate's support and load, and the 3D view highlights them on the card, for reviewed phrases too.
 
 Each of these needs its own evidence and issue: supports that rest ([#254](https://github.com/laminarityai/cad/issues/254)), displacement loads, and a describer that sees only the person's words.
 
-## What it would decide
+## What it decides
 
-Inferred. None of this is measured yet.
+Measured in build step 1, in the analysis image, with PLA (E 2300 MPa, ν 0.34, yield 51 MPa), 20 N and a 2 mm deflection limit, as the corpus baseline uses. "Decides" means the `fea` check gives `pass` or `fail`, not `unknown`.
 
-| Part or brief | Terms | Outcome |
-|---|---|---|
-| `sb_arm` | `Each(HOLE, 28 mm)`, `OnFarthest(HOLE, 28 mm)`, across the hole axis | Resolves. Its 40 mm depth in the load plane makes it stiff, so it likely decides. |
-| `sb_l_bracket` | `InOneFlatFace(2, 5.1 mm)`, far end | Resolves. It may stop at the large-displacement gate. |
-| `hook` | 2 holes, `OnFarthest(INNER_CURVE)`, across the hole axis | Resolves, as it does now. Loading the inside of the curl instead of the far end may bring its displacement under the 5% gate. |
-| `equal_angle` | none | Not decided. The list has no "end of a leg". |
-| `sb_gusset` | none | Not decided. "Fixed at one end" of a triangle names no face a term finds. |
-| A shelf pressed in the middle | holes or `InOneFlatFace`, `OnLargestFlat(middle)`, `Into` | Decides when it is screwed through its back. Not covered when it rests on brackets. |
-| A hook hung from a rail | `Each(INNER_CURVE)`, `OnFarthest(INNER_CURVE)`, `Away` | Decides when both curls are cylinders. |
-| A clamp | `Facing`, `OnOpposite`, `Into` | Decides for flat jaws. A screw clamp's thread is not covered. |
-| A lid pushed down | none | Not covered, because it rests on the box. Screwed down, it is holes, `OnLargestFlat(middle)` and `Into`. |
-| A bracket bolted to a wall through a face | `InOneFlatFace(n, d)`, far end | Decides. |
-| A snap arm bent at its tip | none | Not covered, because the load is a displacement. As a force at the tip, the reviewed phrases serve. |
+**The reviewed phrases, before and after.** The corpus of 19 parts and `i_beam_flat` scored the same on origin/main, after the one resolver, and after selection by surface tag: the same verdict, requirement verdict, every measure and the same reason on all 20. 8 parts stop at the large-displacement gate: `cantilever_bar`, `l_plain`, `l_holes`, `l_filleted`, `hook`, `t_arm`, `t_arm_flat_end` and `truss_arm`. 4 stop on their anchor: `equal_angle` and `sb_gusset` (no flat end), `sb_arm` (2 holes of 28 mm, 1 named) and `sb_l_bracket` (4 holes of 5.1 mm, 2 named). So 12 of 20 are stuck, not the 4 an earlier count gave.
+
+| Part or brief | Terms | Candidates | Result |
+|---|---|---|---|
+| `hook` | `Holes(2, 4 mm)`, `OnFarthest(INNER_CURVE)`, across the hole axis | 1 | Decides. `pass`, 2.87 mm, safety factor 2.97, so the 2 mm requirement fails. The reviewed far end gives 3.56 mm and stops at the 5% gate. |
+| `sb_l_bracket` | `InOneFlatFace(2, 5.1 mm)`, far end, any way | 2 | Decides. `pass`, 1.76 mm, safety factor 4.35, so the 2 mm requirement passes. |
+| `sb_arm` | `Each(HOLE, 28 mm)`, `OnFarthest(HOLE, 28 mm)`, across the hole axis | 2 | Resolves, not solved. A pin is a pivot, which stays not checked (decision 9). |
+| `equal_angle` | none | | Not decided. `EndOf(middle)` finds no flat end. `EndOf(short)` finds the two cut ends of the L profile, which is not "one leg fixed". |
+| `sb_gusset` | none | | Not decided. `EndOf(middle)` finds the long edge face of the triangle, which is not "one end". |
+| The 7 other parts at the gate | any | | Not decided. The gate reads the displacement, and no load term changes it. |
+| A shelf pressed in the middle, screwed through its back (120 × 200 × 6 plate on a flange with 3 holes of 5 mm) | `Holes(3, 5 mm)` or `InOneFlatFace(3, 5 mm)`, `OnLargestFlat(middle)`, `Into` | 1 | Decides. `pass`, 0.98 mm, safety factor 22.4. |
+| A hook hung from a rail (an S hook with curls of 16 mm and 20 mm bore) | `Each(INNER_CURVE)`, `OnFarthest(INNER_CURVE)`, `Away` | 2 | Decides. `pass`, 0.46 mm, safety factor 10.8. The curl on the rail is fixed, though a curl hooked on a rail rests on it. Whether decision 9 covers it is the operator's call. |
+| A clamp (a 60 × 20 × 50 block with a 20 mm slot cut in from one side) | `Facing`, `OnOpposite`, `Into` | 2 | Decides. `pass`, 0.31 mm, safety factor 14.5. With `OnOpposite(middle)` it is `unknown`: the disc on a 20 mm jaw is 3.2 mm across and the coarse mesh covers 24% of it. |
+| A bracket bolted to a wall through a face | `InOneFlatFace(n, d)`, far end | | As `sb_l_bracket`. |
+| A lid pushed down | none | | Not covered, because it rests on the box. |
+| A snap arm bent at its tip | none | | Not covered, because the load is a displacement. |
+| A plate fixed at one end, pressed in the middle (160 × 40 × 6) | `FlatEnd`, `OnLargestFlat(middle)`, `Into` | 4 | Decides. `pass`, 4.98 mm, safety factor 7.4. `EndOf(middle)` would fix a long side, because the middle axis of a long plate runs across it. |
+
+Of the 12 stuck corpus parts, the terms decide 2, `hook` and `sb_l_bracket`. Of the 6 novice briefs, they decide 3 (the shelf, the clamp and the bracket), or 4 if a hooked curl counts as fixed. What the rest need:
+
+- `equal_angle` needs a support on one leg's face. No term names a leg. Agent-written code that picks the faces would, or a term for "the face of a leg".
+- `sb_gusset` needs the person to say which edge is held. A triangle has no ends a rule can find.
+- `sb_arm`, the lid and a rail hook that rests need supports that pivot or rest ([#254](https://github.com/laminarityai/cad/issues/254)).
+- The 7 parts at the gate need a geometrically nonlinear analysis, or a smaller force.
+- The snap arm needs a displacement load.
+
+**Candidate limit.** Measured counts: the reviewed phrases give 1 to 4 candidates on the corpus (4 on `square_tab`), and the described cases give 1 to 4 (4 on the plate). The limit of 4 never stopped a case. On the described parts, meshing and solving took about 3 to 100 s per candidate (`sb_l_bracket` took 203 s for 2). A whole reviewed score took up to 227 s for 1 candidate (`i_beam_arm`) and 451 s for 2 (`i_beam_flat`). So 4 candidates fit the 600 s budget at up to about 150 s each. At the rate of the 2 heaviest corpus parts, even 3 would not fit. It is inferred that the job's time limit then gives `unknown`, and that the limit should stay at 4, since a higher one would only add jobs that time out.
+
+**The middle disc.** The coarse and fine meshes covered 67% and 77% of the disc on the shelf, 67% to 70% on the plate, and 23% to 55% on the clamp's jaws. The disc's radius is 15.5 mm on the shelf, 8 mm on the plate and 3.2 mm on the jaw, against coarse mesh sizes of 5.6, 5.1 and 3 mm. It is inferred from these 3 parts that a disc whose radius is under about 1.5 coarse elements gives `unknown`. It is inferred that a floor on the radius, such as 2 coarse elements, would decide the clamp. That floor is not built, because it ties the load's size to the mesh.
+
+**Bands.** No measured part had a candidate near a band. Every tie was an exact one, by symmetry. The next largest flat face was 95% of the largest on the shelf and 15% on the plate. No `OnFarthest` case had a second match outside the support. The clamp's jaws face within 0° of opposite. The line for `Away` was 61% of the part's reach on the hook and 80% on the rail hook, against the 1% floor. So the 1% bands and the 1° tolerance are not contradicted, and these parts do not test them.
 
 ## What the operator decided, and what build measures
 
@@ -349,9 +367,9 @@ The operator approved route 4 on 2026-11-11. Items 2, 3, 4 and 8 were approved a
 2. **Leaving out a described case.** Approved as written. The pick is to refuse it unless the person declined since. Without the rule, the agent could propose two readings and keep the one that scored better.
 3. **Labelled and counted apart.** Approved as written. The pick is yes, with no place in the headline count. Treating it as reviewed would make a pairing nobody reviewed read like a team phrase.
 4. **Auto.** Approved as written. The pick is that a pass on a described case counts toward the stop when every requirement passes. If it did not count, Auto would never stop on a pass for these briefs.
-5. **Candidate limit.** A constant that build step 1 measures, starting from 4. A higher limit risks the 600 s budget.
-6. **The middle disc.** A constant that build step 1 measures, starting from a radius of 0.1 × √(face area), like the keep-out. A stated contact size would be a number the person must give. Searching for the worst position on the face would move the load away from where the person said it acts.
-7. **Bands and tolerances.** Constants that build step 1 measures, starting from 1% for ties, as `LONG_TIE_FRACTION` is now, and 1° for facing faces.
+5. **Candidate limit.** A constant that build step 1 measures, starting from 4. A higher limit risks the 600 s budget. Measured: it stays 4. No measured case went over it, and the plate reached it (What it decides).
+6. **The middle disc.** A constant that build step 1 measures, starting from a radius of 0.1 × √(face area), like the keep-out. A stated contact size would be a number the person must give. Searching for the worst position on the face would move the load away from where the person said it acts. Measured: the radius stays 0.1 × √(face area). The disc decides on the shelf and the plate and gives `unknown` on a small jaw (What it decides).
+7. **Bands and tolerances.** Constants that build step 1 measures, starting from 1% for ties, as `LONG_TIE_FRACTION` is now, and 1° for facing faces. Measured: they stay. No measured part came near them (What it decides).
 8. **The page note.** Approved as written. The pick is two sentences on a described row. Without it the person may not see that the agent wrote the description.
 9. **Supports that rest.** The operator decided that supports that rest, slide or pivot stay unverified. They are their own piece of work ([#254](https://github.com/laminarityai/cad/issues/254)). Treating them as fixed would give a pass the part may not earn.
 10. **How big the list is.** The operator approved the terms now, four supports and three loads, each tied to a brief. Agent-written code that picks the faces (route 3) is deferred, not rejected. The operator decides on it after build step 1 reports what the terms cover, measured on the corpus and the novice briefs. A nested grammar would cover more, at the cost of words that grow long and are hard to keep distinct.

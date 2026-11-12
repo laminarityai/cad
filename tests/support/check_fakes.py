@@ -141,6 +141,9 @@ class FakeKernel:
             spans=((0.0, 30.0), (0.0, 10.0), (0.0, 20.0)),
         )
 
+    def inside(self, shape: Shape, point: Point) -> bool:
+        raise NotImplementedError("no quick check asks whether a point is inside")
+
     def common_volume(self, first: Shape, second: Shape) -> float | None:
         assert isinstance(first, FakeShape) and isinstance(second, FakeShape)
         return self.commons.get((first.index, second.index), 0.0)
