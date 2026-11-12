@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useServices } from "@/app/context";
 import type { Mounted, OnPick, Shapes, Theme } from "./engine";
+import type { Measure } from "./readout";
 import type { Pick } from "./selection";
 
 function currentTheme(): Theme {
@@ -9,19 +10,30 @@ function currentTheme(): Theme {
   return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
 }
 
-export function ViewerCanvas({ shapes, label, picks, onPick }: { shapes: Shapes; label: string; picks: readonly Pick[]; onPick: OnPick }) {
+interface Props {
+  shapes: Shapes;
+  label: string;
+  picks: readonly Pick[];
+  onPick: OnPick;
+  /** Gets the viewer's measure once it is drawn, and null when it stops. */
+  onMeasure: (measure: Measure | null) => void;
+}
+
+export function ViewerCanvas({ shapes, label, picks, onPick, onMeasure }: Props) {
   const { viewer } = useServices();
   const host = useRef<HTMLDivElement>(null);
   const mounted = useRef<{ view: Mounted; shapes: Shapes } | null>(null);
   const latest = useRef(shapes);
   const latestPicks = useRef(picks);
   const latestOnPick = useRef(onPick);
+  const latestOnMeasure = useRef(onMeasure);
   const [problem, setProblem] = useState<string | null>(null);
   const countDraw = (into: HTMLElement) => {
     into.dataset.draws = String(Number(into.dataset.draws ?? "0") + 1);
   };
   useEffect(() => {
     latestOnPick.current = onPick;
+    latestOnMeasure.current = onMeasure;
   });
   useEffect(() => {
     latest.current = shapes;
@@ -56,6 +68,7 @@ export function ViewerCanvas({ shapes, label, picks, onPick }: { shapes: Shapes;
           mounted.current.shapes = latest.current;
         }
         view.select(latestPicks.current);
+        latestOnMeasure.current((a, b) => view.measure(a, b));
         countDraw(element);
       },
       (error: unknown) => {
@@ -64,6 +77,7 @@ export function ViewerCanvas({ shapes, label, picks, onPick }: { shapes: Shapes;
     );
     return () => {
       live = false;
+      if (mounted.current) latestOnMeasure.current(null);
       mounted.current?.view.stop();
       mounted.current = null;
     };

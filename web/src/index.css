@@ -188,3 +188,8 @@ html body {
 [data-viewer] .tcv_cad_viewer {
   background-color: var(--panel-2);
 }
+/* The library's hover line shows mesh numbers such as "plane: area ≈ 1692.50" with no word that no
+ * check measured them, and no flag turns it off. The selection readout is the one place a measurement shows. */
+[data-viewer] .tcv_status_line {
+  display: none !important;
+}

@@ -1,4 +1,5 @@
 import type { Tessellated } from "@/api/types";
+import type { MeshReading } from "./readout";
 import type { Pick } from "./selection";
 import { FACE_PARTS } from "./where";
 
@@ -12,6 +13,8 @@ export interface Mounted {
   show(shapes: Shapes): void;
   /** Highlights exactly these picks on the drawn mesh. */
   select(picks: readonly Pick[]): void;
+  /** The library's closest-point distance and angle between two picks on the drawn mesh, or null when it cannot say. */
+  measure(a: Pick, b: Pick): MeshReading | null;
   stop(): void;
 }
 
@@ -32,6 +35,13 @@ export function pickOf(path: string): Pick | null {
 }
 
 const same = (a: Shapes["bb"], b: Shapes["bb"]) => (Object.keys(a) as (keyof Shapes["bb"])[]).every((key) => a[key] === b[key]);
+
+/** A number the library worked out, or null when the field is missing or not finite. */
+function numberIn(row: unknown, key: string): number | null {
+  if (typeof row !== "object" || row === null) return null;
+  const value = (row as Record<string, unknown>)[key];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
 
 const EDGE: Record<Theme, number> = { light: 0x2a3236, dark: 0xb9c1be };
 
@@ -100,6 +110,18 @@ export const threeCadViewer: ViewerEngine = {
     canvas.addEventListener("click", onClick);
     canvas.addEventListener("dblclick", onDouble);
 
+    /** The face's path in the piece of the part that draws it, since the stress check's faces are pieces of their own. */
+    const pathOf = (pick: Pick): string | null => {
+      const source = viewer.compactNestedGroup?.meshGeometry;
+      if (source === undefined || pick.kind === "part") return null;
+      return (
+        FACE_PARTS.map((id) => `${id}/${pick.kind}s/${pick.kind}s_${String(pick.index)}`).find((path) => {
+          const geometry = source.resolve(path);
+          return geometry !== null && (geometry.indices?.length ?? geometry.positions.length) > 0;
+        }) ?? null
+      );
+    };
+
     return {
       show(next) {
         // The same box means the same part drawn with other faces marked, so the person's view stays.
@@ -128,6 +150,16 @@ export const threeCadViewer: ViewerEngine = {
           if (id !== undefined) highlight.setSelected(id, true);
         }
         viewer.update(true, false);
+      },
+      measure(a, b) {
+        const [first, second] = [pathOf(a), pathOf(b)];
+        if (first === null || second === null) return null;
+        const result: unknown = viewer.meshBackend.distance(first, second, false)?.result;
+        if (!Array.isArray(result)) return null;
+        const rows: unknown[] = result;
+        const distance = numberIn(rows[0], "distance");
+        if (distance === null) return null;
+        return { distance, angle: rows.map((row) => numberIn(row, "angle")).find((angle) => angle !== null) ?? null };
       },
       stop() {
         canvas.removeEventListener("pointerdown", onDown);

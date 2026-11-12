@@ -4,6 +4,7 @@ import type { Api } from "@/api/client";
 import type { ChatApi, Follower } from "@/api/chat";
 import type { AutoRun, ConversationView, Event, ExportFormat, Picked, PersonStop, StopReason, Tessellated, VariantSetView } from "@/api/types";
 import type { Mounted, OnPick, Shapes, ViewerEngine } from "@/features/viewer/engine";
+import type { MeshReading } from "@/features/viewer/readout";
 import type { Pick } from "@/features/viewer/selection";
 import { brief } from "./fixtures";
 
@@ -83,6 +84,8 @@ export class FakeViewer implements ViewerEngine {
   readonly selected: (readonly Pick[])[] = [];
   private readonly listeners: OnPick[] = [];
   stopped = 0;
+  /** What `measure` answers: the mesh's closest-point distance and angle for any two picks. */
+  reading: MeshReading | null = null;
 
   mount(_element: HTMLElement, shapes: Shapes, _theme: unknown, onPick: OnPick): Promise<Mounted> {
     this.mounted.push(shapes);
@@ -94,6 +97,7 @@ export class FakeViewer implements ViewerEngine {
       select: (picks) => {
         this.selected.push(picks);
       },
+      measure: () => this.reading,
       stop: () => {
         this.stopped += 1;
       },
