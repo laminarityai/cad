@@ -21,7 +21,7 @@ One checkable target taken from a brief, such as a ratio, a load, or a size limi
 _Avoid_: Constraint, goal
 
 **Hole requirement**:
-A requirement for round holes, either for a metric fastener size (2 holes that fit an M5 bolt, or tapped for M4) or of a stated diameter (an 8 mm hole). A person states the size or diameter and the count, and confirms it. A hole counts when its diameter lies in the fasteners table's band for the size, or within a tolerance of the stated diameter. A group of coaxial holes, such as a counterbore, is one hole, and its diameter is the narrowest.
+A requirement for round holes, either for a metric fastener size (2 holes that fit an M5 bolt, or tapped for M4) or of a stated diameter (an 8 mm hole). A person states the size or diameter and the count, and confirms it. A hole counts when its diameter lies in the fasteners table's band for the size, or within the tolerance of the stated diameter. A stated diameter's tolerance is 0.05 mm either way unless the person states a length or picks a class of the tolerances table (H7, H8, H9, H11 of ISO 286, or ISO 2768-f, -m, -c), whose band is read by exact key and the diameter's size range. A clearance hole may name a series (close, medium or coarse), which narrows its band to that series' diameter. A group of coaxial holes, such as a counterbore, is one hole, and its diameter is the narrowest.
 _Avoid_: Mounting hole, screw hole
 
 **Assumption**:
