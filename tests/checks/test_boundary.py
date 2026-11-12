@@ -72,6 +72,12 @@ def good_report() -> dict[str, Any]:
                 ],
                 "reason": "0 round holes",
             },
+            {
+                "id": "min_wall",
+                "verdict": "pass",
+                "measured": [measured("min_wall", 2.0, "mm")],
+                "reason": "thinnest wall 2 mm",
+            },
         ],
         "step": {"kind": "written", "base64": b64encode(STEP).decode()},
     }
@@ -113,6 +119,7 @@ def test_a_good_report_becomes_one_result_per_quick_check_with_pint_quantities(
         ("mass", Verdict.PASS),
         ("extents", Verdict.PASS),
         ("holes", Verdict.PASS),
+        ("min_wall", Verdict.PASS),
     ]
     assert parsed.step == STEP
     mass = parsed.results[2]

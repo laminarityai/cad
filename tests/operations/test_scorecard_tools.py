@@ -16,6 +16,7 @@ from cad.operations.guidance import (
     OPTIONS,
     RESEARCH,
     RULE,
+    WALLS,
 )
 from cad.sandbox.outcome import Build, Built
 from cad.server.app import build_server
@@ -93,6 +94,7 @@ async def test_build_then_score_returns_the_scorecard_it_stored(tmp_path: Path) 
         "mass": "pass",
         "extents": "pass",
         "holes": "pass",
+        "min_wall": "pass",
     }
     assert not list((tmp_path / variant_id).glob("scorecard*"))
 
@@ -206,6 +208,7 @@ async def test_a_well_formed_key_missing_from_the_table_scores_with_mass_unknown
         "mass": "unknown",
         "extents": "pass",
         "holes": "pass",
+        "min_wall": "pass",
     }
 
 
@@ -249,6 +252,7 @@ async def test_the_server_tells_every_client_that_only_check_results_are_measure
             OPTIONS,
             CONTEXT_PARTS,
             HOLES,
+            WALLS,
             MATERIAL,
             DEEPER_ANALYSIS,
             RESEARCH,

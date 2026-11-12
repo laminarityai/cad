@@ -41,6 +41,7 @@ EXPECTED: Final[dict[str, Answer]] = {
     "cad.briefs.store.UnknownBrief": ("404 named", "named"),
     "cad.chat.model.ModelUnavailable": (None, None),
     "cad.checks.container.inputs.Undeclared": (None, None),
+    "cad.checks.container.min_wall.Halted": (None, None),
     "cad.checks.lanes.Superseded": (None, None),
     "cad.context_parts.store.BadContextPart": ("400 named", "named"),
     "cad.conversations.model.ConversationRefused": ("400 named", "named"),

@@ -306,6 +306,7 @@ def test_the_report_lists_every_check_in_suite_order_with_the_step_of_the_measur
         "mass",
         "extents",
         "holes",
+        "min_wall",
     ]
     step = report["step"]
     assert step["kind"] == "written"
@@ -321,6 +322,7 @@ def test_an_unreadable_brep_still_reports_every_quick_check_and_no_step() -> Non
         "mass": "unknown",
         "extents": "unknown",
         "holes": "unknown",
+        "min_wall": "unknown",
     }
     assert report["step"] == {
         "kind": "missing",

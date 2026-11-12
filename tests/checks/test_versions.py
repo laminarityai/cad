@@ -73,6 +73,7 @@ def test_the_check_ids_are_the_suite_order() -> None:
         "mass",
         "extents",
         "holes",
+        "min_wall",
         "fea",
         "fit",
     ]
@@ -81,12 +82,13 @@ def test_the_check_ids_are_the_suite_order() -> None:
 @pytest.mark.parametrize(
     ("check_file", "changed"),
     [
-        ("closed_solid.py", {"closed_solid", "mass", "extents", "holes", "fea"}),
+        ("closed_solid.py", {"closed_solid", "mass", "extents", "holes", "min_wall", "fea"}),
         ("interference.py", {"interference", "mass", "fea", "fit"}),
         ("fit.py", {"fit"}),
         ("fea.py", {"fea"}),
         ("mass.py", {"mass"}),
         ("holes.py", {"holes"}),
+        ("min_wall.py", {"min_wall"}),
     ],
 )
 def test_editing_a_check_file_changes_the_version_of_every_check_that_runs_it(
