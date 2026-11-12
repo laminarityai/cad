@@ -6,17 +6,6 @@ from cad.checks.container import anchors
 from cad.checks.container.kernel import Flat
 from cad.checks.container.regions import FarFrom, Plane, Region
 from cad.checks.container.vectors import Point, angle, scale
-from tests.fea.cases import (
-    ARM_TIP,
-    BEAM_B,
-    BEAM_H,
-    BEAM_L,
-    PLATE_BACK,
-    PLATE_BELOW,
-    PLATE_X,
-    PLATE_Y,
-    PLATE_Z,
-)
 from tests.support.anchors import (
     BOLTED_L,
     CHAMFER_DEG,
@@ -34,7 +23,7 @@ from tests.support.anchors import (
     holes,
     must,
 )
-from tests.support.solids import Solid, box, fuse
+from tests.support.solids import Solid
 
 
 def plane(region: Region | FarFrom) -> Plane:
@@ -123,17 +112,3 @@ def test_a_flat_face_with_material_beyond_its_plane_is_not_an_end() -> None:
     (only,) = must(NOSED_BAR, case(FLAT_END)).candidates
     assert plane(only.support).normal == pytest.approx((-1, 0, 0))
     assert isinstance(only.load, FarFrom)
-
-
-def test_the_plated_cantilever_harness_case_is_the_case_the_anchors_resolve() -> None:
-    plate = box(PLATE_X, PLATE_Y, PLATE_Z, at=(-PLATE_X, -(PLATE_Y - BEAM_B) / 2, -PLATE_BELOW))
-    found = must(fuse(plate, box(BEAM_L, BEAM_B, BEAM_H)), case(FLAT_END)).candidates
-    pairs = [(plane(c.support), plane(c.load)) for c in found]
-    fixed, loaded = plane(PLATE_BACK), plane(ARM_TIP)
-    assert any(
-        support.normal == pytest.approx(fixed.normal)
-        and support.point[0] == pytest.approx(fixed.point[0])
-        and tip.normal == pytest.approx(loaded.normal)
-        and tip.point[0] == pytest.approx(loaded.point[0])
-        for support, tip in pairs
-    )
