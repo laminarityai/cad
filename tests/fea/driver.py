@@ -4,6 +4,7 @@ import sys
 
 from cases import BY_NAME, Case, PlateLoadPatch
 
+from cad.checks.container import fea
 from cad.checks.container.anchors import FarFrom, Plane, Region, Unresolved
 from cad.checks.container.calculix import SolveFailed, solve
 from cad.checks.container.elastic import (
@@ -15,7 +16,8 @@ from cad.checks.container.elastic import (
     worst_displacement,
     worst_von_mises,
 )
-from cad.checks.container.mesher import MeshFailed, TetMesh, mesh_sizes, tet_mesh
+from cad.checks.container.kernel import Unreadable, ocp_kernel
+from cad.checks.container.mesher import MeshFailed, TetMesh, tet_mesh
 from cad.checks.container.vectors import norm, sub, unit
 
 REGION_TOLERANCE = 1e-4
@@ -63,6 +65,9 @@ def selected(
 def main() -> None:
     case = BY_NAME[sys.argv[1]]
     brep = sys.stdin.buffer.read()
-    sizes = mesh_sizes(case.thinnest_wall_mm, case.largest_extent_mm)
+    kernel = ocp_kernel()
+    shape = kernel.read_brep(brep)
+    assert not isinstance(shape, Unreadable), shape.reason
+    sizes = fea.mesh_sizes_of(kernel.faces(shape), kernel.inertia(shape))
     report = {"coarse": solved(case, brep, sizes.coarse), "fine": solved(case, brep, sizes.fine)}
     sys.stdout.write(json.dumps(report))

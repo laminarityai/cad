@@ -20,7 +20,7 @@ from cad.operations.research import brief_table, with_research
 from cad.records.roots import Roots
 from cad.research.overlay import ProjectTable
 from cad.sandbox import image
-from cad.scorecard import assumed, awaiting, material, requirements, score
+from cad.scorecard import assumed, awaiting, material, requirements, score, unjudged
 from cad.tables.materials import KEY_PATTERN
 from cad.variant_sets import store as variant_sets
 from cad.variant_sets.model import MaterialChoice, MaterialMissing
@@ -63,8 +63,8 @@ SCORE_VARIANT = (
     "and rebuilt_from is the id you passed. It rebuilds even when the earlier build failed, "
     "because the new sandbox may build it. A rebuild that does not build is an error that "
     "gives the build outcome. "
-    "Every result has a verdict (pass, fail or unknown), "
-    "its measured values, its formula, its sources and its check version. unknown means the "
+    "Every result has its measured values, its formula, its sources and its check version, "
+    "and a verdict (pass, fail or unknown) unless its kind is measure_only. unknown means the "
     "check could not decide, and it is not a pass. "
     "Each result's reads say, for each material value the check takes, whether the table "
     "cites it, the project researched it (with the url and quote), or the table lacks it. "
@@ -81,8 +81,9 @@ SCORE_VARIANT = (
     "user's Confirm is listed under awaiting, beside the measure of its deciding check and "
     "with no verdict: report it as waiting for the user, give the measure, and never call it "
     "a pass or a fail. After they confirm, scoring the same variant again judges the same "
-    "stored check results against it with no rebuild. A check result for a load case under an "
-    "awaiting or assumed target is a measure of that load and never a passed check. "
+    "stored check results against it with no rebuild. A check result for a load case that only "
+    "an awaiting or assumed target reads has kind measure_only and no verdict: report its "
+    "measures and never call it a pass or a fail. "
     "Without brief_id the basis is no_brief "
     "and the scorecard covers no requirement. A limit counts as met up to one part in a billion, "
     "an allowance for float noise in unit conversion and not an engineering tolerance. envelope "
@@ -202,8 +203,13 @@ def with_assumptions(
     if brief_id is None or not (basis.assumptions or basis.waiting):
         return card
     names = plain_names(tenant.roots, brief_id)
+    loads = unjudged.unconfirmed_loads(
+        [*(one.target for one in basis.waiting), *(one.target for one in basis.assumptions)],
+        [] if basis.confirmed is None else [one.target for one in basis.confirmed.requirements],
+    )
     return card.model_copy(
         update={
+            "results": unjudged.without_verdicts(card.results, loads),
             "assumptions": assumed.rows(basis.assumptions, card.results, names),
             "awaiting": awaiting.rows(basis.waiting, card.results, names),
         }

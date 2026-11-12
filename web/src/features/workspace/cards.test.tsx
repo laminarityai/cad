@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ServicesProvider } from "@/app/context";
 import { FakeChat, FakeViewer, fakeApi } from "@/test/fakes";
 import type { DoneCheck } from "@/api/snapshot";
-import { massResult, snapshot } from "@/test/fixtures";
+import { feaMeasureOnly, massResult, snapshot } from "@/test/fixtures";
 import { restore } from "@/api/snapshot";
 import { assumedOf, awaitingOf, linesOf, summaryOf, useCards, type CardKey } from "./cards";
 
@@ -103,12 +103,13 @@ describe("what the agent assumed", () => {
   });
 
   it("never lists a result that read an assumed load as a check that passed", () => {
-    const underLoad = { ...massResult(), check_id: "fea", instance: "load-1" };
+    const judged = { ...massResult(), check_id: "fea", instance: "load-1" };
     const assumedLoad = { ...assumedRow, check_id: "fea", instance: "load-1", values: [] };
-    const plain = restore(snapshot("v1", [], [massResult(), underLoad]));
-    const held = restore({ ...snapshot("v1", [], [massResult(), underLoad]), assumptions: [assumedLoad] });
+    const plain = restore(snapshot("v1", [], [massResult(), judged]));
+    const held = restore({ ...snapshot("v1", [], [massResult(), feaMeasureOnly("load-1")]), assumptions: [assumedLoad] });
     expect(linesOf(plain).also.map((one) => one.key)).toEqual(["check:mass:", "check:fea:load-1"]);
     expect(linesOf(held).also.map((one) => one.key)).toEqual(["check:mass:"]);
+    expect(summaryOf({ snapshot: held })).toEqual(summaryOf({ snapshot: restore(snapshot("v1", [], [massResult()])) }));
   });
 });
 
@@ -134,9 +135,8 @@ describe("what waits for the person's Confirm", () => {
   });
 
   it("never lists a result that read a load awaiting Confirm as a check that passed", () => {
-    const underLoad = { ...massResult(), check_id: "fea", instance: "load-1" };
     const waitingLoad = { ...awaitingRow, check_id: "fea", instance: "load-1", values: [] };
-    const held = restore({ ...snapshot("v1", [], [massResult(), underLoad]), awaiting: [waitingLoad] });
+    const held = restore({ ...snapshot("v1", [], [massResult(), feaMeasureOnly("load-1")]), awaiting: [waitingLoad] });
     expect(linesOf(held).also.map((one) => one.key)).toEqual(["check:mass:"]);
   });
 });

@@ -18,8 +18,8 @@ class FieldSpec:
 
     label: str
     canonical_unit: str
-    low: float
-    high: float
+    low: Decimal
+    high: Decimal
     units: Mapping[str, Decimal]
     unit_hint: str
     exclusive: bool = False
@@ -83,21 +83,23 @@ _UNITLESS: Final = {"": Decimal(1), "dimensionless": Decimal(1)}
 
 
 def _strength(label: str) -> FieldSpec:
-    return FieldSpec(label, "MPa", 0.1, 5000.0, _PRESSURE_UNITS, "MPa or GPa")
+    return FieldSpec(label, "MPa", Decimal("0.1"), Decimal(5000), _PRESSURE_UNITS, "MPa or GPa")
 
 
 FIELDS: Final[Mapping[Field, FieldSpec]] = {
-    "density": FieldSpec("density", "kg/m^3", 500.0, 20000.0, _DENSITY_UNITS, "g/cm^3 or kg/m^3"),
+    "density": FieldSpec(
+        "density", "kg/m^3", Decimal(500), Decimal(20000), _DENSITY_UNITS, "g/cm^3 or kg/m^3"
+    ),
     "yield_strength": _strength("yield strength"),
     "tensile_strength": _strength("tensile strength"),
     "elastic_modulus": FieldSpec(
-        "elastic modulus", "MPa", 10.0, 500000.0, _PRESSURE_UNITS, "MPa or GPa"
+        "elastic modulus", "MPa", Decimal(10), Decimal(500000), _PRESSURE_UNITS, "MPa or GPa"
     ),
     "poisson_ratio": FieldSpec(
         "Poisson's ratio",
         "dimensionless",
-        0.0,
-        0.5,
+        Decimal(0),
+        Decimal("0.5"),
         _UNITLESS,
         "an empty string, since it has no unit",
         exclusive=True,

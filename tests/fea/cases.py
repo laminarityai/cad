@@ -27,8 +27,6 @@ class PlateLoadPatch:
 class Case:
     name: str
     code: str
-    thinnest_wall_mm: float
-    largest_extent_mm: float
     material: Material
     fixed: Region
     loaded: Region | FarFrom | PlateLoadPatch
@@ -90,8 +88,6 @@ CASES: tuple[Case, ...] = (
     Case(
         name="axial bar",
         code=box(BAR_L, 10, 10),
-        thinnest_wall_mm=10.0,
-        largest_extent_mm=BAR_L,
         material=STEEL,
         fixed=end(0.0, 10, 10, -1),
         loaded=far_along_x(end(0.0, 10, 10, -1)),
@@ -104,8 +100,6 @@ CASES: tuple[Case, ...] = (
     Case(
         name="cantilever tip",
         code=box(BEAM_L, BEAM_B, BEAM_H),
-        thinnest_wall_mm=BEAM_H,
-        largest_extent_mm=BEAM_L,
         material=STEEL,
         fixed=end(0.0, BEAM_B, BEAM_H, -1),
         loaded=far_along_x(end(0.0, BEAM_B, BEAM_H, -1)),
@@ -118,8 +112,6 @@ CASES: tuple[Case, ...] = (
     Case(
         name="cantilever root stress",
         code=box(BEAM_L, BEAM_B, BEAM_H),
-        thinnest_wall_mm=BEAM_H,
-        largest_extent_mm=BEAM_L,
         material=NO_POISSON,
         fixed=end(0.0, BEAM_B, BEAM_H, -1),
         loaded=far_along_x(end(0.0, BEAM_B, BEAM_H, -1)),
@@ -132,8 +124,6 @@ CASES: tuple[Case, ...] = (
     Case(
         name="clamped circular plate",
         code=PLATE_CODE,
-        thinnest_wall_mm=PLATE_T,
-        largest_extent_mm=2 * PLATE_A,
         material=STEEL,
         fixed=Region((Bore(ORIGIN, Z, PLATE_A, 0.0, PLATE_T),), (0.0, 0.0, PLATE_T / 2)),
         loaded=PlateLoadPatch((0.0, 0.0, PLATE_T), Z, PATCH_R),
@@ -146,8 +136,6 @@ CASES: tuple[Case, ...] = (
     Case(
         name="plate with hole",
         code=HOLE_CODE,
-        thinnest_wall_mm=HOLE_T,
-        largest_extent_mm=200.0,
         material=NO_POISSON,
         fixed=end(0.0, HOLE_W, HOLE_T, -1),
         loaded=far_along_x(end(0.0, HOLE_W, HOLE_T, -1)),

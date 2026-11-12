@@ -279,5 +279,7 @@ def rule_problems(material: Material) -> list[str]:
 
 def _plausible(field: Field, unit: str) -> tuple[float, float]:
     spec = FIELDS[field]
-    low, high = (UNITS.Quantity(bound, spec.canonical_unit) for bound in (spec.low, spec.high))
+    low, high = (
+        UNITS.Quantity(float(bound), spec.canonical_unit) for bound in (spec.low, spec.high)
+    )
     return magnitude(low, unit), magnitude(high, unit)

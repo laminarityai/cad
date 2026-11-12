@@ -1,4 +1,4 @@
-import type { CheckResult, PendingCheck, ScorecardSnapshot } from "./types";
+import type { CheckResult, MeasureOnly, PendingCheck, ScorecardSnapshot } from "./types";
 
 type Filled<T, K extends keyof T> = Omit<T, K> & Required<Pick<T, K>>;
 
@@ -9,8 +9,10 @@ type OnResult = "reads" | "instance";
  * page reads: `reads`, `instance`, `research`, `assumptions`, `awaiting`, `not_verified` and a null `research_problem`. */
 export type DoneCheck = Filled<CheckResult, OnResult>;
 export type RunningCheck = Filled<PendingCheck, OnResult>;
+export type MeasuredCheck = Filled<MeasureOnly, OnResult>;
+export type ResultLine = DoneCheck | RunningCheck | MeasuredCheck;
 export type Scorecard = Filled<Omit<ScorecardSnapshot, "results">, OnSnapshot> & {
-  results: (DoneCheck | RunningCheck)[];
+  results: ResultLine[];
 };
 
 export function restore(wire: ScorecardSnapshot): Scorecard {

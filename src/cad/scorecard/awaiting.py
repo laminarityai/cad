@@ -14,8 +14,8 @@ from cad.briefs.model import Requirement, deciding_check, limits
 from cad.briefs.words import NO_NAMES, describe
 from cad.checks.result import CheckResult, Measured
 from cad.frozen import Frozen
-from cad.scorecard.model import PendingCheck
 from cad.scorecard.requirements import instance, result_of
+from cad.scorecard.unjudged import MeasureOnly, Reported
 
 
 class AwaitingValue(Frozen):
@@ -26,8 +26,8 @@ class AwaitingValue(Frozen):
 
 class AwaitingRow(Frozen):
     """The person stated this target and has not confirmed it, so it is not judged. `instance`
-    names the result of `check_id` that read its load, which is a measure and never a passed
-    check."""
+    names the result of `check_id` that read its load, which the card reports as a `MeasureOnly`
+    with no verdict."""
 
     kind: Literal["awaiting"] = "awaiting"
     label: Literal["waiting for your Confirm, no verdict"] = "waiting for your Confirm, no verdict"
@@ -40,7 +40,7 @@ class AwaitingRow(Frozen):
 
 def rows(
     waiting: Sequence[Requirement],
-    results: Sequence[CheckResult | PendingCheck],
+    results: Sequence[Reported],
     names: Mapping[str, str] = NO_NAMES,
 ) -> tuple[AwaitingRow, ...]:
     return tuple(
@@ -53,13 +53,13 @@ def rows(
 def _row(
     requirement: Requirement,
     check_id: str,
-    results: Sequence[CheckResult | PendingCheck],
+    results: Sequence[Reported],
     names: Mapping[str, str],
 ) -> AwaitingRow:
     target = requirement.target
     reads = instance(target)
     result = result_of(results, check_id, reads)
-    measures = result.measured if isinstance(result, CheckResult) else ()
+    measures = result.measured if isinstance(result, CheckResult | MeasureOnly) else ()
     found = {one.name: one.value for one in measures}
     return AwaitingRow(
         requirement_id=requirement.id,

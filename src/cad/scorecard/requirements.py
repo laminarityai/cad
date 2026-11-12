@@ -47,6 +47,7 @@ from cad.scorecard.model import (
     Unverified,
 )
 from cad.scorecard.score import Assess, Results
+from cad.scorecard.unjudged import Reported
 from cad.scorecard.waiting import Waiting
 from cad.tables.materials import magnitude
 
@@ -206,9 +207,7 @@ def judge(
     )
 
 
-def result_of(
-    results: Sequence[CheckResult | PendingCheck], check_id: str, wanted: str
-) -> CheckResult | PendingCheck | None:
+def result_of[R: Reported](results: Sequence[R], check_id: str, wanted: str) -> R | None:
     return next(
         (one for one in results if one.check_id == check_id and one.instance == wanted), None
     )

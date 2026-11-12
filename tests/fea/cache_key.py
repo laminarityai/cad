@@ -12,7 +12,7 @@ from cad.sandbox import container
 from cad.sandbox.image import IMAGES, current_image, image_tag
 from cad.sandbox.stage import read_sources
 
-CORE: Final = read_sources("cad.checks.container.calculix")
+CORE: Final = read_sources("cad.checks.container.fea")
 HARNESS: Final = Path(__file__).parent
 
 

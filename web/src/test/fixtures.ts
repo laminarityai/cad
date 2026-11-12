@@ -5,7 +5,7 @@ import type {
   Verdict,
   Waiting,
 } from "@/api/types";
-import type { DoneCheck, RunningCheck, Scorecard } from "@/api/snapshot";
+import type { DoneCheck, MeasuredCheck, RunningCheck, Scorecard } from "@/api/snapshot";
 
 export const mass = (verdict: Verdict): Checked => ({
   kind: "checked",
@@ -42,6 +42,19 @@ export const massResult = (grams = 41.2): DoneCheck => ({
   sources: [],
   version: "v1",
   instance: "",
+  reads: [],
+});
+
+export const feaMeasureOnly = (instance: string): MeasuredCheck => ({
+  kind: "measure_only",
+  label: "measured under a load you have not confirmed, no verdict",
+  check_id: "fea",
+  measured: [{ name: "max_displacement", value: { magnitude: 1.5, unit: "mm" } }],
+  formula: "linear static",
+  reason: "solved",
+  sources: [],
+  version: "v1",
+  instance,
   reads: [],
 });
 
