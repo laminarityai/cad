@@ -1,6 +1,6 @@
 # A viewer measurement is information on the screen and never a check
 
-Status: Proposed, 2026-11-12. The operator has picked one part: a viewer measurement never reaches the scorecard or a verdict. The operator has not yet approved the rest of its text.
+Status: Proposed, 2026-11-12. Every rule below is the design's pick. The operator has not approved any of them yet.
 
 The viewer tools feature turns on measuring, sectioning and exploding in the 3D viewer, and draws the `extents` check's numbers as dimensions on the part. AGENTS.md says that checks decide and the agent never does. The server's guidance tells the agent to state a dimension only when a `score_variant` result returned it, and to name the check. A measure tool breaks the pattern. It computes a number in the person's browser from the drawn geometry, and no check computed that number. This ADR names that number, says where it may go, and says how the `extents` dimensions differ from it.
 
@@ -37,7 +37,7 @@ The cost: the agent cannot see the number the person is looking at. If the reado
 
 ### It never grades
 
-A viewer measurement never appears on the scorecard, in a verdict, or among the reasons Auto stops. No check reads it, and no check reads anything the browser computed. This is the operator's pick.
+A viewer measurement never appears on the scorecard, in a verdict, or among the reasons Auto stops. No check reads it, and no check reads anything the browser computed. It follows from the rule that only checks decide.
 
 The cost: a person who wants a gap held to a number must say the number, and a check must measure it. No check measures the distance between two faces a person picked, so some gaps a person can measure on screen cannot be checked yet.
 
