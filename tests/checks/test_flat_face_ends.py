@@ -5,7 +5,7 @@ import pytest
 from cad.checks.container import features
 from cad.checks.container.kernel import Flat
 from cad.checks.container.regions import FarFrom, Plane, Region, Unresolved
-from cad.checks.container.vectors import Point, angle, scale
+from cad.checks.container.vectors import Point, angle, dot, scale
 from tests.support.anchors import (
     BOLTED_L,
     CHAMFER_DEG,
@@ -106,8 +106,11 @@ def test_tied_long_axes_make_each_bounding_side_an_end(solid: Solid, count: int)
 
 
 def test_a_flat_face_with_material_beyond_its_plane_is_not_an_end() -> None:
-    flats = [f.surface for f in KERNEL.faces(NOSED_BAR) if isinstance(f.surface, Flat)]
-    behind = [flat.beyond for flat in flats if flat.normal[0] > 0.99]
+    behind = [
+        KERNEL.reach(NOSED_BAR, face.surface.normal) - dot(face.centroid, face.surface.normal)
+        for face in KERNEL.faces(NOSED_BAR)
+        if isinstance(face.surface, Flat) and face.surface.normal[0] > 0.99
+    ]
     assert behind and behind == pytest.approx([3.0] * len(behind))
     (only,) = must(NOSED_BAR, case(FLAT_END)).candidates
     assert plane(only.support).normal == pytest.approx((-1, 0, 0))

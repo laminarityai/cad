@@ -41,7 +41,7 @@ RANKS: Final[dict[PartAxis, int]] = {"middle": 1, "short": 2}
 
 
 def end_of(term: EndOf, part: Geometry) -> tuple[Region, ...] | Unresolved:
-    found = ends_along(part.faces, part.inertia, axis_span(part.inertia, RANKS[term.axis]))
+    found = ends_along(part, axis_span(part.inertia, RANKS[term.axis]))
     if not found:
         return Unresolved(
             f"no flat face that bounds the part faces within 30° of either end of its "

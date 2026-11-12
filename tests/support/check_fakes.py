@@ -144,6 +144,9 @@ class FakeKernel:
     def inside(self, shape: Shape, point: Point) -> bool:
         raise NotImplementedError("no quick check asks whether a point is inside")
 
+    def reach(self, shape: Shape, direction: Point) -> float:
+        raise NotImplementedError("no quick check asks how far the solid reaches")
+
     def common_volume(self, first: Shape, second: Shape) -> float | None:
         assert isinstance(first, FakeShape) and isinstance(second, FakeShape)
         return self.commons.get((first.index, second.index), 0.0)
