@@ -3,6 +3,8 @@ import { useEffect, useReducer, useRef, useState, type KeyboardEvent, type React
 import { useServices } from "@/app/context";
 import { Refused } from "@/api/client";
 import { chatReducer, chatStart, type Line } from "@/features/chat/state";
+import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "@/components/ui/collapsible";
+import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { isStopKind, reasonText } from "@/features/auto/run";
 import { Markdown } from "./Markdown";
@@ -82,23 +84,15 @@ export function activityText(names: readonly string[]): string {
 }
 
 function Activity({ lines }: { lines: Extract<Line, { kind: "tool" }>[] }) {
-  const [open, setOpen] = useState(false);
   const running = lines.some((one) => one.result === null);
   return (
-    <div data-activity className="text-[13px] text-ink-3">
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => {
-          setOpen((was) => !was);
-        }}
-        className="flex items-center gap-1.5"
-      >
+    <Collapsible data-activity className="text-[13px] text-ink-3">
+      <CollapsibleTrigger className="flex items-center gap-1.5">
         <span className={cn("size-1.5 rounded-full", running ? "bg-wait motion-safe:animate-pulse" : "bg-ink-3")} />
         {activityText(lines.map((one) => one.name))}
-        <ChevronDown className={cn("size-3.5", open && "rotate-180")} />
-      </button>
-      {open ? (
+        <ChevronDown className="size-3.5 transition-transform group-data-[panel-open]:rotate-180" />
+      </CollapsibleTrigger>
+      <CollapsiblePanel>
         <ul className="mt-1 space-y-0.5 pl-3">
           {lines.map((one) => (
             <li key={one.seq}>
@@ -107,8 +101,8 @@ function Activity({ lines }: { lines: Extract<Line, { kind: "tool" }>[] }) {
             </li>
           ))}
         </ul>
-      ) : null}
-    </div>
+      </CollapsiblePanel>
+    </Collapsible>
   );
 }
 
@@ -226,9 +220,11 @@ export function Composer(props: { placeholder: string; onSend: (text: string) =>
       ) : null}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-1.5">
-          <button type="button" disabled title="Coming soon" aria-label="Attach files" className="rounded-lg p-1.5 text-ink-3 disabled:cursor-not-allowed">
-            <Paperclip className="size-[18px]" />
-          </button>
+          <Tooltip label="Coming soon" onDisabled>
+            <button type="button" disabled aria-label="Attach files" className="rounded-lg p-1.5 text-ink-3 disabled:cursor-not-allowed">
+              <Paperclip className="size-[18px]" />
+            </button>
+          </Tooltip>
         </div>
         <button
           type="submit"

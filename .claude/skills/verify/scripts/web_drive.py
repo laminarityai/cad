@@ -102,7 +102,7 @@ def drawn(page: Page) -> None:
 
 
 def open_tab(page: Page, name: str) -> None:
-    tab = page.get_by_role("navigation", name="Panes").get_by_role("button", name=name)
+    tab = page.get_by_role("tablist", name="Panes").get_by_role("tab", name=name)
     if tab.count():
         tab.click()
         page.wait_for_timeout(300)

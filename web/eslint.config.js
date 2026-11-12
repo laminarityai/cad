@@ -3,6 +3,7 @@ import reactHooks from "eslint-plugin-react-hooks";
 import tseslint from "typescript-eslint";
 
 const CLIENT = "Call the server through request() or openStream() in src/api/client.ts: it is the one place that calls fetch and spells a /v1 path.";
+const WIDGET = "Use the wrapper in src/components/ui/: it is the one place that imports the primitive library (@base-ui/react) or sonner.";
 const LOAD = "Load a GET through useResource or useResources in src/state/resource.ts, not by calling the API in an effect.";
 
 export default tseslint.config(
@@ -29,6 +30,13 @@ export default tseslint.config(
         { selector: "TemplateElement[value.raw=/\\/v1\\//]", message: CLIENT },
         { selector: "CallExpression[callee.name='useEffect'] CallExpression[callee.object.name=/^(api|chat)$/][callee.property.name=/^(?!follow$)/]", message: LOAD },
       ],
+    },
+  },
+  {
+    files: ["src/**/*.{ts,tsx}"],
+    ignores: ["src/components/ui/**"],
+    rules: {
+      "no-restricted-imports": ["error", { patterns: [{ group: ["@base-ui/*", "sonner"], message: WIDGET }] }],
     },
   },
   { files: ["*.config.js", "*.config.ts"], ...tseslint.configs.disableTypeChecked },

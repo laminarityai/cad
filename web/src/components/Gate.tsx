@@ -16,8 +16,8 @@ export function SignedOutView() {
   return (
     <Notice title="Signed out">
       <p>Sign in to see your projects, variants and scorecards.</p>
-      <Button asChild variant="accent" className="mt-4">
-        <a href={signInUrl()}>Sign in</a>
+      <Button render={<a href={signInUrl()} />} variant="accent" className="mt-4">
+        Sign in
       </Button>
     </Notice>
   );

@@ -1,6 +1,8 @@
 import { Box, ChevronRight, Folder, FolderOpen, Link2, Plus } from "lucide-react";
 import { useState, type Dispatch, type ReactNode } from "react";
 import type { Source } from "@/api/types";
+import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "@/components/ui/collapsible";
+import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { summaryOf, type Card } from "./cards";
 import type { Brief, Part, ViewAction } from "./model";
@@ -18,35 +20,40 @@ function Children({ children }: { children: ReactNode }) {
   return <ul className="ml-[18px] space-y-0.5 border-l border-rule-2 pl-1.5">{children}</ul>;
 }
 
-function Chevron({ open }: { open: boolean }) {
-  return <ChevronRight className={cn("size-4 shrink-0 text-ink-3 transition-transform", open && "rotate-90")} />;
+function Chevron() {
+  return <ChevronRight className="size-4 shrink-0 text-ink-3 transition-transform group-data-[panel-open]:rotate-90" />;
 }
 
 function Part(props: { brief: Brief; current: boolean; slot: number | undefined; open: boolean; cards: Record<string, Card>; dispatch: Dispatch<ViewAction>; toggle: () => void }) {
   const { brief, current, slot, open, cards, dispatch, toggle } = props;
   const FolderIcon = open ? FolderOpen : Folder;
   return (
-    <li>
+    <Collapsible render={<li />} open={open} onOpenChange={toggle}>
       <div className="flex items-center">
-        <button type="button" aria-expanded={open} aria-label={`${brief.title} options`} onClick={toggle} className="rounded p-1 hover:bg-panel-2">
-          <Chevron open={open} />
-        </button>
-        <button
-          type="button"
-          data-brief={brief.id}
-          aria-current={current}
-          title={brief.words}
-          onClick={() => {
-            dispatch({ type: "brief", briefId: brief.id });
-          }}
-          className={cn(ROW, "flex-1 text-[15px]", current ? "bg-panel-2 ring-1 ring-rule" : "hover:bg-panel-2/60")}
-        >
-          <FolderIcon className="size-4 shrink-0 text-ink-2" />
-          <span className="truncate font-medium">{brief.title}</span>
-          {brief.state === "waiting" ? <span role="img" aria-label="Needs your OK" title="Needs your OK" data-brief-waiting className="ml-auto size-2 shrink-0 rounded-full bg-wait" /> : null}
-        </button>
+        <CollapsibleTrigger aria-label={`${brief.title} options`} className="rounded p-1 hover:bg-panel-2">
+          <Chevron />
+        </CollapsibleTrigger>
+        <Tooltip label={brief.words}>
+          <button
+            type="button"
+            data-brief={brief.id}
+            aria-current={current}
+            onClick={() => {
+              dispatch({ type: "brief", briefId: brief.id });
+            }}
+            className={cn(ROW, "flex-1 text-[15px]", current ? "bg-panel-2 ring-1 ring-rule" : "hover:bg-panel-2/60")}
+          >
+            <FolderIcon className="size-4 shrink-0 text-ink-2" />
+            <span className="truncate font-medium">{brief.title}</span>
+            {brief.state === "waiting" ? (
+              <Tooltip label="Needs your OK">
+                <span role="img" aria-label="Needs your OK" data-brief-waiting className="ml-auto size-2 shrink-0 rounded-full bg-wait" />
+              </Tooltip>
+            ) : null}
+          </button>
+        </Tooltip>
       </div>
-      {open ? (
+      <CollapsiblePanel>
         <Children>
           {brief.slots.length === 0 ? <li className="px-2 py-1 text-[13px] text-ink-3">{STATE_TEXT[brief.state]}</li> : null}
           {brief.slots.map((one) => {
@@ -72,8 +79,8 @@ function Part(props: { brief: Brief; current: boolean; slot: number | undefined;
             );
           })}
         </Children>
-      ) : null}
-    </li>
+      </CollapsiblePanel>
+    </Collapsible>
   );
 }
 
@@ -104,34 +111,30 @@ function SourceFolder({ name, pages }: { name: string; pages: Source[] }) {
   const [open, setOpen] = useState(false);
   const FolderIcon = open ? FolderOpen : Folder;
   return (
-    <li data-source-folder>
-      <button
-        type="button"
-        aria-expanded={open}
-        title={name}
-        onClick={() => {
-          setOpen((was) => !was);
-        }}
-        className={cn(ROW, "w-full text-[14px] hover:bg-panel-2/60")}
-      >
-        <Chevron open={open} />
-        <FolderIcon className="size-4 shrink-0 text-ink-2" />
-        <span className="min-w-0 flex-1 truncate">{name}</span>
-        <span className="text-[12px] text-ink-3">{pages.length}</span>
-      </button>
-      {open ? (
+    <Collapsible render={<li />} open={open} onOpenChange={setOpen} data-source-folder>
+      <Tooltip label={name}>
+        <CollapsibleTrigger className={cn(ROW, "w-full text-[14px] hover:bg-panel-2/60")}>
+          <Chevron />
+          <FolderIcon className="size-4 shrink-0 text-ink-2" />
+          <span className="min-w-0 flex-1 truncate">{name}</span>
+          <span className="text-[12px] text-ink-3">{pages.length}</span>
+        </CollapsibleTrigger>
+      </Tooltip>
+      <CollapsiblePanel>
         <Children>
           {pages.map((one) => (
             <li key={one.url} data-file="source">
-              <a href={one.url} target="_blank" rel="noreferrer" title={one.url} className={cn(ROW, "text-[14px] text-accent hover:bg-panel-2/60")}>
-                <Link2 className="size-4 shrink-0" />
-                <span className="truncate underline">{pageOf(one)}</span>
-              </a>
+              <Tooltip label={one.url}>
+                <a href={one.url} target="_blank" rel="noreferrer" className={cn(ROW, "text-[14px] text-accent hover:bg-panel-2/60")}>
+                  <Link2 className="size-4 shrink-0" />
+                  <span className="truncate underline">{pageOf(one)}</span>
+                </a>
+              </Tooltip>
             </li>
           ))}
         </Children>
-      ) : null}
-    </li>
+      </CollapsiblePanel>
+    </Collapsible>
   );
 }
 
@@ -139,18 +142,20 @@ function Files(props: { parts: Part[]; sources: Source[]; open: boolean; toggle:
   const { parts, sources, open, toggle } = props;
   const FolderIcon = open ? FolderOpen : Folder;
   return (
-    <li>
+    <Collapsible render={<li />} open={open} onOpenChange={toggle}>
       <div className="flex items-center">
-        <button type="button" aria-expanded={open} onClick={toggle} className="flex min-w-0 flex-1 items-center gap-1 rounded-md py-1 pl-1 pr-2 text-left text-[15px] font-medium hover:bg-panel-2/60">
-          <Chevron open={open} />
+        <CollapsibleTrigger className="flex min-w-0 flex-1 items-center gap-1 rounded-md py-1 pl-1 pr-2 text-left text-[15px] font-medium hover:bg-panel-2/60">
+          <Chevron />
           <FolderIcon className="size-4 shrink-0 text-ink-2" />
           Files
-        </button>
-        <button type="button" disabled title="Coming soon" aria-label="Add files" className="rounded p-1 text-ink-3 disabled:cursor-not-allowed">
-          <Plus className="size-4" />
-        </button>
+        </CollapsibleTrigger>
+        <Tooltip label="Coming soon" onDisabled>
+          <button type="button" disabled aria-label="Add files" className="rounded p-1 text-ink-3 disabled:cursor-not-allowed">
+            <Plus className="size-4" />
+          </button>
+        </Tooltip>
       </div>
-      {open ? (
+      <CollapsiblePanel>
         <Children>
           {parts.map((one, at) => (
             <li key={at} data-file="part" className={cn(ROW, "text-[14px]")}>
@@ -168,8 +173,8 @@ function Files(props: { parts: Part[]; sources: Source[]; open: boolean; toggle:
           ))}
           {parts.length === 0 && sources.length === 0 ? <li className="px-2 py-1 text-[13px] text-ink-3">Nothing yet</li> : null}
         </Children>
-      ) : null}
-    </li>
+      </CollapsiblePanel>
+    </Collapsible>
   );
 }
 
@@ -196,9 +201,11 @@ export function Explorer(props: {
     <section aria-label="Explorer" className="min-h-0">
       <header className="flex items-center justify-between px-4 pb-1 pt-3">
         <h2 className="text-[13px] font-medium uppercase tracking-wide text-ink-3">Explorer</h2>
-        <button type="button" onClick={onNew} aria-label="New part" title="New part" className="rounded p-1 text-accent hover:bg-panel-2">
-          <Plus className="size-4" />
-        </button>
+        <Tooltip label="New part">
+          <button type="button" onClick={onNew} aria-label="New part" className="rounded p-1 text-accent hover:bg-panel-2">
+            <Plus className="size-4" />
+          </button>
+        </Tooltip>
       </header>
       <ul data-tree className="space-y-0.5 px-2 pb-2">
         {briefs.map((one) => (

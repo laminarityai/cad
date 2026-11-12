@@ -1,4 +1,6 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { Toaster } from "@/components/ui/toaster";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { Home, Start, Workspace } from "@/features/workspace/Workspace";
 
 export function AppRoutes() {
@@ -14,8 +16,11 @@ export function AppRoutes() {
 
 export function App() {
   return (
-    <BrowserRouter basename="/app">
-      <AppRoutes />
-    </BrowserRouter>
+    <TooltipProvider>
+      <BrowserRouter basename="/app">
+        <AppRoutes />
+      </BrowserRouter>
+      <Toaster />
+    </TooltipProvider>
   );
 }

@@ -63,8 +63,11 @@ def get_json(given: dict[str, str], token: str, path: str) -> Any:
 
 
 def on_screen(page: Page, given: dict[str, str], token: str, project: str) -> dict[str, str]:
-    """The brief, the revision and the material the stage shows: slot 1's latest revision."""
-    brief = get_json(given, token, f"/v1/projects/{project}")["briefs"][0]["brief_id"]
+    """The brief, the revision and the material the stage shows: slot 1's latest revision of the
+    brief the explorer marks as current."""
+    brief = page.locator('[data-brief][aria-current="true"]').get_attribute("data-brief")
+    if brief is None:
+        raise Missed("the explorer marks no brief as current")
     seen = get_json(given, token, f"/v1/projects/{project}/briefs/{brief}/set")
     member = seen["members"][0]
     chosen: dict[str, str] | None = member["material"]
