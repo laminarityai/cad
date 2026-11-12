@@ -79,11 +79,12 @@ describe("the faces on a stress requirement's row", () => {
 async function open(withWhere: boolean) {
   const viewer = new FakeViewer();
   const wire = snapshot("v1", [stress("case-a")], [feaResult("case-a", withWhere ? { support: [0], load: [1] } : undefined)]);
+  const scorecard = vi.fn(() => Promise.resolve(wire));
   const api = fakeApi(["v1"], {
     project: vi.fn(() =>
       Promise.resolve({ project_id: "p1", briefs: [{ brief_id: "b1", created_at: "2026-11-10T00:00:00Z", proposals: 1, confirmed_proposal: 1 }], context_parts: [], documents: [] }),
     ),
-    scorecard: vi.fn(() => Promise.resolve(wire)),
+    scorecard,
     mesh: vi.fn(() => Promise.resolve({ ...meshOf("v1"), shapes: SHAPES } as Tessellated)),
   });
   const { container } = render(
@@ -98,7 +99,7 @@ async function open(withWhere: boolean) {
   await waitFor(() => {
     expect(viewer.mounted).toHaveLength(1);
   });
-  return { viewer, container };
+  return { viewer, container, scorecard };
 }
 
 const ids = (shapes: Shapes | undefined) => shapes?.parts.map((one) => one.id);
@@ -124,6 +125,40 @@ describe("showing where the check held and pushed", () => {
     });
     expect(container.querySelector("[data-where-legend]")).toBeNull();
   });
+
+  it("draws the whole part while it is cut, because a cap across loose faces covers them, and the colours come back", async () => {
+    const { viewer, container } = await open(true);
+    await userEvent.click(await screen.findByRole("button", { name: "Show where it held and pushed" }));
+    await waitFor(() => {
+      expect(ids(viewer.shown[viewer.shown.length - 1])).toEqual(["/variant/part", "/variant/support", "/variant/load"]);
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Section" }));
+    await waitFor(() => {
+      expect(ids(viewer.shown[viewer.shown.length - 1])).toEqual(["/variant/part"]);
+    });
+    expect(container.querySelector("[data-where-legend]")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Section" }));
+    await waitFor(() => {
+      expect(ids(viewer.shown[viewer.shown.length - 1])).toEqual(["/variant/part", "/variant/support", "/variant/load"]);
+    });
+    expect(container.querySelector("[data-where-legend]")).not.toBeNull();
+  });
+
+  it("is not drawn again when the scorecard is read again with the same faces", async () => {
+    const { viewer, scorecard } = await open(true);
+    await userEvent.click(await screen.findByRole("button", { name: "Show where it held and pushed" }));
+    await waitFor(() => {
+      expect(viewer.shown).toHaveLength(1);
+    });
+    const reads = scorecard.mock.calls.length;
+    await waitFor(
+      () => {
+        expect(scorecard.mock.calls.length).toBeGreaterThanOrEqual(reads + 2);
+      },
+      { timeout: 5000 },
+    );
+    expect(viewer.shown).toHaveLength(1);
+  }, 10000);
 
   it("is not offered when the result carries no faces", async () => {
     const { container } = await open(false);

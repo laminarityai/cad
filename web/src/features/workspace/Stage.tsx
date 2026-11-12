@@ -1,14 +1,17 @@
-import { Box, ChevronLeft, ChevronRight, Ruler } from "lucide-react";
+import { Box, ChevronLeft, ChevronRight, Ruler, Slice } from "lucide-react";
 import { useMemo, useState, type Dispatch, type ReactElement } from "react";
 import { DimensionOverlay } from "@/features/viewer/DimensionOverlay";
 import type { Extents } from "@/features/viewer/dimensions";
-import type { OnPick, Shapes, Track } from "@/features/viewer/engine";
+import type { OnPick, Track } from "@/features/viewer/engine";
 import { readoutOf, type Measure } from "@/features/viewer/readout";
+import { sectionOf, type Cut } from "@/features/viewer/section";
+import { SectionPanel } from "@/features/viewer/SectionPanel";
 import type { Pick, Selection } from "@/features/viewer/selection";
 import { SelectionNote } from "@/features/viewer/SelectionNote";
 import { ViewerCanvas } from "@/features/viewer/ViewerCanvas";
+import { useDrawn } from "@/features/viewer/useDrawn";
 import { useMesh } from "@/features/viewer/useMesh";
-import { ROLE_COLOUR, splitFaces, type Where } from "@/features/viewer/where";
+import { ROLE_COLOUR, type Where } from "@/features/viewer/where";
 import { TabsList, TabsTab } from "@/components/ui/tabs";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -49,34 +52,24 @@ export function SlotTabs(props: { brief: Brief; cards: Record<string, Card> }) {
   );
 }
 
-/** A part that must fit is built in that part's frame, so the two draw together as they are. */
-function withFit(part: Shapes, fit: Shapes): Shapes {
-  const ghost = fit.parts.map((one) => ({
-    ...one,
-    id: `/fit${one.id}`,
-    name: `fit ${one.name}`,
-    color: "#9aa7b4",
-    alpha: 0.22,
-  }));
-  const bb = {
-    xmin: Math.min(part.bb.xmin, fit.bb.xmin),
-    xmax: Math.max(part.bb.xmax, fit.bb.xmax),
-    ymin: Math.min(part.bb.ymin, fit.bb.ymin),
-    ymax: Math.max(part.bb.ymax, fit.bb.ymax),
-    zmin: Math.min(part.bb.zmin, fit.bb.zmin),
-    zmax: Math.max(part.bb.zmax, fit.bb.zmax),
-  };
-  return { ...part, parts: [...part.parts, ...ghost], bb };
-}
-
 const NO_PICKS: readonly Pick[] = [];
 const ignore: OnPick = () => undefined;
 
 const unmeasured: Measure = () => null;
 
-/** `extents` is the size check's numbers to draw, or null for none. */
-function Mesh(props: { variantId: string; label: string; fit: Fit | null; where: Where | null; selection: Selection | null; extents: Extents | null; onPick: OnPick }) {
-  const { variantId, label, fit, where, selection, extents, onPick } = props;
+/** `extents` is the size check's numbers to draw, or null for none. `cut` is the section the person chose, or null for the whole part. */
+function Mesh(props: {
+  variantId: string;
+  label: string;
+  fit: Fit | null;
+  where: Where | null;
+  selection: Selection | null;
+  extents: Extents | null;
+  cut: Cut | null;
+  onCut: (next: Cut) => void;
+  onPick: OnPick;
+}) {
+  const { variantId, label, fit, where, selection, extents, cut, onCut, onPick } = props;
   const mesh = useMesh(variantId);
   const fitMesh = useMesh(fit?.variantId ?? variantId);
   const [measure, setMeasure] = useState<Measure | null>(null);
@@ -84,21 +77,27 @@ function Mesh(props: { variantId: string; label: string; fit: Fit | null; where:
   const topology = mesh.status === "ready" ? mesh.topology : null;
   const picks = selection?.picks ?? NO_PICKS;
   const readout = useMemo(() => (topology ? readoutOf(picks, topology, measure ?? unmeasured) : null), [picks, topology, measure]);
-  const shapes = mesh.status === "ready" ? mesh.shapes : mesh.status === "loading" ? mesh.lastDrawn : null;
+  const part = mesh.status === "ready" ? mesh.shapes : mesh.status === "loading" ? mesh.lastDrawn : null;
+  const ghost = fit && fitMesh.status === "ready" ? fitMesh.shapes : null;
+  const drawn = useDrawn(part, ghost, where);
+  // The box of everything drawn, so a cut can reach the context part beside the part.
+  const bb = drawn?.bb ?? null;
+  const axis = cut?.axis;
+  const position = cut?.at;
+  const plane = useMemo(() => (bb && axis ? sectionOf({ axis, at: position ?? null }, bb) : null), [bb, axis, position]);
   let body: ReactElement;
   if (mesh.status === "failed") {
     body = <p className="p-4 text-fail">{mesh.reason}</p>;
-  } else if (shapes === null) {
+  } else if (drawn === null) {
     body = <p className="p-4 text-ink-3">Drawing…</p>;
   } else {
-    const ghost = fit && fitMesh.status === "ready" ? fitMesh.shapes : null;
-    const marked = where ? splitFaces(shapes, where) : shapes;
     body = (
       <ViewerCanvas
         key={`${variantId}:${String(ghost !== null)}`}
-        shapes={ghost ? withFit(marked, ghost) : marked}
+        shapes={drawn}
         label={label}
         picks={picks}
+        section={plane}
         onPick={mesh.status === "ready" ? onPick : ignore}
         onMeasure={(next) => {
           setMeasure(() => next);
@@ -112,6 +111,7 @@ function Mesh(props: { variantId: string; label: string; fit: Fit | null; where:
   return (
     <>
       {body}
+      {cut && bb && plane ? <SectionPanel cut={cut} at={plane.at} bb={bb} onChange={onCut} /> : null}
       {extents && mesh.status === "ready" ? <DimensionOverlay extents={extents} bb={mesh.shapes.bb} track={track} /> : null}
       <SelectionNote selection={selection} readout={readout} />
     </>
@@ -153,20 +153,24 @@ export function Stage(props: {
   const { slot, revision, dispatch, briefId, fit, where, selection, cards, onPick } = props;
   const [showFit, setShowFit] = useState(true);
   const [showSize, setShowSize] = useState(false);
+  const [cut, setCut] = useState<Cut | null>(null);
   const newest = slot.revisions.length;
   const showing = Math.min(revision ?? newest, newest);
   const shown = slot.revisions[showing - 1];
   if (!shown) return null;
   const size = passedExtents(cards[shown.variantId]?.snapshot);
   const key = `${briefId}:${String(slot.slot)}`;
+  // A cut draws a cap across a closed solid. The held and pushed faces are drawn apart from the part, which
+  // leaves it open, and the library then fills the cap across them, so the colours wait for the whole part.
+  const marked = cut ? null : where;
   const step = (n: number) => {
     dispatch({ type: "revision", key, n: n === newest ? null : n });
   };
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div className="relative min-h-0 flex-1" data-stage>
-        <Mesh variantId={shown.variantId} label={`${slot.label}, revision ${String(showing)}`} fit={showFit ? fit : null} where={where} selection={selection} extents={showSize ? size : null} onPick={onPick} />
-        <div className="absolute right-3 top-3 z-30 flex gap-2">
+        <Mesh variantId={shown.variantId} label={`${slot.label}, revision ${String(showing)}`} fit={showFit ? fit : null} where={marked} selection={selection} extents={showSize ? size : null} cut={cut} onCut={setCut} onPick={onPick} />
+        <div className="absolute right-3 top-3 z-30 flex max-w-[calc(100%-1.5rem)] items-start gap-2">
           {fit ? (
             <button
               type="button"
@@ -176,13 +180,30 @@ export function Stage(props: {
                 setShowFit((was) => !was);
               }}
               className={cn(
-                "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[14px] shadow-sm",
+                "flex min-w-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[14px] shadow-sm",
                 showFit ? "border-rule bg-panel-2 text-ink" : "border-rule bg-panel text-ink-3",
               )}
             >
-              <Box className="size-4" /> With {fit.name}
+              <Box className="size-4 shrink-0" /> <span className="truncate">With {fit.name}</span>
             </button>
           ) : null}
+          <Tooltip label="Cut through the part to see inside">
+            <button
+              type="button"
+              aria-pressed={cut !== null}
+              aria-label="Section"
+              data-section-toggle
+              onClick={() => {
+                setCut((was) => (was ? null : { axis: "x", at: null }));
+              }}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[14px] shadow-sm",
+                cut ? "border-rule bg-panel-2 text-ink" : "border-rule bg-panel text-ink-3",
+              )}
+            >
+              <Slice className="size-4" /> <span className="hidden sm:inline">Section</span>
+            </button>
+          </Tooltip>
           {size ? (
             <Tooltip label="Dimensions from the size check">
               <button
@@ -204,7 +225,7 @@ export function Stage(props: {
           ) : null}
           <Download key={shown.variantId} variantId={shown.variantId} briefId={briefId} />
         </div>
-        {where ? <WhereLegend where={where} /> : null}
+        {marked ? <WhereLegend where={marked} /> : null}
       </div>
       <div className="flex items-center gap-3 border-t border-rule-2 px-4 py-2.5 text-[14px]" data-revisions>
         <button

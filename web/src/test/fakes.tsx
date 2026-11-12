@@ -6,6 +6,7 @@ import type { AutoRun, ConversationView, Event, ExportFormat, Picked, PersonStop
 import type { ScreenPoint } from "@/features/viewer/dimensions";
 import type { Mounted, OnPick, Shapes, ViewerEngine } from "@/features/viewer/engine";
 import type { MeshReading } from "@/features/viewer/readout";
+import type { Section } from "@/features/viewer/section";
 import type { Pick } from "@/features/viewer/selection";
 import { brief } from "./fixtures";
 
@@ -84,6 +85,8 @@ export class FakeViewer implements ViewerEngine {
   /** Every call to `select`, newest last. */
   readonly selected: (readonly Pick[])[] = [];
   private readonly listeners: OnPick[] = [];
+  /** Every plane the viewer was told to cut with, newest last. Null is the whole part. */
+  readonly sections: (Section | null)[] = [];
   stopped = 0;
   /** What `measure` answers: the mesh's closest-point distance and angle for any two picks. */
   reading: MeshReading | null = null;
@@ -101,6 +104,9 @@ export class FakeViewer implements ViewerEngine {
         this.selected.push(picks);
       },
       measure: () => this.reading,
+      section: (plane) => {
+        this.sections.push(plane);
+      },
       track: (points, listener) => {
         listener(points.map(this.project));
         return () => undefined;
@@ -114,6 +120,11 @@ export class FakeViewer implements ViewerEngine {
   /** What the person sees highlighted now. */
   get highlighted(): readonly Pick[] {
     return this.selected[this.selected.length - 1] ?? [];
+  }
+
+  /** The plane the part is cut with now. */
+  get cut(): Section | null {
+    return this.sections[this.sections.length - 1] ?? null;
   }
 
   /** The person clicks what is under the cursor on the newest canvas. */
