@@ -147,7 +147,7 @@ async def test_a_clearance_names_only_a_part_its_project_stores(s: Session) -> N
     (row,) = proposed["requirements"]
     assert (row["check"], row["plain"]) == (
         "fit",
-        f"At least 0.2 mm clear of context part {part['part_id']}",
+        "At least 0.2 mm gap to rail",
     )
 
 
