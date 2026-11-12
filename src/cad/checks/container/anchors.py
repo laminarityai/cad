@@ -90,7 +90,7 @@ def support_regions(support: Support, part: Geometry) -> tuple[Region, ...] | Un
         case LargestFlat():
             return largest_flats(part.faces, part.inertia)
         case FlatEnd():
-            return flat_ends(part.faces, part.inertia)
+            return flat_ends(part)
         case EndOf():
             return described.end_of(support, part)
         case Facing():
@@ -108,7 +108,7 @@ def load_regions(
 ) -> tuple[Region | FarFrom, ...] | Unresolved:
     match load:
         case FarEnd():
-            return far_ends(region, part.faces, part.inertia)
+            return far_ends(region, part)
         case OnHoles():
             loaded = load_holes(load, support, part)
             return loaded if isinstance(loaded, Unresolved) else (loaded,)
@@ -161,17 +161,15 @@ def _refused(case: LoadCase) -> Unresolved | None:
     return None
 
 
-def far_ends(
-    support: Region, faces: Sequence[FaceInfo], inertia: Inertia
-) -> tuple[Region | FarFrom, ...] | Unresolved:
+def far_ends(support: Region, part: Geometry) -> tuple[Region | FarFrom, ...] | Unresolved:
     """The whole flat face farthest from the support along each far line, or the line's band
     when no flat face that bounds the part faces along it, as on a rounded tip."""
-    lines = far_from(support, inertia)
+    lines = far_from(support, part.inertia)
     if isinstance(lines, Unresolved):
         return lines
     found: list[Region | FarFrom] = []
     for line in lines:
-        found.extend(farthest_flats(faces, line.axis, FAR_CONE_RAD, inertia) or (line,))
+        found.extend(farthest_flats(part, line.axis, FAR_CONE_RAD) or (line,))
     return tuple(found)
 
 
@@ -214,11 +212,11 @@ def largest_flats(faces: Sequence[FaceInfo], inertia: Inertia) -> tuple[Region, 
     return distinct_planes(tied, faces, inertia)
 
 
-def flat_ends(faces: Sequence[FaceInfo], inertia: Inertia) -> tuple[Region, ...] | Unresolved:
+def flat_ends(part: Geometry) -> tuple[Region, ...] | Unresolved:
     """At each end of the long axis, the farthest flat face that bounds the part and faces within
     END_CONE_RAD of the axis. When spreads tie, any direction in the tied axes' span is a long
     axis, so each bounding face within the cone of that span gives its own end."""
-    found = ends_along(faces, inertia, axis_span(inertia, 0))
+    found = ends_along(part, axis_span(part.inertia, 0))
     if not found:
         return Unresolved(
             "no flat face that bounds the part faces within 30° of either end of the long axis"
