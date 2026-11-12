@@ -42,6 +42,7 @@ Each row is the one way. Start in the named file and copy the entry beside yours
 | Text the agent is told | A named constant in `src/cad/operations/guidance.py` | |
 | A package under `src/cad` | A place in the `layers` contract in `pyproject.toml` | `layers` |
 | A server read in the web app | `useResource` in `web/src/state/resource.ts`, calling `request` in `web/src/api/client.ts` | `web lint` |
+| A web widget (tabs, expander, tooltip, menu, toast) | A wrapper in `web/src/components/ui/`. It is the one place that imports base-ui (`@base-ui/react`) or Sonner. | `web lint` (`no-restricted-imports`) |
 | A web feature | A folder under `web/src/features/` | |
 | A test | `tests/<feature>/`, mirroring `src/cad/<feature>/`. Shared helpers go in `tests/support/`, and shared fixtures in `tests/conftest.py`. | `tests/test_support_imports.py` |
 
