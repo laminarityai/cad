@@ -25,7 +25,16 @@ class Plane:
     """Unit, pointing out of the material."""
 
 
-type Patch = Bore | Plane
+@dataclass(frozen=True, slots=True)
+class Disc:
+    """The part of the plane through `center` with this normal within `radius` of `center`."""
+
+    center: Point
+    normal: Point
+    radius: float
+
+
+type Patch = Bore | Plane | Disc
 
 
 @dataclass(frozen=True, slots=True)
@@ -33,6 +42,8 @@ class Region:
     patches: tuple[Patch, ...]
     centroid: Point
     """The area-weighted centroid of the faces the anchor selected."""
+    faces: frozenset[int] = frozenset()
+    """The selected faces' indices in the kernel's explorer order."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,13 +63,13 @@ class FarFrom:
 class Candidate:
     support: Region
     load: Region | FarFrom
+    basis: tuple[Point, ...]
+    """An orthonormal basis of the directions the load may take."""
 
 
 @dataclass(frozen=True, slots=True)
 class Resolved:
     candidates: tuple[Candidate, ...]
-    basis: tuple[Point, ...]
-    """An orthonormal basis of the directions the load may take."""
 
 
 @dataclass(frozen=True, slots=True)

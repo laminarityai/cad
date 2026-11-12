@@ -2,9 +2,9 @@ import math
 
 import pytest
 
-from cad.checks.container import anchors
+from cad.checks.container import features
 from cad.checks.container.kernel import Flat
-from cad.checks.container.regions import FarFrom, Plane, Region
+from cad.checks.container.regions import FarFrom, Plane, Region, Unresolved
 from cad.checks.container.vectors import Point, angle, scale
 from tests.support.anchors import (
     BOLTED_L,
@@ -41,8 +41,8 @@ def ends(solid: Solid) -> list[Plane]:
 
 
 def tilt_deg(solid: Solid, normal: Point) -> float:
-    axis = anchors.long_axis(KERNEL.inertia(solid))
-    assert not isinstance(axis, anchors.Unresolved), axis
+    axis = features.long_axis(KERNEL.inertia(solid))
+    assert not isinstance(axis, Unresolved), axis
     return math.degrees(min(angle(normal, axis), angle(normal, scale(axis, -1))))
 
 

@@ -3,14 +3,6 @@ from collections.abc import Sequence
 from datetime import date
 
 from cad.checks.container import closed_solid
-from cad.checks.container.anchors import (
-    ANGLE_TOL_RAD,
-    FULL_TURN_SLACK_RAD,
-    OFFSET_TOL_FRACTION,
-    Hole,
-    extent,
-    holes,
-)
 from cad.checks.container.check import (
     DIMENSIONLESS,
     CheckModule,
@@ -20,6 +12,14 @@ from cad.checks.container.check import (
     measure,
     no_shape,
     required_pass,
+)
+from cad.checks.container.features import (
+    ANGLE_TOL_RAD,
+    FULL_TURN_SLACK_RAD,
+    OFFSET_TOL_FRACTION,
+    Hole,
+    extent,
+    holes,
 )
 from cad.checks.container.inputs import Input
 from cad.checks.container.kernel import Arc, Opening, Point, Unreadable

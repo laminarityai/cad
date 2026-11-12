@@ -5,8 +5,10 @@ import pytest
 from cad.checks.container import anchors
 from cad.checks.container.anchors import resolve
 from cad.checks.container.elastic import Face, region_faces
+from cad.checks.container.features import geometry
 from cad.checks.container.mesher import TetMesh
 from cad.checks.container.regions import Candidate, FarFrom, Region, Resolved, Unresolved
+from cad.checks.container.terms import of_wire
 from cad.checks.container.vectors import Point, add, scale
 from tests.support.anchors import FLAT_END, KERNEL, case
 from tests.support.solids import Solid, apply, box, turn_and_move, turned
@@ -51,14 +53,17 @@ def boundary_and_far_end(
         six_node_triangles(origin, y, x, (4, 8)),
         six_node_triangles(z, x, y, (8, 4)),
     ]
-    triangles = far + [t for side in sides for t in side]
+    blocks = [far, *sides]
+    triangles = [t for block in blocks for t in block]
     nodes = tuple(point for triangle in triangles for point in triangle)
     faces = tuple(tuple(range(6 * k, 6 * k + 6)) for k in range(len(triangles)))
-    return TetMesh(nodes, (), faces), faces[: len(far)]
+    kernel_order = (1, 0, 2, 3, 4, 5)  # where the kernel lists each block's face of a box
+    surfaces = tuple(k for k, block in zip(kernel_order, blocks, strict=True) for _ in block)
+    return TetMesh(nodes, (), faces, surfaces), faces[: len(far)]
 
 
 def clamped_at(solid: Solid, root: Point) -> Candidate:
-    found = resolve(case(FLAT_END), KERNEL.faces(solid), KERNEL.inertia(solid))
+    found = resolve(of_wire(case(FLAT_END)), geometry(KERNEL, solid))
     assert isinstance(found, Resolved), found
     (candidate,) = (c for c in found.candidates if math.dist(c.support.centroid, root) <= TOL)
     return candidate
@@ -76,7 +81,8 @@ def must_lines(found: tuple[FarFrom, ...] | Unresolved) -> tuple[FarFrom, ...]:
 
 
 def moved(mesh: TetMesh) -> TetMesh:
-    return TetMesh(tuple(apply(MOVE, node) for node in mesh.nodes), mesh.tets, mesh.faces)
+    nodes = tuple(apply(MOVE, node) for node in mesh.nodes)
+    return TetMesh(nodes, mesh.tets, mesh.faces, mesh.surfaces)
 
 
 MESH, END = boundary_and_far_end(LENGTH, WIDTH, THICK)

@@ -15,6 +15,8 @@ os.dup2(2, 1)
 sys.path.insert(0, "/opt/trusted")
 from build123d import Align, Box, Cylinder, Pos, Rot
 from cad.checks.container.anchors import resolve
+from cad.checks.container.features import geometry
+from cad.checks.container.terms import of_wire
 from cad.checks.container.regions import Resolved
 from cad.checks.container.kernel import ocp_kernel
 
@@ -37,13 +39,13 @@ case = {
 found = []
 for part in (plate, Pos(100, -40, 7) * Rot(30, 50, 70) * plate):
     shape = part.wrapped
-    resolved = resolve(case, kernel.faces(shape), kernel.inertia(shape))
+    resolved = resolve(of_wire(case), geometry(kernel, shape))
     assert isinstance(resolved, Resolved), resolved
     (candidate,) = resolved.candidates
     found.append({
         "radii": sorted(round(bore.radius, 9) for bore in candidate.support.patches),
         "lengths": sorted(round(bore.t1 - bore.t0, 9) for bore in candidate.support.patches),
-        "basis": len(resolved.basis),
+        "basis": len(candidate.basis),
     })
 
 MIN = (Align.MIN, Align.MIN, Align.MIN)
@@ -81,7 +83,7 @@ for name, part in (("l_bracket", l_bracket), ("t_arm", t_arm)):
     for placed in (part, Pos(100, -40, 7) * Rot(30, 50, 70) * part):
         shape = placed.wrapped
         inertia = kernel.inertia(shape)
-        resolved = resolve(ends, kernel.faces(shape), inertia)
+        resolved = resolve(of_wire(ends), geometry(kernel, shape))
         assert isinstance(resolved, Resolved), resolved
         seen.append({
             "frame_free": sorted(frame_free(c, inertia) for c in resolved.candidates),
@@ -90,7 +92,53 @@ for name, part in (("l_bracket", l_bracket), ("t_arm", t_arm)):
             ),
         })
     faced[name] = seen
-os.write(saved, json.dumps({"plate": found, "ends": faced}).encode())
+
+from cad.checks.container.terms import (
+    Away, Each, Facing, Into, LoadCase, OnFarthest, OnOpposite,
+)
+
+clamp = Box(60, 20, 50, align=MIN) - Pos(15, -1, 15) * Box(50, 22, 20, align=MIN)
+rail_hook = (
+    Box(60, 20, 10, align=MIN)
+    - Pos(0, 10, 5) * Cylinder(6, 12)
+    - Pos(60, 10, 5) * Cylinder(6, 12)
+)
+terms = {
+    "clamp": (clamp, LoadCase(Facing(), OnOpposite(middle=True), Into())),
+    "rail_hook": (
+        rail_hook,
+        LoadCase(Each("inner_curve", None), OnFarthest("inner_curve", None), Away()),
+    ),
+}
+
+
+def described_print(candidate, inertia):
+    gap = [a - b for a, b in zip(candidate.load.centroid, candidate.support.centroid)]
+    lever = [a - b for a, b in zip(inertia.center, candidate.support.centroid)]
+    (way,) = candidate.basis
+    return [
+        round(sum(g * g for g in gap) ** 0.5, 6),
+        round(sum(v * v for v in lever) ** 0.5, 6),
+        round(sum(g * w for g, w in zip(gap, way)), 6),
+    ]
+
+
+described = {}
+for name, (part, case) in terms.items():
+    seen = []
+    for placed in (part, Pos(100, -40, 7) * Rot(30, 50, 70) * part):
+        shape = placed.wrapped
+        inertia = kernel.inertia(shape)
+        resolved = resolve(case, geometry(kernel, shape))
+        assert isinstance(resolved, Resolved), resolved
+        seen.append({
+            "frame_free": sorted(described_print(c, inertia) for c in resolved.candidates),
+            "supports": sorted(
+                [round(v, 6) for v in c.support.centroid] for c in resolved.candidates
+            ),
+        })
+    described[name] = seen
+os.write(saved, json.dumps({"plate": found, "ends": faced, "described": described}).encode())
 """
 
 
@@ -121,6 +169,12 @@ def test_anchors_resolve_the_same_in_the_analysis_image_whatever_the_frame(
         [[0, 15, -20, -1, 0, 0], [100, 15, 2.5, 1, 0, 0]],
         [[100, 15, 2.5, 1, 0, 0], [0, 15, -20, -1, 0, 0]],
     ]
+    for name, (plain_terms, turned_terms) in report["described"].items():
+        flat = [value for row in plain_terms["frame_free"] for value in row]
+        turned_flat = [value for row in turned_terms["frame_free"] for value in row]
+        assert flat == pytest.approx(turned_flat, abs=1e-5), name
+    assert report["described"]["clamp"][0]["supports"] == [[37.5, 10, 15], [37.5, 10, 35]]
+    assert [len(one["frame_free"]) for one in report["described"]["rail_hook"]] == [2, 2]
     t_faces = report["ends"]["t_arm"][0]["faces"]
     assert [[support[0], support[3], load[0], load[3]] for support, load in t_faces] == [
         [0, -1, 100, 1],

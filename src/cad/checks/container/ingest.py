@@ -4,7 +4,7 @@ import math
 from collections.abc import Iterable, Sequence
 from typing import Final, Literal, TypedDict
 
-from cad.checks.container import anchors
+from cad.checks.container import anchors, features
 from cad.checks.container.channel import serve
 from cad.checks.container.kernel import (
     FaceInfo,
@@ -15,6 +15,7 @@ from cad.checks.container.kernel import (
     Unreadable,
     ocp_kernel,
 )
+from cad.checks.container.regions import Plane, Unresolved
 from cad.checks.container.vectors import angle, dot, sub
 from cad.checks.container.whole_solids import unmeasurable
 
@@ -149,7 +150,7 @@ def _holes(kernel: Kernel, solids: Sequence[Shape]) -> list[HoleWire]:
     found: list[HoleWire] = []
     for index, solid in enumerate(solids):
         faces, inertia = kernel.faces(solid), kernel.inertia(solid)
-        for hole in anchors.holes(faces, inertia):
+        for hole in features.holes(faces, inertia):
             wire: HoleWire = {
                 "diameter_mm": hole.diameter,
                 "center": _listed(hole.origin),
@@ -166,12 +167,12 @@ def _flats(kernel: Kernel, solids: Sequence[Shape]) -> list[FlatWire]:
     for index, solid in enumerate(solids):
         faces, inertia = kernel.faces(solid), kernel.inertia(solid)
         regions = anchors.largest_flats(faces, inertia)
-        if isinstance(regions, anchors.Unresolved):
+        if isinstance(regions, Unresolved):
             continue
-        tol = anchors.FLUSH_TOL_FRACTION * anchors.extent(inertia)
+        tol = features.FLUSH_TOL_FRACTION * features.extent(inertia)
         for region in regions:
             plane = region.patches[0]
-            assert isinstance(plane, anchors.Plane)
+            assert isinstance(plane, Plane)
             wire: FlatWire = {
                 "normal": _listed(plane.normal),
                 "area_mm2": _flush_area(faces, plane, tol),
@@ -183,13 +184,13 @@ def _flats(kernel: Kernel, solids: Sequence[Shape]) -> list[FlatWire]:
     return found[:MAX_FLATS]
 
 
-def _flush_area(faces: Iterable[FaceInfo], plane: anchors.Plane, tol: float) -> float:
+def _flush_area(faces: Iterable[FaceInfo], plane: Plane, tol: float) -> float:
     """The area of the planar faces on the plane, the same faces the region's centroid weighs."""
     return sum(
         face.area
         for face in faces
         if isinstance(face.surface, Flat)
-        and angle(face.surface.normal, plane.normal) <= anchors.ANGLE_TOL_RAD
+        and angle(face.surface.normal, plane.normal) <= features.ANGLE_TOL_RAD
         and abs(dot(sub(face.centroid, plane.point), plane.normal)) <= tol
     )
 
