@@ -3,8 +3,8 @@ from dataclasses import dataclass
 from typing import Literal
 
 from cad.checks.container.calculix import Material
-from cad.checks.container.regions import Bore, FarFrom, Plane, Region
-from cad.checks.container.vectors import Point
+from cad.checks.container.regions import Bore, Disc, FarFrom, Plane, Region
+from cad.checks.container.vectors import Point, scale, sub, unit
 
 type Measure = Literal["max_displacement", "max_von_mises"]
 
@@ -17,19 +17,12 @@ ORIGIN = (0.0, 0.0, 0.0)
 
 
 @dataclass(frozen=True, slots=True)
-class PlateLoadPatch:
-    center: Point
-    normal: Point
-    radius: float
-
-
-@dataclass(frozen=True, slots=True)
 class Case:
     name: str
     code: str
     material: Material
     fixed: Region
-    loaded: Region | FarFrom | PlateLoadPatch
+    loaded: Region | FarFrom
     force: Point
     measure: Measure
     expected: float
@@ -124,6 +117,86 @@ PLATE_BACK = Region(
 )
 ARM_TIP = Region((Plane((BEAM_L, 0.0, 0.0), (1.0, 0.0, 0.0)),), (BEAM_L, BEAM_B / 2, BEAM_H / 2))
 
+SHELF_X, SHELF_Y, SHELF_T, SHELF_P = 52.0, 50.0, 5.0, 10.0
+"""A plate whose middle axis is y, held at its end y = 0 and pressed into the middle of its top."""
+SHELF_ROOT = Region((Plane(ORIGIN, (0.0, -1.0, 0.0)),), (SHELF_X / 2, 0.0, SHELF_T / 2))
+SHELF_TOP = (SHELF_X / 2, SHELF_Y / 2, SHELF_T)
+SHELF_MIDDLE = Region((Disc(SHELF_TOP, Z, 0.1 * math.sqrt(SHELF_X * SHELF_Y)),), SHELF_TOP)
+
+C_SIDE, C_DEPTH, C_T, C_P = 80.0, 20.0, 6.0, 100.0
+"""A C frame open toward +x, its back and jaws C_T thick, held by its lower jaw's inner face."""
+C_FRAME_CODE = f"""\
+from build123d import Align, Box, Pos
+
+low = (Align.MIN, Align.MIN, Align.MIN)
+gap = Pos({C_T}, -1, {C_T}) * Box({C_SIDE}, {C_DEPTH + 2}, {C_SIDE - 2 * C_T}, align=low)
+result = Box({C_SIDE}, {C_DEPTH}, {C_SIDE}, align=low) - gap
+"""
+C_LOWER = Region((Plane((0.0, 0.0, C_T), Z),), ((C_SIDE + C_T) / 2, C_DEPTH / 2, C_T))
+C_UPPER = Region(
+    (Plane((0.0, 0.0, C_SIDE - C_T), (0.0, 0.0, -1.0)),),
+    ((C_SIDE + C_T) / 2, C_DEPTH / 2, C_SIDE - C_T),
+)
+
+
+def c_frame_tip(material: Material) -> float:
+    """The jaw tip's displacement on the centrelines: the back, of length h, under the constant
+    moment of the jaw's load about it, plus the jaw as a cantilever from the back under a uniform
+    load from s = a to L, by Castigliano, with the jaw's shear and the back's stretch."""
+    e, g = material.elastic_modulus, material.elastic_modulus / (2 * (1 + material.poisson_ratio))
+    ei, area = e * C_DEPTH * C_T**3 / 12, C_DEPTH * C_T
+    h, a, length = C_SIDE - C_T, C_T / 2, C_SIDE - C_T / 2
+    arm = (length + a) / 2
+    jaw = arm * length * a - (arm + length) * a**2 / 2 + a**3 / 3 + (length - a) ** 3 / 8
+    rise = C_P * (arm * h * length + jaw) / ei + C_P * arm / (SHEAR_COEFFICIENT * g * area)
+    rise += C_P * h / (e * area)
+    sway = C_P * arm * h**2 / (2 * ei)
+    return math.hypot(rise, sway)
+
+
+HOOK_B, HOOK_W, HOOK_RI, HOOK_SHANK, HOOK_HOLE, HOOK_P = 10.0, 10.0, 12.0, 80.0, 4.0, 100.0
+"""A J hook: a shank x 0 to HOOK_W wide held by 2 holes near its top, and a half ring below z = 0
+around the line x = HOOK_RO, y = HOOK_B / 2."""
+HOOK_RO = HOOK_RI + HOOK_W
+HOOK_HOLES = (60.0, 74.0)
+HOOK_CODE = f"""\
+from build123d import Align, Box, Cylinder, Pos, Rot
+
+low = (Align.MIN, Align.MIN, Align.MIN)
+ring = Pos({HOOK_RO}, {HOOK_B / 2}, 0) * Rot(90, 0, 0) * (
+    Cylinder({HOOK_RO}, {HOOK_B}) - Cylinder({HOOK_RI}, {HOOK_B})
+)
+ring = ring & Pos(0, 0, -{HOOK_RO}) * Box({2 * HOOK_RO}, {HOOK_B}, {HOOK_RO}, align=low)
+result = Box({HOOK_W}, {HOOK_B}, {HOOK_SHANK}, align=low) + ring
+for z in {HOOK_HOLES}:
+    result -= Pos({HOOK_W / 2}, {HOOK_B / 2}, z) * Rot(90, 0, 0) * Cylinder({HOOK_HOLE / 2}, 30)
+"""
+HOOK_BORES = Region(
+    tuple(
+        Bore((HOOK_W / 2, 0.0, z), (0.0, 1.0, 0.0), HOOK_HOLE / 2, 0.0, HOOK_B) for z in HOOK_HOLES
+    ),
+    (HOOK_W / 2, HOOK_B / 2, sum(HOOK_HOLES) / 2),
+)
+HOOK_CURL_CENTROID = (HOOK_RO, HOOK_B / 2, -2 * HOOK_RI / math.pi)
+HOOK_CURL = Region(
+    (Bore((HOOK_RO, 0.0, 0.0), (0.0, 1.0, 0.0), HOOK_RI, 0.0, HOOK_B),), HOOK_CURL_CENTROID
+)
+HOOK_AWAY = unit(sub(HOOK_CURL_CENTROID, HOOK_BORES.centroid))
+
+
+def hook_inner_stress() -> float:
+    """Winkler-Bach at the section where the curl leaves the shank, z = 0: the load's resultant
+    acts at the curl's centroid, so the section carries its moment about the section's centroid
+    and the normal force, and the inner fibre at HOOK_RI takes the most."""
+    mean = (HOOK_RI + HOOK_RO) / 2
+    neutral = HOOK_W / math.log(HOOK_RO / HOOK_RI)
+    area, shift = HOOK_W * HOOK_B, mean - neutral
+    lever = sub(HOOK_CURL_CENTROID, (HOOK_RO - mean, HOOK_B / 2, 0.0))
+    fx, fz = HOOK_P * HOOK_AWAY[0], HOOK_P * HOOK_AWAY[2]
+    moment = lever[2] * fx - lever[0] * fz
+    return -fz / area + moment * (neutral - HOOK_RI) / (area * shift * HOOK_RI)
+
+
 CASES: tuple[Case, ...] = (
     Case(
         name="axial bar",
@@ -197,7 +270,7 @@ CASES: tuple[Case, ...] = (
         code=PLATE_CODE,
         material=STEEL,
         fixed=Region((Bore(ORIGIN, Z, PLATE_A, 0.0, PLATE_T),), (0.0, 0.0, PLATE_T / 2)),
-        loaded=PlateLoadPatch((0.0, 0.0, PLATE_T), Z, PATCH_R),
+        loaded=Region((Disc((0.0, 0.0, PLATE_T), Z, PATCH_R),), (0.0, 0.0, PLATE_T)),
         force=(0.0, 0.0, -PLATE_P),
         measure="max_displacement",
         expected=PLATE_P * PLATE_A**2 / (16 * math.pi * PLATE_D),
@@ -215,6 +288,45 @@ CASES: tuple[Case, ...] = (
         expected=(2 + (1 - HOLE_D / HOLE_W) ** 3) * HOLE_P / ((HOLE_W - HOLE_D) * HOLE_T),
         tolerance=0.07,
         reference="sigma = Kt P/((W-d)t), Kt = 2 + (1-d/W)^3, Heywood via Peterson",
+    ),
+    Case(
+        name="plate pressed in the middle",
+        code=box(SHELF_X, SHELF_Y, SHELF_T),
+        material=NO_POISSON,
+        fixed=SHELF_ROOT,
+        loaded=SHELF_MIDDLE,
+        force=(0.0, 0.0, -SHELF_P),
+        measure="max_von_mises",
+        expected=SHELF_P * (SHELF_Y / 2) * (SHELF_T / 2) / (SHELF_X * SHELF_T**3 / 12),
+        tolerance=0.25,
+        reference=(
+            "EndOf(middle), OnLargestFlat(middle), Into: root sigma = P(a/2)c/I over the whole "
+            "width; the plate carries more of the moment under the load, measured +18.5%"
+        ),
+    ),
+    Case(
+        name="clamp pried apart",
+        code=C_FRAME_CODE,
+        material=STEEL,
+        fixed=C_LOWER,
+        loaded=C_UPPER,
+        force=(0.0, 0.0, C_P),
+        measure="max_displacement",
+        expected=c_frame_tip(STEEL),
+        tolerance=0.03,
+        reference="Facing, OnOpposite, Into: the back's moment and the jaw's bending, Castigliano",
+    ),
+    Case(
+        name="hook pulled from its curl",
+        code=HOOK_CODE,
+        material=NO_POISSON,
+        fixed=HOOK_BORES,
+        loaded=HOOK_CURL,
+        force=scale(HOOK_AWAY, HOOK_P),
+        measure="max_von_mises",
+        expected=hook_inner_stress(),
+        tolerance=0.05,
+        reference="Holes(2), OnFarthest(inner curve), Away: Winkler-Bach at the curl's root",
     ),
 )
 
