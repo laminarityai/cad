@@ -10,6 +10,7 @@ from cad.tables.fasteners import (
     load_fasteners,
 )
 from cad.tables.materials import InvalidTable, load_materials
+from cad.tables.tolerances import load_tolerances
 
 
 @pytest.fixture(scope="module")
@@ -46,18 +47,22 @@ def test_a_key_that_is_not_a_row_is_refused(table: FastenersTable, key: str) -> 
 
 
 def test_the_committed_quotes_are_on_the_stored_pages(table: FastenersTable) -> None:
-    assert quote_problems(load_materials(), fasteners=table) == []
+    assert quote_problems(load_materials(), fasteners=table, tolerances=load_tolerances()) == []
 
 
 def test_a_number_its_quote_does_not_write_names_the_row(tmp_path: Path) -> None:
     path = edited(tmp_path, "medium_mm: 5.5\n", "medium_mm: 5.6\n")
-    [problem] = quote_problems(load_materials(), fasteners=load_fasteners(path))
+    [problem] = quote_problems(
+        load_materials(), fasteners=load_fasteners(path), tolerances=load_tolerances()
+    )
     assert problem.startswith("M5 clearance medium_mm: 5.6 is not written in its quote")
 
 
 def test_a_quote_that_is_on_no_stored_page_names_the_row(tmp_path: Path) -> None:
     path = edited(tmp_path, 'quote: "M5 5,3 5,5 5,8"', 'quote: "M5 5,3 5,5 5,9"')
-    problems = quote_problems(load_materials(), fasteners=load_fasteners(path))
+    problems = quote_problems(
+        load_materials(), fasteners=load_fasteners(path), tolerances=load_tolerances()
+    )
     assert any(
         one.startswith("M5 clearance close_mm: the quote is not in the stored text")
         for one in problems

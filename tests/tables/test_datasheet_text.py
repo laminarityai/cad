@@ -6,6 +6,7 @@ import pytest
 from cad.tables.datasheet_text import citations, cover, quote_problems, render, text_path
 from cad.tables.fasteners import load_fasteners
 from cad.tables.materials import TABLE_PATH, UNITS, Known, MaterialsTable, load_materials
+from cad.tables.tolerances import load_tolerances
 
 REGEN = "uv run python tools/regen_datasheet_text.py"
 DENSITY = "Density [g/cm3] 1.24 ISO 1183"
@@ -37,7 +38,7 @@ def first_quote(table: MaterialsTable, key: str) -> tuple[str, str]:
 
 
 def test_committed_text_holds_every_quote(table: MaterialsTable) -> None:
-    assert quote_problems(table, fasteners=load_fasteners()) == []
+    assert quote_problems(table, fasteners=load_fasteners(), tolerances=load_tolerances()) == []
 
 
 def test_a_store_that_holds_every_quote_passes(table: MaterialsTable, store: Path) -> None:
@@ -48,7 +49,9 @@ def test_a_value_its_quote_does_not_write_names_the_row(tmp_path: Path) -> None:
     path = tmp_path / "materials.yaml"
     text = TABLE_PATH.read_text(encoding="utf-8")
     path.write_text(text.replace("value: 1.24 g/cm^3", "value: 1.99 g/cm^3", 1), encoding="utf-8")
-    [problem] = quote_problems(load_materials(path), fasteners=load_fasteners())
+    [problem] = quote_problems(
+        load_materials(path), fasteners=load_fasteners(), tolerances=load_tolerances()
+    )
     assert problem.startswith("prusament-pla density: 1.99 is not written in its quote")
 
 
@@ -156,7 +159,9 @@ def test_changing_a_rows_unit_to_ksi_fails_the_check(tmp_path: Path) -> None:
     for row in ("109.3", "276", "310"):
         text = text.replace(f"value: {row} MPa\n", f"value: {row} ksi\n", 1)
     path.write_text(text, encoding="utf-8")
-    problems = quote_problems(load_materials(path), fasteners=load_fasteners())
+    problems = quote_problems(
+        load_materials(path), fasteners=load_fasteners(), tolerances=load_tolerances()
+    )
     assert [problem.split(" is not written")[0] for problem in problems] == [
         "kaiser-6061-t6 yield_strength: its unit ksi",
         "kaiser-6061-t6 tensile_strength: its unit ksi",

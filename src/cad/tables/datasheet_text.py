@@ -5,11 +5,11 @@
 The rest is the pages, split by a form feed. A PDF has no one text, so a document holds the
 pages of every extraction tool that was needed to put each quote on a page.
 
-The check runs offline, over materials.yaml and fasteners.yaml. A row's quote must be found, by
-the server's own `on_page`, on a page of the stored text of the row's url, the row's number must
-be written in the quote, and so must the row's unit, by its own spelling or one listed in
-`UNIT_SPELLINGS`, with case kept. A fastener number has no unit to find: its sheet prints mm once
-in a header.
+The check runs offline, over materials.yaml, fasteners.yaml and tolerances.yaml. A row's quote must
+be found, by the server's own `on_page`, on a page of the stored text of the row's url, the row's
+number must be written in the quote, and so must the row's unit, by its own spelling or one listed
+in `UNIT_SPELLINGS`, with case kept. A fastener or tolerance number has no unit to find: its sheet
+prints mm or micrometres once in a header.
 """
 
 import hashlib
@@ -28,6 +28,7 @@ from cad.tables.fasteners import FastenersTable
 from cad.tables.fields import FIELDS
 from cad.tables.materials import TABLE_PATH, UNITS, Known, MaterialsTable
 from cad.tables.quote import on_page
+from cad.tables.tolerances import TolerancesTable
 
 STORE = TABLE_PATH.parent / "datasheet_text"
 HEADER = "url: "
@@ -129,6 +130,28 @@ def fastener_citations(table: FastenersTable) -> Iterator[Citation]:
                 )
 
 
+def tolerance_citations(table: TolerancesTable) -> Iterator[Citation]:
+    """Each number of each tolerance row with the quote of the source that prints it: the limit in
+    the row's `quote`, and the range in its `range_quote` when it has one."""
+    for one in table.classes.values():
+        for row in one.rows:
+            numbers = (
+                ("limit", row.limit, row.quote),
+                ("over_mm", row.over_mm, row.range_quote or row.quote),
+                ("up_to_mm", row.up_to_mm, row.range_quote or row.quote),
+            )
+            for name, number, quote in numbers:
+                yield Citation(
+                    one.key,
+                    f"{row.up_to_mm:g} mm {name}",
+                    one.origin.url,
+                    one.origin.title,
+                    quote,
+                    Decimal(str(number)),
+                    NO_UNIT,
+                )
+
+
 def written_in_text_layer(value: Decimal, quote: str) -> bool:
     """Whether some number in the quote, read with "." or "," as its decimal mark or as digit
     grouping, equals `value`: 1.24 is written in "1,24 g/cm3" and 8960 in "8 960 kg/m3".
@@ -184,14 +207,17 @@ def _fold(text: str) -> str:
 
 
 def quote_problems(
-    table: MaterialsTable, store: Path = STORE, fasteners: FastenersTable | None = None
+    table: MaterialsTable,
+    store: Path = STORE,
+    fasteners: FastenersTable | None = None,
+    tolerances: TolerancesTable | None = None,
 ) -> list[str]:
     problems: list[str] = []
     cited: set[Path] = set()
-    every = (
-        citations(table)
-        if fasteners is None
-        else chain(citations(table), fastener_citations(fasteners))
+    every = chain(
+        citations(table),
+        () if fasteners is None else fastener_citations(fasteners),
+        () if tolerances is None else tolerance_citations(tolerances),
     )
     for citation in every:
         path = text_path(citation.url, store)

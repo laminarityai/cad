@@ -1,5 +1,5 @@
-"""Read the pages cited by tables/materials.yaml and tables/fasteners.yaml and store the text that
-carries the quotes.
+"""Read the pages cited by tables/materials.yaml, fasteners.yaml and tolerances.yaml and store the
+text that carries the quotes.
 
     uv run python tools/regen_datasheet_text.py         refetch each url whose stored text is
                                                         missing or lacks a quote, delete files
@@ -25,7 +25,7 @@ import pypdfium2  # pyright: ignore[reportMissingTypeStubs]
 from pdfminer.high_level import extract_text as miner_text
 from pypdf import PdfReader
 
-from cad.research.fetch import FetchFailed, fetch
+from cad.research.fetch import USER_AGENT, FetchFailed, fetch
 from cad.tables.datasheet_text import (
     STORE,
     Citation,
@@ -36,13 +36,12 @@ from cad.tables.datasheet_text import (
     pages_of,
     render,
     text_path,
+    tolerance_citations,
 )
 from cad.tables.fasteners import load_fasteners
 from cad.tables.materials import load_materials
+from cad.tables.tolerances import load_tolerances
 
-BROWSER = (
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120 Safari/537.36"
-)
 TIMEOUT_SECONDS = 180
 logging.disable(logging.WARNING)
 INSIDE_ZIP = re.compile(r"\(([^()]+\.pdf) in the zip\)")
@@ -76,8 +75,9 @@ def is_stored(document: Document) -> bool:
 
 
 def download(url: str) -> bytes:
-    """curl follows the certificate chains and non-ASCII urls that some datasheet hosts need."""
-    command = ["curl", "-sSLf", "--max-time", str(TIMEOUT_SECONDS), "-A", BROWSER, url]
+    """curl follows the certificate chains and non-ASCII urls that some datasheet hosts need. It
+    says who it is, as the server's own fetch does, and never poses as a browser."""
+    command = ["curl", "-sSLf", "--max-time", str(TIMEOUT_SECONDS), "-A", USER_AGENT, url]
     return subprocess.run(command, capture_output=True, check=True).stdout
 
 
@@ -137,7 +137,13 @@ def main(argv: list[str]) -> int:
     if argv and not everything:
         print(__doc__)
         return 2
-    wanted = documents([*citations(load_materials()), *fastener_citations(load_fasteners())])
+    wanted = documents(
+        [
+            *citations(load_materials()),
+            *fastener_citations(load_fasteners()),
+            *tolerance_citations(load_tolerances()),
+        ]
+    )
     failures: list[str] = []
     for document in wanted:
         if not everything and is_stored(document):
