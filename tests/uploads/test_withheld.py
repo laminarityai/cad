@@ -142,11 +142,10 @@ async def test_a_later_message_of_the_person_is_added_to_the_brief_with_a_withhe
 async def test_a_withheld_file_without_text_cannot_be_quoted(
     s: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-
-    def scan(pdf: PdfFile) -> PdfText | FetchFailed:
+    def no_text(pdf: PdfFile) -> PdfText | FetchFailed:
         return FetchFailed("no text layer")
 
-    monkeypatch.setattr(text, "read_pdf", scan)
+    monkeypatch.setattr(text, "read_pdf", no_text)
     created = await s.call("create_brief", text=BRIEF)
     scan = add(s, created["project_id"], "scan.pdf", STANDARD, withheld=True)
     said = await s.text(

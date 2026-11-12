@@ -156,7 +156,7 @@ The canonical private brief set is the 20 per-brief files in `~/cad-evals/briefs
 ## Risks
 
 - **Adam is already inside Onshape.** We win on checks the agent cannot change and on variant comparison, not on having an Onshape integration.
-- **Licensed standards.** ASME, ISO, AGMA and DIN documents are paid. We implement formulas and cite the clause, and never ship a standard's text or tables. DIN also forbids AI use of its documents, which matters when users upload standard PDFs.
+- **Licensed standards.** ASME, ISO, AGMA and DIN documents are paid. We implement formulas and cite the clause, and never ship a standard's text or tables. DIN also forbids AI use of its documents, which matters when users upload standard PDFs. A person marks such a PDF as withheld when adding it: it is stored, the agent never reads it, and a requirement may quote it only with words the person typed ([ADR-0012](docs/adr/0012-a-supplied-part-is-read-by-the-build-and-never-graded.md)).
 - **Silent edit damage.** About 64% of edits that look successful break unrelated features ([BenchCAD](https://arxiv.org/html/2605.10865v1)), so regression checks run on every commit.
 - **Running AI-written code.** Every variant is code an AI wrote, and outside MCP clients can send code too. The sandbox ships in phase 1.
 - **Compute cost.** Any MCP client can trigger FEA on our servers, so accounts and usage limits ship in phase 4, the phase that hosts the server.

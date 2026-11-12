@@ -928,6 +928,7 @@ export interface components {
             name: string;
             media_type: components["schemas"]["MediaType"];
             size: number;
+            withheld: boolean;
         };
         /**
          * DriverSaid
@@ -3019,6 +3020,7 @@ export interface operations {
             query: {
                 name: string;
                 unit?: ("mm" | "in") | null;
+                withheld?: boolean;
             };
             header?: never;
             path: {

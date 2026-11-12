@@ -112,7 +112,7 @@ All of a variant's check results, each with the formula and source behind it.
 _Avoid_: Report, evaluation
 
 **Source**:
-A document, datasheet, table or standard that a requirement or check cites, either attached by the user or found by the agent. A file the user adds to a project, such as a PDF, a text file or an image, is a source the agent reads, and a requirement may quote it.
+A document, datasheet, table or standard that a requirement or check cites, either attached by the user or found by the agent. A file the user adds to a project, such as a PDF, a text file or an image, is a source the agent reads, and a requirement may quote it. A PDF the user marks as a licensed standard is a withheld source: the agent sees its name and never reads it, and a requirement may quote it only with words the user typed.
 _Avoid_: Reference, citation, research
 
 **Template**:
