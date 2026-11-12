@@ -13,7 +13,7 @@ from typing import Literal
 from pydantic import Field
 
 from cad.briefs.model import MaxDeflection, MinSafetyFactor, Target, deciding_check
-from cad.checks.result import CheckResult, Measure, Read, Source
+from cad.checks.result import CheckResult, Measure, Read, Source, Where
 from cad.frozen import Frozen
 from cad.scorecard.model import PendingCheck
 
@@ -35,6 +35,9 @@ class MeasureOnly(Frozen):
     version: str
     instance: str = Field(default="", exclude_if=lambda instance: not instance)
     reads: tuple[Read, ...] = Field(default=(), exclude_if=lambda reads: not reads)
+    where: Where | None = Field(default=None, exclude_if=lambda where: where is None)
+    """The faces the check fixed and loaded, as on `CheckResult`. A fact of the run, not a
+    verdict."""
 
 
 type Reported = CheckResult | PendingCheck | MeasureOnly
@@ -78,4 +81,5 @@ def _measure_only(result: CheckResult) -> MeasureOnly:
         version=result.version,
         instance=result.instance,
         reads=result.reads,
+        where=result.where,
     )

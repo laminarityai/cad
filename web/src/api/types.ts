@@ -1370,6 +1370,8 @@ export interface components {
             instance?: string;
             /** @default [] */
             reads?: components["schemas"]["cad__checks__result__Read"][];
+            /** @default null */
+            where?: components["schemas"]["Where"] | null;
         };
         Measured: components["schemas"]["QuantityJson"];
         /** @enum {string} */
