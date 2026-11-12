@@ -768,6 +768,7 @@ export interface components {
             quote: string;
             source: string;
             editable: components["schemas"]["CardEditable"] | null;
+            note: string;
         };
         /** CheckResult */
         CheckResult: {

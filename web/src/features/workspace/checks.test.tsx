@@ -1,4 +1,5 @@
 import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { restore } from "@/api/snapshot";
 import { massResult, mass, snapshot } from "@/test/fixtures";
@@ -65,13 +66,15 @@ describe("the Checks pane", () => {
     expect(summaryOf({ snapshot: restore(wire) })).toEqual({ status: "agent", text: "All pass, 1 on the agent's check" });
   });
 
-  it("labels a verdict on a load case the agent described, and counts it apart in the summary", () => {
+  it("labels a verdict on a load case the agent described, and counts it apart in the summary", async () => {
     const described = { ...mass("pass"), check_id: "fea", requirement_id: "r5", statement: "Holds 49 N", load_case: "described" as const };
     const wire = snapshot("v1", [described], [massResult()]);
     const { container } = render(<Checks card={{ snapshot: restore(wire) }} material={null} />);
     const row = container.querySelector('[data-line="pass"]');
     if (!(row instanceof HTMLElement)) throw new Error("the described row is missing");
     expect(within(row).getByText("load case the agent described, not reviewed by our team")).toBeInTheDocument();
+    await userEvent.click(within(row).getByRole("button"));
+    expect(await within(row).findByText(/^Holds 49 N\. The mass check measured/)).toBeInTheDocument();
     expect(summaryOf({ snapshot: restore(wire) })).toEqual({ status: "pass", text: "All pass, 1 on a load case the agent described" });
   });
 

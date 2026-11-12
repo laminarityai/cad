@@ -159,15 +159,18 @@ export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
         continue;
       }
       const researched = "basis" in one && one.basis === "researched";
+      const described = "load_case" in one && one.load_case === "described";
+      const reason = "reason" in one ? one.reason : "";
       asked.push({
         key,
         label: short(one.statement),
         status: statusOf("verdict" in one ? one.verdict : "unknown", researched),
         value: valueOf(result),
-        why: "reason" in one ? one.reason : "",
+        // The person confirmed these words, so the row keeps them whole beside its reason.
+        why: described ? `${one.statement}. ${reason}` : reason,
         formula: result?.formula ?? "",
         sources: result?.sources ?? [],
-        ...("load_case" in one && one.load_case === "described" ? { tag: DESCRIBED_TAG } : {}),
+        ...(described ? { tag: DESCRIBED_TAG } : {}),
       });
     }
   }

@@ -33,6 +33,7 @@ class Row:
     decides: str
     editable: Editable | None = None
     source: str = YOUR_WORDS
+    note: str = ""
 
 
 @dataclass(frozen=True, slots=True)
