@@ -45,7 +45,7 @@ from provenance import (
     trace_card,
 )
 from pydantic import ValidationError
-from tracking import RequirementOutcome, describe, outcomes_of, track
+from tracking import RequirementOutcome, describe, describe_apart, outcomes_of, track
 from transcript_cards import read_cards
 
 from cad.briefs import store as briefs
@@ -209,6 +209,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     print(f"agent measurements: {counts.not_verified}, not verified")
     print(f"strict pass rate: {describe(tracking.strict_pass_rate)}")
     print(f"requirements covered by reviewed checks: {describe(tracking.reviewed_coverage)}")
+    for line in describe_apart(tracking):
+        print(line)
     if not counts.cards:
         print("no scorecard in the transcripts")
     elif not counts.numbers:

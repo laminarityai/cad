@@ -69,7 +69,9 @@ HOLES = (
     'exact key, and "plus or minus 0.1" is a plus_minus tolerance of 0.1 mm. When the brief '
     "states none, leave the tolerance out and the default of 0.05 mm applies. Never choose a "
     "class, a series or a number the person did not write. The holes check decides it from the "
-    "tables, and a slot or hexagon makes it unknown, not a pass."
+    "tables, and a slot or hexagon makes it unknown, not a pass. A bound the person states on "
+    "how many holes there are, such as at most 4 holes, or on the narrowest hole, such as no "
+    "hole under 4 mm, is a measure_limit on the holes check's hole_count or hole_diameter:0."
 )
 
 RESEARCH = (

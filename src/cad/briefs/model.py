@@ -344,4 +344,4 @@ class Decision(Frozen):
 
 
 def amount(quantity: pint.Quantity) -> str:
-    return f"{number(quantity):g} {quantity.units:~P}"
+    return f"{number(quantity):g} {quantity.units:~P}".rstrip()

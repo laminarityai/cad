@@ -70,12 +70,18 @@ A check that applies to every variant whatever it is, such as building as a clos
 **Domain check**:
 A check that applies only to one kind of design, such as gear tooth strength or bolted joint preload, and comes from an engineering skill.
 
+**Team check**:
+A check our team wrote and reviewed: a universal check, the fit check, or later a domain check. Reviewed coverage and the strict pass rate count only team checks.
+
 **Agent-written check**:
-A check the agent drafted for a requirement no existing check covers. Its results count as unverified until the user reviews it for their project, and it joins an engineering skill only after the team reviews it.
+A check the agent wrote for a requirement no team check decides, before any variant of its brief exists. It is a formula with its inputs, a limit and one worked example from a cited page, with optional measuring code that runs only in the sandbox. The server's gates freeze it by its hash, and a changed check is a new check. Once the user approves it for their project on the confirmation page, its verdicts are labelled "agent-written check you approved, not reviewed by our team" and counted apart. It joins an engineering skill only after the team reviews it (ADR-0011).
 _Avoid_: Generated check, custom check
 
+**Blind rule**:
+The agent may write a check for a brief only while the brief has no variants, so it cannot tune the check to a design it has seen (ADR-0011).
+
 **Agent measurement**:
-A number that the agent's own measuring code reported for a requirement no check covers. The code runs only in the sandbox. The scorecard lists the number apart from the check results, labelled "agent's own measurement, not verified". It never passes or fails anything, no check or formula reads it, and its requirement stays unverified (ADR-0008).
+A number that the agent's own measuring code reported for a requirement no check covers. The code runs only in the sandbox. The scorecard lists the number apart from the check results, labelled "agent's own measurement, not verified". It never passes or fails anything, no team check reads it, and its requirement stays unverified (ADR-0008). Under ADR-0011 it is an agent-written check with no limit.
 _Avoid_: Agent check, own check, self-check
 
 **Researched value**:
@@ -83,7 +89,7 @@ A material value the tables lack, which the agent read from a public web page or
 _Avoid_: Candidate value, extracted value, parsed value
 
 **Unverified requirement**:
-A requirement that no reviewed check covers. The scorecard always lists these.
+A requirement that no team check and no approved agent-written check decides. The scorecard always lists these.
 
 **Engineering skill**:
 A packaged body of know-how for one kind of design, bundling its domain checks, templates and sources.
