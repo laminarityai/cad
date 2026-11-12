@@ -3,6 +3,7 @@
     uv run python .claude/skills/verify/scripts/browser.py start <dir>    once per run
     <dir>/bin/open <sign-in link>                                          the opener
     uv run python .claude/skills/verify/scripts/browser.py set <dir> [answer=.] [edit=.] [delay=.]
+        [decline_item=.]
     uv run python .claude/skills/verify/scripts/browser.py status <dir>
     uv run python .claude/skills/verify/scripts/browser.py stop <dir>
     uv run python .claude/skills/verify/scripts/browser.py web shot|watch|walk <run> <path> <name>
@@ -15,10 +16,12 @@ whose server runs `open`. Each link gets its own browser context, which follows 
 redirect to the page and keeps the session cookie, a page number n, `<dir>/page-<n>.aria.yml`,
 `<dir>/page-<n>-before.png` (just before the click) and `<dir>/page-<n>-after.png` (the reply),
 and JSON lines in `<dir>/browser.jsonl`. How the person answers is answer (confirm or decline),
-edit ("<shown>=<typed>": type <typed> into each Change to field whose placeholder is <shown>) and
-delay (seconds before answering). `set` changes them for every later page. CAD_HUMAN_ANSWER,
-CAD_HUMAN_EDIT and CAD_HUMAN_DELAY in the opener's environment override them for one page, but
-`cad-call`'s server never sees those variables, so use `set` there.
+edit ("<shown>=<typed>": type <typed> into each Change to field whose placeholder is <shown>),
+delay (seconds before answering) and decline_item (with answer=confirm, tick Decline this item
+in each section whose heading holds this text, and write the note). `set` changes them for every
+later page. CAD_HUMAN_ANSWER, CAD_HUMAN_EDIT, CAD_HUMAN_DELAY and CAD_HUMAN_DECLINE_ITEM in the
+opener's environment override them for one page, but `cad-call`'s server never sees those
+variables, so use `set` there.
 """
 
 from __future__ import annotations
@@ -47,7 +50,7 @@ NOTE_LABEL = "Note to the agent, if you decline"
 BUTTON = {"confirm": "Confirm", "decline": "Decline all"}
 
 
-PERSON = ("answer", "edit", "delay")
+PERSON = ("answer", "edit", "delay", "decline_item")
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,6 +59,7 @@ class Visit:
     answer: Literal["confirm", "decline"]
     edit: tuple[str, str] | None
     delay: float
+    decline_item: str
 
 
 def visit_of(url: str, person: dict[str, str]) -> Visit:
@@ -63,7 +67,8 @@ def visit_of(url: str, person: dict[str, str]) -> Visit:
     if answer != "confirm" and answer != "decline":
         raise ValueError(f"answer must be confirm or decline, not {answer!r}")
     shown, _, typed = person["edit"].partition("=")
-    return Visit(url, answer, (shown, typed) if shown else None, float(person["delay"]))
+    edit = (shown, typed) if shown else None
+    return Visit(url, answer, edit, float(person["delay"]), person.get("decline_item", ""))
 
 
 def ask(run: Path, request: Entry, timeout: float = 5) -> Entry | None:
@@ -171,7 +176,7 @@ async def serve(run: Path) -> None:
         browser = await playwright.chromium.launch()
         numbers = itertools.count(1 + last_page(run))
         served: list[int] = []
-        person = {"answer": "confirm", "edit": "", "delay": "1"}
+        person = {"answer": "confirm", "edit": "", "delay": "1", "decline_item": ""}
         stopping = asyncio.Event()
 
         async def handle(reader: asyncio.StreamReader, writer: asyncio.StreamWriter) -> None:
@@ -261,6 +266,16 @@ async def drive(browser: Browser, run: Path, n: int, visit: Visit) -> str | None
             log({"step": "edit", "shown": shown, "typed": typed, "fields": await fields.count()})
         if visit.answer == "decline":
             await page.get_by_label(NOTE_LABEL).fill("scripted person declined")
+        elif visit.decline_item:
+            # Each item's box sits after its section and is named by the item's place on the page.
+            headings = page.locator("section").get_by_role("heading", level=2)
+            ticked = 0
+            for index, heading in enumerate(await headings.all_inner_texts()):
+                if visit.decline_item in heading:
+                    await page.locator(f'input[name="decline-{index}"]').check()
+                    ticked += 1
+            await page.get_by_label(NOTE_LABEL).fill("scripted person declined this item")
+            log({"step": "decline_item", "heading": visit.decline_item, "ticked": ticked})
         await page.screenshot(path=run / f"page-{n}-before.png", full_page=True)
         button = page.get_by_role("button", name=BUTTON[visit.answer], exact=True)
         async with page.expect_response(lambda r: r.request.method == "POST") as posted:

@@ -112,9 +112,10 @@ Set how the person answers. The settings hold for every later page:
 uv run python .claude/skills/verify/scripts/browser.py set "$CAD_BROWSER" answer=decline
 uv run python .claude/skills/verify/scripts/browser.py set "$CAD_BROWSER" answer=confirm "edit=150 g=120 g"
 uv run python .claude/skills/verify/scripts/browser.py set "$CAD_BROWSER" edit= delay=1
+uv run python .claude/skills/verify/scripts/browser.py set "$CAD_BROWSER" answer=confirm "decline_item=A check the agent wrote"
 ```
 
-`edit=<shown>=<typed>` types `<typed>` into each `Change to` field whose placeholder is `<shown>`. `delay` is the seconds before answering (default 1). A declined page gets the note `scripted person declined`.
+`edit=<shown>=<typed>` types `<typed>` into each `Change to` field whose placeholder is `<shown>`. `delay` is the seconds before answering (default 1). A declined page gets the note `scripted person declined`. `decline_item=<text>` ticks `Decline this item` in each section whose heading holds `<text>`, writes the note `scripted person declined this item` and presses `Confirm`, so the rest of the page is confirmed. `decline_item=` turns it off.
 
 **Confirm with no model.** `cad-call` starts a server whose opener is `open` from `PATH`, so put the browser's `bin` first:
 
