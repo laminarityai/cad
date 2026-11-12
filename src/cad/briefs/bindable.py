@@ -21,4 +21,5 @@ BINDABLE: Final[Mapping[tuple[str, str], Bindable]] = {
     ("holes", "hole_diameter:0"): Bindable(
         "mm", "the diameter of the narrowest round hole in the part"
     ),
+    ("min_wall", "min_wall"): Bindable("mm", "the thickness of the part's thinnest wall"),
 }

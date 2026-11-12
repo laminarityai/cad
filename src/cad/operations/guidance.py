@@ -74,6 +74,13 @@ HOLES = (
     "hole under 4 mm, is a measure_limit on the holes check's hole_count or hole_diameter:0."
 )
 
+WALLS = (
+    "A wall thickness the person states, such as walls at least 2 mm thick or no wall under "
+    "1.5 mm, is a measure_limit at_least on the min_wall check's min_wall, in mm. The check "
+    "measures the thinnest wall of the whole part. Propose one only when the person states the "
+    "number: no printer or process gives a default."
+)
+
 RESEARCH = (
     "A material value the table lacks is researched, not left unknown. When a scorecard's "
     "research lists a request, answer each one with submit_research: a public web page or "
@@ -129,6 +136,7 @@ INSTRUCTIONS: Final = " ".join(
         OPTIONS,
         CONTEXT_PARTS,
         HOLES,
+        WALLS,
         MATERIAL,
         DEEPER_ANALYSIS,
         RESEARCH,

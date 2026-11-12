@@ -22,7 +22,7 @@ def test_run_checks_prints_the_check_run_as_json_and_exits_zero(
     assert cli.main(["run-checks", built.variant_id, "prusament-pla", "--root", str(tmp_path)]) == 0
     run = CheckRun.model_validate_json(capsys.readouterr().out)
     assert run.variant_id == built.variant_id
-    assert [result.verdict for result in run.results] == [Verdict.PASS] * 5
+    assert [result.verdict for result in run.results] == [Verdict.PASS] * 6
 
 
 @pytest.mark.docker

@@ -130,7 +130,7 @@ def test_a_pending_background_check_holds_its_place_and_no_verdict(tmp_path: Pat
         ),
     )
     assert card.pending == ("fea",)
-    assert assessed == ["closed_solid", "interference", "mass", "extents", "holes"]
+    assert assessed == ["closed_solid", "interference", "mass", "extents", "holes", "min_wall"]
     assert Scorecard.model_validate_json(card.model_dump_json()) == card
 
 

@@ -1,7 +1,16 @@
 from collections.abc import Iterable
 from typing import Final
 
-from cad.checks.container import closed_solid, extents, fea, fit, holes, interference, mass
+from cad.checks.container import (
+    closed_solid,
+    extents,
+    fea,
+    fit,
+    holes,
+    interference,
+    mass,
+    min_wall,
+)
 from cad.checks.container.check import CheckModule
 
 CHECKS: Final[tuple[CheckModule, ...]] = (
@@ -10,6 +19,7 @@ CHECKS: Final[tuple[CheckModule, ...]] = (
     mass,
     extents,
     holes,
+    min_wall,
     fea,
     fit,
 )

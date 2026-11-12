@@ -97,6 +97,55 @@ class Inertia:
     spans: tuple[tuple[float, float], tuple[float, float], tuple[float, float]]
 
 
+@dataclass(frozen=True, slots=True)
+class Across:
+    """The ray went into the material and came out through a face that looks back at the start
+    within 60 degrees: `length` is the wall's thickness at the start point."""
+
+    length: float
+
+
+@dataclass(frozen=True, slots=True)
+class Glancing:
+    """The ray came out through a face turned more than 60 degrees from the start face, as it does
+    near a corner. That is not across a wall, so there is no reading."""
+
+
+@dataclass(frozen=True, slots=True)
+class Lost:
+    """The kernel could not follow the ray, or the ray never came out of the material."""
+
+    reason: str
+
+
+type Reading = Across | Glancing | Lost
+
+
+@dataclass(frozen=True, slots=True)
+class Patch:
+    """A face's parameter box, and its length in mm along u and along v: the longest of three
+    lines across the box at a quarter, a half and three quarters of the other parameter."""
+
+    u0: float
+    u1: float
+    v0: float
+    v1: float
+    length_u: float
+    length_v: float
+
+
+class Walls(Protocol):
+    """One solid's faces, by index, ready to measure wall thickness on."""
+
+    @property
+    def patches(self) -> tuple[Patch, ...]: ...
+
+    def reading(self, face: int, u: float, v: float) -> Reading | None:
+        """From the face's point at (u, v), along the inward normal, to where the ray first comes
+        out of the material. None when (u, v) is not on the face, or the normal is undefined."""
+        ...
+
+
 class Kernel(Protocol):
     def read_brep(self, data: bytes) -> Shape | Unreadable:
         """Never raises. Random bytes, an empty file and a null shape are all `Unreadable`."""
@@ -151,6 +200,8 @@ class Kernel(Protocol):
         """BRepExtrema_DistShapeShape's minimum, or None when it is not done. On the pinned OCP a
         solid nested inside another gives 0.0, so fit decides overlap with common_volume first."""
         ...
+
+    def walls(self, shape: Shape) -> Walls: ...
 
     def step_bytes(self, shape: Shape, cap: int) -> bytes | StepTooLarge:
         """The writer numbers PRODUCT names per process, so a second call raises: one

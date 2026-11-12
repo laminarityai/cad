@@ -63,6 +63,7 @@ def test_every_check_passes_and_the_volume_matches_grade_py(
         "mass": Verdict.PASS,
         "extents": Verdict.PASS,
         "holes": Verdict.UNKNOWN if part in NOT_ONLY_ROUND_HOLES else Verdict.PASS,
+        "min_wall": Verdict.PASS,
     }, [result.reason for result in run.results]
     for result in run.results:
         assert result.formula

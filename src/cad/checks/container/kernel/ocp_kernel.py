@@ -10,6 +10,7 @@ from cad.checks.container.kernel.ocp_handles import (
     Xyz,
     load_ocp,
 )
+from cad.checks.container.kernel.ocp_walls import OcpWalls
 from cad.checks.container.kernel.protocol import (
     Arc,
     Curved,
@@ -26,6 +27,7 @@ from cad.checks.container.kernel.protocol import (
     Surface,
     Unreadable,
     VolumeProps,
+    Walls,
     first_line,
 )
 from cad.checks.container.vectors import cross, dot, sub, unit
@@ -210,6 +212,9 @@ class OcpKernel:
         tool.SetMultiThread(False)
         tool.Perform()
         return tool.Value() if tool.IsDone() else None
+
+    def walls(self, shape: Shape) -> Walls:
+        return OcpWalls(self._ocp, shape)
 
     def step_bytes(self, shape: Shape, cap: int) -> bytes | StepTooLarge:
         if self._wrote_step:

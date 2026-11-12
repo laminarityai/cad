@@ -62,6 +62,7 @@ const CHECK_NAMES: Record<string, string> = {
   fit: "Fit",
   fea: "Stiffness",
   holes: "Holes",
+  min_wall: "Thinnest wall",
 };
 
 const isRunning = (one: ResultLine): one is RunningCheck => "kind" in one && one.kind === "pending";
@@ -87,6 +88,10 @@ function valueOf(result: DoneCheck | undefined): string {
     if (sizes.length === 0) return "no round holes";
     const unit = sizes[0]?.unit ?? "mm";
     return `${String(sizes.length)} ${sizes.length === 1 ? "hole" : "holes"}: ${sizes.map((one) => num(one.magnitude)).join(", ")} ${unit}`;
+  }
+  if (result.check_id === "min_wall") {
+    const wall = by("min_wall");
+    if (wall) return `${num(wall.magnitude)} ${wall.unit}`;
   }
   if (result.check_id === "closed_solid") {
     const solids = by("solids");

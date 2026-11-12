@@ -5,11 +5,14 @@ from cad.checks.container.calculix import Material, NodalField, NodalLoads, Solv
 from cad.checks.container.check import Quick
 from cad.checks.container.inputs import Input
 from cad.checks.container.kernel import (
+    Across,
     EdgeUses,
     FaceInfo,
     Inertia,
     Opening,
+    Patch,
     Point,
+    Reading,
     Shape,
     StepTooLarge,
     Unreadable,
@@ -22,6 +25,7 @@ from cad.checks.container.wire import RequestWire, ValueKnown, ValueWire
 KNOWN: ValueKnown = {"kind": "known", "magnitude": 1.24e-6}
 UNREADABLE_BREP = b"unreadable"
 REPORT_CAP = 64 * 2**20
+TWO_MM = Across(2.0)
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +50,21 @@ class NoFem:
         raise NotImplementedError("this test solves nothing")
 
 
+@dataclass(frozen=True, slots=True)
+class FakeWalls:
+    """`count` square faces 10 mm a side, where every ray reads `found`."""
+
+    found: Reading | None = TWO_MM
+    count: int = 1
+
+    @property
+    def patches(self) -> tuple[Patch, ...]:
+        return (Patch(0.0, 1.0, 0.0, 1.0, 10.0, 10.0),) * self.count
+
+    def reading(self, face: int, u: float, v: float) -> Reading | None:
+        return self.found
+
+
 @dataclass(slots=True)
 class FakeKernel:
     solid_count: int = 1
@@ -62,6 +81,7 @@ class FakeKernel:
     step: bytes = b"STEP bytes"
     face_list: tuple[FaceInfo, ...] = ()
     mouths: tuple[Opening, ...] = ()
+    wall: FakeWalls = field(default_factory=FakeWalls)
 
     def read_brep(self, data: bytes) -> Shape | Unreadable:
         return Unreadable("not a BREP") if data == UNREADABLE_BREP else FakeShape()
@@ -113,6 +133,9 @@ class FakeKernel:
 
     def min_distance(self, first: Shape, second: Shape) -> float | None:
         raise NotImplementedError("no quick check measures a distance")
+
+    def walls(self, shape: Shape) -> FakeWalls:
+        return self.wall
 
     def step_bytes(self, shape: Shape, cap: int) -> bytes | StepTooLarge:
         if self.step_raises:
