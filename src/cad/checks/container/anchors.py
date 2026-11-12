@@ -4,6 +4,16 @@ from dataclasses import dataclass
 from typing import Final, assert_never
 
 from cad.checks.container.kernel import FaceInfo, Flat, Inertia, Point, Round
+from cad.checks.container.regions import (
+    Bore,
+    Candidate,
+    FarFrom,
+    Patch,
+    Plane,
+    Region,
+    Resolved,
+    Unresolved,
+)
 from cad.checks.container.vectors import add, angle, cross, dot, norm, scale, sub, unit
 from cad.checks.container.wire import (
     AxisWire,
@@ -20,70 +30,11 @@ FULL_TURN_SLACK_RAD: Final = 1e-3
 DIAMETER_TOL_MM: Final = 0.05
 DIAMETER_TOL_FRACTION: Final = 0.01
 AREA_TIE_FRACTION: Final = 1e-6
-END_ANGLE_TOL_RAD: Final = 1e-3
+END_CONE_RAD: Final = math.radians(30)
+FAR_CONE_RAD: Final = math.radians(45)
 FLUSH_TOL_FRACTION: Final = 1e-4
 LONG_TIE_FRACTION: Final = 0.01
-FAR_FRACTION: Final = 0.005
 OFF_CENTER_FRACTION: Final = 0.01
-
-
-@dataclass(frozen=True, slots=True)
-class Bore:
-    """The cylinder at `radius` around origin + t * axis, for t from t0 to t1."""
-
-    origin: Point
-    axis: Point
-    radius: float
-    t0: float
-    t1: float
-
-
-@dataclass(frozen=True, slots=True)
-class Plane:
-    point: Point
-    normal: Point
-    """Unit, pointing out of the material."""
-
-
-type Patch = Bore | Plane
-
-
-@dataclass(frozen=True, slots=True)
-class Region:
-    patches: tuple[Patch, ...]
-    centroid: Point
-    """The area-weighted centroid of the faces the anchor selected."""
-
-
-@dataclass(frozen=True, slots=True)
-class FarFrom:
-    center: Point
-    axis: Point
-    """Unit, from the support toward the part's centre of mass."""
-
-    def reach(self, point: Point) -> float:
-        return dot(sub(point, self.center), self.axis)
-
-    def cutoff(self, surface: Sequence[Point]) -> float:
-        return (1 - FAR_FRACTION) * max(self.reach(point) for point in surface)
-
-
-@dataclass(frozen=True, slots=True)
-class Candidate:
-    support: Region
-    load: Region | FarFrom
-
-
-@dataclass(frozen=True, slots=True)
-class Resolved:
-    candidates: tuple[Candidate, ...]
-    basis: tuple[Point, ...]
-    """An orthonormal basis of the directions the load may take."""
-
-
-@dataclass(frozen=True, slots=True)
-class Unresolved:
-    reason: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -121,10 +72,10 @@ def resolve(
         case "far_end":
             candidates: list[Candidate] = []
             for support in supports:
-                ends = far_from(support, inertia)
+                ends = far_ends(support, faces, inertia)
                 if isinstance(ends, Unresolved):
                     return ends
-                candidates.extend(Candidate(support, far) for far in ends)
+                candidates.extend(Candidate(support, end) for end in ends)
             return Resolved(tuple(candidates), basis)
         case "on_holes":
             loaded = load_holes(load, case["support"], faces, inertia)
@@ -135,18 +86,46 @@ def resolve(
             assert_never(load["kind"])
 
 
+def far_ends(
+    support: Region, faces: Sequence[FaceInfo], inertia: Inertia
+) -> tuple[Region | FarFrom, ...] | Unresolved:
+    """The whole flat face farthest from the support along each far line, or the line's band
+    when no flat face that bounds the part faces along it, as on a rounded tip."""
+    lines = far_from(support, inertia)
+    if isinstance(lines, Unresolved):
+        return lines
+    found: list[Region | FarFrom] = []
+    for line in lines:
+        found.extend(farthest_flats(faces, line.axis, FAR_CONE_RAD, inertia) or (line,))
+    return tuple(found)
+
+
 def far_from(support: Region, inertia: Inertia) -> tuple[FarFrom, ...] | Unresolved:
     toward = sub(inertia.center, support.centroid)
     if norm(toward) > OFF_CENTER_FRACTION * extent(inertia):
         return (FarFrom(support.centroid, unit(toward)),)
-    long = long_axis(inertia)
-    if isinstance(long, Unresolved):
+    axis = long_axis(inertia)
+    if isinstance(axis, Unresolved):
         return Unresolved(
             "the support sits at the part's centre of mass and the part has no unique long "
             "axis, so no end of the part is the far one"
         )
-    _, axis = long
     return (FarFrom(support.centroid, axis), FarFrom(support.centroid, scale(axis, -1)))
+
+
+def farthest_flats(
+    faces: Sequence[FaceInfo], way: Point, cone: float, inertia: Inertia
+) -> tuple[Region, ...]:
+    """The flat faces that bound the part, face within `cone` of `way`, and whose centroid
+    reaches farthest along it, each with the faces flush with it. Faces tied for farthest are
+    each a region."""
+    tol = FLUSH_TOL_FRACTION * extent(inertia)
+    facing = [face for face, flat in _bounding_flats(faces, tol) if angle(flat.normal, way) <= cone]
+    if not facing:
+        return ()
+    farthest = max(dot(face.centroid, way) for face in facing)
+    tied = [face for face in facing if dot(face.centroid, way) >= farthest - tol]
+    return _distinct_planes(tied, faces, inertia)
 
 
 def support_regions(
@@ -223,36 +202,49 @@ def largest_flats(faces: Sequence[FaceInfo], inertia: Inertia) -> tuple[Region, 
 
 
 def flat_ends(faces: Sequence[FaceInfo], inertia: Inertia) -> tuple[Region, ...] | Unresolved:
-    long = long_axis(inertia)
-    if isinstance(long, Unresolved):
-        return long
-    index, axis = long
+    """At each end of the long axis, the farthest flat face that bounds the part and faces within
+    END_CONE_RAD of the axis. When spreads tie, any direction in the tied axes' span is a long
+    axis, so each bounding face within the cone of that span gives its own end."""
     tol = FLUSH_TOL_FRACTION * extent(inertia)
+    span = long_span(inertia)
+    ways: list[Point] = []
+    for _, flat in _bounding_flats(faces, tol):
+        along = _projected(flat.normal, span)
+        if norm(along) < math.cos(END_CONE_RAD):
+            continue
+        way = unit(along)
+        if not any(angle(way, seen) <= ANGLE_TOL_RAD for seen in ways):
+            ways.append(way)
     regions: list[Region] = []
-    for sign, extreme in ((1.0, inertia.spans[index][1]), (-1.0, inertia.spans[index][0])):
-        outward = scale(axis, sign)
-        at_end = [
-            face
-            for face in faces
-            if isinstance(face.surface, Flat)
-            and angle(face.surface.normal, outward) <= END_ANGLE_TOL_RAD
-            and abs(dot(sub(face.centroid, inertia.center), axis) - extreme) <= tol
-        ]
-        if at_end:
-            regions.extend(_distinct_planes(at_end, at_end, inertia))
+    for way in ways:
+        for region in farthest_flats(faces, way, END_CONE_RAD, inertia):
+            if not any(_coplanar(region.patches[0], seen.patches[0], tol) for seen in regions):
+                regions.append(region)
     if not regions:
-        return Unresolved("neither end of the long axis is a flat face")
+        return Unresolved(
+            "no flat face that bounds the part faces within 30° of either end of the long axis"
+        )
     return tuple(regions)
 
 
-def long_axis(inertia: Inertia) -> tuple[int, Point] | Unresolved:
-    spreads = sorted(((s, i) for i, s in enumerate(second_moments(inertia))), reverse=True)
-    (first, index), (second, _) = spreads[0], spreads[1]
-    if first - second <= LONG_TIE_FRACTION * first:
+def long_axis(inertia: Inertia) -> Point | Unresolved:
+    first, *tied = long_span(inertia)
+    if tied:
         return Unresolved(
             "the part has no unique long axis: its two largest volume spreads are within 1%"
         )
-    return index, inertia.axes[index]
+    return first
+
+
+def long_span(inertia: Inertia) -> tuple[Point, ...]:
+    """The principal axes whose volume spread is within LONG_TIE_FRACTION of the largest."""
+    spreads = second_moments(inertia)
+    first = max(spreads)
+    return tuple(
+        axis
+        for axis, spread in zip(inertia.axes, spreads, strict=True)
+        if first - spread <= LONG_TIE_FRACTION * first
+    )
 
 
 def second_moments(inertia: Inertia) -> tuple[float, ...]:
@@ -289,8 +281,7 @@ def _named_axis(
     name: AxisWire, support: SupportWire, faces: Sequence[FaceInfo], inertia: Inertia
 ) -> Point | Unresolved:
     if name == "long":
-        long = long_axis(inertia)
-        return long if isinstance(long, Unresolved) else long[1]
+        return long_axis(inertia)
     if support["kind"] != "holes":
         return Unresolved("the hole axis needs a support through holes")
     held = support_holes(support, faces, inertia)
@@ -337,12 +328,33 @@ def _distinct_planes(
 
 
 def _flush(face: FaceInfo, patch: Patch, tol: float) -> bool:
-    return (
-        isinstance(face.surface, Flat)
-        and isinstance(patch, Plane)
-        and angle(face.surface.normal, patch.normal) <= ANGLE_TOL_RAD
-        and abs(dot(sub(face.centroid, patch.point), patch.normal)) <= tol
+    return isinstance(face.surface, Flat) and _coplanar(
+        Plane(face.centroid, face.surface.normal), patch, tol
     )
+
+
+def _coplanar(plane: Patch, patch: Patch, tol: float) -> bool:
+    return (
+        isinstance(plane, Plane)
+        and isinstance(patch, Plane)
+        and angle(plane.normal, patch.normal) <= ANGLE_TOL_RAD
+        and abs(dot(sub(plane.point, patch.point), patch.normal)) <= tol
+    )
+
+
+def _bounding_flats(faces: Sequence[FaceInfo], tol: float) -> list[tuple[FaceInfo, Flat]]:
+    return [
+        (face, face.surface)
+        for face in faces
+        if isinstance(face.surface, Flat) and face.surface.beyond <= tol
+    ]
+
+
+def _projected(vector: Point, span: Sequence[Point]) -> Point:
+    found: Point = (0.0, 0.0, 0.0)
+    for axis in span:
+        found = add(found, scale(axis, dot(vector, axis)))
+    return found
 
 
 def _same_line(first: Round, second: Round, tol: float) -> bool:

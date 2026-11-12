@@ -128,6 +128,8 @@ def score_variant(variant_id, material_key, root, against: Against = NO_BRIEF) -
 
 ### 2.1 Load cases
 
+The ADR-0007 amendment adds load cases the agent describes from a closed list of terms. [fea-described-loads.md](fea-described-loads.md) covers them. This section covers the five reviewed phrases.
+
 **Types** (new `src/cad/loads/model.py`, which is pydantic domain code. It sits outside `briefs/` so it does not collide with phase 2, and `briefs/model.py` imports it):
 
 ```python
@@ -208,10 +210,10 @@ class LoadCase(_Frozen):
 | `Holes(n, d)` | A *hole* is a set of concave cylindrical faces with one common axis line (direction within 1e-6 rad, offset within 1e-6 × extent) whose angular spans add up to ≥ 2π − 1e-3. So concave fillets (90°) and slots are not holes, and a counterbore's coaxial faces are one hole. The hole's diameter is twice its smallest radius. If `d` is given, keep holes with \|2r − d\| ≤ max(0.05 mm, 1% d). Region: the smallest-radius bore faces as `Bore(origin, axis, r, t0, t1)`. | the number kept ≠ n → `unknown`, with a reason that names both counts |
 | `hole_axis` | the axis direction shared by the selected holes | the holes are not parallel → `unknown` |
 | `LargestFlat` | the planar face(s) of largest area. Region: `Plane(point, normal, tol)`, so faces flush with it come along | none planar → `unknown`. A tie within 1e-6 relative → each candidate is solved and the worst is kept |
-| `FlatEnd` | `LONG` axis from the volume inertia tensor. Candidates: the planar faces whose normal is within 1e-3 rad of ±LONG, at each extreme of the solid's projection on LONG | no such face at either extreme → `unknown`. Both ends qualify → both solved, worst kept |
-| `FarEnd` | c = area-weighted centroid of the support region, a = unit vector from c to the solid's centre of mass, R = largest reach (p − c)·a of a surface node p. Region: the boundary triangles whose every node reaches at least (1 − 0.005)·R. Reach is measured along a, not in a straight line, so a whole flat end square to a is selected, not only its corners (#95) | c is within 1% of the largest extent from the centre of mass (no end is the far one) → `unknown`. The region has no triangle → `unknown` |
+| `FlatEnd` | `LONG` axis from the volume inertia tensor. A face *bounds the part* when no material lies beyond its plane (within 1e-4 × extent). At each end of `LONG`, the end is the planar face that bounds the part, whose outward normal is within 30° of that end of `LONG`, and whose centroid lies farthest along it. Faces flush with it (same plane) are part of the same end. When the two largest spreads tie, any direction in the tied axes' span is a long axis, so each bounding face whose normal is within 30° of that span gives the end along its own projected normal. Region: `Plane(point, normal)`. The rule was 1e-3 rad at the extreme of the projection until option A of [the anchor note](fea-load-anchors.md), which an L bracket's 15° tilt failed | no such face at either end → `unknown`. Several ends qualify, or faces tie for farthest → each solved, worst kept |
+| `FarEnd` | c = area-weighted centroid of the support region, a = unit vector from c to the solid's centre of mass. Region: the whole planar face that bounds the part, whose outward normal is within 45° of a, and whose centroid reaches farthest along a, with the faces flush with it. When no planar face qualifies, as on a rounded tip, the band rule applies: R = largest reach (p − c)·a of a surface node p, and the region is the boundary triangles whose every node reaches at least (1 − 0.005)·R. Reach is measured along a, not in a straight line, so a whole flat end square to a is selected, not only its corners (#95). When c is at the centre of mass, each end of `LONG` is a line a | c is within 1% of the largest extent from the centre of mass and the part has no unique `LONG` → `unknown`. The band has no triangle → `unknown`. Faces tied for farthest → each solved, worst kept |
 | `OnHoles` | same hole rule as `Holes`, applied to the holes that are not supports | count mismatch → `unknown` |
-| `LONG` | eigenvector of the largest principal extent | the two largest principal moments are within 1% of each other (no unique long axis) → `unknown` |
+| `LONG` | eigenvector of the largest principal extent | the two largest principal moments are within 1% of each other (no unique long axis) → `unknown` for a direction along or across `LONG`. `FlatEnd` uses the tied span instead |
 
 Why the agent cannot bias this:
 
@@ -240,7 +242,7 @@ The peak is the maximum over nodes, scaled by |F|. The sign of the load does not
 - The largest displacement is above 5% of the largest extent, which is outside small-displacement theory.
 - No yield strength. Then only `safety_factor` is dropped, and displacement still reports.
 
-**Mesh rule** (constants in `mesher.py`, which `fea.py` imports, so the check version covers them): t5 is the 5th-percentile wall thickness from `thickness.py`, which is shared with printability. The coarse mesh uses h = clamp(t5, 0.2 mm, extent_max/20) and the fine mesh uses h/1.5. Both are second-order tetrahedra (C3D10), with `MeshSizeFromCurvature=24`. The validation suite tuned these constants once (PR 4), and they are now frozen in `mesher.py`: t5/2 put the clamped plate over the node cap, and 12 elements per circle left the hole's peak stress noisy to 2.8%. When either mesh would exceed the node cap, both are meshed again with no element under half their size (`FLOOR_FRACTION`), so the fine mesh stays 1.5 times finer everywhere and the 3% gate still decides trust. A part under the cap meshes as before (#176).
+**Mesh rule** (constants in `mesher.py`, which `fea.py` imports, so the check version covers them): t5 is the 5th-percentile wall thickness from `thickness.py`, which is shared with printability. The coarse mesh uses h = clamp(t5, 0.2 mm, extent_max/20) and the fine mesh uses h/1.5. Both are second-order tetrahedra (C3D10), with `MeshSizeFromCurvature=24`. The validation suite tuned these constants once (PR 4), and they are now frozen in `mesher.py`: t5/2 put the clamped plate over the node cap, and 12 elements per circle left the hole's peak stress noisy to 2.8%. When either mesh would exceed the node cap, both are meshed again with one floor, half the coarse size (`FLOOR_FRACTION` × h), under which no element goes. A part under the cap meshes as before (#176). The cost: where the curvature rule would go below the floor, as at a 1 mm fillet, both meshes have the same element size, so the 3% gate no longer tests refinement there. It still tests it everywhere the fine mesh is above the floor. The operator accepted this on 2026-11-11 "for now", so that thin, filleted parts such as an I-beam arm get a verdict, and it can be revisited ([anchor note](fea-load-anchors.md#not-an-anchor-the-node-cap-floor-on-thin-filleted-walls)). Each floor tried before it is measured there.
 
 ### 2.2 New requirement kinds (`briefs/model.py`, after phase 2 lands)
 
@@ -517,7 +519,8 @@ Per-job limits come from `BUDGET`:
 |---|---|---|---|
 | Axial bar | 100×10×10, `FlatEnd` fixed, `FarEnd` Along LONG, ν=0.3 | δ = PL/(EA) | δ ≤ 2% |
 | Slender cantilever | 200×10×5, fixed end, tip load across weak axis, ν=0.3 | δ = PL³/(3EI) + PL/(κGA), Timoshenko & Gere | δ ≤ 3% |
-| Cantilever root stress | same, ν=0 so the clamp adds no Poisson singularity | σ = PLc/I | σ ≤ 5% |
+| Cantilever on a mounting plate | the same arm on a 10×30×40 plate that sits 30 mm below it, plate's back face fixed, tip load. These are the faces `FlatEnd` resolves on it, with the long axis 4.5° off the arm. Option A of [the anchor note](fea-load-anchors.md) | as case 2. The plate's root compliance measured +1.7% | δ ≤ 3% |
+| Cantilever root stress | same as case 2, ν=0 so the clamp adds no Poisson singularity | σ = PLc/I | σ ≤ 5% |
 | Clamped circular plate | r=50, t=2.5, rim fixed, 1 mm-radius central patch load | w = Pa²/(16πD), Roark Table 11.2 | w ≤ 5% |
 | Plate with hole | 200×40×4, d=8, one end fixed, tension at the other | σ_max = Kt·σ_nom, Kt = 2 + (1 − d/W)³, Heywood via Peterson's | σ ≤ 7% |
 | End to end | the beam above as build123d code, brief "fixed at one end, 10 N at the tip, deflects at most X", via `score_variant` | as case 2 | requirement verdict matches the hand calc on each side of X ±5% |

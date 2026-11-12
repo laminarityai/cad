@@ -1,10 +1,10 @@
+import math
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from typing import Final
 
 from cad.checks.container import anchors, closed_solid, interference
-from cad.checks.container.anchors import Bore, Candidate, Plane, Resolved, Unresolved
 from cad.checks.container.calculix import Material, NodalField, SolveFailed
 from cad.checks.container.check import (
     DIMENSIONLESS,
@@ -36,16 +36,28 @@ from cad.checks.container.mesher import (
     mesh_pair,
     mesh_sizes,
 )
+from cad.checks.container.regions import FAR_FRACTION, Bore, Candidate, Plane, Resolved, Unresolved
 from cad.checks.container.vectors import Point, cross, dot, norm, sub
 from cad.checks.container.wire import FindingWire, MeasuredWire, SourceLiteral
 
 ID = "fea"
+_END_DEG: Final = math.degrees(anchors.END_CONE_RAD)
+_FAR_DEG: Final = math.degrees(anchors.FAR_CONE_RAD)
 FORMULA = (
     "linear static finite element analysis of the confirmed load case: 10-node tetrahedra "
     "meshed at min(max(wall, 0.2 mm), extent / 20) and again 1.5 times finer, wall = 2 * "
     "volume / surface area, refined to the part's curvature; when either mesh would have more "
-    "than 150,000 nodes, both are meshed again with no element under half their size; the "
-    "supports' surface nodes are fixed and the force is spread "
+    "than 150,000 nodes, both are meshed again with no element under half the coarse size, so "
+    "near a small fillet both meshes have the same size and their change does not test "
+    "refinement there; a flat "
+    f"end is the flat face that bounds the part, faces within {_END_DEG:g} degrees of the long "
+    "axis and "
+    "lies farthest along it, with the faces flush with it, and when the two largest volume "
+    "spreads tie each tied direction gives ends; the far end is the flat face that bounds the "
+    f"part, faces within {_FAR_DEG:g} degrees of the line from the support to the centre of mass "
+    "and lies farthest along it, or, when no flat face does, the surface within "
+    f"{FAR_FRACTION:.1%} of the largest "
+    "reach along that line; the supports' surface nodes are fixed and the force is spread "
     "uniformly over the loaded faces; a direction the load case leaves free goes to the worst "
     "case over unit solves; max_displacement and max_von_mises are the fine mesh's largest, "
     "von Mises stress within 0.5 * bore diameter of a support hole is reported as "
@@ -181,7 +193,10 @@ def judged(
     floored = (
         ""
         if over_cap is None
-        else f"; both meshes keep every element at least half their size, because {over_cap.reason}"
+        else (
+            "; both meshes keep every element at least half the coarse size, because "
+            f"{over_cap.reason}"
+        )
     )
     measured = [
         *echoed,

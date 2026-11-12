@@ -3,7 +3,6 @@ import random
 
 import pytest
 
-from cad.checks.container.anchors import Bore, FarFrom, Patch, Plane, Region, Unresolved
 from cad.checks.container.elastic import (
     Stress,
     contains,
@@ -15,6 +14,7 @@ from cad.checks.container.elastic import (
     worst_von_mises,
 )
 from cad.checks.container.mesher import TetMesh
+from cad.checks.container.regions import Bore, FarFrom, Patch, Plane, Region, Unresolved
 from cad.checks.container.vectors import Point
 
 NODES = 20

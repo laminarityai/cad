@@ -58,7 +58,7 @@ class OverCap(MeshFailed):
 class MeshPair:
     """The two meshes the check compares. `over_cap` is set when the meshes refined to the part's
     curvature held too many nodes, so these two keep every element at least `FLOOR_FRACTION` of
-    their size."""
+    the coarse size."""
 
     coarse: TetMesh
     fine: TetMesh
@@ -113,25 +113,27 @@ OPTIONS: Final = {
 
 
 def mesh_pair(mesh: Mesher, sizes: MeshSizes) -> MeshPair | MeshFailed:
-    """Mesh at both sizes. When either mesh is over the node cap, mesh both again with no element
-    under `FLOOR_FRACTION` of its size, so the fine mesh stays 1.5 times finer everywhere and the
-    coarse against fine change still decides whether the answer is trusted. Only a part over the
-    cap is meshed differently."""
+    """Mesh at both sizes. When either mesh is over the node cap, mesh both again with one floor,
+    `FLOOR_FRACTION` of the coarse size, under which no element goes. Where the curvature rule
+    would go below it, as on a small fillet, both meshes then have the same size, so there the
+    coarse against fine change no longer tests refinement. The operator accepted that on
+    2026-11-11 so that thin, filleted parts get a verdict. Only a part over the cap is meshed
+    differently."""
     refined = _pair(mesh, sizes, 0.0)
     if not isinstance(refined, OverCap):
         return refined
-    floored = _pair(mesh, sizes, FLOOR_FRACTION)
+    floored = _pair(mesh, sizes, FLOOR_FRACTION * sizes.coarse)
     if isinstance(floored, MeshFailed):
         return MeshFailed(f"{refined.reason}; {floored.reason}")
     return MeshPair(floored.coarse, floored.fine, refined)
 
 
-def _pair(mesh: Mesher, sizes: MeshSizes, floor: float) -> MeshPair | MeshFailed:
+def _pair(mesh: Mesher, sizes: MeshSizes, floor_mm: float) -> MeshPair | MeshFailed:
     meshes: list[TetMesh] = []
     for size in (sizes.coarse, sizes.fine):
-        made = mesh(size, floor * size)
+        made = mesh(size, floor_mm)
         if isinstance(made, MeshFailed):
-            under = f" with no element under {floor * size:g} mm" if floor else ""
+            under = f" with no element under {floor_mm:g} mm" if floor_mm else ""
             verb = " " if isinstance(made, OverCap) else " failed: "
             return replace(made, reason=f"the mesh at {size:g} mm{under}{verb}{made.reason}")
         meshes.append(made)

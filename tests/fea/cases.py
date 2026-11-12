@@ -2,8 +2,8 @@ import math
 from dataclasses import dataclass
 from typing import Literal
 
-from cad.checks.container.anchors import Bore, FarFrom, Plane, Region
 from cad.checks.container.calculix import Material
+from cad.checks.container.regions import Bore, FarFrom, Plane, Region
 from cad.checks.container.vectors import Point
 
 type Measure = Literal["max_displacement", "max_von_mises"]
@@ -107,6 +107,23 @@ result = Box(200, {HOLE_W}, {HOLE_T}, align=(Align.MIN, Align.MIN, Align.MIN)) -
 ) * Cylinder({HOLE_D / 2}, {HOLE_T})
 """
 
+PLATE_X, PLATE_Y, PLATE_Z = 10.0, 30.0, 40.0
+PLATE_BELOW = 30.0
+PLATED_BEAM_CODE = f"""\
+from build123d import Align, Box, Pos
+
+low = (Align.MIN, Align.MIN, Align.MIN)
+plate = Pos(-{PLATE_X}, -{(PLATE_Y - BEAM_B) / 2}, -{PLATE_BELOW}) * Box(
+    {PLATE_X}, {PLATE_Y}, {PLATE_Z}, align=low
+)
+result = plate + Box({BEAM_L}, {BEAM_B}, {BEAM_H}, align=low)
+"""
+PLATE_BACK = Region(
+    (Plane((-PLATE_X, 0.0, 0.0), (-1.0, 0.0, 0.0)),),
+    (-PLATE_X, BEAM_B / 2, PLATE_Z / 2 - PLATE_BELOW),
+)
+ARM_TIP = Region((Plane((BEAM_L, 0.0, 0.0), (1.0, 0.0, 0.0)),), (BEAM_L, BEAM_B / 2, BEAM_H / 2))
+
 CASES: tuple[Case, ...] = (
     Case(
         name="axial bar",
@@ -160,6 +177,20 @@ CASES: tuple[Case, ...] = (
         expected=BEAM_P * BEAM_L * (BEAM_H / 2) / BEAM_I,
         tolerance=0.05,
         reference="sigma = PLc/I",
+    ),
+    Case(
+        name="cantilever on a mounting plate",
+        code=PLATED_BEAM_CODE,
+        material=STEEL,
+        fixed=PLATE_BACK,
+        loaded=ARM_TIP,
+        force=(0.0, 0.0, -BEAM_P),
+        measure="max_displacement",
+        expected=timoshenko_tip(STEEL),
+        tolerance=0.03,
+        reference=(
+            "the arm's delta = PL^3/(3EI) + PL/(kGA); the plate's root compliance measured +1.7%"
+        ),
     ),
     Case(
         name="clamped circular plate",

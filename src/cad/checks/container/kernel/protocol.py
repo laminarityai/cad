@@ -32,6 +32,9 @@ class VolumeProps(NamedTuple):
 class Flat:
     normal: Point
     """Unit, pointing out of the material."""
+    beyond: float
+    """How far the solid reaches past this face's plane along `normal`. About zero when the face
+    bounds the part, so that no material lies beyond its plane."""
 
 
 @dataclass(frozen=True, slots=True)

@@ -23,6 +23,8 @@ The parts that resolve are bars whose long axis is normal to their end faces, su
 
 ## Option A: choose ends from whole flat faces, with the same words
 
+*Built on 2026-11-11, after the operator approved it. The rule below is the one in `anchors.py`, with its angle limits as constants there (`END_CONE_RAD`, `FAR_CONE_RAD`). What the corpus shows now is under [Corpus after option A](#corpus-after-option-a).*
+
 Keep every anchor word and change the rules behind `flat_end` and `far_end`.
 
 - **`flat_end`.** An end is a flat face that bounds the part (no material lies beyond its plane) and whose outward normal is within 30° of the long axis. At each end of the long axis, the end is the qualifying face whose centroid lies farthest along the axis. A face within `FLUSH_TOL_FRACTION` of it is part of the same end. When the two largest spreads tie, each tied axis gives candidates, and the check keeps the worst result, as it does for any tie.
@@ -39,6 +41,25 @@ Harness cases A needs:
 1. `tests/checks/test_anchors.py`, with fake faces: an L picks its wall face and its arm tip at a 15° tilt; a face 40° off the axis is not an end; a chamfer next to a flat end is not chosen; the far end of a bolted L is its whole tip face.
 2. `tests/checks/test_anchors_in_image.py`: the same L and the T arm with its plate resolve to the same faces under the existing set of rotations and moves.
 3. `tests/fea/cases.py`: a cantilever with a thick, off-centre mounting plate, fixed on the plate's back face and loaded at the arm tip. The expected value is the arm's Timoshenko tip deflection. Its bound has to be measured first, as §2.9 did for the existing bounds, because the plate adds some root compliance.
+
+### Corpus after option A
+
+The same 19 parts, scored through `score_variant` on the same day: on `main`, with option A, and with option A and the shared mesh floor below. Each fea verdict is the check's own. The last row is `i_beam_flat`, a 20th part kept apart because it is the part Auto built in #176.
+
+| Where the check stops | `main` | Option A | Option A and the shared floor |
+|---|---|---|---|
+| Decided | 4 | 7 | 7 |
+| Stopped at an anchor | 11 | 4 | 4 |
+| Stopped at the large-displacement gate | 4 | 8 | 8 |
+| Over the node cap | 0 | 0 | 0 |
+| `i_beam_flat` | over the cap | over the cap | decided |
+
+- The 7 parts that now resolve are the 7 the measured angles predicted: `l_plain`, `l_holes`, `l_gusset`, `t_arm`, `t_arm_flat_end`, `shelf_web` and `square_tab`.
+- 3 of them are decided. Each corpus part carries one `max_deflection` requirement: `l_gusset` and `square_tab` meet it, and `shelf_web` fails it.
+- The other 4 solve, then stop at the 5% gate, from 6.1 mm on the T arms to 11.8 mm on the L brackets. Each is a 20 N load on a PLA part that bends far past any deflection limit a person would set. The gate, not the anchor, now stops them. See [the large-displacement gate](#not-an-anchor-the-large-displacement-gate).
+- The 4 left at an anchor are the ones the note expected: `equal_angle`, `sb_gusset` and the two hole counts.
+- The shared floor changes no verdict among the 19. Only `i_beam_arm` is over the cap, and its displacement moved from 2.4217 to 2.4209 mm.
+- No part that resolved on `main` changed its verdict. On 3 of them the load now spreads over the whole tip face instead of the band, and the peak displacement moved by under 1%: `l_filleted` 11.02 to 10.99 mm, `truss_arm` 13.27 to 13.17 mm, `i_beam_arm` 2.421 to 2.422 mm.
 
 ## Option B: new words in the closed vocabulary
 
@@ -64,9 +85,11 @@ Harness cases C needs: few new numeric cases, because the region is given. It ne
 
 Do option A first. It fixes the cantilever arms with plates and the L brackets that people ask about most, and the person confirms the same words with no extra step. Add option B one kind at a time, starting with hole ties and the face press of #209, when the corpus or a walk shows the need. Keep option C out of load cases unless a brief appears that no geometry rule can express.
 
+After this note, the operator chose a wider route than option B. The ADR-0007 amendment lets the agent describe a load case from a closed list of terms that compose, so the vocabulary does not grow one word at a time. [fea-described-loads.md](fea-described-loads.md) has the terms and the build order, and it builds on option A.
+
 ## Not an anchor: the large-displacement gate
 
-4 corpus parts resolve and mesh, then stop at the 5% gate for linear analysis: `cantilever_bar` (5.6 mm on 100 mm), `l_filleted` (11.0 mm), `hook` (3.6 mm on 59 mm) and `truss_arm` (13.3 mm). Each is far over any deflection limit a person would set, yet the requirement is unknown. A geometrically nonlinear solve (`NLGEOM`) would decide them, but it breaks the superposition of unit solves that the worst-direction search relies on. This needs its own issue.
+On `main`, 4 corpus parts resolve and mesh, then stop at the 5% gate for linear analysis. With option A it is 8. The first 4 are `cantilever_bar` (5.6 mm on 100 mm), `l_filleted` (11.0 mm), `hook` (3.6 mm on 59 mm) and `truss_arm` (13.3 mm). Each is far over any deflection limit a person would set, yet the requirement is unknown. A geometrically nonlinear solve (`NLGEOM`) would decide them, but it breaks the superposition of unit solves that the worst-direction search relies on. This needs its own issue.
 
 ## Not an anchor: the node-cap floor on thin, filleted walls
 
@@ -79,3 +102,7 @@ With the floor at half each mesh's size, `i_beam_arm` (a 100 mm I-beam with 1 mm
 | One floor for both meshes, half the coarse size | 87,152 | No inverted element. Near the fillets, though, both meshes have the same size, so the 3% gate no longer tests refinement there. |
 
 The third is the smallest change that fits. It weakens what the gate proves near fillets, so it is a decision for the operator, not a tuning.
+
+**Built: one floor for both meshes.** The operator approved the third row on 2026-11-11 "for now", so that the stress check can move on, and it can be revisited. When either mesh is over the cap, both are meshed again with no element under half the coarse size. The constant is `FLOOR_FRACTION` in `mesher.py`, where the agent cannot change it. The cost is stated in the check's formula text and in [phase 3](phase-3.md) §2.1: near the fillets both meshes have the same element size, so the 3% gate does not test refinement there.
+
+On `main` and with option A alone, `i_beam_flat`'s floored fine mesh has 157,703 nodes, over the cap. With the shared floor of 0.90 mm, the floored meshes have 63,453 and 87,838 nodes, under the cap of 150,000, measured in the check image. Scored through `score_variant`, the part gets a verdict: the fea check passes with a safety factor of 3.47, and its `max_deflection` requirement fails at 2.19 mm. The two meshes' displacements differ by 0.04%. That small change is the cost above showing up: near the fillets the two meshes are the same.

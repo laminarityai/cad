@@ -105,9 +105,9 @@ def test_meshes_under_the_node_cap_keep_the_curvature_rule() -> None:
     assert isinstance(pair, MeshPair) and pair.over_cap is None
 
 
-def test_a_fine_mesh_over_the_cap_floors_both_meshes_at_half_their_size() -> None:
+def test_a_fine_mesh_over_the_cap_floors_both_meshes_at_half_the_coarse_size() -> None:
     pair = mesh_pair(mesher(over_cap_below=2.5), SIZES)
-    assert made_at(pair) == ((3.0, 1.5), (2.0, 1.0))
+    assert made_at(pair) == ((3.0, 1.5), (2.0, 1.5))
     assert isinstance(pair, MeshPair) and pair.over_cap is not None
     assert pair.over_cap.reason == f"the mesh at 2 mm {OVER}"
 

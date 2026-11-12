@@ -2,15 +2,9 @@ import math
 from collections.abc import Sequence
 
 from cad.checks.container import anchors
-from cad.checks.container.anchors import (
-    Bore,
-    FarFrom,
-    Region,
-    Resolved,
-    Unresolved,
-    resolve,
-)
+from cad.checks.container.anchors import resolve
 from cad.checks.container.kernel import ocp_kernel
+from cad.checks.container.regions import Bore, FarFrom, Region, Resolved, Unresolved
 from cad.checks.container.wire import (
     DirectionWire,
     HolesWire,
@@ -18,7 +12,7 @@ from cad.checks.container.wire import (
     LoadWire,
     SupportWire,
 )
-from tests.support.solids import Solid, box, cut, fillet_edges, fuse, rod, through_hole
+from tests.support.solids import Solid, box, cut, fillet_edges, fuse, prism, rod, through_hole
 
 KERNEL = ocp_kernel()
 TOL = 1e-6
@@ -54,6 +48,25 @@ ROUNDED_BAR = fuse(BAR, rod(5, 6, (100, 5, 0)))
 CUBE = box(10, 10, 10)
 FLIPPED = cut(box(60, 20, 5), through_hole(5.5, 10, 10), rod(2.75, 7, (50, 10, 6), (0, 0, -1)))
 PINNED = fuse(PLATE, rod(2.75, 4, (30, 10, 5)))
+L_BRACKET = fuse(box(5, 30, 50, at=(0, 0, -45)), box(100, 30, 5))
+BOLTED_L = cut(L_BRACKET, *(rod(2.25, 7, (-1, 15, z), (1, 0, 0)) for z in (-12, -35)))
+T_ARM = fuse(
+    box(4, 40, 40, at=(0, -20, -20)),
+    box(100, 20, 3, at=(0, -10, 17)),
+    box(100, 3, 15, at=(0, -1.5, 2)),
+)
+CHAMFER_DEG = 20.0
+CHAMFERED_BAR = prism(
+    [(0, 0), (100, 0), (100, 6), (100 - 4 * math.tan(math.radians(CHAMFER_DEG)), 10), (0, 10)],
+    6,
+    z=0,
+)
+SLANT_DEG = 40.0
+SLANTED_BAR = prism(
+    [(0, 0), (200, 0), (200 - 10 * math.tan(math.radians(SLANT_DEG)), 10), (0, 10)], 6, z=0
+)
+SQUARE_TAB = box(50, 50, 4)
+NOSED_BAR = fuse(BAR, rod(3, 6, (100, 5, 0)))
 
 
 def holes(count: int, diameter_mm: float | None = 5.5) -> HolesWire:
