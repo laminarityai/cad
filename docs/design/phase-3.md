@@ -235,12 +235,12 @@ The peak is the maximum over nodes, scaled by |F|. The sign of the load does not
 
 **Gates.** Each gate gives `unknown` for that load case. The other cases still report.
 
-- The mesh fails, or the fine mesh exceeds 150k nodes.
+- The mesh fails, or a mesh still exceeds 150k nodes with the floor below.
 - The displacement change between the coarse and fine mesh is above 3%.
 - The largest displacement is above 5% of the largest extent, which is outside small-displacement theory.
 - No yield strength. Then only `safety_factor` is dropped, and displacement still reports.
 
-**Mesh rule** (constants in `mesher.py`, which `fea.py` imports, so the check version covers them): t5 is the 5th-percentile wall thickness from `thickness.py`, which is shared with printability. The coarse mesh uses h = clamp(t5, 0.2 mm, extent_max/20) and the fine mesh uses h/1.5. Both are second-order tetrahedra (C3D10), with `MeshSizeFromCurvature=24`. The validation suite tuned these constants once (PR 4), and they are now frozen in `mesher.py`: t5/2 put the clamped plate over the node cap, and 12 elements per circle left the hole's peak stress noisy to 2.8%.
+**Mesh rule** (constants in `mesher.py`, which `fea.py` imports, so the check version covers them): t5 is the 5th-percentile wall thickness from `thickness.py`, which is shared with printability. The coarse mesh uses h = clamp(t5, 0.2 mm, extent_max/20) and the fine mesh uses h/1.5. Both are second-order tetrahedra (C3D10), with `MeshSizeFromCurvature=24`. The validation suite tuned these constants once (PR 4), and they are now frozen in `mesher.py`: t5/2 put the clamped plate over the node cap, and 12 elements per circle left the hole's peak stress noisy to 2.8%. When either mesh would exceed the node cap, both are meshed again with no element under half their size (`FLOOR_FRACTION`), so the fine mesh stays 1.5 times finer everywhere and the 3% gate still decides trust. A part under the cap meshes as before (#176).
 
 ### 2.2 New requirement kinds (`briefs/model.py`, after phase 2 lands)
 
