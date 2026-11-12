@@ -1,6 +1,7 @@
 import type { Tessellated } from "@/api/types";
-import { toScreen, zoomToFit, type ScreenPoint, type Vec3 } from "./dimensions";
+import { toScreen, zoomToFit, type Axis, type ScreenPoint, type Vec3 } from "./dimensions";
 import type { MeshReading } from "./readout";
+import type { Section } from "./section";
 import type { Pick } from "./selection";
 import { FACE_PARTS } from "./where";
 
@@ -20,6 +21,9 @@ export interface Mounted {
    * moved. A point behind the camera is null. Zooms out first when they would fall off the canvas.
    * Returns the call that stops it. */
   track(points: readonly Vec3[], listener: (screen: readonly (ScreenPoint | null)[]) => void): () => void;
+  /** Cuts the part, and the context part beside it, square to an axis with the library's clipping planes, and
+   * null puts the whole part back. The cut stays across `show()`. */
+  section(plane: Section | null): void;
   stop(): void;
 }
 
@@ -50,6 +54,15 @@ function numberIn(row: unknown, key: string): number | null {
   const value = (row as Record<string, unknown>)[key];
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
+
+/** The library keeps the side of the plane its normal points to, so each axis keeps the low side and the cut
+ * face looks at the camera the viewer starts with, which stands at +x, +y and +z of the part. */
+const CUT_NORMAL: readonly Vector3Tuple[] = [
+  [-1, 0, 0],
+  [0, -1, 0],
+  [0, 0, -1],
+];
+const AXIS_AT: Record<Axis, 0 | 1 | 2> = { x: 0, y: 1, z: 2 };
 
 const EDGE: Record<Theme, number> = { light: 0x2a3236, dark: 0xb9c1be };
 
@@ -137,6 +150,32 @@ export const threeCadViewer: ViewerEngine = {
       });
     };
 
+    // The library clips only while its clip tab is the active one. It has three planes and all three cut
+    // while it does, so the two the person did not choose sit far beyond the part.
+    let cut: Section | null = null;
+    let planes: Axis | null = null;
+    const cutAt = (plane: Section) => {
+      const centre = viewer.rendered.clipping.center;
+      return plane.at - (centre?.[AXIS_AT[plane.axis]] ?? 0);
+    };
+    const applyCut = () => {
+      const plane = cut;
+      if (plane === null) {
+        planes = null;
+        viewer.setActiveTab("tree", false);
+      } else if (planes === plane.axis) {
+        viewer.setClipSlider(AXIS_AT[plane.axis], cutAt(plane), false);
+      } else {
+        const open = viewer.gridSize;
+        CUT_NORMAL.forEach((normal, index) => {
+          viewer.setClipNormal(index as 0 | 1 | 2, normal, index === AXIS_AT[plane.axis] ? cutAt(plane) : open, false);
+        });
+        viewer.setActiveTab("clip", false);
+        planes = plane.axis;
+      }
+      viewer.update(true, false);
+    };
+
     return {
       track(points, listener) {
         const onCanvas = () => {
@@ -174,7 +213,9 @@ export const threeCadViewer: ViewerEngine = {
         const camera = same(drawn.bb, next.bb) ? viewer.getCameraLocationSettings() : null;
         drawn = next;
         viewer.clear();
+        planes = null;
         draw(next);
+        applyCut();
         if (camera) {
           const [position, quaternion, target] = [camera.position, camera.quaternion, camera.target] as [Vector3Tuple, QuaternionTuple, Vector3Tuple];
           viewer.setCameraLocationSettings(position, quaternion, target, camera.zoom);
@@ -206,6 +247,10 @@ export const threeCadViewer: ViewerEngine = {
         const distance = numberIn(rows[0], "distance");
         if (distance === null) return null;
         return { distance, angle: rows.map((row) => numberIn(row, "angle")).find((angle) => angle !== null) ?? null };
+      },
+      section(plane) {
+        cut = plane;
+        applyCut();
       },
       stop() {
         trackers.clear();
