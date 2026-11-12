@@ -26,8 +26,14 @@ from cad.checks.container.elastic import (
     worst_von_mises,
 )
 from cad.checks.container.inputs import Input, Inputs
-from cad.checks.container.kernel import Unreadable
-from cad.checks.container.mesher import MESH_CHANGE_LIMIT, MeshFailed, TetMesh, mesh_sizes
+from cad.checks.container.kernel import FaceInfo, Inertia, Unreadable
+from cad.checks.container.mesher import (
+    MESH_CHANGE_LIMIT,
+    MeshFailed,
+    MeshSizes,
+    TetMesh,
+    mesh_sizes,
+)
 from cad.checks.container.vectors import Point, cross, dot, norm, sub
 from cad.checks.container.wire import FindingWire, MeasuredWire, SourceLiteral
 
@@ -128,8 +134,7 @@ def run(subject: Subject) -> FindingWire:
     resolved = anchors.resolve(case, faces, inertia)
     if isinstance(resolved, Unresolved):
         return finding("unknown", f"the load case does not resolve: {resolved.reason}", *echoed)
-    wall = 2 * inertia.volume / sum(face.area for face in faces)
-    sizes = mesh_sizes(wall, anchors.extent(inertia))
+    sizes = mesh_sizes_of(faces, inertia)
     force = case["load"]["force_n"]
     coarse = solve_at(subject.fem, sizes.coarse, resolved, material, force)
     if isinstance(coarse, Unsolved):
@@ -138,6 +143,11 @@ def run(subject: Subject) -> FindingWire:
     if isinstance(fine, Unsolved):
         return finding("unknown", fine.reason, *echoed)
     return judged(coarse, fine, yield_mpa, anchors.extent(inertia), echoed, clamps_a_face(resolved))
+
+
+def mesh_sizes_of(faces: Sequence[FaceInfo], inertia: Inertia) -> MeshSizes:
+    wall = 2 * inertia.volume / sum(face.area for face in faces)
+    return mesh_sizes(wall, anchors.extent(inertia))
 
 
 def clamps_a_face(resolved: Resolved) -> bool:
