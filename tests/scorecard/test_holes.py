@@ -4,7 +4,7 @@ from typing import Any
 import pytest
 
 from cad.checks.result import CheckResult, Comparator, Verdict
-from cad.scorecard import holes, requirements
+from cad.scorecard import requirements
 from cad.tables.fasteners import load_fasteners
 from cad.tables.materials import UNITS
 from tests.support.scorecard import checked, quantity, requirement, result, suite
@@ -13,6 +13,13 @@ M5_CLEARANCE: dict[str, Any] = {"kind": "fastener_holes", "size": "M5", "fit": "
 M4_TAPPED: dict[str, Any] = {"kind": "fastener_holes", "size": "M4", "fit": "tapped"}
 M5_TAPPED: dict[str, Any] = {"kind": "fastener_holes", "size": "M5", "fit": "tapped"}
 SHAFT: dict[str, Any] = {"kind": "plain_holes", "diameter": quantity(8, "mm")}
+SHAFT_H7: dict[str, Any] = {**SHAFT, "tolerance": {"kind": "class", "key": "H7"}}
+SHAFT_WIDE: dict[str, Any] = {
+    **SHAFT,
+    "tolerance": {"kind": "plus_minus", "within": quantity(0.1, "mm")},
+}
+M5_CLOSE: dict[str, Any] = {**M5_CLEARANCE, "series": "close"}
+M5_COARSE: dict[str, Any] = {**M5_CLEARANCE, "series": "coarse"}
 
 
 def counted(
@@ -54,6 +61,18 @@ def verdict_of(target: dict[str, Any], results: tuple[CheckResult, ...], **more:
         (SHAFT, (8.05,), Verdict.PASS),
         (SHAFT, (8.2,), Verdict.FAIL),
         (SHAFT, (7.9,), Verdict.FAIL),
+        (SHAFT_H7, (8.0,), Verdict.PASS),
+        (SHAFT_H7, (8.01,), Verdict.PASS),
+        (SHAFT_H7, (8.015,), Verdict.PASS),
+        (SHAFT_H7, (8.05,), Verdict.FAIL),
+        (SHAFT_H7, (7.99,), Verdict.FAIL),
+        (SHAFT_WIDE, (8.05,), Verdict.PASS),
+        (SHAFT_WIDE, (8.1,), Verdict.PASS),
+        (SHAFT_WIDE, (8.2,), Verdict.FAIL),
+        (M5_CLOSE, (5.3,), Verdict.PASS),
+        (M5_CLOSE, (5.5,), Verdict.FAIL),
+        (M5_COARSE, (5.8,), Verdict.PASS),
+        (M5_COARSE, (5.3,), Verdict.FAIL),
     ],
 )
 def test_a_hole_counts_when_its_diameter_is_in_the_band_of_the_confirmed_size(
@@ -121,11 +140,31 @@ def test_a_tapped_hole_is_held_to_the_minor_diameter_of_its_thread() -> None:
     ]
 
 
-def test_a_plain_hole_is_held_to_its_stated_diameter_within_the_tolerance() -> None:
-    judged = checked(requirements.judge(requirement(SHAFT), counted(8.0)))
-    assert [c.limit.m_as("mm") for c in judged.comparisons] == pytest.approx(  # pyright: ignore[reportUnknownMemberType]
-        [8 - holes.PLAIN_TOLERANCE_MM, 8 + holes.PLAIN_TOLERANCE_MM]
+def bounds(target: dict[str, Any]) -> list[float]:
+    judged = checked(requirements.judge(requirement(target), counted(8.0)))
+    return [c.limit.m_as("mm") for c in judged.comparisons]  # pyright: ignore[reportUnknownMemberType]
+
+
+def test_a_plain_hole_with_no_tolerance_stored_is_held_to_0_05_mm() -> None:
+    assert "tolerance" not in SHAFT
+    assert bounds(SHAFT) == pytest.approx([7.95, 8.05])
+
+
+def test_a_plain_hole_with_a_class_is_held_to_the_band_of_the_table() -> None:
+    assert bounds(SHAFT_H7) == pytest.approx([8.0, 8.015])
+    assert bounds({**SHAFT, "tolerance": {"kind": "class", "key": "ISO 2768-m"}}) == pytest.approx(
+        [7.8, 8.2]
     )
+
+
+def test_a_plain_hole_with_a_stated_length_is_held_to_it() -> None:
+    assert bounds(SHAFT_WIDE) == pytest.approx([7.9, 8.1])
+
+
+def test_a_clearance_series_is_held_to_its_one_diameter() -> None:
+    row = load_fasteners().get("M5").clearance
+    assert bounds(M5_CLOSE) == pytest.approx([row.close_mm, row.close_mm])
+    assert bounds(M5_COARSE) == pytest.approx([row.coarse_mm, row.coarse_mm])
 
 
 @pytest.mark.parametrize(

@@ -92,8 +92,8 @@ export function ConfirmCard({ projectId, card, onAnswered }: { projectId: string
                     ) : null}
                     {row.editable && key && !no ? (
                       <input
-                        aria-label={`New number for ${row.headline}`}
-                        inputMode="decimal"
+                        aria-label={`New value for ${row.headline}`}
+                        inputMode="text"
                         placeholder={row.editable.placeholder}
                         value={edits[key] ?? ""}
                         onChange={(event) => {

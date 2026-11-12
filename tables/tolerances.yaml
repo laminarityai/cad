@@ -1,0 +1,116 @@
+# Tolerances a person may pick for a plain hole, by exact class key. A check reads a class by its
+# exact key and the row whose size range holds the hole's diameter, and nothing else.
+# H7, H8, H9 and H11 are hole tolerance classes of ISO 286-1: the hole basis H, which starts at the
+# nominal size, with the width of the grade IT7, IT8, IT9 or IT11. ASME B4.2 uses these classes for
+# its metric preferred fits, so they are the ASME tolerance chart of a product that works in mm.
+# ISO 2768-f, ISO 2768-m and ISO 2768-c are the fine, medium and coarse classes of the general
+# tolerances of ISO 2768-1 for linear sizes: the hole may be that far over or under its nominal
+# size. ASME B4.1 (inch fits) and ASME Y14.5 are not here: the product works in mm.
+# A row holds a size range (over_mm < size <= up_to_mm, or from over_mm when includes_over) and
+# the limit the source prints for it, in the class unit. `quote` carries the limit, and the range
+# when `range_quote` is absent. Every quote is on a page of the stored text in
+# tables/datasheet_text/, and every number is written in its quote:
+# `uv run python -m cad.tables.validate` checks both offline.
+sources:
+  it_grades: &it_grades
+    url: https://en.wikipedia.org/wiki/IT_Grade
+    title: "Wikipedia, IT Grade: ISO 286 Table 1, the international tolerance grades IT01 to IT18"
+    page: "ISO 286 - Table 1; a row is the nominal size range over and up to, then IT01 to IT11 in micrometres (the columns in mm follow)"
+    retrieved: 2026-11-11
+    standard: ISO 286-1
+  general: &general
+    url: https://amesweb.info/fits-tolerances/iso-2768-linear-dimensions-tolerances.aspx
+    title: "AmesWeb, ISO 2768-1 Linear Dimensions Tolerance Table: permissible deviations for linear dimensions"
+    page: "Permissible deviations for basic size ranges, linear dimensions: the header row of ranges, then the row of the class f, m or c, in mm, plus or minus"
+    retrieved: 2026-11-11
+    standard: ISO 2768-1
+
+classes:
+  - key: H7
+    shape: above
+    unit: um
+    origin: *it_grades
+    rows:
+      - {over_mm: 0, up_to_mm: 3, limit: 10, quote: "0 3 0 .3 0 .5 0 .8 1 .2 2 .0 3 4 6 10 14 25 40 60"}
+      - {over_mm: 3, up_to_mm: 6, limit: 12, quote: "3 6 0 .4 0 .6 1 .0 1 .5 2 .5 4 5 8 12 18 30 48 75"}
+      - {over_mm: 6, up_to_mm: 10, limit: 15, quote: "6 10 0 .4 0 .6 1 .0 1 .5 2 .5 4 6 9 15 22 36 58 90"}
+      - {over_mm: 10, up_to_mm: 18, limit: 18, quote: "10 18 0 .5 0 .8 1 .2 2 .0 3 5 8 11 18 27 43 70 110"}
+      - {over_mm: 18, up_to_mm: 30, limit: 21, quote: "18 30 0 .6 1 .0 1 .5 2 .5 4 6 9 13 21 33 52 84 130"}
+      - {over_mm: 30, up_to_mm: 50, limit: 25, quote: "30 50 0 .6 1 .0 1 .5 2 .5 4 7 11 16 25 39 62 100 160"}
+      - {over_mm: 50, up_to_mm: 80, limit: 30, quote: "50 80 0 .8 1 .2 2 .0 3 5 8 13 19 30 46 74 120 190"}
+      - {over_mm: 80, up_to_mm: 120, limit: 35, quote: "80 120 1 .0 1 .5 2 .5 4 6 10 15 22 35 54 87 140 220"}
+
+  - key: H8
+    shape: above
+    unit: um
+    origin: *it_grades
+    rows:
+      - {over_mm: 0, up_to_mm: 3, limit: 14, quote: "0 3 0 .3 0 .5 0 .8 1 .2 2 .0 3 4 6 10 14 25 40 60"}
+      - {over_mm: 3, up_to_mm: 6, limit: 18, quote: "3 6 0 .4 0 .6 1 .0 1 .5 2 .5 4 5 8 12 18 30 48 75"}
+      - {over_mm: 6, up_to_mm: 10, limit: 22, quote: "6 10 0 .4 0 .6 1 .0 1 .5 2 .5 4 6 9 15 22 36 58 90"}
+      - {over_mm: 10, up_to_mm: 18, limit: 27, quote: "10 18 0 .5 0 .8 1 .2 2 .0 3 5 8 11 18 27 43 70 110"}
+      - {over_mm: 18, up_to_mm: 30, limit: 33, quote: "18 30 0 .6 1 .0 1 .5 2 .5 4 6 9 13 21 33 52 84 130"}
+      - {over_mm: 30, up_to_mm: 50, limit: 39, quote: "30 50 0 .6 1 .0 1 .5 2 .5 4 7 11 16 25 39 62 100 160"}
+      - {over_mm: 50, up_to_mm: 80, limit: 46, quote: "50 80 0 .8 1 .2 2 .0 3 5 8 13 19 30 46 74 120 190"}
+      - {over_mm: 80, up_to_mm: 120, limit: 54, quote: "80 120 1 .0 1 .5 2 .5 4 6 10 15 22 35 54 87 140 220"}
+
+  - key: H9
+    shape: above
+    unit: um
+    origin: *it_grades
+    rows:
+      - {over_mm: 0, up_to_mm: 3, limit: 25, quote: "0 3 0 .3 0 .5 0 .8 1 .2 2 .0 3 4 6 10 14 25 40 60"}
+      - {over_mm: 3, up_to_mm: 6, limit: 30, quote: "3 6 0 .4 0 .6 1 .0 1 .5 2 .5 4 5 8 12 18 30 48 75"}
+      - {over_mm: 6, up_to_mm: 10, limit: 36, quote: "6 10 0 .4 0 .6 1 .0 1 .5 2 .5 4 6 9 15 22 36 58 90"}
+      - {over_mm: 10, up_to_mm: 18, limit: 43, quote: "10 18 0 .5 0 .8 1 .2 2 .0 3 5 8 11 18 27 43 70 110"}
+      - {over_mm: 18, up_to_mm: 30, limit: 52, quote: "18 30 0 .6 1 .0 1 .5 2 .5 4 6 9 13 21 33 52 84 130"}
+      - {over_mm: 30, up_to_mm: 50, limit: 62, quote: "30 50 0 .6 1 .0 1 .5 2 .5 4 7 11 16 25 39 62 100 160"}
+      - {over_mm: 50, up_to_mm: 80, limit: 74, quote: "50 80 0 .8 1 .2 2 .0 3 5 8 13 19 30 46 74 120 190"}
+      - {over_mm: 80, up_to_mm: 120, limit: 87, quote: "80 120 1 .0 1 .5 2 .5 4 6 10 15 22 35 54 87 140 220"}
+
+  - key: H11
+    shape: above
+    unit: um
+    origin: *it_grades
+    rows:
+      - {over_mm: 0, up_to_mm: 3, limit: 60, quote: "0 3 0 .3 0 .5 0 .8 1 .2 2 .0 3 4 6 10 14 25 40 60"}
+      - {over_mm: 3, up_to_mm: 6, limit: 75, quote: "3 6 0 .4 0 .6 1 .0 1 .5 2 .5 4 5 8 12 18 30 48 75"}
+      - {over_mm: 6, up_to_mm: 10, limit: 90, quote: "6 10 0 .4 0 .6 1 .0 1 .5 2 .5 4 6 9 15 22 36 58 90"}
+      - {over_mm: 10, up_to_mm: 18, limit: 110, quote: "10 18 0 .5 0 .8 1 .2 2 .0 3 5 8 11 18 27 43 70 110"}
+      - {over_mm: 18, up_to_mm: 30, limit: 130, quote: "18 30 0 .6 1 .0 1 .5 2 .5 4 6 9 13 21 33 52 84 130"}
+      - {over_mm: 30, up_to_mm: 50, limit: 160, quote: "30 50 0 .6 1 .0 1 .5 2 .5 4 7 11 16 25 39 62 100 160"}
+      - {over_mm: 50, up_to_mm: 80, limit: 190, quote: "50 80 0 .8 1 .2 2 .0 3 5 8 13 19 30 46 74 120 190"}
+      - {over_mm: 80, up_to_mm: 120, limit: 220, quote: "80 120 1 .0 1 .5 2 .5 4 6 10 15 22 35 54 87 140 220"}
+
+  - key: ISO 2768-f
+    shape: symmetric
+    unit: mm
+    origin: *general
+    rows:
+      - {over_mm: 0.5, up_to_mm: 3, limit: 0.05, includes_over: true, quote: "f ±0.05 ±0.05 ±0.1 ±0.15 ±0.2", range_quote: "0.5 Note 1 up to 3 over 3 up to 6 over 6 up to 30 over 30 up to 120 over 120 up to 400"}
+      - {over_mm: 3, up_to_mm: 6, limit: 0.05, quote: "f ±0.05 ±0.05 ±0.1 ±0.15 ±0.2", range_quote: "0.5 Note 1 up to 3 over 3 up to 6 over 6 up to 30 over 30 up to 120 over 120 up to 400"}
+      - {over_mm: 6, up_to_mm: 30, limit: 0.1, quote: "f ±0.05 ±0.05 ±0.1 ±0.15 ±0.2", range_quote: "0.5 Note 1 up to 3 over 3 up to 6 over 6 up to 30 over 30 up to 120 over 120 up to 400"}
+      - {over_mm: 30, up_to_mm: 120, limit: 0.15, quote: "f ±0.05 ±0.05 ±0.1 ±0.15 ±0.2", range_quote: "0.5 Note 1 up to 3 over 3 up to 6 over 6 up to 30 over 30 up to 120 over 120 up to 400"}
+      - {over_mm: 120, up_to_mm: 400, limit: 0.2, quote: "f ±0.05 ±0.05 ±0.1 ±0.15 ±0.2", range_quote: "0.5 Note 1 up to 3 over 3 up to 6 over 6 up to 30 over 30 up to 120 over 120 up to 400"}
+
+  - key: ISO 2768-m
+    shape: symmetric
+    unit: mm
+    origin: *general
+    rows:
+      - {over_mm: 0.5, up_to_mm: 3, limit: 0.1, includes_over: true, quote: "m ±0.1 ±0.1 ±0.2 ±0.3 ±0.5", range_quote: "0.5 Note 1 up to 3 over 3 up to 6 over 6 up to 30 over 30 up to 120 over 120 up to 400"}
+      - {over_mm: 3, up_to_mm: 6, limit: 0.1, quote: "m ±0.1 ±0.1 ±0.2 ±0.3 ±0.5", range_quote: "0.5 Note 1 up to 3 over 3 up to 6 over 6 up to 30 over 30 up to 120 over 120 up to 400"}
+      - {over_mm: 6, up_to_mm: 30, limit: 0.2, quote: "m ±0.1 ±0.1 ±0.2 ±0.3 ±0.5", range_quote: "0.5 Note 1 up to 3 over 3 up to 6 over 6 up to 30 over 30 up to 120 over 120 up to 400"}
+      - {over_mm: 30, up_to_mm: 120, limit: 0.3, quote: "m ±0.1 ±0.1 ±0.2 ±0.3 ±0.5", range_quote: "0.5 Note 1 up to 3 over 3 up to 6 over 6 up to 30 over 30 up to 120 over 120 up to 400"}
+      - {over_mm: 120, up_to_mm: 400, limit: 0.5, quote: "m ±0.1 ±0.1 ±0.2 ±0.3 ±0.5", range_quote: "0.5 Note 1 up to 3 over 3 up to 6 over 6 up to 30 over 30 up to 120 over 120 up to 400"}
+
+  - key: ISO 2768-c
+    shape: symmetric
+    unit: mm
+    origin: *general
+    rows:
+      - {over_mm: 0.5, up_to_mm: 3, limit: 0.2, includes_over: true, quote: "c ±0.2 ±0.3 ±0.5 ±0.8 ±1.2", range_quote: "0.5 Note 1 up to 3 over 3 up to 6 over 6 up to 30 over 30 up to 120 over 120 up to 400"}
+      - {over_mm: 3, up_to_mm: 6, limit: 0.3, quote: "c ±0.2 ±0.3 ±0.5 ±0.8 ±1.2", range_quote: "0.5 Note 1 up to 3 over 3 up to 6 over 6 up to 30 over 30 up to 120 over 120 up to 400"}
+      - {over_mm: 6, up_to_mm: 30, limit: 0.5, quote: "c ±0.2 ±0.3 ±0.5 ±0.8 ±1.2", range_quote: "0.5 Note 1 up to 3 over 3 up to 6 over 6 up to 30 over 30 up to 120 over 120 up to 400"}
+      - {over_mm: 30, up_to_mm: 120, limit: 0.8, quote: "c ±0.2 ±0.3 ±0.5 ±0.8 ±1.2", range_quote: "0.5 Note 1 up to 3 over 3 up to 6 over 6 up to 30 over 30 up to 120 over 120 up to 400"}
+      - {over_mm: 120, up_to_mm: 400, limit: 1.2, quote: "c ±0.2 ±0.3 ±0.5 ±0.8 ±1.2", range_quote: "0.5 Note 1 up to 3 over 3 up to 6 over 6 up to 30 over 30 up to 120 over 120 up to 400"}

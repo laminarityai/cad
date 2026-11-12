@@ -619,6 +619,19 @@ export interface components {
             /** @default [] */
             assumptions?: components["schemas"]["AssumptionRow"][];
         };
+        /**
+         * ByClass
+         * @description The diameter lies in the band of a class of the tolerances table, by its exact key, such as
+         *     H7 or ISO 2768-m.
+         */
+        ByClass: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "class";
+            key: string;
+        };
         /** CardEditable */
         CardEditable: {
             row: string;
@@ -681,6 +694,12 @@ export interface components {
             /** @default [] */
             researched?: components["schemas"]["ReadResearched"][];
         };
+        /**
+         * ClearanceSeries
+         * @description The series of ISO 273 clearance holes: close (fine), medium and coarse.
+         * @enum {string}
+         */
+        ClearanceSeries: "close" | "medium" | "coarse";
         /** ClosedSolid */
         ClosedSolid: {
             /**
@@ -866,6 +885,8 @@ export interface components {
          * FastenerHoles
          * @description Holes for a metric size, such as 2 that fit an M5 bolt or are tapped for M4. `size` is an
          *     exact key of the fasteners table. With no `count` one such hole is enough, else exactly that.
+         *     A clearance hole takes a `series` when the person states one, such as a close fit; with none,
+         *     any hole from the close to the coarse series fits.
          */
         FastenerHoles: {
             /**
@@ -877,6 +898,8 @@ export interface components {
             fit: components["schemas"]["HoleFit"];
             /** @default null */
             count: components["schemas"]["RequiredCount"] | null;
+            /** @default null */
+            series: components["schemas"]["ClearanceSeries"] | null;
         };
         /** @enum {string} */
         Field: "density" | "elastic_modulus" | "poisson_ratio" | "yield_strength" | "tensile_strength";
@@ -903,6 +926,7 @@ export interface components {
          * @enum {string}
          */
         HoleFit: "clearance" | "tapped";
+        HoleTolerance: components["schemas"]["PlusMinus"] | components["schemas"]["ByClass"];
         /**
          * Holes
          * @description Bolted or screwed through exactly `count` holes, of this bore diameter when given.
@@ -1274,7 +1298,8 @@ export interface components {
         };
         /**
          * PlainHoles
-         * @description Holes of a stated diameter, such as an 8 mm hole for a shaft. `count` works as above.
+         * @description Holes of a stated diameter, such as an 8 mm hole for a shaft. `count` works as above. A
+         *     stored requirement with no `tolerance` reads as the default.
          */
         PlainHoles: {
             /**
@@ -1285,6 +1310,28 @@ export interface components {
             diameter: components["schemas"]["Length"];
             /** @default null */
             count: components["schemas"]["RequiredCount"] | null;
+            /**
+             * @default {
+             *       "kind": "plus_minus",
+             *       "within": {
+             *         "magnitude": 0.05,
+             *         "unit": "mm"
+             *       }
+             *     }
+             */
+            tolerance: components["schemas"]["HoleTolerance"];
+        };
+        /**
+         * PlusMinus
+         * @description The diameter may be this much over or under the stated one.
+         */
+        PlusMinus: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "plus_minus";
+            within: components["schemas"]["Length"];
         };
         /** ProjectConversation */
         ProjectConversation: {
@@ -1894,11 +1941,13 @@ export type Bounds = components['schemas']['Bounds'];
 export type BriefSpan = components['schemas']['BriefSpan'];
 export type BriefSummary = components['schemas']['BriefSummary'];
 export type BriefView = components['schemas']['BriefView'];
+export type ByClass = components['schemas']['ByClass'];
 export type CardEditable = components['schemas']['CardEditable'];
 export type CardItem = components['schemas']['CardItem'];
 export type CardRow = components['schemas']['CardRow'];
 export type CheckResult = components['schemas']['CheckResult'];
 export type Checked = components['schemas']['Checked'];
+export type ClearanceSeries = components['schemas']['ClearanceSeries'];
 export type ClosedSolid = components['schemas']['ClosedSolid'];
 export type Comparator = components['schemas']['Comparator'];
 export type Comparison = components['schemas']['Comparison'];
@@ -1928,6 +1977,7 @@ export type Force = components['schemas']['Force'];
 export type GeometryRead = components['schemas']['GeometryRead'];
 export type HoleCount = components['schemas']['HoleCount'];
 export type HoleFit = components['schemas']['HoleFit'];
+export type HoleTolerance = components['schemas']['HoleTolerance'];
 export type Holes = components['schemas']['Holes'];
 export type Index = components['schemas']['Index'];
 export type ItemKindName = components['schemas']['ItemKindName'];
@@ -1970,6 +2020,7 @@ export type PendingCheck = components['schemas']['PendingCheck'];
 export type PersonStop = components['schemas']['PersonStop'];
 export type Picked = components['schemas']['Picked'];
 export type PlainHoles = components['schemas']['PlainHoles'];
+export type PlusMinus = components['schemas']['PlusMinus'];
 export type ProjectConversation = components['schemas']['ProjectConversation'];
 export type ProjectList = components['schemas']['ProjectList'];
 export type ProjectSummary = components['schemas']['ProjectSummary'];

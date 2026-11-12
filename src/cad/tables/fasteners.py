@@ -15,6 +15,7 @@ import hashlib
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
+from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
 from typing import Annotated, cast
@@ -32,11 +33,28 @@ MAX_SIZE_CHARS = 8
 type Millimetres = Annotated[float, Field(gt=0, allow_inf_nan=False)]
 
 
+class ClearanceSeries(StrEnum):
+    """The series of ISO 273 clearance holes: close (fine), medium and coarse."""
+
+    CLOSE = "close"
+    MEDIUM = "medium"
+    COARSE = "coarse"
+
+
 class Clearance(Frozen):
     close_mm: Millimetres
     medium_mm: Millimetres
     coarse_mm: Millimetres
     source: Source
+
+    def diameter_mm(self, series: ClearanceSeries) -> float:
+        match series:
+            case ClearanceSeries.CLOSE:
+                return self.close_mm
+            case ClearanceSeries.MEDIUM:
+                return self.medium_mm
+            case ClearanceSeries.COARSE:
+                return self.coarse_mm
 
 
 class Tapped(Frozen):

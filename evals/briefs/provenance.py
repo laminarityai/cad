@@ -38,7 +38,8 @@ from binding import Unbound, Unlinked, bind, link
 from confirmation import BasisFailure, Shown, check_basis
 from fitted import Unfitted, check_fits
 
-from cad.briefs.model import FastenerHoles, PlainHoles, Requirement, limits
+from cad.briefs.holes import FastenerHoles, PlainHoles
+from cad.briefs.model import Requirement, limits
 from cad.briefs.words import describe
 from cad.checks.container.check import Quick
 from cad.checks.report import CheckSpec

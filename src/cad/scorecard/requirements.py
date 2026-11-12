@@ -8,10 +8,10 @@ again to re-derive a stored card.
 from collections.abc import Iterable, Mapping, Sequence
 from typing import Final, assert_never
 
+from cad.briefs.holes import FastenerHoles, PlainHoles
 from cad.briefs.model import (
     ClosedSolid,
     Envelope,
-    FastenerHoles,
     Limit,
     MadeOf,
     MaxClearance,
@@ -21,7 +21,6 @@ from cad.briefs.model import (
     MinClearance,
     MinMass,
     MinSafetyFactor,
-    PlainHoles,
     Requirement,
     Target,
     Unchecked,
