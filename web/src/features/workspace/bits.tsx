@@ -1,5 +1,6 @@
 import { ChevronDown, CircleCheck, CircleDashed, CircleX, LoaderCircle, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "@/components/ui/collapsible";
+import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { Line, Status } from "./cards";
 import { assumedOf, awaitingOf, linesOf, type Card } from "./cards";
@@ -29,18 +30,12 @@ const PILL: Record<Status, { text: string; tone: string; Icon: typeof CircleChec
 };
 
 function Row({ line }: { line: Line }) {
-  const [open, setOpen] = useState(false);
   const pill = PILL[line.status];
   const more = line.why !== "" || line.formula !== "" || line.sources.length > 0;
   return (
-    <li data-line={line.status} className="border-b border-rule-2 last:border-b-0">
-      <button
-        type="button"
+    <Collapsible render={<li />} data-line={line.status} className="border-b border-rule-2 last:border-b-0">
+      <CollapsibleTrigger
         disabled={!more}
-        aria-expanded={open}
-        onClick={() => {
-          setOpen((was) => !was);
-        }}
         className="flex w-full items-start gap-2.5 px-4 py-2.5 text-left hover:bg-panel-2 disabled:cursor-default"
       >
         <pill.Icon className={cn("mt-0.5 size-[18px] shrink-0", pill.tone, line.status === "running" && "motion-safe:animate-spin")} />
@@ -49,18 +44,16 @@ function Row({ line }: { line: Line }) {
           {line.value ? <span className="block font-mono text-[14px] tabular-nums">{line.value}</span> : <span className={cn("block text-[13px]", pill.tone)}>{pill.text}</span>}
           {line.status === "researched" ? <span className="block text-[12px] text-res">researched</span> : null}
         </span>
-      </button>
-      {open ? (
-        <div className="space-y-1.5 px-4 pb-3 pl-11 text-[14px] text-ink-2">
-          {line.why ? <p>{line.why}</p> : null}
-          {line.sources.slice(0, 2).map((one) => (
-            <a key={one.url} href={one.url} target="_blank" rel="noreferrer" className="block truncate text-accent underline">
-              {one.title}
-            </a>
-          ))}
-        </div>
-      ) : null}
-    </li>
+      </CollapsibleTrigger>
+      <CollapsiblePanel className="space-y-1.5 px-4 pb-3 pl-11 text-[14px] text-ink-2">
+        {line.why ? <p>{line.why}</p> : null}
+        {line.sources.slice(0, 2).map((one) => (
+          <a key={one.url} href={one.url} target="_blank" rel="noreferrer" className="block truncate text-accent underline">
+            {one.title}
+          </a>
+        ))}
+      </CollapsiblePanel>
+    </Collapsible>
   );
 }
 
@@ -110,8 +103,16 @@ export function materialLabel(material: Material): string {
   return `${material.name} · ${material.chosenBy === "agent" ? "chosen by the agent" : "from your words"}`;
 }
 
+function MaterialLabel({ material }: { material: Material }) {
+  const label = (
+    <span data-material className="text-[13px] text-ink-2">
+      {materialLabel(material)}
+    </span>
+  );
+  return material.chosenBy === "agent" ? <Tooltip label="Ask in the chat to change it.">{label}</Tooltip> : label;
+}
+
 export function Checks({ card, material }: { card: Card | undefined; material: Material | null }) {
-  const [more, setMore] = useState(false);
   const snapshot = card?.snapshot ?? null;
   const { asked, also } = snapshot ? linesOf(snapshot) : { asked: [], also: [] };
   const assumed = snapshot ? assumedOf(snapshot) : [];
@@ -123,9 +124,7 @@ export function Checks({ card, material }: { card: Card | undefined; material: M
       <header className="flex items-baseline justify-between gap-2 px-4 pb-2 pt-3">
         <h2 className="text-[16px] font-semibold">Checks</h2>
         {material ? (
-          <span data-material className="text-[13px] text-ink-2" title={material.chosenBy === "agent" ? "Ask in the chat to change it." : undefined}>
-            {materialLabel(material)}
-          </span>
+          <MaterialLabel material={material} />
         ) : null}
       </header>
       {!card ? (
@@ -158,23 +157,19 @@ export function Checks({ card, material }: { card: Card | undefined; material: M
             </>
           ) : null}
           {quiet.length > 0 ? (
-            <button
-              type="button"
-              onClick={() => {
-                setMore((was) => !was);
-              }}
-              className="flex w-full items-center gap-1.5 px-4 pb-1 pt-3 text-[13px] font-medium text-ink-3"
-            >
-              <CircleCheck className="size-4 text-pass" /> {quiet.length} more passed
-              <ChevronDown className={cn("size-4 transition-transform", more && "rotate-180")} />
-            </button>
-          ) : null}
-          {more ? (
-            <ul>
-              {quiet.map((one) => (
-                <Row key={one.key} line={one} />
-              ))}
-            </ul>
+            <Collapsible>
+              <CollapsibleTrigger className="flex w-full items-center gap-1.5 px-4 pb-1 pt-3 text-[13px] font-medium text-ink-3">
+                <CircleCheck className="size-4 text-pass" /> {quiet.length} more passed
+                <ChevronDown className="size-4 transition-transform group-data-[panel-open]:rotate-180" />
+              </CollapsibleTrigger>
+              <CollapsiblePanel>
+                <ul>
+                  {quiet.map((one) => (
+                    <Row key={one.key} line={one} />
+                  ))}
+                </ul>
+              </CollapsiblePanel>
+            </Collapsible>
           ) : null}
           {assumed.length > 0 ? <AssumedRows rows={assumed} /> : null}
         </div>

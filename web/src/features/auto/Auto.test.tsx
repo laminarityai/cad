@@ -131,7 +131,7 @@ describe("Auto run status", () => {
       const chat = new FakeChat();
       mount(chat);
       autoRunning(chat);
-      await userEvent.click(await screen.findByRole("button", { name: "Chat" }));
+      await userEvent.click(await screen.findByRole("tab", { name: "Chat" }));
       await userEvent.click(await screen.findByRole("button", { name: "Stop" }, { timeout: CONVERSATION_FOLLOW_MS + 2000 }));
       expect(chat.stops).toHaveLength(1);
     } finally {

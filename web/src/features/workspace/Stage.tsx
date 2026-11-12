@@ -1,47 +1,46 @@
 import { Box, ChevronLeft, ChevronRight } from "lucide-react";
-import { useState, type Dispatch } from "react";
+import { useState, type Dispatch, type ReactElement } from "react";
 import type { OnPick, Shapes } from "@/features/viewer/engine";
 import { summaryOf as selectionSummary, type Pick, type Selection } from "@/features/viewer/selection";
 import { ViewerCanvas } from "@/features/viewer/ViewerCanvas";
 import { useMesh } from "@/features/viewer/useMesh";
+import { TabsList, TabsTab } from "@/components/ui/tabs";
+import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { summaryOf, type Card } from "./cards";
 import type { Brief, Fit, Slot, ViewAction } from "./model";
 import { Dot } from "./bits";
 import { Download } from "./Download";
 
-export function SlotTabs(props: { brief: Brief; slot: number; cards: Record<string, Card>; dispatch: Dispatch<ViewAction> }) {
-  const { brief, slot, cards, dispatch } = props;
+function TabOf({ differs, children }: { differs: string; children: ReactElement }) {
+  return differs ? <Tooltip label={differs}>{children}</Tooltip> : children;
+}
+
+/** The option tabs. The workspace owns the Tabs root, so it can place the stage in the tab panel. */
+export function SlotTabs(props: { brief: Brief; cards: Record<string, Card> }) {
+  const { brief, cards } = props;
   return (
-    <div role="tablist" aria-label="Options" className="flex gap-1 overflow-x-auto border-b border-rule">
+    <TabsList aria-label="Options" className="flex gap-1 overflow-x-auto border-b border-rule">
       {brief.slots.map((one) => {
         const latest = one.revisions[one.revisions.length - 1];
         const summary = summaryOf(latest ? cards[latest.variantId] : undefined);
-        const on = one.slot === slot;
         return (
-          <button
-            key={one.slot}
-            role="tab"
-            aria-selected={on}
-            title={one.differs || undefined}
-            data-slot-tab={one.slot}
-            onClick={() => {
-              dispatch({ type: "slot", briefId: brief.id, slot: one.slot });
-            }}
-            className={cn(
-              "-mb-px flex min-w-[130px] max-w-[240px] shrink-0 flex-col items-start gap-0.5 rounded-t-lg border border-b-0 px-3.5 py-2 text-left",
-              on ? "border-rule bg-panel" : "border-transparent text-ink-2 hover:bg-panel/60",
-            )}
-          >
-            <span className="flex w-full items-center gap-2">
-              <span className="truncate text-[15px] font-semibold text-ink">{one.label}</span>
-              <Dot status={summary.status} className="ml-auto" />
-            </span>
-            {one.differs ? <span className="line-clamp-2 w-full text-[13px] leading-snug text-ink-2">{one.differs}</span> : null}
-          </button>
+          <TabOf key={one.slot} differs={one.differs}>
+            <TabsTab
+              value={one.slot}
+              data-slot-tab={one.slot}
+              className="-mb-px flex min-w-[130px] max-w-[240px] shrink-0 flex-col items-start gap-0.5 rounded-t-lg border border-b-0 border-transparent px-3.5 py-2 text-left text-ink-2 hover:bg-panel/60 data-[active]:border-rule data-[active]:bg-panel data-[active]:text-ink"
+            >
+              <span className="flex w-full items-center gap-2">
+                <span className="truncate text-[15px] font-semibold text-ink">{one.label}</span>
+                <Dot status={summary.status} className="ml-auto" />
+              </span>
+              {one.differs ? <span className="line-clamp-2 w-full text-[13px] leading-snug text-ink-2">{one.differs}</span> : null}
+            </TabsTab>
+          </TabOf>
         );
       })}
-    </div>
+    </TabsList>
   );
 }
 

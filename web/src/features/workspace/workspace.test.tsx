@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type { ReactNode } from "react";
+import { Toaster } from "@/components/ui/toaster";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ServicesProvider } from "@/app/context";
 import { Refused, type Api } from "@/api/client";
@@ -29,7 +30,9 @@ const card = (items: number): ConfirmationCard & { snapshot: string } => ({
 
 function wrap(api: Api, chat = new FakeChat()) {
   return ({ children }: { children: ReactNode }) => (
-    <ServicesProvider services={{ api, viewer: new FakeViewer(), chat }}>{children}</ServicesProvider>
+    <ServicesProvider services={{ api, viewer: new FakeViewer(), chat }}>{children}
+      <Toaster />
+    </ServicesProvider>
   );
 }
 
@@ -237,7 +240,8 @@ describe("the explorer", () => {
     expect(onNew).toHaveBeenCalledTimes(1);
     const add = screen.getByRole("button", { name: "Add files" });
     expect(add).toBeDisabled();
-    expect(add).toHaveAttribute("title", "Coming soon");
+    await userEvent.hover(add.parentElement ?? add);
+    expect(await screen.findByText("Coming soon", {}, { timeout: 3000 })).toBeVisible();
   });
 });
 
@@ -291,7 +295,7 @@ describe("the download menu", () => {
     const exportOf = vi.fn<Api["exportOf"]>().mockResolvedValue({ kind: "failed", reason: "the files are over 64 MiB" });
     render(<Download variantId="v1" briefId="b1" />, { wrapper: wrap(fakeApi(["v1"], { exportOf })) });
     await pick("3MF");
-    expect(await screen.findByRole("alert")).toHaveTextContent("the files are over 64 MiB");
+    expect(await screen.findByText("the files are over 64 MiB")).toBeVisible();
     expect(screen.getByRole("button", { name: "Download" })).toBeEnabled();
     expect(saved).toEqual([]);
   });
@@ -301,7 +305,7 @@ describe("the download menu", () => {
     const exportOf = vi.fn<Api["exportOf"]>().mockRejectedValue(new Refused(400, "variant v1 was not built"));
     render(<Download variantId="v1" briefId="b1" />, { wrapper: wrap(fakeApi(["v1"], { exportOf })) });
     await pick("STEP");
-    expect(await screen.findByRole("alert")).toHaveTextContent("variant v1 was not built");
+    expect(await screen.findByText("variant v1 was not built")).toBeVisible();
   });
 
   it("downloads the revision on the stage, not the newest", async () => {

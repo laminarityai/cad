@@ -4,7 +4,8 @@ import { useServices } from "@/app/context";
 import { Gate } from "@/components/Gate";
 import { summaryOf, toPicked, useSelection, type Selection } from "@/features/viewer/selection";
 import type { OnPick } from "@/features/viewer/engine";
-import { cn } from "@/lib/utils";
+import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
+import { Tooltip } from "@/components/ui/tooltip";
 import { RunStatus } from "@/features/auto/RunStatus";
 import { AUTO_TOOLS } from "@/features/auto/run";
 import { useAuto } from "@/features/auto/useAuto";
@@ -21,9 +22,11 @@ import { useNarrow } from "./useNarrow";
 function TopBar({ title }: { title: string }) {
   return (
     <header className="flex h-14 shrink-0 items-center gap-4 border-b border-rule bg-panel px-4">
-      <Link to="/new" className="text-[17px] font-semibold tracking-tight" title="Start a new project">
-        cad
-      </Link>
+      <Tooltip label="Start a new project">
+        <Link to="/new" className="text-[17px] font-semibold tracking-tight">
+          cad
+        </Link>
+      </Tooltip>
       <span className="text-ink-3">/</span>
       <span className="truncate text-[16px] font-medium">{title}</span>
     </header>
@@ -54,16 +57,27 @@ function Center(props: {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="px-5 pb-2 pt-4">
-        <p className="line-clamp-2 text-[17px] leading-snug" title={brief.words} data-brief-words>
-          “{brief.words}”
-        </p>
+        <Tooltip label={brief.words}>
+          <p className="line-clamp-2 text-[17px] leading-snug" data-brief-words>
+            “{brief.words}”
+          </p>
+        </Tooltip>
       </div>
       {slot ? (
-        <>
+        <Tabs
+          value={slot.slot}
+          onValueChange={(value: number) => {
+            dispatch({ type: "slot", briefId: brief.id, slot: value });
+          }}
+          className="flex min-h-0 flex-1 flex-col"
+        >
           <div className="px-4">
-            <SlotTabs brief={brief} slot={slot.slot} cards={cards} dispatch={dispatch} />
+            <SlotTabs brief={brief} cards={cards} />
           </div>
-          <div className="mx-4 mb-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-b-xl rounded-tr-xl border border-t-0 border-rule bg-panel">
+          <TabsPanel
+            value={slot.slot}
+            className="mx-4 mb-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-b-xl rounded-tr-xl border border-t-0 border-rule bg-panel"
+          >
             <Stage
               key={`${brief.id}:${String(slot.slot)}`}
               slot={slot}
@@ -74,8 +88,8 @@ function Center(props: {
               selection={selection}
               onPick={onPick}
             />
-          </div>
-        </>
+          </TabsPanel>
+        </Tabs>
       ) : (
         <p className="px-5 py-8 text-[16px] text-ink-2">{WAITING_TEXT[brief.state]}</p>
       )}
@@ -182,35 +196,27 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
 
   if (narrow) {
     return (
-      <div className="flex h-dvh flex-col bg-background text-ink">
+      <Tabs value={pane} onValueChange={setPane} className="flex h-dvh flex-col bg-background text-ink">
         <TopBar title={model.title} />
         <main className="min-h-0 flex-1 overflow-y-auto">
-          {pane === "explorer" ? (
-            <>
-              {explorer}
-              <div className="border-t border-rule">{checks}</div>
-            </>
-          ) : null}
-          {pane === "design" ? <div className="flex h-full flex-col">{center}</div> : null}
-          {pane === "chat" ? chatPane : null}
+          <TabsPanel value="explorer">
+            {explorer}
+            <div className="border-t border-rule">{checks}</div>
+          </TabsPanel>
+          <TabsPanel value="design" className="flex h-full flex-col">
+            {center}
+          </TabsPanel>
+          <TabsPanel value="chat">{chatPane}</TabsPanel>
         </main>
-        <nav aria-label="Panes" className="grid grid-cols-3 border-t border-rule bg-panel">
+        <TabsList aria-label="Panes" className="grid grid-cols-3 border-t border-rule bg-panel">
           {PANES.map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              aria-current={pane === key}
-              onClick={() => {
-                setPane(key);
-              }}
-              className={cn("relative py-3 text-[15px]", pane === key ? "font-semibold text-accent" : "text-ink-2")}
-            >
+            <TabsTab key={key} value={key} className="relative py-3 text-[15px] text-ink-2 data-[active]:font-semibold data-[active]:text-accent">
               {label}
               {key === "chat" && waiting ? <span data-waiting className="absolute right-5 top-2.5 size-2 rounded-full bg-wait" /> : null}
-            </button>
+            </TabsTab>
           ))}
-        </nav>
-      </div>
+        </TabsList>
+      </Tabs>
     );
   }
 
