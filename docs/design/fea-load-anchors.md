@@ -85,6 +85,8 @@ Harness cases C needs: few new numeric cases, because the region is given. It ne
 
 Do option A first. It fixes the cantilever arms with plates and the L brackets that people ask about most, and the person confirms the same words with no extra step. Add option B one kind at a time, starting with hole ties and the face press of #209, when the corpus or a walk shows the need. Keep option C out of load cases unless a brief appears that no geometry rule can express.
 
+After this note, the operator chose a wider route than option B. The ADR-0007 amendment lets the agent describe a load case from a closed list of terms that compose, so the vocabulary does not grow one word at a time. [fea-described-loads.md](fea-described-loads.md) has the terms and the build order, and it builds on option A.
+
 ## Not an anchor: the large-displacement gate
 
 On `main`, 4 corpus parts resolve and mesh, then stop at the 5% gate for linear analysis. With option A it is 8. The first 4 are `cantilever_bar` (5.6 mm on 100 mm), `l_filleted` (11.0 mm), `hook` (3.6 mm on 59 mm) and `truss_arm` (13.3 mm). Each is far over any deflection limit a person would set, yet the requirement is unknown. A geometrically nonlinear solve (`NLGEOM`) would decide them, but it breaks the superposition of unit solves that the worst-direction search relies on. This needs its own issue.

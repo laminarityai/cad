@@ -128,6 +128,8 @@ def score_variant(variant_id, material_key, root, against: Against = NO_BRIEF) -
 
 ### 2.1 Load cases
 
+The ADR-0007 amendment adds load cases the agent describes from a closed list of terms. [fea-described-loads.md](fea-described-loads.md) covers them. This section covers the five reviewed phrases.
+
 **Types** (new `src/cad/loads/model.py`, which is pydantic domain code. It sits outside `briefs/` so it does not collide with phase 2, and `briefs/model.py` imports it):
 
 ```python
