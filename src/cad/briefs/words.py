@@ -6,6 +6,8 @@ from cad.briefs.bindable import BINDABLE
 from cad.briefs.model import (
     ClosedSolid,
     Envelope,
+    FastenerHoles,
+    HoleFit,
     Length,
     MadeOf,
     MaxClearance,
@@ -15,6 +17,7 @@ from cad.briefs.model import (
     MinClearance,
     MinMass,
     MinSafetyFactor,
+    PlainHoles,
     Requirement,
     Target,
     Unchecked,
@@ -64,8 +67,25 @@ def describe_target(target: Target, names: Mapping[str, str] = NO_NAMES) -> str:
             return f"At least {_clearance(target.clearance, target.part, names)}"
         case MaxClearance():
             return f"At most {_clearance(target.clearance, target.part, names)}"
+        case FastenerHoles():
+            return _holes(target.count, _for_a_bolt(target))
+        case PlainHoles():
+            return _holes(target.count, f"of {amount(target.diameter)} diameter")
         case _:
             assert_never(target)
+
+
+def _holes(count: int | None, what: str) -> str:
+    """ "2 holes that fit an M5 bolt", or "A hole that fits an M5 bolt" when no count is stated."""
+    plural = count is not None and count != 1
+    noun = f"{count} holes" if plural else ("A hole" if count is None else "1 hole")
+    return f"{noun} {what.replace('{s}', '' if plural else 's')}"
+
+
+def _for_a_bolt(target: FastenerHoles) -> str:
+    if target.fit is HoleFit.TAPPED:
+        return f"tapped for {target.size}"
+    return f"that fit{{s}} an {target.size} bolt"
 
 
 def _clearance(clearance: Length, part: str, names: Mapping[str, str]) -> str:

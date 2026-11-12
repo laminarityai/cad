@@ -7,6 +7,7 @@ from cad.auto.model import Bounds, Read
 from cad.briefs.model import (
     ClosedSolid,
     Envelope,
+    FastenerHoles,
     MadeOf,
     MaxClearance,
     MaxDeflection,
@@ -15,6 +16,7 @@ from cad.briefs.model import (
     MinClearance,
     MinMass,
     MinSafetyFactor,
+    PlainHoles,
     Requirement,
     Unchecked,
 )
@@ -69,6 +71,8 @@ def bounds_conflicts(
                 | MaxDeflection()
                 | MinClearance()
                 | MaxClearance()
+                | FastenerHoles()
+                | PlainHoles()
             ):
                 pass
             case _:

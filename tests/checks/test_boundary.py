@@ -63,6 +63,15 @@ def good_report() -> dict[str, Any]:
                 ],
                 "reason": "10 mm",
             },
+            {
+                "id": "holes",
+                "verdict": "pass",
+                "measured": [
+                    measured("hole_count", 0, DIMENSIONLESS),
+                    measured("unclassified_openings", 0, DIMENSIONLESS),
+                ],
+                "reason": "0 round holes",
+            },
         ],
         "step": {"kind": "written", "base64": b64encode(STEP).decode()},
     }
@@ -94,13 +103,16 @@ def request_for_pla() -> Request:
     return build_request("prusament-pla", load_materials())
 
 
-def test_a_good_report_becomes_four_results_with_pint_quantities(request_for_pla: Request) -> None:
+def test_a_good_report_becomes_one_result_per_quick_check_with_pint_quantities(
+    request_for_pla: Request,
+) -> None:
     parsed = parse(sent(good_report()), request_for_pla, OWN_LIMITS)
     assert [(result.check_id, result.verdict) for result in parsed.results] == [
         ("closed_solid", Verdict.PASS),
         ("interference", Verdict.PASS),
         ("mass", Verdict.PASS),
         ("extents", Verdict.PASS),
+        ("holes", Verdict.PASS),
     ]
     assert parsed.step == STEP
     mass = parsed.results[2]
@@ -268,7 +280,7 @@ def test_a_step_the_container_left_out_keeps_the_verdicts_and_says_why(
         request_for_pla,
         OWN_LIMITS,
     )
-    assert [result.verdict for result in parsed.results] == [Verdict.PASS] * 4
+    assert [result.verdict for result in parsed.results] == [Verdict.PASS] * len(QUICK)
     assert parsed.step == StepMissing(reason=reason)
 
 

@@ -10,6 +10,7 @@ from cad.operations.guidance import (
     CHANGES,
     CONTEXT_PARTS,
     DEEPER_ANALYSIS,
+    HOLES,
     MATERIAL,
     NOT_VERIFIED,
     OPTIONS,
@@ -91,6 +92,7 @@ async def test_build_then_score_returns_the_scorecard_it_stored(tmp_path: Path) 
         "interference": "pass",
         "mass": "pass",
         "extents": "pass",
+        "holes": "pass",
     }
     assert not list((tmp_path / variant_id).glob("scorecard*"))
 
@@ -203,6 +205,7 @@ async def test_a_well_formed_key_missing_from_the_table_scores_with_mass_unknown
         "interference": "pass",
         "mass": "unknown",
         "extents": "pass",
+        "holes": "pass",
     }
 
 
@@ -245,6 +248,7 @@ async def test_the_server_tells_every_client_that_only_check_results_are_measure
             CHANGES,
             OPTIONS,
             CONTEXT_PARTS,
+            HOLES,
             MATERIAL,
             DEEPER_ANALYSIS,
             RESEARCH,

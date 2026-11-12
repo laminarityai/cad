@@ -41,6 +41,10 @@ def built_parts(store: Path) -> Mapping[str, BuildResult]:
         return dict(zip(PARTS, results, strict=True))
 
 
+# The hex spacer has a hexagon bore and the arm has rounded pockets, which no round hole explains.
+NOT_ONLY_ROUND_HOLES = frozenset({"arm", "hex_spacer"})
+
+
 def test_the_grade_volumes_cover_the_reference_parts() -> None:
     assert set(GRADE_PY_142404A_VOLUMES_MM3) == set(PARTS)
 
@@ -52,9 +56,14 @@ def test_every_check_passes_and_the_volume_matches_grade_py(
     built = built_parts[part]
     assert built.outcome == Built(), built.output
     run = run_checks(built.variant_id, "prusament-pla", store)
-    assert [result.verdict for result in run.results] == [Verdict.PASS] * 4, [
-        result.reason for result in run.results
-    ]
+    verdicts = {result.check_id: result.verdict for result in run.results}
+    assert verdicts == {
+        "closed_solid": Verdict.PASS,
+        "interference": Verdict.PASS,
+        "mass": Verdict.PASS,
+        "extents": Verdict.PASS,
+        "holes": Verdict.UNKNOWN if part in NOT_ONLY_ROUND_HOLES else Verdict.PASS,
+    }, [result.reason for result in run.results]
     for result in run.results:
         assert result.formula
         assert result.sources

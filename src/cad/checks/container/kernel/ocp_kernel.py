@@ -2,14 +2,23 @@ import tempfile
 from pathlib import Path
 from typing import cast
 
-from cad.checks.container.kernel.ocp_handles import Movable, Ocp, Xyz, load_ocp
+from cad.checks.container.kernel.ocp_handles import (
+    AncestorMap,
+    Movable,
+    Ocp,
+    Sameable,
+    Xyz,
+    load_ocp,
+)
 from cad.checks.container.kernel.protocol import (
+    Arc,
     Curved,
     EdgeUses,
     FaceInfo,
     Flat,
     Inertia,
     Kernel,
+    Opening,
     Point,
     Round,
     Shape,
@@ -19,7 +28,7 @@ from cad.checks.container.kernel.protocol import (
     VolumeProps,
     first_line,
 )
-from cad.checks.container.vectors import cross, unit
+from cad.checks.container.vectors import cross, dot, sub, unit
 
 STEP_TIME_STAMP = "2000-01-01T00:00:00"
 STEP_SCHEMA = "AP214IS"
@@ -113,6 +122,52 @@ class OcpKernel:
         ocp = self._ocp
         found = self._explore(shape, ocp.face, ocp.any_shape)
         return tuple(_face_info(ocp, ocp.topods.Face_s(face)) for face in found)
+
+    def openings(self, shape: Shape) -> tuple[Opening, ...]:
+        ocp = self._ocp
+        walls = ocp.new_ancestor_map()
+        ocp.topexp.MapShapesAndAncestors_s(shape, ocp.edge, ocp.face, walls)
+        found: list[Opening] = []
+        for found_face in self._explore(shape, ocp.face, ocp.any_shape):
+            face = ocp.topods.Face_s(found_face)
+            info = _face_info(ocp, face)
+            if not isinstance(info.surface, Flat):
+                continue
+            outer = ocp.brep_tools.OuterWire_s(face)
+            for wire in self._explore(face, ocp.wire, ocp.any_shape):
+                if cast(Sameable, wire).IsSame(outer):
+                    continue
+                edges = self._explore(wire, ocp.edge, ocp.any_shape)
+                if self._runs_into_material(face, info, edges, walls):
+                    found.append(Opening(tuple(self._arc(edge) for edge in edges)))
+        return tuple(found)
+
+    def _runs_into_material(
+        self, face: Shape, info: FaceInfo, edges: list[Shape], walls: AncestorMap
+    ) -> bool:
+        """Whether the faces across the wire's edges lie below this face, on the side its normal
+        points away from: the walls of a hole, not of a boss."""
+        ocp = self._ocp
+        assert isinstance(info.surface, Flat)
+        depth = 0.0
+        for edge in edges:
+            for across in walls.FindFromKey(edge):
+                if not cast(Sameable, across).IsSame(face):
+                    centre = _face_info(ocp, ocp.topods.Face_s(across)).centroid
+                    depth += dot(sub(centre, info.centroid), info.surface.normal)
+        return depth < 0
+
+    def _arc(self, edge: Shape) -> Arc | None:
+        ocp = self._ocp
+        curve = ocp.new_curve(ocp.topods.Edge_s(edge))
+        if curve.GetType() != ocp.circle:
+            return None
+        circle = curve.Circle()
+        sweep = curve.LastParameter() - curve.FirstParameter()
+        position = circle.Position()
+        return Arc(
+            _coords(position.Location()), _coords(position.Direction()), circle.Radius(), sweep
+        )
 
     def inertia(self, shape: Shape) -> Inertia:
         ocp = self._ocp

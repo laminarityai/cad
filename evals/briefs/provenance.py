@@ -38,12 +38,13 @@ from binding import Unbound, Unlinked, bind, link
 from confirmation import BasisFailure, Shown, check_basis
 from fitted import Unfitted, check_fits
 
-from cad.briefs.model import limits
+from cad.briefs.model import FastenerHoles, PlainHoles, Requirement, limits
 from cad.briefs.words import describe
 from cad.checks.container.check import Quick
 from cad.checks.report import CheckSpec
 from cad.checks.result import CheckResult, Measure
 from cad.records.roots import Roots
+from cad.scorecard.holes import band
 from cad.scorecard.material import ReportedScorecard
 from cad.scorecard.model import AgainstBrief, Checked, Scorecard
 from cad.tables.fields import FIELDS, Field
@@ -246,6 +247,8 @@ def _confirmed(card: Scorecard, index: int, place: int, shown: Shown | None) -> 
     requirement = next((r for r in shown.requirements if r.id == entry.requirement_id), None)
     if requirement is None:
         return Unresolved(f"requirement {entry.requirement_id} is not in the confirmed set")
+    if isinstance(requirement.target, FastenerHoles | PlainHoles):
+        return _band(entry, requirement, place, basis.brief_id, basis.decision_sha256)
     confirmed = limits(requirement.target)
     if place >= len(confirmed):
         return Unresolved(f"requirement {entry.requirement_id} confirmed no limit {place}")
@@ -259,6 +262,23 @@ def _confirmed(card: Scorecard, index: int, place: int, shown: Shown | None) -> 
         basis.brief_id, basis.decision_sha256, requirement.id, describe(requirement)
     )
     return Resolved((step,))
+
+
+def _band(
+    entry: Checked, requirement: Requirement, place: int, brief_id: str, decision_sha256: str
+) -> Outcome:
+    """A holes requirement's band is the confirmed target read through the fasteners table by its
+    exact key, or the confirmed diameter with the fixed tolerance, so the card's two limits must
+    equal it."""
+    assert isinstance(requirement.target, FastenerHoles | PlainHoles)
+    wanted = band(requirement.target)
+    expected = UNITS.Quantity((wanted.low, wanted.high)[place], "mm")
+    held = entry.comparisons[place].limit
+    if not _same(held, expected):
+        return Unresolved(f"the card's limit is {held:g~P}, but the band is {expected:g~P}")
+    return Resolved(
+        (ConfirmedStep(brief_id, decision_sha256, requirement.id, describe(requirement)),)
+    )
 
 
 def _bound(field: Field, bound: Literal["low", "high"], value: str) -> Outcome:

@@ -68,6 +68,7 @@ EXPECTED: Final[dict[str, Answer]] = {
     "cad.scorecard.score.NotScored": ("400 named", "named"),
     "cad.selections.model.SelectionRefused": ("400 named", "named"),
     "cad.selections.model.UnknownSelection": ("400 named", "named"),
+    "cad.tables.fasteners.UnknownFastener": (None, None),
     "cad.tables.materials.InvalidTable": (None, None),
     "cad.tables.materials.UnknownMaterial": (None, None),
     "cad.variant_sets.model.MaterialMissing": ("400 named", "named"),

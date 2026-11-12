@@ -20,6 +20,10 @@ _Avoid_: Assembly, reference model, fixture
 One checkable target taken from a brief, such as a ratio, a load, or a size limit. It quotes the words of the brief it came from. It is proposed until the user confirms it. A check may measure for it before then, and the scorecard shows it as waiting on the user, with the measure beside it. A verdict rests only on a confirmed requirement, and after the user confirms, the same stored results are judged.
 _Avoid_: Constraint, goal
 
+**Hole requirement**:
+A requirement for round holes, either for a metric fastener size (2 holes that fit an M5 bolt, or tapped for M4) or of a stated diameter (an 8 mm hole). A person states the size or diameter and the count, and confirms it. A hole counts when its diameter lies in the fasteners table's band for the size, or within a tolerance of the stated diameter. A group of coaxial holes, such as a counterbore, is one hole, and its diameter is the narrowest.
+_Avoid_: Mounting hole, screw hole
+
 **Assumption**:
 A value the agent filled in so that it could build, such as a load or a size limit the person did not state. It is stored apart from every proposal, never appears on a confirmation page, and never gets a verdict. The scorecard lists it with the measure beside the assumed value. The person turns it into a requirement by stating it.
 _Avoid_: Default, guess, soft requirement
@@ -61,7 +65,7 @@ A fixed, deterministic test of a variant against a requirement or an engineering
 _Avoid_: Validator, test, verification
 
 **Universal check**:
-A check that applies to every variant whatever it is, such as building as a closed solid, interference, mass, extents (the bounding box), manufacturability, or FEA under stated loads.
+A check that applies to every variant whatever it is, such as building as a closed solid, interference, mass, extents (the bounding box), round holes, manufacturability, or FEA under stated loads.
 
 **Domain check**:
 A check that applies only to one kind of design, such as gear tooth strength or bolted joint preload, and comes from an engineering skill.

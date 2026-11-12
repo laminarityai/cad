@@ -1,4 +1,5 @@
-"""Read the datasheets cited by tables/materials.yaml and store the pages that carry the quotes.
+"""Read the pages cited by tables/materials.yaml and tables/fasteners.yaml and store the text that
+carries the quotes.
 
     uv run python tools/regen_datasheet_text.py         refetch each url whose stored text is
                                                         missing or lacks a quote, delete files
@@ -31,10 +32,12 @@ from cad.tables.datasheet_text import (
     Extraction,
     citations,
     cover,
+    fastener_citations,
     pages_of,
     render,
     text_path,
 )
+from cad.tables.fasteners import load_fasteners
 from cad.tables.materials import load_materials
 
 BROWSER = (
@@ -109,7 +112,8 @@ def extractions_of(document: Document) -> list[Extraction] | str:
     page = fetch(document.url)
     if isinstance(page, FetchFailed):
         return page.reason
-    return [lambda: [page.text]]
+    # A web page's text is mostly the whitespace of its markup; `on_page` ignores it.
+    return [lambda: [" ".join(page.text.split())]]
 
 
 def regenerate(document: Document) -> str | None:
@@ -133,7 +137,7 @@ def main(argv: list[str]) -> int:
     if argv and not everything:
         print(__doc__)
         return 2
-    wanted = documents(list(citations(load_materials())))
+    wanted = documents([*citations(load_materials()), *fastener_citations(load_fasteners())])
     failures: list[str] = []
     for document in wanted:
         if not everything and is_stored(document):

@@ -58,6 +58,26 @@ type Surface = Flat | Round | Curved
 
 
 @dataclass(frozen=True, slots=True)
+class Arc:
+    """A circular edge: `sweep` radians of the circle at `radius` around `center` and `axis`.
+    The axis may point either way."""
+
+    center: Point
+    axis: Point
+    radius: float
+    sweep: float
+
+
+@dataclass(frozen=True, slots=True)
+class Opening:
+    """The inner boundary of a flat face where the material is missing, as the mouth of a hole,
+    a slot or a pocket is. `edges` holds one entry per edge: an `Arc` for a circular edge and
+    None for any other."""
+
+    edges: tuple[Arc | None, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class FaceInfo:
     surface: Surface
     area: float
@@ -115,6 +135,12 @@ class Kernel(Protocol):
 
     def faces(self, shape: Shape) -> tuple[FaceInfo, ...]:
         """Each face once, in the kernel's explorer order."""
+        ...
+
+    def openings(self, shape: Shape) -> tuple[Opening, ...]:
+        """Each inner wire of each flat face whose walls run into the material. A wire whose walls
+        stand out of the face, as a boss's base does, is not an opening. A hole in a face that is
+        not flat is not found."""
         ...
 
     def inertia(self, shape: Shape) -> Inertia: ...

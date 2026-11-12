@@ -81,6 +81,12 @@ function valueOf(result: DoneCheck | undefined): string {
     const edges = ["x", "y", "z"].map((axis) => by(`extent:${axis}`)).filter((one) => one !== undefined);
     if (edges.length === 3) return `${edges.map((one) => num(one.magnitude)).join(" × ")} mm`;
   }
+  if (result.check_id === "holes") {
+    const sizes = result.measured.filter((one) => one.name.startsWith("hole_diameter:")).map((one) => one.value);
+    if (sizes.length === 0) return "no round holes";
+    const unit = sizes[0]?.unit ?? "mm";
+    return `${String(sizes.length)} ${sizes.length === 1 ? "hole" : "holes"}: ${sizes.map((one) => num(one.magnitude)).join(", ")} ${unit}`;
+  }
   if (result.check_id === "closed_solid") {
     const solids = by("solids");
     if (solids && solids.magnitude !== 1) return `${num(solids.magnitude)} solids`;

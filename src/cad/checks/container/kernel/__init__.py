@@ -1,11 +1,13 @@
 from cad.checks.container.kernel.ocp_kernel import ocp_kernel
 from cad.checks.container.kernel.protocol import (
+    Arc,
     Curved,
     EdgeUses,
     FaceInfo,
     Flat,
     Inertia,
     Kernel,
+    Opening,
     Point,
     Round,
     Shape,
@@ -17,12 +19,14 @@ from cad.checks.container.kernel.protocol import (
 )
 
 __all__ = [
+    "Arc",
     "Curved",
     "EdgeUses",
     "FaceInfo",
     "Flat",
     "Inertia",
     "Kernel",
+    "Opening",
     "Point",
     "Round",
     "Shape",

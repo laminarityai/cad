@@ -1,5 +1,5 @@
 import importlib
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from types import ModuleType
 from typing import Protocol, cast
@@ -40,6 +40,17 @@ class _Adaptor(Protocol):
     def Cylinder(self) -> _Cylinder: ...
 
 
+class _Curve(Protocol):
+    def GetType(self) -> object: ...
+    def FirstParameter(self) -> float: ...
+    def LastParameter(self) -> float: ...
+    def Circle(self) -> _Cylinder: ...
+
+
+class Sameable(Protocol):
+    def IsSame(self, other: Shape) -> bool: ...
+
+
 class _FaceProps(Protocol):
     def Normal(self, u: float, v: float, point: Xyz, normal: Xyz) -> None: ...
 
@@ -60,12 +71,14 @@ class _Explorer(Protocol):
 
 class _ShapeList(Protocol):
     def Extent(self) -> int: ...
+    def __iter__(self) -> Iterator[Shape]: ...
 
 
-class _AncestorMap(Protocol):
+class AncestorMap(Protocol):
     def Extent(self) -> int: ...
     def FindKey(self, index: int) -> Shape: ...
     def FindFromIndex(self, index: int) -> _ShapeList: ...
+    def FindFromKey(self, key: Shape) -> _ShapeList: ...
 
 
 class _Analyzer(Protocol):
@@ -130,6 +143,9 @@ class _BRepTools(Protocol):
     @staticmethod
     def UVBounds_s(face: Shape) -> tuple[float, float, float, float]: ...
 
+    @staticmethod
+    def OuterWire_s(face: Shape) -> Shape: ...
+
 
 class _TopoDS(Protocol):
     @staticmethod
@@ -145,7 +161,7 @@ class _TopoDS(Protocol):
 class _TopExp(Protocol):
     @staticmethod
     def MapShapesAndAncestors_s(
-        shape: Shape, of: object, in_: object, into: _AncestorMap
+        shape: Shape, of: object, in_: object, into: AncestorMap
     ) -> None: ...
 
 
@@ -174,7 +190,7 @@ class Ocp:
     new_shape: Callable[[], Shape]
     new_builder: Callable[[], object]
     new_explorer: Callable[[Shape, object, object], _Explorer]
-    new_ancestor_map: Callable[[], _AncestorMap]
+    new_ancestor_map: Callable[[], AncestorMap]
     new_props: Callable[[], _Props]
     new_box: Callable[[], _Box]
     new_analyzer: Callable[[Shape], _Analyzer]
@@ -185,6 +201,7 @@ class Ocp:
     new_header: Callable[[_Model], _Header]
     new_hstring: Callable[[str], object]
     new_adaptor: Callable[[Shape], _Adaptor]
+    new_curve: Callable[[Shape], _Curve]
     new_face_props: Callable[[Shape], _FaceProps]
     new_point: Callable[[float, float, float], Xyz]
     new_vector: Callable[[float, float, float], Xyz]
@@ -201,11 +218,13 @@ class Ocp:
     interface_static: _InterfaceStatic
     plane: object
     cylinder: object
+    circle: object
     any_shape: object
     solid: object
     shell: object
     face: object
     edge: object
+    wire: object
     vertex: object
     as_is: object
     ret_done: object
@@ -229,7 +248,7 @@ def load_ocp() -> Ocp:
             Callable[[Shape, object, object], _Explorer], _module("TopExp").TopExp_Explorer
         ),
         new_ancestor_map=cast(
-            Callable[[], _AncestorMap],
+            Callable[[], AncestorMap],
             _module("TopTools").TopTools_IndexedDataMapOfShapeListOfShape,
         ),
         new_props=cast(Callable[[], _Props], _module("GProp").GProp_GProps),
@@ -248,6 +267,7 @@ def load_ocp() -> Ocp:
         new_header=cast(Callable[[_Model], _Header], header.APIHeaderSection_MakeHeader),
         new_hstring=cast(Callable[[str], object], _module("TCollection").TCollection_HAsciiString),
         new_adaptor=cast(Callable[[Shape], _Adaptor], _module("BRepAdaptor").BRepAdaptor_Surface),
+        new_curve=cast(Callable[[Shape], _Curve], _module("BRepAdaptor").BRepAdaptor_Curve),
         new_face_props=cast(Callable[[Shape], _FaceProps], _module("BRepGProp").BRepGProp_Face),
         new_point=cast(Callable[[float, float, float], Xyz], gp.gp_Pnt),
         new_vector=cast(Callable[[float, float, float], Xyz], gp.gp_Vec),
@@ -264,11 +284,13 @@ def load_ocp() -> Ocp:
         interface_static=cast(_InterfaceStatic, _module("Interface").Interface_Static),
         plane=geom_abs.GeomAbs_Plane,
         cylinder=geom_abs.GeomAbs_Cylinder,
+        circle=geom_abs.GeomAbs_Circle,
         any_shape=top_abs.TopAbs_SHAPE,
         solid=top_abs.TopAbs_SOLID,
         shell=top_abs.TopAbs_SHELL,
         face=top_abs.TopAbs_FACE,
         edge=top_abs.TopAbs_EDGE,
+        wire=top_abs.TopAbs_WIRE,
         vertex=top_abs.TopAbs_VERTEX,
         as_is=step_control.STEPControl_AsIs,
         ret_done=_module("IFSelect").IFSelect_RetDone,

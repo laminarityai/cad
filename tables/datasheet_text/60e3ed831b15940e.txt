@@ -1,0 +1,1487 @@
+url: https://amesweb.info/Screws/metric-tap-drill-chart.aspx
+
+
+
+
+ 
+
+                   
+
+      
+
+
+      
+
+      
+
+      
+
+      
+
+      
+
+              
+
+
+      
+
+
+        
+
+
+      
+
+
+    
+      
+
+
+      
+
+
+    
+    
+    
+    
+    
+    
+    
+ 
+
+
+ 
+
+
+     
+
+        Skip to content
+
+     
+
+
+     
+  
+
+  
+
+
+         
+
+
+            
+
+             
+
+                 
+                 
+
+             
+
+
+
+             
+
+
+                
+
+                 
+
+                     
+                     
+
+                 
+
+
+
+                
+
+                 
+
+                    
+        
+     
+         
+            AmesWeb
+         
+     
+ Metric Tap Drill Chart & Calculator 
+  ISO metric threads  • Coarse & Fine • Sizes in mm 
+
+ 
+Use the instant calculator to get the recommended  tap drill size  for ISO metric threads, or scroll the chart for a quick lookup.
+ 
+
+ 
+   Unified tap drill calculator (inch) 
+   Roll form tap drill calculator 
+   Helicoil (STI) tap sizes 
+ 
+
+ Instant Metric Tap Drill Calculator 
+ 
+   
+     
+       Metric thread size 
+       
+   
+     M1 x 0.25 
+     M1.2 x 0.25 
+     M1.6 x 0.35 
+     M2 x 0.4 
+     M2.5 x 0.45 
+     M3 x 0.5 
+     M4 x 0.7 
+     M5 x 0.8 
+     M6 x 1 
+     M8 x 1.25 
+     M10 x 1.5 
+     M12 x 1.75 
+     M16 x 2 
+     M20 x 2.5 
+     M24 x 3 
+     M30 x 3.5 
+     M36 x 4 
+     M42 x 4.5 
+     M48 x 5 
+     M56 x 5.5 
+     M64 x 6 
+   
+   
+     M8 x 1 
+     M10 x 1 
+     M10 x 1.25 
+     M12 x 1.25 
+     M12 x 1.5 
+     M16 x 1.5 
+     M20 x 1.5 
+     M20 x 2 
+     M24 x 2 
+     M30 x 2 
+     M36 x 3 
+     M42 x 3 
+     M48 x 3 
+     M56 x 4 
+     M64 x 4 
+   
+       
+     
+     
+       Recommended drill diameter (mm) 
+       
+         Tap drill size 
+         — 
+       
+     
+   
+
+   
+      Designation  —  
+      Thread series  —  
+      Major diameter d (mm)  —  
+      Pitch P (mm)  —  
+   
+
+   
+    Quick rule of thumb:  tap drill ≈ major diameter − pitch  (varies by standard, % thread and application).
+   
+ 
+
+  
+
+
+ Metric Tap Drill Chart 
+ Scroll the chart for a quick lookup. Dimensions are in millimetres. 
+
+  
+          
+         
+               
+                  Metric Tap Drill Chart - Coarse Thread 
+           
+      
+       
+               
+                   Coarse Pitch Thread  
+               
+                  Drill size (mm) 
+           
+           
+               
+                  Tap Size 
+               
+                  Basic Major
+                    
+                  Dia. 
+               
+                  Thread Pitch 
+               
+                  Minor diameter for class 
+           
+           
+               
+                  5H
+                  max. 
+               
+                  6H max. 
+               
+                  7H max. 
+               
+                  5H, 6H, 7H min 
+           
+           
+               
+                  M1.6 x 0.35 
+               
+                  1.6 
+               
+                  0.35 
+               
+                  1.301 
+               
+                  1.321 
+               
+                  - 
+               
+                  1.221 
+               
+                  1.25 
+           
+           
+               
+                  M2 x 0.4 
+               
+                  2 
+               
+                  0.4 
+               
+                  1.657 
+               
+                  1.679 
+               
+                  - 
+               
+                  1.567 
+               
+                  1.60 
+           
+
+            
+               
+                  M2.5 x 0.45 
+               
+                  2.5 
+               
+                  0.45 
+               
+                  2.113 
+               
+                  2.138 
+               
+                  - 
+               
+                  2.013 
+               
+                  2.05 
+           
+           
+               
+                  M3 x 0.5 
+               
+                  3 
+               
+                  0.5 
+               
+                  2.571 
+               
+                  2.599 
+               
+                  2.639 
+               
+                  2.459 
+               
+                  2.50 
+           
+            
+               
+                  M3.5* x 0.6 
+               
+                  3.5 
+               
+                  0.6 
+               
+                  2.975 
+               
+                  3.010 
+               
+                  3.050 
+               
+                  2.850 
+               
+                  2.90 
+           
+           
+               
+                  M4 x 0.7 
+               
+                  4 
+               
+                  0.7 
+               
+                  3.382 
+               
+                  3.422 
+               
+                  3.466 
+               
+                  3.242 
+               
+                  3.30 
+           
+            
+               
+                  M5 x 0.8 
+               
+                  5 
+               
+                  0.8 
+               
+                  4.294 
+               
+                  4.334 
+               
+                  4.384 
+               
+                  4.134 
+               
+                  4.20 
+           
+           
+               
+                  M6 x 1 
+               
+                  6 
+               
+                  1 
+               
+                  5.107 
+               
+                  5.153 
+               
+                  5.217 
+               
+                  4.917 
+               
+                  5.00 
+           
+            
+               
+                  M8 x 1.25 
+               
+                  8 
+               
+                  1.25 
+               
+                  6.859 
+               
+                  6.912 
+               
+                  6.982 
+               
+                  6.647 
+               
+                  6.80 
+           
+           
+               
+                  M10 x 1.5 
+               
+                  10 
+               
+                  1.5 
+               
+                  8.612 
+               
+                  8.676 
+               
+                  8.751 
+               
+                  8.376 
+               
+                  8.50 
+           
+        
+               
+                   Coarse Pitch Thread  
+               
+                  Drill size (mm) 
+           
+           
+               
+                  Tap Size 
+               
+                  Basic Major
+                    
+                  Dia. 
+               
+                  Thread Pitch 
+               
+                  Minor diameter for class 
+           
+           
+               
+                  5H
+                  max. 
+               
+                  6H max. 
+               
+                  7H max. 
+               
+                  5H, 6H, 7H min 
+           
+            
+               
+                  M12 x 1.75 
+               
+                  12 
+               
+                  1.75 
+               
+                  10.371 
+               
+                  10.441 
+               
+                  10.531 
+               
+                  10.106 
+               
+                  10.20 
+           
+           
+               
+                  M14* x 2 
+               
+                  14 
+               
+                  2 
+               
+                  12.135 
+               
+                  12.210 
+               
+                  12.310 
+               
+                  11.835 
+               
+                  12.00 
+           
+            
+               
+                  M16 x 2 
+               
+                  16 
+               
+                  2 
+               
+                  14.135 
+               
+                  14.210 
+               
+                  14.310 
+               
+                  13.835 
+               
+                  14.00 
+           
+           
+               
+                  M18* x 2.5 
+               
+                  18 
+               
+                  2.5 
+               
+                  15.649 
+               
+                  15.744 
+               
+                  15.854 
+               
+                  15.294 
+               
+                  15.50 
+           
+            
+               
+                  M20 x 2.5 
+               
+                  20 
+               
+                  2.5 
+               
+                  17.649 
+               
+                  17.744 
+               
+                  17.854 
+               
+                  17.294 
+               
+                  17.50 
+           
+           
+               
+                  M22* x 2.5 
+               
+                  22 
+               
+                  2.5 
+               
+                  19.649 
+               
+                  19.744 
+               
+                  19.854 
+               
+                  19.294 
+               
+                  19.50 
+           
+            
+               
+                  M24 x 3 
+               
+                  24 
+               
+                  3 
+               
+                  21.152 
+               
+                  21.252 
+               
+                  21.382 
+               
+                  20.752 
+               
+                  21.00 
+           
+           
+               
+                  M27* x 3 
+               
+                  27 
+               
+                  3 
+               
+                  24.152 
+               
+                  24.252 
+               
+                  24.382 
+               
+                  23.752 
+               
+                  24.00 
+           
+
+                      
+               
+                  M30 x 3.5 
+               
+                  30 
+               
+                  3.5 
+               
+                  26.661 
+               
+                  26.771 
+               
+                  26.921 
+               
+                  26.211 
+               
+                  26.50 
+           
+        
+               
+                   Coarse Pitch Thread  
+               
+                  Drill size (mm) 
+           
+           
+               
+                  Tap Size 
+               
+                  Basic Major
+                    
+                  Dia. 
+               
+                  Thread Pitch 
+               
+                  Minor diameter for class 
+           
+           
+               
+                  5H
+                  max. 
+               
+                  6H max. 
+               
+                  7H max. 
+               
+                  5H, 6H, 7H min 
+           
+           
+               
+                  M33* x 3.5 
+               
+                  33 
+               
+                  3.5 
+               
+                  29.661 
+               
+                  29.771 
+               
+                  29.921 
+               
+                  29.211 
+               
+                  29.50 
+           
+
+                      
+               
+                  M36 x 4 
+               
+                  36 
+               
+                  4 
+               
+                  32.145 
+               
+                  32.270 
+               
+                  32.420 
+               
+                  31.670 
+               
+                  32.00 
+           
+           
+               
+                  M39* x 4 
+               
+                  39 
+               
+                  4 
+               
+                  35.145 
+               
+                  35.270 
+               
+                  35.420 
+               
+                  34.670 
+               
+                  35.00 
+           
+
+                      
+               
+                  M42 x 4.5 
+               
+                  42 
+               
+                  4.5 
+               
+                  37.659 
+               
+                  37.799 
+               
+                  37.979 
+               
+                  37.129 
+               
+                  37.50 
+           
+           
+               
+                  M45* x 4.5 
+               
+                  45 
+               
+                  4.5 
+               
+                  40.659 
+               
+                  40.799 
+               
+                  40.979 
+               
+                  40.129 
+               
+                  40.50 
+           
+
+                      
+               
+                  M48 x 5 
+               
+                  48 
+               
+                  5 
+               
+                  43.147 
+               
+                  43.297 
+               
+                  43.487 
+               
+                  42.587 
+               
+                  43.00 
+           
+           
+               
+                  M52* x 5 
+               
+                  52 
+               
+                  5 
+               
+                  47.147 
+               
+                  47.297 
+               
+                  47.487 
+               
+                  46.587 
+               
+                  47.00 
+           
+
+                      
+               
+                  M56 x 5.5 
+               
+                  56 
+               
+                  5.5 
+               
+                  50.646 
+               
+                  50.796 
+               
+                  50.996 
+               
+                  50.046 
+               
+                  50.50 
+           
+            
+   
+    
+
+             Note : * Non-preferred threads according to standard. 
+
+
+     
+
+
+
+  
+  
+
+      
+
+     
+
+    
+       
+                
+               
+                  Metric Tap Drill Chart - Fine Thread 
+           
+       
+        
+               
+                   Fine Pitch Thread  
+               
+                  Drill size (mm) 
+           
+           
+               
+                  Tap Size 
+               
+                  Basic Major
+                    
+                  Dia. 
+               
+                  Thread Pitch 
+               
+                  Minor diameter for class 
+           
+           
+               
+                  5H
+                  max. 
+               
+                  6H max. 
+               
+                  7H max. 
+               
+                  5H, 6H, 7H min 
+           
+           
+               
+                  M8 x 1 
+               
+                  8 
+               
+                  1 
+               
+                  7.107 
+               
+                  7.153 
+               
+                  7.217 
+               
+                  6.917 
+               
+                  7.00 
+           
+           
+               
+                  M10 x 1 
+               
+                  10 
+               
+                  1 
+               
+                  9.107 
+               
+                  9.153 
+               
+                  9.217 
+               
+                  8.917 
+               
+                  9.00 
+           
+
+            
+               
+                  M10* x 1.25 
+               
+                  10 
+               
+                  1.25 
+               
+                  8.859 
+               
+                  8.912 
+               
+                  8.982 
+               
+                  8.647 
+               
+                  8.80 
+           
+           
+               
+                  M12* x 1.25 
+               
+                  12 
+               
+                  1.25 
+               
+                  10.859 
+               
+                  10.912 
+               
+                  10.982 
+               
+                  10.647 
+               
+                  10.80 
+           
+            
+               
+                  M12 x 1.5 
+               
+                  12 
+               
+                  1.5 
+               
+                  10.612 
+               
+                  10.676 
+               
+                  10.751 
+               
+                  10.376 
+               
+                  10.50 
+           
+           
+               
+                  M14* x 1.5 
+               
+                  14 
+               
+                  1.5 
+               
+                  12.612 
+               
+                  12.676 
+               
+                  12.751 
+               
+                  12.376 
+               
+                  12.50 
+           
+            
+               
+                  M16 x 1.5 
+               
+                  16 
+               
+                  1.5 
+               
+                  14.612 
+               
+                  14.676 
+               
+                  14.751 
+               
+                  14.376 
+               
+                  14.50 
+           
+           
+               
+                  M18* x 1.5 
+               
+                  18 
+               
+                  1.5 
+               
+                  16.612 
+               
+                  16.676 
+               
+                  16.751 
+               
+                  16.376 
+               
+                  16.50 
+           
+            
+               
+                  M20 x 1.5 
+               
+                  20 
+               
+                  1.5 
+               
+                  18.612 
+               
+                  18.676 
+               
+                  18.751 
+               
+                  18.376 
+               
+                  18.50 
+           
+           
+               
+                  M20* x 2 
+               
+                  20 
+               
+                  2 
+               
+                  18.135 
+               
+                  18.210 
+               
+                  18.310 
+               
+                  17.835 
+               
+                  18.00 
+           
+         
+               
+                   Coarse Pitch Thread  
+               
+                  Drill size (mm) 
+           
+           
+               
+                  Tap Size 
+               
+                  Basic Major
+                    
+                  Dia. 
+               
+                  Thread Pitch 
+               
+                  Minor diameter for class 
+           
+           
+               
+                  5H
+                  max. 
+               
+                  6H max. 
+               
+                  7H max. 
+               
+                  5H, 6H, 7H min 
+           
+            
+               
+                  M22* x 1.5 
+               
+                  22 
+               
+                  1.5 
+               
+                  20.612 
+               
+                  20.676 
+               
+                  20.751 
+               
+                  20.376 
+               
+                  20.50 
+           
+           
+               
+                  M24 x 2 
+               
+                  24 
+               
+                  2 
+               
+                  22.135 
+               
+                  22.210 
+               
+                  22.310 
+               
+                  21.835 
+               
+                  22.00 
+           
+            
+               
+                  M27* x 2 
+               
+                  27 
+               
+                  2 
+               
+                  25.135 
+               
+                  25.210 
+               
+                  25.310 
+               
+                  24.835 
+               
+                  25.00 
+           
+           
+               
+                  M30 x 2 
+               
+                  30 
+               
+                  2 
+               
+                  28.135 
+               
+                  28.210 
+               
+                  28.310 
+               
+                  27.835 
+               
+                  28.00 
+           
+            
+               
+                  M33* x 2 
+               
+                  33 
+               
+                  2 
+               
+                  31.135 
+               
+                  31.210 
+               
+                  31.310 
+               
+                  30.835 
+               
+                  31.00 
+           
+           
+               
+                  M36 x 3 
+               
+                  36 
+               
+                  3 
+               
+                  33.152 
+               
+                  33.252 
+               
+                  33.382 
+               
+                  32.752 
+               
+                  33.00 
+           
+            
+               
+                  M39* x 3 
+               
+                  39 
+               
+                  3 
+               
+                  36.152 
+               
+                  36.252 
+               
+                  36.382 
+               
+                  36.752 
+               
+                  36.00 
+           
+           
+               
+                  M42 x 3 
+               
+                  42 
+               
+                  3 
+               
+                  39.152 
+               
+                  39.252 
+               
+                  39.382 
+               
+                  38.752 
+               
+                  39.00 
+           
+
+                      
+               
+                  M45* x 3 
+               
+                  45 
+               
+                  3 
+               
+                  42.152 
+               
+                  42.252 
+               
+                  42.382 
+               
+                  41.752 
+               
+                  42.00 
+           
+           
+               
+                  M48 x 3 
+               
+                  48 
+               
+                  3 
+               
+                  45.152 
+               
+                  45.252 
+               
+                  45.382 
+               
+                  44.752 
+               
+                  45.00 
+           
+
+                      
+               
+                  M52* x 4 
+               
+                  52 
+               
+                  4 
+               
+                  48.145 
+               
+                  48.270 
+               
+                  48.420 
+               
+                  47.670 
+               
+                  48.00 
+           
+           
+   
+ 
+             
+                Note : * Non-preferred threads according to standard. 
+
+
+
+     Supplements: 
+
+     
+
+          
+ Thread calculators and charts 
+         
+
+     
+
+             
+
+      Reference: 
+
+  
+       
+        
+       
+       ISO 68-1:1998(E) - ISO general purpose screw threads — Basic profile — Part 1: Metric screw threads
+       
+        
+      
+              
+        
+      
+       ISO 2306:1972,  Drills for use prior to tapping screw threads
+       
+        
+
+  
+
+
+   
+    
+
+ FAQ 
+ 
+   What drill size do I use for an M6 x 1 tap? 
+   Use the calculator above (select  M6 x 1 ) or find it in the coarse-thread chart below. The recommended drill diameter is shown in mm. 
+
+   Is this chart for coarse and fine metric threads? 
+   Yes. The page includes tables for both coarse and fine ISO metric threads, plus a calculator for quick lookup. 
+
+   How do I choose between two nearby drill sizes? 
+   When you have a choice, selecting a slightly larger drill (within the standard limits) can reduce tapping torque and breakage risk, especially in tougher materials. 
+ 
+
+  
+
+
+
+                 
+
+
+
+                
+
+                 
+
+                     
+                     
+
+                 
+
+
+             
+
+
+
+            
+
+
+         
+
+
+
+        
+
+
+         
+
+            ✨ Ask AmesWeb AI
+
+         
+
+
+
+        
+
+
+         
+
+
+             
+
+
+                 
+
+                    AmesWeb AI
+
+                 
+
+
+                 
+
+                    ×
+
+                 
+
+
+             
+
+
+
+             
+
+
+                 
+
+Hi. Ask me about this calculator or describe the engineering problem you are trying to solve.
+
+                 
+
+
+             
+
+
+
+             
+
+
+                  
+
+
+                 
+
+                    Send
+
+                 
+
+
+             
+
+
+             
+
+                AI responses are for engineering guidance.
+                Verify critical design calculations and requirements.
+
+             
+
+
+         
+
+
+     
+
+
+
+     
+
+
+         
+
+
+             
+
+
+                 
+
+                    About us
+
+                 
+
+                |
+
+
+                 
+
+                    Contact us
+
+                 
+
+                |
+
+
+                 
+
+                    Disclaimer
+
+                 
+
+                |
+
+
+                 
+
+                    Privacy Policy
+
+                 
+
+
+             
+
+
+             
+
+                Copyright © 2013-2026 AmesWeb
+
+             
+
+
+         
+
+
+     
+
+
+
+    
+
+
+      
+
+
+
+    
+
+
+      
+
+
+ 
+
+ 

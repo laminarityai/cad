@@ -1,0 +1,148 @@
+# Fastener holes by exact metric size. A check reads a row by its exact key and nothing else.
+# clearance: ISO 273 hole diameters, close (fine series), medium and coarse series, in mm.
+# tapped: the minor diameter of an internal thread, from its smallest to its 6H largest, and the
+# tap drill, in mm. The coarse pitch is the one ISO 261 gives the size.
+# Every quote is on a page of the stored text in tables/datasheet_text/, and every number is
+# written in its quote: `uv run python -m cad.tables.validate` checks both offline.
+sources:
+  clearance: &clearance
+    url: https://de.wikipedia.org/wiki/Durchgangsloch
+    title: "Wikipedia (German), Durchgangsloch: the table of clearance holes of DIN EN 20273, the German edition of ISO 273"
+    page: the table Durchgangsbohrungen für metrische Schrauben, the row of the thread; fein, mittel and grob are the fine (close), medium and coarse series, in mm with a decimal comma
+    retrieved: 2026-11-11
+    standard: ISO 273
+  tapped: &tapped
+    url: https://amesweb.info/Screws/metric-tap-drill-chart.aspx
+    title: AmesWeb, Metric Tap Drill Chart (coarse thread)
+    page: Metric Tap Drill Chart - Coarse Thread, the row of the tap size; columns 6H max, the 5H 6H 7H min minor diameter, and the drill size
+    retrieved: 2026-11-11
+    standard: ISO 68-1, ISO 2306
+
+fasteners:
+  - key: M2
+    clearance:
+      close_mm: 2.2
+      medium_mm: 2.4
+      coarse_mm: 2.6
+      source:
+        <<: *clearance
+        quote: "M2 2,2 2,4 2,6"
+    tapped:
+      minor_min_mm: 1.567
+      minor_max_mm: 1.679
+      tap_drill_mm: 1.6
+      source:
+        <<: *tapped
+        quote: "M2 x 0.4 2 0.4 1.657 1.679 - 1.567 1.60"
+
+  - key: M3
+    clearance:
+      close_mm: 3.2
+      medium_mm: 3.4
+      coarse_mm: 3.6
+      source:
+        <<: *clearance
+        quote: "M3 3,2 3,4 3,6"
+    tapped:
+      minor_min_mm: 2.459
+      minor_max_mm: 2.599
+      tap_drill_mm: 2.5
+      source:
+        <<: *tapped
+        quote: "M3 x 0.5 3 0.5 2.571 2.599 2.639 2.459 2.50"
+
+  - key: M4
+    clearance:
+      close_mm: 4.3
+      medium_mm: 4.5
+      coarse_mm: 4.8
+      source:
+        <<: *clearance
+        quote: "M4 4,3 4,5 4,8"
+    tapped:
+      minor_min_mm: 3.242
+      minor_max_mm: 3.422
+      tap_drill_mm: 3.3
+      source:
+        <<: *tapped
+        quote: "M4 x 0.7 4 0.7 3.382 3.422 3.466 3.242 3.30"
+
+  - key: M5
+    clearance:
+      close_mm: 5.3
+      medium_mm: 5.5
+      coarse_mm: 5.8
+      source:
+        <<: *clearance
+        quote: "M5 5,3 5,5 5,8"
+    tapped:
+      minor_min_mm: 4.134
+      minor_max_mm: 4.334
+      tap_drill_mm: 4.2
+      source:
+        <<: *tapped
+        quote: "M5 x 0.8 5 0.8 4.294 4.334 4.384 4.134 4.20"
+
+  - key: M6
+    clearance:
+      close_mm: 6.4
+      medium_mm: 6.6
+      coarse_mm: 7
+      source:
+        <<: *clearance
+        quote: "M6 6,4 6,6 7"
+    tapped:
+      minor_min_mm: 4.917
+      minor_max_mm: 5.153
+      tap_drill_mm: 5
+      source:
+        <<: *tapped
+        quote: "M6 x 1 6 1 5.107 5.153 5.217 4.917 5.00"
+
+  - key: M8
+    clearance:
+      close_mm: 8.4
+      medium_mm: 9
+      coarse_mm: 10
+      source:
+        <<: *clearance
+        quote: "M8 8,4 9 10"
+    tapped:
+      minor_min_mm: 6.647
+      minor_max_mm: 6.912
+      tap_drill_mm: 6.8
+      source:
+        <<: *tapped
+        quote: "M8 x 1.25 8 1.25 6.859 6.912 6.982 6.647 6.80"
+
+  - key: M10
+    clearance:
+      close_mm: 10.5
+      medium_mm: 11
+      coarse_mm: 12
+      source:
+        <<: *clearance
+        quote: "M10 10,5 11 12"
+    tapped:
+      minor_min_mm: 8.376
+      minor_max_mm: 8.676
+      tap_drill_mm: 8.5
+      source:
+        <<: *tapped
+        quote: "M10 x 1.5 10 1.5 8.612 8.676 8.751 8.376 8.50"
+
+  - key: M12
+    clearance:
+      close_mm: 13
+      medium_mm: 13.5
+      coarse_mm: 14.5
+      source:
+        <<: *clearance
+        quote: "M12 13 13,5 14,5"
+    tapped:
+      minor_min_mm: 10.106
+      minor_max_mm: 10.441
+      tap_drill_mm: 10.2
+      source:
+        <<: *tapped
+        quote: "M12 x 1.75 12 1.75 10.371 10.441 10.531 10.106 10.20"

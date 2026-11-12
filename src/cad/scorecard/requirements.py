@@ -11,6 +11,7 @@ from typing import Final, assert_never
 from cad.briefs.model import (
     ClosedSolid,
     Envelope,
+    FastenerHoles,
     Limit,
     MadeOf,
     MaxClearance,
@@ -20,6 +21,7 @@ from cad.briefs.model import (
     MinClearance,
     MinMass,
     MinSafetyFactor,
+    PlainHoles,
     Requirement,
     Target,
     Unchecked,
@@ -33,6 +35,7 @@ from cad.checks.jobs import Demand, PartBrep
 from cad.checks.report import SPECS
 from cad.checks.result import CheckResult, Comparator, Measured, ReadResearched, Verdict
 from cad.context_parts.ids import ContextPartId
+from cad.scorecard import holes
 from cad.scorecard.model import (
     AgainstBrief,
     AwaitingConfirmation,
@@ -95,6 +98,8 @@ def instance(target: Target) -> str:
             | MeasureLimit()
             | Unchecked()
             | MadeOf()
+            | FastenerHoles()
+            | PlainHoles()
         ):
             return ""
         case _:
@@ -173,6 +178,8 @@ def judge(
         )
     if isinstance(result, PendingCheck):
         return Waiting(requirement_id=requirement.id, statement=statement, check_id=check_id)
+    if isinstance(requirement.target, FastenerHoles | PlainHoles):
+        return holes.judged(requirement, statement, result)
     missed = Verdict.UNKNOWN if isinstance(requirement.target, Envelope) else Verdict.FAIL
     bounds = ERROR_BOUNDS.get(check_id, {})
     comparisons = tuple(

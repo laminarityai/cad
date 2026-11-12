@@ -63,6 +63,13 @@ CONTEXT_PARTS = (
     "check and the page show them together."
 )
 
+HOLES = (
+    "Holes the brief states are a fastener_holes requirement (a metric size such as M5, a fit of "
+    "clearance or tapped, and the count when it says one) or a plain_holes requirement (a "
+    "diameter and the count). Copy the size as the person wrote it. The holes check decides it "
+    "from the table, and a slot or hexagon makes it unknown, not a pass."
+)
+
 RESEARCH = (
     "A material value the table lacks is researched, not left unknown. When a scorecard's "
     "research lists a request, answer each one with submit_research: a public page, the "
@@ -116,6 +123,7 @@ INSTRUCTIONS: Final = " ".join(
         CHANGES,
         OPTIONS,
         CONTEXT_PARTS,
+        HOLES,
         MATERIAL,
         DEEPER_ANALYSIS,
         RESEARCH,
