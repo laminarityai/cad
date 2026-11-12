@@ -66,6 +66,7 @@ jobs:
         shard: [1, 2, 3, 4, 5, 6, 7, 8]
     env:
       CAD_TEST_SHARD: ${{ matrix.shard }}/8
+      CAD_TEST_SECONDS: ${{ github.workspace }}/shard-seconds.json
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2
@@ -91,3 +92,11 @@ jobs:
           path: ~/.cache/cad/fea
           key: ${{ steps.fea.outputs.key }}
       - run: uv run --locked verify --only pytest
+      # Each test file's seconds on this shard. tests/shards.py says how to refresh the table.
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: shard-seconds-${{ matrix.shard }}
+          path: shard-seconds.json
+          if-no-files-found: ignore
+          retention-days: 7

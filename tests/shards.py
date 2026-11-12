@@ -7,8 +7,11 @@ together. A file the table lacks weighs DEFAULT_SECONDS.
 Within a run the heaviest file is queued first too, so under `-n 4 --dist loadfile` a long file
 starts at once instead of after the short ones; xdist's own reorder, by test count, is turned off.
 
-To refresh the table, run every test file with CAD_TEST_SECONDS=<path>, which writes each file's
-summed test seconds there. One run per package group is fine: merge the files it writes.
+CAD_TEST_SECONDS=<path> writes each file's summed test seconds there. Every CI shard uploads its
+file as the artifact shard-seconds-<n>. To refresh the table, merge one run's artifacts:
+
+    gh run download <run id> --pattern 'shard-seconds-*' --dir <dir>
+    jq -sS add <dir>/*/shard-seconds.json > tests/shard_seconds.json
 """
 
 import json
