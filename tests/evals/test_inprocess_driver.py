@@ -53,7 +53,7 @@ def test_a_cube_that_cannot_weigh_what_it_must_stops_with_its_bounds_before_any_
     [bounds] = result.bounds
     assert bounds.quantity == "mass"
     assert "min_mass 80 g >" in bounds.statement
-    assert result.mode == "design"
+    assert result.stopped_run == result.run_id
     assert (result.revisions, result.variants, result.containers) == (0, 0, 0)
     assert result.pages == 1
     assert result.passed
@@ -66,7 +66,8 @@ def test_a_cube_that_cannot_weigh_what_it_must_stops_with_its_bounds_before_any_
 def test_a_brief_that_agrees_with_itself_is_not_stopped_as_a_conflict(tmp_path: Path) -> None:
     brief = BriefInput("tag", "tests", PLATE, TAG_GRADER)
     result = run_brief(brief, tmp_path, SCRIPTED, None, 60)
-    assert (result.stop, result.bounds, result.mode) == ("agent_asked", (), "design")
+    assert (result.stop, result.bounds) == ("agent_asked", ())
+    assert result.stopped_run == result.run_id
     assert result.passed
 
 

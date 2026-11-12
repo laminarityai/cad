@@ -5,7 +5,6 @@ from pathlib import Path
 from cad.auto.log import read_run
 from cad.auto.model import AutoRun, Capped, Proposed, Running, RunRefused, RunStopped, Started
 from cad.briefs import store as briefs
-from cad.conversations.model import Mode
 from cad.conversations.store import record_event
 from cad.projects.membership import project_briefs
 from cad.projects.model import ProjectId
@@ -13,12 +12,8 @@ from cad.records.roots import Roots
 from cad.sandbox.meter import AccountLimitReached
 
 
-def gate(
-    roots: Roots, directory: Path, run_id: str | None, mode: Mode | None, brief_id: str | None
-) -> Running | None:
+def gate(roots: Roots, directory: Path, run_id: str | None, brief_id: str | None) -> Running | None:
     if run_id is None:
-        if mode is Mode.AUTO and _has_something_to_revise_against(roots, brief_id):
-            raise RunRefused("this conversation is in Auto mode, so call auto_start first")
         return None
     run = record_proposals(roots, directory, run_id)
     if not isinstance(run.state, Running):
@@ -30,13 +25,6 @@ def gate(
             "pass that brief_id"
         )
     return run.state
-
-
-def _has_something_to_revise_against(roots: Roots, brief_id: str | None) -> bool:
-    """A brief builds before the person confirms anything, and `auto_start` refuses a brief with
-    no confirmed set. So in Auto mode a build for such a brief runs with no run, or a fresh brief
-    could never build there. A call that names no brief is still refused."""
-    return brief_id is None or briefs.confirmed_requirements(roots, brief_id) is not None
 
 
 @contextmanager

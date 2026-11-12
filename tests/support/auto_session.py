@@ -10,7 +10,7 @@ from cad.auto.log import read_run
 from cad.auto.model import AutoRun, Running
 from cad.chat.log import Channel, UserSaid, transcript_path
 from cad.conversations import store
-from cad.conversations.model import ConversationId, Mode
+from cad.conversations.model import ConversationId
 from cad.operations.model import Tenant
 from cad.operations.tenants import bind
 from cad.records.roots import Roots
@@ -62,30 +62,31 @@ class Session:
     def run(self, run_id: str) -> AutoRun:
         return read_run(self.roots, run_id)
 
-    async def left_auto(self, brief_id: str, run_id: str) -> None:
-        """The run stopped, so the conversation is in Design, and the agent cannot start another
-        run on the brief, or drive the stopped one, until the person picks Auto."""
+    async def held(self, brief_id: str, run_id: str) -> None:
         held = store.read(self.tenant.conversations, self.conversation)
-        assert (held.mode, held.auto_run) == (Mode.DESIGN, None)
+        assert (held.auto_run, held.stopped_run) == (None, run_id)
+        stopped = f"auto run {run_id} has stopped"
+        asked = list(self.meter.asked)
         for _ in range(2):
-            text = await self.refusal(
-                "auto_start",
-                brief_id=brief_id,
-                material_key="prusament-pla",
-                material_reason="PLA is light and prints easily",
-            )
-            assert "this caller's mode is design" in text, text
+            text = await self.refusal("auto_start", brief_id=brief_id, **PLA_CHOICE)
+            assert f"RunRefused: {stopped}" in text, text
             text = await self.refusal("auto_revise", run_id=run_id, code="result = None")
-            assert f"RunNotHeld: auto run {run_id} is not this conversation's" in text, text
+            assert f"RunStopped: {stopped}" in text, text
             text = await self.refusal("auto_ask", run_id=run_id, note="again")
-            assert f"RunNotHeld: auto run {run_id} is not this conversation's" in text, text
-        store.set_mode(self.tenant.roots, self.tenant.conversations, self.conversation, Mode.AUTO)
-        again = await self.start(
-            brief_id=brief_id,
-            material_key="prusament-pla",
-            material_reason="PLA is light and prints easily",
-        )
+            assert f"RunStopped: {stopped}" in text, text
+            text = await self.refusal("build_variant", code="result = None", brief_id=brief_id)
+            assert f"RunStopped: {stopped}" in text, text
+            text = await self.refusal(
+                "score_variant", variant_id="0" * 16, material_key="prusament-pla"
+            )
+            assert f"RunStopped: {stopped}" in text, text
+        assert self.meter.asked == asked
+        self.person_acts()
+        again = await self.start(brief_id=brief_id, **PLA_CHOICE)
         assert again.run_id != run_id
+
+    def person_acts(self) -> None:
+        store.lift_hold(self.tenant.roots, self.tenant.conversations, self.conversation)
 
     async def confirmed(self, text: str, *requirements: dict[str, Any]) -> str:
         Channel(transcript_path(self.tenant.conversations, self.conversation)).append(
@@ -117,14 +118,14 @@ class Session:
 
 
 TEXT: Final = "A plate under 150 g"
+PLA_CHOICE: Final = {
+    "material_key": "prusament-pla",
+    "material_reason": "PLA is light and prints easily",
+}
 
 
 async def running(s: Session) -> tuple[str, str]:
     brief_id = await s.confirmed(TEXT, UNDER_150)
-    run = await s.start(
-        brief_id=brief_id,
-        material_key="prusament-pla",
-        material_reason="PLA is light and prints easily",
-    )
+    run = await s.start(brief_id=brief_id, **PLA_CHOICE)
     assert isinstance(run.state, Running)
     return brief_id, run.run_id

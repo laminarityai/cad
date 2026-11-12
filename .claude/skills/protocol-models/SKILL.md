@@ -1,11 +1,11 @@
 ---
 name: protocol-models
-description: Model-check the check job queue (src/cad/checks/lanes.py, job_store.py, including Lanes.peek, the completion listeners and drop_unstarted) the confirmation answer flow (src/cad/confirmations/, operations/confirmation.py, records/signed.py) and how the chat carries on after a page answer (chat/routes.py Chat._deliver, answered, catch_up; chat/answer_driver.py) with TLA+. Use when you change how jobs take off, run, are stored or refused, how a worker starts or dies, or who may post the confirmation page, how its snapshot is sealed, or how an answer is appended; when you change what starts a chat turn, how a page answer reaches a conversation; when `verify` warns that covered code changed; or when a race, a crash, or a second session could break one of these flows.
+description: Model-check the check job queue (src/cad/checks/lanes.py, job_store.py, including Lanes.peek, the completion listeners and drop_unstarted) the confirmation answer flow (src/cad/confirmations/, operations/confirmation.py, records/signed.py) how the chat carries on after a page answer (chat/routes.py Chat._deliver, answered, catch_up; chat/answer_driver.py) and how a stop holds an Auto run's conversation until the person acts (conversations/store.py record_event, start_run, lift_hold; operations/tenants.bind; auto/gate.py; operations/auto.py auto_start; chat/routes.py Chat._begin) with TLA+. Use when you change how jobs take off, run, are stored or refused, how a worker starts or dies, or who may post the confirmation page, how its snapshot is sealed, or how an answer is appended; when you change what starts a chat turn, how a page answer reaches a conversation, what stops or holds an Auto run, or what auto_start reads before it opens one; when `verify` warns that covered code changed; or when a race, a crash, or a second session could break one of these flows.
 ---
 
 # Protocol models
 
-Unit tests run one interleaving per test. These models run every interleaving, within small bounds, of the threads, server processes, crashes, store errors and agent actions that touch three flows: the check job queue, the confirmation answer flow, and the chat carrying on after the person answers the page. A bug in any of them is expensive and rarely shows up in a test. The queue can run a container twice, leave a check pending forever, or trust a forged result. The answer flow can record an answer twice, lose one it reported as recorded, record an answer for an item the page never showed, or record one that the agent or another account gave. The carry-on flow can start two turns for one answer, or never tell a conversation an answer it waits on.
+Unit tests run one interleaving per test. These models run every interleaving, within small bounds, of the threads, server processes, crashes, store errors and agent actions that touch four flows: the check job queue, the confirmation answer flow, the chat carrying on after the person answers the page, and the hold a stopped Auto run puts on its conversation. A bug in any of them is expensive and rarely shows up in a test. The queue can run a container twice, leave a check pending forever, or trust a forged result. The answer flow can record an answer twice, lose one it reported as recorded, record an answer for an item the page never showed, or record one that the agent or another account gave. The carry-on flow can start two turns for one answer, or never tell a conversation an answer it waits on. The hold can let the agent build or start a run after a stop before the person acts, or keep a conversation held after the person acted.
 
 ## Run
 
@@ -112,7 +112,7 @@ The principals are the tenant's person sessions (`Persons`), a person of another
 
 ### CarryOn.tla: the chat carries on after a page answer
 
-After the person answers the confirmation page, the conversation that waits on the answer starts its next turn by itself. The answer changes no mode: a brief builds before it is confirmed, so there is no Plan to end. The transcript is the claim. `waiting_on` is derived from the conversation's own transcript, which survives a crash with the ledger. `Channel.running`, the channel cache, pending `on_recorded` calls and scheduled done callbacks live in memory, and a crash loses them. Each `_deliver` runs synchronously on the one event loop, from its `running` check to its append, so the model makes it one step.
+After the person answers the confirmation page, the conversation that waits on the answer starts its next turn by itself. The answer only tells the conversation. `_begin` also lifts a stop's hold, which AutoHold.tla covers. The transcript is the claim. `waiting_on` is derived from the conversation's own transcript, which survives a crash with the ledger. `Channel.running`, the channel cache, pending `on_recorded` calls and scheduled done callbacks live in memory, and a crash loses them. Each `_deliver` runs synchronously on the one event loop, from its `running` check to its append, so the model makes it one step.
 
 | Property | Kind | The harm it rules out |
 | --- | --- | --- |
@@ -128,7 +128,7 @@ After the person answers the confirmation page, the conversation that waits on t
 | `CarryOn.cfg` | 2 conversations, 2 answers, 2 proposals, 2 asks, 2 messages, 1 crash, 1 extra `on_recorded` call, symmetry over the conversations | invariants and action properties |
 | `CarryOnLive.cfg` | 1 conversation, 2 answers, 2 proposals, 2 asks, 1 message, 1 crash | both temporal properties |
 
-Liveness holds under weak fairness on the loop's own steps (the hook, the done callback, the running turn) and on `catch_up`. `catch_up` is fair because the browser's EventSource opens the stream again by itself after a restart. A conversation whose page is closed hears its answer when the person opens it. The person's and the agent's choices (answer, message, propose, ask, switch) are not fair. One conversation is enough for liveness, because each conversation's cursor and channel are its own.
+Liveness holds under weak fairness on the loop's own steps (the hook, the done callback, the running turn) and on `catch_up`. `catch_up` is fair because the browser's EventSource opens the stream again by itself after a restart. A conversation whose page is closed hears its answer when the person opens it. The person's and the agent's choices (answer, message, propose, ask) are not fair. One conversation is enough for liveness, because each conversation's cursor and channel are its own.
 
 How the model maps to the code:
 
@@ -136,7 +136,7 @@ How the model maps to the code:
 | --- | --- |
 | `ledger`, `pending` | the project's signed answers (`read_ledger`), and whether `items.pending` is empty |
 | `wait`, `told`, `tail` | `answer_driver.waiting_on` (None is -1), the answers the transcript has told the conversation, and whether the transcript's last event is a `DriverSaid` with `answered` |
-| `Deliver(D)` | `Chat._deliver` for each conversation in `D`: return while `channel.running`, `waiting_on`, `delivery` over the ledger, then `_begin` (set `running`, append `DriverSaid(answered=Answered(through=len(ledger)))`, create the turn task) |
+| `Deliver(D)` | `Chat._deliver` for each conversation in `D`: return while `channel.running`, `waiting_on`, `delivery` over the ledger, then `_begin` (`lift_hold`, which AutoHold.tla covers, then set `running`, append `DriverSaid(answered=Answered(through=len(ledger)))`, create the turn task) |
 | `Hook` | `Chat.answered`, which `confirmations/web.py` `record` calls through `on_recorded` after a recorded answer: `_deliver` on every channel `Channels.open_in` holds |
 | `DoneCallback(c)` | the turn task's done callback, which the loop runs some time after `run_turn`'s `finally` cleared `running` |
 | `CatchUp(c)` | `Chat.catch_up` on stream open: the restart heal (not running and a `DriverSaid` tail, so start the turn and append nothing), else `_deliver` |
@@ -146,6 +146,49 @@ How the model maps to the code:
 | `AskReturn(c)` | the `ToolReturned` append: the told cursor moves to `answers_recorded`, and a pending result starts the wait |
 | `Answer` | `web.py` `record`: one answer to everything pending in the project. Answers.tla shows one recorded POST per answer. `ExtraHook` calls `on_recorded` a second time anyway |
 | `Crash` | the process dies: `running`, the channel cache, pending hooks and callbacks go |
+
+### AutoHold.tla: a stop holds the conversation
+
+Every stop of an Auto run holds its web app conversation (ADR-0010). `record_event` moves the run from `auto_run` to `stopped_run` in the write that records the stop. `bind` gives every tool call the running run or else the stopped run, so the gate refuses each build and score after a stop, and `start_run` refuses a new run. Only `Chat._begin`, for the person's message or a delivered page answer, calls `lift_hold`. The model has one account, one project and one brief. The run logs and the conversation records are on disk and every write takes `store._LOCK`, so each write is one step. A crash can fall between a stop and its conversation write, and the next call in that conversation writes the hold. `auto_start` reads the brief three times outside the lock, and any caller may propose between the reads.
+
+| Property | Kind | The harm it rules out |
+| --- | --- | --- |
+| `NoBuildPastAStop` | invariant | A build or score passes the gate in a conversation whose run stopped, before the person acted. |
+| `NoRunWithoutAPersonStep` | invariant | The agent starts a run after a stop, before the person acted. |
+| `OnlyAPersonStepReopens` | action | Something other than `_begin` clears `stopped_run`, such as a tool call or the restart heal rerunning a delivery that came before a Stop. |
+| `StopSticks` | action | A stopped run runs again. |
+| `OneRunningRunPerConversation` | invariant | A running run is not its conversation's `auto_run`, so a conversation holds two runs or loses track of one. |
+| `OnlyTheOwnerDrives` | invariant | A conversation binds a run that another conversation started. |
+| `NoBuildUnderAPendingProposal` | invariant | A build passes a run's gate while a proposal on its brief waits for the person. |
+| `BuiltUnderItsDecision` | invariant | A build under a run is judged against a confirmed set the run did not start from. |
+| `ActedLiftsTheHold` | invariant | A turn that serves the person's act runs held by a stop from before the act. |
+| `HealedByTheNextCall` | invariant | A stop that a crash cut before its conversation write is still unwritten after the conversation's next call. |
+| `TypeOK` | invariant | A variable takes a value the model did not mean to allow. |
+
+| Config | Bounds | Checks |
+| --- | --- | --- |
+| `AutoHold.cfg` | 2 conversations, 2 runs, 2 proposals, 2 person acts per conversation, 1 crash, symmetry over the conversations | every property. The hold makes no liveness claim |
+
+The order of `auto_start`'s reads matters. It reads the watermark, then checks for a pending proposal, then reads the confirmed set. A proposal that lands after the watermark stops the run at its first gate. If the pending check came first, a proposal between the two reads would sit inside the watermark and never stop the run (`pending-before-watermark`). If the confirmed set came before the pending check, a proposal confirmed between them would change the decision under the run (`confirmed-before-pending`). `tests/auto/test_run.py` lands a proposal after each of the first two reads of the real code.
+
+`_begin` lifts the hold before it appends the person's event, and the restart heal lifts nothing. With the append first, a crash between the two leaves a delivery whose rerun turn the old stop still holds (`append-before-lift`). A heal that lifted would clear a Stop the person pressed after the delivery (`heal-lifts-the-hold`).
+
+| Model | Code |
+| --- | --- |
+| `props`, `Pending`, `Decision` | the brief's proposals, `BriefState.latest` with status PROPOSED, and `BriefState.confirmed`. A newer proposal supersedes an older one, so only the latest is answered |
+| `auto`, `stopped`, `Bound(c)` | `Conversation.auto_run` and `stopped_run`, and `tenants.bind` (`auto_run or stopped_run`) |
+| `Record(r)` | `store.record_event` for an event that stops the run: `append_event` (nothing on a stopped run), then `_held_by` when the run is the conversation's `auto_run`, also for a run already stopped |
+| `Stop(r)` | `auto_stop`, the person's Stop on any run, any time |
+| `StopCrash(r)` | any stop whose process dies before `record_event` writes the conversation |
+| `Begin(c)`, `Run(c)` | `Chat._begin` while no turn runs: `lift_hold` (the stale current run, then `stopped_run`), then `channel.append`, then `_run`. `First` and `Second` name the two writes so a mutant can swap them |
+| `Heal(c)` | `Chat.catch_up`'s restart heal: a delivery tail and no turn, so the turn runs again with no lift |
+| `Build(c)` | `build_variant`, `score_variant` or `auto_revise`: `bind`, then `gate` and `record_proposals`, which stops the run with Proposed when a proposal came after the watermark. Only the conversation's own agent starts a run in it and a person act waits for the turn to end, so `bind`'s unlocked read and the gate are one step |
+| `Ask(c)` | `auto_ask` on the bound run. It also stands for the account cap, which `stops_at_the_limit` records through `record_event` in the same conversation |
+| `StartCall`, `Read`, `Open` | `auto_start`: the reads in `ReadOrder`, then `start_run` under the lock with `open_under_lock`, which returns the brief's running run to its conversation, refuses it to another (RunNotHeld), or creates the next run. A new run stops at once when a proposal came after its watermark, or when its bounds conflict |
+| `Propose`, `Answer` | `propose_requirements` from any caller, and the person's page answer |
+| `acted`, `holdAt`, `on`, `untouched` | ghosts: the person acted since the last stop, the act count at that stop, the act a turn serves, and a crash-cut stop no call has healed |
+
+`record_proposals` reads the run and the proposals and then records, and the model makes that one step. A proposal that lands between the read and the record is caught at the next gate. The stop rules themselves (all pass, conflict, the agent asks) are the pure fold in `auto/step.py`, which `tests/auto/test_step.py` covers. The model only needs to know that a record stops a run.
 
 ## Known findings
 
@@ -169,10 +212,11 @@ When a check fails, read the trace as a story in code terms: which thread or pro
 `check_models.py` reads the block below. It warns when a covered file changed after the sync commit, and it prints a note instead when the commit is not in the clone (CI checks out shallow). The warning does not fail the run. When you see it, read the diff, update the model if the protocol changed, run the checks and the mutants, and only then move `sync` to the new commit. Use `/maintain-formal-verification-skill` for that work.
 
 ```coverage
-sync: 1bafd93
+sync: 21a7efb
 JobLanes: src/cad/checks/lanes.py src/cad/checks/job_store.py src/cad/checks/jobs.py src/cad/sandbox/container.py
 Answers: src/cad/confirmations/web.py src/cad/confirmations/snapshot.py src/cad/operations/confirmation.py src/cad/confirmations/page.py src/cad/confirmations/answers.py src/cad/confirmations/items.py src/cad/records/signed.py
 CarryOn: src/cad/chat/routes.py src/cad/chat/answer_driver.py src/cad/chat/turn.py src/cad/chat/log.py src/cad/conversations/store.py src/cad/operations/confirmation.py src/cad/confirmations/web.py
+AutoHold: src/cad/auto/gate.py src/cad/auto/log.py src/cad/operations/auto.py src/cad/conversations/store.py src/cad/chat/routes.py src/cad/operations/tenants.py
 ```
 
 ## Planned targets, not built yet
@@ -180,7 +224,6 @@ CarryOn: src/cad/chat/routes.py src/cad/chat/answer_driver.py src/cad/chat/turn.
 These are phase-4 plans. Model them when the code exists.
 
 - **One replica, enforced by a lease.** When the lease exists, `JobLanesTwoServers` should pass `InterruptedMeansInterrupted`, and the first known finding goes away.
-- **Auto mode `step` and its stopping rules** (phase-4 section 2.5). A new model with the agent, the scorecard and the person as actors. Each rule becomes a property: stop when bounds conflict, when all checks pass, when the person is needed, when the agent asks, and at the account limit. Never pass on a pending row. Agent measurements never make a run pass (ADR-0008).
 
 ## Not covered
 
@@ -188,5 +231,6 @@ These are phase-4 plans. Model them when the code exists.
 - `OneContainerPerKey` holds per process incarnation only. A crashed server's container keeps running, and a restarted server can start a second container for the same key next to it, because `container.remove_orphans` removes only exited containers whose owner pid is dead. Issue #148 tracks it.
 - The lost update in `job_store.begin_attempt`. It reads `.attempt` and then replaces it, and the model makes that one step. Two servers that begin the same job at once can both write n + 1, so the real count can be lower than the model's, and the cap can allow more reruns across servers than `Cap`.
 - The account meter. Its refusal is a run fault, which is modeled. Its own file lock and day ledger are covered by `tests/accounts/test_meter.py`.
+- The Auto stop rules. `auto/step.py` folds a run's events with no concurrency, so `tests/auto/test_step.py` covers it. AutoHold.tla covers what a stop does to the conversation.
 - The research ledger (ADR-0009). Its rules (the first record wins, a known value is never replaced) live in the pure `research/overlay.fill`, and tests cover it.
 - Bounds larger than the configs: more callers, more crashes, more revisions. The bugs these models target show up with two actors and one fault, and larger bounds cost minutes.

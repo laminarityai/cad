@@ -18,7 +18,7 @@ from cad.accounts.principal import AccountId
 from cad.confirmations.waiting import Bell, Door
 from cad.context_parts.store import Ingest
 from cad.conversations import store as conversations
-from cad.conversations.model import Conversation, ConversationId, Mode, UnknownConversation
+from cad.conversations.model import Conversation, ConversationId, UnknownConversation
 from cad.operations.model import Tenant
 from cad.records.roots import Roots
 
@@ -80,16 +80,10 @@ class Tenants:
 
 
 def bind(tenant: Tenant, cid: ConversationId | None) -> Tenant:
-    """An agent token's conversation with no record binds as Design."""
     if cid is None:
         return tenant
     try:
         held = conversations.read(tenant.conversations, cid)
     except UnknownConversation:
         held = Conversation()
-    return replace(
-        tenant,
-        conversation=cid,
-        mode=held.mode,
-        auto_run=held.auto_run if held.mode is Mode.AUTO else None,
-    )
+    return replace(tenant, conversation=cid, bound_run=held.auto_run or held.stopped_run)

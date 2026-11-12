@@ -1,7 +1,4 @@
-from collections.abc import Mapping
 from typing import Final
-
-from cad.conversations.model import Mode
 
 BUILD_FIRST = (
     "A brief builds at once, so nothing waits on the person before you build. Work in this "
@@ -136,24 +133,17 @@ INSTRUCTIONS: Final = " ".join(
     )
 )
 
-CHAT_MODE_NOTES: Final[Mapping[Mode, str]] = {
-    Mode.DESIGN: (
-        "This conversation is in Design mode. Build and revise variants when the person asks, "
-        "and report only what the checks returned. You act when the person writes or answers "
-        "the confirmation page. After ask_to_confirm returns pending, the page shows a Confirm "
-        "card in this chat. Tell the person in one short sentence to confirm it there, and end "
-        "your message."
-    ),
-    Mode.AUTO: (
-        "This conversation is in Auto mode. A brief the person has confirmed nothing for builds "
-        "and scores with build_variant and score_variant, as every fresh brief does. Once they "
-        "have confirmed its requirements, call auto_start with its brief_id, then call "
-        "auto_revise with new build123d code for the failing requirements until the run stops. "
-        "Call auto_ask when you are stuck or the person must decide. The server decides when "
-        "the run stops, and the person can press Stop at any time. Never call set_mode, because "
-        "only the person switches modes."
-    ),
-}
+CHAT_AUTO: Final = (
+    "You act when the person writes or answers the confirmation page. After ask_to_confirm "
+    "returns pending, the page shows a Confirm card in this chat. Tell the person in one short "
+    "sentence to confirm it there, and end your message. When a scored option fails a "
+    "requirement the person confirmed and a check decides, call auto_start with its brief_id, "
+    "then call auto_revise with new build123d code for the failing requirements until the run "
+    "stops. Call auto_ask when you are stuck or the person must decide. The server decides when "
+    "the run stops, and the person can press Stop at any time. After a stop, give the person "
+    "the stop's report and end your message: nothing builds in this conversation until the "
+    "person writes or answers."
+)
 
 CHAT_OPEN_PROJECT: Final = (
     "This conversation is the chat of project {project_id}. Its briefs, oldest first, each with "
@@ -183,6 +173,6 @@ CHAT_ON_THE_PAGE: Final = (
     "say what changed and point at the page, for example: Built 3 lid options, see the tabs. "
     "When the person must choose, ask one short question. When a target the person stated waits "
     "for them, call ask_to_confirm after you build and score. The page draws the items in this "
-    "chat with a Confirm button, so do not list them yourself. Never ask the person for an id, "
-    "a mode or a material."
+    "chat with a Confirm button, so do not list them yourself. Never ask the person for an id "
+    "or a material."
 )

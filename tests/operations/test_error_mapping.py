@@ -43,7 +43,7 @@ EXPECTED: Final[dict[str, Answer]] = {
     "cad.checks.container.inputs.Undeclared": (None, None),
     "cad.checks.lanes.Superseded": (None, None),
     "cad.context_parts.store.BadContextPart": ("400 named", "named"),
-    "cad.conversations.model.ModeRefused": ("400 named", "named"),
+    "cad.conversations.model.ConversationRefused": ("400 named", "named"),
     "cad.conversations.model.NotAConversation": (None, None),
     "cad.conversations.model.UnknownConversation": ("404 named", "named"),
     "cad.errors.NotFound": ("404 named", "named"),

@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict, StringConstraints
 from cad.accounts.principal import AccountId
 from cad.confirmations.waiting import Bell, Door
 from cad.context_parts.store import Ingest
-from cad.conversations.model import ConversationId, Mode
+from cad.conversations.model import ConversationId
 from cad.frozen import Frozen
 from cad.records.roots import Roots
 from cad.sandbox.meter import Meter
@@ -37,8 +37,7 @@ class Tenant:
     ingest: Ingest
     meter: Meter
     conversation: ConversationId | None = None
-    mode: Mode | None = None
-    auto_run: str | None = None
+    bound_run: str | None = None
 
 
 class Input(BaseModel):

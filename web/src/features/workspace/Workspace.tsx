@@ -5,10 +5,9 @@ import { Gate } from "@/components/Gate";
 import { summaryOf, toPicked, useSelection, type Selection } from "@/features/viewer/selection";
 import type { OnPick } from "@/features/viewer/engine";
 import { cn } from "@/lib/utils";
-import { ModePicker } from "@/features/mode/ModePicker";
-import { RunStatus } from "@/features/mode/RunStatus";
-import { AUTO_TOOLS } from "@/features/mode/run";
-import { useAuto } from "@/features/mode/useAuto";
+import { RunStatus } from "@/features/auto/RunStatus";
+import { AUTO_TOOLS } from "@/features/auto/run";
+import { useAuto } from "@/features/auto/useAuto";
 import { useResource } from "@/state/resource";
 import { Checks } from "./bits";
 import { sourcesOf, useCards, type CardKey } from "./cards";
@@ -171,11 +170,9 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
         await chatApi.send(model.conversationId, text, selection ? toPicked(selection) : undefined);
         clear();
       }}
-      tools={<ModePicker mode={auto.mode} onPick={(mode) => void auto.pick(mode)} />}
-      onCycle={() => void auto.cycle()}
     />
   );
-  const status = <RunStatus mode={auto.mode} run={auto.run} problem={auto.problem} onStop={() => void auto.stop()} />;
+  const status = <RunStatus run={auto.run} problem={auto.problem} onStop={() => void auto.stop()} />;
   const chatPane = <ChatPane lines={chat.lines} running={chat.turn === "running"} card={card} composer={composer} status={status} />;
   const center = <Center brief={brief} view={view} cards={cards} dispatch={dispatch} selection={selection} onPick={onPick} />;
 

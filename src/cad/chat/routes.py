@@ -32,7 +32,6 @@ from cad.confirmations.answers import read_ledger
 from cad.conversations import store
 from cad.conversations.model import (
     ConversationId,
-    Mode,
     NotAConversation,
     UnknownConversation,
     conversation_id,
@@ -79,7 +78,6 @@ class Start(BaseModel):
 
 class ConversationCreated(BaseModel):
     conversation_id: str
-    mode: Mode
 
 
 class ProjectConversation(BaseModel):
@@ -169,6 +167,8 @@ class Chat:
     def _begin(
         self, person: PersonSession, cid: ConversationId, channel: Channel, event: Event
     ) -> int:
+        tenant = self.tenants.of(person.account)
+        store.lift_hold(tenant.roots, tenant.conversations, cid)
         seq = channel.append(event).seq
         self._run(person, cid, channel)
         return seq
@@ -222,8 +222,8 @@ def chat_routes(person_of: PersonOf, chat: Chat) -> list[Route]:
         if start.project_id is not None and not _is_project(tenant, start.project_id):
             return refuse(404, f"no project {start.project_id} in this account")
         cid = conversation_id(f"c_{secrets.token_hex(8)}")
-        held = store.create(tenant.conversations, cid, start.project_id, start.brief_id)
-        return _json(ConversationCreated(conversation_id=cid, mode=held.mode), 201)
+        store.create(tenant.conversations, cid, start.project_id, start.brief_id)
+        return _json(ConversationCreated(conversation_id=cid), 201)
 
     async def send(request: Request) -> Response:
         who = session_person(person_of, request)

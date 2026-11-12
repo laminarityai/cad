@@ -75,6 +75,5 @@ ROUTES: Final[Mapping[str, Served]] = {
     "export": Served("/v1/variants/{variant_id}/exports/{format}"),
     "export_file": Served(exports.EXPORT_PATH, immutable=True, download=True),
     "conversation": Served("/v1/conversations/{conversation_id}"),
-    "set_mode": Served("/v1/conversations/{conversation_id}/mode", method="PUT"),
     "auto_stop": Served("/v1/auto/{run_id}/stop", method="POST"),
 }

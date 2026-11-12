@@ -50,7 +50,7 @@ class AutoResult(Frozen):
     bounds: tuple[Bounds, ...]
     report: str
     revisions: int
-    mode: str
+    stopped_run: str | None
     variants: int
     containers: int
     pages: int

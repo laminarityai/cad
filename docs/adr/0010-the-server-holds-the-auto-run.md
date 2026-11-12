@@ -1,6 +1,6 @@
 # The server holds the Auto run
 
-Status: Accepted. The operator approved this ADR on 2026-11-08, with the stop rules below and no progress rule on the server. On 2026-11-09 the operator decided the last two open points: the server keeps the three stop cases it can see itself, and Auto runs only in the web app for now. Nothing is left open. Amendments of 2026-11-09 at the end add the person's stop and make every stop leave Auto mode.
+Status: Accepted. The operator approved this ADR on 2026-11-08, with the stop rules below and no progress rule on the server. On 2026-11-09 the operator decided the last two open points: the server keeps the three stop cases it can see itself, and Auto runs only in the web app for now. Nothing is left open. Amendments of 2026-11-09 at the end add the person's stop and make every stop leave Auto mode. The amendment of 2026-11-11 removes modes. Auto is the default, and a stop holds the conversation until the person acts.
 
 In Auto mode the agent revises variants against the checks without stopping, until a stop rule ends the run (SPEC, Modes). ADR-0002 made modes agent behavior. The server ships them as guidance, and only our own agent enforces them. That is not enough for Auto mode in phase 4. Auto mode spends compute on every revision. If the rules live in the web app's driver, a bug in the driver can keep a run going after it should have stopped, and nothing on the server would refuse the next build. SPEC names that risk: "Auto mode relies on the agent to stop." This ADR records where the run lives and what stops it. The design is in `docs/design/phase-4.md` §2.5.
 
@@ -71,3 +71,50 @@ The previous amendment did this for the person's Stop only. The reviewer of that
 When a run is stopped, for any reason, and it is its conversation's current run, the server switches the conversation to Design. It does this in one place, the function that records every event of a run, so no stop can skip it. A run that was already stopped when the call began gets the same check, so a crash between the stop and the switch is finished by the next call. A stop of a run that is no longer the conversation's current one changes only that run, and the conversation's mode stays, as for the person's Stop. A replayed stop records nothing and changes nothing. A run that stops at its start, on conflicting bounds, leaves its conversation in Design and never holds it in Auto.
 
 The agent learns the result from the refusal of its next call. `auto_start` says that the caller's mode is design, and `auto_revise` and `auto_ask` on the stopped run are refused with `RunNotHeld`. An `auto_ask` on a run that has already stopped used to return the existing stop and is now refused the same way, because the conversation no longer holds the run. In Design mode `build_variant` and `score_variant` follow Design mode and the usual account limit, not the stopped run. A call that was already bound to the run when it stopped is still refused with `RunStopped`.
+
+## Amendment 2026-11-11: Auto is the default and modes are gone
+
+Status: Proposed. The operator decided on 2026-11-11 that Auto is the default, that the mode picker goes away, that any message or page answer from the person reopens Auto after a stop, and that a run revises only against confirmed, checked requirements. This amendment records those decisions. The operator has not yet approved its text.
+
+A conversation has no mode. `set_mode`, its route and the mode on the agent token are removed. The amendments of 2026-11-09 still hold where they speak of a run. Where they speak of Auto mode or Design mode, this amendment replaces them.
+
+### What starts a run
+
+The agent calls `auto_start` when a scored option fails a requirement that the person confirmed and a check decides. The person picks nothing. The server refuses the start in these cases:
+
+- The caller has no web app conversation. Auto still runs only in the web app.
+- The brief has no confirmed requirement that a check decides.
+- A proposal on the brief waits for the person. So the confirmed set cannot change under a running run.
+- A stop holds the conversation (below).
+- Another conversation holds a running run on the brief (`RunNotHeld`, unchanged).
+
+A run revises only against `Checked` rows of the confirmed set. An assumption and a target that waits for Confirm are never in a run's basis.
+
+`auto_start` reads the brief three times, outside the lock: the proposal watermark, then whether a proposal waits, then the confirmed set. The order matters. A proposal that lands after the watermark stops the run at its first gate. If the pending check came first, a proposal between the two reads would sit inside the watermark under a running run. If the confirmed set came first, a proposal confirmed before the pending check would change the decision under the run.
+
+### A stop holds the conversation
+
+The stop cases do not change. A run stops when every requirement passes, when the agent or the server finds that the run needs the person, when the account's usage limit refuses a build, and when the person presses Stop.
+
+Every stop of a conversation's current run holds that conversation. The function that records every event of a run moves the run from the conversation's `auto_run` to its `stopped_run` in one write. A run that was already stopped when the call began gets the same check, so the next call heals a crash between the stop and the write. A run that stops at its start, on conflicting bounds or on a proposal past its watermark, holds the conversation too.
+
+While a stopped run holds the conversation, every tool call there binds that run. The server refuses `build_variant`, `score_variant`, `auto_revise` and `auto_ask` with `RunStopped`, and `auto_start` with `RunRefused`, before any container starts. Before this amendment, the server allowed a build outside the run after a stop. Now nothing builds past a stop until the person acts.
+
+### Only the person lifts the hold
+
+The server clears the stopped run when the chat records the person's message, or a page answer reaching a conversation that waits on it. It clears it before it appends the person's event. So a crash between the two never leaves a person's step that the old stop still holds. A restart that reruns a delivered answer clears nothing, because the person may have pressed Stop after that answer. No tool clears the hold. So the agent cannot build or start a run after a stop until the person has acted.
+
+The person's Stop is unchanged. `auto_stop` is an operation that only a person session can call, and its reply holds the run and the conversation's running and stopped runs.
+
+Outside clients are unchanged. They cannot start a run, and the account's usage limit bounds them.
+
+The protocol model `AutoHold.tla` checks the hold, the start's read order and the crash heal, in `.claude/skills/protocol-models/`.
+
+### What this replaces
+
+It replaces "The person switches modes" in the decision, and the sentence that refuses `auto_start` under a token whose conversation is not in Auto mode. It replaces the amendment "every stop leaves Auto mode", and the sentences of the first 2026-11-09 amendment that move the conversation to Design after the person's Stop. A run that stops at its start no longer leaves its conversation free. `auto_revise` and `auto_ask` on a stopped run that holds the conversation are refused with `RunStopped`, not `RunNotHeld`.
+
+### Considered options
+
+- **A Resume button after a stop.** Rejected by the operator on 2026-11-11. It is a mode picker again, and any message or answer from the person already says they acted.
+- **Lift the hold at the start of every turn.** Rejected. A restart reruns the turn of a delivered answer, and the person may have pressed Stop after that answer.

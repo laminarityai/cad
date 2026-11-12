@@ -27,7 +27,6 @@ from cad.chat.log import Event, StopReport, ToolCalled, ToolReturned, TurnFailed
 from cad.chat.model import ToolResult, ToolUse
 from cad.confirmations.requirements import plain_names
 from cad.conversations import store
-from cad.conversations.model import Mode
 from cad.operations.model import Tenant
 from cad.projects.model import ProjectRefused
 
@@ -49,12 +48,10 @@ class AutoDriver:
 
     @staticmethod
     def resume(tenant: Tenant, events: Sequence[Event]) -> "AutoDriver":
-        """Follow the run the conversation holds, or else the last run an auto tool returned in
-        its transcript, because a stop clears the held run. The run counts as reported only when
-        the transcript holds its report, so a stop no turn saw is reported by the next turn."""
         cid = tenant.conversation
-        held = None if cid is None else store.read(tenant.conversations, cid).auto_run
-        run_id = held or _last_run(events)
+        held = None if cid is None else store.read(tenant.conversations, cid)
+        followed = None if held is None else held.auto_run or held.stopped_run
+        run_id = followed or _last_run(events)
         reported = any(isinstance(one, StopReport) and one.run_id == run_id for one in events)
         return AutoDriver(tenant, run_id, reported)
 
@@ -83,9 +80,6 @@ class AutoDriver:
 
     def nudge(self) -> str | None:
         if self.reported or self.run_id is None or self.nudges >= MAX_NUDGES:
-            return None
-        cid = self.tenant.conversation
-        if cid is None or store.read(self.tenant.conversations, cid).mode is not Mode.AUTO:
             return None
         if self._stopped() is not None:
             return None

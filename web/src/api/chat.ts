@@ -1,5 +1,5 @@
 import { openStream, request } from "./client";
-import type { ConversationCreated, ConversationState, ConversationView, Event, Mode, MessageSent, Picked, PersonStop } from "@/api/types";
+import type { ConversationCreated, ConversationView, Event, MessageSent, Picked, PersonStop } from "@/api/types";
 import { sleep } from "@/lib/sleep";
 import { FrameReader } from "./sse";
 
@@ -16,7 +16,6 @@ export interface ChatApi {
   create(projectId?: string): Promise<ConversationCreated>;
   read(conversationId: string): Promise<ConversationView>;
   send(conversationId: string, text: string, selection?: Picked): Promise<MessageSent>;
-  setMode(conversationId: string, mode: Mode): Promise<ConversationState>;
   stop(runId: string): Promise<PersonStop>;
   /** Every event after `after`, then each new one as it is said. */
   follow(conversationId: string, after: number, handlers: Follower): Unfollow;
@@ -65,7 +64,6 @@ export const httpChat: ChatApi = {
   read: (conversation_id) => request("get", "/v1/conversations/{conversation_id}", { path: { conversation_id } }),
   send: (conversation_id, text, selection) =>
     request("post", "/v1/conversations/{conversation_id}/messages", { path: { conversation_id }, body: selection === undefined ? { text } : { text, selection } }),
-  setMode: (conversation_id, mode) => request("put", "/v1/conversations/{conversation_id}/mode", { path: { conversation_id }, body: { mode } }),
   stop: (run_id) => request("post", "/v1/auto/{run_id}/stop", { path: { run_id } }),
   follow(conversationId, after, handlers) {
     const controller = new AbortController();

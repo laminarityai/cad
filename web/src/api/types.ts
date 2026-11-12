@@ -116,22 +116,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/conversations/{conversation_id}/mode": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put: operations["set_mode"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/v1/variants/{variant_id}/geometry": {
         parameters: {
             query?: never;
@@ -754,19 +738,18 @@ export interface components {
         /** ConversationCreated */
         ConversationCreated: {
             conversation_id: string;
-            mode: components["schemas"]["Mode"];
         };
         /** ConversationState */
         ConversationState: {
             conversation_id: string;
-            mode: components["schemas"]["Mode"];
             auto_run: string | null;
+            stopped_run: string | null;
         };
         /** ConversationView */
         ConversationView: {
             conversation_id: string;
-            mode: components["schemas"]["Mode"];
             auto_run: string | null;
+            stopped_run: string | null;
             project_id: string | null;
             brief_id: string | null;
             run: components["schemas"]["AutoRun"] | null;
@@ -1174,11 +1157,6 @@ export interface components {
             load: components["schemas"]["LoadCase"];
             factor: number;
         };
-        /**
-         * Mode
-         * @enum {string}
-         */
-        Mode: "design" | "auto";
         /** NeedsPerson */
         NeedsPerson: {
             /**
@@ -2008,7 +1986,6 @@ export type MessageSent = components['schemas']['MessageSent'];
 export type MinClearance = components['schemas']['MinClearance'];
 export type MinMass = components['schemas']['MinMass'];
 export type MinSafetyFactor = components['schemas']['MinSafetyFactor'];
-export type Mode = components['schemas']['Mode'];
 export type NeedsPerson = components['schemas']['NeedsPerson'];
 export type NoBrief = components['schemas']['NoBrief'];
 export type OnHoles = components['schemas']['OnHoles'];
@@ -2267,39 +2244,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ConversationView"];
-                };
-            };
-            400: components["responses"]["Refused"];
-            401: components["responses"]["SignedOut"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["Malformed"];
-            503: components["responses"]["Unavailable"];
-        };
-    };
-    set_mode: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                conversation_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    mode: components["schemas"]["Mode"];
-                };
-            };
-        };
-        responses: {
-            /** @description the result */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ConversationState"];
                 };
             };
             400: components["responses"]["Refused"];

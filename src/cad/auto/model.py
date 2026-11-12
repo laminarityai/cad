@@ -193,7 +193,7 @@ class RunStopped(RunRefused):
     def __init__(self, run: AutoRun) -> None:
         assert isinstance(run.state, Stopped)
         super().__init__(
-            f"auto run {run.run_id} has stopped, so nothing more is built or scored under it. "
-            f"{run.state.report}"
+            f"auto run {run.run_id} has stopped, so nothing is built or scored in this "
+            f"conversation until the person writes or answers. {run.state.report}"
         )
         self.run = run

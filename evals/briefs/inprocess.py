@@ -3,13 +3,6 @@
     uv run python evals/briefs/run.py --driver inprocess --briefs ~/cad-evals/briefs --out <dir>
         [--model scripted|<anthropic model id>] [--only ID ...] [--opener PROGRAM] [--timeout S]
 
-The driver builds the hosted app in this process, signs in as one local account, puts a new
-conversation in Auto mode, and posts the brief through the chat routes. The scripted person
-answers the confirmation page. The model is a script built from the brief's grader (`scripted`)
-or a live Anthropic model, which sees only the brief text. The server decides when the run
-stops (ADR-0010), so the driver reads the stop from the run's signed log and the conversation's
-mode from the account's store, never from what the agent said.
-
 Briefs run one after another: each has its own home under `<out>/<id>/home`, and the
 sandbox is shared. `<out>/<id>/auto.json` holds the result and `events.json` the transcript.
 """
@@ -128,10 +121,6 @@ async def converse(
             client.cookies.set("__session", local.mint_person(ACCOUNT))
             made = await client.post("/v1/conversations", headers=JSON, content=b"{}")
             cid = made.json()["conversation_id"]
-            mode = f"/v1/conversations/{cid}/mode"
-            picked = await client.put(mode, headers=JSON, content=b'{"mode": "auto"}')
-            if picked.status_code != 200:
-                raise RuntimeError(f"switching to Auto mode failed: {picked.text}")
             body = json.dumps({"text": prompt_for(brief)})
             sent = await client.post(
                 f"/v1/conversations/{cid}/messages", headers=JSON, content=body
@@ -193,9 +182,10 @@ def read_result(
         stop = reason.why if isinstance(reason, NeedsPerson) else reason.kind
         text, revisions = run.state.report, len(run.state.history)
         bounds = reason.bounds if isinstance(reason, NeedsPerson) else ()
-    mode = "unknown"
+    stopped_run = None
     if events:
-        mode = store.read(tenant.conversations, ConversationId(events[0]["conversation_id"])).mode
+        cid = ConversationId(events[0]["conversation_id"])
+        stopped_run = store.read(tenant.conversations, cid).stopped_run
     judged = judge(Expect.of(brief.grader), name != SCRIPTED, stop, text, revisions, bounds)
     return AutoResult(
         id=brief.id,
@@ -207,7 +197,7 @@ def read_result(
         bounds=bounds,
         report=text,
         revisions=revisions,
-        mode=str(mode),
+        stopped_run=stopped_run,
         variants=variant_count(base),
         containers=container_runs(base),
         pages=read_pages(human_log).shown,
