@@ -4,6 +4,7 @@ import { useServices } from "@/app/context";
 import { Gate } from "@/components/Gate";
 import { summaryOf, toPicked, useSelection, type Selection } from "@/features/viewer/selection";
 import type { OnPick } from "@/features/viewer/engine";
+import type { Where } from "@/features/viewer/where";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 import { Tooltip } from "@/components/ui/tooltip";
 import { RunStatus } from "@/features/auto/RunStatus";
@@ -11,7 +12,7 @@ import { AUTO_TOOLS } from "@/features/auto/run";
 import { useAuto } from "@/features/auto/useAuto";
 import { useResource } from "@/state/resource";
 import { Checks } from "./bits";
-import { sourcesOf, useCards, type CardKey } from "./cards";
+import { linesOf, sourcesOf, useCards, type CardKey } from "./cards";
 import { CHANGES_PAGE, ChatPane, Composer, useProjectChat } from "./Chat";
 import { ConfirmCard } from "./Confirm";
 import { Explorer } from "./Explorer";
@@ -49,10 +50,11 @@ function Center(props: {
   view: View;
   cards: ReturnType<typeof useCards>;
   dispatch: Dispatch<ViewAction>;
+  where: Where | null;
   selection: Selection | null;
   onPick: OnPick;
 }) {
-  const { brief, view, cards, dispatch, selection, onPick } = props;
+  const { brief, view, cards, dispatch, where, selection, onPick } = props;
   const slot = slotOf(brief, view);
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -85,6 +87,7 @@ function Center(props: {
               dispatch={dispatch}
               briefId={brief.id}
               fit={brief.fits[0] ?? null}
+              where={where}
               selection={selection}
               onPick={onPick}
             />
@@ -150,6 +153,10 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
     ),
   );
   const cards = useCards(keys);
+  const [asked, setAsked] = useState<{ variantId: string; key: string } | null>(null);
+  const shownKey = asked !== null && asked.variantId === onScreen?.variantId ? asked.key : null;
+  const snapshot = onScreen ? cards[onScreen.variantId]?.snapshot : null;
+  const where = (snapshot && shownKey !== null ? linesOf(snapshot).asked.find((one) => one.key === shownKey)?.where : undefined) ?? null;
   const placeholder = selection ? SELECTED_PLACEHOLDER : forNewPart ? "Describe the new part" : "Ask for a change, such as: make the wall 4 mm";
   const sources = sourcesOf(cards);
   const waiting = model.confirmation !== null && model.confirmation.snapshot !== answered;
@@ -162,7 +169,18 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
   };
 
   if (!brief) return <Navigate to="/new" replace />;
-  const checks = <Checks card={onScreen ? cards[onScreen.variantId] : undefined} material={onScreen ? (brief.materialOf[onScreen.slot] ?? null) : null} />;
+  const checks = (
+    <Checks
+      card={onScreen ? cards[onScreen.variantId] : undefined}
+      material={onScreen ? (brief.materialOf[onScreen.slot] ?? null) : null}
+      where={{
+        shown: where ? shownKey : null,
+        onToggle: (key) => {
+          if (onScreen) setAsked(shownKey === key ? null : { variantId: onScreen.variantId, key });
+        },
+      }}
+    />
+  );
   const confirmation = model.confirmation;
   const card =
     waiting && confirmation?.snapshot ? (
@@ -188,7 +206,7 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
   );
   const status = <RunStatus run={auto.run} problem={auto.problem} onStop={() => void auto.stop()} />;
   const chatPane = <ChatPane lines={chat.lines} running={chat.turn === "running"} card={card} composer={composer} status={status} />;
-  const center = <Center brief={brief} view={view} cards={cards} dispatch={dispatch} selection={selection} onPick={onPick} />;
+  const center = <Center brief={brief} view={view} cards={cards} dispatch={dispatch} where={where} selection={selection} onPick={onPick} />;
 
   const explorer = (
     <Explorer

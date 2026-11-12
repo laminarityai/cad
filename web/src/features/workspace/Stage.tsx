@@ -4,6 +4,7 @@ import type { OnPick, Shapes } from "@/features/viewer/engine";
 import { summaryOf as selectionSummary, type Pick, type Selection } from "@/features/viewer/selection";
 import { ViewerCanvas } from "@/features/viewer/ViewerCanvas";
 import { useMesh } from "@/features/viewer/useMesh";
+import { ROLE_COLOUR, splitFaces, type Where } from "@/features/viewer/where";
 import { TabsList, TabsTab } from "@/components/ui/tabs";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -67,8 +68,8 @@ function withFit(part: Shapes, fit: Shapes): Shapes {
 const NO_PICKS: readonly Pick[] = [];
 const ignore: OnPick = () => undefined;
 
-function Mesh(props: { variantId: string; label: string; fit: Fit | null; selection: Selection | null; onPick: OnPick }) {
-  const { variantId, label, fit, selection, onPick } = props;
+function Mesh(props: { variantId: string; label: string; fit: Fit | null; where: Where | null; selection: Selection | null; onPick: OnPick }) {
+  const { variantId, label, fit, where, selection, onPick } = props;
   const mesh = useMesh(variantId);
   const fitMesh = useMesh(fit?.variantId ?? variantId);
   if (mesh.status === "failed") return <p className="p-4 text-fail">{mesh.reason}</p>;
@@ -76,14 +77,34 @@ function Mesh(props: { variantId: string; label: string; fit: Fit | null; select
   if (shapes === null) return <p className="p-4 text-ink-3">Drawing…</p>;
   const ghost = fit && fitMesh.status === "ready" ? fitMesh.shapes : null;
   const ready = mesh.status === "ready";
+  const marked = where ? splitFaces(shapes, where) : shapes;
   return (
     <ViewerCanvas
       key={`${variantId}:${String(ghost !== null)}`}
-      shapes={ghost ? withFit(shapes, ghost) : shapes}
+      shapes={ghost ? withFit(marked, ghost) : marked}
       label={label}
       picks={selection?.picks ?? NO_PICKS}
       onPick={ready ? onPick : ignore}
     />
+  );
+}
+
+const LEGEND: readonly (readonly [keyof Where, string])[] = [
+  ["support", "Held in place"],
+  ["load", "Pushed on"],
+];
+
+/** Says what the two colours on the part mean, for the faces the stress check used. */
+function WhereLegend({ where }: { where: Where }) {
+  return (
+    <ul data-where-legend className="pointer-events-none absolute bottom-3 right-3 z-30 space-y-1 rounded-md bg-panel/85 px-2.5 py-1.5 text-[13px] text-ink-2">
+      {LEGEND.filter(([role]) => where[role].length > 0).map(([role, text]) => (
+        <li key={role} data-where-role={role} className="flex items-center gap-2">
+          <span aria-hidden className="inline-block size-3 rounded-sm" style={{ backgroundColor: ROLE_COLOUR[role] }} />
+          {text}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -95,10 +116,11 @@ export function Stage(props: {
   dispatch: Dispatch<ViewAction>;
   briefId: string;
   fit: Fit | null;
+  where: Where | null;
   selection: Selection | null;
   onPick: OnPick;
 }) {
-  const { slot, revision, dispatch, briefId, fit, selection, onPick } = props;
+  const { slot, revision, dispatch, briefId, fit, where, selection, onPick } = props;
   const [showFit, setShowFit] = useState(true);
   const newest = slot.revisions.length;
   const showing = Math.min(revision ?? newest, newest);
@@ -111,7 +133,7 @@ export function Stage(props: {
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div className="relative min-h-0 flex-1" data-stage>
-        <Mesh variantId={shown.variantId} label={`${slot.label}, revision ${String(showing)}`} fit={showFit ? fit : null} selection={selection} onPick={onPick} />
+        <Mesh variantId={shown.variantId} label={`${slot.label}, revision ${String(showing)}`} fit={showFit ? fit : null} where={where} selection={selection} onPick={onPick} />
         <div className="absolute right-3 top-3 z-30 flex gap-2">
           {fit ? (
             <button
@@ -131,6 +153,7 @@ export function Stage(props: {
           ) : null}
           <Download key={shown.variantId} variantId={shown.variantId} briefId={briefId} />
         </div>
+        {where ? <WhereLegend where={where} /> : null}
         <p data-pick-hint className="pointer-events-none absolute bottom-3 left-3 z-30 max-w-[70%] rounded-md bg-panel/85 px-2.5 py-1 text-[13px] text-ink-2">
           {selection ? `${selectionSummary(selection)} selected · Esc clears` : "Click a face or edge to point at it. Shift-click adds, double-click picks the whole part."}
         </p>
