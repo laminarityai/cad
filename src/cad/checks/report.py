@@ -27,6 +27,7 @@ from cad.checks.result import (
     ReadResearched,
     StepMissing,
     Verdict,
+    Where,
 )
 from cad.sandbox import container
 from cad.sandbox.container import Job, Ran, TooMuchOutput
@@ -297,6 +298,9 @@ def _problem(spec: CheckSpec, wire: ResultWire, request: Request) -> str | None:
                     f"{measured['name']} is {measured['magnitude']:g}, "
                     f"but the host sent {sent.magnitude:g}"
                 )
+    found = wire.get("where")
+    if found is not None and min((*found["support"], *found["load"]), default=0) < 0:
+        return "named a face with a negative index"
     return None
 
 
@@ -318,7 +322,15 @@ def _result(spec: CheckSpec, wire: ResultWire, request: Request) -> CheckResult:
         sources=(*spec.sources, *rows),
         version=spec.version,
         reads=reads_of(spec, request),
+        where=_where(wire),
     )
+
+
+def _where(wire: ResultWire) -> Where | None:
+    found = wire.get("where")
+    if found is None:
+        return None
+    return Where(support=tuple(found["support"]), load=tuple(found["load"]))
 
 
 def _one_line(text: str) -> str:

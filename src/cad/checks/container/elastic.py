@@ -97,6 +97,20 @@ def _covering(
     return faces
 
 
+def surfaces_of(mesh: TetMesh, faces: Sequence[Face]) -> tuple[int, ...]:
+    """The kernel face indices that the mesh triangles `faces` lie on, lowest first."""
+    held = set(faces)
+    return tuple(
+        sorted(
+            {
+                surface
+                for face, surface in zip(mesh.faces, mesh.surfaces, strict=True)
+                if face in held
+            }
+        )
+    )
+
+
 def face_nodes(faces: Sequence[Face]) -> frozenset[int]:
     return frozenset(i for face in faces for i in face)
 

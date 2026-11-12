@@ -2,6 +2,7 @@ import { useServices } from "@/app/context";
 import { useResources } from "@/state/resource";
 import { restore, type DoneCheck, type ResultLine, type RunningCheck, type Scorecard } from "@/api/snapshot";
 import type { Source } from "@/api/types";
+import type { Where } from "@/features/viewer/where";
 
 const POLL_MS = 1500;
 
@@ -55,6 +56,8 @@ export interface Line {
   sources: Pick<Source, "url" | "title">[];
   /** The label a verdict carries when no reviewed check reached it. */
   tag?: string;
+  /** The faces the stress check held and pushed on, for the row of a requirement that check decided. */
+  where?: Where;
 }
 
 const CHECK_NAMES: Record<string, string> = {
@@ -106,6 +109,14 @@ function valueOf(result: DoneCheck | undefined): string {
 function statusOf(verdict: string, researched: boolean): Status {
   if (verdict === "pass") return researched ? "researched" : "pass";
   return verdict === "fail" ? "fail" : "unknown";
+}
+
+/** The faces of the load case's own result: a requirement names the case, and each case has a result. */
+function whereOf(results: ResultLine[], checkId: string, instance: string): Where | undefined {
+  if (checkId !== "fea") return undefined;
+  const found = results.find((one): one is DoneCheck => isDone(one) && one.check_id === checkId && one.instance === instance);
+  const where = found?.where;
+  return where && where.support.length + where.load.length > 0 ? where : undefined;
 }
 
 const DESCRIBED_TAG = "load case the agent described, not reviewed by our team";
@@ -161,6 +172,7 @@ export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
       const researched = "basis" in one && one.basis === "researched";
       const described = "load_case" in one && one.load_case === "described";
       const reason = "reason" in one ? one.reason : "";
+      const where = "instance" in one ? whereOf(results, one.check_id, one.instance ?? "") : undefined;
       asked.push({
         key,
         label: short(one.statement),
@@ -171,6 +183,7 @@ export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
         formula: result?.formula ?? "",
         sources: result?.sources ?? [],
         ...(described ? { tag: DESCRIBED_TAG } : {}),
+        ...(where ? { where } : {}),
       });
     }
   }

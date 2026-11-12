@@ -11,12 +11,15 @@ from cad.checks import jobs
 from cad.checks.container.fea import CLAMPED_FACE_NOTE
 from cad.checks.lanes import Lanes
 from cad.checks.result import CheckResult, Verdict
+from cad.geometry import job as tessellation
+from cad.geometry.model import Tessellated
 from cad.loads.model import LoadCase
-from cad.sandbox import host
+from cad.sandbox import host, image
 from cad.sandbox.outcome import Built
 from cad.scorecard import requirements, score
 from cad.scorecard.model import AgainstBrief, Basis, Checked, Scorecard
 from cad.tables.materials import UNITS, Known, MaterialsTable, load_materials, magnitude
+from cad.variants import entry
 from cad.variants.store import build_variant
 
 pytestmark = pytest.mark.docker
@@ -100,6 +103,29 @@ def test_the_cantilever_deflection_verdicts_match_the_hand_calc(
     assert isinstance(card.basis, AgainstBrief)
     verdicts = [one.verdict for one in card.basis.requirements if isinstance(one, Checked)]
     assert verdicts == [Verdict.PASS, Verdict.FAIL]
+    held = entry.open_entry(tmp_path, built.variant_id, image.image_tag(image.BUILD))
+    ran = tessellation.tessellate(held.brep, held.brep_sha256)
+    assert isinstance(ran.read, Tessellated)
+    ends = face_ends_along_x(ran.read)
+    assert found.where is not None
+    (support,), (load,) = found.where.support, found.where.load
+    assert {support, load} == set(ends)
+    assert all(one.where is None for one in card.finished if one.check_id != "fea")
+
+
+def face_ends_along_x(read: Tessellated) -> tuple[int, int]:
+    """The index of the face the 3D view draws at the low end and at the high end of x, found from
+    the triangles it was sent: that numbering is what the check's faces have to agree with. A flat
+    end that holds the part is either end, so the test compares the two as a set."""
+    (part,) = read.shapes["parts"]
+    mesh = part["shape"]
+    xs: list[float] = []
+    first = 0
+    for count in mesh["triangles_per_face"]:
+        corners = mesh["triangles"][3 * first : 3 * (first + count)]
+        xs.append(sum(mesh["vertices"][3 * corner] for corner in corners) / len(corners))
+        first += count
+    return xs.index(min(xs)), xs.index(max(xs))
 
 
 def fea_result(card: Scorecard) -> CheckResult:

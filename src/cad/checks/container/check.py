@@ -7,7 +7,13 @@ from cad.checks.container.calculix import Material, NodalField, NodalLoads, Solv
 from cad.checks.container.inputs import Input, Inputs
 from cad.checks.container.kernel import Kernel, Shape, Unreadable
 from cad.checks.container.mesher import MeshFailed, TetMesh
-from cad.checks.container.wire import FindingWire, MeasuredWire, ResultWire, SourceLiteral
+from cad.checks.container.wire import (
+    FindingWire,
+    MeasuredWire,
+    ResultWire,
+    SourceLiteral,
+    WhereWire,
+)
 
 DIMENSIONLESS = "dimensionless"
 
@@ -90,7 +96,10 @@ def measure(name: str, magnitude: float, unit: str) -> MeasuredWire:
 
 
 def finding(
-    verdict: Literal["pass", "fail", "unknown"], reason: str, *measured: MeasuredWire
+    verdict: Literal["pass", "fail", "unknown"],
+    reason: str,
+    *measured: MeasuredWire,
+    where: WhereWire | None = None,
 ) -> FindingWire:
     broken = [one["name"] for one in measured if not math.isfinite(one["magnitude"])]
     if broken:
@@ -99,7 +108,10 @@ def finding(
             "measured": [],
             "reason": f"{reason}; not a finite number: {', '.join(broken)}",
         }
-    return {"verdict": verdict, "measured": list(measured), "reason": reason}
+    found: FindingWire = {"verdict": verdict, "measured": list(measured), "reason": reason}
+    if where is not None:
+        found["where"] = where
+    return found
 
 
 def no_shape(why: Unreadable) -> FindingWire:

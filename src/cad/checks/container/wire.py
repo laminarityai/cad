@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Literal, TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 
 class SourceLiteral(TypedDict):
@@ -38,10 +38,20 @@ class MeasuredWire(TypedDict):
     unit: str
 
 
+class WhereWire(TypedDict):
+    """The faces of the variant that the deciding candidate of a load case fixed and loaded, as
+    indices in the kernel's explorer order of the BREP the check read. The viewer numbers the same
+    BREP's faces the same way, so an index names one face in both."""
+
+    support: list[int]
+    load: list[int]
+
+
 class FindingWire(TypedDict):
     verdict: Literal["pass", "fail", "unknown"]
     measured: list[MeasuredWire]
     reason: str
+    where: NotRequired[WhereWire]
 
 
 class ResultWire(FindingWire):

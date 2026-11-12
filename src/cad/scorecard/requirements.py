@@ -210,6 +210,7 @@ def judge(
         verdict=verdict,
         reason=reason,
         comparisons=comparisons,
+        instance=wanted,
         basis="researched" if researched else "checks",
         researched=researched,
         load_case=labelled(requirement.target),

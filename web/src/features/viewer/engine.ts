@@ -1,5 +1,9 @@
 import type { Tessellated } from "@/api/types";
 import type { Pick } from "./selection";
+import { FACE_PARTS } from "./where";
+
+type Vector3Tuple = [number, number, number];
+type QuaternionTuple = [number, number, number, number];
 
 export type Theme = "light" | "dark";
 export type Shapes = Tessellated["shapes"];
@@ -18,15 +22,16 @@ export interface ViewerEngine {
   mount(element: HTMLElement, shapes: Shapes, theme: Theme, onPick: OnPick): Promise<Mounted>;
 }
 
-const VARIANT_PART = "/variant/part";
-const LEAF = /^\/variant\/part\/(faces|edges)\/(?:faces|edges)_(\d+)$/;
+const LEAF = /^\/variant\/(?:part|support|load)\/(faces|edges)\/(?:faces|edges)_(\d+)$/;
 const CLICK_SLOP_PX = 4;
 
-function pickOf(path: string): Pick | null {
+export function pickOf(path: string): Pick | null {
   const [, group, index] = LEAF.exec(path) ?? [];
   if (index === undefined) return null;
   return { kind: group === "faces" ? "face" : "edge", index: Number(index) };
 }
+
+const same = (a: Shapes["bb"], b: Shapes["bb"]) => (Object.keys(a) as (keyof Shapes["bb"])[]).every((key) => a[key] === b[key]);
 
 const EDGE: Record<Theme, number> = { light: 0x2a3236, dark: 0xb9c1be };
 
@@ -67,6 +72,7 @@ export const threeCadViewer: ViewerEngine = {
       display.showInfo(false);
       fit();
     };
+    let drawn = shapes;
     draw(shapes);
     const resize = new ResizeObserver(fit);
     resize.observe(element);
@@ -87,7 +93,7 @@ export const threeCadViewer: ViewerEngine = {
       onPick(pickOf(hit(event)?.info.path ?? ""), event.shiftKey);
     };
     const onDouble = (event: MouseEvent) => {
-      if (hit(event)?.info.path.startsWith(`${VARIANT_PART}/`)) onPick({ kind: "part" }, false);
+      if (FACE_PARTS.some((id) => hit(event)?.info.path.startsWith(`${id}/`))) onPick({ kind: "part" }, false);
     };
     viewer.setPickHandler(false);
     canvas.addEventListener("pointerdown", onDown);
@@ -96,8 +102,15 @@ export const threeCadViewer: ViewerEngine = {
 
     return {
       show(next) {
+        // The same box means the same part drawn with other faces marked, so the person's view stays.
+        const camera = same(drawn.bb, next.bb) ? viewer.getCameraLocationSettings() : null;
+        drawn = next;
         viewer.clear();
         draw(next);
+        if (camera) {
+          const [position, quaternion, target] = [camera.position, camera.quaternion, camera.target] as [Vector3Tuple, QuaternionTuple, Vector3Tuple];
+          viewer.setCameraLocationSettings(position, quaternion, target, camera.zoom);
+        }
       },
       select(picks) {
         const highlight = viewer.rendered.nestedGroup.highlight;
@@ -106,7 +119,9 @@ export const threeCadViewer: ViewerEngine = {
         const ids = new Map<string, number>();
         for (const entry of highlight.registry.entries()) ids.set(entry.path, entry.id);
         const wanted = picks.flatMap((one) =>
-          one.kind === "part" ? [...ids.keys()].filter((path) => path.startsWith(`${VARIANT_PART}/faces/`)) : [`${VARIANT_PART}/${one.kind}s/${one.kind}s_${String(one.index)}`],
+          one.kind === "part"
+            ? [...ids.keys()].filter((path) => FACE_PARTS.some((id) => path.startsWith(`${id}/faces/`)))
+            : FACE_PARTS.map((id) => `${id}/${one.kind}s/${one.kind}s_${String(one.index)}`),
         );
         for (const path of wanted) {
           const id = ids.get(path);

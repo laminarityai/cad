@@ -1,4 +1,4 @@
-import { ChevronDown, CircleCheck, CircleDashed, CircleX, LoaderCircle, Sparkles } from "lucide-react";
+import { ChevronDown, CircleCheck, Crosshair, CircleDashed, CircleX, LoaderCircle, Sparkles } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "@/components/ui/collapsible";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -31,7 +31,13 @@ const PILL: Record<Status, { text: string; tone: string; Icon: typeof CircleChec
   unchecked: { text: "No test yet", tone: "text-ink-3", Icon: CircleDashed },
 };
 
-function Row({ line }: { line: Line }) {
+export interface WhereControl {
+  /** The row whose faces are drawn on the part, if any. */
+  shown: string | null;
+  onToggle: (key: string) => void;
+}
+
+function Row({ line, where }: { line: Line; where: WhereControl }) {
   const pill = PILL[line.status];
   const more = line.why !== "" || line.formula !== "" || line.sources.length > 0;
   return (
@@ -60,6 +66,19 @@ function Row({ line }: { line: Line }) {
           </a>
         ))}
       </CollapsiblePanel>
+      {line.where ? (
+        <button
+          type="button"
+          data-show-where
+          aria-pressed={where.shown === line.key}
+          onClick={() => {
+            where.onToggle(line.key);
+          }}
+          className="mb-2 ml-11 flex items-center gap-1.5 rounded-full border border-rule px-3 py-1 text-[13px] text-ink-2 hover:bg-panel-2 aria-pressed:border-accent aria-pressed:text-accent"
+        >
+          <Crosshair className="size-3.5" /> {where.shown === line.key ? "Showing where it held and pushed" : "Show where it held and pushed"}
+        </button>
+      ) : null}
     </Collapsible>
   );
 }
@@ -119,7 +138,9 @@ function MaterialLabel({ material }: { material: Material }) {
   return material.chosenBy === "agent" ? <Tooltip label="Ask in the chat to change it.">{label}</Tooltip> : label;
 }
 
-export function Checks({ card, material }: { card: Card | undefined; material: Material | null }) {
+const NO_WHERE: WhereControl = { shown: null, onToggle: () => undefined };
+
+export function Checks({ card, material, where = NO_WHERE }: { card: Card | undefined; material: Material | null; where?: WhereControl }) {
   const snapshot = card?.snapshot ?? null;
   const { asked, also } = snapshot ? linesOf(snapshot) : { asked: [], also: [] };
   const assumed = snapshot ? assumedOf(snapshot) : [];
@@ -147,7 +168,7 @@ export function Checks({ card, material }: { card: Card | undefined; material: M
               <h3 className="px-4 pb-1 pt-2 text-[13px] font-medium text-ink-3">What you asked</h3>
               <ul>
                 {asked.map((one) => (
-                  <Row key={one.key} line={one} />
+                  <Row key={one.key} line={one} where={where} />
                 ))}
               </ul>
             </>
@@ -158,7 +179,7 @@ export function Checks({ card, material }: { card: Card | undefined; material: M
               <h3 className="px-4 pb-1 pt-3 text-[13px] font-medium text-ink-3">Needs a look</h3>
               <ul>
                 {loud.map((one) => (
-                  <Row key={one.key} line={one} />
+                  <Row key={one.key} line={one} where={where} />
                 ))}
               </ul>
             </>
@@ -172,7 +193,7 @@ export function Checks({ card, material }: { card: Card | undefined; material: M
               <CollapsiblePanel>
                 <ul>
                   {quiet.map((one) => (
-                    <Row key={one.key} line={one} />
+                    <Row key={one.key} line={one} where={where} />
                   ))}
                 </ul>
               </CollapsiblePanel>

@@ -9,6 +9,7 @@ from cad.checks.container.elastic import (
     largest_eigenvalue,
     region_faces,
     spread,
+    surfaces_of,
     von_mises,
     worst_displacement,
     worst_von_mises,
@@ -135,6 +136,13 @@ def test_a_chosen_face_whose_triangles_are_off_its_surface_is_unresolved() -> No
     found = region_faces(SQUARE, swapped, 1e-6)
     assert isinstance(found, Unresolved)
     assert "do not order the faces alike" in found.reason
+
+
+def test_the_surfaces_of_triangles_are_the_kernel_faces_they_lie_on_lowest_first() -> None:
+    assert surfaces_of(SQUARE, SQUARE.faces[:2]) == (0,)
+    assert surfaces_of(SQUARE, SQUARE.faces[1:]) == (0, 1)
+    assert surfaces_of(SQUARE, SQUARE.faces[2:]) == (1,)
+    assert surfaces_of(SQUARE, ()) == ()
 
 
 def test_far_from_takes_the_triangles_wholly_past_the_cutoff() -> None:
