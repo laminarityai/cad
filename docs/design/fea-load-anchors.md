@@ -67,3 +67,15 @@ Do option A first. It fixes the cantilever arms with plates and the L brackets t
 ## Not an anchor: the large-displacement gate
 
 4 corpus parts resolve and mesh, then stop at the 5% gate for linear analysis: `cantilever_bar` (5.6 mm on 100 mm), `l_filleted` (11.0 mm), `hook` (3.6 mm on 59 mm) and `truss_arm` (13.3 mm). Each is far over any deflection limit a person would set, yet the requirement is unknown. A geometrically nonlinear solve (`NLGEOM`) would decide them, but it breaks the superposition of unit solves that the worst-direction search relies on. This needs its own issue.
+
+## Not an anchor: the node-cap floor on thin, filleted walls
+
+With the floor at half each mesh's size, `i_beam_arm` (a 100 mm I-beam with 1 mm fillets at the web, on a wall plate) now passes, but `i_beam_flat` (the same beam with flat ends, sizes 1.79 and 1.20 mm) is still over the cap: its fine mesh has 157,432 nodes. The fillets set that count. With no element under the fine size it has 55,502 nodes, the same as with no curvature refinement. Three ways to fit it were measured in the check image (gmsh 4.8.0), and each has a cost:
+
+| Change | Fine mesh nodes | Cost |
+|---|---|---|
+| Floor at 0.75 of each size | 87,152 | The coarse mesh has 2 tetrahedra with a negative Jacobian at a Gauss point (elements 1.34 mm wide on a 1 mm fillet, with midside nodes on the curve), and CalculiX stops with "nonpositive jacobian". |
+| Floor at 0.75, midside nodes on straight edges (`Mesh.SecondOrderLinear`) | 87,152 | No inverted element, but a midside node on a 4.5 mm bore then sits h²/8r, about 0.12 mm, off the surface (worked out, not measured), while `region_faces` takes a triangle only when all 6 nodes are within 1e-4 of the extent (0.01 mm). So hole supports would match no faces. |
+| One floor for both meshes, half the coarse size | 87,152 | No inverted element. Near the fillets, though, both meshes have the same size, so the 3% gate no longer tests refinement there. |
+
+The third is the smallest change that fits. It weakens what the gate proves near fillets, so it is a decision for the operator, not a tuning.
