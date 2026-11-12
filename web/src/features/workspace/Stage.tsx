@@ -1,7 +1,9 @@
 import { Box, ChevronLeft, ChevronRight } from "lucide-react";
-import { useState, type Dispatch, type ReactElement } from "react";
+import { useMemo, useState, type Dispatch, type ReactElement } from "react";
 import type { OnPick, Shapes } from "@/features/viewer/engine";
-import { summaryOf as selectionSummary, type Pick, type Selection } from "@/features/viewer/selection";
+import { readoutOf, type Measure } from "@/features/viewer/readout";
+import type { Pick, Selection } from "@/features/viewer/selection";
+import { SelectionNote } from "@/features/viewer/SelectionNote";
 import { ViewerCanvas } from "@/features/viewer/ViewerCanvas";
 import { useMesh } from "@/features/viewer/useMesh";
 import { ROLE_COLOUR, splitFaces, type Where } from "@/features/viewer/where";
@@ -68,24 +70,43 @@ function withFit(part: Shapes, fit: Shapes): Shapes {
 const NO_PICKS: readonly Pick[] = [];
 const ignore: OnPick = () => undefined;
 
+const unmeasured: Measure = () => null;
+
 function Mesh(props: { variantId: string; label: string; fit: Fit | null; where: Where | null; selection: Selection | null; onPick: OnPick }) {
   const { variantId, label, fit, where, selection, onPick } = props;
   const mesh = useMesh(variantId);
   const fitMesh = useMesh(fit?.variantId ?? variantId);
-  if (mesh.status === "failed") return <p className="p-4 text-fail">{mesh.reason}</p>;
-  const shapes = mesh.status === "ready" ? mesh.shapes : mesh.lastDrawn;
-  if (shapes === null) return <p className="p-4 text-ink-3">Drawing…</p>;
-  const ghost = fit && fitMesh.status === "ready" ? fitMesh.shapes : null;
-  const ready = mesh.status === "ready";
-  const marked = where ? splitFaces(shapes, where) : shapes;
+  const [measure, setMeasure] = useState<Measure | null>(null);
+  const topology = mesh.status === "ready" ? mesh.topology : null;
+  const picks = selection?.picks ?? NO_PICKS;
+  const readout = useMemo(() => (topology ? readoutOf(picks, topology, measure ?? unmeasured) : null), [picks, topology, measure]);
+  const shapes = mesh.status === "ready" ? mesh.shapes : mesh.status === "loading" ? mesh.lastDrawn : null;
+  let body: ReactElement;
+  if (mesh.status === "failed") {
+    body = <p className="p-4 text-fail">{mesh.reason}</p>;
+  } else if (shapes === null) {
+    body = <p className="p-4 text-ink-3">Drawing…</p>;
+  } else {
+    const ghost = fit && fitMesh.status === "ready" ? fitMesh.shapes : null;
+    const marked = where ? splitFaces(shapes, where) : shapes;
+    body = (
+      <ViewerCanvas
+        key={`${variantId}:${String(ghost !== null)}`}
+        shapes={ghost ? withFit(marked, ghost) : marked}
+        label={label}
+        picks={picks}
+        onPick={mesh.status === "ready" ? onPick : ignore}
+        onMeasure={(next) => {
+          setMeasure(() => next);
+        }}
+      />
+    );
+  }
   return (
-    <ViewerCanvas
-      key={`${variantId}:${String(ghost !== null)}`}
-      shapes={ghost ? withFit(marked, ghost) : marked}
-      label={label}
-      picks={selection?.picks ?? NO_PICKS}
-      onPick={ready ? onPick : ignore}
-    />
+    <>
+      {body}
+      <SelectionNote selection={selection} readout={readout} />
+    </>
   );
 }
 
@@ -154,9 +175,6 @@ export function Stage(props: {
           <Download key={shown.variantId} variantId={shown.variantId} briefId={briefId} />
         </div>
         {where ? <WhereLegend where={where} /> : null}
-        <p data-pick-hint className="pointer-events-none absolute bottom-3 left-3 z-30 max-w-[70%] rounded-md bg-panel/85 px-2.5 py-1 text-[13px] text-ink-2">
-          {selection ? `${selectionSummary(selection)} selected · Esc clears` : "Click a face or edge to point at it. Shift-click adds, double-click picks the whole part."}
-        </p>
       </div>
       <div className="flex items-center gap-3 border-t border-rule-2 px-4 py-2.5 text-[14px]" data-revisions>
         <button
