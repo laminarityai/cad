@@ -24,7 +24,7 @@ function twoRevisions() {
 async function open(chat = new FakeChat(), viewer = new FakeViewer()) {
   const api = fakeApi(["v1"], {
     project: vi.fn(() =>
-      Promise.resolve({ project_id: "p1", briefs: [{ brief_id: "b1", created_at: "2026-11-10T00:00:00Z", proposals: 1, confirmed_proposal: 1 }], context_parts: [] }),
+      Promise.resolve({ project_id: "p1", briefs: [{ brief_id: "b1", created_at: "2026-11-10T00:00:00Z", proposals: 1, confirmed_proposal: 1 }], context_parts: [], documents: [] }),
     ),
     variantSet: vi.fn(() => Promise.resolve(twoRevisions())),
   });

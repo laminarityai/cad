@@ -324,6 +324,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/projects/{project_id}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["add_file"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/projects/{project_id}/parts/{part_id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["decline_part"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/variants/{variant_id}/events": {
         parameters: {
             query?: never;
@@ -365,6 +397,15 @@ export interface components {
              */
             kind: "across";
             axis: components["schemas"]["Axis"];
+        };
+        /** Added */
+        Added: {
+            /** @enum {string} */
+            kind: "part" | "document";
+            /** @default null */
+            part: components["schemas"]["ContextPartView"] | null;
+            /** @default null */
+            document: components["schemas"]["DocumentView"] | null;
         };
         /**
          * AgainstBrief
@@ -498,6 +539,14 @@ export interface components {
             why: string;
             check: string | null;
         };
+        /**
+         * Attached
+         * @description A file of a project that a tool result hands the model to read, such as a PDF.
+         */
+        Attached: {
+            project_id: string;
+            file_id: string;
+        };
         /** AutoRun */
         AutoRun: {
             run_id: string;
@@ -577,8 +626,8 @@ export interface components {
          */
         BriefSpan: {
             /**
-             * @default brief_text
-             * @constant
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
              */
             kind: "brief_text";
             start: number;
@@ -629,10 +678,14 @@ export interface components {
             brief_text: string;
             rows: components["schemas"]["CardRow"][];
         };
-        /** CardRow */
+        /**
+         * CardRow
+         * @description `source` is where `quote` comes from: "your words" for the brief, or a file's name.
+         */
         CardRow: {
             headline: string;
             quote: string;
+            source: string;
             editable: components["schemas"]["CardEditable"] | null;
         };
         /** CheckResult */
@@ -720,20 +773,27 @@ export interface components {
         };
         /**
          * ContextPartView
-         * @description A part a brief's design must fit with. A fitting variant is built in this part's frame,
-         *     so `variant_id`'s mesh draws with it as it is.
+         * @description A part of the project. A variant proposed for a brief names both; the fitting variant is
+         *     built in this part's frame, so `variant_id`'s mesh draws with it as it is. An upload names
+         *     the file the person sent instead. `left_out` says how much of that file could not be read.
          */
         ContextPartView: {
             part_id: string;
             name: string;
-            brief_id: string;
-            variant_id: string;
+            /** @enum {string} */
+            origin: "variant" | "upload";
+            brief_id: string | null;
+            variant_id: string | null;
+            file_name: string | null;
             outcome: components["schemas"]["Outcome"];
             size_mm: [
                 number,
                 number,
                 number
             ];
+            solids: number;
+            holes: number;
+            left_out: string | null;
         };
         /** ConversationCreated */
         ConversationCreated: {
@@ -754,8 +814,20 @@ export interface components {
             brief_id: string | null;
             run: components["schemas"]["AutoRun"] | null;
         };
+        /** Declined */
+        Declined: {
+            part_id: string;
+            declined: boolean;
+        };
         Differs: string;
         Direction: components["schemas"]["Along"] | components["schemas"]["Across"] | components["schemas"]["AnyWay"];
+        /** DocumentView */
+        DocumentView: {
+            file_id: string;
+            name: string;
+            media_type: components["schemas"]["MediaType"];
+            size: number;
+        };
         /**
          * DriverSaid
          * @description The server speaking to the model: the Auto driver's reminder that the run has not stopped,
@@ -886,6 +958,35 @@ export interface components {
         };
         /** @enum {string} */
         Field: "density" | "elastic_modulus" | "poisson_ratio" | "yield_strength" | "tensile_strength";
+        /**
+         * FileQuote
+         * @description Words from a document the person added. `checked` says the server found them in the
+         *     file's text; an image or a scanned PDF is read by the agent, and its quote is labelled as
+         *     such.
+         */
+        FileQuote: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "file";
+            file_id: string;
+            name: string;
+            quote: string;
+            checked: boolean;
+        };
+        /**
+         * FitsWith
+         * @description The variant, built in the context part's frame, does not overlap it.
+         */
+        FitsWith: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "fits_with";
+            part: components["schemas"]["PartId"];
+        };
         /**
          * FlatEnd
          * @description Fixed at the flat face across one end of its long axis.
@@ -1107,6 +1208,8 @@ export interface components {
             reads?: components["schemas"]["cad__checks__result__Read"][];
         };
         Measured: components["schemas"]["QuantityJson"];
+        /** @enum {string} */
+        MediaType: "application/pdf" | "text/markdown" | "text/plain" | "image/png" | "image/jpeg";
         /** MemberView */
         MemberView: {
             slot: number;
@@ -1209,6 +1312,7 @@ export interface components {
             label: components["schemas"]["Label"];
             differs: components["schemas"]["Differs"];
         };
+        Origin: components["schemas"]["BriefSpan"] | components["schemas"]["FileQuote"];
         /** @enum {string} */
         Outcome: "waiting" | "confirmed" | "declined";
         PartId: string;
@@ -1331,6 +1435,7 @@ export interface components {
             project_id: string;
             briefs: components["schemas"]["BriefSummary"][];
             context_parts: components["schemas"]["ContextPartView"][];
+            documents: components["schemas"]["DocumentView"][];
         };
         /** ProposalView */
         ProposalView: {
@@ -1392,7 +1497,7 @@ export interface components {
             id: string;
             brief_id: string;
             target: components["schemas"]["Target"];
-            origin: components["schemas"]["BriefSpan"];
+            origin: components["schemas"]["Origin"];
         };
         RequirementResult: components["schemas"]["Checked"] | components["schemas"]["Unverified"] | components["schemas"]["Waiting"];
         /** RequirementRow */
@@ -1645,7 +1750,7 @@ export interface components {
             kind: "stopped_by_person";
         };
         Support: components["schemas"]["Holes"] | components["schemas"]["LargestFlat"] | components["schemas"]["FlatEnd"];
-        Target: components["schemas"]["ClosedSolid"] | components["schemas"]["MaxMass"] | components["schemas"]["MinMass"] | components["schemas"]["Envelope"] | components["schemas"]["MeasureLimit"] | components["schemas"]["Unchecked"] | components["schemas"]["MadeOf"] | components["schemas"]["MinSafetyFactor"] | components["schemas"]["MaxDeflection"] | components["schemas"]["MinClearance"] | components["schemas"]["MaxClearance"] | components["schemas"]["FastenerHoles"] | components["schemas"]["PlainHoles"];
+        Target: components["schemas"]["ClosedSolid"] | components["schemas"]["MaxMass"] | components["schemas"]["MinMass"] | components["schemas"]["Envelope"] | components["schemas"]["MeasureLimit"] | components["schemas"]["Unchecked"] | components["schemas"]["MadeOf"] | components["schemas"]["MinSafetyFactor"] | components["schemas"]["MaxDeflection"] | components["schemas"]["MinClearance"] | components["schemas"]["MaxClearance"] | components["schemas"]["FastenerHoles"] | components["schemas"]["PlainHoles"] | components["schemas"]["FitsWith"];
         /**
          * Tessellated
          * @description The mesh of one BREP, made in the analysis image, as three-cad-viewer renders it.
@@ -1704,6 +1809,8 @@ export interface components {
             call_id: string;
             text: string;
             is_error: boolean;
+            /** @default [] */
+            attached?: components["schemas"]["Attached"][];
         };
         /** TopologyWire */
         TopologyWire: {
@@ -1861,8 +1968,17 @@ export interface components {
                 "application/json": components["schemas"]["Error"];
             };
         };
-        /** @description the request is not application/json */
-        NotJson: {
+        /** @description the file is larger than the server takes */
+        TooLarge: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["Error"];
+            };
+        };
+        /** @description the request body is not of the type the route takes */
+        WrongType: {
             headers: {
                 [name: string]: unknown;
             };
@@ -1896,6 +2012,7 @@ export interface components {
 }
 export type AccountLimit = components['schemas']['AccountLimit'];
 export type Across = components['schemas']['Across'];
+export type Added = components['schemas']['Added'];
 export type AgainstBrief = components['schemas']['AgainstBrief'];
 export type AgentMeasurement = components['schemas']['AgentMeasurement'];
 export type AgentSaid = components['schemas']['AgentSaid'];
@@ -1907,6 +2024,7 @@ export type AnyWay = components['schemas']['AnyWay'];
 export type AssumedRow = components['schemas']['AssumedRow'];
 export type AssumedValue = components['schemas']['AssumedValue'];
 export type AssumptionRow = components['schemas']['AssumptionRow'];
+export type Attached = components['schemas']['Attached'];
 export type AutoRun = components['schemas']['AutoRun'];
 export type AutoState = components['schemas']['AutoState'];
 export type AwaitingConfirmation = components['schemas']['AwaitingConfirmation'];
@@ -1934,8 +2052,10 @@ export type ContextPartView = components['schemas']['ContextPartView'];
 export type ConversationCreated = components['schemas']['ConversationCreated'];
 export type ConversationState = components['schemas']['ConversationState'];
 export type ConversationView = components['schemas']['ConversationView'];
+export type Declined = components['schemas']['Declined'];
 export type Differs = components['schemas']['Differs'];
 export type Direction = components['schemas']['Direction'];
+export type DocumentView = components['schemas']['DocumentView'];
 export type DriverSaid = components['schemas']['DriverSaid'];
 export type EdgeFacts = components['schemas']['EdgeFacts'];
 export type Envelope = components['schemas']['Envelope'];
@@ -1950,6 +2070,8 @@ export type FaceFacts = components['schemas']['FaceFacts'];
 export type FarEnd = components['schemas']['FarEnd'];
 export type FastenerHoles = components['schemas']['FastenerHoles'];
 export type Field = components['schemas']['Field'];
+export type FileQuote = components['schemas']['FileQuote'];
+export type FitsWith = components['schemas']['FitsWith'];
 export type FlatEnd = components['schemas']['FlatEnd'];
 export type Force = components['schemas']['Force'];
 export type GeometryRead = components['schemas']['GeometryRead'];
@@ -1981,6 +2103,7 @@ export type Measure = components['schemas']['Measure'];
 export type MeasureLimit = components['schemas']['MeasureLimit'];
 export type MeasureOnly = components['schemas']['MeasureOnly'];
 export type Measured = components['schemas']['Measured'];
+export type MediaType = components['schemas']['MediaType'];
 export type MemberView = components['schemas']['MemberView'];
 export type MessageSent = components['schemas']['MessageSent'];
 export type MinClearance = components['schemas']['MinClearance'];
@@ -1990,6 +2113,7 @@ export type NeedsPerson = components['schemas']['NeedsPerson'];
 export type NoBrief = components['schemas']['NoBrief'];
 export type OnHoles = components['schemas']['OnHoles'];
 export type Option = components['schemas']['Option'];
+export type Origin = components['schemas']['Origin'];
 export type Outcome = components['schemas']['Outcome'];
 export type PartId = components['schemas']['PartId'];
 export type PartWire = components['schemas']['PartWire'];
@@ -2059,7 +2183,8 @@ export type ResponseRefused = components['responses']['Refused'];
 export type ResponseSignedOut = components['responses']['SignedOut'];
 export type ResponseNotFound = components['responses']['NotFound'];
 export type ResponseBusy = components['responses']['Busy'];
-export type ResponseNotJson = components['responses']['NotJson'];
+export type ResponseTooLarge = components['responses']['TooLarge'];
+export type ResponseWrongType = components['responses']['WrongType'];
 export type ResponseMalformed = components['responses']['Malformed'];
 export type ResponseUnavailable = components['responses']['Unavailable'];
 export type $defs = Record<string, never>;
@@ -2526,7 +2651,7 @@ export interface operations {
             };
             401: components["responses"]["SignedOut"];
             404: components["responses"]["NotFound"];
-            415: components["responses"]["NotJson"];
+            415: components["responses"]["WrongType"];
             422: components["responses"]["Malformed"];
         };
     };
@@ -2609,7 +2734,7 @@ export interface operations {
             401: components["responses"]["SignedOut"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Busy"];
-            415: components["responses"]["NotJson"];
+            415: components["responses"]["WrongType"];
             422: components["responses"]["Malformed"];
         };
     };
@@ -2638,6 +2763,77 @@ export interface operations {
             };
             401: components["responses"]["SignedOut"];
             404: components["responses"]["NotFound"];
+            422: components["responses"]["Malformed"];
+        };
+    };
+    add_file: {
+        parameters: {
+            query: {
+                name: string;
+                unit?: ("mm" | "in") | null;
+            };
+            header?: never;
+            path: {
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/octet-stream": string;
+            };
+        };
+        responses: {
+            /** @description the result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Added"];
+                };
+            };
+            400: components["responses"]["Refused"];
+            401: components["responses"]["SignedOut"];
+            404: components["responses"]["NotFound"];
+            413: components["responses"]["TooLarge"];
+            415: components["responses"]["WrongType"];
+            422: components["responses"]["Malformed"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    decline_part: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                part_id: string;
+                project_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @default  */
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description the result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Declined"];
+                };
+            };
+            400: components["responses"]["Refused"];
+            401: components["responses"]["SignedOut"];
+            404: components["responses"]["NotFound"];
+            415: components["responses"]["WrongType"];
             422: components["responses"]["Malformed"];
         };
     };

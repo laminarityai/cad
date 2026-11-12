@@ -243,7 +243,7 @@ def render(
 def _warning(index: int, conflict: Conflict) -> str:
     cited = "".join(
         f"<li><strong>{html.escape(one.headline)}</strong><br>"
-        f'From your words: <q class="origin">{html.escape(one.quote)}</q></li>'
+        f'From {html.escape(one.source)}: <q class="origin">{html.escape(one.quote)}</q></li>'
         for one in conflict.cited
     )
     researched = (
@@ -279,7 +279,7 @@ def plain(message: str, *more: str) -> bytes:
 def _section(label: str, index: int, section: Section) -> str:
     rows = "".join(
         f"<li><strong>{html.escape(row.headline)}</strong><br>"
-        f'From your words: <q class="origin">{html.escape(row.quote)}</q><br>'
+        f'From {html.escape(row.source)}: <q class="origin">{html.escape(row.quote)}</q><br>'
         f'<span class="check">{html.escape(row.decides)}</span>'
         f"{_change(index, row.editable)}</li>"
         for row in section.rows

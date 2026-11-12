@@ -13,11 +13,11 @@ Everything gathered for one job: one or more briefs, their sources, and the cont
 _Avoid_: Job, design
 
 **Context part**:
-An existing CAD part, uploaded or read from a CAD tool, that a person confirmed into a project, such as a rail a new part clips onto. Checks measure new parts against it, and an edit may produce a new part from it. A part taken from a variant goes out of date when its slot gets a newer revision. Proposing that revision updates the part: it keeps its id and the requirements on it, and checks measure the new geometry once the person confirms it.
+An existing CAD part, uploaded or read from a CAD tool, that a person confirmed into a project, such as a rail a new part clips onto, a motor or a wheel. Uploading a file confirms it. A brief uses it in one of two ways. A part the new part must fit with stays in its own frame, and the fit check measures new parts against it. A part used as a component may be placed and copied by the agent, and the scorecard says so. Its exact shape is available to build code, checks never grade it as the agent's work, and an edit may produce a new part from it. A part taken from a variant goes out of date when its slot gets a newer revision. Proposing that revision updates the part: it keeps its id and the requirements on it, and checks measure the new geometry once the person confirms it.
 _Avoid_: Assembly, reference model, fixture
 
 **Requirement**:
-One checkable target taken from a brief, such as a ratio, a load, or a size limit. It quotes the words of the brief it came from. It is proposed until the user confirms it. A check may measure for it before then, and the scorecard shows it as waiting on the user, with the measure beside it. A verdict rests only on a confirmed requirement, and after the user confirms, the same stored results are judged.
+One checkable target taken from a brief, such as a ratio, a load, or a size limit. It quotes the words it came from, in the brief or in a file the user added to the project. It is proposed until the user confirms it. A check may measure for it before then, and the scorecard shows it as waiting on the user, with the measure beside it. A verdict rests only on a confirmed requirement, and after the user confirms, the same stored results are judged.
 _Avoid_: Constraint, goal
 
 **Hole requirement**:
@@ -112,7 +112,7 @@ All of a variant's check results, each with the formula and source behind it.
 _Avoid_: Report, evaluation
 
 **Source**:
-A document, datasheet, table or standard that a requirement or check cites, either attached by the user or found by the agent.
+A document, datasheet, table or standard that a requirement or check cites, either attached by the user or found by the agent. A file the user adds to a project, such as a PDF, a text file or an image, is a source the agent reads, and a requirement may quote it.
 _Avoid_: Reference, citation, research
 
 **Template**:

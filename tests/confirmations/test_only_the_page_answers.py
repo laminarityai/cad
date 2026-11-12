@@ -27,7 +27,8 @@ def files_where(matches: Callable[[ast.AST], bool]) -> set[str]:
 def test_only_the_page_builds_or_appends_an_answer() -> None:
     building = files_where(lambda n: isinstance(n, ast.Call) and named(n.func) in ANSWER_RECORDS)
     appending = files_where(lambda n: named(n) == "append_answer")
-    assert building | appending == {"cad/confirmations/page.py"}
+    # ADR-0004's amendment: declining an uploaded part from its row writes the one other answer.
+    assert building | appending == {"cad/confirmations/page.py", "cad/uploads/store.py"}
 
 
 def test_only_the_transport_calls_the_page_answer() -> None:

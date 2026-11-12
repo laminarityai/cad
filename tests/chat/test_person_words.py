@@ -5,6 +5,7 @@ import pytest
 
 from cad.accounts.principal import AccountId
 from cad.briefs import store
+from cad.briefs.origins import quoted as quote_of
 from cad.chat.model import Model
 from tests.support.chat import ALICE, TEXT, Chat, call, script, step
 from tests.support.rows import UNDER_150
@@ -71,7 +72,6 @@ async def test_the_brief_is_the_persons_message_and_a_later_number_lands_on_it(c
     state = store.read_state(roots, brief["brief_id"])
     assert state.brief.text == f"{TEXT}\n\n{LATER}"
     quoted = [
-        [state.brief.text[r.origin.start : r.origin.end] for r in p.requirements]
-        for p in state.proposals
+        [quote_of(state.brief.text, r.origin)[1] for r in p.requirements] for p in state.proposals
     ]
     assert quoted == [["under 150 g"], ["under 150 g", "under 120 g"]]

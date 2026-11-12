@@ -43,7 +43,7 @@ export const meshOf = (name: string): Tessellated => ({
 export function fakeApi(variants: string[], overrides: Partial<Api> = {}): Api {
   return {
     projects: vi.fn(() => Promise.resolve({ projects: [] })),
-    project: vi.fn(() => Promise.resolve({ project_id: "p1", briefs: [], context_parts: [] })),
+    project: vi.fn(() => Promise.resolve({ project_id: "p1", briefs: [], context_parts: [], documents: [] })),
     brief: vi.fn(() => Promise.resolve(brief(true))),
     conversation: vi.fn(() => Promise.resolve({ conversation_id: "c1" })),
     confirmation: vi.fn(() => Promise.resolve({ snapshot: null, items: [] })),
@@ -68,6 +68,10 @@ export function fakeApi(variants: string[], overrides: Partial<Api> = {}): Api {
     exportOf: vi.fn((variantId: string, _briefId: string, format: ExportFormat) =>
       Promise.resolve({ kind: "ready" as const, url: `/v1/exports/0123456789ab/${"b".repeat(64)}.${format}?name=${variantId}`, filename: `${variantId}.${format}` }),
     ),
+    addFile: vi.fn((_projectId: string, file: File) =>
+      Promise.resolve({ kind: "document" as const, part: null, document: { file_id: "file-0123456789abcdef", name: file.name, media_type: "application/pdf" as const, size: file.size } }),
+    ),
+    declinePart: vi.fn((_projectId: string, partId: string) => Promise.resolve({ part_id: partId, declined: true })),
     ...overrides,
   };
 }

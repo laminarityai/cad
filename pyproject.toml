@@ -83,6 +83,7 @@ layers = [
     "server | verify",
     "chat",
     "operations",
+    "uploads",
     "confirmations | selections | agent_measurements",
     "auto | accounts",
     "scorecard",

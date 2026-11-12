@@ -8,6 +8,7 @@ from cad.briefs.holes import FastenerHoles, PlainHoles
 from cad.briefs.model import (
     ClosedSolid,
     Envelope,
+    FitsWith,
     MadeOf,
     MaxClearance,
     MaxDeflection,
@@ -72,6 +73,7 @@ def bounds_conflicts(
                 | MaxClearance()
                 | FastenerHoles()
                 | PlainHoles()
+                | FitsWith()
             ):
                 pass
             case _:

@@ -10,8 +10,10 @@ from typing import Final, assert_never
 
 from cad.briefs.holes import FastenerHoles, PlainHoles
 from cad.briefs.model import (
+    ON_PART,
     ClosedSolid,
     Envelope,
+    FitsWith,
     Limit,
     MadeOf,
     MaxClearance,
@@ -65,6 +67,7 @@ ROTATION: Final = (
     "might still fit, and no check measures the smallest box over all rotations."
 )
 WITHIN_ERROR: Final = "The measured value is within the check's stated error of the limit."
+CLEAR: Final = "The fit check found the variant clear of the context part."
 UNCONFIRMED_PART: Final = (
     "The context part is not confirmed, so the fit check did not measure against it."
 )
@@ -88,7 +91,7 @@ def instance(target: Target) -> str:
     match target:
         case MinSafetyFactor() | MaxDeflection():
             return target.load.id
-        case MinClearance() | MaxClearance():
+        case MinClearance() | MaxClearance() | FitsWith():
             return target.part
         case (
             ClosedSolid()
@@ -157,7 +160,7 @@ def judge(
     wanted = instance(requirement.target)
     result = result_of(results, check_id, wanted)
     if result is None:
-        if not isinstance(requirement.target, MinClearance | MaxClearance):
+        if not isinstance(requirement.target, ON_PART):
             named = f" for load case {wanted}" if wanted else ""
             raise NoDecidingResult(f"no result for the deciding check {check_id}{named}")
         return Checked(
@@ -188,11 +191,10 @@ def judge(
     )
     verdict = _fold(result, comparisons)
     reason = _reason(result, comparisons, verdict, missed)
-    if (
-        isinstance(requirement.target, MinClearance | MaxClearance)
-        and result.verdict is Verdict.FAIL
-    ):
+    if isinstance(requirement.target, ON_PART) and result.verdict is Verdict.FAIL:
         verdict, reason = Verdict.FAIL, OVERLAPS
+    elif isinstance(requirement.target, FitsWith) and result.verdict is Verdict.PASS:
+        reason = CLEAR
     researched = tuple(read for read in result.reads if isinstance(read, ReadResearched))
     return Checked(
         requirement_id=requirement.id,

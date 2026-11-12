@@ -36,15 +36,18 @@ class ContextParts:
     def section(self, ref: ItemRef) -> Section:
         part = self._part_at(ref)
         record = part.record
+        span = record.origin
+        if record.brief_id is None or span is None:
+            raise TamperedProject(f"context part {record.id} was uploaded and never waits")
         brief = briefs.read_brief(self._roots, record.brief_id)
-        if brief.project != record.project or record.origin.end > len(brief.text):
+        if brief.project != record.project or span.end > len(brief.text):
             raise TamperedProject(f"context part {record.id} does not match brief {brief.id}")
         origin = record.name
         if _confirmed_before(self._roots, part) is not None:
             origin += ", a newer revision of the part you confirmed"
         row = Row(
             headline=f"{origin}: {_size(record.facts)}",
-            quote=brief.text[record.origin.start : record.origin.end],
+            quote=brief.text[span.start : span.end],
             decides=DECIDES,
         )
         return Section(title=TITLE, brief_id=brief.id, context=brief.text, rows=(row,))

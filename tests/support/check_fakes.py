@@ -9,11 +9,13 @@ from cad.checks.container.kernel import (
     EdgeUses,
     FaceInfo,
     Inertia,
+    Kept,
     Opening,
     Patch,
     Point,
     Reading,
     Shape,
+    StepRead,
     StepTooLarge,
     Unreadable,
     VolumeProps,
@@ -85,6 +87,18 @@ class FakeKernel:
 
     def read_brep(self, data: bytes) -> Shape | Unreadable:
         return Unreadable("not a BREP") if data == UNREADABLE_BREP else FakeShape()
+
+    def read_step(self, data: bytes) -> StepRead | Unreadable:
+        raise NotImplementedError("no check reads a STEP file")
+
+    def read_stl(self, data: bytes, scale: float) -> Shape | Unreadable:
+        raise NotImplementedError("no check reads an STL file")
+
+    def keep_solids(self, shape: Shape) -> Kept:
+        raise NotImplementedError("no check keeps solids")
+
+    def brep_bytes(self, shape: Shape) -> bytes:
+        raise NotImplementedError("no check writes a BREP")
 
     def solids(self, shape: Shape) -> tuple[Shape, ...]:
         return tuple(FakeShape(index) for index in range(self.solid_count))

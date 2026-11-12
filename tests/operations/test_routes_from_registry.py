@@ -19,6 +19,7 @@ from cad.operations.tenants import Tenants
 from cad.operations.tools import agent_operations
 from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.outcome import Build, Built
+from cad.uploads.web import UPLOAD_ROUTES
 from cad.variants import entry
 from tests.support.hosted import BASE
 
@@ -27,7 +28,9 @@ pytestmark = pytest.mark.anyio
 RAIL = b"CASCADE Topology V3, a rail\n"
 SHA = hashlib.sha256(RAIL).hexdigest()
 ALICE, BOB = AccountId("user_alice"), AccountId("user_bob")
-OUTSIDE_REGISTRY = CHAT_ROUTES | {("scorecard_events", EVENTS_PATH), ("confirmation", CARD_PATH)}
+OUTSIDE_REGISTRY = (
+    CHAT_ROUTES | UPLOAD_ROUTES | {("scorecard_events", EVENTS_PATH), ("confirmation", CARD_PATH)}
+)
 
 
 def tessellated(name: str) -> Tessellated:

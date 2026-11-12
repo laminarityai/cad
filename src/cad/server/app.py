@@ -13,8 +13,8 @@ from cad.accounts.principal import AccountId
 from cad.accounts.tokens import Verifier
 from cad.confirmations.waiting import OS_OPEN, WAIT_SECONDS, Door, Opener, sign_in_opener
 from cad.confirmations.web import LocalSignIn, confirm_routes
+from cad.context_parts.ingest import Ingest
 from cad.context_parts.ingest import ingest as read_part
-from cad.context_parts.store import Ingest
 from cad.geometry.store import GEOMETRY_ROOT
 from cad.operations.guidance import INSTRUCTIONS
 from cad.operations.model import Tenant

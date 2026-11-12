@@ -9,7 +9,7 @@ from pydantic import BaseModel, ConfigDict, StringConstraints
 
 from cad.accounts.principal import AccountId
 from cad.confirmations.waiting import Bell, Door
-from cad.context_parts.store import Ingest
+from cad.context_parts.ingest import Ingest
 from cad.conversations.model import ConversationId
 from cad.frozen import Frozen
 from cad.records.roots import Roots

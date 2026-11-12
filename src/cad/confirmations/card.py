@@ -19,8 +19,11 @@ class CardEditable(BaseModel):
 
 
 class CardRow(BaseModel):
+    """`source` is where `quote` comes from: "your words" for the brief, or a file's name."""
+
     headline: str
     quote: str
+    source: str
     editable: CardEditable | None
 
 
@@ -56,6 +59,7 @@ def card(person: PersonSession, roots: Roots, project: ProjectId) -> Confirmatio
             CardRow(
                 headline=row.headline,
                 quote=row.quote,
+                source=row.source,
                 editable=None
                 if row.editable is None
                 else CardEditable(row=row.editable.row, placeholder=row.editable.placeholder),

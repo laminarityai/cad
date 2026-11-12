@@ -5,7 +5,8 @@ import pytest
 from cases import BEAM_B, BEAM_H, BEAM_L, BEAM_P, STEEL, box, timoshenko_tip
 from pydantic import TypeAdapter
 
-from cad.briefs.model import BriefId, BriefSpan, Requirement, RequirementId, Target
+from cad.briefs.model import BriefId, Requirement, RequirementId, Target
+from cad.briefs.origins import BriefSpan
 from cad.checks import jobs
 from cad.checks.container.fea import CLAMPED_FACE_NOTE
 from cad.checks.lanes import Lanes

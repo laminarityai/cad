@@ -2,7 +2,8 @@ from typing import Any
 
 from pydantic import TypeAdapter
 
-from cad.briefs.model import BriefId, BriefSpan, Requirement, RequirementId, Target
+from cad.briefs.model import BriefId, Requirement, RequirementId, Target
+from cad.briefs.origins import BriefSpan
 from cad.checks.report import SPECS, unknown_for_all
 from cad.checks.result import CheckResult, Measure, StepMissing, Verdict
 from cad.scorecard.material import MaterialUse, ReportedScorecard, SetByAgent

@@ -10,11 +10,17 @@ from typing import Final
 from pydantic import ValidationError
 
 from cad.briefs import store as briefs
-from cad.briefs.model import BriefSpan
+from cad.briefs.origins import BriefSpan
 from cad.confirmations.answers import Found, ItemRef, read_ledger
 from cad.context_parts.ids import ContextPartId
-from cad.context_parts.ingest import Facts, NotAPart
-from cad.context_parts.model import ContextPartRecord, FromVariant, NewerRevision, Outcome
+from cad.context_parts.ingest import Brep, Ingest, Ingested, NotAPart
+from cad.context_parts.model import (
+    ContextPartRecord,
+    FromUpload,
+    FromVariant,
+    NewerRevision,
+    Outcome,
+)
 from cad.errors import Refused
 from cad.projects.model import ProjectBusy, ProjectId, TamperedProject
 from cad.records import files, key, signed
@@ -27,8 +33,6 @@ from cad.variants import entry
 CONTEXT_PARTS: Final = "context_parts"
 PARTS: Final = "parts"
 LOG = logging.getLogger(__name__)
-
-type Ingest = Callable[[bytes], Facts | NotAPart]
 
 
 class BadContextPart(Refused):
@@ -48,7 +52,10 @@ class Stored:
 
     @property
     def outcome(self) -> Outcome:
-        return "waiting" if self.answer is None else self.answer.item.verdict
+        """An upload is confirmed by the person who sent it, until they decline it."""
+        if self.answer is not None:
+            return self.answer.item.verdict
+        return "confirmed" if isinstance(self.record.source, FromUpload) else "waiting"
 
     @property
     def note(self) -> str:
@@ -64,9 +71,12 @@ _SEAL: Final = _Seal()
 
 @dataclass(frozen=True, slots=True)
 class ConfirmedPart:
+    """`confirmation_sha256` is the SHA-256 of the page answer that confirmed the part, or of the
+    upload's own record."""
+
     number: int
     record: ContextPartRecord
-    answer_sha256: str
+    confirmation_sha256: str
     _seal: _Seal
 
     def __post_init__(self) -> None:
@@ -74,7 +84,7 @@ class ConfirmedPart:
             raise TypeError("only cad.context_parts.store makes a ConfirmedPart")
 
 
-def propose(
+def propose_from_variant(
     roots: Roots,
     variants_root: Path,
     brief_id: str,
@@ -98,10 +108,12 @@ def propose(
     standing = _newest_undeclined(parts, held.brep_sha256)
     if standing is not None:
         return standing
-    facts = ingest(held.brep)
-    if isinstance(facts, NotAPart):
-        raise BadContextPart(f"variant {held.id} cannot be a context part: {facts.reason}")
-    _write_brep(projects / project / PARTS, held.brep, held.brep_sha256)
+    read = ingest(Brep(held.brep))
+    if isinstance(read, NotAPart):
+        raise BadContextPart(f"variant {held.id} cannot be a context part: {read.reason}")
+    write_content(
+        projects / project / PARTS / f"{held.brep_sha256}.brep", held.brep, held.brep_sha256
+    )
     record = ContextPartRecord(
         project=project,
         brief_id=brief.id,
@@ -109,17 +121,44 @@ def propose(
         origin=BriefSpan(start=start, end=start + len(quote)),
         source=FromVariant(variant_id=held.id),
         brep_sha256=held.brep_sha256,
-        facts=facts,
+        facts=read.facts,
         proposed_at=datetime.now(UTC),
         replaces=_replaced(projects, project, parts, held.id),
     )
+    return _append(projects, record)
+
+
+def add_upload(
+    projects: Path, project: ProjectId, name: str, upload: FromUpload, read: Ingested
+) -> Stored:
+    """Stores a part the person sent. The record is their confirmation, so it never waits on the
+    card. Idempotent like `propose_from_variant`: the same solids return the record that still
+    stands, and solids declined before get a new record."""
+    brep_sha256 = hashlib.sha256(read.brep).hexdigest()
+    standing = _newest_undeclined(stored_parts(projects, project), brep_sha256)
+    if standing is not None:
+        return standing
+    write_content(brep_path(projects, project, brep_sha256), read.brep, brep_sha256)
+    record = ContextPartRecord(
+        project=project,
+        name=name,
+        source=upload,
+        brep_sha256=brep_sha256,
+        facts=read.facts,
+        proposed_at=datetime.now(UTC),
+    )
+    return _append(projects, record)
+
+
+def _append(projects: Path, record: ContextPartRecord) -> Stored:
+    project = record.project
     directory = projects / project / CONTEXT_PARTS
     directory.mkdir(parents=True, exist_ok=True)
     found: list[Stored] = []
 
     def record_for(existing: tuple[bytes, ...]) -> bytes | None:
         found.clear()
-        already = _newest_undeclined(_stored(projects, project, existing), held.brep_sha256)
+        already = _newest_undeclined(_stored(projects, project, existing), record.brep_sha256)
         if already is not None:
             found.append(already)
             return None
@@ -157,18 +196,25 @@ def newest_parts(projects: Path, project: ProjectId) -> tuple[Stored, ...]:
 def confirmed_parts(projects: Path, project: ProjectId) -> tuple[ConfirmedPart, ...]:
     """The newest confirmed geometry of each part: an update still waiting is not measured."""
     confirmed = {
-        s.record.id: ConfirmedPart(s.number, s.record, s.answer.sha256, _SEAL)
+        s.record.id: ConfirmedPart(
+            s.number, s.record, s.sha256 if s.answer is None else s.answer.sha256, _SEAL
+        )
         for s in stored_parts(projects, project)
-        if s.answer is not None and s.outcome == "confirmed"
+        if s.outcome == "confirmed"
     }
     return tuple(confirmed.values())
 
 
-def fitted_by(projects: Path, project: ProjectId, brief_id: str) -> tuple[ConfirmedPart, ...]:
-    """The confirmed parts a brief's design must fit: those proposed for that brief, so a part
-    is never measured against the brief it was taken from."""
+def fit_targets(
+    projects: Path, project: ProjectId, brief_id: str, named: frozenset[str]
+) -> tuple[ConfirmedPart, ...]:
+    """The confirmed parts a brief's design must fit (ADR-0012): those proposed for that brief,
+    and those a confirmed requirement of the brief names. A part is never measured against the
+    brief it was taken from unless the person confirmed a requirement that names it."""
     return tuple(
-        one for one in confirmed_parts(projects, project) if one.record.brief_id == brief_id
+        one
+        for one in confirmed_parts(projects, project)
+        if one.record.brief_id == brief_id or one.record.id in named
     )
 
 
@@ -178,6 +224,8 @@ def newer_revisions(projects: Path, project: ProjectId) -> dict[ContextPartId, N
     slots = sets.project_slots(projects, project)
     newer: dict[ContextPartId, NewerRevision] = {}
     for part in confirmed_parts(projects, project):
+        if not isinstance(part.record.source, FromVariant):
+            continue
         source = part.record.source.variant_id
         for where, member in slots:
             if _holds(member, source, tag) and source not in _ids(member.latest, tag):
@@ -217,10 +265,14 @@ def _replaced(
         earlier = {vid for one in member.revisions[: at[-1]] for vid in _ids(one, tag)} - {
             variant_id
         }
-        replaced = [part for part in confirmed if part.record.source.variant_id in earlier]
+        replaced = [part for part in confirmed if variant_of(part.record) in earlier]
         if replaced:
             return replaced[-1].record.id
     return None
+
+
+def variant_of(record: ContextPartRecord) -> str | None:
+    return record.source.variant_id if isinstance(record.source, FromVariant) else None
 
 
 def _current_confirmed(parts: tuple[Stored, ...], part: ContextPartId) -> Stored | None:
@@ -238,7 +290,7 @@ def _ids(revision: Revision, tag: str) -> set[str]:
 
 def part_brep(projects: Path, part: ConfirmedPart) -> bytes:
     record = part.record
-    path = projects / record.project / PARTS / f"{record.brep_sha256}.brep"
+    path = brep_path(projects, record.project, record.brep_sha256)
     data = files.read_regular(path, entry.MAX_FILE_BYTES)
     if data is None or hashlib.sha256(data).hexdigest() != record.brep_sha256:
         LOG.error("%s is missing or does not match its SHA-256", path)
@@ -279,13 +331,18 @@ def _current(parts: tuple[Stored, ...]) -> dict[ContextPartId, Stored]:
     return {part.record.id: part for part in parts if part.outcome != "declined"}
 
 
-def _write_brep(directory: Path, brep: bytes, brep_sha256: str) -> None:
-    path = directory / f"{brep_sha256}.brep"
+def brep_path(projects: Path, project: ProjectId, brep_sha256: str) -> Path:
+    return projects / project / PARTS / f"{brep_sha256}.brep"
+
+
+def write_content(path: Path, data: bytes, sha256: str) -> None:
+    """Content-addressed: the file is named by its SHA-256, so a file already there that matches
+    is kept and anything else is replaced whole."""
     held = files.read_regular(path, entry.MAX_FILE_BYTES)
-    if held is not None and hashlib.sha256(held).hexdigest() == brep_sha256:
+    if held is not None and hashlib.sha256(held).hexdigest() == sha256:
         return
-    directory.mkdir(parents=True, exist_ok=True)
-    files.replace(path, brep)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    files.replace(path, data)
 
 
 def _left_by_crashed_first_proposal(directory: Path) -> bool:

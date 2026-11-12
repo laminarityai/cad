@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from cad.briefs import store
+from cad.briefs.origins import BriefSpan
 from cad.checks import report
 from cad.records import signed
 from cad.records.roots import Roots
@@ -47,7 +48,8 @@ def test_a_brief_signed_by_the_old_code_still_verifies(tmp_path: Path) -> None:
     decision = (root / brief_id / store.DECISIONS / "0001.signed").read_bytes()
     assert confirmed is not None
     assert confirmed.decision_sha256 == hashlib.sha256(decision.partition(b"\n")[2]).hexdigest()
-    assert [r.origin.end - r.origin.start for r in confirmed.requirements] == [len("under 150 g")]
+    spans = [r.origin for r in confirmed.requirements if isinstance(r.origin, BriefSpan)]
+    assert [one.end - one.start for one in spans] == [len("under 150 g")]
 
 
 def test_a_signature_is_the_hmac_of_the_slot_a_null_byte_and_the_record(tmp_path: Path) -> None:

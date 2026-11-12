@@ -16,7 +16,7 @@ from typing import Final
 from cad.accounts.meter import USAGE, AccountMeter
 from cad.accounts.principal import AccountId
 from cad.confirmations.waiting import Bell, Door
-from cad.context_parts.store import Ingest
+from cad.context_parts.ingest import Ingest
 from cad.conversations import store as conversations
 from cad.conversations.model import Conversation, ConversationId, UnknownConversation
 from cad.operations.model import Tenant

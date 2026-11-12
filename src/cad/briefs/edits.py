@@ -29,6 +29,7 @@ from cad.briefs.holes import (
 from cad.briefs.model import (
     ClosedSolid,
     Envelope,
+    FitsWith,
     MadeOf,
     MaxClearance,
     MaxDeflection,
@@ -114,7 +115,9 @@ def placeholder(requirement: Requirement) -> str | None:
     """What the page shows in the row's empty edit field, or None when the row has no number."""
     target = requirement.target
     match target:
-        case ClosedSolid() | MeasureLimit() | Unchecked() | MadeOf() | MinSafetyFactor():
+        case (
+            ClosedSolid() | MeasureLimit() | Unchecked() | MadeOf() | MinSafetyFactor() | FitsWith()
+        ):
             return None
         case FastenerHoles():
             if target.fit is HoleFit.TAPPED:
@@ -169,7 +172,14 @@ def _edited(requirement: Requirement, text: str) -> Requirement | str:
     target = requirement.target
     try:
         match target:
-            case ClosedSolid() | MeasureLimit() | Unchecked() | MadeOf() | MinSafetyFactor():
+            case (
+                ClosedSolid()
+                | MeasureLimit()
+                | Unchecked()
+                | MadeOf()
+                | MinSafetyFactor()
+                | FitsWith()
+            ):
                 return "This row has no number to change."
             case FastenerHoles() if target.fit is HoleFit.TAPPED:
                 return "This row has no number to change."

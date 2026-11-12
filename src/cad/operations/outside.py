@@ -17,6 +17,7 @@ from cad.operations.openapi import Described, from_registry
 from cad.operations.registry import OPERATIONS, ROUTES
 from cad.operations.scorecards import ScorecardInput
 from cad.scorecard.material import ScorecardSnapshot
+from cad.uploads.web import PATHS, Added, AddFileInput, Declined, DeclineInput
 
 CHAT_PATHS: Final = dict(CHAT_ROUTES)
 
@@ -70,6 +71,24 @@ HAND_DESCRIBED: Final = (
         events="server-sent events: id is the sequence number, event is the kind, data is one "
         "transcript event",
         failures=(401, 404, 422),
+    ),
+    Described(
+        name="add_file",
+        path=PATHS["add_file"],
+        method="POST",
+        input=AddFileInput,
+        output=Added,
+        octets=True,
+        failures=(400, 401, 404, 413, 415, 422, 503),
+    ),
+    Described(
+        name="decline_part",
+        path=PATHS["decline_part"],
+        method="POST",
+        input=DeclineInput,
+        output=Declined,
+        requires_json_body=True,
+        failures=(400, 401, 404, 415, 422),
     ),
     Described(
         name="scorecard_events",

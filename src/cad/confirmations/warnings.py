@@ -5,6 +5,7 @@ from cad.auto.bounds import bounds_conflicts
 from cad.auto.model import Bounds
 from cad.briefs import store
 from cad.briefs.model import MadeOf, Requirement
+from cad.briefs.origins import quoted
 from cad.briefs.store import BriefState, Status
 from cad.briefs.words import describe
 from cad.projects.membership import project_briefs
@@ -23,6 +24,7 @@ def _cached_git_table() -> MaterialsTable:
 class Cited:
     headline: str
     quote: str
+    source: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -62,11 +64,11 @@ def _bounds(requirements: tuple[Requirement, ...], table: MaterialsTable) -> tup
 
 def _conflict(state: BriefState, bounds: Bounds, requirements: tuple[Requirement, ...]) -> Conflict:
     named: dict[str, Requirement] = {one.id: one for one in requirements}
-    cited = tuple(
-        Cited(
-            describe(named[rid]), state.brief.text[named[rid].origin.start : named[rid].origin.end]
-        )
-        for rid in bounds.requirements
-    )
+    cited = tuple(_cited(named[rid], state.brief.text) for rid in bounds.requirements)
     researched = any(read.basis == "researched" for read in bounds.reads)
     return Conflict(bounds.statement, cited, researched)
+
+
+def _cited(requirement: Requirement, brief_text: str) -> Cited:
+    source, quote = quoted(brief_text, requirement.origin)
+    return Cited(describe(requirement), quote, source)

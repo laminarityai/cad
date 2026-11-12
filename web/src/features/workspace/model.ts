@@ -1,5 +1,5 @@
 import type { Api } from "@/api/client";
-import type { BriefView, ConfirmationCard, ContextPartView, MemberView, Outcome, VariantSetView } from "@/api/types";
+import type { BriefView, ConfirmationCard, ContextPartView, DocumentView, MemberView, Outcome, VariantSetView } from "@/api/types";
 
 export type BriefState = "waiting" | "building" | "ready";
 
@@ -38,9 +38,17 @@ export interface Brief {
 }
 
 export interface Part {
+  id: string;
   name: string;
   size: string;
   state: Outcome;
+  uploaded: boolean;
+  leftOut: string | null;
+}
+
+export interface Doc {
+  id: string;
+  name: string;
 }
 
 export type Confirmation = ConfirmationCard | null;
@@ -51,6 +59,7 @@ export interface Workspace {
   briefs: Brief[];
   confirmation: Confirmation;
   parts: Part[];
+  documents: Doc[];
   conversationId: string;
 }
 
@@ -92,7 +101,20 @@ function briefOf(brief: BriefView, at: number, set: VariantSetView | null, confi
     state: stateOf(brief, confirmation, slots),
     slots,
     materialOf: Object.fromEntries((set?.members ?? []).map((member) => [member.slot, materialOf(member)])),
-    fits: parts.filter((one) => one.brief_id === brief.brief_id && one.outcome === "confirmed").map((one) => ({ name: one.name, variantId: one.variant_id })),
+    fits: parts.flatMap((one) => (one.brief_id === brief.brief_id && one.outcome === "confirmed" && one.variant_id ? [{ name: one.name, variantId: one.variant_id }] : [])),
+  };
+}
+
+function partOf(one: ContextPartView): Part {
+  const holes = one.holes === 0 ? [] : [`${String(one.holes)} hole${one.holes === 1 ? "" : "s"}`];
+  const solids = one.solids === 1 ? [] : [`${String(one.solids)} solids`];
+  return {
+    id: one.part_id,
+    name: one.name,
+    size: [mm(one.size_mm), ...solids, ...holes].join(" · "),
+    state: one.outcome,
+    uploaded: one.origin === "upload",
+    leftOut: one.left_out,
   };
 }
 
@@ -113,11 +135,8 @@ export async function loadWorkspace(api: Api, projectId: string): Promise<Worksp
     title: read[0]?.title ?? "New project",
     briefs: read,
     confirmation,
-    parts: project.context_parts.map((one) => ({
-      name: one.name,
-      size: mm(one.size_mm),
-      state: one.outcome,
-    })),
+    parts: project.context_parts.map(partOf),
+    documents: project.documents.map((one: DocumentView) => ({ id: one.file_id, name: one.name })),
     conversationId: conversation.conversation_id,
   };
 }

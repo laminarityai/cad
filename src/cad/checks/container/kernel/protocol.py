@@ -146,9 +146,50 @@ class Walls(Protocol):
         ...
 
 
+@dataclass(frozen=True, slots=True)
+class StepRead:
+    shape: Shape
+    names: tuple[str, ...]
+    """Distinct product and part names from the file, in file order, without the placeholder
+    names a STEP writer fills in when nobody named the product."""
+
+
+@dataclass(frozen=True, slots=True)
+class Kept:
+    """What `keep_solids` made of a file's shape. `solids` is a compound of the solids kept, or
+    None when none was. `bodies` counts the solids and free shells the shape held, `unreadable`
+    those dropped, and `loose` the faces, edges and vertices that belonged to no shell."""
+
+    solids: Shape | None
+    bodies: int
+    unreadable: int
+    loose: int
+
+
 class Kernel(Protocol):
     def read_brep(self, data: bytes) -> Shape | Unreadable:
         """Never raises. Random bytes, an empty file and a null shape are all `Unreadable`."""
+        ...
+
+    def read_step(self, data: bytes) -> StepRead | Unreadable:
+        """Reads every product of the file into one shape, in millimetres whatever unit the file
+        declares. Never raises."""
+        ...
+
+    def read_stl(self, data: bytes, scale: float) -> Shape | Unreadable:
+        """Binary or ASCII STL as a compound of the solids made from its closed shells, with any
+        open shell and loose face kept beside them, every coordinate multiplied by `scale`.
+        Never raises."""
+        ...
+
+    def keep_solids(self, shape: Shape) -> Kept:
+        """Caps tolerances at 1e-3 mm (floor 1e-7), then keeps each solid that passes
+        BRepCheck_Analyzer and has a positive volume. A solid turned inside out is turned back
+        first."""
+        ...
+
+    def brep_bytes(self, shape: Shape) -> bytes:
+        """The shape as BREP bytes that `read_brep` reads back."""
         ...
 
     def solids(self, shape: Shape) -> tuple[Shape, ...]: ...

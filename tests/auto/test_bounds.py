@@ -5,7 +5,8 @@ from pydantic import TypeAdapter
 
 from cad.auto.bounds import bounds_conflicts
 from cad.auto.model import Read
-from cad.briefs.model import BriefId, BriefSpan, Requirement, RequirementId, Target
+from cad.briefs.model import BriefId, Requirement, RequirementId, Target
+from cad.briefs.origins import BriefSpan
 from cad.tables.materials import load_materials
 
 TABLE: Final = load_materials()
