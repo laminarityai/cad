@@ -4,7 +4,7 @@ from typing import Any
 import pytest
 from confirmation import Misjudged, Superseded, Unconfirmed
 from provenance import ConfirmedStep, Resolved, Unresolved
-from tracking import RequirementOutcome, outcomes_of
+from tracking import By, RequirementOutcome, outcomes_of
 
 from cad.briefs import store as briefs
 from cad.briefs.store import ConfirmedSet
@@ -231,8 +231,10 @@ def test_each_requirement_is_one_outcome_reviewed_when_a_check_decided_it(
     card = judged_card(confirmed)
     light, box, friendly = (r.id for r in confirmed.requirements)
     assert outcomes_of(card) == (
-        RequirementOutcome(light, Verdict.FAIL, reviewed=True),
-        RequirementOutcome(box, Verdict.UNKNOWN, reviewed=True),
-        RequirementOutcome(friendly, Verdict.UNKNOWN, reviewed=False),
+        RequirementOutcome(light, Verdict.FAIL, By.TEAM, "Mass at most 150 g"),
+        RequirementOutcome(
+            box, Verdict.UNKNOWN, By.TEAM, "Fits inside a box of 120 mm x 80 mm x 40 mm"
+        ),
+        RequirementOutcome(friendly, Verdict.UNKNOWN, By.NONE, "looks friendly"),
     )
     assert outcomes_of(genuine_card(basis=AwaitingConfirmation(brief_id=confirmed.brief_id))) == ()
