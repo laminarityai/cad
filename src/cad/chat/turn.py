@@ -49,6 +49,7 @@ from cad.operations.guidance import (
     CHAT_ON_THE_PAGE,
     CHAT_OPEN_PROJECT,
     INSTRUCTIONS,
+    WITHHELD_NOTE,
 )
 from cad.operations.model import Tenant
 from cad.operations.registry import OPERATIONS
@@ -173,7 +174,10 @@ def _added(tenant: Tenant, project: ProjectId) -> list[str]:
         for one in newest_parts(projects, project)
         if isinstance(one.record.source, FromUpload)
     ]
-    documents = [f"- file {one.id}, {one.name}" for one in uploads.documents(projects, project)]
+    documents = [
+        f"- file {one.id}, {one.name}{WITHHELD_NOTE if one.withheld else ''}"
+        for one in uploads.documents(projects, project)
+    ]
     return parts + documents
 
 
@@ -238,6 +242,9 @@ def _media_of(tenant: Tenant, result: ToolResult) -> ToolResult:
             )
         except ProjectRefused:
             missing.append(f"{one.file_id} is no longer in the project")
+            continue
+        if found.withheld:
+            missing.append(f"{found.name} is withheld from you")
             continue
         if len(data) > MAX_ATTACHED_BYTES:
             missing.append(f"{found.name} is too large to attach")

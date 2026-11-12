@@ -1,10 +1,10 @@
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Annotated, Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from cad.agent_checks import limits
-from cad.briefs import assumptions, clearances, described, made_of, source, store
+from cad.briefs import assumptions, clearances, described, made_of, said, source, store
 from cad.briefs.assumptions import MAX_ASSUMPTIONS, Assumption
 from cad.briefs.bindable import BINDABLE
 from cad.briefs.edits import placeholder
@@ -302,8 +302,10 @@ def propose_requirements(tenant: Tenant, arguments: ProposeRequirementsInput) ->
     table = brief_table(tenant.roots, arguments.brief_id)
     if arguments.requirements is not None:
         words = source.later_words(tenant.conversations, tenant.conversation, arguments.said)
+        text = store.read_brief(tenant.roots, arguments.brief_id).text
         drafts = [
-            _draft(tenant, project, index, one) for index, one in enumerate(arguments.requirements)
+            _draft(tenant, project, index, one, lambda quote: said.typed(text, quote, words))
+            for index, one in enumerate(arguments.requirements)
         ]
         clearances.check_proposed([one.target for one in drafts], parts)
         limits.check_proposed(
@@ -337,14 +339,21 @@ def propose_requirements(tenant: Tenant, arguments: ProposeRequirementsInput) ->
     )
 
 
-def _draft(tenant: Tenant, project: ProjectId, index: int, one: RequirementDraft) -> store.Draft:
+def _draft(
+    tenant: Tenant,
+    project: ProjectId,
+    index: int,
+    one: RequirementDraft,
+    typed: Callable[[str], bool],
+) -> store.Draft:
     if one.file_id is None:
         return store.Draft(target=one.target, quote=one.quote)
     try:
-        cited = quotes.cited(tenant.roots.projects, project, one.file_id, one.quote)
+        return quotes.draft(
+            tenant.roots.projects, project, one.target, one.quote, one.file_id, typed
+        )
     except ProjectRefused as refused:
         raise store.BadProposal(f"requirements[{index}]: {refused}") from refused
-    return store.Draft(target=one.target, quote=one.quote, cited=cited)
 
 
 def list_requirements(tenant: Tenant, arguments: ListRequirementsInput) -> BriefView:

@@ -42,6 +42,11 @@ def words_to_add(text: str, quotes: Sequence[str], words: Words) -> tuple[Spoken
     return tuple(found)
 
 
+def typed(text: str, quote: str, words: Words) -> bool:
+    """Whether the person's own words hold the quote: the brief's text, or a later message."""
+    return bool(quote) and (quote in text or bool(words_to_add(text, [quote], words)))
+
+
 def read(store: signed.Store, directory: Path, brief_id: BriefId) -> tuple[Said, ...] | None:
     if _stored_before_said(directory):
         return ()

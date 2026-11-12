@@ -10,7 +10,7 @@ from cad.accounts.principal import AccountId, PersonSession
 from cad.context_parts.store import fit_targets
 from cad.projects.model import ProjectId
 from cad.research.fetch import FetchFailed, PdfFile, PdfText
-from cad.uploads import quotes, store
+from cad.uploads import store, text
 from cad.uploads.model import kind_of
 from tests.support.rows import RAIL, fake_ingest
 
@@ -34,7 +34,7 @@ def reader(pdf: PdfFile) -> PdfText | FetchFailed:
 
 @pytest.fixture(autouse=True)
 def reads_pdfs(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(quotes, "read_pdf", reader)
+    monkeypatch.setattr(text, "read_pdf", reader)
 
 
 async def project(s: Session) -> dict[str, Any]:

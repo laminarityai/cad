@@ -40,9 +40,14 @@ class UnknownFile(ProjectRefused, NotFound):
     pass
 
 
+class Withheld(ProjectRefused):
+    pass
+
+
 class Document(Frozen):
     """A file the person added as a source: the chat agent reads it and a requirement may quote
-    it. No check reads it."""
+    it. No check reads it. `withheld` is the person's own mark that a PDF is a licensed standard:
+    it is stored and a requirement may quote it, but the agent never reads it."""
 
     project: ProjectId
     name: Annotated[str, Field(min_length=1, max_length=MAX_FILE_NAME_CHARS)]
@@ -52,6 +57,7 @@ class Document(Frozen):
     added_at: datetime
     account: AccountId
     session_id: str
+    withheld: bool = False
 
     @property
     def id(self) -> str:

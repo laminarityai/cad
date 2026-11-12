@@ -91,11 +91,21 @@ def decline_part(
 
 
 def add_document(
-    projects: Path, project: ProjectId, name: str, kind: Kind, data: bytes, person: PersonSession
+    projects: Path,
+    project: ProjectId,
+    name: str,
+    kind: Kind,
+    data: bytes,
+    person: PersonSession,
+    withheld: bool = False,
 ) -> Document:
-    """Idempotent: the same bytes in the same project return the document already stored."""
+    """Idempotent: the same bytes and the same choice in the same project return the document
+    already stored. Adding the same bytes again with the other choice stores the new choice, and
+    the newest record of a file is the one that counts."""
     if kind.document is None:
         raise BadUpload(f"{name} is not a document")
+    if withheld and kind.document != "application/pdf":
+        raise BadUpload(f"{name} is not a PDF: only a PDF can be kept from the agent as a standard")
     if kind.document in TEXT:
         try:
             data.decode("utf-8")
@@ -111,6 +121,7 @@ def add_document(
         added_at=datetime.now(UTC),
         account=person.account,
         session_id=person.session_id,
+        withheld=withheld,
     )
     directory = projects / project / DOCUMENTS
     directory.mkdir(parents=True, exist_ok=True)
@@ -118,7 +129,10 @@ def add_document(
 
     def record_for(existing: tuple[bytes, ...]) -> bytes | None:
         found[:] = [one for one in _parsed(project, existing) if one.sha256 == sha256]
-        return None if found else record.model_dump_json().encode()
+        if found and found[0].withheld == withheld:
+            return None
+        found.clear()
+        return record.model_dump_json().encode()
 
     try:
         signed.append(project_store(projects), directory, _slot_of(project), record_for)
@@ -163,7 +177,8 @@ def _parsed(project: ProjectId, raw: tuple[bytes, ...]) -> tuple[Document, ...]:
         raise TamperedProject(_report(project)) from error
     if any(one.project != project for one in held):
         raise TamperedProject(_report(project))
-    return held
+    newest = {one.sha256: one for one in held}
+    return tuple(newest.values())
 
 
 def _slot_of(project: ProjectId) -> Callable[[int], str]:

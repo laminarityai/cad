@@ -26,12 +26,14 @@ class Added(BaseModel):
 
 
 class AddFileInput(BaseModel):
-    """`unit` is required for an STL, which holds no units, and ignored for any other file."""
+    """`unit` is required for an STL, which holds no units, and ignored for any other file.
+    `withheld` marks a PDF as a licensed standard that the agent never reads."""
 
     model_config = ConfigDict(extra="forbid")
     project_id: str
     name: Annotated[str, Field(min_length=1, max_length=MAX_FILE_NAME_CHARS, pattern=r"^[^/\\]+$")]
     unit: Literal["mm", "in"] | None = None
+    withheld: bool = False
 
 
 class DeclineInput(BaseModel):
