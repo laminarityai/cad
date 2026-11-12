@@ -32,9 +32,6 @@ class VolumeProps(NamedTuple):
 class Flat:
     normal: Point
     """Unit, pointing out of the material."""
-    beyond: float
-    """How far the solid reaches past this face's plane along `normal`. About zero when the face
-    bounds the part, so that no material lies beyond its plane."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -238,6 +235,11 @@ class Kernel(Protocol):
         ...
 
     def inertia(self, shape: Shape) -> Inertia: ...
+
+    def reach(self, shape: Shape, direction: Point) -> float:
+        """The largest projection of the solid on the unit `direction`. It costs one tight
+        bounding box of the whole solid, so ask only for the directions a rule reads."""
+        ...
 
     def inside(self, shape: Shape, point: Point) -> bool:
         """Whether the point lies in the material, not on or outside its boundary

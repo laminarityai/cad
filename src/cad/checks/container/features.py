@@ -39,14 +39,25 @@ class Geometry:
     openings: Callable[[], tuple[Opening, ...]]
     inside: Callable[[Point], bool]
     """Whether a point lies in the material."""
+    reach: Callable[[Point], float]
+    """The largest projection of the solid on a unit direction."""
 
 
 def geometry(kernel: Kernel, shape: Shape) -> Geometry:
+    reached: dict[Point, float] = {}
+
+    def reach(direction: Point) -> float:
+        key = (round(direction[0], 9), round(direction[1], 9), round(direction[2], 9))
+        if key not in reached:
+            reached[key] = kernel.reach(shape, direction)
+        return reached[key]
+
     return Geometry(
         kernel.faces(shape),
         kernel.inertia(shape),
         lambda: kernel.openings(shape),
         lambda point: kernel.inside(shape, point),
+        reach,
     )
 
 
@@ -222,11 +233,13 @@ def coplanar(plane: Patch, patch: Patch, tol: float) -> bool:
     )
 
 
-def bounding_flats(faces: Sequence[FaceInfo], tol: float) -> list[tuple[FaceInfo, Flat]]:
+def bounding_flats(part: Geometry, tol: float) -> list[tuple[FaceInfo, Flat]]:
+    """The flat faces with no material beyond their plane."""
     return [
         (face, face.surface)
-        for face in faces
-        if isinstance(face.surface, Flat) and face.surface.beyond <= tol
+        for face in part.faces
+        if isinstance(face.surface, Flat)
+        and part.reach(face.surface.normal) - dot(face.centroid, face.surface.normal) <= tol
     ]
 
 
@@ -264,27 +277,23 @@ def along(line: Round, v: float) -> Point:
     return add(line.origin, scale(line.axis, v))
 
 
-def farthest_flats(
-    faces: Sequence[FaceInfo], way: Point, cone: float, inertia: Inertia
-) -> tuple[Region, ...]:
+def farthest_flats(part: Geometry, way: Point, cone: float) -> tuple[Region, ...]:
     """The flat faces that bound the part, face within `cone` of `way`, and whose centroid
     reaches farthest along it, each with the faces flush with it. Faces tied for farthest are
     each a region."""
-    tol = FLUSH_TOL_FRACTION * extent(inertia)
-    facing = [face for face, flat in bounding_flats(faces, tol) if angle(flat.normal, way) <= cone]
+    tol = FLUSH_TOL_FRACTION * extent(part.inertia)
+    facing = [face for face, flat in bounding_flats(part, tol) if angle(flat.normal, way) <= cone]
     if not facing:
         return ()
     farthest = max(dot(face.centroid, way) for face in facing)
     tied = [face for face in facing if dot(face.centroid, way) >= farthest - tol]
-    return distinct_planes(tied, faces, inertia)
+    return distinct_planes(tied, part.faces, part.inertia)
 
 
-def ends_along(
-    faces: Sequence[FaceInfo], inertia: Inertia, span: Sequence[Point]
-) -> tuple[Region, ...]:
-    tol = FLUSH_TOL_FRACTION * extent(inertia)
+def ends_along(part: Geometry, span: Sequence[Point]) -> tuple[Region, ...]:
+    tol = FLUSH_TOL_FRACTION * extent(part.inertia)
     ways: list[Point] = []
-    for _, flat in bounding_flats(faces, tol):
+    for _, flat in bounding_flats(part, tol):
         toward = projected(flat.normal, span)
         if norm(toward) < math.cos(END_CONE_RAD):
             continue
@@ -293,7 +302,7 @@ def ends_along(
             ways.append(way)
     regions: list[Region] = []
     for way in ways:
-        for region in farthest_flats(faces, way, END_CONE_RAD, inertia):
+        for region in farthest_flats(part, way, END_CONE_RAD):
             if not any(coplanar(region.patches[0], seen.patches[0], tol) for seen in regions):
                 regions.append(region)
     return tuple(regions)
