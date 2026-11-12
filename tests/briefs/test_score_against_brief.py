@@ -60,7 +60,7 @@ async def test_a_brief_nobody_confirmed_runs_every_check_and_judges_nothing(s: S
         "score_variant", variant_id=await plate(s), material_key="prusament-pla", brief_id=brief_id
     )
     assert card["basis"] == {"kind": "awaiting_confirmation", "brief_id": brief_id}
-    assert [r["verdict"] for r in card["results"]] == ["pass"] * 4
+    assert [r["verdict"] for r in card["results"]] == ["pass"] * 5
 
 
 async def test_a_target_that_waits_shows_its_measure_beside_it_and_no_verdict(s: Session) -> None:
