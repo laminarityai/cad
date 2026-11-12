@@ -29,6 +29,7 @@ class Trace(Frozen):
     strict_pass: Share
     coverage: Share
     agent_coverage: Share = Share(numerator=0, denominator=0)
+    described_coverage: Share = Share(numerator=0, denominator=0)
 
 
 class Friction(Frozen):
