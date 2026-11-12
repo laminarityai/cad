@@ -4,7 +4,7 @@ import { Toaster as Primitive, toast } from "sonner";
 function Toaster() {
   return (
     <Primitive
-      position="bottom-right"
+      position="top-center"
       toastOptions={{
         unstyled: true,
         classNames: {
