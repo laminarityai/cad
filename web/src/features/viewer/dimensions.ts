@@ -28,8 +28,9 @@ export interface DimLine {
 /** The lines stand off the box by this share of its largest side. */
 const OFFSET = 0.12;
 
-/** The three lines of the part's size, along the edges that face a camera looking from +x, +y and +z, which
- * is how the viewer starts. The mesh's box only places them. Each label is the check's. */
+/** The three lines of the part's size, along the bottom edges and the vertical edge that lie on the outline
+ * for a camera at +x, -y and +z, which is where the viewer starts. The mesh's box only places them. Each
+ * label is the check's. */
 export function dimensionLines(extents: Extents, bb: Shapes["bb"]): DimLine[] {
   const sides = [bb.xmax - bb.xmin, bb.ymax - bb.ymin, bb.zmax - bb.zmin];
   const out = OFFSET * Math.max(...sides);
@@ -42,9 +43,9 @@ export function dimensionLines(extents: Extents, bb: Shapes["bb"]): DimLine[] {
     to: [b[0] + push[0], b[1] + push[1], b[2] + push[2]],
   });
   return [
-    line("x", [bb.xmin, bb.ymax, bb.zmin], [bb.xmax, bb.ymax, bb.zmin], [0, out, -out]),
+    line("x", [bb.xmin, bb.ymin, bb.zmin], [bb.xmax, bb.ymin, bb.zmin], [0, -out, -out]),
     line("y", [bb.xmax, bb.ymin, bb.zmin], [bb.xmax, bb.ymax, bb.zmin], [out, 0, -out]),
-    line("z", [bb.xmax, bb.ymin, bb.zmin], [bb.xmax, bb.ymin, bb.zmax], [out, -out, 0]),
+    line("z", [bb.xmin, bb.ymin, bb.zmin], [bb.xmin, bb.ymin, bb.zmax], [-out, -out, 0]),
   ];
 }
 
@@ -62,4 +63,14 @@ export function toScreen(view: Matrix, projection: Matrix, point: Vec3, width: n
   const w = clip[2] ?? 0;
   if (!(w > 0)) return null;
   return { x: (((clip[0] ?? 0) / w + 1) / 2) * width, y: ((1 - (clip[1] ?? 0) / w) / 2) * height };
+}
+
+/** Keeps the lines and their labels clear of the canvas's edge, and of the hint along its bottom. */
+const MARGIN = 72;
+
+/** How far to zoom out about the middle of the view for every point to sit inside the canvas by `MARGIN`:
+ * 1 when they already do. Zooming scales each point's distance from the middle by the same factor. */
+export function zoomToFit(points: readonly (ScreenPoint | null)[], width: number, height: number): number {
+  const room = (half: number, away: number) => (away > 0 ? Math.max(half - MARGIN, 0) / away : 1);
+  return points.reduce((zoom, at) => (at ? Math.min(zoom, room(width / 2, Math.abs(at.x - width / 2)), room(height / 2, Math.abs(at.y - height / 2))) : zoom), 1);
 }

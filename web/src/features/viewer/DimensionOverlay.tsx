@@ -6,7 +6,10 @@ import type { Shapes, Track } from "./engine";
  * says where the lines go: no number on screen comes from the mesh. The lines follow the camera, and
  * stay off until the viewer can project. */
 export function DimensionOverlay({ extents, bb, track }: { extents: Extents; bb: Shapes["bb"]; track: Track | null }) {
-  const lines = useMemo(() => dimensionLines(extents, bb), [extents, bb]);
+  // The scorecard is read again every few seconds, so the numbers are compared by value: a new object
+  // with the same numbers must not start the projection, and its zoom, over.
+  const { x, y, z } = extents;
+  const lines = useMemo(() => dimensionLines({ x, y, z }, bb), [x, y, z, bb]);
   const [screen, setScreen] = useState<readonly (ScreenPoint | null)[] | null>(null);
   useEffect(() => {
     if (track === null) return;

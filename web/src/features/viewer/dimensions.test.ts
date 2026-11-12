@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dimensionLines, pointsOf, toScreen, type Extents } from "./dimensions";
+import { dimensionLines, pointsOf, toScreen, zoomToFit, type Extents } from "./dimensions";
 
 const bb = { xmin: -30, xmax: 30, ymin: 0, ymax: 40, zmin: 0, zmax: 70 };
 const extents: Extents = { x: "60 mm", y: "40 mm", z: "70 mm" };
@@ -13,17 +13,17 @@ describe("dimensionLines", () => {
       ["z", "70 mm"],
     ]);
     expect(lines.map((one) => one.edge)).toEqual([
-      [[-30, 40, 0], [30, 40, 0]],
+      [[-30, 0, 0], [30, 0, 0]],
       [[30, 0, 0], [30, 40, 0]],
-      [[30, 0, 0], [30, 0, 70]],
+      [[-30, 0, 0], [-30, 0, 70]],
     ]);
   });
 
   it("stands each line off its edge by 12% of the largest side, outward from the box", () => {
     const [x, y, z] = dimensionLines(extents, bb);
-    expect(x?.from).toEqual([-30, 40 + 8.4, -8.4]);
+    expect(x?.from).toEqual([-30, -8.4, -8.4]);
     expect(y?.to).toEqual([30 + 8.4, 40, -8.4]);
-    expect(z?.from).toEqual([30 + 8.4, -8.4, 0]);
+    expect(z?.from).toEqual([-30 - 8.4, -8.4, 0]);
   });
 
   it("labels with the check's words whatever the box measures", () => {
@@ -54,5 +54,16 @@ describe("toScreen", () => {
     const perspective = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, -1, -1, 0, 0, -1, 0];
     expect(toScreen(identity, perspective, [0, 0, 5], 200, 100)).toBeNull();
     expect(toScreen(identity, perspective, [0, 0, -5], 200, 100)).not.toBeNull();
+  });
+});
+
+describe("zoomToFit", () => {
+  it("leaves points that sit inside the margin alone", () => {
+    expect(zoomToFit([{ x: 100, y: 100 }, null], 400, 300)).toBe(1);
+  });
+
+  it("zooms out about the middle until the farthest point is a margin inside the edge", () => {
+    const zoom = zoomToFit([{ x: 100, y: 150 }, { x: 390, y: 150 }], 400, 300);
+    expect(zoom).toBeCloseTo((200 - 72) / 190);
   });
 });
