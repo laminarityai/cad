@@ -61,6 +61,8 @@ class Standing(Frozen):
     code_sha256: str
     built: bool
     marks: tuple[tuple[str, Mark], ...]
+    described: tuple[str, ...] = Field(default=(), exclude_if=lambda one: not one)
+    """The requirements among `marks` that rest on a load case the agent described."""
 
 
 class Read(Frozen):
@@ -82,6 +84,7 @@ class AllPass(Frozen):
     researched: tuple[str, ...]
     unverified: tuple[str, ...]
     agent_checked: tuple[str, ...] = ()
+    described: tuple[str, ...] = Field(default=(), exclude_if=lambda one: not one)
 
 
 class NeedsPerson(Frozen):

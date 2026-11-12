@@ -6,7 +6,7 @@ again to re-derive a stored card.
 """
 
 from collections.abc import Iterable, Mapping, Sequence
-from typing import Final, assert_never
+from typing import Final, Literal, assert_never
 
 from cad.briefs.holes import FastenerHoles, PlainHoles
 from cad.briefs.model import (
@@ -182,7 +182,12 @@ def judge(
             ),
         )
     if isinstance(result, PendingCheck):
-        return Waiting(requirement_id=requirement.id, statement=statement, check_id=check_id)
+        return Waiting(
+            requirement_id=requirement.id,
+            statement=statement,
+            check_id=check_id,
+            load_case=labelled(requirement.target),
+        )
     if isinstance(requirement.target, FastenerHoles | PlainHoles):
         return holes.judged(requirement, statement, result)
     missed = Verdict.UNKNOWN if isinstance(requirement.target, Envelope) else Verdict.FAIL
@@ -207,7 +212,14 @@ def judge(
         comparisons=comparisons,
         basis="researched" if researched else "checks",
         researched=researched,
+        load_case=labelled(requirement.target),
     )
+
+
+def labelled(target: Target) -> Literal["described"] | None:
+    """`described` when the target's load case uses a term beyond the reviewed phrases."""
+    case = load_of(target)
+    return "described" if case is not None and case.described else None
 
 
 def result_of[R: Reported](results: Sequence[R], check_id: str, wanted: str) -> R | None:

@@ -39,6 +39,7 @@ NO_STATEMENTS: Final[Mapping[str, str]] = MappingProxyType({})
 PASSING: Final = frozenset(
     {Mark.PASS, Mark.PASS_RESEARCHED, Mark.PASS_AGENT_CHECK, Mark.UNVERIFIED}
 )
+DESCRIBED: Final = "a load case the agent described and the person confirmed"
 WORDS: Final = {
     Mark.PASS: "passes",
     Mark.PASS_RESEARCHED: "passes on researched data",
@@ -58,10 +59,13 @@ def standing_of(card: Scorecard, revision: int, code_sha256: str) -> Standing | 
     if card.pending:
         return Unsettled()
     marks: list[tuple[str, Mark]] = []
+    described: list[str] = []
     for row in basis.requirements:
         match row:
             case Checked():
                 marks.append((row.requirement_id, _mark(row)))
+                if row.load_case == "described":
+                    described.append(row.requirement_id)
             case Unverified():
                 marks.append((row.requirement_id, Mark.UNVERIFIED))
             case AgentChecked():
@@ -76,6 +80,7 @@ def standing_of(card: Scorecard, revision: int, code_sha256: str) -> Standing | 
         code_sha256=code_sha256,
         built=True,
         marks=tuple(marks),
+        described=tuple(described),
     )
 
 
@@ -145,6 +150,7 @@ def _revised(state: Running, standing: Standing) -> AutoState:
                 researched=_ids(standing, Mark.PASS_RESEARCHED),
                 agent_checked=_ids(standing, Mark.PASS_AGENT_CHECK),
                 unverified=_ids(standing, Mark.UNVERIFIED),
+                described=standing.described,
             ),
         )
     return state
@@ -179,9 +185,14 @@ def report(
             f"Revisions tried: {len(history)}. The latest is variant {latest.variant_id}{built}."
         )
         lines.extend(
-            f"- {said.get(rid, f'requirement {rid}')}: {WORDS[mark]}" for rid, mark in latest.marks
+            f"- {said.get(rid, f'requirement {rid}')}: {WORDS[mark]}{_described(rid, latest)}"
+            for rid, mark in latest.marks
         )
     return "\n".join(lines)
+
+
+def _described(rid: str, standing: Standing) -> str:
+    return f", on {DESCRIBED}" if rid in standing.described else ""
 
 
 def _reason(reason: StopReason, named: Callable[[Sequence[str]], str]) -> str:
@@ -190,6 +201,8 @@ def _reason(reason: StopReason, named: Callable[[Sequence[str]], str]) -> str:
             line = "Every checked requirement passes."
             if reason.researched:
                 line += f" These pass on researched data: {named(reason.researched)}."
+            if reason.described:
+                line += f" These pass on {DESCRIBED}: {named(reason.described)}."
             if reason.agent_checked:
                 line += f" These pass an {AGENT_CHECK}: {named(reason.agent_checked)}."
             if reason.unverified:
