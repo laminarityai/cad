@@ -29,7 +29,7 @@ pytestmark = pytest.mark.docker
 PLATE = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
 PLATE_SHELL = PLATE + "from build123d import Shell\nresult = Shell(result.faces()[:-1])\n"
 PLATE_VOLUME_MM3 = 29509.72
-CHECK_IDS = ["closed_solid", "interference", "mass", "extents", "holes"]
+CHECK_IDS = ["closed_solid", "interference", "mass", "extents", "holes", "min_wall"]
 
 type Build = Callable[[str], str]
 
@@ -62,7 +62,7 @@ def test_the_plate_passes_every_check_with_its_volume(built: Build, store: Path)
     variant_id = built(PLATE)
     card = score.score_variant(variant_id, "prusament-pla", store)
     assert [result.check_id for result in card.finished] == CHECK_IDS
-    assert [result.verdict for result in card.finished] == [Verdict.PASS] * 5
+    assert [result.verdict for result in card.finished] == [Verdict.PASS] * len(CHECK_IDS)
     assert card.finished[2].number("volume", "mm^3") == pytest.approx(PLATE_VOLUME_MM3, abs=0.01)
 
 
@@ -137,6 +137,7 @@ def test_an_unknown_material_key_is_scored_with_mass_unknown(built: Build, store
         Verdict.PASS,
         Verdict.PASS,
         Verdict.UNKNOWN,
+        Verdict.PASS,
         Verdict.PASS,
         Verdict.PASS,
     ]
