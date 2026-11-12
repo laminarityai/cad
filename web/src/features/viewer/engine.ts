@@ -1,4 +1,5 @@
 import type { Tessellated } from "@/api/types";
+import { toScreen, zoomToFit, type ScreenPoint, type Vec3 } from "./dimensions";
 import type { MeshReading } from "./readout";
 import type { Pick } from "./selection";
 import { FACE_PARTS } from "./where";
@@ -15,8 +16,15 @@ export interface Mounted {
   select(picks: readonly Pick[]): void;
   /** The library's closest-point distance and angle between two picks on the drawn mesh, or null when it cannot say. */
   measure(a: Pick, b: Pick): MeshReading | null;
+  /** Tells `listener` where these world points land on the canvas, now and after each frame in which they
+   * moved. A point behind the camera is null. Zooms out first when they would fall off the canvas.
+   * Returns the call that stops it. */
+  track(points: readonly Vec3[], listener: (screen: readonly (ScreenPoint | null)[]) => void): () => void;
   stop(): void;
 }
+
+/** The viewer's `track`, which the overlay holds while the part is drawn. */
+export type Track = Mounted["track"];
 
 /** `pick` is what is under the cursor, or null for empty space or the fit ghost. */
 export type OnPick = (pick: Pick | null, shift: boolean) => void;
@@ -122,7 +130,45 @@ export const threeCadViewer: ViewerEngine = {
       );
     };
 
+    const trackers = new Set<() => void>();
+    viewer.onAfterRender = () => {
+      trackers.forEach((run) => {
+        run();
+      });
+    };
+
     return {
+      track(points, listener) {
+        const onCanvas = () => {
+          const lens = viewer.camera.getCamera();
+          lens.updateMatrixWorld();
+          const { width, height } = canvas.getBoundingClientRect();
+          return points.map((point) => toScreen(lens.matrixWorldInverse.elements, lens.projectionMatrix.elements, point, width, height));
+        };
+        // The library fits the part, so lines standing off it would run off the canvas. Zoom about the middle
+        // of the view until they fit, as the person would.
+        const room = zoomToFit(onCanvas(), canvas.clientWidth, canvas.clientHeight);
+        if (room < 1) {
+          const camera = viewer.getCameraLocationSettings();
+          const [position, quaternion, target] = [camera.position, camera.quaternion, camera.target] as [Vector3Tuple, QuaternionTuple, Vector3Tuple];
+          viewer.setCameraLocationSettings(position, quaternion, target, camera.zoom * room);
+        }
+        let last = "";
+        const run = () => {
+          const origin = element.getBoundingClientRect();
+          const surface = canvas.getBoundingClientRect();
+          const screen = onCanvas().map((at) => at && { x: at.x + surface.left - origin.left, y: at.y + surface.top - origin.top });
+          const now = JSON.stringify(screen);
+          if (now === last) return;
+          last = now;
+          listener(screen);
+        };
+        trackers.add(run);
+        run();
+        return () => {
+          trackers.delete(run);
+        };
+      },
       show(next) {
         // The same box means the same part drawn with other faces marked, so the person's view stays.
         const camera = same(drawn.bb, next.bb) ? viewer.getCameraLocationSettings() : null;
@@ -162,6 +208,7 @@ export const threeCadViewer: ViewerEngine = {
         return { distance, angle: rows.map((row) => numberIn(row, "angle")).find((angle) => angle !== null) ?? null };
       },
       stop() {
+        trackers.clear();
         canvas.removeEventListener("pointerdown", onDown);
         canvas.removeEventListener("click", onClick);
         canvas.removeEventListener("dblclick", onDouble);

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useServices } from "@/app/context";
-import type { Mounted, OnPick, Shapes, Theme } from "./engine";
+import type { Mounted, OnPick, Shapes, Theme, Track } from "./engine";
 import type { Measure } from "./readout";
 import type { Pick } from "./selection";
 
@@ -17,9 +17,11 @@ interface Props {
   onPick: OnPick;
   /** Gets the viewer's measure once it is drawn, and null when it stops. */
   onMeasure: (measure: Measure | null) => void;
+  /** Gets the viewer's projection once it is drawn, and null when it stops. */
+  onTrack: (track: Track | null) => void;
 }
 
-export function ViewerCanvas({ shapes, label, picks, onPick, onMeasure }: Props) {
+export function ViewerCanvas({ shapes, label, picks, onPick, onMeasure, onTrack }: Props) {
   const { viewer } = useServices();
   const host = useRef<HTMLDivElement>(null);
   const mounted = useRef<{ view: Mounted; shapes: Shapes } | null>(null);
@@ -27,6 +29,7 @@ export function ViewerCanvas({ shapes, label, picks, onPick, onMeasure }: Props)
   const latestPicks = useRef(picks);
   const latestOnPick = useRef(onPick);
   const latestOnMeasure = useRef(onMeasure);
+  const latestOnTrack = useRef(onTrack);
   const [problem, setProblem] = useState<string | null>(null);
   const countDraw = (into: HTMLElement) => {
     into.dataset.draws = String(Number(into.dataset.draws ?? "0") + 1);
@@ -34,6 +37,7 @@ export function ViewerCanvas({ shapes, label, picks, onPick, onMeasure }: Props)
   useEffect(() => {
     latestOnPick.current = onPick;
     latestOnMeasure.current = onMeasure;
+    latestOnTrack.current = onTrack;
   });
   useEffect(() => {
     latest.current = shapes;
@@ -69,6 +73,7 @@ export function ViewerCanvas({ shapes, label, picks, onPick, onMeasure }: Props)
         }
         view.select(latestPicks.current);
         latestOnMeasure.current((a, b) => view.measure(a, b));
+        latestOnTrack.current((points, listener) => view.track(points, listener));
         countDraw(element);
       },
       (error: unknown) => {
@@ -77,7 +82,10 @@ export function ViewerCanvas({ shapes, label, picks, onPick, onMeasure }: Props)
     );
     return () => {
       live = false;
-      if (mounted.current) latestOnMeasure.current(null);
+      if (mounted.current) {
+        latestOnMeasure.current(null);
+        latestOnTrack.current(null);
+      }
       mounted.current?.view.stop();
       mounted.current = null;
     };

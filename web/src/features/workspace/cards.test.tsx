@@ -3,10 +3,10 @@ import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ServicesProvider } from "@/app/context";
 import { FakeChat, FakeViewer, fakeApi } from "@/test/fakes";
-import type { DoneCheck } from "@/api/snapshot";
-import { feaMeasureOnly, massResult, snapshot } from "@/test/fixtures";
+import type { DoneCheck, Scorecard } from "@/api/snapshot";
+import { feaMeasureOnly, feaPending, massResult, snapshot } from "@/test/fixtures";
 import { restore } from "@/api/snapshot";
-import { assumedOf, awaitingOf, linesOf, summaryOf, useCards, type CardKey } from "./cards";
+import { assumedOf, awaitingOf, linesOf, passedExtents, summaryOf, useCards, type CardKey } from "./cards";
 
 const settle = () => act(() => vi.advanceTimersByTimeAsync(0));
 const tick = (ms: number) => act(() => vi.advanceTimersByTimeAsync(ms));
@@ -164,5 +164,29 @@ describe("linesOf holes", () => {
     expect(line?.value).toBe("1 hole: 5.5 mm");
     expect(line?.status).toBe("unknown");
     expect(line?.label).toBe("Holes");
+  });
+});
+
+describe("passedExtents", () => {
+  const extents = (verdict: "pass" | "fail" | "unknown", names = ["x", "y", "z"], unit = "mm"): DoneCheck => ({
+    ...massResult(),
+    check_id: "extents",
+    verdict,
+    measured: names.map((axis, at) => ({ name: `extent:${axis}`, value: { magnitude: [60.04, 40, 70][at] ?? 0, unit } })),
+  });
+  const card = (...results: Scorecard["results"]) => snapshot("v1", [], results);
+
+  it("gives the check's three numbers as the Size row writes them", () => {
+    expect(passedExtents(card(extents("pass")))).toEqual({ x: "60 mm", y: "40 mm", z: "70 mm" });
+  });
+
+  it("gives nothing for a result that failed, is unknown, is pending, is missing or is incomplete", () => {
+    expect(passedExtents(card(extents("fail")))).toBeNull();
+    expect(passedExtents(card(extents("unknown")))).toBeNull();
+    expect(passedExtents(card({ ...feaPending(), check_id: "extents" }))).toBeNull();
+    expect(passedExtents(card(massResult()))).toBeNull();
+    expect(passedExtents(card(extents("pass", ["x", "y"])))).toBeNull();
+    expect(passedExtents(card(extents("pass", ["x", "y", "z"], "m")))).toBeNull();
+    expect(passedExtents(null)).toBeNull();
   });
 });

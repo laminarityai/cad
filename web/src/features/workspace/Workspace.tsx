@@ -89,6 +89,7 @@ function Center(props: {
               fit={brief.fits[0] ?? null}
               where={where}
               selection={selection}
+              cards={cards}
               onPick={onPick}
             />
           </TabsPanel>

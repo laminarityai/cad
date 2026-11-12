@@ -1,6 +1,8 @@
-import { Box, ChevronLeft, ChevronRight } from "lucide-react";
+import { Box, ChevronLeft, ChevronRight, Ruler } from "lucide-react";
 import { useMemo, useState, type Dispatch, type ReactElement } from "react";
-import type { OnPick, Shapes } from "@/features/viewer/engine";
+import { DimensionOverlay } from "@/features/viewer/DimensionOverlay";
+import type { Extents } from "@/features/viewer/dimensions";
+import type { OnPick, Shapes, Track } from "@/features/viewer/engine";
 import { readoutOf, type Measure } from "@/features/viewer/readout";
 import type { Pick, Selection } from "@/features/viewer/selection";
 import { SelectionNote } from "@/features/viewer/SelectionNote";
@@ -10,7 +12,7 @@ import { ROLE_COLOUR, splitFaces, type Where } from "@/features/viewer/where";
 import { TabsList, TabsTab } from "@/components/ui/tabs";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { summaryOf, type Card } from "./cards";
+import { passedExtents, summaryOf, type Card } from "./cards";
 import type { Brief, Fit, Slot, ViewAction } from "./model";
 import { Dot } from "./bits";
 import { Download } from "./Download";
@@ -72,11 +74,13 @@ const ignore: OnPick = () => undefined;
 
 const unmeasured: Measure = () => null;
 
-function Mesh(props: { variantId: string; label: string; fit: Fit | null; where: Where | null; selection: Selection | null; onPick: OnPick }) {
-  const { variantId, label, fit, where, selection, onPick } = props;
+/** `extents` is the size check's numbers to draw, or null for none. */
+function Mesh(props: { variantId: string; label: string; fit: Fit | null; where: Where | null; selection: Selection | null; extents: Extents | null; onPick: OnPick }) {
+  const { variantId, label, fit, where, selection, extents, onPick } = props;
   const mesh = useMesh(variantId);
   const fitMesh = useMesh(fit?.variantId ?? variantId);
   const [measure, setMeasure] = useState<Measure | null>(null);
+  const [track, setTrack] = useState<Track | null>(null);
   const topology = mesh.status === "ready" ? mesh.topology : null;
   const picks = selection?.picks ?? NO_PICKS;
   const readout = useMemo(() => (topology ? readoutOf(picks, topology, measure ?? unmeasured) : null), [picks, topology, measure]);
@@ -99,12 +103,16 @@ function Mesh(props: { variantId: string; label: string; fit: Fit | null; where:
         onMeasure={(next) => {
           setMeasure(() => next);
         }}
+        onTrack={(next) => {
+          setTrack(() => next);
+        }}
       />
     );
   }
   return (
     <>
       {body}
+      {extents && mesh.status === "ready" ? <DimensionOverlay extents={extents} bb={mesh.shapes.bb} track={track} /> : null}
       <SelectionNote selection={selection} readout={readout} />
     </>
   );
@@ -139,14 +147,17 @@ export function Stage(props: {
   fit: Fit | null;
   where: Where | null;
   selection: Selection | null;
+  cards: Record<string, Card>;
   onPick: OnPick;
 }) {
-  const { slot, revision, dispatch, briefId, fit, where, selection, onPick } = props;
+  const { slot, revision, dispatch, briefId, fit, where, selection, cards, onPick } = props;
   const [showFit, setShowFit] = useState(true);
+  const [showSize, setShowSize] = useState(false);
   const newest = slot.revisions.length;
   const showing = Math.min(revision ?? newest, newest);
   const shown = slot.revisions[showing - 1];
   if (!shown) return null;
+  const size = passedExtents(cards[shown.variantId]?.snapshot);
   const key = `${briefId}:${String(slot.slot)}`;
   const step = (n: number) => {
     dispatch({ type: "revision", key, n: n === newest ? null : n });
@@ -154,7 +165,7 @@ export function Stage(props: {
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div className="relative min-h-0 flex-1" data-stage>
-        <Mesh variantId={shown.variantId} label={`${slot.label}, revision ${String(showing)}`} fit={showFit ? fit : null} where={where} selection={selection} onPick={onPick} />
+        <Mesh variantId={shown.variantId} label={`${slot.label}, revision ${String(showing)}`} fit={showFit ? fit : null} where={where} selection={selection} extents={showSize ? size : null} onPick={onPick} />
         <div className="absolute right-3 top-3 z-30 flex gap-2">
           {fit ? (
             <button
@@ -171,6 +182,25 @@ export function Stage(props: {
             >
               <Box className="size-4" /> With {fit.name}
             </button>
+          ) : null}
+          {size ? (
+            <Tooltip label="Dimensions from the size check">
+              <button
+                type="button"
+                aria-pressed={showSize}
+                aria-label="Dimensions"
+                data-size-toggle
+                onClick={() => {
+                  setShowSize((was) => !was);
+                }}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[14px] shadow-sm",
+                  showSize ? "border-rule bg-panel-2 text-ink" : "border-rule bg-panel text-ink-3",
+                )}
+              >
+                <Ruler className="size-4" /> <span className="hidden sm:inline">Dimensions</span>
+              </button>
+            </Tooltip>
           ) : null}
           <Download key={shown.variantId} variantId={shown.variantId} briefId={briefId} />
         </div>

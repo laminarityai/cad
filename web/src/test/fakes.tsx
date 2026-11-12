@@ -3,6 +3,7 @@ import { vi } from "vitest";
 import type { Api } from "@/api/client";
 import type { ChatApi, Follower } from "@/api/chat";
 import type { AutoRun, ConversationView, Event, ExportFormat, Picked, PersonStop, StopReason, Tessellated, VariantSetView } from "@/api/types";
+import type { ScreenPoint } from "@/features/viewer/dimensions";
 import type { Mounted, OnPick, Shapes, ViewerEngine } from "@/features/viewer/engine";
 import type { MeshReading } from "@/features/viewer/readout";
 import type { Pick } from "@/features/viewer/selection";
@@ -86,6 +87,8 @@ export class FakeViewer implements ViewerEngine {
   stopped = 0;
   /** What `measure` answers: the mesh's closest-point distance and angle for any two picks. */
   reading: MeshReading | null = null;
+  /** Where `track` says a world point lands: the point's x and y, so a test can tell where a line went. */
+  project = (point: readonly [number, number, number]): ScreenPoint | null => ({ x: point[0], y: point[1] });
 
   mount(_element: HTMLElement, shapes: Shapes, _theme: unknown, onPick: OnPick): Promise<Mounted> {
     this.mounted.push(shapes);
@@ -98,6 +101,10 @@ export class FakeViewer implements ViewerEngine {
         this.selected.push(picks);
       },
       measure: () => this.reading,
+      track: (points, listener) => {
+        listener(points.map(this.project));
+        return () => undefined;
+      },
       stop: () => {
         this.stopped += 1;
       },

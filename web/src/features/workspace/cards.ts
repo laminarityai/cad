@@ -2,6 +2,7 @@ import { useServices } from "@/app/context";
 import { useResources } from "@/state/resource";
 import { restore, type DoneCheck, type ResultLine, type RunningCheck, type Scorecard } from "@/api/snapshot";
 import type { Source } from "@/api/types";
+import type { Axis, Extents } from "@/features/viewer/dimensions";
 import type { Where } from "@/features/viewer/where";
 
 const POLL_MS = 1500;
@@ -104,6 +105,19 @@ function valueOf(result: DoneCheck | undefined): string {
     if (solids && solids.magnitude !== 1) return `${num(solids.magnitude)} solids`;
   }
   return "";
+}
+
+/** The size check's number for each axis, written as the Size row writes it, when the check passed on the
+ * variant. Pending, unknown, failed and absent give null, so nothing is ever drawn from another source. */
+export function passedExtents(snapshot: Scorecard | null | undefined): Extents | null {
+  const result = snapshot?.results.find((one): one is DoneCheck => isDone(one) && one.check_id === "extents");
+  if (result?.verdict !== "pass") return null;
+  const label = (axis: Axis) => {
+    const found = result.measured.find((one) => one.name === `extent:${axis}`)?.value;
+    return found?.unit === "mm" ? `${num(found.magnitude)} mm` : null;
+  };
+  const [x, y, z] = [label("x"), label("y"), label("z")];
+  return x !== null && y !== null && z !== null ? { x, y, z } : null;
 }
 
 function statusOf(verdict: string, researched: boolean): Status {
