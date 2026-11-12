@@ -7,7 +7,8 @@ import pytest
 from pydantic import TypeAdapter
 
 from cad.briefs.edits import apply_edits, placeholder
-from cad.briefs.model import BriefId, BriefSpan, Requirement, Target, requirement_id
+from cad.briefs.model import BriefId, Requirement, Target, requirement_id
+from cad.briefs.origins import BriefSpan
 from cad.briefs.words import describe
 from cad.confirmations.answers import Edit
 

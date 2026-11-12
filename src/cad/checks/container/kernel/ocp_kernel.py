@@ -2,6 +2,7 @@ import tempfile
 from pathlib import Path
 from typing import cast
 
+from cad.checks.container.kernel import ocp_files
 from cad.checks.container.kernel.ocp_handles import (
     AncestorMap,
     Movable,
@@ -18,11 +19,13 @@ from cad.checks.container.kernel.protocol import (
     FaceInfo,
     Flat,
     Inertia,
+    Kept,
     Kernel,
     Opening,
     Point,
     Round,
     Shape,
+    StepRead,
     StepTooLarge,
     Surface,
     Unreadable,
@@ -55,6 +58,18 @@ class OcpKernel:
         if not read or shape.IsNull():
             return Unreadable(f"BRepTools.Read_s rejected {len(data)} bytes as not a BREP file")
         return shape
+
+    def read_step(self, data: bytes) -> StepRead | Unreadable:
+        return ocp_files.read_step(data)
+
+    def read_stl(self, data: bytes, scale: float) -> Shape | Unreadable:
+        return ocp_files.read_stl(self, data, scale)
+
+    def keep_solids(self, shape: Shape) -> Kept:
+        return ocp_files.keep_solids(self, shape)
+
+    def brep_bytes(self, shape: Shape) -> bytes:
+        return ocp_files.brep_bytes(shape)
 
     def solids(self, shape: Shape) -> tuple[Shape, ...]:
         ocp = self._ocp

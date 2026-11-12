@@ -11,14 +11,15 @@ from cad.operations.model import Audience, Input, Tenant, operation
 PROPOSE_CONTEXT_PART = (
     "Propose a context part: a part the user's new part must fit with, such as a rail it slides "
     "onto or a housing it sits in. Propose one when the brief says the part must fit with an "
-    "existing part. Today the part is a variant you built: pass its variant_id, a short name, "
+    "existing part you built as a variant: pass its variant_id, a short name, "
     "the brief_id and a quote copied exactly from the brief that names the part. The server "
     "reads the variant's geometry and returns the part_id, its status and its facts: the number "
     "of solids, the volume in mm^3 and the bounding box in mm. The box is in the part's own "
     "frame, so build the new part in that same frame. The facts help you build in the right "
     "place, and no check reads them. Proposing never confirms: the user confirms the part on "
     "the ask_to_confirm page, with the requirements. Proposing the same part again returns it "
-    "while it waits or is confirmed. After the user declines it, proposing it again asks again."
+    "while it waits or is confirmed. After the user declines it, proposing it again asks again. "
+    "A STEP or STL file the person added is already a confirmed part: find it with list_files."
 )
 
 
@@ -36,7 +37,7 @@ class ProposeContextPartInput(Input):
 
 
 def propose_context_part(tenant: Tenant, arguments: ProposeContextPartInput) -> PartProposed:
-    part = store.propose(
+    part = store.propose_from_variant(
         tenant.roots,
         tenant.variants,
         arguments.brief_id,

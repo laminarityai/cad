@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from cad.context_parts.store import confirmed_parts, part_brep, stored_parts
+from cad.context_parts.store import confirmed_parts, part_brep, stored_parts, variant_of
 from cad.projects.model import ProjectId, TamperedProject
 
 if TYPE_CHECKING:
@@ -112,7 +112,9 @@ async def test_a_part_whose_geometry_changed_on_disk_is_refused(s: Session) -> N
     with pytest.raises(TamperedProject, match="has lost its geometry"):
         part_brep(s.roots.projects, part)
     brep.unlink()
-    brep.symlink_to(s.variants / part.record.source.variant_id / "result.brep")
+    source = variant_of(part.record)
+    assert source is not None
+    brep.symlink_to(s.variants / source / "result.brep")
     with pytest.raises(TamperedProject):
         part_brep(s.roots.projects, part)
 

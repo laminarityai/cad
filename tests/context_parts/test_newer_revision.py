@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING, Any, Final
 
 import pytest
 
-from cad.context_parts.store import confirmed_parts, fitted_by
+from cad.context_parts.store import confirmed_parts, fit_targets, variant_of
 from cad.projects.model import ProjectId
 
 if TYPE_CHECKING:
@@ -83,7 +83,7 @@ async def test_revising_the_slot_a_part_came_from_says_the_part_is_out_of_date(
         "variant_id": new,
     }
     [measured] = confirmed_parts(s.roots.projects, fitted.project)
-    assert measured.record.source.variant_id == fitted.old
+    assert variant_of(measured.record) == fitted.old
 
 
 async def test_proposing_the_newer_revision_updates_the_part_and_keeps_its_requirements(
@@ -105,14 +105,14 @@ async def test_proposing_the_newer_revision_updates_the_part_and_keeps_its_requi
     assert (update["part_id"], update["status"]) == (fitted.part, "waiting")
     assert part_item(waiting)["outcome"] == "waiting"
     assert "SD card box, a newer revision of the part you confirmed" in page
-    assert still_measured.record.source.variant_id == fitted.old
+    assert variant_of(still_measured.record) == fitted.old
 
     s.post(s.person.url, "confirm")
     asked = await s.call("ask_to_confirm", project_id=fitted.project)
     listed = await s.call("list_requirements", brief_id=fitted.lid)
     [measured] = confirmed_parts(s.roots.projects, fitted.project)
     assert (part_item(asked)["outcome"], part_item(asked)["newer_revision"]) == ("confirmed", None)
-    assert (measured.record.id, measured.record.source.variant_id) == (fitted.part, new)
+    assert (measured.record.id, variant_of(measured.record)) == (fitted.part, new)
     assert [p["proposal"] for p in listed["proposals"]] == [1]
     assert listed["proposals"][0]["status"] == "confirmed"
 
@@ -130,7 +130,7 @@ async def test_a_declined_update_leaves_the_confirmed_geometry_measured(s: Sessi
     )
     asked = await s.call("ask_to_confirm", project_id=fitted.project)
     [measured] = confirmed_parts(s.roots.projects, fitted.project)
-    assert measured.record.source.variant_id == fitted.old
+    assert variant_of(measured.record) == fitted.old
     assert part_item(asked)["outcome"] == "declined"
 
 
@@ -161,7 +161,7 @@ async def test_a_slot_built_back_to_the_confirmed_first_geometry_updates_the_par
     asked = await s.call("ask_to_confirm", project_id=fitted.project)
     [measured] = confirmed_parts(s.roots.projects, fitted.project)
     assert again["part_id"] == fitted.part
-    assert (measured.record.id, measured.record.source.variant_id) == (fitted.part, fitted.old)
+    assert (measured.record.id, variant_of(measured.record)) == (fitted.part, fitted.old)
     assert part_item(asked)["newer_revision"] is None
 
 
@@ -184,13 +184,13 @@ async def test_an_older_revision_is_not_called_newer_and_waits_for_the_person(
     [measured] = confirmed_parts(s.roots.projects, fitted.project)
     assert older["status"] == "waiting"
     assert "a newer revision of the part you confirmed" not in page
-    assert measured.record.source.variant_id == new
+    assert variant_of(measured.record) == new
 
 
 async def test_a_part_is_fitted_by_the_brief_it_was_proposed_for_and_not_its_own(
     s: Session,
 ) -> None:
     fitted = await box_with_a_fitted_lid(s)
-    assert fitted_by(s.roots.projects, fitted.project, fitted.box) == ()
-    [part] = fitted_by(s.roots.projects, fitted.project, fitted.lid)
+    assert fit_targets(s.roots.projects, fitted.project, fitted.box, frozenset()) == ()
+    [part] = fit_targets(s.roots.projects, fitted.project, fitted.lid, frozenset())
     assert part.record.id == fitted.part

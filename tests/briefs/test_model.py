@@ -7,7 +7,6 @@ from cad.briefs.holes import DEFAULT_TOLERANCE, PlainHoles
 from cad.briefs.kind import Kind
 from cad.briefs.model import (
     BriefId,
-    BriefSpan,
     Envelope,
     Limit,
     Requirement,
@@ -16,6 +15,7 @@ from cad.briefs.model import (
     deciding_check,
     limits,
 )
+from cad.briefs.origins import BriefSpan
 from cad.briefs.words import describe
 from cad.checks.container import extents
 from cad.checks.report import SPECS
@@ -125,6 +125,7 @@ def test_every_kind_has_one_deciding_check_or_is_unverified() -> None:
         Kind.MAX_CLEARANCE: "fit",
         Kind.FASTENER_HOLES: "holes",
         Kind.PLAIN_HOLES: "holes",
+        Kind.FITS_WITH: "fit",
     }
 
 
@@ -245,6 +246,7 @@ EXAMPLES: dict[Kind, dict[str, Any]] = {
     Kind.MAX_CLEARANCE: {"kind": "max_clearance", "part": PART, "clearance": grams(0.5, "mm")},
     Kind.FASTENER_HOLES: {"kind": "fastener_holes", "size": "M5", "fit": "clearance", "count": 2},
     Kind.PLAIN_HOLES: {"kind": "plain_holes", "diameter": grams(8, "mm")},
+    Kind.FITS_WITH: {"kind": "fits_with", "part": PART},
 }
 
 

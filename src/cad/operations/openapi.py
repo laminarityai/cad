@@ -20,7 +20,8 @@ FAILURES: Final = {
     401: ("SignedOut", "no signed-in person: send a Clerk session token"),
     404: ("NotFound", "the named variant, brief, project or conversation is not stored"),
     409: ("Busy", "the agent is still answering the last message"),
-    415: ("NotJson", "the request is not application/json"),
+    413: ("TooLarge", "the file is larger than the server takes"),
+    415: ("WrongType", "the request body is not of the type the route takes"),
     422: ("Malformed", "an argument is missing, unknown or malformed"),
     503: ("Unavailable", "a service the call needs is not available"),
 }
@@ -46,6 +47,8 @@ class Untitled(GenerateJsonSchema):
 REGISTRY_FAILURES: Final = (400, 401, 404, 422, 503)
 FILE_SCHEMA: Final[Json] = {"type": "string", "format": "binary"}
 
+OCTETS: Final = "application/octet-stream"
+
 
 @dataclass(frozen=True, slots=True)
 class Described:
@@ -60,6 +63,8 @@ class Described:
     events: str = ""
     requires_json_body: bool = False
     failures: tuple[int, ...] = REGISTRY_FAILURES
+    octets: bool = False
+    """The body is a file's raw bytes, and every argument not in the path is in the query."""
 
 
 def from_registry(operations: Iterable[Operation], routes: Mapping[str, Served]) -> list[Described]:
@@ -172,11 +177,16 @@ def _operation(one: Described, fields: Json, output: Json) -> Json:
     parameters = [_parameter(name, "path", True, properties[name]) for name in sorted(templated)]
     result: Json = {"operationId": one.name}
     rest = [name for name in properties if name not in templated]
-    if one.method == "GET":
+    if one.method == "GET" or one.octets:
         parameters += [
             _parameter(name, "query", name in required, properties[name]) for name in rest
         ]
-    elif rest or one.requires_json_body:
+    if one.octets:
+        result["requestBody"] = {
+            "required": True,
+            "content": {OCTETS: {"schema": {"type": "string", "format": "binary"}}},
+        }
+    elif one.method != "GET" and (rest or one.requires_json_body):
         result["requestBody"] = {
             "required": bool(required - templated) or one.requires_json_body,
             "content": {

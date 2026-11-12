@@ -22,6 +22,7 @@ from pydantic import (
 from cad.briefs.bindable import BINDABLE
 from cad.briefs.holes import FastenerHoles, PlainHoles
 from cad.briefs.kind import Kind
+from cad.briefs.origins import Origin
 from cad.checks.container import closed_solid, extents, fea, fit, holes, mass
 from cad.checks.result import Comparator
 from cad.checks.units import AnyQuantity, Length, Mass, number
@@ -168,6 +169,17 @@ class MaxClearance(Frozen):
     clearance: Length
 
 
+class FitsWith(Frozen):
+    """The variant, built in the context part's frame, does not overlap it."""
+
+    kind: Literal[Kind.FITS_WITH] = Kind.FITS_WITH
+    part: PartId
+
+
+ON_PART: Final = (MinClearance, MaxClearance, FitsWith)
+"""The targets that name a context part, which the fit check decides against that part."""
+
+
 type Target = Annotated[
     ClosedSolid
     | MaxMass
@@ -181,7 +193,8 @@ type Target = Annotated[
     | MinClearance
     | MaxClearance
     | FastenerHoles
-    | PlainHoles,
+    | PlainHoles
+    | FitsWith,
     Field(discriminator="kind"),
 ]
 
@@ -201,7 +214,7 @@ def deciding_check(target: Target) -> CheckId | None:
             return None
         case MinSafetyFactor() | MaxDeflection():
             return CheckId(fea.ID)
-        case MinClearance() | MaxClearance():
+        case MinClearance() | MaxClearance() | FitsWith():
             return CheckId(fit.ID)
         case FastenerHoles() | PlainHoles():
             return CheckId(holes.ID)
@@ -225,6 +238,7 @@ def load_of(target: Target) -> LoadCase | None:
             | MaxClearance()
             | FastenerHoles()
             | PlainHoles()
+            | FitsWith()
         ):
             return None
         case _:
@@ -240,7 +254,7 @@ class Limit:
 
 def limits(target: Target) -> tuple[Limit, ...]:
     match target:
-        case ClosedSolid() | Unchecked() | MadeOf() | FastenerHoles() | PlainHoles():
+        case ClosedSolid() | Unchecked() | MadeOf() | FastenerHoles() | PlainHoles() | FitsWith():
             return ()
         case MaxMass():
             return (Limit("mass", Comparator.AT_MOST, target.mass),)
@@ -264,14 +278,6 @@ def limits(target: Target) -> tuple[Limit, ...]:
             return (Limit("min_clearance", Comparator.AT_MOST, target.clearance),)
         case _:
             assert_never(target)
-
-
-class BriefSpan(Frozen):
-    """Characters [start, end) of the brief text, resolved by the store from a verbatim quote."""
-
-    kind: Literal["brief_text"] = "brief_text"
-    start: Annotated[int, Field(ge=0)]
-    end: Annotated[int, Field(gt=0)]
 
 
 class Brief(Frozen):
@@ -300,11 +306,11 @@ class Requirement(Frozen):
     id: RequirementId
     brief_id: BriefId
     target: Target
-    origin: BriefSpan
+    origin: Origin
 
 
-def requirement_id(brief_id: BriefId, target: Target, origin: BriefSpan) -> RequirementId:
-    """The id of a requirement: the same brief, target and span always give the same id."""
+def requirement_id(brief_id: BriefId, target: Target, origin: Origin) -> RequirementId:
+    """The id of a requirement: the same brief, target and origin always give the same id."""
     identity = json.dumps(
         [brief_id, target.model_dump(mode="json"), origin.model_dump(mode="json")],
         sort_keys=True,

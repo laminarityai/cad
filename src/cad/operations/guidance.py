@@ -57,7 +57,11 @@ CONTEXT_PARTS = (
     "part_id. Scoring with the brief_id then runs the fit check against each context part "
     "confirmed for that brief, and its result carries the part_id as instance. Model a part "
     "that must fit another part in that other part's frame, its origin and axes, so the fit "
-    "check and the page show them together."
+    "check and the page show them together. A STEP or STL file the person added is a part they "
+    "already confirmed: list_files shows it with its facts, and needs no propose_context_part. "
+    "When the new part must fit with it, propose fits_with, min_clearance or max_clearance on "
+    "its part_id, quoting the brief, and build in its frame. A document the person added is a "
+    "source: read it with read_file, and a requirement may quote it by file_id."
 )
 
 HOLES = (
@@ -173,6 +177,12 @@ CHAT_OPEN_PROJECT: Final = (
     "for a particular material, propose it as a made_of requirement for them to confirm. Never "
     "ask the person to choose a material. Do not "
     "ask the person for code, a brief, a material or an id that these tools return."
+)
+
+CHAT_ADDED: Final = (
+    "The person added these files to the project:\n{files}\nA part they added is confirmed by "
+    "the upload. Call list_files for its facts before you design with it, and read_file for a "
+    "document."
 )
 
 CHAT_ON_THE_PAGE: Final = (

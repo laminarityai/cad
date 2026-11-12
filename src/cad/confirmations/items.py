@@ -2,6 +2,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Protocol
 
+from cad.briefs.origins import YOUR_WORDS
 from cad.confirmations.answers import Edit, ItemKindName, ItemRef
 from cad.projects.model import ProjectId
 
@@ -31,6 +32,7 @@ class Row:
     quote: str
     decides: str
     editable: Editable | None = None
+    source: str = YOUR_WORDS
 
 
 @dataclass(frozen=True, slots=True)

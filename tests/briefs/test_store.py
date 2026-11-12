@@ -9,6 +9,7 @@ from pydantic import TypeAdapter
 
 from cad.briefs import store
 from cad.briefs.model import Answer, BriefId, Confirmed, Decision, Declined, Target
+from cad.briefs.origins import quoted
 from cad.briefs.store import Draft, Status
 from cad.confirmations import answers
 from cad.confirmations.answers import ItemAnswer, PageAnswer
@@ -85,7 +86,7 @@ def test_a_requirement_points_at_the_words_it_quotes(roots: Roots) -> None:
     brief_id = proposed(roots, UNDER_150)
     state = store.read_state(roots, brief_id)
     origin = state.proposals[0].proposal.requirements[0].origin
-    assert state.brief.text[origin.start : origin.end] == "under 150 g"
+    assert quoted(state.brief.text, origin) == ("your words", "under 150 g")
 
 
 def test_a_quote_not_in_the_brief_is_refused_naming_its_row(roots: Roots) -> None:

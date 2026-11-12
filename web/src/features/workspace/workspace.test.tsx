@@ -24,7 +24,7 @@ const card = (items: number): ConfirmationCard & { snapshot: string } => ({
     brief_id: `b${String(at + 1)}`,
     brief_text: "a hook",
     title: "What I will check",
-    rows: [{ headline: "Mass at most 150 g", quote: "light", editable: { row: "r1", placeholder: "150 g" } }],
+    rows: [{ headline: "Mass at most 150 g", quote: "light", source: "your words", editable: { row: "r1", placeholder: "150 g" } }],
   })),
 });
 
@@ -35,6 +35,20 @@ function wrap(api: Api, chat = new FakeChat()) {
     </ServicesProvider>
   );
 }
+
+const variantPart = {
+  part_id: "k0",
+  name: "part",
+  origin: "variant" as const,
+  brief_id: "b1",
+  variant_id: "v0",
+  file_name: null,
+  outcome: "confirmed" as const,
+  size_mm: [30, 20, 10] as [number, number, number],
+  solids: 1,
+  holes: 0,
+  left_out: null,
+};
 
 describe("loadWorkspace", () => {
   it("reads each slot's option and material by name, the brief's confirmed fits, and what waits on the person", async () => {
@@ -50,9 +64,11 @@ describe("loadWorkspace", () => {
           project_id: "p1",
           briefs: [{ brief_id: "b1", created_at: "2026-11-10T00:00:00Z", proposals: 1, confirmed_proposal: 1 }],
           context_parts: [
-            { part_id: "k1", name: "rail", brief_id: "b1", variant_id: "v9", outcome: "confirmed" as const, size_mm: [30, 20, 10] as [number, number, number] },
-            { part_id: "k2", name: "shelf", brief_id: "b1", variant_id: "v8", outcome: "waiting" as const, size_mm: [1, 2, 3] as [number, number, number] },
+            { ...variantPart, part_id: "k1", name: "rail", variant_id: "v9", outcome: "confirmed" as const, size_mm: [30, 20, 10] as [number, number, number] },
+            { ...variantPart, part_id: "k2", name: "shelf", variant_id: "v8", outcome: "waiting" as const, size_mm: [1, 2, 3] as [number, number, number] },
+            { ...variantPart, part_id: "k3", name: "motor", origin: "upload" as const, brief_id: null, variant_id: null, file_name: "motor.step", solids: 3, holes: 4, left_out: "1 of 4 bodies could not be read" },
           ],
+          documents: [{ file_id: "file-0123456789abcdef", name: "spec.pdf", media_type: "application/pdf" as const, size: 10 }],
         }),
       ),
       variantSet: vi.fn(() => Promise.resolve(set)),
@@ -67,7 +83,9 @@ describe("loadWorkspace", () => {
     expect(one?.materialOf[1] && materialLabel(one.materialOf[1])).toBe("Prusament PLA · chosen by the agent");
     expect(one?.materialOf[2]).toBeNull();
     expect(one?.fits).toEqual([{ name: "rail", variantId: "v9" }]);
-    expect(model.parts[0]).toEqual({ name: "rail", size: "30 × 20 × 10 mm", state: "confirmed" });
+    expect(model.parts[0]).toEqual({ id: "k1", name: "rail", size: "30 × 20 × 10 mm", state: "confirmed", uploaded: false, leftOut: null });
+    expect(model.parts[2]).toMatchObject({ size: "30 × 20 × 10 mm · 3 solids · 4 holes", uploaded: true, leftOut: "1 of 4 bodies could not be read" });
+    expect(model.documents).toEqual([{ id: "file-0123456789abcdef", name: "spec.pdf" }]);
     expect(model.conversationId).toBe("c1");
   });
 
@@ -75,7 +93,7 @@ describe("loadWorkspace", () => {
     const variantSet = vi.fn(() => Promise.resolve(setOf([])));
     const api = fakeApi([], {
       project: vi.fn(() =>
-        Promise.resolve({ project_id: "p1", briefs: [{ brief_id: "b1", created_at: "2026-11-10T00:00:00Z", proposals: 1, confirmed_proposal: null }], context_parts: [] }),
+        Promise.resolve({ project_id: "p1", briefs: [{ brief_id: "b1", created_at: "2026-11-10T00:00:00Z", proposals: 1, confirmed_proposal: null }], context_parts: [], documents: [] }),
       ),
       brief: vi.fn(() => Promise.resolve(brief(false))),
       variantSet,
@@ -181,11 +199,13 @@ const part = (id: string, title: string, state: Brief["state"], slots: number[])
 
 describe("the explorer", () => {
   const props = (dispatch = vi.fn(), onNew = vi.fn()) => ({
+    projectId: "p1",
     briefs: [part("b1", "Hook", "ready", [1, 2]), part("b2", "Lid", "waiting", [])],
     current: "b1",
     slot: 1,
     cards: {},
-    parts: [{ name: "rail", size: "30 × 20 × 10 mm", state: "confirmed" as const }],
+    parts: [{ id: "k1", name: "rail", size: "30 × 20 × 10 mm", state: "confirmed" as const, uploaded: false, leftOut: null }],
+    documents: [],
     sources: [
       { url: "https://www.example.com/pla", title: "PLA datasheet", page: "p. 2", retrieved: "2026-11-10", standard: null, quote: "q" },
       { url: "https://example.com/pla-2", title: "PLA datasheet: Mechanical", page: "p. 3", retrieved: "2026-11-10", standard: null, quote: "q" },
@@ -193,6 +213,7 @@ describe("the explorer", () => {
     ],
     dispatch,
     onNew,
+    onChanged: vi.fn(),
   });
 
   it("selects a part and an option the way the stage tabs do", async () => {
@@ -233,15 +254,12 @@ describe("the explorer", () => {
     expect(container.querySelectorAll("[data-slot-node]")).toHaveLength(2);
   });
 
-  it("starts a new part, and offers no upload yet", async () => {
+  it("starts a new part", async () => {
     const onNew = vi.fn();
     render(<Explorer {...props(vi.fn(), onNew)} />);
     await userEvent.click(screen.getByRole("button", { name: "New part" }));
     expect(onNew).toHaveBeenCalledTimes(1);
-    const add = screen.getByRole("button", { name: "Add files" });
-    expect(add).toBeDisabled();
-    await userEvent.hover(add.parentElement ?? add);
-    expect(await screen.findByText("Coming soon", {}, { timeout: 3000 })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Add files" })).toBeEnabled();
   });
 });
 
@@ -321,7 +339,7 @@ describe("the download menu", () => {
     const exportOf = vi.fn<Api["exportOf"]>().mockResolvedValue({ kind: "ready", url: "/v1/exports/x", filename: "x.step" });
     const api = fakeApi(["v1"], {
       project: vi.fn(() =>
-        Promise.resolve({ project_id: "p1", briefs: [{ brief_id: "b1", created_at: "2026-11-10T00:00:00Z", proposals: 1, confirmed_proposal: 1 }], context_parts: [] }),
+        Promise.resolve({ project_id: "p1", briefs: [{ brief_id: "b1", created_at: "2026-11-10T00:00:00Z", proposals: 1, confirmed_proposal: 1 }], context_parts: [], documents: [] }),
       ),
       variantSet: vi.fn(() => Promise.resolve(set)),
       exportOf,

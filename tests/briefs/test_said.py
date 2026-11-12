@@ -5,6 +5,7 @@ from pydantic import TypeAdapter
 
 from cad.briefs import said, store
 from cad.briefs.model import Target
+from cad.briefs.origins import quoted as quote_of
 from cad.briefs.store import Draft, Status
 from cad.projects.model import new_project_id
 from cad.records.roots import Roots
@@ -28,7 +29,7 @@ def quoted(roots: Roots, brief_id: str, number: int) -> list[str]:
     state = store.read_state(roots, brief_id)
     found = state.proposal(number)
     assert found is not None
-    return [state.brief.text[r.origin.start : r.origin.end] for r in found.requirements]
+    return [quote_of(state.brief.text, r.origin)[1] for r in found.requirements]
 
 
 def test_a_quote_only_a_later_message_holds_adds_it_and_proposes_on_the_same_brief(

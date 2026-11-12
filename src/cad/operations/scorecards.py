@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Annotated, Final
 
@@ -8,12 +9,12 @@ from cad.auto.gate import gate, stops_at_the_limit
 from cad.briefs import assumptions as assuming
 from cad.briefs import store as briefs
 from cad.briefs.assumptions import Assumption
-from cad.briefs.model import Requirement, Target
+from cad.briefs.model import ON_PART, Requirement, Target
 from cad.briefs.store import ConfirmedSet
 from cad.checks import jobs
 from cad.confirmations.requirements import plain_names
 from cad.context_parts.ids import ContextPartId
-from cad.context_parts.store import fitted_by, part_brep
+from cad.context_parts.store import fit_targets, part_brep
 from cad.operations.guidance import NOT_VERIFIED, RULE
 from cad.operations.model import BOTH, Audience, Input, Tenant, operation
 from cad.operations.research import brief_table, with_research
@@ -157,11 +158,14 @@ class Judged:
     waiting: tuple[Requirement, ...]
 
 
-def _context(roots: Roots, brief_id: str) -> dict[ContextPartId, jobs.PartBrep]:
+def _context(
+    roots: Roots, brief_id: str, targets: Sequence[Target]
+) -> dict[ContextPartId, jobs.PartBrep]:
     project = briefs.read_brief(roots, brief_id).project
+    named = frozenset(one.part for one in targets if isinstance(one, ON_PART))
     return {
         part.record.id: jobs.PartBrep(part.record.brep_sha256, part_brep(roots.projects, part))
-        for part in fitted_by(roots.projects, project, brief_id)
+        for part in fit_targets(roots.projects, project, brief_id, named)
     }
 
 
@@ -240,9 +244,8 @@ def judged(
         )
         held = _assumed(tenant, brief_id)
         waiting = _waiting(tenant, brief_id, confirmed)
-        demand = requirements.demand(
-            _targets(confirmed, waiting, held), _context(tenant.roots, brief_id)
-        )
+        targets = _targets(confirmed, waiting, held)
+        demand = requirements.demand(targets, _context(tenant.roots, brief_id, targets))
     table = brief_table(tenant.roots, brief_id)
     pinned = material.pinned_key(confirmed, table.table)
     choice = None

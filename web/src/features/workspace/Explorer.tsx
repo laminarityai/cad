@@ -1,12 +1,13 @@
-import { Box, ChevronRight, Folder, FolderOpen, Link2, Plus } from "lucide-react";
-import { useState, type Dispatch, type ReactNode } from "react";
+import { Box, Folder, FolderOpen, Plus } from "lucide-react";
+import { useState, type Dispatch } from "react";
 import type { Source } from "@/api/types";
 import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "@/components/ui/collapsible";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { summaryOf, type Card } from "./cards";
-import type { Brief, Part, ViewAction } from "./model";
+import type { Brief, Doc, Part, ViewAction } from "./model";
 import { Dot } from "./bits";
+import { Children, Chevron, Files, ROW } from "./Files";
 
 const STATE_TEXT = {
   waiting: "Needs your OK",
@@ -14,17 +15,7 @@ const STATE_TEXT = {
   ready: "",
 } as const;
 
-const ROW = "flex min-w-0 items-center gap-2 rounded-md px-2 py-1 text-left";
-
-function Children({ children }: { children: ReactNode }) {
-  return <ul className="ml-[18px] space-y-0.5 border-l border-rule-2 pl-1.5">{children}</ul>;
-}
-
-function Chevron() {
-  return <ChevronRight className="size-4 shrink-0 text-ink-3 transition-transform group-data-[panel-open]:rotate-90" />;
-}
-
-function Part(props: { brief: Brief; current: boolean; slot: number | undefined; open: boolean; cards: Record<string, Card>; dispatch: Dispatch<ViewAction>; toggle: () => void }) {
+function BriefNode(props: { brief: Brief; current: boolean; slot: number | undefined; open: boolean; cards: Record<string, Card>; dispatch: Dispatch<ViewAction>; toggle: () => void }) {
   const { brief, current, slot, open, cards, dispatch, toggle } = props;
   const FolderIcon = open ? FolderOpen : Folder;
   return (
@@ -84,111 +75,20 @@ function Part(props: { brief: Brief; current: boolean; slot: number | undefined;
   );
 }
 
-function siteOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return url;
-  }
-}
-
-const TITLE_PARTS = /\s+[|–—-]\s+|:\s+/;
-
-const documentOf = (one: Source) => one.title.split(TITLE_PARTS)[0]?.trim() || siteOf(one.url);
-
-function pageOf(one: Source): string {
-  const rest = one.title.split(TITLE_PARTS).slice(1).join(" · ").trim();
-  return [rest, one.page].filter(Boolean).join(", ") || siteOf(one.url);
-}
-
-function byDocument(sources: Source[]): [string, Source[]][] {
-  const groups = new Map<string, Source[]>();
-  for (const one of sources) groups.set(documentOf(one), [...(groups.get(documentOf(one)) ?? []), one]);
-  return [...groups];
-}
-
-function SourceFolder({ name, pages }: { name: string; pages: Source[] }) {
-  const [open, setOpen] = useState(false);
-  const FolderIcon = open ? FolderOpen : Folder;
-  return (
-    <Collapsible render={<li />} open={open} onOpenChange={setOpen} data-source-folder>
-      <Tooltip label={name}>
-        <CollapsibleTrigger className={cn(ROW, "w-full text-[14px] hover:bg-panel-2/60")}>
-          <Chevron />
-          <FolderIcon className="size-4 shrink-0 text-ink-2" />
-          <span className="min-w-0 flex-1 truncate">{name}</span>
-          <span className="text-[12px] text-ink-3">{pages.length}</span>
-        </CollapsibleTrigger>
-      </Tooltip>
-      <CollapsiblePanel>
-        <Children>
-          {pages.map((one) => (
-            <li key={one.url} data-file="source">
-              <Tooltip label={one.url}>
-                <a href={one.url} target="_blank" rel="noreferrer" className={cn(ROW, "text-[14px] text-accent hover:bg-panel-2/60")}>
-                  <Link2 className="size-4 shrink-0" />
-                  <span className="truncate underline">{pageOf(one)}</span>
-                </a>
-              </Tooltip>
-            </li>
-          ))}
-        </Children>
-      </CollapsiblePanel>
-    </Collapsible>
-  );
-}
-
-function Files(props: { parts: Part[]; sources: Source[]; open: boolean; toggle: () => void }) {
-  const { parts, sources, open, toggle } = props;
-  const FolderIcon = open ? FolderOpen : Folder;
-  return (
-    <Collapsible render={<li />} open={open} onOpenChange={toggle}>
-      <div className="flex items-center">
-        <CollapsibleTrigger className="flex min-w-0 flex-1 items-center gap-1 rounded-md py-1 pl-1 pr-2 text-left text-[15px] font-medium hover:bg-panel-2/60">
-          <Chevron />
-          <FolderIcon className="size-4 shrink-0 text-ink-2" />
-          Files
-        </CollapsibleTrigger>
-        <Tooltip label="Coming soon" onDisabled>
-          <button type="button" disabled aria-label="Add files" className="rounded p-1 text-ink-3 disabled:cursor-not-allowed">
-            <Plus className="size-4" />
-          </button>
-        </Tooltip>
-      </div>
-      <CollapsiblePanel>
-        <Children>
-          {parts.map((one, at) => (
-            <li key={at} data-file="part" className={cn(ROW, "text-[14px]")}>
-              <Box className="size-4 shrink-0 text-ink-2" />
-              <span className="min-w-0 flex-1">
-                <span className="block truncate">{one.name}</span>
-                <span className="block text-[12px] text-ink-3">{one.size} · must fit</span>
-              </span>
-              {one.state === "waiting" ? <span className="rounded-full bg-wait-bg px-2 text-[12px] text-wait">Needs OK</span> : null}
-              {one.state === "declined" ? <span className="text-[12px] text-ink-3">Declined</span> : null}
-            </li>
-          ))}
-          {byDocument(sources).map(([name, pages]) => (
-            <SourceFolder key={name} name={name} pages={pages} />
-          ))}
-          {parts.length === 0 && sources.length === 0 ? <li className="px-2 py-1 text-[13px] text-ink-3">Nothing yet</li> : null}
-        </Children>
-      </CollapsiblePanel>
-    </Collapsible>
-  );
-}
-
 export function Explorer(props: {
+  projectId: string;
   briefs: Brief[];
   current: string;
   slot: number | undefined;
   cards: Record<string, Card>;
   parts: Part[];
+  documents: Doc[];
   sources: Source[];
   dispatch: Dispatch<ViewAction>;
   onNew: () => void;
+  onChanged: () => void;
 }) {
-  const { briefs, current, slot, cards, parts, sources, dispatch, onNew } = props;
+  const { projectId, briefs, current, slot, cards, parts, documents, sources, dispatch, onNew, onChanged } = props;
   const [closed, setClosed] = useState<ReadonlySet<string>>(new Set());
   const toggle = (key: string) => () => {
     setClosed((was) => {
@@ -209,9 +109,9 @@ export function Explorer(props: {
       </header>
       <ul data-tree className="space-y-0.5 px-2 pb-2">
         {briefs.map((one) => (
-          <Part key={one.id} brief={one} current={one.id === current} slot={slot} open={!closed.has(one.id)} cards={cards} dispatch={dispatch} toggle={toggle(one.id)} />
+          <BriefNode key={one.id} brief={one} current={one.id === current} slot={slot} open={!closed.has(one.id)} cards={cards} dispatch={dispatch} toggle={toggle(one.id)} />
         ))}
-        <Files parts={parts} sources={sources} open={!closed.has("files")} toggle={toggle("files")} />
+        <Files projectId={projectId} parts={parts} documents={documents} sources={sources} open={!closed.has("files")} toggle={toggle("files")} onChanged={onChanged} />
       </ul>
     </section>
   );

@@ -27,7 +27,7 @@ The full user research is in the report *AI CAD harness user needs*. The knowled
 
 ## Core loop
 
-1. **Brief.** You say what you need, in your own words, and attach images, drawings or documents if you have them.
+1. **Brief.** You say what you need, in your own words, and add images, drawings, documents or CAD files to the project if you have them. PDF, Markdown, plain text, PNG and JPEG files are sources the agent reads, and a requirement may quote one.
 2. **Variants.** The agent builds 3 to 5 parametric variants at once. It does not wait for you.
 3. **Requirements.** The agent proposes the targets you stated, each with the words it came from, and fills in the numbers you did not state as assumptions it labels. You confirm your targets with one click, and a brief with no number needs no click.
 4. **Checks.** Every variant gets a scorecard. A target waits as waiting on you, with the measure beside it, until you confirm it, and then the same results are judged. This step is what sets us apart.
@@ -35,7 +35,7 @@ The full user research is in the report *AI CAD harness user needs*. The knowled
 
 Attachments are context, not input to convert. The agent reads them for intent and dimensions, and every dimension it takes from an image becomes a requirement you confirm, with the others. No verdict rests on it until you do.
 
-Existing CAD parts can be context too. A context part is a part that the new part must fit with, such as the housing or rail it mounts to. You attach one to the project, or an earlier variant becomes one. You confirm each context part before a verdict rests on it. Reading a part directly from Onshape or Fusion through their MCP servers is a later goal, tracked in [#60](https://github.com/laminarityai/cad/issues/60).
+Existing CAD parts can be context too, and the agent designs with them. A context part is a part you bring or an earlier variant, such as the housing a new part mounts to, a motor, a board or a wheel. You add a STEP or STL file to the project by dragging it in, and adding it confirms it. For an STL you say whether it is in millimetres or inches. A part the new part must fit with stays where it is, and the fit check measures against it. A part used as a component may be placed and copied by the agent, such as four of your wheels on a drivetrain. Checks score only what the agent made, and the scorecard shows which geometry you supplied, which the agent placed, and which it made ([ADR-0012](docs/adr/0012-a-supplied-part-is-read-by-the-build-and-never-graded.md)). Reading a part directly from Onshape or Fusion through their MCP servers is a later goal, tracked in [#60](https://github.com/laminarityai/cad/issues/60).
 
 ## Asking you
 

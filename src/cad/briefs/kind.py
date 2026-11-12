@@ -17,3 +17,4 @@ class Kind(StrEnum):
     MAX_CLEARANCE = "max_clearance"
     FASTENER_HOLES = "fastener_holes"
     PLAIN_HOLES = "plain_holes"
+    FITS_WITH = "fits_with"

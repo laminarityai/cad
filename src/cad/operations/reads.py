@@ -5,8 +5,7 @@ from pydantic import BaseModel, Field
 
 from cad.briefs import store as briefs
 from cad.briefs.store import BriefState, ConfirmedSet
-from cad.context_parts.model import Outcome
-from cad.context_parts.store import Stored, newest_parts
+from cad.context_parts.store import newest_parts
 from cad.geometry import job
 from cad.geometry import store as meshes
 from cad.geometry.model import Tessellated, UnknownMesh
@@ -20,6 +19,8 @@ from cad.sandbox import image
 from cad.scorecard import material, score
 from cad.scorecard.material import MaterialUse
 from cad.tables.materials import MaterialsTable
+from cad.uploads.store import documents
+from cad.uploads.views import ContextPartView, DocumentView, document_view, part_view
 from cad.variant_sets import store as variant_sets
 from cad.variant_sets.model import MAX_MEMBERS, Member, Option
 from cad.variants import entry
@@ -88,22 +89,11 @@ class BriefSummary(BaseModel):
     confirmed_proposal: int | None
 
 
-class ContextPartView(BaseModel):
-    """A part a brief's design must fit with. A fitting variant is built in this part's frame,
-    so `variant_id`'s mesh draws with it as it is."""
-
-    part_id: str
-    name: str
-    brief_id: str
-    variant_id: str
-    outcome: Outcome
-    size_mm: tuple[float, float, float]
-
-
 class ProjectView(BaseModel):
     project_id: str
     briefs: tuple[BriefSummary, ...]
     context_parts: tuple[ContextPartView, ...]
+    documents: tuple[DocumentView, ...]
 
 
 class RevisionView(BaseModel):
@@ -160,20 +150,10 @@ def project(tenant: Tenant, arguments: ProjectInput) -> ProjectView:
     return ProjectView(
         project_id=arguments.project_id,
         briefs=tuple(_summary(briefs.read_state(tenant.roots, one.id)) for one in found),
-        context_parts=tuple(_part(one) for one in newest_parts(tenant.roots.projects, project_id)),
-    )
-
-
-def _part(part: Stored) -> ContextPartView:
-    record = part.record
-    low, high = record.facts.box_min, record.facts.box_max
-    return ContextPartView(
-        part_id=record.id,
-        name=record.name,
-        brief_id=record.brief_id,
-        variant_id=record.source.variant_id,
-        outcome=part.outcome,
-        size_mm=(high[0] - low[0], high[1] - low[1], high[2] - low[2]),
+        context_parts=tuple(
+            part_view(one) for one in newest_parts(tenant.roots.projects, project_id)
+        ),
+        documents=tuple(document_view(one) for one in documents(tenant.roots.projects, project_id)),
     )
 
 

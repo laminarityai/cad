@@ -9,7 +9,7 @@ from cad.briefs import store as briefs
 from cad.confirmations import answers
 from cad.confirmations.answers import ItemAnswer, PageAnswer
 from cad.context_parts import store as parts
-from cad.context_parts.ingest import Facts
+from cad.context_parts.ingest import Facts, Ingested
 from cad.projects.model import new_project_id
 from cad.records.roots import Roots
 from cad.sandbox.image import BUILD, image_tag
@@ -39,7 +39,9 @@ def rail(roots: Roots, store: Path, brief_id: str, *, confirmed: bool) -> str:
     code = "result = Box(300, 18, 12)\n"
     vid = entry.variant_id(code, image_tag(BUILD))
     entry.save(store, vid, code, Build(outcome=Built(), output=""), b"a rail brep")
-    stored = parts.propose(roots, store, brief_id, "the rail", "rail", vid, lambda _: RAIL)
+    stored = parts.propose_from_variant(
+        roots, store, brief_id, "the rail", "rail", vid, lambda source: Ingested(RAIL, source.data)
+    )
     if confirmed:
         item = ItemAnswer(item=stored.ref, verdict="confirmed", edits=())
         project = stored.record.project

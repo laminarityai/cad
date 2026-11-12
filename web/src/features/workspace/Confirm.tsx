@@ -87,7 +87,8 @@ export function ConfirmCard({ projectId, card, onAnswered }: { projectId: string
                     <p className={cn(no && "line-through")}>{row.headline}</p>
                     {row.quote ? (
                       <p className="mt-0.5 text-[13px] text-ink-3">
-                        from <mark className="rounded bg-wait-bg px-1 text-ink-2">“{row.quote}”</mark>
+                        from {row.source === "your words" ? null : `${row.source}: `}
+                        <mark className="rounded bg-wait-bg px-1 text-ink-2">“{row.quote}”</mark>
                       </p>
                     ) : null}
                     {row.editable && key && !no ? (

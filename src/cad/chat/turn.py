@@ -6,10 +6,11 @@ AGENT list and nothing else. The server gets an `AgentToken` built from the pers
 session, naming only the conversation. The token never leaves this process.
 """
 
+import base64
 import json
 import logging
 import secrets
-from typing import Final
+from typing import Any, Final, cast
 
 from mcp import Client
 from mcp.server import MCPServer
@@ -27,21 +28,41 @@ from cad.chat.log import (
     TurnFailed,
     messages_of,
 )
-from cad.chat.model import Message, Model, ModelUnavailable, Text, ToolResult, ToolSpec, ToolUse
+from cad.chat.model import (
+    Attached,
+    Media,
+    Message,
+    Model,
+    ModelUnavailable,
+    Text,
+    ToolResult,
+    ToolSpec,
+    ToolUse,
+)
+from cad.context_parts.model import FromUpload
+from cad.context_parts.store import newest_parts
 from cad.conversations import store
 from cad.conversations.model import ConversationId
-from cad.operations.guidance import CHAT_AUTO, CHAT_ON_THE_PAGE, CHAT_OPEN_PROJECT, INSTRUCTIONS
+from cad.operations.guidance import (
+    CHAT_ADDED,
+    CHAT_AUTO,
+    CHAT_ON_THE_PAGE,
+    CHAT_OPEN_PROJECT,
+    INSTRUCTIONS,
+)
 from cad.operations.model import Tenant
 from cad.operations.registry import OPERATIONS
 from cad.operations.tenants import Tenants, bind
 from cad.operations.tools import tools
 from cad.projects.membership import project_briefs
-from cad.projects.model import ProjectId
+from cad.projects.model import ProjectId, ProjectRefused, parse_project_id
+from cad.uploads import store as uploads
 
 CLIENT_ID: Final = "cad-chat"
 MAX_STEPS: Final = 100
 MAX_RESULT_CHARS: Final = 40_000
 FIRST_WORDS: Final = 120
+MAX_ATTACHED_BYTES: Final = 20 * 1024 * 1024
 _LOG = logging.getLogger(__name__)
 
 
@@ -80,7 +101,7 @@ async def _converse(model: Model, tenants: Tenants, token: AgentToken, channel: 
             for one in (await client.list_tools()).tools
         ]
         events = channel.events()
-        messages = messages_of(events)
+        messages = _with_media(tenant_of(), messages_of(events))
         driver = AutoDriver.resume(tenant_of(), events)
         missed = driver.ending()
         if missed is not None:
@@ -99,9 +120,14 @@ async def _converse(model: Model, tenants: Tenants, token: AgentToken, channel: 
             if calls:
                 results: list[ToolResult] = []
                 for call in calls:
-                    result = await _call(client, call)
+                    result = _media_of(tenant_of(), await _call(client, call))
                     channel.append(
-                        ToolReturned(call_id=call.id, text=result.text, is_error=result.is_error)
+                        ToolReturned(
+                            call_id=call.id,
+                            text=result.text,
+                            is_error=result.is_error,
+                            attached=result.attached,
+                        )
                     )
                     driver.observe(call, result)
                     results.append(result)
@@ -135,7 +161,20 @@ def _open_project(tenant: Tenant, project: ProjectId) -> str:
         f"- {brief_id}: {_first_words(briefs.read_brief(tenant.roots, brief_id).text)}"
         for brief_id in project_briefs(tenant.roots, project)
     ]
-    return CHAT_OPEN_PROJECT.format(project_id=project, briefs="\n".join(lines) or "- none yet")
+    text = CHAT_OPEN_PROJECT.format(project_id=project, briefs="\n".join(lines) or "- none yet")
+    added = _added(tenant, project)
+    return f"{text}\n{CHAT_ADDED.format(files=chr(10).join(added))}" if added else text
+
+
+def _added(tenant: Tenant, project: ProjectId) -> list[str]:
+    projects = tenant.roots.projects
+    parts = [
+        f"- part {one.record.id}, {one.record.name}: {one.outcome}"
+        for one in newest_parts(projects, project)
+        if isinstance(one.record.source, FromUpload)
+    ]
+    documents = [f"- file {one.id}, {one.name}" for one in uploads.documents(projects, project)]
+    return parts + documents
 
 
 def _first_words(text: str) -> str:
@@ -157,7 +196,55 @@ async def _call(client: Client, call: ToolUse) -> ToolResult:
         text = json.dumps(result.structured_content, separators=(",", ":"))
     else:
         text = "\n".join(one.text for one in result.content if one.type == "text")
-    return ToolResult(call_id=call.id, text=_cut(text), is_error=result.is_error)
+    attached = _attached(call, result.structured_content)
+    return ToolResult(call_id=call.id, text=_cut(text), is_error=result.is_error, attached=attached)
+
+
+def _attached(call: ToolUse, structured: dict[str, Any] | None) -> tuple[Attached, ...]:
+    """The files a result names in `attachments`, in the project the call named."""
+    project = call.input.get("project_id")
+    named: object = None if structured is None else structured.get("attachments")
+    if not isinstance(project, str) or not isinstance(named, list):
+        return ()
+    return tuple(
+        Attached(project_id=project, file_id=one)
+        for one in cast(list[object], named)
+        if isinstance(one, str)
+    )
+
+
+def _with_media(tenant: Tenant, messages: list[Message]) -> list[Message]:
+    return [
+        Message(
+            role=one.role,
+            blocks=tuple(
+                _media_of(tenant, block) if isinstance(block, ToolResult) else block
+                for block in one.blocks
+            ),
+        )
+        for one in messages
+    ]
+
+
+def _media_of(tenant: Tenant, result: ToolResult) -> ToolResult:
+    """Loads each attached file from the account's project store. A file that is gone or too
+    large for the model is left out, and the result says so."""
+    media: list[Media] = []
+    missing: list[str] = []
+    for one in result.attached:
+        try:
+            found, data = uploads.document(
+                tenant.roots.projects, parse_project_id(one.project_id), one.file_id
+            )
+        except ProjectRefused:
+            missing.append(f"{one.file_id} is no longer in the project")
+            continue
+        if len(data) > MAX_ATTACHED_BYTES:
+            missing.append(f"{found.name} is too large to attach")
+            continue
+        media.append(Media(media_type=found.media_type, data=base64.b64encode(data).decode()))
+    text = "\n".join([result.text, *missing])
+    return result.model_copy(update={"media": tuple(media), "text": text})
 
 
 def _cut(text: str) -> str:

@@ -17,6 +17,7 @@ from cad.briefs.model import (
     Target,
     deciding_check,
 )
+from cad.briefs.origins import FILE_ID_PATTERN
 from cad.briefs.store import BriefState, ProposalState, Status
 from cad.briefs.words import describe, describe_target
 from cad.checks.report import QUICK, closure
@@ -27,9 +28,10 @@ from cad.operations.guidance import BUILD_FIRST
 from cad.operations.model import BOTH, Audience, Input, Tenant, operation
 from cad.operations.research import brief_table
 from cad.projects.membership import project_for_new_brief
-from cad.projects.model import PROJECT_ID, PROJECT_ID_CHARS
+from cad.projects.model import PROJECT_ID, PROJECT_ID_CHARS, ProjectId, ProjectRefused
 from cad.research.overlay import ProjectTable
 from cad.research.requests import ResearchRequest, requests_before_scoring
+from cad.uploads import quotes
 
 AFTER_PROPOSAL: Final = (
     "You may research it while the user confirms: score_variant reads the stored value."
@@ -70,9 +72,11 @@ PROPOSE_REQUIREMENTS = (
     "table lacks as the project's own row, project- and your key, and the reply's research "
     "asks for each value its checks read; answer it with submit_research. min_safety_factor (a "
     "factor, against yield) or max_deflection (a length), each with a load; "
-    "min_clearance or max_clearance with a part, the part_id propose_context_part returned "
-    "for this project, and a clearance length, which the fit check decides against that part "
-    "with the variant built in the part's frame; or unchecked with a statement, for anything "
+    "min_clearance or max_clearance with a part, the part_id of a context part of this project "
+    "from propose_context_part or list_files, and a clearance length, which the fit check "
+    "decides against that part with the variant built in the part's frame; fits_with with a "
+    "part, when the brief says the new part fits with it and states no clearance, which the "
+    "fit check passes when the two do not overlap; or unchecked with a statement, for anything "
     "no check decides. A load has a support, which is holes (a count "
     "and an optional bore diameter), largest_flat or flat_end, and a load, which is far_end or "
     "on_holes (a count and an optional diameter), each with a force such as {magnitude: 49, "
@@ -85,7 +89,10 @@ PROPOSE_REQUIREMENTS = (
     "asks the person twice. A quote may come from "
     "words the person said after the brief was created. In chat, the server finds them in the "
     "person's messages and adds that message to the brief, so quote it exactly and pass no "
-    "said. From any other client, pass the person's new words verbatim as said. Propose every "
+    "said. From any other client, pass the person's new words verbatim as said. A quote may "
+    "also come from a document the person added: pass its file_id from list_files with the "
+    "words. The server checks the words of a Markdown, text or PDF file, and labels a quote "
+    "from an image or a scanned PDF as read by you. Propose every "
     "requirement that should stay in force, with the new one. Propose as a requirement only a "
     "number the person stated, and quote the words that state it. A number the person did not "
     "state, such as a load or a limit you fill in to build, goes under assumptions, a list of "
@@ -115,6 +122,7 @@ class RequirementDraft(BaseModel):
 
     target: Target
     quote: Annotated[str, Field(min_length=1, max_length=MAX_STATEMENT_CHARS)]
+    file_id: Annotated[str, Field(pattern=FILE_ID_PATTERN)] | None = None
 
 
 class AssumptionDraft(BaseModel):
@@ -286,7 +294,9 @@ def propose_requirements(tenant: Tenant, arguments: ProposeRequirementsInput) ->
     table = brief_table(tenant.roots, arguments.brief_id)
     if arguments.requirements is not None:
         words = source.later_words(tenant.conversations, tenant.conversation, arguments.said)
-        drafts = [store.Draft(target=r.target, quote=r.quote) for r in arguments.requirements]
+        drafts = [
+            _draft(tenant, project, index, one) for index, one in enumerate(arguments.requirements)
+        ]
         clearances.check_proposed([one.target for one in drafts], parts)
         drafts = made_of.with_row_keys(drafts, table.table)
         store.propose(tenant.roots, arguments.brief_id, drafts, words)
@@ -308,6 +318,16 @@ def propose_requirements(tenant: Tenant, arguments: ProposeRequirementsInput) ->
         assumptions=_assumed(held),
         research=_made_of_requests(table, arguments.brief_id, drafts),
     )
+
+
+def _draft(tenant: Tenant, project: ProjectId, index: int, one: RequirementDraft) -> store.Draft:
+    if one.file_id is None:
+        return store.Draft(target=one.target, quote=one.quote)
+    try:
+        cited = quotes.cited(tenant.roots.projects, project, one.file_id, one.quote)
+    except ProjectRefused as refused:
+        raise store.BadProposal(f"requirements[{index}]: {refused}") from refused
+    return store.Draft(target=one.target, quote=one.quote, cited=cited)
 
 
 def list_requirements(tenant: Tenant, arguments: ListRequirementsInput) -> BriefView:

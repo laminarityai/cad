@@ -26,6 +26,9 @@ ALLOWED_ARGUMENTS = {
     "ask_to_confirm": {"project_id"},
     "list_requirements": {"brief_id"},
     "propose_context_part": {"brief_id", "quote", "name", "variant_id"},
+    # The person adds files from the workspace; a tool names a stored file only by its id.
+    "list_files": {"project_id"},
+    "read_file": {"project_id", "file_id"},
     "search_knowledge": {"query", "k"},
     "submit_research": {"brief_id", "key", "field", "value", "unit", "url", "quote"},
     # The agent gives code or a note; the run's verdict comes from the server's scorecards.

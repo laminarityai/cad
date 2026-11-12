@@ -7,6 +7,7 @@ from cad.briefs.holes import ByClass, FastenerHoles, HoleFit, PlainHoles, PlusMi
 from cad.briefs.model import (
     ClosedSolid,
     Envelope,
+    FitsWith,
     Length,
     MadeOf,
     MaxClearance,
@@ -71,6 +72,9 @@ def describe_target(target: Target, names: Mapping[str, str] = NO_NAMES) -> str:
             return _holes(target.count, _for_a_bolt(target))
         case PlainHoles():
             return _holes(target.count, _of_a_diameter(target))
+        case FitsWith():
+            name = names.get(target.part)
+            return f"Fits with {name or f'context part {target.part}'} without overlapping it"
         case _:
             assert_never(target)
 

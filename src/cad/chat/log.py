@@ -14,7 +14,7 @@ from typing import Annotated, Any, Final, Literal
 from pydantic import Field, TypeAdapter, ValidationError
 
 from cad.accounts.principal import AccountId
-from cad.chat.model import Block, Message, Text, ToolResult, ToolUse
+from cad.chat.model import Attached, Block, Message, Text, ToolResult, ToolUse
 from cad.conversations.model import ConversationId
 from cad.frozen import Frozen
 from cad.selections.model import SelectionNote
@@ -65,6 +65,7 @@ class ToolReturned(Frozen):
     call_id: str
     text: str
     is_error: bool
+    attached: tuple[Attached, ...] = Field(default=(), exclude_if=lambda one: not one)
 
 
 class StopReport(Frozen):

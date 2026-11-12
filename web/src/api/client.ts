@@ -1,9 +1,11 @@
 import { confirmUrl } from "./confirmation";
 import type {
+  Added,
   BriefView,
   ConfirmationCard,
   ExportFormat,
   ExportView,
+  Declined,
   GeometryRead,
   MaterialListings,
   ProjectConversation,
@@ -54,7 +56,12 @@ export interface Api {
   mesh(meshUrl: string): Promise<Tessellated>;
   geometry(variantId: string): Promise<GeometryRead>;
   exportOf(variantId: string, briefId: string, format: ExportFormat): Promise<ExportView>;
+  addFile(projectId: string, file: File, unit: Unit | null): Promise<Added>;
+  declinePart(projectId: string, partId: string): Promise<Declined>;
 }
+
+export type Unit = "mm" | "in";
+
 
 export interface Answered {
   status: number;
@@ -96,15 +103,28 @@ async function fetchJson<T>(method: Uppercase<Method>, url: string, body?: unkno
     headers: body === undefined ? { accept: "application/json" } : { accept: "application/json", "content-type": "application/json" },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
-  if (response.status === 401) throw new SignedOut();
-  if (response.status === 404) throw new NotFound(url);
-  if (!response.ok) {
-    const said = (await response.json().catch(() => null)) as {
-      error?: string;
-    } | null;
-    throw new Refused(response.status, said?.error ?? `HTTP ${String(response.status)}`);
-  }
+  if (!response.ok) throw await refusal(response, url);
   return (await response.json()) as T;
+}
+
+async function refusal(response: Response, url: string): Promise<Error> {
+  if (response.status === 401) return new SignedOut();
+  if (response.status === 404) return new NotFound(url);
+  const said = (await response.json().catch(() => null)) as { error?: string } | null;
+  return new Refused(response.status, said?.error ?? `HTTP ${String(response.status)}`);
+}
+
+/** A file goes as the raw body, which `request` does not send, with its name and unit in the query. */
+async function addFile(project_id: string, file: File, unit: Unit | null): Promise<Added> {
+  const url = urlOf("/v1/projects/{project_id}/files", { path: { project_id }, query: { name: file.name, unit } });
+  const response = await fetch(url, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { accept: "application/json", "content-type": "application/octet-stream" },
+    body: file,
+  });
+  if (!response.ok) throw await refusal(response, url);
+  return (await response.json()) as Added;
 }
 
 /** The one way to call a route of the server. A route, its path and query parts or its body that
@@ -146,4 +166,6 @@ export const httpApi: Api = {
   mesh: (meshUrl) => fetchJson("GET", meshUrl),
   geometry: (variant_id) => request("get", "/v1/variants/{variant_id}/geometry", { path: { variant_id } }),
   exportOf: (variant_id, brief_id, format) => request("get", "/v1/variants/{variant_id}/exports/{format}", { path: { variant_id, format }, query: { brief_id } }),
+  addFile,
+  declinePart: (project_id, part_id) => request("post", "/v1/projects/{project_id}/parts/{part_id}/decline", { path: { project_id, part_id }, body: {} }),
 };

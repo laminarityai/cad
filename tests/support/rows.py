@@ -1,7 +1,7 @@
 from dataclasses import dataclass, field
 from typing import Any
 
-from cad.context_parts.ingest import Facts, NotAPart
+from cad.context_parts.ingest import Facts, Ingested, NotAPart, Source
 
 TEXT = "A wall bracket for a 2 kg shelf, under 150 g, fits in 120 x 80 x 40 mm, printable in PETG"
 UNDER_150 = {
@@ -25,8 +25,10 @@ RAIL_FACTS = Facts(solids=1, volume_mm3=6000.0, box_min=(-15, 0, 0), box_max=(15
 NOT_A_PART = b"CASCADE Topology V3, a face and no solid\n"
 
 
-def fake_ingest(brep: bytes) -> Facts | NotAPart:
-    return NotAPart("it has no solid") if brep == NOT_A_PART else RAIL_FACTS
+def fake_ingest(source: Source) -> Ingested | NotAPart:
+    if source.data == NOT_A_PART:
+        return NotAPart("it has no solid")
+    return Ingested(RAIL_FACTS, source.data)
 
 
 @dataclass(frozen=True)

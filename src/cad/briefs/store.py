@@ -19,7 +19,6 @@ from cad.briefs.model import (
     Answer,
     Brief,
     BriefId,
-    BriefSpan,
     Confirmed,
     Decision,
     Declined,
@@ -29,6 +28,7 @@ from cad.briefs.model import (
     Target,
     requirement_id,
 )
+from cad.briefs.origins import BriefSpan, FileQuote
 from cad.confirmations.answers import Edit, ItemRef, Ledger, read_ledger
 from cad.errors import NotFound, Refused
 from cad.projects.model import NewProjectId
@@ -70,10 +70,11 @@ HOLDS_THE_SET: Final = (Status.PROPOSED, Status.CONFIRMED)
 
 @dataclass(frozen=True, slots=True)
 class Draft:
-    """A requirement before the store resolves its quote to a span and gives it an id."""
+    """A requirement before the store gives it an id. `cited` is a quote from a document."""
 
     target: Target
     quote: str
+    cited: FileQuote | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -221,7 +222,8 @@ def propose(
 
 
 def _add_quoted(roots: Roots, brief: Brief, drafts: Sequence[Draft], words: said.Words) -> Brief:
-    added = said.words_to_add(brief.text, [d.quote for d in drafts], words)
+    quotes = [d.quote for d in drafts if d.cited is None]
+    added = said.words_to_add(brief.text, quotes, words)
     grown = len(brief.text) + sum(len(SAID_SEPARATOR) + len(one.text) for one in added)
     if grown > MAX_BRIEF_CHARS:
         raise BadProposal(
@@ -326,12 +328,12 @@ def _resolve(brief: Brief, drafts: Sequence[Draft], words: said.Words) -> tuple[
     requirements: list[Requirement] = []
     for index, draft in enumerate(drafts):
         start = brief.text.find(draft.quote) if draft.quote else -1
-        if start < 0:
+        if draft.cited is None and start < 0:
             raise BadProposal(
                 f"requirements[{index}]: the quote does not appear in brief {brief.id}; "
                 + words.refusal_hint
             )
-        origin = BriefSpan(start=start, end=start + len(draft.quote))
+        origin = draft.cited or BriefSpan(start=start, end=start + len(draft.quote))
         rid = requirement_id(brief.id, draft.target, origin)
         if any(r.id == rid for r in requirements):
             raise BadProposal(f"requirements[{index}] repeats an earlier requirement")
@@ -343,7 +345,9 @@ def _resolve(brief: Brief, drafts: Sequence[Draft], words: said.Words) -> tuple[
 
 def _belongs(proposal: Proposal, brief: Brief) -> bool:
     return proposal.brief_id == brief.id and all(
-        r.brief_id == brief.id and r.origin.end <= len(brief.text) for r in proposal.requirements
+        r.brief_id == brief.id
+        and (not isinstance(r.origin, BriefSpan) or r.origin.end <= len(brief.text))
+        for r in proposal.requirements
     )
 
 

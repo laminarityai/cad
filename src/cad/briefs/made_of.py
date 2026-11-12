@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from dataclasses import replace
 
 from cad.briefs.model import MAX_MATERIAL_KEY_CHARS, MadeOf
 from cad.briefs.store import BadProposal, Draft
@@ -25,4 +26,4 @@ def _resolved(index: int, draft: Draft, table: MaterialsTable) -> Draft:
             f"table, so its key gains the {PROJECT_PREFIX!r} prefix; name it in at most {room} "
             "characters"
         )
-    return Draft(target=MadeOf(material=key), quote=draft.quote)
+    return replace(draft, target=MadeOf(material=key))

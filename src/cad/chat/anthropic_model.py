@@ -6,7 +6,7 @@ key is never logged, never part of an error, and never sent to a tool.
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Final, cast
+from typing import TYPE_CHECKING, Any, Final, Literal, cast
 
 import anthropic
 from anthropic.types import (
@@ -15,6 +15,9 @@ from anthropic.types import (
     ToolParam,
     ToolResultBlockParam,
     ToolUseBlockParam,
+)
+from anthropic.types.tool_result_block_param import (
+    Content,
 )
 
 from cad.chat.model import (
@@ -33,6 +36,10 @@ if TYPE_CHECKING:
 KEY_VARIABLE: Final = "ANTHROPIC_API_KEY"
 MAX_TOKENS: Final = 8192
 TIMEOUT_SECONDS: Final = 120.0
+IMAGE_TYPES: Final[dict[str, Literal["image/png", "image/jpeg"]]] = {
+    "image/png": "image/png",
+    "image/jpeg": "image/jpeg",
+}
 
 
 @dataclass
@@ -109,8 +116,36 @@ def _param(message: Message) -> MessageParam:
                     {
                         "type": "tool_result",
                         "tool_use_id": block.call_id,
-                        "content": block.text,
+                        "content": _result_content(block),
                         "is_error": block.is_error,
                     }
                 )
     return {"role": message.role, "content": content}
+
+
+def _result_content(block: ToolResult) -> str | list[Content]:
+    """A result with files attaches each after the text: a PDF as a document, an image as an
+    image."""
+    if not block.media:
+        return block.text
+    content: list[Content] = [{"type": "text", "text": block.text}]
+    for one in block.media:
+        if one.media_type == "application/pdf":
+            content.append(
+                {
+                    "type": "document",
+                    "source": {"type": "base64", "media_type": "application/pdf", "data": one.data},
+                }
+            )
+        elif one.media_type in IMAGE_TYPES:
+            content.append(
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": IMAGE_TYPES[one.media_type],
+                        "data": one.data,
+                    },
+                }
+            )
+    return content

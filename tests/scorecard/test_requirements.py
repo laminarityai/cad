@@ -288,3 +288,11 @@ def test_demand_reads_the_load_of_every_target_it_is_given_assumed_ones_included
     confirmed, assumed_load = safety(2).target, deflection(1).target
     asked = requirements.demand([confirmed, max_mass(150).target, assumed_load], {})
     assert set(asked.loads) == {requirements.instance(confirmed)}
+
+
+def test_fits_with_passes_when_clear_and_fails_on_an_overlap() -> None:
+    given = requirement({"kind": "fits_with", "part": RAIL})
+    clear = checked(requirements.judge(given, (*suite(), fitted(0.0))))
+    overlapping = checked(requirements.judge(given, (*suite(), fitted(0.0, Verdict.FAIL))))
+    assert (clear.verdict, clear.reason) == (Verdict.PASS, requirements.CLEAR)
+    assert (overlapping.verdict, overlapping.reason) == (Verdict.FAIL, requirements.OVERLAPS)

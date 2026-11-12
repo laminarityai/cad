@@ -12,7 +12,7 @@ from cad.confirmations.waiting import Door
 from cad.confirmations.web import LocalSignIn
 from cad.context_parts.ingest import ingest
 from cad.operations.model import Audience
-from cad.operations.openapi import Described, Json, document, from_registry
+from cad.operations.openapi import OCTETS, Described, Json, document, from_registry
 from cad.operations.outside import HAND_DESCRIBED, every_route
 from cad.operations.reads import VariantInput, VariantView
 from cad.operations.registry import OPERATIONS, ROUTES
@@ -85,7 +85,18 @@ def test_a_templated_name_is_a_path_parameter_and_every_other_argument_is_not() 
         in_path = {item["name"] for item in parameters(one) if item["in"] == "path"}
         assert in_path == templated, path
         elsewhere = {item["in"] for item in parameters(one)} - {"path"}
-        assert elsewhere <= ({"query"} if method == "GET" else set()), path
+        assert elsewhere <= ({"query"} if method == "GET" or _octets(one) else set()), path
+
+
+def _octets(one: Json) -> bool:
+    body = cast(Json, one.get("requestBody", {}))
+    return OCTETS in cast(Json, body.get("content", {}))
+
+
+def test_an_upload_sends_the_file_as_octets_and_names_it_in_the_query() -> None:
+    one = described()[("POST", "/v1/projects/{project_id}/files")]
+    assert _octets(one)
+    assert {item["name"] for item in parameters(one) if item["in"] == "query"} == {"name", "unit"}
 
 
 def test_a_post_carries_its_remaining_arguments_in_a_json_body() -> None:

@@ -191,7 +191,19 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
   const center = <Center brief={brief} view={view} cards={cards} dispatch={dispatch} selection={selection} onPick={onPick} />;
 
   const explorer = (
-    <Explorer briefs={model.briefs} current={brief.id} slot={slotOf(brief, view)?.slot} cards={cards} parts={model.parts} sources={sources} dispatch={dispatch} onNew={onNew} />
+    <Explorer
+      projectId={model.projectId}
+      briefs={model.briefs}
+      current={brief.id}
+      slot={slotOf(brief, view)?.slot}
+      cards={cards}
+      parts={model.parts}
+      documents={model.documents}
+      sources={sources}
+      dispatch={dispatch}
+      onNew={onNew}
+      onChanged={reload}
+    />
   );
 
   if (narrow) {

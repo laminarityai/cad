@@ -1,11 +1,12 @@
 import re
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from typing import Final
 
 from cad.briefs import store
 from cad.briefs.bindable import BINDABLE
 from cad.briefs.edits import apply_edits, placeholder
 from cad.briefs.model import MadeOf, MeasureLimit, Requirement, Target, deciding_check
+from cad.briefs.origins import quoted
 from cad.briefs.store import ProposalState, Status, TamperedBrief
 from cad.briefs.words import describe
 from cad.confirmations.answers import Edit, ItemKindName, ItemRef
@@ -40,15 +41,7 @@ class Requirements:
     def section(self, ref: ItemRef) -> Section:
         text, shown = self._shown(ref)
         names = plain_names(self._roots, shown.proposal.brief_id)
-        rows = tuple(
-            Row(
-                headline=describe(r, names),
-                quote=text[r.origin.start : r.origin.end],
-                decides=_decides(r.target),
-                editable=_editable(r),
-            )
-            for r in shown.proposal.requirements
-        )
+        rows = tuple(_row(r, text, names) for r in shown.proposal.requirements)
         return Section(title=TITLE, brief_id=shown.proposal.brief_id, context=text, rows=rows)
 
     def edit(self, ref: ItemRef, edits: Sequence[Edit]) -> Refused | Changes:
@@ -85,6 +78,17 @@ def plain_names(roots: Roots, brief_id: str) -> dict[str, str]:
 def _editable(requirement: Requirement) -> Editable | None:
     shown = placeholder(requirement)
     return None if shown is None else Editable(row=requirement.id, placeholder=shown)
+
+
+def _row(requirement: Requirement, text: str, names: Mapping[str, str]) -> Row:
+    source, quote = quoted(text, requirement.origin)
+    return Row(
+        headline=describe(requirement, names),
+        quote=quote,
+        source=source,
+        decides=_decides(requirement.target),
+        editable=_editable(requirement),
+    )
 
 
 def _decides(target: Target) -> str:

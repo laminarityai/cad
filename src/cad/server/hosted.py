@@ -51,8 +51,8 @@ from cad.confirmations.waiting import (
     sign_in_opener,
 )
 from cad.confirmations.web import ClerkSignIn, LocalSignIn, SignIn, confirm_routes
+from cad.context_parts.ingest import Ingest
 from cad.context_parts.ingest import ingest as read_part
-from cad.context_parts.store import Ingest
 from cad.data_root import DATA_ROOT
 from cad.operations.events import events_route
 from cad.operations.guidance import INSTRUCTIONS
@@ -63,6 +63,7 @@ from cad.operations.tenants import ACCOUNTS, Tenants, bind
 from cad.operations.tools import tools
 from cad.sandbox import container, meter
 from cad.sandbox.outcome import SandboxUnavailable
+from cad.server.uploads import upload_routes
 from cad.web.static import DIST, web_routes
 
 DAILY_CAP_SECONDS: Final = 3600
@@ -140,6 +141,7 @@ def build_app(
     )
     app.router.routes.append(events_route(verifier.person, tenants.of, hooked=hooked))
     app.router.routes.extend(chat_routes(verifier.person, chat))
+    app.router.routes.extend(upload_routes(verifier.person, tenants.of))
     app.router.routes.extend(web_routes(web))
     app.state.chat = chat
     return app

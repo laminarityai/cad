@@ -30,11 +30,27 @@ class ToolUse(Frozen):
     input: dict[str, Any]
 
 
+class Attached(Frozen):
+    """A file of a project that a tool result hands the model to read, such as a PDF."""
+
+    project_id: str
+    file_id: str
+
+
+class Media(Frozen):
+    """An attached file's bytes, base64, loaded for one reply and never written to the log."""
+
+    media_type: str
+    data: str
+
+
 class ToolResult(Frozen):
     kind: Literal["tool_result"] = "tool_result"
     call_id: str
     text: str
     is_error: bool = False
+    attached: tuple[Attached, ...] = ()
+    media: tuple[Media, ...] = ()
 
 
 type Block = Annotated[Text | ToolUse | ToolResult, Field(discriminator="kind")]
