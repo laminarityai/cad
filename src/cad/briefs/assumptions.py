@@ -11,7 +11,7 @@ from typing import Annotated, Final
 
 from pydantic import Field, ValidationError
 
-from cad.briefs import clearances
+from cad.briefs import clearances, described
 from cad.briefs.model import MAX_REQUIREMENTS, MAX_STATEMENT_CHARS, BriefId, Target, limits
 from cad.briefs.store import BadProposal, TamperedBrief, read_brief
 from cad.frozen import Frozen
@@ -50,6 +50,7 @@ def assume(
         if not limits(item.target):
             raise BadProposal(f"assumptions[{index}]: {NOT_A_VALUE}")
     clearances.check_proposed([one.target for one in items], stored_parts, "assumptions")
+    described.refuse_assumed([one.target for one in items])
     directory = roots.briefs / brief.id / ASSUMPTIONS
 
     def next_set(existing: tuple[bytes, ...]) -> bytes | None:
