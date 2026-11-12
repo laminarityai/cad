@@ -49,9 +49,8 @@ AUTO_START = (
     "requirement that a check decides, when a proposal on the brief waits for the person, and "
     "after any stop in this conversation until the person writes or answers. A run revises "
     "only against confirmed requirements that a check decides. An assumption and a target that "
-    "waits for the person never count. "
-    + AUTO_AGENT_CHECKS
-    + " The run uses the confirmed made_of material. When no "
+    "waits for the person never count. A requirement that an agent-written check the person "
+    "approved decides counts. The run uses the confirmed made_of material. When no "
     "requirement names one, you choose it, because the person never does: pass material_key, a "
     "key from list_materials or one of your own for a material the table lacks, and "
     "material_reason, one line saying why it suits the part. Without both the start is "

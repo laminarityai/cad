@@ -139,9 +139,7 @@ AGENT_CHECKS = (
     "variant of its brief. After the first variant you cannot. The check decides nothing until "
     "the person approves it on the confirmation page. Its verdict is labelled as an "
     "agent-written check the person approved, not reviewed by our team, and you report it with "
-    "that label, never as a reviewed verdict and never as a plain pass. Once the person approves "
-    "it, an Auto run counts its pass toward every requirement passing and revises against its "
-    "fail: " + AUTO_AGENT_CHECKS
+    "that label, never as a reviewed verdict and never as a plain pass. " + AUTO_AGENT_CHECKS
 )
 
 MATERIAL = (
