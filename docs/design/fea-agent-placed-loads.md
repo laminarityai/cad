@@ -196,6 +196,34 @@ Each step is one PR and ends in a check that passes or fails.
 3. **The record and the tool.** `PlacementDraft`, `Placement`, the store, `write_placement` with the result rule, Form and the probe's repeat-and-turn, and the run on each scored variant before its `fea` job. `check_proposed` reads `LoadCase.agent_made`. GLOSSARY gains "Placed load case". The check is the operation's tests and one `cad-call` walk that writes a placement and scores `equal_angle`.
 4. **What the person and the counts see.** The `placement` page item with the highlight links, the label on the scorecard and in the web app, `Standing.placed` and `AllPass.placed`, `By.PLACED`, and the tool guidance. The check is the web tests and one live walk through the app: a brief that needs a leg held, an Auto run to its stop, and a screenshot of the page item and the labelled verdict.
 
+## Build step 1, as measured
+
+The script is `evals/placed_loads/measure.py`, and `evals/placed_loads/RESULTS.md` holds the tables it printed. The placement code is in `evals/placed_loads/placements.py`. It runs in the build image under a team preamble that maps each returned face to its explorer index by `IsSame`. A probe in the analysis image builds the regions as §1 says and adds the mirror gate's candidates. It then runs `fea.assessed` with `anchors.resolve` replaced by a test resolver that returns those candidates. No product code changed. Settings: PLA, 20 N, 2 mm limit, one run of each.
+
+**Code placement decides no part beyond the two the terms leave.** By the rule in step 1, steps 2 to 4 stop.
+
+| Placement | Check verdict | Max displacement | Safety factor | At most 2 mm | Candidates |
+|---|---|---|---|---|---|
+| `equal_angle`, one leg held, the other leg's tip loaded | pass | 1.90 mm | 3.84 | pass | 2 |
+| `sb_gusset`, held on its long edge | pass | 0.96 mm | 5.01 | pass | 1 |
+| `sb_gusset`, held on a short edge | unknown | 3.87 mm | | unknown | 2 |
+| `sb_gusset`, edge not said | unknown | 3.87 mm | | unknown | 3 |
+
+- Measured: the gusset held on a short edge stops at the large-displacement gate, at 3.87 mm against 5% of its 62.2 mm extent. With the edge not said, that case is the worst of the 3 and decides the result.
+- Read ([load cases the agent describes](fea-described-loads.md), What it decides): no novice brief is both left undecided by the terms and in scope. The terms decide the shelf, the clamp and the bracket. The lid and the rail hook rest, and the snap arm takes a displacement load.
+- Inferred: everything else stuck, the parts at the gate and `sb_arm`, stays stuck for reasons placement does not change.
+
+The other measurements:
+
+- **Explorer order, build image against analysis image.** Measured on all 24 parts (the 20 corpus parts and 4 novice parts): the same face count, and the same area and centroid at every index, with a difference of 0.
+- **A turned and moved copy.** Measured with one `Motion.drawn()` per part, on all 24 parts. Every index keeps its surface kind and area, and its centroid lands within 5e-13 mm of the moved original.
+- **The code's output after a turn.** Not every placement returned the same indices. Measured: the `sb_gusset` short-edge code picked edge 6 on the stored part and edge 0 on the turned copy. Both edges are 159.03 mm², so `min` broke the tie by float noise. As §3 words it, the repeat-and-turn gate would give `unknown` on this honest code. The mirror gate pairs these two edges in both directions (measured, the edge-not-said run), so the candidate set after the mirror gate is the same on both copies. The suggestion is to compare the runs after the mirror gate (inferred).
+- **Viewer index equals kernel index.** Read: `tests/fea/test_end_to_end.py`, on merged PR 269, checks it on a 6-face box only.
+- **`MAX_REGION_SHARE`.** Measured: the largest share of any reviewed or described region is 21.9%. That region is the far-end load of `InOneFlatFace` on `sb_l_bracket`. The `equal_angle` placement's support is a leg face at 22.2%. So a constant set to the corpus maximum would refuse the one part code decides. A far-end band load on the hook was not measured as an area. Inferred: 0.25 would admit both, and the starting value of 0.5 also does.
+- **Mirror candidates.** Measured: the mirror gate added 0 or 1 candidate to each placement, for totals of 1 to 3. None went over 4.
+- **`Curved` faces.** Measured: none of the 12 stuck parts has one. Their fillets and rings are cylinders.
+- **Time.** Measured in one run each, as a ballpark against the 600 s budget, so treat it as a rough figure. One placement's whole `fea.assessed` call, covering every candidate on both meshes, took 7 to 24 s. The placement code ran in about 1 ms. The host had a load average of 4.5 on 8 cores while other agents ran. The limiter was not profiled.
+
 ## Out of scope
 
 - Supports that rest, slide or pivot ([#254](https://github.com/laminarityai/cad/issues/254)).
