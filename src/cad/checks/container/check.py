@@ -28,7 +28,7 @@ type Budget = Quick | Background
 
 
 class Fem(Protocol):
-    def mesh(self, size_mm: float) -> TetMesh | MeshFailed: ...
+    def mesh(self, size_mm: float, floor_mm: float) -> TetMesh | MeshFailed: ...
 
     def solve(
         self,

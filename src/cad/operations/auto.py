@@ -1,3 +1,4 @@
+import time
 from typing import Annotated, Final
 
 from pydantic import BaseModel, Field
@@ -37,6 +38,7 @@ from cad.variant_sets.model import Reason, code_sha256
 from cad.variant_sets.placement import CHOOSE
 from cad.variants import entry
 
+SETTLE_SECONDS: Final = 600
 AUTO_START = (
     "Start an Auto run on a brief. Call it when a scored option fails a requirement the person "
     "confirmed and a check decides. The run then revises the brief's options until every such "
@@ -223,7 +225,7 @@ def auto_revise(tenant: Tenant, arguments: ReviseInput) -> RevisedRun:
                 material_key=running.start.material_key,
                 brief_id=brief_id,
             )
-            standing = standing_of(scorecards.score_variant(tenant, scored), revision, sha)
+            standing = standing_of(score_until_settled(tenant, scored), revision, sha)
             if isinstance(standing, Unsettled):
                 return RevisedRun(run_id=run_id, state=running, settling=True)
         else:
@@ -245,6 +247,20 @@ def auto_revise(tenant: Tenant, arguments: ReviseInput) -> RevisedRun:
     return RevisedRun(
         run_id=run.run_id, state=run.state, settling=run.settling, context_parts_out_of_date=stale
     )
+
+
+def score_until_settled(
+    tenant: Tenant, scored: scorecards.ScoreVariantInput
+) -> material.ReportedScorecard:
+    """Score again while a check is pending, for up to `SETTLE_SECONDS`, so a revision records
+    slow checks such as fea instead of leaving the agent to wait on them. Auto runs only in the
+    web app's own chat, which sets no time limit on a tool call. A stop ends the wait, because
+    each score refuses a stopped run."""
+    deadline = time.monotonic() + SETTLE_SECONDS
+    card = scorecards.score_variant(tenant, scored)
+    while card.pending and time.monotonic() < deadline:
+        card = scorecards.score_variant(tenant, scored)
+    return card
 
 
 def _tried(state: AutoState, sha: str) -> bool:

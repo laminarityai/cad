@@ -31,7 +31,9 @@ from cad.checks.container.mesher import (
     MESH_CHANGE_LIMIT,
     MeshFailed,
     MeshSizes,
+    OverCap,
     TetMesh,
+    mesh_pair,
     mesh_sizes,
 )
 from cad.checks.container.vectors import Point, cross, dot, norm, sub
@@ -41,7 +43,9 @@ ID = "fea"
 FORMULA = (
     "linear static finite element analysis of the confirmed load case: 10-node tetrahedra "
     "meshed at min(max(wall, 0.2 mm), extent / 20) and again 1.5 times finer, wall = 2 * "
-    "volume / surface area; the supports' surface nodes are fixed and the force is spread "
+    "volume / surface area, refined to the part's curvature; when either mesh would have more "
+    "than 150,000 nodes, both are meshed again with no element under half their size; the "
+    "supports' surface nodes are fixed and the force is spread "
     "uniformly over the loaded faces; a direction the load case leaves free goes to the worst "
     "case over unit solves; max_displacement and max_von_mises are the fine mesh's largest, "
     "von Mises stress within 0.5 * bore diameter of a support hole is reported as "
@@ -135,14 +139,20 @@ def run(subject: Subject) -> FindingWire:
     if isinstance(resolved, Unresolved):
         return finding("unknown", f"the load case does not resolve: {resolved.reason}", *echoed)
     sizes = mesh_sizes_of(faces, inertia)
+    meshes = mesh_pair(subject.fem.mesh, sizes)
+    if isinstance(meshes, MeshFailed):
+        return finding("unknown", meshes.reason, *echoed)
     force = case["load"]["force_n"]
-    coarse = solve_at(subject.fem, sizes.coarse, resolved, material, force)
+    coarse = solve_at(subject.fem, meshes.coarse, sizes.coarse, resolved, material, force)
     if isinstance(coarse, Unsolved):
         return finding("unknown", coarse.reason, *echoed)
-    fine = solve_at(subject.fem, sizes.fine, resolved, material, force)
+    fine = solve_at(subject.fem, meshes.fine, sizes.fine, resolved, material, force)
     if isinstance(fine, Unsolved):
         return finding("unknown", fine.reason, *echoed)
-    return judged(coarse, fine, yield_mpa, anchors.extent(inertia), echoed, clamps_a_face(resolved))
+    clamped = clamps_a_face(resolved)
+    return judged(
+        coarse, fine, yield_mpa, anchors.extent(inertia), echoed, clamped, meshes.over_cap
+    )
 
 
 def mesh_sizes_of(faces: Sequence[FaceInfo], inertia: Inertia) -> MeshSizes:
@@ -165,8 +175,14 @@ def judged(
     part_extent: float,
     echoed: Sequence[MeasuredWire],
     clamped_face: bool,
+    over_cap: OverCap | None,
 ) -> FindingWire:
     change = abs(fine.peaks.displacement - coarse.peaks.displacement) / fine.peaks.displacement
+    floored = (
+        ""
+        if over_cap is None
+        else f"; both meshes keep every element at least half their size, because {over_cap.reason}"
+    )
     measured = [
         *echoed,
         measure("mesh_size", fine.size_mm, "mm"),
@@ -179,7 +195,7 @@ def judged(
         return finding(
             "unknown",
             f"the meshes at {coarse.size_mm:g} mm and {fine.size_mm:g} mm differ by "
-            f"{change:.1%} in max_displacement, over the {MESH_CHANGE_LIMIT:.0%} limit",
+            f"{change:.1%} in max_displacement, over the {MESH_CHANGE_LIMIT:.0%} limit{floored}",
             *measured,
         )
     if fine.peaks.displacement > LARGE_DISPLACEMENT_FRACTION * part_extent:
@@ -187,12 +203,12 @@ def judged(
             "unknown",
             f"max_displacement {fine.peaks.displacement:g} mm is over "
             f"{LARGE_DISPLACEMENT_FRACTION:.0%} of the part's {part_extent:g} mm extent, so a "
-            "linear analysis does not hold",
+            f"linear analysis does not hold{floored}",
             *measured,
         )
     reason = (
         f"solved at {coarse.size_mm:g} mm and {fine.size_mm:g} mm; max_displacement differs "
-        f"by {change:.1%}"
+        f"by {change:.1%}{floored}"
     )
     if yield_mpa is None:
         reason = f"{reason}; no yield strength, so no safety factor"
@@ -209,11 +225,8 @@ def judged(
 
 
 def solve_at(
-    fem: Fem, size_mm: float, resolved: Resolved, material: Material, force_n: float
+    fem: Fem, mesh: TetMesh, size_mm: float, resolved: Resolved, material: Material, force_n: float
 ) -> Solved | Unsolved:
-    mesh = fem.mesh(size_mm)
-    if isinstance(mesh, MeshFailed):
-        return Unsolved(f"the mesh at {size_mm:g} mm failed: {mesh.reason}")
     peaks: list[Peaks] = []
     for candidate in resolved.candidates:
         found = _unit_peaks(fem, mesh, candidate, resolved.basis, material)

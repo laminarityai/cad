@@ -33,7 +33,7 @@ class FakeShape:
 
 
 class NoFem:
-    def mesh(self, size_mm: float) -> TetMesh | MeshFailed:
+    def mesh(self, size_mm: float, floor_mm: float) -> TetMesh | MeshFailed:
         raise NotImplementedError("this test meshes nothing")
 
     def solve(

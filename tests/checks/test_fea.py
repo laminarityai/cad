@@ -3,6 +3,7 @@ import pytest
 from cad.checks.container import fea
 from cad.checks.container.check import Subject
 from cad.checks.container.inputs import Input, Inputs
+from cad.checks.container.mesher import OverCap
 from cad.checks.container.wire import FindingWire, LoadCaseWire, ResultWire, ValueWire
 from tests.support.check_fakes import FakeKernel, FakeShape, NoFem
 
@@ -29,7 +30,7 @@ def by_name(found: FindingWire) -> dict[str, float]:
 
 
 def test_safety_factor_is_yield_over_the_fine_mesh_peak_stress() -> None:
-    found = fea.judged(solved(2, 1.0, 10), solved(1.3, 1.01, 12.5), 50.0, 200, [], False)
+    found = fea.judged(solved(2, 1.0, 10), solved(1.3, 1.01, 12.5), 50.0, 200, [], False, None)
     assert found["verdict"] == "pass"
     assert by_name(found)["safety_factor"] == pytest.approx(4.0)
     assert by_name(found)["max_displacement"] == 1.01
@@ -40,29 +41,44 @@ def test_safety_factor_is_yield_over_the_fine_mesh_peak_stress() -> None:
 def test_the_clamped_face_note_is_on_the_result_only_when_a_face_is_clamped(
     clamped_face: bool,
 ) -> None:
-    found = fea.judged(solved(2, 1.0, 10), solved(1.3, 1.0, 10), 50.0, 200, [], clamped_face)
+    found = fea.judged(solved(2, 1.0, 10), solved(1.3, 1.0, 10), 50.0, 200, [], clamped_face, None)
     assert found["verdict"] == "pass"
     assert (fea.CLAMPED_FACE_NOTE in found["reason"]) is clamped_face
 
 
 def test_no_yield_strength_drops_only_the_safety_factor() -> None:
-    found = fea.judged(solved(2, 1.0, 10), solved(1.3, 1.0, 10), None, 200, [], False)
+    found = fea.judged(solved(2, 1.0, 10), solved(1.3, 1.0, 10), None, 200, [], False, None)
     assert found["verdict"] == "pass"
     assert "safety_factor" not in by_name(found)
     assert "max_displacement" in by_name(found)
 
 
 def test_meshes_that_disagree_by_more_than_three_percent_are_unknown() -> None:
-    found = fea.judged(solved(2, 1.0, 10), solved(1.3, 1.1, 10), 50.0, 200, [], False)
+    found = fea.judged(solved(2, 1.0, 10), solved(1.3, 1.1, 10), 50.0, 200, [], False, None)
     assert found["verdict"] == "unknown"
     assert "differ by 9.1% in max_displacement, over the 3% limit" in found["reason"]
     assert "safety_factor" not in by_name(found)
 
 
 def test_a_displacement_over_five_percent_of_the_extent_is_outside_linear_theory() -> None:
-    found = fea.judged(solved(2, 11.0, 10), solved(1.3, 11.0, 10), 50.0, 200, [], False)
+    found = fea.judged(solved(2, 11.0, 10), solved(1.3, 11.0, 10), 50.0, 200, [], False, None)
     assert found["verdict"] == "unknown"
     assert "a linear analysis does not hold" in found["reason"]
+
+
+@pytest.mark.parametrize(("fine_displacement", "verdict"), [(1.0, "pass"), (1.1, "unknown")])
+def test_a_floored_mesh_says_why_whatever_the_verdict(
+    fine_displacement: float, verdict: str
+) -> None:
+    over = OverCap("the mesh at 2 mm has 900000 nodes, above the cap of 150000")
+    found = fea.judged(
+        solved(2, 1.0, 10), solved(1.3, fine_displacement, 10), 50.0, 200, [], False, over
+    )
+    assert found["verdict"] == verdict
+    assert found["reason"].endswith(
+        "both meshes keep every element at least half their size, because the mesh at 2 mm "
+        "has 900000 nodes, above the cap of 150000"
+    )
 
 
 @pytest.mark.parametrize("missing", [Input.ELASTIC_MODULUS, Input.POISSON_RATIO])

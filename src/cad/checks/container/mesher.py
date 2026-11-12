@@ -1,7 +1,7 @@
 import importlib
 import tempfile
-from collections.abc import Sequence
-from dataclasses import dataclass
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Final, Protocol, cast
 
@@ -13,6 +13,7 @@ EXTENT_ELEMENTS: Final = 20.0
 FINE_RATIO: Final = 1.5
 CURVATURE_ELEMENTS: Final = 24
 NODE_CAP: Final = 150_000
+FLOOR_FRACTION: Final = 0.5
 MESH_CHANGE_LIMIT: Final = 0.03
 
 TET10: Final = 11
@@ -46,6 +47,25 @@ class TetMesh:
 @dataclass(frozen=True, slots=True)
 class MeshFailed:
     reason: str
+
+
+@dataclass(frozen=True, slots=True)
+class OverCap(MeshFailed):
+    """A mesh with more nodes than the solve may take."""
+
+
+@dataclass(frozen=True, slots=True)
+class MeshPair:
+    """The two meshes the check compares. `over_cap` is set when the meshes refined to the part's
+    curvature held too many nodes, so these two keep every element at least `FLOOR_FRACTION` of
+    their size."""
+
+    coarse: TetMesh
+    fine: TetMesh
+    over_cap: OverCap | None
+
+
+type Mesher = Callable[[float, float], TetMesh | MeshFailed]
 
 
 class _Option(Protocol):
@@ -92,24 +112,75 @@ OPTIONS: Final = {
 }
 
 
-def tet_mesh(brep: bytes, size_mm: float, node_cap: int = NODE_CAP) -> TetMesh | MeshFailed:
+def mesh_pair(mesh: Mesher, sizes: MeshSizes) -> MeshPair | MeshFailed:
+    """Mesh at both sizes. When either mesh is over the node cap, mesh both again with no element
+    under `FLOOR_FRACTION` of its size, so the fine mesh stays 1.5 times finer everywhere and the
+    coarse against fine change still decides whether the answer is trusted. Only a part over the
+    cap is meshed differently."""
+    refined = _pair(mesh, sizes, 0.0)
+    if not isinstance(refined, OverCap):
+        return refined
+    floored = _pair(mesh, sizes, FLOOR_FRACTION)
+    if isinstance(floored, MeshFailed):
+        return MeshFailed(f"{refined.reason}; {floored.reason}")
+    return MeshPair(floored.coarse, floored.fine, refined)
+
+
+def _pair(mesh: Mesher, sizes: MeshSizes, floor: float) -> MeshPair | MeshFailed:
+    meshes: list[TetMesh] = []
+    for size in (sizes.coarse, sizes.fine):
+        made = mesh(size, floor * size)
+        if isinstance(made, MeshFailed):
+            under = f" with no element under {floor * size:g} mm" if floor else ""
+            verb = " " if isinstance(made, OverCap) else " failed: "
+            return replace(made, reason=f"the mesh at {size:g} mm{under}{verb}{made.reason}")
+        meshes.append(made)
+    coarse, fine = meshes
+    return MeshPair(coarse, fine, None)
+
+
+def tet_mesh(
+    brep: bytes, size_mm: float, floor_mm: float = 0.0, node_cap: int = NODE_CAP
+) -> TetMesh | MeshFailed:
+    """The surface is meshed first, alone, so a size whose surface is already over the cap stops
+    before its volume mesh can outgrow the check's memory. The volume mesh is made afresh, the same
+    as without that first pass."""
+    surface = _generated(brep, size_mm, floor_mm, 2, _surface_nodes)
+    if isinstance(surface, MeshFailed):
+        return surface
+    if surface > node_cap:
+        reason = f"has {surface} nodes on its surface alone, above the cap of {node_cap}"
+        return OverCap(reason)
+    return _generated(brep, size_mm, floor_mm, 3, lambda mesh: _read(mesh, node_cap))
+
+
+def _generated[T](
+    brep: bytes, size_mm: float, floor_mm: float, dim: int, read: Callable[[_Mesh], T]
+) -> T | MeshFailed:
     gmsh = cast(_Gmsh, importlib.import_module("gmsh"))
     gmsh.initialize([], False)
     try:
         for name, value in OPTIONS.items():
             gmsh.option.setNumber(name, value)
         gmsh.option.setNumber("Mesh.MeshSizeMax", size_mm)
+        if floor_mm:
+            gmsh.option.setNumber("Mesh.MeshSizeMin", floor_mm)
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "shape.brep"
             path.write_bytes(brep)
             gmsh.model.occ.importShapes(str(path))
         gmsh.model.occ.synchronize()
-        gmsh.model.mesh.generate(3)
-        return _read(gmsh.model.mesh, node_cap)
+        gmsh.model.mesh.generate(dim)
+        return read(gmsh.model.mesh)
     except Exception as error:
         return MeshFailed(f"gmsh failed: {type(error).__name__}: {error}")
     finally:
         gmsh.finalize()
+
+
+def _surface_nodes(mesh: _Mesh) -> int:
+    _, face_nodes = mesh.getElementsByType(TRIANGLE6)
+    return len({int(tag) for tag in face_nodes})
 
 
 def _read(mesh: _Mesh, node_cap: int) -> TetMesh | MeshFailed:
@@ -118,7 +189,7 @@ def _read(mesh: _Mesh, node_cap: int) -> TetMesh | MeshFailed:
         return MeshFailed("gmsh made no 10-node tetrahedra")
     used = sorted({int(tag) for tag in tet_nodes})
     if len(used) > node_cap:
-        return MeshFailed(f"the mesh has {len(used)} nodes, above the cap of {node_cap}")
+        return OverCap(f"has {len(used)} nodes, above the cap of {node_cap}")
     index = {tag: i for i, tag in enumerate(used)}
     tags, flat, _ = mesh.getNodes()
     where = {int(tag): i for i, tag in enumerate(tags)}
