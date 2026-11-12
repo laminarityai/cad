@@ -37,11 +37,14 @@ def mesh_sizes(wall_mm: float, extent_mm: float) -> MeshSizes:
 @dataclass(frozen=True, slots=True)
 class TetMesh:
     """`tets` holds 10 node indices per element in CalculiX C3D10 order; `faces` holds the
-    boundary's 6-node triangles, corners first."""
+    boundary's 6-node triangles, corners first. `surfaces[k]` is the kernel face index that
+    triangle k meshes: gmsh's surface tag less one, since gmsh reads the BREP's faces in the
+    kernel's explorer order."""
 
     nodes: tuple[Point, ...]
     tets: tuple[tuple[int, ...], ...]
     faces: tuple[tuple[int, ...], ...]
+    surfaces: tuple[int, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,10 +83,13 @@ class _Occ(Protocol):
 class _Mesh(Protocol):
     def generate(self, dim: int) -> None: ...
     def getNodes(self) -> tuple[Sequence[int], Sequence[float], Sequence[float]]: ...
-    def getElementsByType(self, elementType: int) -> tuple[Sequence[int], Sequence[int]]: ...
+    def getElementsByType(
+        self, elementType: int, tag: int = -1
+    ) -> tuple[Sequence[int], Sequence[int]]: ...
 
 
 class _Model(Protocol):
+    def getEntities(self, dim: int) -> Sequence[tuple[int, int]]: ...
     @property
     def occ(self) -> _Occ: ...
     @property
@@ -153,11 +159,11 @@ def tet_mesh(
     if surface > node_cap:
         reason = f"has {surface} nodes on its surface alone, above the cap of {node_cap}"
         return OverCap(reason)
-    return _generated(brep, size_mm, floor_mm, 3, lambda mesh: _read(mesh, node_cap))
+    return _generated(brep, size_mm, floor_mm, 3, lambda model: _read(model, node_cap))
 
 
 def _generated[T](
-    brep: bytes, size_mm: float, floor_mm: float, dim: int, read: Callable[[_Mesh], T]
+    brep: bytes, size_mm: float, floor_mm: float, dim: int, read: Callable[[_Model], T]
 ) -> T | MeshFailed:
     gmsh = cast(_Gmsh, importlib.import_module("gmsh"))
     gmsh.initialize([], False)
@@ -173,19 +179,20 @@ def _generated[T](
             gmsh.model.occ.importShapes(str(path))
         gmsh.model.occ.synchronize()
         gmsh.model.mesh.generate(dim)
-        return read(gmsh.model.mesh)
+        return read(gmsh.model)
     except Exception as error:
         return MeshFailed(f"gmsh failed: {type(error).__name__}: {error}")
     finally:
         gmsh.finalize()
 
 
-def _surface_nodes(mesh: _Mesh) -> int:
-    _, face_nodes = mesh.getElementsByType(TRIANGLE6)
+def _surface_nodes(model: _Model) -> int:
+    _, face_nodes = model.mesh.getElementsByType(TRIANGLE6)
     return len({int(tag) for tag in face_nodes})
 
 
-def _read(mesh: _Mesh, node_cap: int) -> TetMesh | MeshFailed:
+def _read(model: _Model, node_cap: int) -> TetMesh | MeshFailed:
+    mesh = model.mesh
     _, tet_nodes = mesh.getElementsByType(TET10)
     if len(tet_nodes) == 0:
         return MeshFailed("gmsh made no 10-node tetrahedra")
@@ -203,9 +210,11 @@ def _read(mesh: _Mesh, node_cap: int) -> TetMesh | MeshFailed:
         tuple(index[int(tet_nodes[start + j])] for j in GMSH_TO_CCX)
         for start in range(0, len(tet_nodes), 10)
     )
-    _, face_nodes = mesh.getElementsByType(TRIANGLE6)
-    faces = tuple(
-        tuple(index[int(tag)] for tag in face_nodes[start : start + 6])
-        for start in range(0, len(face_nodes), 6)
-    )
-    return TetMesh(nodes, tets, faces)
+    faces: list[tuple[int, ...]] = []
+    surfaces: list[int] = []
+    for _, surface in model.getEntities(2):
+        _, face_nodes = mesh.getElementsByType(TRIANGLE6, surface)
+        for start in range(0, len(face_nodes), 6):
+            faces.append(tuple(index[int(tag)] for tag in face_nodes[start : start + 6]))
+            surfaces.append(surface - 1)
+    return TetMesh(nodes, tets, tuple(faces), tuple(surfaces))

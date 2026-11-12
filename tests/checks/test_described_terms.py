@@ -280,7 +280,7 @@ def middle(a: Point, b: Point) -> Point:
 def flat_mesh(triangles: list[tuple[Point, Point, Point]]) -> TetMesh:
     nodes = tuple(point for t in triangles for point in six_node(*t))
     faces = tuple(tuple(range(6 * k, 6 * k + 6)) for k in range(len(triangles)))
-    return TetMesh(nodes, (), faces)
+    return TetMesh(nodes, (), faces, (0,) * len(faces))
 
 
 DISC = Region((Disc((0, 0, 0), (0, 0, 1), 1.0),), (0, 0, 0), frozenset({0}))

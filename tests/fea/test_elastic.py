@@ -108,16 +108,25 @@ SQUARE = TetMesh(
     ),
     tets=(),
     faces=((0, 1, 2, 4, 5, 6), (0, 2, 3, 6, 7, 8), (0, 3, 9, 8, 11, 10)),
+    surfaces=(0, 0, 1),
 )  # fmt: skip
 ORIGIN = (0.0, 0.0, 0.0)
 HALF = math.sqrt(0.5)
-FLOOR = Region((Plane((5.0, 5.0, 0.0), (0.0, 0.0, -1.0)),), (1.0, 1.0, 0.0))
+FLOOR = Region((Plane((5.0, 5.0, 0.0), (0.0, 0.0, -1.0)),), (1.0, 1.0, 0.0), frozenset({0}))
 WALL = Plane((0.0, 0.0, 0.0), (-1.0, 0.0, 0.0))
 
 
-def test_a_region_takes_only_the_triangles_with_every_node_on_one_patch() -> None:
+def test_a_region_takes_the_triangles_on_its_faces() -> None:
     assert region_faces(SQUARE, FLOOR, 1e-6) == SQUARE.faces[:2]
-    assert region_faces(SQUARE, Region((WALL,), (0.0, 1.0, 1.0)), 1e-6) == SQUARE.faces[2:]
+    assert (
+        region_faces(SQUARE, Region((WALL,), (0.0, 1.0, 1.0), frozenset({1})), 1e-6)
+        == (SQUARE.faces[2:])
+    )
+
+
+def test_a_region_takes_no_triangle_off_its_faces_even_one_lying_on_its_plane() -> None:
+    elsewhere = Region((WALL,), (0.0, 1.0, 1.0), frozenset({0}))
+    assert region_faces(SQUARE, elsewhere, 1e-6) == SQUARE.faces[:2]
 
 
 def test_far_from_takes_the_triangles_wholly_past_the_cutoff() -> None:

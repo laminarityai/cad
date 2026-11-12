@@ -39,11 +39,16 @@ def region_faces(
     mesh: TetMesh, anchor: Region | FarFrom, tol: float
 ) -> tuple[Face, ...] | Unresolved:
     match anchor:
-        case Region(patches):
+        case Region(patches, _, chosen):
+            discs = [patch for patch in patches if isinstance(patch, Disc)]
             faces = tuple(
                 face
-                for face in mesh.faces
-                if any(all(contains(p, mesh.nodes[i], tol) for i in face) for p in patches)
+                for face, surface in zip(mesh.faces, mesh.surfaces, strict=True)
+                if surface in chosen
+                and (
+                    not discs
+                    or any(all(contains(d, mesh.nodes[i], tol) for i in face) for d in discs)
+                )
             )
         case FarFrom():
             surface = [mesh.nodes[i] for i in face_nodes(mesh.faces)]

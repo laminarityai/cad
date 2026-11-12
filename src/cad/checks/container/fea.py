@@ -30,6 +30,7 @@ from cad.checks.container.kernel import FaceInfo, Inertia, Shape, Unreadable
 from cad.checks.container.mesher import (
     MESH_CHANGE_LIMIT,
     MeshFailed,
+    MeshPair,
     MeshSizes,
     OverCap,
     TetMesh,
@@ -159,6 +160,9 @@ def assessed(subject: Subject, shape: Shape, case: terms.LoadCase, force: float)
     meshes = mesh_pair(subject.fem.mesh, sizes)
     if isinstance(meshes, MeshFailed):
         return finding("unknown", meshes.reason, *echoed)
+    unmatched = _unmatched(meshes, len(part.faces))
+    if unmatched is not None:
+        return finding("unknown", unmatched, *echoed)
     coarse = solve_at(subject.fem, meshes.coarse, sizes.coarse, resolved, material, force)
     if isinstance(coarse, Unsolved):
         return finding("unknown", coarse.reason, *echoed)
@@ -169,6 +173,19 @@ def assessed(subject: Subject, shape: Shape, case: terms.LoadCase, force: float)
     return judged(
         coarse, fine, yield_mpa, features.extent(part.inertia), echoed, clamped, meshes.over_cap
     )
+
+
+def _unmatched(meshes: MeshPair, kernel_faces: int) -> str | None:
+    """Supports and loads are picked by kernel face index and applied by gmsh surface tag, so the
+    two must count the same faces."""
+    for mesh in (meshes.coarse, meshes.fine):
+        surfaces = len(set(mesh.surfaces))
+        if surfaces != kernel_faces:
+            return (
+                f"the mesh has triangles on {surfaces} surfaces where the kernel reads "
+                f"{kernel_faces} faces, so the support and load cannot be placed"
+            )
+    return None
 
 
 def mesh_sizes_of(faces: Sequence[FaceInfo], inertia: Inertia) -> MeshSizes:

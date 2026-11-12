@@ -53,10 +53,13 @@ def boundary_and_far_end(
         six_node_triangles(origin, y, x, (4, 8)),
         six_node_triangles(z, x, y, (8, 4)),
     ]
-    triangles = far + [t for side in sides for t in side]
+    blocks = [far, *sides]
+    triangles = [t for block in blocks for t in block]
     nodes = tuple(point for triangle in triangles for point in triangle)
     faces = tuple(tuple(range(6 * k, 6 * k + 6)) for k in range(len(triangles)))
-    return TetMesh(nodes, (), faces), faces[: len(far)]
+    kernel_order = (1, 0, 2, 3, 4, 5)  # where the kernel lists each block's face of a box
+    surfaces = tuple(k for k, block in zip(kernel_order, blocks, strict=True) for _ in block)
+    return TetMesh(nodes, (), faces, surfaces), faces[: len(far)]
 
 
 def clamped_at(solid: Solid, root: Point) -> Candidate:
@@ -78,7 +81,8 @@ def must_lines(found: tuple[FarFrom, ...] | Unresolved) -> tuple[FarFrom, ...]:
 
 
 def moved(mesh: TetMesh) -> TetMesh:
-    return TetMesh(tuple(apply(MOVE, node) for node in mesh.nodes), mesh.tets, mesh.faces)
+    nodes = tuple(apply(MOVE, node) for node in mesh.nodes)
+    return TetMesh(nodes, mesh.tets, mesh.faces, mesh.surfaces)
 
 
 MESH, END = boundary_and_far_end(LENGTH, WIDTH, THICK)
