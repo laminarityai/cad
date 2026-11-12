@@ -2,13 +2,14 @@ import { Box, ChevronLeft, ChevronRight, Ruler } from "lucide-react";
 import { useMemo, useState, type Dispatch, type ReactElement } from "react";
 import { DimensionOverlay } from "@/features/viewer/DimensionOverlay";
 import type { Extents } from "@/features/viewer/dimensions";
-import type { OnPick, Shapes, Track } from "@/features/viewer/engine";
+import type { OnPick, Track } from "@/features/viewer/engine";
 import { readoutOf, type Measure } from "@/features/viewer/readout";
 import type { Pick, Selection } from "@/features/viewer/selection";
 import { SelectionNote } from "@/features/viewer/SelectionNote";
 import { ViewerCanvas } from "@/features/viewer/ViewerCanvas";
+import { useDrawn } from "@/features/viewer/useDrawn";
 import { useMesh } from "@/features/viewer/useMesh";
-import { ROLE_COLOUR, splitFaces, type Where } from "@/features/viewer/where";
+import { ROLE_COLOUR, type Where } from "@/features/viewer/where";
 import { TabsList, TabsTab } from "@/components/ui/tabs";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -49,26 +50,6 @@ export function SlotTabs(props: { brief: Brief; cards: Record<string, Card> }) {
   );
 }
 
-/** A part that must fit is built in that part's frame, so the two draw together as they are. */
-function withFit(part: Shapes, fit: Shapes): Shapes {
-  const ghost = fit.parts.map((one) => ({
-    ...one,
-    id: `/fit${one.id}`,
-    name: `fit ${one.name}`,
-    color: "#9aa7b4",
-    alpha: 0.22,
-  }));
-  const bb = {
-    xmin: Math.min(part.bb.xmin, fit.bb.xmin),
-    xmax: Math.max(part.bb.xmax, fit.bb.xmax),
-    ymin: Math.min(part.bb.ymin, fit.bb.ymin),
-    ymax: Math.max(part.bb.ymax, fit.bb.ymax),
-    zmin: Math.min(part.bb.zmin, fit.bb.zmin),
-    zmax: Math.max(part.bb.zmax, fit.bb.zmax),
-  };
-  return { ...part, parts: [...part.parts, ...ghost], bb };
-}
-
 const NO_PICKS: readonly Pick[] = [];
 const ignore: OnPick = () => undefined;
 
@@ -84,19 +65,19 @@ function Mesh(props: { variantId: string; label: string; fit: Fit | null; where:
   const topology = mesh.status === "ready" ? mesh.topology : null;
   const picks = selection?.picks ?? NO_PICKS;
   const readout = useMemo(() => (topology ? readoutOf(picks, topology, measure ?? unmeasured) : null), [picks, topology, measure]);
-  const shapes = mesh.status === "ready" ? mesh.shapes : mesh.status === "loading" ? mesh.lastDrawn : null;
+  const part = mesh.status === "ready" ? mesh.shapes : mesh.status === "loading" ? mesh.lastDrawn : null;
+  const ghost = fit && fitMesh.status === "ready" ? fitMesh.shapes : null;
+  const drawn = useDrawn(part, ghost, where);
   let body: ReactElement;
   if (mesh.status === "failed") {
     body = <p className="p-4 text-fail">{mesh.reason}</p>;
-  } else if (shapes === null) {
+  } else if (drawn === null) {
     body = <p className="p-4 text-ink-3">Drawing…</p>;
   } else {
-    const ghost = fit && fitMesh.status === "ready" ? fitMesh.shapes : null;
-    const marked = where ? splitFaces(shapes, where) : shapes;
     body = (
       <ViewerCanvas
         key={`${variantId}:${String(ghost !== null)}`}
-        shapes={ghost ? withFit(marked, ghost) : marked}
+        shapes={drawn}
         label={label}
         picks={picks}
         onPick={mesh.status === "ready" ? onPick : ignore}
