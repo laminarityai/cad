@@ -217,6 +217,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         "requirements covered by agent-written checks the person approved: "
         f"{describe(tracking.agent_coverage)}"
     )
+    print(
+        "requirements decided on a load case the agent described, counted apart: "
+        f"{describe(tracking.described_coverage)}"
+    )
     for line in describe_apart(tracking):
         print(line)
     if not counts.cards:

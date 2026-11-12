@@ -25,12 +25,15 @@ NO_REQUIREMENTS: Final = "no requirements"
 
 
 class By(StrEnum):
-    """Who a requirement's verdict is by. ADR-0009 and ADR-0011 count each apart."""
+    """Who a requirement's verdict is by. ADR-0007, ADR-0009 and ADR-0011 count each apart.
+    A verdict on a described load case is counted there even when it also read researched values,
+    because the load case is what no team reviewed."""
 
     TEAM = "a team check on reviewed table values"
     RESEARCHED = "a team check on researched values"
     WAITING = "a team check that has not reported yet"
     AGENT_CHECK = "an agent-written check the person approved"
+    DESCRIBED = "a team check on a load case the agent described"
     NONE = "no check"
 
 
@@ -91,6 +94,7 @@ class Tracking:
     strict_pass_rate: Share
     reviewed_coverage: Share
     agent_coverage: Share
+    described_coverage: Share
     by: Mapping[By, Decided]
     uncovered: Mapping[str, int]
 
@@ -113,6 +117,8 @@ def outcomes_of(card: Scorecard) -> tuple[RequirementOutcome, ...]:
 def by_of(result: RequirementResult) -> By:
     match result:
         case Checked():
+            if result.load_case == "described":
+                return By.DESCRIBED
             return By.RESEARCHED if result.basis == "researched" else By.TEAM
         case Waiting():
             return By.WAITING
@@ -132,7 +138,8 @@ def family(statement: str) -> str:
 
 def track(outcomes: tuple[RequirementOutcome, ...]) -> Tracking:
     """A requirement passes strictly when a reviewed check decided it and the verdict is pass. An
-    unverified requirement, or one an unreviewed check decided, counts against both numbers."""
+    unverified requirement, or one an unreviewed check or a described load case decided, counts
+    against both numbers."""
     return Tracking(
         strict_pass_rate=_share(
             sum(1 for one in outcomes if one.reviewed and one.verdict == Verdict.PASS),
@@ -141,6 +148,9 @@ def track(outcomes: tuple[RequirementOutcome, ...]) -> Tracking:
         reviewed_coverage=_share(sum(1 for one in outcomes if one.reviewed), len(outcomes)),
         agent_coverage=_share(
             sum(1 for one in outcomes if one.by is By.AGENT_CHECK), len(outcomes)
+        ),
+        described_coverage=_share(
+            sum(1 for one in outcomes if one.by is By.DESCRIBED), len(outcomes)
         ),
         by={
             by: Decided(

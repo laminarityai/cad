@@ -35,7 +35,11 @@ class Checked(Frozen):
 
     `basis` is `researched` when the deciding result read a researched value, and `researched`
     names each one with its source and quote (ADR-0009). Report such a pass as "passes on
-    researched data", never as a plain pass."""
+    researched data", never as a plain pass.
+
+    `load_case` is `described` when the requirement's load case uses a term beyond the reviewed
+    phrases, which the agent combined and the person confirmed (ADR-0007). Report a pass on one
+    as "passes on a load case I described", never as a plain pass."""
 
     kind: Literal["checked"] = "checked"
     requirement_id: str
@@ -46,6 +50,7 @@ class Checked(Frozen):
     comparisons: tuple[Comparison, ...]
     basis: Literal["checks", "researched"] = "checks"
     researched: tuple[ReadResearched, ...] = Field(default=(), exclude_if=lambda one: not one)
+    load_case: Literal["described"] | None = Field(default=None, exclude_if=lambda one: one is None)
 
     @model_validator(mode="after")
     def _basis_names_the_research(self) -> Self:

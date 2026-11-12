@@ -29,7 +29,7 @@ from cad.conversations import store as conversations
 from cad.operations import scorecards
 from cad.operations.agent_checks import approved_checks
 from cad.operations.conversations import ConversationState
-from cad.operations.guidance import AUTO_AGENT_CHECKS
+from cad.operations.guidance import AUTO_AGENT_CHECKS, AUTO_DESCRIBED
 from cad.operations.model import Audience, Input, Tenant, operation
 from cad.operations.variants import MAX_CODE_CHARS, chooser, with_out_of_date
 from cad.sandbox import image
@@ -89,6 +89,8 @@ AUTO_REVISE = (
     "covers the requirement, and it counts as neither pass nor fail. pass_researched rests on a "
     'researched value: report it as "passes on researched data". '
     + AUTO_AGENT_CHECKS
+    + " "
+    + AUTO_DESCRIBED
     + " When settling is true, the "
     "latest scorecard still has a pending check and nothing was recorded: call auto_revise "
     "again with the same code to wait for it. Code the run already recorded is not built "

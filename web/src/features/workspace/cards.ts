@@ -108,6 +108,8 @@ function statusOf(verdict: string, researched: boolean): Status {
   return verdict === "fail" ? "fail" : "unknown";
 }
 
+const DESCRIBED_TAG = "load case the agent described, not reviewed by our team";
+
 export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
   const results = snapshot.results;
   const done = (id: string) => results.find((one): one is DoneCheck => isDone(one) && one.check_id === id);
@@ -157,14 +159,18 @@ export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
         continue;
       }
       const researched = "basis" in one && one.basis === "researched";
+      const described = "load_case" in one && one.load_case === "described";
+      const reason = "reason" in one ? one.reason : "";
       asked.push({
         key,
         label: short(one.statement),
         status: statusOf("verdict" in one ? one.verdict : "unknown", researched),
         value: valueOf(result),
-        why: "reason" in one ? one.reason : "",
+        // The person confirmed these words, so the row keeps them whole beside its reason.
+        why: described ? `${one.statement}. ${reason}` : reason,
         formula: result?.formula ?? "",
         sources: result?.sources ?? [],
+        ...(described ? { tag: DESCRIBED_TAG } : {}),
       });
     }
   }
@@ -261,8 +267,13 @@ export function summaryOf(card: Card | undefined): {
     };
   if (all.some((one) => one.status === "unknown")) return { status: "unknown", text: "Unknowns" };
   const agent = all.filter((one) => one.status === "agent").length;
-  if (agent > 0) return { status: "agent", text: `All pass, ${String(agent)} on the agent's check` };
-  return { status: "pass", text: "All pass" };
+  const described = all.filter((one) => one.tag === DESCRIBED_TAG).length;
+  const apart = [
+    ...(agent > 0 ? [`${String(agent)} on the agent's check`] : []),
+    ...(described > 0 ? [`${String(described)} on a load case the agent described`] : []),
+  ];
+  const text = apart.length > 0 ? `All pass, ${apart.join(", ")}` : "All pass";
+  return { status: agent > 0 ? "agent" : "pass", text };
 }
 
 export function sourcesOf(cards: Record<string, Card>): Source[] {

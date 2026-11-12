@@ -281,6 +281,7 @@ def _section(label: str, index: int, section: Section) -> str:
         f"<li><strong>{html.escape(row.headline)}</strong><br>"
         f'From {html.escape(row.source)}: <q class="origin">{html.escape(row.quote)}</q><br>'
         f'<span class="check">{html.escape(row.decides)}</span>'
+        f"{_note(row.note)}"
         f"{_change(index, row.editable)}</li>"
         for row in section.rows
     )
@@ -289,6 +290,10 @@ def _section(label: str, index: int, section: Section) -> str:
         f'<blockquote class="brief">{html.escape(section.context)}</blockquote>'
         f"<ol>{rows}</ol></section>"
     )
+
+
+def _note(note: str) -> str:
+    return f"<br><em>{html.escape(note)}</em>" if note else ""
 
 
 def _change(index: int, editable: Editable | None) -> str:

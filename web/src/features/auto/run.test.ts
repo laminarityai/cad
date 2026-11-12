@@ -17,6 +17,14 @@ describe("an Auto run that stops with every requirement passing", () => {
     expect(reasonText(view.reason, view.agentChecked)).toBe("every checked requirement passes, 1 on the agent's check");
   });
 
+  it("says how many passes rest on a load case the agent described", () => {
+    const run = allPassOn([]);
+    if (run.state.kind !== "stopped" || run.state.reason.kind !== "all_pass") throw new Error("the fake run should have stopped on all pass");
+    const view = viewOf({ ...run, state: { ...run.state, reason: { ...run.state.reason, described: ["r4"] } } });
+    if (view.status !== "stopped") throw new Error("the run should read as stopped");
+    expect(reasonText(view.reason, view.agentChecked, view.described)).toBe("every checked requirement passes, 1 on a load case the agent described");
+  });
+
   it("says nothing of the agent's check when none was counted", () => {
     const view = viewOf(allPassOn([]));
     if (view.status !== "stopped") throw new Error("the run should read as stopped");

@@ -86,6 +86,7 @@ def test_a_researched_verdict_and_a_cited_one_each_land_on_their_own_line() -> N
         By.RESEARCHED: Decided(1, 1),
         By.WAITING: Decided(1, 0),
         By.AGENT_CHECK: Decided(0, 0),
+        By.DESCRIBED: Decided(0, 0),
         By.NONE: Decided(0, 0),
     }
     assert describe_apart(tracking)[:2] == [

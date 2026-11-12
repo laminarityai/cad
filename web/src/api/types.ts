@@ -545,6 +545,8 @@ export interface components {
             unverified: string[];
             /** @default [] */
             agent_checked: string[];
+            /** @default [] */
+            described?: string[];
         };
         /** Along */
         Along: {
@@ -665,6 +667,17 @@ export interface components {
             measured: components["schemas"]["Measured"] | null;
         };
         /**
+         * Away
+         * @description Along the line from the support's centroid to the load's centroid: a pull.
+         */
+        Away: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "away";
+        };
+        /**
          * Axis
          * @enum {string}
          */
@@ -755,6 +768,7 @@ export interface components {
             quote: string;
             source: string;
             editable: components["schemas"]["CardEditable"] | null;
+            note: string;
         };
         /** CheckResult */
         CheckResult: {
@@ -778,6 +792,10 @@ export interface components {
          *     `basis` is `researched` when the deciding result read a researched value, and `researched`
          *     names each one with its source and quote (ADR-0009). Report such a pass as "passes on
          *     researched data", never as a plain pass.
+         *
+         *     `load_case` is `described` when the requirement's load case uses a term beyond the reviewed
+         *     phrases, which the agent combined and the person confirmed (ADR-0007). Report a pass on one
+         *     as "passes on a load case I described", never as a plain pass.
          */
         Checked: {
             /**
@@ -798,6 +816,8 @@ export interface components {
             basis: "checks" | "researched";
             /** @default [] */
             researched?: components["schemas"]["ReadResearched"][];
+            /** @default null */
+            load_case?: "described" | null;
         };
         /**
          * ClearanceSeries
@@ -882,13 +902,18 @@ export interface components {
             brief_id: string | null;
             run: components["schemas"]["AutoRun"] | null;
         };
+        /**
+         * Curve
+         * @enum {string}
+         */
+        Curve: "hole" | "inner_curve";
         /** Declined */
         Declined: {
             part_id: string;
             declined: boolean;
         };
         Differs: string;
-        Direction: components["schemas"]["Along"] | components["schemas"]["Across"] | components["schemas"]["AnyWay"];
+        Direction: components["schemas"]["Along"] | components["schemas"]["Across"] | components["schemas"]["AnyWay"] | components["schemas"]["Into"] | components["schemas"]["Away"];
         /** DocumentView */
         DocumentView: {
             file_id: string;
@@ -912,6 +937,21 @@ export interface components {
             answered: components["schemas"]["Answered"] | null;
         };
         /**
+         * Each
+         * @description Fixed at one hole or one inner curved face, of this diameter when given. Each one is a
+         *     candidate, and the check keeps the worst.
+         */
+        Each: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "each";
+            curve: components["schemas"]["Curve"];
+            /** @default null */
+            diameter: components["schemas"]["Length"] | null;
+        };
+        /**
          * EdgeFacts
          * @description What one BREP edge is, in the order `shapes` numbers edges. `center` is the point halfway
          *     along it, `direction` is a line's, `radius` a circle's, and `faces` are the faces it bounds.
@@ -923,6 +963,18 @@ export interface components {
             direction: components["schemas"]["Vec"] | null;
             radius: number | null;
             faces: number[];
+        };
+        /**
+         * EndOf
+         * @description Fixed at the flat face across one end of the middle or short axis.
+         */
+        EndOf: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "end_of";
+            axis: components["schemas"]["PartAxis"];
         };
         /**
          * Envelope
@@ -990,6 +1042,17 @@ export interface components {
             radius: number | null;
             axis: components["schemas"]["Vec"] | null;
             edges: number[];
+        };
+        /**
+         * Facing
+         * @description Fixed at one of two flat faces that face each other across a gap.
+         */
+        Facing: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "facing";
         };
         /**
          * FarEnd
@@ -1093,7 +1156,32 @@ export interface components {
             /** @default null */
             diameter: components["schemas"]["Length"] | null;
         };
+        /**
+         * InOneFlatFace
+         * @description Fixed at exactly `count` holes that open on one flat face. Each such set is a candidate.
+         */
+        InOneFlatFace: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "in_one_flat_face";
+            count: components["schemas"]["HoleCount"];
+            /** @default null */
+            diameter: components["schemas"]["Length"] | null;
+        };
         Index: number;
+        /**
+         * Into
+         * @description Along the inward normal of the loaded flat face: a press.
+         */
+        Into: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "into";
+        };
         /** @enum {string} */
         ItemKindName: "requirements" | "context_part" | "agent_check";
         /** KnowledgeHit */
@@ -1127,7 +1215,7 @@ export interface components {
             magnitude: number;
             unit: string;
         };
-        Load: components["schemas"]["FarEnd"] | components["schemas"]["OnHoles"];
+        Load: components["schemas"]["FarEnd"] | components["schemas"]["OnHoles"] | components["schemas"]["OnLargestFlat"] | components["schemas"]["OnOpposite"] | components["schemas"]["OnFarthest"];
         /** LoadCase */
         LoadCase: {
             support: components["schemas"]["Support"];
@@ -1356,6 +1444,23 @@ export interface components {
             kind: "no_brief";
         };
         /**
+         * OnFarthest
+         * @description On the hole or inner curved face farthest from the supports, of this diameter when
+         *     given.
+         */
+        OnFarthest: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "on_farthest";
+            curve: components["schemas"]["Curve"];
+            /** @default null */
+            diameter: components["schemas"]["Length"] | null;
+            force: components["schemas"]["Force"];
+            direction: components["schemas"]["Direction"];
+        };
+        /**
          * OnHoles
          * @description Hangs from exactly `count` holes that are not supports.
          */
@@ -1372,6 +1477,36 @@ export interface components {
             direction: components["schemas"]["Direction"];
         };
         /**
+         * OnLargestFlat
+         * @description On the largest flat face, or on a disc at its middle.
+         */
+        OnLargestFlat: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "on_largest_flat";
+            /** @default false */
+            middle: boolean;
+            force: components["schemas"]["Force"];
+            direction: components["schemas"]["Direction"];
+        };
+        /**
+         * OnOpposite
+         * @description On the flat face across the gap from a `Facing` support, or on a disc at its middle.
+         */
+        OnOpposite: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "on_opposite";
+            /** @default false */
+            middle: boolean;
+            force: components["schemas"]["Force"];
+            direction: components["schemas"]["Direction"];
+        };
+        /**
          * Option
          * @description What the agent calls a slot and how it differs from the set's other slots. A design note
          *     like the material choice: never a requirement or a verdict.
@@ -1383,6 +1518,11 @@ export interface components {
         Origin: components["schemas"]["BriefSpan"] | components["schemas"]["FileQuote"];
         /** @enum {string} */
         Outcome: "waiting" | "confirmed" | "declined";
+        /**
+         * PartAxis
+         * @enum {string}
+         */
+        PartAxis: "middle" | "short";
         PartId: string;
         /** PartWire */
         PartWire: {
@@ -1737,6 +1877,8 @@ export interface components {
                 string,
                 components["schemas"]["Mark"]
             ][];
+            /** @default [] */
+            described?: string[];
         };
         /** Started */
         Started: {
@@ -1817,7 +1959,7 @@ export interface components {
              */
             kind: "stopped_by_person";
         };
-        Support: components["schemas"]["Holes"] | components["schemas"]["LargestFlat"] | components["schemas"]["FlatEnd"];
+        Support: components["schemas"]["Holes"] | components["schemas"]["LargestFlat"] | components["schemas"]["FlatEnd"] | components["schemas"]["EndOf"] | components["schemas"]["Facing"] | components["schemas"]["Each"] | components["schemas"]["InOneFlatFace"];
         Target: components["schemas"]["ClosedSolid"] | components["schemas"]["MaxMass"] | components["schemas"]["MinMass"] | components["schemas"]["Envelope"] | components["schemas"]["MeasureLimit"] | components["schemas"]["Unchecked"] | components["schemas"]["MadeOf"] | components["schemas"]["MinSafetyFactor"] | components["schemas"]["MaxDeflection"] | components["schemas"]["MinClearance"] | components["schemas"]["MaxClearance"] | components["schemas"]["FastenerHoles"] | components["schemas"]["PlainHoles"] | components["schemas"]["FitsWith"] | components["schemas"]["AgentLimit"];
         /**
          * Tessellated
@@ -1987,6 +2129,8 @@ export interface components {
             requirement_id: string;
             statement: string;
             check_id: string;
+            /** @default null */
+            load_case?: "described" | null;
         };
         /** Read */
         cad__auto__model__Read: {
@@ -2101,6 +2245,7 @@ export type AutoState = components['schemas']['AutoState'];
 export type AwaitingConfirmation = components['schemas']['AwaitingConfirmation'];
 export type AwaitingRow = components['schemas']['AwaitingRow'];
 export type AwaitingValue = components['schemas']['AwaitingValue'];
+export type Away = components['schemas']['Away'];
 export type Axis = components['schemas']['Axis'];
 export type Basis = components['schemas']['Basis'];
 export type BoundingBoxWire = components['schemas']['BoundingBoxWire'];
@@ -2123,12 +2268,15 @@ export type ContextPartView = components['schemas']['ContextPartView'];
 export type ConversationCreated = components['schemas']['ConversationCreated'];
 export type ConversationState = components['schemas']['ConversationState'];
 export type ConversationView = components['schemas']['ConversationView'];
+export type Curve = components['schemas']['Curve'];
 export type Declined = components['schemas']['Declined'];
 export type Differs = components['schemas']['Differs'];
 export type Direction = components['schemas']['Direction'];
 export type DocumentView = components['schemas']['DocumentView'];
 export type DriverSaid = components['schemas']['DriverSaid'];
+export type Each = components['schemas']['Each'];
 export type EdgeFacts = components['schemas']['EdgeFacts'];
+export type EndOf = components['schemas']['EndOf'];
 export type Envelope = components['schemas']['Envelope'];
 export type Error = components['schemas']['Error'];
 export type Event = components['schemas']['Event'];
@@ -2138,6 +2286,7 @@ export type ExportPreparing = components['schemas']['ExportPreparing'];
 export type ExportReady = components['schemas']['ExportReady'];
 export type ExportView = components['schemas']['ExportView'];
 export type FaceFacts = components['schemas']['FaceFacts'];
+export type Facing = components['schemas']['Facing'];
 export type FarEnd = components['schemas']['FarEnd'];
 export type FastenerHoles = components['schemas']['FastenerHoles'];
 export type Field = components['schemas']['Field'];
@@ -2150,7 +2299,9 @@ export type HoleCount = components['schemas']['HoleCount'];
 export type HoleFit = components['schemas']['HoleFit'];
 export type HoleTolerance = components['schemas']['HoleTolerance'];
 export type Holes = components['schemas']['Holes'];
+export type InOneFlatFace = components['schemas']['InOneFlatFace'];
 export type Index = components['schemas']['Index'];
+export type Into = components['schemas']['Into'];
 export type ItemKindName = components['schemas']['ItemKindName'];
 export type KnowledgeHit = components['schemas']['KnowledgeHit'];
 export type KnowledgeHits = components['schemas']['KnowledgeHits'];
@@ -2182,10 +2333,14 @@ export type MinMass = components['schemas']['MinMass'];
 export type MinSafetyFactor = components['schemas']['MinSafetyFactor'];
 export type NeedsPerson = components['schemas']['NeedsPerson'];
 export type NoBrief = components['schemas']['NoBrief'];
+export type OnFarthest = components['schemas']['OnFarthest'];
 export type OnHoles = components['schemas']['OnHoles'];
+export type OnLargestFlat = components['schemas']['OnLargestFlat'];
+export type OnOpposite = components['schemas']['OnOpposite'];
 export type Option = components['schemas']['Option'];
 export type Origin = components['schemas']['Origin'];
 export type Outcome = components['schemas']['Outcome'];
+export type PartAxis = components['schemas']['PartAxis'];
 export type PartId = components['schemas']['PartId'];
 export type PartWire = components['schemas']['PartWire'];
 export type PendingCheck = components['schemas']['PendingCheck'];

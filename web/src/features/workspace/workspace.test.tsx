@@ -24,7 +24,7 @@ const card = (items: number): ConfirmationCard & { snapshot: string } => ({
     brief_id: `b${String(at + 1)}`,
     brief_text: "a hook",
     title: "What I will check",
-    rows: [{ headline: "Mass at most 150 g", quote: "light", source: "your words", editable: { row: "r1", placeholder: "150 g" } }],
+    rows: [{ headline: "Mass at most 150 g", quote: "light", source: "your words", note: "", editable: { row: "r1", placeholder: "150 g" } }],
   })),
 });
 
@@ -113,6 +113,18 @@ describe("the confirm card", () => {
     expect(Object.fromEntries(several)).toEqual({ snapshot: "s1", answer: "confirm", note: "too heavy", "edit-0-r1": "120", "decline-1": "decline" });
     const single = formOf(card(1), "decline", new Set(), edits, "no");
     expect(Object.fromEntries(single)).toEqual({ snapshot: "s1", answer: "decline", note: "no" });
+  });
+
+  it("shows the note under a load case the agent described, and none under a reviewed row", () => {
+    const note = "The agent described where this part is held and loaded. Confirm only if these words match how it will be used.";
+    const base = card(1);
+    const [item] = base.items;
+    if (!item) throw new Error("the card has no item");
+    const [row] = item.rows;
+    if (!row) throw new Error("the item has no row");
+    const described = { ...base, items: [{ ...item, rows: [row, { ...row, headline: "Holds 49 N", editable: null, note }] }] };
+    render(<ConfirmCard projectId="p1" card={described} onAnswered={vi.fn()} />, { wrapper: wrap(fakeApi([], {})) });
+    expect(screen.getAllByText(note)).toHaveLength(1);
   });
 
   it("posts the answer and shows the server's words when it refuses", async () => {

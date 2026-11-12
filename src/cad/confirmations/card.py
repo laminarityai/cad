@@ -25,6 +25,7 @@ class CardRow(BaseModel):
     quote: str
     source: str
     editable: CardEditable | None
+    note: str
 
 
 class CardItem(BaseModel):
@@ -60,6 +61,7 @@ def card(person: PersonSession, roots: Roots, project: ProjectId) -> Confirmatio
                 headline=row.headline,
                 quote=row.quote,
                 source=row.source,
+                note=row.note,
                 editable=None
                 if row.editable is None
                 else CardEditable(row=row.editable.row, placeholder=row.editable.placeholder),

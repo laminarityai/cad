@@ -1,10 +1,10 @@
 import hashlib
 import json
 from enum import StrEnum
-from typing import Annotated, Final, Literal, NewType, assert_never
+from typing import Annotated, Final, Literal, NewType, Self, assert_never
 
 import pint
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from cad.checks.container.wire import (
     DirectionWire,
@@ -42,7 +42,54 @@ class FlatEnd(Frozen):
     kind: Literal["flat_end"] = "flat_end"
 
 
-type Support = Annotated[Holes | LargestFlat | FlatEnd, Field(discriminator="kind")]
+class PartAxis(StrEnum):
+    MIDDLE = "middle"
+    """The principal axis of second-largest spread."""
+    SHORT = "short"
+    """The principal axis of least spread. The long one stays the reviewed `flat_end`."""
+
+
+class Curve(StrEnum):
+    HOLE = "hole"
+    """The bores of one hole."""
+    INNER_CURVE = "inner_curve"
+    """A concave cylindrical face that is not part of a hole."""
+
+
+class EndOf(Frozen):
+    """Fixed at the flat face across one end of the middle or short axis."""
+
+    kind: Literal["end_of"] = "end_of"
+    axis: PartAxis
+
+
+class Facing(Frozen):
+    """Fixed at one of two flat faces that face each other across a gap."""
+
+    kind: Literal["facing"] = "facing"
+
+
+class Each(Frozen):
+    """Fixed at one hole or one inner curved face, of this diameter when given. Each one is a
+    candidate, and the check keeps the worst."""
+
+    kind: Literal["each"] = "each"
+    curve: Curve
+    diameter: Length | None = None
+
+
+class InOneFlatFace(Frozen):
+    """Fixed at exactly `count` holes that open on one flat face. Each such set is a candidate."""
+
+    kind: Literal["in_one_flat_face"] = "in_one_flat_face"
+    count: HoleCount
+    diameter: Length | None = None
+
+
+type Support = Annotated[
+    Holes | LargestFlat | FlatEnd | EndOf | Facing | Each | InOneFlatFace,
+    Field(discriminator="kind"),
+]
 
 
 class Axis(StrEnum):
@@ -68,7 +115,19 @@ class AnyWay(Frozen):
     kind: Literal["any"] = "any"
 
 
-type Direction = Annotated[Along | Across | AnyWay, Field(discriminator="kind")]
+class Into(Frozen):
+    """Along the inward normal of the loaded flat face: a press."""
+
+    kind: Literal["into"] = "into"
+
+
+class Away(Frozen):
+    """Along the line from the support's centroid to the load's centroid: a pull."""
+
+    kind: Literal["away"] = "away"
+
+
+type Direction = Annotated[Along | Across | AnyWay | Into | Away, Field(discriminator="kind")]
 
 
 class FarEnd(Frozen):
@@ -89,12 +148,70 @@ class OnHoles(Frozen):
     direction: Direction
 
 
-type Load = Annotated[FarEnd | OnHoles, Field(discriminator="kind")]
+class OnLargestFlat(Frozen):
+    """On the largest flat face, or on a disc at its middle."""
+
+    kind: Literal["on_largest_flat"] = "on_largest_flat"
+    middle: bool = False
+    force: Force
+    direction: Direction
+
+
+class OnOpposite(Frozen):
+    """On the flat face across the gap from a `Facing` support, or on a disc at its middle."""
+
+    kind: Literal["on_opposite"] = "on_opposite"
+    middle: bool = False
+    force: Force
+    direction: Direction
+
+
+class OnFarthest(Frozen):
+    """On the hole or inner curved face farthest from the supports, of this diameter when
+    given."""
+
+    kind: Literal["on_farthest"] = "on_farthest"
+    curve: Curve
+    diameter: Length | None = None
+    force: Force
+    direction: Direction
+
+
+type Load = Annotated[
+    FarEnd | OnHoles | OnLargestFlat | OnOpposite | OnFarthest, Field(discriminator="kind")
+]
+
+REVIEWED: Final = frozenset(
+    {"holes", "largest_flat", "flat_end", "far_end", "on_holes", "along", "across", "any"}
+)
+"""The kinds of the reviewed phrases. A load case with any other kind is described."""
 
 
 class LoadCase(Frozen):
     support: Support
     load: Load
+
+    @property
+    def described(self) -> bool:
+        """True when the case uses a term beyond the reviewed phrases."""
+        return not {self.support.kind, self.load.kind, self.load.direction.kind} <= REVIEWED
+
+    @model_validator(mode="after")
+    def _terms_name_something(self) -> Self:
+        """The pairings that name nothing. Only a described case is held to the hole axis rule,
+        so a reviewed case stored before it still reads."""
+        load, support, direction = self.load, self.support, self.load.direction
+        if isinstance(load, OnOpposite) and not isinstance(support, Facing):
+            raise ValueError("on_opposite needs a facing support: the flat face across the gap")
+        if isinstance(direction, Into) and not isinstance(load, OnLargestFlat | OnOpposite):
+            raise ValueError("into presses on a flat face, so only on_largest_flat or on_opposite")
+        through_holes = isinstance(support, Holes | InOneFlatFace) or (
+            isinstance(support, Each) and support.curve is Curve.HOLE
+        )
+        on_hole_axis = isinstance(direction, Along | Across) and direction.axis is Axis.HOLE_AXIS
+        if self.described and on_hole_axis and not through_holes:
+            raise ValueError("the hole_axis needs a support through holes")
+        return self
 
     @property
     def id(self) -> LoadCaseId:
@@ -123,7 +240,7 @@ def _millimetres(length: pint.Quantity | None) -> float | None:
     return None if length is None else magnitude(length, "mm")
 
 
-def _support_wire(support: Holes | LargestFlat | FlatEnd) -> SupportWire:
+def _support_wire(support: Support) -> SupportWire:
     match support:
         case Holes(count=count, diameter=diameter):
             return {"kind": "holes", "count": count, "diameter_mm": _millimetres(diameter)}
@@ -131,11 +248,23 @@ def _support_wire(support: Holes | LargestFlat | FlatEnd) -> SupportWire:
             return {"kind": "largest_flat"}
         case FlatEnd():
             return {"kind": "flat_end"}
+        case EndOf(axis=axis):
+            return {"kind": "end_of", "axis": axis.value}
+        case Facing():
+            return {"kind": "facing"}
+        case Each(curve=curve, diameter=diameter):
+            return {"kind": "each", "curve": curve.value, "diameter_mm": _millimetres(diameter)}
+        case InOneFlatFace(count=count, diameter=diameter):
+            return {
+                "kind": "in_one_flat_face",
+                "count": count,
+                "diameter_mm": _millimetres(diameter),
+            }
         case _:
             assert_never(support)
 
 
-def _direction_wire(direction: Along | Across | AnyWay) -> DirectionWire:
+def _direction_wire(direction: Direction) -> DirectionWire:
     match direction:
         case Along(axis=axis):
             return {"kind": "along", "axis": axis.value}
@@ -143,11 +272,15 @@ def _direction_wire(direction: Along | Across | AnyWay) -> DirectionWire:
             return {"kind": "across", "axis": axis.value}
         case AnyWay():
             return {"kind": "any"}
+        case Into():
+            return {"kind": "into"}
+        case Away():
+            return {"kind": "away"}
         case _:
             assert_never(direction)
 
 
-def _load_wire(load: FarEnd | OnHoles) -> LoadWire:
+def _load_wire(load: Load) -> LoadWire:
     force_n = magnitude(load.force, "N")
     direction = _direction_wire(load.direction)
     match load:
@@ -157,6 +290,28 @@ def _load_wire(load: FarEnd | OnHoles) -> LoadWire:
             return {
                 "kind": "on_holes",
                 "count": count,
+                "diameter_mm": _millimetres(diameter),
+                "force_n": force_n,
+                "direction": direction,
+            }
+        case OnLargestFlat(middle=middle):
+            return {
+                "kind": "on_largest_flat",
+                "middle": middle,
+                "force_n": force_n,
+                "direction": direction,
+            }
+        case OnOpposite(middle=middle):
+            return {
+                "kind": "on_opposite",
+                "middle": middle,
+                "force_n": force_n,
+                "direction": direction,
+            }
+        case OnFarthest(curve=curve, diameter=diameter):
+            return {
+                "kind": "on_farthest",
+                "curve": curve.value,
                 "diameter_mm": _millimetres(diameter),
                 "force_n": force_n,
                 "direction": direction,

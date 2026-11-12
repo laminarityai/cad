@@ -17,11 +17,13 @@ from cad.scorecard.model import (
     AgainstBrief,
     AgentChecked,
     AwaitingConfirmation,
+    Checked,
     NoBrief,
     Scorecard,
     Unverified,
 )
-from cad.scorecard.requirements import NoDecidingResult, assess_requirements
+from cad.scorecard.requirements import NoDecidingResult, assess_requirements, labelled
+from cad.scorecard.waiting import Waiting
 
 
 @dataclass(frozen=True, slots=True)
@@ -130,6 +132,9 @@ def _misjudged(
     unapproved = _unapproved_agent_check(roots, basis, shown)
     if unapproved is not None:
         return unapproved
+    mislabelled = _mislabelled(basis, shown)
+    if mislabelled is not None:
+        return mislabelled
     derived = _holding_agent_rows(derived, basis)
     if derived == basis:
         return None
@@ -144,6 +149,23 @@ def _misjudged(
         if held != again
     )
     return Misjudged(f"requirement {differs} is not what its check results give")
+
+
+def _mislabelled(basis: AgainstBrief, shown: Shown) -> Misjudged | None:
+    """A row carries the described label exactly when its confirmed load case is described."""
+    targets: dict[str, Target] = {one.id: one.target for one in shown.requirements}
+    for row in basis.requirements:
+        if not isinstance(row, Checked | Waiting) or row.requirement_id not in targets:
+            continue
+        expected = labelled(targets[row.requirement_id])
+        if row.load_case != expected:
+            had = "no label" if row.load_case is None else "the described label"
+            wanted = "none" if expected is None else "the described label"
+            return Misjudged(
+                f"requirement {row.requirement_id} carries {had}, and its confirmed load case "
+                f"needs {wanted}"
+            )
+    return None
 
 
 def _unapproved_agent_check(roots: Roots, basis: AgainstBrief, shown: Shown) -> Misjudged | None:

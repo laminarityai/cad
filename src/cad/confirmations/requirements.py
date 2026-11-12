@@ -6,7 +6,15 @@ from cad.agent_checks.store import checks_of
 from cad.briefs import store
 from cad.briefs.bindable import BINDABLE
 from cad.briefs.edits import apply_edits, placeholder
-from cad.briefs.model import AgentLimit, MadeOf, MeasureLimit, Requirement, Target, deciding_check
+from cad.briefs.model import (
+    AgentLimit,
+    MadeOf,
+    MeasureLimit,
+    Requirement,
+    Target,
+    deciding_check,
+    load_of,
+)
 from cad.briefs.origins import quoted
 from cad.briefs.store import ProposalState, Status, TamperedBrief
 from cad.briefs.words import describe
@@ -21,6 +29,10 @@ from cad.sandbox import host
 
 SLOT: Final = re.compile(r"([0-9a-f]{16})/proposal/([1-9][0-9]{0,3})")
 TITLE: Final = "Requirements for your brief"
+DESCRIBED_NOTE: Final = (
+    "The agent described where this part is held and loaded. Confirm only if these words match "
+    "how it will be used."
+)
 AGENT_DECIDES: Final = (
     "Decided by the agent-written check below once you approve it. Our team has not reviewed it"
 )
@@ -93,7 +105,13 @@ def _row(requirement: Requirement, text: str, names: Mapping[str, str]) -> Row:
         source=source,
         decides=_decides(requirement.target),
         editable=_editable(requirement),
+        note=_note(requirement.target),
     )
+
+
+def _note(target: Target) -> str:
+    case = load_of(target)
+    return DESCRIBED_NOTE if case is not None and case.described else ""
 
 
 def _decides(target: Target) -> str:

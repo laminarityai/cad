@@ -4,7 +4,7 @@ from typing import Annotated, Final, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from cad.agent_checks import limits
-from cad.briefs import assumptions, clearances, made_of, source, store
+from cad.briefs import assumptions, clearances, described, made_of, source, store
 from cad.briefs.assumptions import MAX_ASSUMPTIONS, Assumption
 from cad.briefs.bindable import BINDABLE
 from cad.briefs.edits import placeholder
@@ -34,6 +34,7 @@ from cad.projects.model import PROJECT_ID, PROJECT_ID_CHARS, ProjectId, ProjectR
 from cad.research.overlay import ProjectTable
 from cad.research.requests import ResearchRequest, requests_before_scoring
 from cad.uploads import quotes
+from cad.variant_sets.stressed import has_stress_result
 
 AFTER_PROPOSAL: Final = (
     "You may research it while the user confirms: score_variant reads the stored value."
@@ -307,6 +308,11 @@ def propose_requirements(tenant: Tenant, arguments: ProposeRequirementsInput) ->
         clearances.check_proposed([one.target for one in drafts], parts)
         limits.check_proposed(
             tenant.roots.projects, project, arguments.brief_id, [one.target for one in drafts]
+        )
+        described.check_proposed(
+            store.read_state(tenant.roots, arguments.brief_id),
+            [one.target for one in drafts],
+            lambda: has_stress_result(tenant.roots, tenant.variants, arguments.brief_id),
         )
         drafts = made_of.with_row_keys(drafts, table.table)
         store.propose(tenant.roots, arguments.brief_id, drafts, words)

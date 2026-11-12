@@ -1,6 +1,5 @@
 """The terms a load case is written in. `anchors.resolve` reads only these, and `of_wire` parses
-the reviewed phrases the host sends. The wire carries no other term yet, so a described case
-reaches `resolve` only from a caller that builds the terms itself."""
+every term the host sends: the reviewed phrases and the described terms."""
 
 from dataclasses import dataclass
 from typing import Final, Literal, assert_never
@@ -151,6 +150,14 @@ def _support(wire: SupportWire) -> Support:
             return LargestFlat()
         case "flat_end":
             return FlatEnd()
+        case "end_of":
+            return EndOf(wire["axis"])
+        case "facing":
+            return Facing()
+        case "each":
+            return Each(wire["curve"], wire["diameter_mm"])
+        case "in_one_flat_face":
+            return InOneFlatFace(wire["count"], wire["diameter_mm"])
         case _:
             assert_never(wire["kind"])
 
@@ -161,6 +168,12 @@ def _load(wire: LoadWire) -> Load:
             return FarEnd()
         case "on_holes":
             return OnHoles(wire["count"], wire["diameter_mm"])
+        case "on_largest_flat":
+            return OnLargestFlat(wire["middle"])
+        case "on_opposite":
+            return OnOpposite(wire["middle"])
+        case "on_farthest":
+            return OnFarthest(wire["curve"], wire["diameter_mm"])
         case _:
             assert_never(wire["kind"])
 
@@ -173,5 +186,9 @@ def _direction(wire: DirectionWire) -> Direction:
             return Across(wire["axis"])
         case "any":
             return AnyWay()
+        case "into":
+            return Into()
+        case "away":
+            return Away()
         case _:
             assert_never(wire["kind"])

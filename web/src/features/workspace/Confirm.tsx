@@ -91,6 +91,7 @@ export function ConfirmCard({ projectId, card, onAnswered }: { projectId: string
                         <mark className="rounded bg-wait-bg px-1 text-ink-2">“{row.quote}”</mark>
                       </p>
                     ) : null}
+                    {row.note ? <p className="mt-0.5 text-[13px] text-ink-2">{row.note}</p> : null}
                     {row.editable && key && !no ? (
                       <input
                         aria-label={`New value for ${row.headline}`}
