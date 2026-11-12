@@ -160,14 +160,17 @@ export function Stage(props: {
   if (!shown) return null;
   const size = passedExtents(cards[shown.variantId]?.snapshot);
   const key = `${briefId}:${String(slot.slot)}`;
+  // A cut draws a cap across a closed solid. The held and pushed faces are drawn apart from the part, which
+  // leaves it open, and the library then fills the cap across them, so the colours wait for the whole part.
+  const marked = cut ? null : where;
   const step = (n: number) => {
     dispatch({ type: "revision", key, n: n === newest ? null : n });
   };
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div className="relative min-h-0 flex-1" data-stage>
-        <Mesh variantId={shown.variantId} label={`${slot.label}, revision ${String(showing)}`} fit={showFit ? fit : null} where={where} selection={selection} extents={showSize ? size : null} cut={cut} onCut={setCut} onPick={onPick} />
-        <div className="absolute right-3 top-3 z-30 flex gap-2">
+        <Mesh variantId={shown.variantId} label={`${slot.label}, revision ${String(showing)}`} fit={showFit ? fit : null} where={marked} selection={selection} extents={showSize ? size : null} cut={cut} onCut={setCut} onPick={onPick} />
+        <div className="absolute right-3 top-3 z-30 flex max-w-[calc(100%-1.5rem)] items-start gap-2">
           {fit ? (
             <button
               type="button"
@@ -177,11 +180,11 @@ export function Stage(props: {
                 setShowFit((was) => !was);
               }}
               className={cn(
-                "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[14px] shadow-sm",
+                "flex min-w-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-[14px] shadow-sm",
                 showFit ? "border-rule bg-panel-2 text-ink" : "border-rule bg-panel text-ink-3",
               )}
             >
-              <Box className="size-4" /> With {fit.name}
+              <Box className="size-4 shrink-0" /> <span className="truncate">With {fit.name}</span>
             </button>
           ) : null}
           <Tooltip label="Cut through the part to see inside">
@@ -222,7 +225,7 @@ export function Stage(props: {
           ) : null}
           <Download key={shown.variantId} variantId={shown.variantId} briefId={briefId} />
         </div>
-        {where ? <WhereLegend where={where} /> : null}
+        {marked ? <WhereLegend where={marked} /> : null}
       </div>
       <div className="flex items-center gap-3 border-t border-rule-2 px-4 py-2.5 text-[14px]" data-revisions>
         <button

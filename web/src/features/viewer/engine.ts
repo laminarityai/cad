@@ -55,11 +55,11 @@ function numberIn(row: unknown, key: string): number | null {
   return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
-/** The library keeps the side of the plane its normal points to, so each axis keeps the low side and the cut
- * face looks at the camera the viewer starts with, which stands at +x, +y and +z of the part. */
+/** The library keeps the side of the plane its normal points to. The viewer starts with its camera at +x, -y and
+ * +z of the part, so x and z keep the low side and y keeps the high side, and the cut face looks at the camera. */
 const CUT_NORMAL: readonly Vector3Tuple[] = [
   [-1, 0, 0],
-  [0, -1, 0],
+  [0, 1, 0],
   [0, 0, -1],
 ];
 const AXIS_AT: Record<Axis, 0 | 1 | 2> = { x: 0, y: 1, z: 2 };
@@ -156,21 +156,22 @@ export const threeCadViewer: ViewerEngine = {
     let planes: Axis | null = null;
     const cutAt = (plane: Section) => {
       const centre = viewer.rendered.clipping.center;
-      return plane.at - (centre?.[AXIS_AT[plane.axis]] ?? 0);
+      const along = plane.at - (centre?.[AXIS_AT[plane.axis]] ?? 0);
+      return plane.axis === "y" ? -along : along;
     };
     const applyCut = () => {
       const plane = cut;
       if (plane === null) {
         planes = null;
-        viewer.setActiveTab("tree", false);
+        viewer.setActiveTab("tree");
       } else if (planes === plane.axis) {
-        viewer.setClipSlider(AXIS_AT[plane.axis], cutAt(plane), false);
+        viewer.setClipSlider(AXIS_AT[plane.axis], cutAt(plane));
       } else {
-        const open = viewer.gridSize;
+        const open = viewer.gridSize / 2;
         CUT_NORMAL.forEach((normal, index) => {
-          viewer.setClipNormal(index as 0 | 1 | 2, normal, index === AXIS_AT[plane.axis] ? cutAt(plane) : open, false);
+          viewer.setClipNormal(index as 0 | 1 | 2, normal, index === AXIS_AT[plane.axis] ? cutAt(plane) : open);
         });
-        viewer.setActiveTab("clip", false);
+        viewer.setActiveTab("clip");
         planes = plane.axis;
       }
       viewer.update(true, false);

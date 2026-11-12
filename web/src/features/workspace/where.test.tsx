@@ -126,6 +126,24 @@ describe("showing where the check held and pushed", () => {
     expect(container.querySelector("[data-where-legend]")).toBeNull();
   });
 
+  it("draws the whole part while it is cut, because a cap across loose faces covers them, and the colours come back", async () => {
+    const { viewer, container } = await open(true);
+    await userEvent.click(await screen.findByRole("button", { name: "Show where it held and pushed" }));
+    await waitFor(() => {
+      expect(ids(viewer.shown[viewer.shown.length - 1])).toEqual(["/variant/part", "/variant/support", "/variant/load"]);
+    });
+    await userEvent.click(screen.getByRole("button", { name: "Section" }));
+    await waitFor(() => {
+      expect(ids(viewer.shown[viewer.shown.length - 1])).toEqual(["/variant/part"]);
+    });
+    expect(container.querySelector("[data-where-legend]")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Section" }));
+    await waitFor(() => {
+      expect(ids(viewer.shown[viewer.shown.length - 1])).toEqual(["/variant/part", "/variant/support", "/variant/load"]);
+    });
+    expect(container.querySelector("[data-where-legend]")).not.toBeNull();
+  });
+
   it("is not drawn again when the scorecard is read again with the same faces", async () => {
     const { viewer, scorecard } = await open(true);
     await userEvent.click(await screen.findByRole("button", { name: "Show where it held and pushed" }));
