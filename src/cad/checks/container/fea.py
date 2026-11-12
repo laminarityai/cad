@@ -22,6 +22,7 @@ from cad.checks.container.elastic import (
     face_nodes,
     region_faces,
     spread,
+    surfaces_of,
     worst_displacement,
     worst_von_mises,
 )
@@ -39,7 +40,7 @@ from cad.checks.container.mesher import (
 )
 from cad.checks.container.regions import FAR_FRACTION, Bore, Candidate, Plane, Resolved, Unresolved
 from cad.checks.container.vectors import Point, cross, dot, norm, sub
-from cad.checks.container.wire import FindingWire, MeasuredWire, SourceLiteral
+from cad.checks.container.wire import FindingWire, MeasuredWire, SourceLiteral, WhereWire
 
 ID = "fea"
 _END_DEG: Final = math.degrees(features.END_CONE_RAD)
@@ -125,9 +126,21 @@ class Peaks:
 
 
 @dataclass(frozen=True, slots=True)
+class Pair:
+    """One candidate's unit solve: its peaks, and the faces its support fixed and its load
+    pressed on."""
+
+    peaks: Peaks
+    where: WhereWire
+
+
+@dataclass(frozen=True, slots=True)
 class Solved:
     size_mm: float
     peaks: Peaks
+    where: WhereWire
+    """The faces of the candidate with the largest von Mises stress, which is the one whose stress
+    the result reports."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -233,6 +246,7 @@ def judged(
             f"the meshes at {coarse.size_mm:g} mm and {fine.size_mm:g} mm differ by "
             f"{change:.1%} in max_displacement, over the {MESH_CHANGE_LIMIT:.0%} limit{floored}",
             *measured,
+            where=fine.where,
         )
     if fine.peaks.displacement > LARGE_DISPLACEMENT_FRACTION * part_extent:
         return finding(
@@ -241,6 +255,7 @@ def judged(
             f"{LARGE_DISPLACEMENT_FRACTION:.0%} of the part's {part_extent:g} mm extent, so a "
             f"linear analysis does not hold{floored}",
             *measured,
+            where=fine.where,
         )
     reason = (
         f"solved at {coarse.size_mm:g} mm and {fine.size_mm:g} mm; max_displacement differs "
@@ -251,24 +266,27 @@ def judged(
     if clamped_face:
         reason = f"{reason}. {CLAMPED_FACE_NOTE}"
     if yield_mpa is None:
-        return finding("pass", reason, *measured)
+        return finding("pass", reason, *measured, where=fine.where)
     return finding(
         "pass",
         reason,
         *measured,
         measure("safety_factor", yield_mpa / fine.peaks.von_mises, DIMENSIONLESS),
+        where=fine.where,
     )
 
 
 def solve_at(
     fem: Fem, mesh: TetMesh, size_mm: float, resolved: Resolved, material: Material, force_n: float
 ) -> Solved | Unsolved:
-    peaks: list[Peaks] = []
+    pairs: list[Pair] = []
     for candidate in resolved.candidates:
-        found = _unit_peaks(fem, mesh, candidate, material)
+        found = _unit_solve(fem, mesh, candidate, material)
         if isinstance(found, Unsolved):
             return found
-        peaks.append(found)
+        pairs.append(found)
+    peaks = [one.peaks for one in pairs]
+    deciding = max(pairs, key=lambda one: one.peaks.von_mises)
     return Solved(
         size_mm,
         Peaks(
@@ -276,12 +294,13 @@ def solve_at(
             force_n * max(one.von_mises for one in peaks),
             force_n * max(one.support_von_mises for one in peaks),
         ),
+        deciding.where,
     )
 
 
-def _unit_peaks(
+def _unit_solve(
     fem: Fem, mesh: TetMesh, candidate: Candidate, material: Material
-) -> Peaks | Unsolved:
+) -> Pair | Unsolved:
     tol = TOL_FRACTION * extent(mesh)
     fixed = region_faces(mesh, candidate.support, tol)
     if isinstance(fixed, Unresolved):
@@ -295,11 +314,16 @@ def _unit_peaks(
         return Unsolved(f"the solve failed: {fields.reason}")
     bores = [patch for patch in candidate.support.patches if isinstance(patch, Bore)]
     near = [any(_near(bore, node) for bore in bores) for node in mesh.nodes]
-    return Peaks(
+    peaks = Peaks(
         worst_displacement([field.displacement for field in fields]),
         _worst_stress(fields, [i for i, inside in enumerate(near) if not inside]),
         _worst_stress(fields, [i for i, inside in enumerate(near) if inside]),
     )
+    where: WhereWire = {
+        "support": list(surfaces_of(mesh, fixed)),
+        "load": list(surfaces_of(mesh, loaded)),
+    }
+    return Pair(peaks, where)
 
 
 def _worst_stress(fields: Sequence[NodalField], nodes: Sequence[int]) -> float:

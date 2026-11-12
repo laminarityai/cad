@@ -89,12 +89,7 @@ def _run_check(
         found = finding(
             "unknown", f"{check_id} raised {type(error).__name__}: {first_line(str(error))}"
         )
-    return {
-        "id": check_id,
-        "verdict": found["verdict"],
-        "measured": found["measured"],
-        "reason": found["reason"],
-    }
+    return {"id": check_id, **found}
 
 
 def _step_room(results: list[ResultWire], report_cap: int) -> int:

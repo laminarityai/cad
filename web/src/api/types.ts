@@ -783,6 +783,8 @@ export interface components {
             instance?: string;
             /** @default [] */
             reads?: components["schemas"]["cad__checks__result__Read"][];
+            /** @default null */
+            where?: components["schemas"]["Where"] | null;
         };
         /**
          * Checked
@@ -792,6 +794,10 @@ export interface components {
          *     `basis` is `researched` when the deciding result read a researched value, and `researched`
          *     names each one with its source and quote (ADR-0009). Report such a pass as "passes on
          *     researched data", never as a plain pass.
+         *
+         *     `instance` names the result of `check_id` that decided it, as `CheckResult.instance` does: the
+         *     load case's id for a stress requirement. That result's `where` names the faces the check fixed
+         *     and loaded.
          *
          *     `load_case` is `described` when the requirement's load case uses a term beyond the reviewed
          *     phrases, which the agent combined and the person confirmed (ADR-0007). Report a pass on one
@@ -809,6 +815,8 @@ export interface components {
             verdict: components["schemas"]["Verdict"];
             reason: string;
             comparisons: components["schemas"]["Comparison"][];
+            /** @default  */
+            instance?: string;
             /**
              * @default checks
              * @enum {string}
@@ -2132,6 +2140,17 @@ export interface components {
             /** @default null */
             load_case?: "described" | null;
         };
+        /**
+         * Where
+         * @description The faces of the variant that the `fea` check's deciding candidate fixed (`support`) and
+         *     pressed on (`load`), as indices in the kernel's explorer order of the BREP the check read. The
+         *     3D view numbers the faces of the same BREP the same way. The check finds them and the agent
+         *     never names one (ADR-0007).
+         */
+        Where: {
+            support: number[];
+            load: number[];
+        };
         /** Read */
         cad__auto__model__Read: {
             material_key: string;
@@ -2403,6 +2422,7 @@ export type VariantView = components['schemas']['VariantView'];
 export type Vec = components['schemas']['Vec'];
 export type Verdict = components['schemas']['Verdict'];
 export type Waiting = components['schemas']['Waiting'];
+export type Where = components['schemas']['Where'];
 export type CadAutoModelRead = components['schemas']['cad__auto__model__Read'];
 export type CadChecksResultRead = components['schemas']['cad__checks__result__Read'];
 export type ResponseRefused = components['responses']['Refused'];

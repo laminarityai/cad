@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 
 from cad.checks.report import QUICK, SPECS, Request, build_request, parse
-from cad.checks.result import CheckRun, StepMissing, StepStored, Verdict
+from cad.checks.result import CheckRun, StepMissing, StepStored, Verdict, Where
 from cad.sandbox.container import Attended, ContainerState, Job, Ran, TooMuchOutput
 from cad.tables.materials import Known, Material, MaterialsTable, Unknown, load_materials
 
@@ -177,6 +177,17 @@ def test_a_read_when_the_host_sent_none_is_refused() -> None:
     assert "mass: density" in parsed.results[0].reason
 
 
+def test_the_faces_a_check_names_reach_the_result_and_a_result_without_them_has_none(
+    request_for_pla: Request,
+) -> None:
+    faces = {"support": [0, 3], "load": [1]}
+    parsed = parse(sent(with_result(2, where=faces)), request_for_pla, OWN_LIMITS)
+    assert parsed.results[2].where == Where(support=(0, 3), load=(1,))
+    assert parsed.results[2].model_dump(mode="json")["where"] == faces
+    assert parsed.results[0].where is None
+    assert "where" not in parsed.results[0].model_dump(mode="json")
+
+
 def test_a_check_run_serializes_and_reads_back_equal(request_for_pla: Request) -> None:
     parsed = parse(sent(good_report()), request_for_pla, OWN_LIMITS)
     run = CheckRun(
@@ -214,6 +225,9 @@ MISBEHAVIORS = {
         {**good_report(), "results": [good_report()["results"][0]] * 4},
     ),
     "verdict-ok": sent(with_result(0, verdict="ok")),
+    "where-with-a-name": sent(with_result(0, where={"support": ["top"], "load": []})),
+    "where-with-a-negative-index": sent(with_result(0, where={"support": [-1], "load": []})),
+    "where-without-load": sent(with_result(0, where={"support": [0]})),
     "undeclared-measure": sent(with_result(0, measured=[measured("flux", 1, DIMENSIONLESS)])),
     "wrong-unit": sent(with_result(2, measured=[measured("volume", 1000.0, "m^3")])),
     "nan": sent(with_result(2, measured=[measured("volume", float("nan"), "mm^3")])),

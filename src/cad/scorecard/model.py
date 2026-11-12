@@ -37,6 +37,10 @@ class Checked(Frozen):
     names each one with its source and quote (ADR-0009). Report such a pass as "passes on
     researched data", never as a plain pass.
 
+    `instance` names the result of `check_id` that decided it, as `CheckResult.instance` does: the
+    load case's id for a stress requirement. That result's `where` names the faces the check fixed
+    and loaded.
+
     `load_case` is `described` when the requirement's load case uses a term beyond the reviewed
     phrases, which the agent combined and the person confirmed (ADR-0007). Report a pass on one
     as "passes on a load case I described", never as a plain pass."""
@@ -48,6 +52,7 @@ class Checked(Frozen):
     verdict: Verdict
     reason: str
     comparisons: tuple[Comparison, ...]
+    instance: str = Field(default="", exclude_if=lambda instance: not instance)
     basis: Literal["checks", "researched"] = "checks"
     researched: tuple[ReadResearched, ...] = Field(default=(), exclude_if=lambda one: not one)
     load_case: Literal["described"] | None = Field(default=None, exclude_if=lambda one: one is None)

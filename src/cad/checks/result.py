@@ -3,7 +3,7 @@ from enum import StrEnum
 from typing import Annotated, Literal, TypedDict, cast
 
 import pint
-from pydantic import Field, PlainSerializer, PlainValidator
+from pydantic import Field, NonNegativeInt, PlainSerializer, PlainValidator
 
 from cad.frozen import Frozen
 from cad.tables.materials import UNITS, Source
@@ -81,6 +81,16 @@ class ReadMissing(Frozen):
 type Read = Annotated[ReadCited | ReadResearched | ReadMissing, Field(discriminator="kind")]
 
 
+class Where(Frozen):
+    """The faces of the variant that the `fea` check's deciding candidate fixed (`support`) and
+    pressed on (`load`), as indices in the kernel's explorer order of the BREP the check read. The
+    3D view numbers the faces of the same BREP the same way. The check finds them and the agent
+    never names one (ADR-0007)."""
+
+    support: tuple[NonNegativeInt, ...]
+    load: tuple[NonNegativeInt, ...]
+
+
 class CheckResult(Frozen):
     check_id: str
     verdict: Verdict
@@ -91,6 +101,7 @@ class CheckResult(Frozen):
     version: str
     instance: str = Field(default="", exclude_if=lambda instance: not instance)
     reads: tuple[Read, ...] = Field(default=(), exclude_if=lambda reads: not reads)
+    where: Where | None = Field(default=None, exclude_if=lambda where: where is None)
 
     def value(self, name: str) -> pint.Quantity:
         for measure in self.measured:

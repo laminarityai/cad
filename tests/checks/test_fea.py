@@ -4,7 +4,7 @@ from cad.checks.container import fea
 from cad.checks.container.check import Subject
 from cad.checks.container.inputs import Input, Inputs
 from cad.checks.container.mesher import OverCap
-from cad.checks.container.wire import FindingWire, LoadCaseWire, ResultWire, ValueWire
+from cad.checks.container.wire import FindingWire, LoadCaseWire, ResultWire, ValueWire, WhereWire
 from tests.support.check_fakes import FakeKernel, FakeShape, NoFem
 
 CASE: LoadCaseWire = {
@@ -22,7 +22,8 @@ def known(magnitude: float) -> ValueWire:
 
 
 def solved(size_mm: float, displacement: float, von_mises: float) -> fea.Solved:
-    return fea.Solved(size_mm, fea.Peaks(displacement, von_mises, 2 * von_mises))
+    peaks = fea.Peaks(displacement, von_mises, 2 * von_mises)
+    return fea.Solved(size_mm, peaks, {"support": [0], "load": [1]})
 
 
 def by_name(found: FindingWire) -> dict[str, float]:
@@ -35,6 +36,20 @@ def test_safety_factor_is_yield_over_the_fine_mesh_peak_stress() -> None:
     assert by_name(found)["safety_factor"] == pytest.approx(4.0)
     assert by_name(found)["max_displacement"] == 1.01
     assert by_name(found)["support_max_von_mises"] == 25
+
+
+@pytest.mark.parametrize(
+    ("coarse_displacement", "fine_displacement", "verdict"),
+    [(1.0, 1.0, "pass"), (1.0, 1.5, "unknown"), (11.0, 11.0, "unknown")],
+)
+def test_every_verdict_of_a_solved_load_case_carries_the_faces_of_the_fine_mesh(
+    coarse_displacement: float, fine_displacement: float, verdict: str
+) -> None:
+    where: WhereWire = {"support": [4], "load": [2, 5]}
+    fine = fea.Solved(1.3, fea.Peaks(fine_displacement, 10, 20), where)
+    found = fea.judged(solved(2, coarse_displacement, 10), fine, 50.0, 200, [], False, None)
+    assert found["verdict"] == verdict
+    assert found.get("where") == where
 
 
 @pytest.mark.parametrize("clamped_face", [True, False])
