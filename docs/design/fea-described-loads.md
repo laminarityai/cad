@@ -1,6 +1,6 @@
 # Load cases the agent describes
 
-On 2026-11-11 the operator asked why the `fea` check can be told where a part is held and loaded only through five fixed phrases, and said to modify ADR-0007 so that the agent works for general CAD cases. This note weighs four ways to do that against the corpus of [fea load anchors](fea-load-anchors.md) and six briefs a novice might write. It recommends one and gives its data shape, rules, tests and build order. [ADR-0007](../adr/0007-a-load-names-anchors-never-faces.md) carries the amendment. Option A of fea load anchors is approved and being built, and this note treats its rules as the rules behind the five phrases.
+On 2026-11-11 the operator asked why the `fea` check can be told where a part is held and loaded only through five fixed phrases, and said to modify ADR-0007 so that the agent works for general CAD cases. This note weighs four ways to do that against the corpus of [fea load anchors](fea-load-anchors.md) and six briefs a novice might write. It recommends one and gives its data shape, rules, tests and build order. The operator approved the recommendation on 2026-11-11 with three decisions, recorded in the last section. [ADR-0007](../adr/0007-a-load-names-anchors-never-faces.md) carries the amendment. Option A of fea load anchors is approved and being built, and this note treats its rules as the rules behind the five phrases.
 
 ## What the five phrases cannot say
 
@@ -35,9 +35,9 @@ These were decided before this note:
 - The agent never decides whether a design is good, and nothing lets it place a load where it does least harm on a variant it has seen.
 - No per-revision face picking. Auto runs without a person step for each revision.
 - The person states intent and confirms targets, and the agent decides the rest.
-- By analogy with agent-written checks, nothing new is written once a brief has variants, and what the agent authors is confirmed by the person, labelled and counted apart.
+- By analogy with agent-written checks, what the agent authors is confirmed by the person, labelled and counted apart. The draft of this note also took their timing, so nothing new was written once a brief had variants. On 2026-11-11 the operator replaced that with the result rule, under which nothing new is written once the brief has a `fea` result.
 
-Each route below is judged on six properties. It must be frame-free. It must be written before any variant of the brief exists. The person must confirm plain words. Ties must go to the worst case. A description that does not resolve must fail closed to `unknown` with a reason. The agent must not be able to change it after seeing a result.
+Each route below is judged on six properties. It must be frame-free. It must be written before any `fea` result of the brief exists. The person must confirm plain words. Ties must go to the worst case. A description that does not resolve must fail closed to `unknown` with a reason. The agent must not be able to change it after seeing a result.
 
 ## Options
 
@@ -57,7 +57,7 @@ The words are the plainest of any route ("where it touches the rail"). But the a
 
 The agent writes a function that returns the support and load faces. It is gated like an agent-written check. It is written before the brief has variants, frozen by its sha, approved by the person, and run again under a secret rigid motion.
 
-This covers any face a term cannot name. But code can single out any face, by its area or by a feature the agent builds later. The person cannot read code, so the words on the page would be the agent's account of the code, not what runs. A run on a turned and moved copy shows that the code ignores the frame. It cannot show that the code did not choose the least harmful face. An agent-written check also chooses where it measures, and its defence (written blind, run turned, labelled) is weaker than ADR-0007's rule. Here a reviewed check already exists, and choosing where its load goes is the thing ADR-0007 forbids. Not chosen.
+This covers any face a term cannot name. But code can single out any face, by its area or by a feature the agent builds later. The person cannot read code, so the words on the page would be the agent's account of the code, not what runs. A run on a turned and moved copy shows that the code ignores the frame. It cannot show that the code did not choose the least harmful face. An agent-written check also chooses where it measures, and its defence (written blind, run turned, labelled) is weaker than ADR-0007's rule. Here a reviewed check already exists, and choosing where its load goes is the thing ADR-0007 forbids. Not chosen now. The operator decides after build step 1 reports what the terms cover, measured on the corpus and the novice briefs.
 
 ### 4. Reviewed phrases plus described load cases
 
@@ -65,14 +65,14 @@ Route 1, with the five phrases kept as the reviewed base. A load case that uses 
 
 ### Also weighed: a describer that sees only the person's words
 
-A second model call on the server reads the brief's words and the person's notes, never a variant or a result, and writes the terms. The terms are then always written without sight of a design, so a load stated after variants exist, or a description the person declines, could be described again. Not chosen now. It adds a model call to every proposal with a load and a second model to the path of every verdict on a load, and the rule decided by analogy already covers a fresh brief. It is the way to lift the limits in [What it does not cover](#what-it-does-not-cover) if the operator wants them lifted.
+A second model call on the server reads the brief's words and the person's notes, never a variant or a result, and writes the terms. The terms are then always written without sight of a design or a result, so a new description after the brief has a stress result could be written too. Not chosen now. The result rule already serves a load stated after variants exist, so the describer adds only the case after a stress result. It adds a model call to every proposal with a load and a second model to the path of every verdict on a load. It is the way to lift that limit in [What it does not cover](#what-it-does-not-cover) if the operator wants it lifted.
 
 ### Compared
 
 | | 1. Terms | 2. Contact | 3. Code | 4. Phrases and terms |
 |---|---|---|---|---|
 | Frame-free | each term | yes | only as far as a turned run tests | each term |
-| Before any variant | server refuses later | yes | the first gate refuses later | server refuses later |
+| Before any stress result | server refuses later | yes | the first gate refuses later | server refuses later |
 | Words the person confirms | written by the server from what runs | plain | the agent's account | written by the server from what runs |
 | Ties to the worst | every term gives candidates | needs a rule | only if the code does it | every term gives candidates |
 | Fails closed | per term | no contact gives `unknown` | only if the code does it | per term |
@@ -83,7 +83,7 @@ A second model call on the server reads the brief's words and the person's notes
 
 ## Recommendation
 
-Route 4. Keep the five phrases as the reviewed base and add a closed list of terms that the agent composes into a described load case before the brief has any variant. The server writes its words, the person confirms them, fixed code in `fea` resolves them, and every verdict on one is labelled and counted apart. Routes 1 and 4 are the only ones where the agent chooses neither faces nor code and the person reads words that are exactly what the check runs. Route 4 also leaves every verdict on a reviewed phrase as it is.
+Route 4. Keep the five phrases as the reviewed base and add a closed list of terms that the agent composes into a described load case before the brief has any `fea` result. The server writes its words, the person confirms them, fixed code in `fea` resolves them, and every verdict on one is labelled and counted apart. Routes 1 and 4 are the only ones where the agent chooses neither faces nor code and the person reads words that are exactly what the check runs. Route 4 also leaves every verdict on a reviewed phrase as it is.
 
 The list is flat on purpose. No term takes another term as input, except that a load term reads the support. Nesting would let a chain of relations single out one face, and its words would grow past what a person reads. A new term needs evidence and a harness case, as a new phrase does. A new pairing of terms needs neither, which is the difference from option B.
 
@@ -257,7 +257,7 @@ These rules hold for every term:
 
 **Frame-free.** Every term reads normals, principal axes, centroids, areas, hole axes and openings. None reads a coordinate, the bounding box or the order of faces. A harness case turns and moves each test part and checks that the same faces come back.
 
-**Written before any variant of the brief exists.** The blind rule in `propose_requirements` refuses a described load case whose `unit_case` no earlier proposal of the brief carried, when the brief has a variant (`project_slots` holds a member for it). A later proposal may carry an earlier described case with a new force, because the force is the person's number and `unit_case` leaves it out. The agent knows the design it means to build when it writes the case, as it does when it picks a reviewed phrase. The rule makes sure that no variant and no `fea` result of the brief exists when the case is written, and that no other case can be written once one does.
+**Written before any stress result of the brief exists.** The result rule in `propose_requirements` refuses a described load case whose `unit_case` no earlier proposal of the brief carried, once any variant of the brief has a stored `fea` result, whatever its verdict. Before any such result exists, the agent may replace a description, because it has seen no result to choose between. A later proposal may carry an earlier described case with a new force, because the force is the person's number and `unit_case` leaves it out. The agent picks the terms knowing the shape, as it does when it picks a reviewed phrase, and variants may already exist. It never picks them knowing a stress result of that brief. The rule makes sure that no `fea` result of the brief exists when the case is written, and that no other case can be written once one does. It is looser than the blind rule for agent-written checks on purpose. A rule of "before any variant" would send the common path, a load stated after the options are built, back to the five reviewed phrases.
 
 **The person confirms plain words.** The server writes the words from the terms. The agent supplies no words for a load case. A harness case lists every pairing of terms and checks that no two share words and that none shares words with a reviewed phrase. The page marks the row as the agent's description.
 
@@ -265,7 +265,7 @@ These rules hold for every term:
 
 **Fails closed.** Each term's `unknown` case is in the table above. The reason names the term and what it found, such as "no flat face faces another across a gap". Auto treats `unknown` as not passing.
 
-**No change after a result.** The described case is part of the requirement and of its load case id, and the person's Confirm pins it in the signed decision. The blind rule refuses a new case once a variant exists. The leave-out rule refuses a proposal on a brief with variants that leaves out a described case, unless the person declined a proposal since. So the agent cannot propose two readings, see which scores better and keep that one. No tool edits a load case.
+**No change after a result.** The described case is part of the requirement and of its load case id, and the person's Confirm pins it in the signed decision. The result rule refuses a new case once the brief has a `fea` result. It also refuses a proposal that leaves out a described case once that result exists, unless the person declined a proposal since. So the agent cannot propose two readings, see which scores better and keep that one. No tool edits a load case.
 
 ## What the page, scorecard and tracer show
 
@@ -291,25 +291,25 @@ These rules hold for every term:
    - A C-frame clamp, `Facing`, `OnOpposite` and `Into`. The expected value is M/Z + F/A at the back of the C.
    - A half-ring hook on an arm held by 2 holes, `OnFarthest(INNER_CURVE)`. The expected value is the Winkler-Bach curved-beam stress at the section in line with the load.
    - An L bracket with 2 holes in each leg, `InOneFlatFace(2)`. The result equals the worse of the two single-face solves.
-5. Proposals: a new described case on a brief with a variant is refused, the same `unit_case` with a new force is accepted, and a proposal that leaves one out is refused unless the person declined since.
+5. Proposals: on a brief with variants and no `fea` result, a new described case is accepted and may replace an earlier one. Once any variant has a `fea` result, `unknown` included, a new described case is refused, the same `unit_case` with a new force is accepted, and a proposal that leaves one out is refused unless the person declined since.
 6. Scorecard and tracer: a verdict on a described case carries the label, the tracer fails a card whose label does not match its confirmed load case, and the summary counts described verdicts apart.
-7. A live walk through the MCP server: a fresh brief for a wall hook that states a load is built, scored and confirmed, and its verdict carries the label. The same load asked after the variants exist gets the refusal, and the agent uses a reviewed phrase.
+7. A live walk through the MCP server: a fresh brief for a wall hook is built with no load. The person then states a load, and a described case for it is accepted while no stress result of the brief exists. It is confirmed and scored, and its verdict carries the label. The same load described with other terms after that result exists gets the refusal, and the agent uses a reviewed phrase.
 
 ## What changes version
 
 - Every check's version. `check_version` hashes each check's own file and every shared file of the container package (read), and `anchors.py` and `wire.py` are shared. Every stored result goes stale and is scored again.
 - The load and requirement models gain kinds, and the scorecard gains `load_case`, so the API types are generated again. Stored load cases keep their wire form and their ids.
-- The guidance gains a paragraph on load cases, and `DEEPER_ANALYSIS` says to use a reviewed phrase on a brief that has variants.
+- The guidance gains a paragraph on load cases, and `DEEPER_ANALYSIS` says that a load stated on built variants may use the terms until the brief has a `fea` result, and a reviewed phrase after.
 - Inferred to stay the same: the materials table, the analysis image's libraries, and the TLA+ protocol models. The refusal is a check inside `propose_requirements`. Neither the job queue nor the confirmation answer flow changes.
 
 ## What it does not cover
 
-- Supports that rest, slide or pivot, such as a shelf on brackets or a lid on a box. Every support is fixed. Fixing a part that only rests makes it stiffer than it is, and its mid-span stress lower, so the list has no "rests on" and such briefs stay unverified.
+- Supports that rest, slide or pivot, such as a shelf on brackets or a lid on a box. Every support is fixed. Fixing a part that only rests makes it stiffer than it is, and its mid-span stress lower, so the list has no "rests on" and such briefs stay unverified. They are their own piece of work ([#254](https://github.com/laminarityai/cad/issues/254)).
 - A load given as a displacement (a snap arm bent 2 mm), a torque, self-weight, or two loads that act together.
 - Contact with another part, threads, bolt preload and bearing at a hole.
 - Inner curves that are not circular cylinders, such as a torus fillet. The kernel reports such a face as `Curved`, with no concavity, so it never matches.
 - Edges and points as regions.
-- A load stated after the brief has variants, which is how deeper analysis on a built variant starts. Only the reviewed phrases serve it. A described case that the person declines cannot be replaced on that brief either.
+- A new description after the brief has a `fea` result. Only the reviewed phrases serve a load stated then. A described case that the person declines after that result cannot be replaced on that brief either.
 - Geometry shaped to a description after it is frozen, such as a larger flat face added so that `OnLargestFlat` moves. No gate tells this from honest design. The words, the highlighted faces of step 3 and the label are the defence.
 - The large-displacement gate and the node cap.
 
@@ -317,11 +317,11 @@ These rules hold for every term:
 
 Each step is one PR, after option A merges.
 
-1. **One resolver, and the terms.** In the container only. First move the five phrases' rules into one function that returns candidates for any term, with no change to their results. Check that by scoring the corpus before and after. Then add the seven terms, `middle`, `Into`, `Away`, the candidate limit and the kernel query that tells whether a point is inside the solid. Measure whether gmsh keeps a surface tag per BREP face, and use the tags if it does. Harness cases 1, 3 and 4. Every check version moves. Nothing can propose a described case yet.
-2. **Proposals, page, card and tracer.** The models and wire, `describe_case` and the words test, the parse rules, the blind rule and the leave-out rule in `propose_requirements`, the page note, `load_case` on `Checked` and `Waiting`, the line in the Auto stop report, the tracer rule and count, and the guidance. Pointers in §2.1 of the phase 3 design and in the recommendation of fea load anchors. Harness cases 2, 5, 6 and 7.
+1. **One resolver, and the terms.** In the container only. First move the five phrases' rules into one function that returns candidates for any term, with no change to their results. Check that by scoring the corpus before and after. Then add the seven terms, `middle`, `Into`, `Away`, the candidate limit and the kernel query that tells whether a point is inside the solid. Measure whether gmsh keeps a surface tag per BREP face, and use the tags if it does. Harness cases 1, 3 and 4. Measure the candidate limit, the middle disc and the bands. Report what the terms cover, measured on the corpus and the novice briefs, so the operator can decide on agent-written code that picks the faces. Every check version moves. Nothing can propose a described case yet.
+2. **Proposals, page, card and tracer.** The models and wire, `describe_case` and the words test, the parse rules, the result rule in `propose_requirements`, the page note, `load_case` on `Checked` and `Waiting`, the line in the Auto stop report, the tracer rule and count, and the guidance. Pointers in §2.1 of the phase 3 design and in the recommendation of fea load anchors. Harness cases 2, 5, 6 and 7. Report how often an honest description is stuck because an `unknown` `fea` result counts as a result.
 3. **Show where.** The `fea` result names the faces of the deciding candidate's support and load, and the 3D view highlights them on the card, for reviewed phrases too.
 
-Each of these needs its own evidence and issue: supports that rest, displacement loads, and a describer that sees only the person's words.
+Each of these needs its own evidence and issue: supports that rest ([#254](https://github.com/laminarityai/cad/issues/254)), displacement loads, and a describer that sees only the person's words.
 
 ## What it would decide
 
@@ -341,15 +341,17 @@ Inferred. None of this is measured yet.
 | A bracket bolted to a wall through a face | `InOneFlatFace(n, d)`, far end | Decides. |
 | A snap arm bent at its tip | none | Not covered, because the load is a displacement. As a force at the tip, the reviewed phrases serve. |
 
-## Choices the operator has not made
+## What the operator decided, and what build measures
 
-1. **A load stated after variants exist, and a declined description.** The pick is to refuse a new described case, as decided by analogy, and keep the reviewed phrases. Allowing it would let the agent pick where the load goes knowing the design and its results. The cost of the pick is that deeper analysis on a built variant, and a description the person declines, cannot use the terms. The describer that sees only the person's words would lift that.
-2. **Leaving out a described case.** The pick is to refuse it unless the person declined since. Without the rule, the agent could propose two readings and keep the one that scored better.
-3. **Labelled and counted apart.** The pick is yes, with no place in the headline count. Treating it as reviewed would make a pairing nobody reviewed read like a team phrase.
-4. **Auto.** The pick is that a pass on a described case counts toward the stop when every requirement passes. If it did not count, Auto would never stop on a pass for these briefs.
-5. **Candidate limit.** The pick is 4, to be measured. A higher limit risks the 600 s budget.
-6. **The middle disc.** The pick is a radius of 0.1 × √(face area), a constant like the keep-out. A stated contact size would be a number the person must give. Searching for the worst position on the face would move the load away from where the person said it acts.
-7. **Bands and tolerances.** The pick is 1% for ties, as `LONG_TIE_FRACTION` is now, and 1° for facing faces.
-8. **The page note.** The pick is two sentences on a described row. Without it the person may not see that the agent wrote the description.
-9. **Supports that rest.** The pick is to leave them unverified. Treating them as fixed would give a pass the part may not earn.
-10. **How big the list is.** The pick is four supports and three loads, each tied to a brief. A nested grammar would cover more, at the cost of words that grow long and are hard to keep distinct.
+The operator approved route 4 on 2026-11-11. Items 2, 3, 4 and 8 were approved as written. Items 1, 9 and 10 record the operator's decisions. Items 5, 6 and 7 are constants that build step 1 measures.
+
+1. **A load stated after variants exist, and a declined description.** The operator chose the result rule, which differs from the draft's pick. The draft refused a new described case once the brief had a variant. The result rule refuses one only once any variant of the brief has a stored `fea` result, and before that the agent may replace a description. A rule of "before any variant" would send the common path back to the five reviewed phrases. The cost is that the agent picks the terms knowing the shape, as it does for a reviewed phrase. It never picks them knowing a stress result of that brief. One question is not settled. It is whether a `fea` result that is `unknown` because a term found no match counts as a result. This note takes the strict reading, and build step 2 reports how often an honest description is stuck by it.
+2. **Leaving out a described case.** Approved as written. The pick is to refuse it unless the person declined since. Without the rule, the agent could propose two readings and keep the one that scored better.
+3. **Labelled and counted apart.** Approved as written. The pick is yes, with no place in the headline count. Treating it as reviewed would make a pairing nobody reviewed read like a team phrase.
+4. **Auto.** Approved as written. The pick is that a pass on a described case counts toward the stop when every requirement passes. If it did not count, Auto would never stop on a pass for these briefs.
+5. **Candidate limit.** A constant that build step 1 measures, starting from 4. A higher limit risks the 600 s budget.
+6. **The middle disc.** A constant that build step 1 measures, starting from a radius of 0.1 × √(face area), like the keep-out. A stated contact size would be a number the person must give. Searching for the worst position on the face would move the load away from where the person said it acts.
+7. **Bands and tolerances.** Constants that build step 1 measures, starting from 1% for ties, as `LONG_TIE_FRACTION` is now, and 1° for facing faces.
+8. **The page note.** Approved as written. The pick is two sentences on a described row. Without it the person may not see that the agent wrote the description.
+9. **Supports that rest.** The operator decided that supports that rest, slide or pivot stay unverified. They are their own piece of work ([#254](https://github.com/laminarityai/cad/issues/254)). Treating them as fixed would give a pass the part may not earn.
+10. **How big the list is.** The operator approved the terms now, four supports and three loads, each tied to a brief. Agent-written code that picks the faces (route 3) is deferred, not rejected. The operator decides on it after build step 1 reports what the terms cover, measured on the corpus and the novice briefs. A nested grammar would cover more, at the cost of words that grow long and are hard to keep distinct.

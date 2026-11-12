@@ -1,6 +1,6 @@
 # A load names anchors, never faces
 
-FEA needs to know where a part is held and where the load acts. The agent writes the geometry and is graded on it, so if the agent chose those faces it could put the load where it does least harm. This ADR records how phase 3 places loads. The operator approved it on 2026-11-07, and [the phase 3 design](../design/phase-3.md) §2.1 gives the full rules. The amendment of 2026-11-11 at the end lets the agent describe a load case from fixed terms that the server turns into words.
+FEA needs to know where a part is held and where the load acts. The agent writes the geometry and is graded on it, so if the agent chose those faces it could put the load where it does least harm. This ADR records how phase 3 places loads. The operator approved it on 2026-11-07, and [the phase 3 design](../design/phase-3.md) §2.1 gives the full rules. The amendment of 2026-11-11 at the end, accepted that day, lets the agent describe a load case from fixed terms that the server turns into words.
 
 A load case names anchors from a closed vocabulary, such as "the bores of exactly 2 holes of 5.5 mm" or "the end farthest from the supports". The load case is part of a requirement, and a person confirms it on the confirmation page (ADR-0004) with the rest of the set. The agent never names a face. Brief words that the vocabulary cannot express give an unchecked requirement, which the card shows as unverified.
 
@@ -30,7 +30,7 @@ A region that a person picks in the viewer (#79) may later become a new anchor k
 
 ## Amendment (2026-11-11): load cases the agent describes
 
-Status: Proposed. The operator decided on 2026-11-11 that the `fea` check must work for general CAD cases, with the agent making grounded judgments for what it does not know, and said to modify this ADR. The operator also approved new rules behind the words for a flat end and the far end (option A of [fea load anchors](../design/fea-load-anchors.md)), and ruled out both adding words one at a time and picking faces for each revision. This amendment records how a load case reaches past the five reviewed phrases. The operator has not yet approved its text. [Load cases the agent describes](../design/fea-described-loads.md) gives the options, the rules, the harness cases and the build order.
+Status: Accepted. The operator decided on 2026-11-11 that the `fea` check must work for general CAD cases, with the agent making grounded judgments for what it does not know, and said to modify this ADR. The operator also approved new rules behind the words for a flat end and the far end (option A of [fea load anchors](../design/fea-load-anchors.md)), and ruled out both adding words one at a time and picking faces for each revision. This amendment records how a load case reaches past the five reviewed phrases. The operator approved it on 2026-11-11 with three decisions. The terms are approved now, and agent-written code that picks the faces is deferred, not rejected. A described load case may be proposed after variants exist, until the brief has its first `fea` result. Supports that rest, slide or pivot stay unverified, as their own piece of work ([#254](https://github.com/laminarityai/cad/issues/254)). [Load cases the agent describes](../design/fea-described-loads.md) gives the options, the rules, the harness cases and the build order.
 
 ### The agent composes terms, and the server writes the words
 
@@ -49,11 +49,17 @@ Each term is fixed code in `fea` that reads only normals, principal axes, centro
 
 A new term needs evidence and harness cases, as a new phrase did. A new pairing of terms does not.
 
-### Written before the brief has a variant, and never changed
+### Written before any stress result, and never changed after one
 
-`propose_requirements` refuses a described load case on a brief that has a variant, unless an earlier proposal of that brief carried it. Once the brief has a variant, it also refuses a proposal that leaves out a described load case, unless the person declined since. The force may change, because it is the person's number. A load stated after the brief has variants uses the reviewed phrases or stays unverified.
+`propose_requirements` refuses a described load case that no earlier proposal of the brief carried, once any variant of the brief has a stored `fea` result, whatever its verdict. Once such a result exists, it also refuses a proposal that leaves out a described load case, unless the person declined since. Before any such result exists, the agent may replace a description, because it has seen no result to choose between. The force may still change, because it is the person's number. This is the result rule.
+
+So a load stated after the options are built ("will it hold 5 kg?", which is how deeper analysis usually starts) can use the terms. A description the person declines can be replaced, until the first `fea` result of the brief.
+
+The cost is that the agent picks the terms knowing the shape, as it already does when it picks a reviewed phrase. It never picks them knowing a stress result of that brief. The person still confirms words the server wrote. The result rule is looser than the blind rule for agent-written checks (ADR-0011) on purpose. A rule of "before any variant" would send the common path back to the five reviewed phrases.
 
 So no `fea` result of the brief exists when a described load case is written, and no later result can change it.
+
+One question is not settled. It is whether a `fea` result that is `unknown` because a term found no match counts as a result. This amendment takes the strict reading, so any stored `fea` result counts. Build step 2 reports how often that leaves an honest description stuck.
 
 ### Labelled and counted apart
 
@@ -63,12 +69,12 @@ The confirmation page marks a described load case as the agent's description. A 
 
 Paragraph 2 said that brief words the vocabulary cannot express give an unchecked requirement. That now holds for words that neither the reviewed phrases nor the described terms can express. Consequences said that the vocabulary grows only from evidence (#49). That still holds for each term, but terms combine without new evidence.
 
-Every support stays fixed, and every load stays a force. A part that rests, slides or pivots, a load given as a displacement, and contact with another part stay unverified.
+Every support stays fixed, and every load stays a force. A part that rests, slides or pivots, a load given as a displacement, and contact with another part stay unverified. Supports that rest, slide or pivot are their own piece of work ([#254](https://github.com/laminarityai/cad/issues/254)).
 
 ### Considered options
 
 - **Words added one at a time (option B of fea load anchors).** Rejected by the operator on 2026-11-11. Each brief that needs a new phrase waits for one.
 - **The faces that a confirmed context part touches.** Rejected. The agent sets where the variant sits in the context part's frame, so it would set which faces are held.
-- **Agent-written code that picks the faces, gated like an agent-written check.** Rejected. Code can single out any face, and the person cannot read it, so the words on the page would be the agent's account of the code.
+- **Agent-written code that picks the faces, gated like an agent-written check.** Not chosen now. Code can single out any face, and the person cannot read it, so the words on the page would be the agent's account of the code. The operator decides after build step 1 reports what the terms cover, measured on the corpus and the novice briefs.
 - **The person picks faces for each revision (#79).** Rejected by the operator. Auto revises without the person.
-- **A server model call that writes the terms from the person's words alone.** Not chosen now. It would allow a described load case on a brief that has variants, at the cost of a second model in the path of every verdict on a load.
+- **A server model call that writes the terms from the person's words alone.** Not chosen now. The result rule already allows a described load case on a brief that has variants, so this would add only a new description after the brief has a stress result. The cost is a second model in the path of every verdict on a load.
