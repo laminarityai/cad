@@ -126,7 +126,7 @@ PLATE_BACK = Region(
 )
 ARM_TIP = Region((Plane((BEAM_L, 0.0, 0.0), (1.0, 0.0, 0.0)),), (BEAM_L, BEAM_B / 2, BEAM_H / 2))
 
-SHELF_X, SHELF_Y, SHELF_T, SHELF_P = 160.0, 40.0, 6.0, 10.0
+SHELF_X, SHELF_Y, SHELF_T, SHELF_P = 160.0, 40.0, 2.5, 5.0
 """A plate held at its end x = 0 and pressed into the middle of its top."""
 SHELF_ROOT = Region((Plane(ORIGIN, (-1.0, 0.0, 0.0)),), (0.0, SHELF_Y / 2, SHELF_T / 2))
 SHELF_TOP = (SHELF_X / 2, SHELF_Y / 2, SHELF_T)
