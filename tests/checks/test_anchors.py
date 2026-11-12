@@ -1,13 +1,8 @@
 import pytest
 
 from cad.checks.container import anchors, fea
-from cad.checks.container.anchors import (
-    FarFrom,
-    Plane,
-    Region,
-    Unresolved,
-)
 from cad.checks.container.kernel import Point
+from cad.checks.container.regions import FarFrom, Plane, Region, Unresolved
 from cad.checks.container.wire import (
     HolesWire,
 )
@@ -146,34 +141,32 @@ def test_a_flat_face_support_clamps_a_face_and_a_bolted_support_does_not() -> No
     assert not fea.clamps_a_face(must(PLATE, case(holes(2))))
 
 
-def test_a_part_with_isotropic_inertia_has_no_long_axis() -> None:
+def test_a_part_with_isotropic_inertia_has_no_long_axis_to_load_along() -> None:
     no_long = "the part has no unique long axis: its two largest volume spreads are within 1%"
-    assert reason(CUBE, case(FLAT_END)) == no_long
     assert reason(CUBE, case(LARGEST_FLAT, far_end(ALONG_LONG))) == no_long
     assert len(must(CUBE, case(LARGEST_FLAT)).candidates) == 6
 
 
-def test_the_far_end_is_measured_from_the_supports_toward_the_centre_of_mass() -> None:
+def test_the_far_end_of_a_bar_is_the_whole_end_face_opposite_its_support() -> None:
     for candidate in must(BAR, case(FLAT_END)).candidates:
-        far = candidate.load
-        assert isinstance(far, FarFrom)
-        assert far.center == pytest.approx(candidate.support.centroid)
-        assert far.center[1:] == pytest.approx((5, 3))
-        inward = 1.0 if far.center[0] < 50 else -1.0
-        assert far.axis == pytest.approx((inward, 0, 0))
-        corners = [(x, y, z) for x in (0.0, 100.0) for y in (0.0, 10.0) for z in (0.0, 6.0)]
-        assert far.cutoff(corners) == pytest.approx(0.995 * 100)
+        support, tip = plane(candidate.support), plane(candidate.load)
+        assert tip.normal == pytest.approx(tuple(-n for n in support.normal))
+        assert abs(tip.point[0] - support.point[0]) == pytest.approx(100)
+
+
+def test_a_rounded_tip_falls_back_to_the_band_toward_the_centre_of_mass() -> None:
+    (candidate,) = must(ROUNDED_BAR, case(FLAT_END)).candidates
+    far = candidate.load
+    assert isinstance(far, FarFrom)
+    assert far.center == pytest.approx(candidate.support.centroid)
+    assert far.axis == pytest.approx((1, 0, 0))
+    assert far.cutoff([(0.0, 5.0, 3.0), (105.0, 5.0, 3.0)]) == pytest.approx(0.995 * 105)
 
 
 def test_a_support_at_the_centre_of_mass_loads_each_end_of_the_long_axis() -> None:
-    corners = [(x, y, z) for x in (0.0, 60.0) for y in (0.0, 20.0) for z in (0.0, 5.0)]
-    fars = [candidate.load for candidate in must(PLATE, case(holes(2))).candidates]
-    assert all(isinstance(far, FarFrom) for far in fars)
-    axes = sorted(far.axis for far in fars if isinstance(far, FarFrom))
-    assert axes == [pytest.approx((-1, 0, 0)), pytest.approx((1, 0, 0))]
-    assert all(
-        far.cutoff(corners) == pytest.approx(0.995 * 30) for far in fars if isinstance(far, FarFrom)
-    )
+    tips = [plane(candidate.load) for candidate in must(PLATE, case(holes(2))).candidates]
+    found = sorted((tip.normal[0], tip.point[0]) for tip in tips)
+    assert found == [pytest.approx((-1, 0)), pytest.approx((1, 60))]
 
 
 def test_a_support_at_the_centre_of_a_part_with_no_long_axis_has_no_far_end() -> None:
@@ -184,7 +177,8 @@ def test_a_support_at_the_centre_of_a_part_with_no_long_axis_has_no_far_end() ->
     )
 
 
-def plane(region: Region) -> Plane:
+def plane(region: Region | FarFrom) -> Plane:
+    assert isinstance(region, Region)
     (patch,) = region.patches
     assert isinstance(patch, Plane)
     return patch

@@ -5,7 +5,6 @@ import sys
 from cases import BY_NAME, Case, PlateLoadPatch
 
 from cad.checks.container import fea
-from cad.checks.container.anchors import FarFrom, Plane, Region, Unresolved
 from cad.checks.container.calculix import SolveFailed, solve
 from cad.checks.container.elastic import (
     Face,
@@ -18,6 +17,7 @@ from cad.checks.container.elastic import (
 )
 from cad.checks.container.kernel import Unreadable, ocp_kernel
 from cad.checks.container.mesher import MeshFailed, TetMesh, mesh_pair, tet_mesh
+from cad.checks.container.regions import FarFrom, Plane, Region, Unresolved
 from cad.checks.container.vectors import norm, sub, unit
 
 REGION_TOLERANCE = 1e-4

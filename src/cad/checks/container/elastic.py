@@ -1,8 +1,8 @@
 import math
 from collections.abc import Callable, Sequence
 
-from cad.checks.container.anchors import Bore, FarFrom, Patch, Plane, Region, Unresolved
 from cad.checks.container.mesher import TetMesh
+from cad.checks.container.regions import Bore, FarFrom, Patch, Plane, Region, Unresolved
 from cad.checks.container.vectors import Point, cross, dot, norm, sub
 
 type Stress = tuple[float, float, float, float, float, float]

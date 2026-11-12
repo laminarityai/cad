@@ -23,6 +23,8 @@ The parts that resolve are bars whose long axis is normal to their end faces, su
 
 ## Option A: choose ends from whole flat faces, with the same words
 
+*Built on 2026-11-11, after the operator approved it. The rule below is the one in `anchors.py`, with its angle limits as constants there (`END_CONE_RAD`, `FAR_CONE_RAD`). What the corpus shows now is under [Corpus after option A](#corpus-after-option-a).*
+
 Keep every anchor word and change the rules behind `flat_end` and `far_end`.
 
 - **`flat_end`.** An end is a flat face that bounds the part (no material lies beyond its plane) and whose outward normal is within 30° of the long axis. At each end of the long axis, the end is the qualifying face whose centroid lies farthest along the axis. A face within `FLUSH_TOL_FRACTION` of it is part of the same end. When the two largest spreads tie, each tied axis gives candidates, and the check keeps the worst result, as it does for any tie.
@@ -39,6 +41,23 @@ Harness cases A needs:
 1. `tests/checks/test_anchors.py`, with fake faces: an L picks its wall face and its arm tip at a 15° tilt; a face 40° off the axis is not an end; a chamfer next to a flat end is not chosen; the far end of a bolted L is its whole tip face.
 2. `tests/checks/test_anchors_in_image.py`: the same L and the T arm with its plate resolve to the same faces under the existing set of rotations and moves.
 3. `tests/fea/cases.py`: a cantilever with a thick, off-centre mounting plate, fixed on the plate's back face and loaded at the arm tip. The expected value is the arm's Timoshenko tip deflection. Its bound has to be measured first, as §2.9 did for the existing bounds, because the plate adds some root compliance.
+
+### Corpus after option A
+
+The same 19 parts, scored through `score_variant` on the same day, once on `main` and once with option A. Each fea verdict below is the check's own.
+
+| Where the check stops | `main` | Option A |
+|---|---|---|
+| Decided | 4 | 7 |
+| Stopped at an anchor | 11 | 4 |
+| Stopped at the large-displacement gate | 4 | 8 |
+| Over the node cap | 0 | 0 |
+
+- The 7 parts that now resolve are the 7 the measured angles predicted: `l_plain`, `l_holes`, `l_gusset`, `t_arm`, `t_arm_flat_end`, `shelf_web` and `square_tab`.
+- 3 of them are decided: `l_gusset` and `square_tab` pass, and `shelf_web` meets its stress limit but fails its deflection limit.
+- The other 4 solve, then stop at the 5% gate, from 6.1 mm on the T arms to 11.8 mm on the L brackets. Each is a 20 N load on a PLA part that bends far past any deflection limit a person would set. The gate, not the anchor, now stops them. See [the large-displacement gate](#not-an-anchor-the-large-displacement-gate).
+- The 4 left at an anchor are the ones the note expected: `equal_angle`, `sb_gusset` and the two hole counts.
+- No part that resolved on `main` changed its verdict. On 3 of them the load now spreads over the whole tip face instead of the band, and the peak displacement moved by under 1%: `l_filleted` 11.02 to 10.99 mm, `truss_arm` 13.27 to 13.17 mm, `i_beam_arm` 2.421 to 2.422 mm.
 
 ## Option B: new words in the closed vocabulary
 
@@ -66,7 +85,7 @@ Do option A first. It fixes the cantilever arms with plates and the L brackets t
 
 ## Not an anchor: the large-displacement gate
 
-4 corpus parts resolve and mesh, then stop at the 5% gate for linear analysis: `cantilever_bar` (5.6 mm on 100 mm), `l_filleted` (11.0 mm), `hook` (3.6 mm on 59 mm) and `truss_arm` (13.3 mm). Each is far over any deflection limit a person would set, yet the requirement is unknown. A geometrically nonlinear solve (`NLGEOM`) would decide them, but it breaks the superposition of unit solves that the worst-direction search relies on. This needs its own issue.
+On `main`, 4 corpus parts resolve and mesh, then stop at the 5% gate for linear analysis. With option A it is 8. The first 4 are `cantilever_bar` (5.6 mm on 100 mm), `l_filleted` (11.0 mm), `hook` (3.6 mm on 59 mm) and `truss_arm` (13.3 mm). Each is far over any deflection limit a person would set, yet the requirement is unknown. A geometrically nonlinear solve (`NLGEOM`) would decide them, but it breaks the superposition of unit solves that the worst-direction search relies on. This needs its own issue.
 
 ## Not an anchor: the node-cap floor on thin, filleted walls
 

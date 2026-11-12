@@ -1,8 +1,12 @@
 import math
 
-from cad.checks.container.anchors import Candidate, FarFrom, Resolved, Unresolved, resolve
+import pytest
+
+from cad.checks.container import anchors
+from cad.checks.container.anchors import resolve
 from cad.checks.container.elastic import Face, region_faces
 from cad.checks.container.mesher import TetMesh
+from cad.checks.container.regions import Candidate, FarFrom, Region, Resolved, Unresolved
 from cad.checks.container.vectors import Point, add, scale
 from tests.support.anchors import FLAT_END, KERNEL, case
 from tests.support.solids import Solid, apply, box, turn_and_move, turned
@@ -53,16 +57,22 @@ def boundary_and_far_end(
     return TetMesh(nodes, (), faces), faces[: len(far)]
 
 
-def clamped_at(solid: Solid, root: Point) -> FarFrom:
+def clamped_at(solid: Solid, root: Point) -> Candidate:
     found = resolve(case(FLAT_END), KERNEL.faces(solid), KERNEL.inertia(solid))
     assert isinstance(found, Resolved), found
     (candidate,) = (c for c in found.candidates if math.dist(c.support.centroid, root) <= TOL)
-    return far_of(candidate)
+    return candidate
 
 
-def far_of(candidate: Candidate) -> FarFrom:
-    assert isinstance(candidate.load, FarFrom)
-    return candidate.load
+def band_of(solid: Solid, root: Point) -> FarFrom:
+    """The band the far end falls back to when no flat face qualifies."""
+    (line,) = must_lines(anchors.far_from(clamped_at(solid, root).support, KERNEL.inertia(solid)))
+    return line
+
+
+def must_lines(found: tuple[FarFrom, ...] | Unresolved) -> tuple[FarFrom, ...]:
+    assert not isinstance(found, Unresolved), found
+    return found
 
 
 def moved(mesh: TetMesh) -> TetMesh:
@@ -74,13 +84,18 @@ ROOT = (0.0, WIDTH / 2, THICK / 2)
 TIP_CENTRE = (LENGTH, WIDTH / 2, THICK / 2)
 
 
-def test_the_far_end_of_a_wide_plate_is_its_whole_end_face_centre_included() -> None:
-    selected = region_faces(MESH, clamped_at(WIDE, ROOT), TOL)
+@pytest.mark.parametrize("rule", ["whole face", "band"])
+def test_the_far_end_of_a_wide_plate_is_its_whole_end_face_centre_included(rule: str) -> None:
+    far = clamped_at(WIDE, ROOT).load if rule == "whole face" else band_of(WIDE, ROOT)
+    assert isinstance(far, Region if rule == "whole face" else FarFrom)
+    selected = region_faces(MESH, far, TOL)
     assert not isinstance(selected, Unresolved), selected
     assert selected == END
     assert any(math.dist(MESH.nodes[i], TIP_CENTRE) <= TOL for face in selected for i in face)
 
 
-def test_a_turned_and_moved_plate_selects_the_same_end_faces() -> None:
-    far = clamped_at(turned(WIDE, MOVE), apply(MOVE, ROOT))
+@pytest.mark.parametrize("rule", ["whole face", "band"])
+def test_a_turned_and_moved_plate_selects_the_same_end_faces(rule: str) -> None:
+    solid, root = turned(WIDE, MOVE), apply(MOVE, ROOT)
+    far = clamped_at(solid, root).load if rule == "whole face" else band_of(solid, root)
     assert region_faces(moved(MESH), far, TOL) == END

@@ -2,7 +2,8 @@ import math
 
 import pytest
 
-from cad.checks.container.anchors import (
+from cad.checks.container.kernel import Point
+from cad.checks.container.regions import (
     Bore,
     Candidate,
     FarFrom,
@@ -12,19 +13,23 @@ from cad.checks.container.anchors import (
     Resolved,
     Unresolved,
 )
-from cad.checks.container.kernel import Point
 from cad.checks.container.wire import LoadCaseWire
 from tests.support.anchors import (
     ACROSS_HOLES,
     ALONG_LONG,
     BAR,
+    BOLTED_L,
+    CHAMFERED_BAR,
     COUNTERBORED,
     CUBE,
     FLAT_END,
     HANGER,
+    L_BRACKET,
     LARGEST_FLAT,
     PLATE,
     ROUNDED_BAR,
+    SQUARE_TAB,
+    T_ARM,
     THREE_HOLES,
     case,
     far_end,
@@ -46,6 +51,11 @@ CASES: list[tuple[Solid, LoadCaseWire]] = [
     (CUBE, case(LARGEST_FLAT)),
     (CUBE, case(FLAT_END)),
     (THREE_HOLES, case(holes(2))),
+    (L_BRACKET, case(FLAT_END)),
+    (BOLTED_L, case(holes(2, 4.5))),
+    (T_ARM, case(FLAT_END)),
+    (SQUARE_TAB, case(FLAT_END)),
+    (CHAMFERED_BAR, case(FLAT_END)),
 ]
 
 

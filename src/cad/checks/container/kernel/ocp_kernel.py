@@ -1,4 +1,5 @@
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 from typing import cast
 
@@ -138,16 +139,48 @@ class OcpKernel:
     def faces(self, shape: Shape) -> tuple[FaceInfo, ...]:
         ocp = self._ocp
         found = self._explore(shape, ocp.face, ocp.any_shape)
-        return tuple(_face_info(ocp, ocp.topods.Face_s(face)) for face in found)
+        reach = self._reacher(shape)
+        return tuple(_face_info(ocp, ocp.topods.Face_s(face), reach) for face in found)
+
+    def _reacher(self, shape: Shape) -> Callable[[Point], float]:
+        reach: dict[Point, float] = {}
+
+        def along(normal: Point) -> float:
+            key = (round(normal[0], 9), round(normal[1], 9), round(normal[2], 9))
+            if key not in reach:
+                reach[key] = self._reach(shape, normal)
+            return reach[key]
+
+        return along
+
+    def _reach(self, shape: Shape, direction: Point) -> float:
+        """The largest projection of the solid on the unit `direction`, from the tightest box in a
+        frame whose z axis is `direction`."""
+        ocp = self._ocp
+        helper = min(
+            ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0)),
+            key=lambda e: abs(dot(e, direction)),
+        )
+        across = unit(cross(direction, helper))
+        frame = ocp.new_frame(
+            ocp.new_point(0, 0, 0), ocp.new_direction(*direction), ocp.new_direction(*across)
+        )
+        trsf = ocp.new_trsf()
+        trsf.SetTransformation(frame)
+        local = cast(Movable, shape).Moved(ocp.new_location(trsf))
+        box = ocp.new_box()
+        ocp.brep_bnd_lib.AddOptimal_s(local, box, useTriangulation=False, useShapeTolerance=False)
+        return box.Get()[5]
 
     def openings(self, shape: Shape) -> tuple[Opening, ...]:
         ocp = self._ocp
         walls = ocp.new_ancestor_map()
         ocp.topexp.MapShapesAndAncestors_s(shape, ocp.edge, ocp.face, walls)
         found: list[Opening] = []
+        reach = self._reacher(shape)
         for found_face in self._explore(shape, ocp.face, ocp.any_shape):
             face = ocp.topods.Face_s(found_face)
-            info = _face_info(ocp, face)
+            info = _face_info(ocp, face, reach)
             if not isinstance(info.surface, Flat):
                 continue
             outer = ocp.brep_tools.OuterWire_s(face)
@@ -170,7 +203,7 @@ class OcpKernel:
         for edge in edges:
             for across in walls.FindFromKey(edge):
                 if not cast(Sameable, across).IsSame(face):
-                    centre = _face_info(ocp, ocp.topods.Face_s(across)).centroid
+                    centre = _centroid(ocp, ocp.topods.Face_s(across))
                     depth += dot(sub(centre, info.centroid), info.surface.normal)
         return depth < 0
 
@@ -259,13 +292,20 @@ def _coords(point: Xyz) -> Point:
     return (point.X(), point.Y(), point.Z())
 
 
-def _face_info(ocp: Ocp, face: Shape) -> FaceInfo:
+def _face_info(ocp: Ocp, face: Shape, reach: Callable[[Point], float]) -> FaceInfo:
     props = ocp.new_props()
     ocp.brep_gprop.SurfaceProperties_s(face, props)
-    return FaceInfo(_surface(ocp, face), props.Mass(), _coords(props.CentreOfMass()))
+    centroid = _coords(props.CentreOfMass())
+    return FaceInfo(_surface(ocp, face, centroid, reach), props.Mass(), centroid)
 
 
-def _surface(ocp: Ocp, face: Shape) -> Surface:
+def _centroid(ocp: Ocp, face: Shape) -> Point:
+    props = ocp.new_props()
+    ocp.brep_gprop.SurfaceProperties_s(face, props)
+    return _coords(props.CentreOfMass())
+
+
+def _surface(ocp: Ocp, face: Shape, centroid: Point, reach: Callable[[Point], float]) -> Surface:
     u0, u1, v0, v1 = ocp.brep_tools.UVBounds_s(face)
     point, normal = ocp.new_point(0, 0, 0), ocp.new_vector(0, 0, 0)
     ocp.new_face_props(face).Normal((u0 + u1) / 2, (v0 + v1) / 2, point, normal)
@@ -273,7 +313,7 @@ def _surface(ocp: Ocp, face: Shape) -> Surface:
     adaptor = ocp.new_adaptor(face)
     kind = adaptor.GetType()
     if kind == ocp.plane:
-        return Flat(outward)
+        return Flat(outward, reach(outward) - dot(centroid, outward))
     if kind != ocp.cylinder:
         return Curved()
     cylinder = adaptor.Cylinder()
