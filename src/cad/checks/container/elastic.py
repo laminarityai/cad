@@ -28,6 +28,13 @@ def contains(patch: Patch, point: Point, tol: float) -> bool:
             return abs(dot(offset, normal)) <= tol and norm(offset) <= radius + tol
 
 
+def lies_on(patch: Patch, point: Point, tol: float) -> bool:
+    """Whether the point is on the surface the patch is part of. A disc is part of its plane."""
+    if isinstance(patch, Disc):
+        return contains(Plane(patch.center, patch.normal), point, tol)
+    return contains(patch, point, tol)
+
+
 def extent(mesh: TetMesh) -> float:
     return max(
         max(node[axis] for node in mesh.nodes) - min(node[axis] for node in mesh.nodes)
@@ -40,15 +47,25 @@ def region_faces(
 ) -> tuple[Face, ...] | Unresolved:
     match anchor:
         case Region(patches, _, chosen):
-            discs = [patch for patch in patches if isinstance(patch, Disc)]
-            faces = tuple(
+            tagged = tuple(
                 face
                 for face, surface in zip(mesh.faces, mesh.surfaces, strict=True)
                 if surface in chosen
-                and (
-                    not discs
-                    or any(all(contains(d, mesh.nodes[i], tol) for i in face) for d in discs)
+            )
+            if not all(
+                any(all(lies_on(p, mesh.nodes[i], tol) for i in face) for p in patches)
+                for face in tagged
+            ):
+                return Unresolved(
+                    "a mesh triangle on a chosen face lies off the surface the kernel reads "
+                    "there, so the mesh and the kernel do not order the faces alike"
                 )
+            discs = [patch for patch in patches if isinstance(patch, Disc)]
+            faces = tuple(
+                face
+                for face in tagged
+                if not discs
+                or any(all(contains(d, mesh.nodes[i], tol) for i in face) for d in discs)
             )
         case FarFrom():
             surface = [mesh.nodes[i] for i in face_nodes(mesh.faces)]
