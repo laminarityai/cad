@@ -47,7 +47,9 @@ FORMULA = (
     "linear static finite element analysis of the confirmed load case: 10-node tetrahedra "
     "meshed at min(max(wall, 0.2 mm), extent / 20) and again 1.5 times finer, wall = 2 * "
     "volume / surface area, refined to the part's curvature; when either mesh would have more "
-    "than 150,000 nodes, both are meshed again with no element under half their size; a flat "
+    "than 150,000 nodes, both are meshed again with no element under half the coarse size, so "
+    "near a small fillet both meshes have the same size and their change does not test "
+    "refinement there; a flat "
     f"end is the flat face that bounds the part, faces within {_END_DEG:g} degrees of the long "
     "axis and "
     "lies farthest along it, with the faces flush with it, and when the two largest volume "
@@ -191,7 +193,10 @@ def judged(
     floored = (
         ""
         if over_cap is None
-        else f"; both meshes keep every element at least half their size, because {over_cap.reason}"
+        else (
+            "; both meshes keep every element at least half the coarse size, because "
+            f"{over_cap.reason}"
+        )
     )
     measured = [
         *echoed,

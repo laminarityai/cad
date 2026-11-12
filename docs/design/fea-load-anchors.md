@@ -44,19 +44,21 @@ Harness cases A needs:
 
 ### Corpus after option A
 
-The same 19 parts, scored through `score_variant` on the same day, once on `main` and once with option A. Each fea verdict below is the check's own.
+The same 19 parts, scored through `score_variant` on the same day: on `main`, with option A, and with option A and the shared mesh floor below. Each fea verdict is the check's own. The last row is `i_beam_flat`, a 20th part kept apart because it is the part Auto built in #176.
 
-| Where the check stops | `main` | Option A |
-|---|---|---|
-| Decided | 4 | 7 |
-| Stopped at an anchor | 11 | 4 |
-| Stopped at the large-displacement gate | 4 | 8 |
-| Over the node cap | 0 | 0 |
+| Where the check stops | `main` | Option A | Option A and the shared floor |
+|---|---|---|---|
+| Decided | 4 | 7 | 7 |
+| Stopped at an anchor | 11 | 4 | 4 |
+| Stopped at the large-displacement gate | 4 | 8 | 8 |
+| Over the node cap | 0 | 0 | 0 |
+| `i_beam_flat` | over the cap | over the cap | decided |
 
 - The 7 parts that now resolve are the 7 the measured angles predicted: `l_plain`, `l_holes`, `l_gusset`, `t_arm`, `t_arm_flat_end`, `shelf_web` and `square_tab`.
-- 3 of them are decided: `l_gusset` and `square_tab` pass, and `shelf_web` meets its stress limit but fails its deflection limit.
+- 3 of them are decided. Each corpus part carries one `max_deflection` requirement: `l_gusset` and `square_tab` meet it, and `shelf_web` fails it.
 - The other 4 solve, then stop at the 5% gate, from 6.1 mm on the T arms to 11.8 mm on the L brackets. Each is a 20 N load on a PLA part that bends far past any deflection limit a person would set. The gate, not the anchor, now stops them. See [the large-displacement gate](#not-an-anchor-the-large-displacement-gate).
 - The 4 left at an anchor are the ones the note expected: `equal_angle`, `sb_gusset` and the two hole counts.
+- The shared floor changes no verdict among the 19. Only `i_beam_arm` is over the cap, and its displacement moved from 2.4217 to 2.4209 mm.
 - No part that resolved on `main` changed its verdict. On 3 of them the load now spreads over the whole tip face instead of the band, and the peak displacement moved by under 1%: `l_filleted` 11.02 to 10.99 mm, `truss_arm` 13.27 to 13.17 mm, `i_beam_arm` 2.421 to 2.422 mm.
 
 ## Option B: new words in the closed vocabulary
@@ -98,3 +100,7 @@ With the floor at half each mesh's size, `i_beam_arm` (a 100 mm I-beam with 1 mm
 | One floor for both meshes, half the coarse size | 87,152 | No inverted element. Near the fillets, though, both meshes have the same size, so the 3% gate no longer tests refinement there. |
 
 The third is the smallest change that fits. It weakens what the gate proves near fillets, so it is a decision for the operator, not a tuning.
+
+**Built: one floor for both meshes.** The operator approved the third row on 2026-11-11 "for now", so that the stress check can move on, and it can be revisited. When either mesh is over the cap, both are meshed again with no element under half the coarse size. The constant is `FLOOR_FRACTION` in `mesher.py`, where the agent cannot change it. The cost is stated in the check's formula text and in [phase 3](phase-3.md) §2.1: near the fillets both meshes have the same element size, so the 3% gate does not test refinement there.
+
+On `main` and with option A alone, `i_beam_flat`'s floored fine mesh has 157,703 nodes, over the cap. With the shared floor of 0.90 mm, the floored meshes have 63,453 and 87,838 nodes, under the cap of 150,000, measured in the check image. Scored through `score_variant`, the part gets a verdict: the fea check passes with a safety factor of 3.47, and its `max_deflection` requirement fails at 2.19 mm. The two meshes' displacements differ by 0.04%. That small change is the cost above showing up: near the fillets the two meshes are the same.

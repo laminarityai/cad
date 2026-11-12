@@ -76,7 +76,7 @@ def test_a_floored_mesh_says_why_whatever_the_verdict(
     )
     assert found["verdict"] == verdict
     assert found["reason"].endswith(
-        "both meshes keep every element at least half their size, because the mesh at 2 mm "
+        "both meshes keep every element at least half the coarse size, because the mesh at 2 mm "
         "has 900000 nodes, above the cap of 150000"
     )
 
