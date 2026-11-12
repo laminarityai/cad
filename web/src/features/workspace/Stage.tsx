@@ -1,9 +1,11 @@
-import { Box, ChevronLeft, ChevronRight, Ruler } from "lucide-react";
+import { Box, ChevronLeft, ChevronRight, Ruler, Slice } from "lucide-react";
 import { useMemo, useState, type Dispatch, type ReactElement } from "react";
 import { DimensionOverlay } from "@/features/viewer/DimensionOverlay";
 import type { Extents } from "@/features/viewer/dimensions";
 import type { OnPick, Track } from "@/features/viewer/engine";
 import { readoutOf, type Measure } from "@/features/viewer/readout";
+import { sectionOf, type Cut } from "@/features/viewer/section";
+import { SectionPanel } from "@/features/viewer/SectionPanel";
 import type { Pick, Selection } from "@/features/viewer/selection";
 import { SelectionNote } from "@/features/viewer/SelectionNote";
 import { ViewerCanvas } from "@/features/viewer/ViewerCanvas";
@@ -55,9 +57,19 @@ const ignore: OnPick = () => undefined;
 
 const unmeasured: Measure = () => null;
 
-/** `extents` is the size check's numbers to draw, or null for none. */
-function Mesh(props: { variantId: string; label: string; fit: Fit | null; where: Where | null; selection: Selection | null; extents: Extents | null; onPick: OnPick }) {
-  const { variantId, label, fit, where, selection, extents, onPick } = props;
+/** `extents` is the size check's numbers to draw, or null for none. `cut` is the section the person chose, or null for the whole part. */
+function Mesh(props: {
+  variantId: string;
+  label: string;
+  fit: Fit | null;
+  where: Where | null;
+  selection: Selection | null;
+  extents: Extents | null;
+  cut: Cut | null;
+  onCut: (next: Cut) => void;
+  onPick: OnPick;
+}) {
+  const { variantId, label, fit, where, selection, extents, cut, onCut, onPick } = props;
   const mesh = useMesh(variantId);
   const fitMesh = useMesh(fit?.variantId ?? variantId);
   const [measure, setMeasure] = useState<Measure | null>(null);
@@ -68,6 +80,11 @@ function Mesh(props: { variantId: string; label: string; fit: Fit | null; where:
   const part = mesh.status === "ready" ? mesh.shapes : mesh.status === "loading" ? mesh.lastDrawn : null;
   const ghost = fit && fitMesh.status === "ready" ? fitMesh.shapes : null;
   const drawn = useDrawn(part, ghost, where);
+  // The box of everything drawn, so a cut can reach the context part beside the part.
+  const bb = drawn?.bb ?? null;
+  const axis = cut?.axis;
+  const position = cut?.at;
+  const plane = useMemo(() => (bb && axis ? sectionOf({ axis, at: position ?? null }, bb) : null), [bb, axis, position]);
   let body: ReactElement;
   if (mesh.status === "failed") {
     body = <p className="p-4 text-fail">{mesh.reason}</p>;
@@ -80,6 +97,7 @@ function Mesh(props: { variantId: string; label: string; fit: Fit | null; where:
         shapes={drawn}
         label={label}
         picks={picks}
+        section={plane}
         onPick={mesh.status === "ready" ? onPick : ignore}
         onMeasure={(next) => {
           setMeasure(() => next);
@@ -93,6 +111,7 @@ function Mesh(props: { variantId: string; label: string; fit: Fit | null; where:
   return (
     <>
       {body}
+      {cut && bb && plane ? <SectionPanel cut={cut} at={plane.at} bb={bb} onChange={onCut} /> : null}
       {extents && mesh.status === "ready" ? <DimensionOverlay extents={extents} bb={mesh.shapes.bb} track={track} /> : null}
       <SelectionNote selection={selection} readout={readout} />
     </>
@@ -134,6 +153,7 @@ export function Stage(props: {
   const { slot, revision, dispatch, briefId, fit, where, selection, cards, onPick } = props;
   const [showFit, setShowFit] = useState(true);
   const [showSize, setShowSize] = useState(false);
+  const [cut, setCut] = useState<Cut | null>(null);
   const newest = slot.revisions.length;
   const showing = Math.min(revision ?? newest, newest);
   const shown = slot.revisions[showing - 1];
@@ -146,7 +166,7 @@ export function Stage(props: {
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div className="relative min-h-0 flex-1" data-stage>
-        <Mesh variantId={shown.variantId} label={`${slot.label}, revision ${String(showing)}`} fit={showFit ? fit : null} where={where} selection={selection} extents={showSize ? size : null} onPick={onPick} />
+        <Mesh variantId={shown.variantId} label={`${slot.label}, revision ${String(showing)}`} fit={showFit ? fit : null} where={where} selection={selection} extents={showSize ? size : null} cut={cut} onCut={setCut} onPick={onPick} />
         <div className="absolute right-3 top-3 z-30 flex gap-2">
           {fit ? (
             <button
@@ -164,6 +184,23 @@ export function Stage(props: {
               <Box className="size-4" /> With {fit.name}
             </button>
           ) : null}
+          <Tooltip label="Cut through the part to see inside">
+            <button
+              type="button"
+              aria-pressed={cut !== null}
+              aria-label="Section"
+              data-section-toggle
+              onClick={() => {
+                setCut((was) => (was ? null : { axis: "x", at: null }));
+              }}
+              className={cn(
+                "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[14px] shadow-sm",
+                cut ? "border-rule bg-panel-2 text-ink" : "border-rule bg-panel text-ink-3",
+              )}
+            >
+              <Slice className="size-4" /> <span className="hidden sm:inline">Section</span>
+            </button>
+          </Tooltip>
           {size ? (
             <Tooltip label="Dimensions from the size check">
               <button

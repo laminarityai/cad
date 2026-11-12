@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useServices } from "@/app/context";
 import type { Mounted, OnPick, Shapes, Theme, Track } from "./engine";
 import type { Measure } from "./readout";
+import type { Section } from "./section";
 import type { Pick } from "./selection";
 
 function currentTheme(): Theme {
@@ -14,6 +15,8 @@ interface Props {
   shapes: Shapes;
   label: string;
   picks: readonly Pick[];
+  /** The plane the part is cut with, or null for the whole part. */
+  section: Section | null;
   onPick: OnPick;
   /** Gets the viewer's measure once it is drawn, and null when it stops. */
   onMeasure: (measure: Measure | null) => void;
@@ -21,12 +24,13 @@ interface Props {
   onTrack: (track: Track | null) => void;
 }
 
-export function ViewerCanvas({ shapes, label, picks, onPick, onMeasure, onTrack }: Props) {
+export function ViewerCanvas({ shapes, label, picks, section, onPick, onMeasure, onTrack }: Props) {
   const { viewer } = useServices();
   const host = useRef<HTMLDivElement>(null);
   const mounted = useRef<{ view: Mounted; shapes: Shapes } | null>(null);
   const latest = useRef(shapes);
   const latestPicks = useRef(picks);
+  const latestSection = useRef(section);
   const latestOnPick = useRef(onPick);
   const latestOnMeasure = useRef(onMeasure);
   const latestOnTrack = useRef(onTrack);
@@ -54,6 +58,10 @@ export function ViewerCanvas({ shapes, label, picks, onPick, onMeasure, onTrack 
     mounted.current?.view.select(picks);
   }, [picks]);
   useEffect(() => {
+    latestSection.current = section;
+    mounted.current?.view.section(section);
+  }, [section]);
+  useEffect(() => {
     const element = host.current;
     if (!element) return;
     let live = true;
@@ -72,6 +80,7 @@ export function ViewerCanvas({ shapes, label, picks, onPick, onMeasure, onTrack 
           mounted.current.shapes = latest.current;
         }
         view.select(latestPicks.current);
+        view.section(latestSection.current);
         latestOnMeasure.current((a, b) => view.measure(a, b));
         latestOnTrack.current((points, listener) => view.track(points, listener));
         countDraw(element);
