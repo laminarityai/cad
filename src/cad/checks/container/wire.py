@@ -67,6 +67,10 @@ class CheckedReport(TypedDict):
     step: StepWire
 
 
+type PartAxisWire = Literal["middle", "short"]
+type CurveWire = Literal["hole", "inner_curve"]
+
+
 class HolesWire(TypedDict):
     kind: Literal["holes"]
     count: int
@@ -81,7 +85,36 @@ class FlatEndWire(TypedDict):
     kind: Literal["flat_end"]
 
 
-type SupportWire = HolesWire | LargestFlatWire | FlatEndWire
+class EndOfWire(TypedDict):
+    kind: Literal["end_of"]
+    axis: PartAxisWire
+
+
+class FacingWire(TypedDict):
+    kind: Literal["facing"]
+
+
+class EachWire(TypedDict):
+    kind: Literal["each"]
+    curve: CurveWire
+    diameter_mm: float | None
+
+
+class InOneFlatFaceWire(TypedDict):
+    kind: Literal["in_one_flat_face"]
+    count: int
+    diameter_mm: float | None
+
+
+type SupportWire = (
+    HolesWire
+    | LargestFlatWire
+    | FlatEndWire
+    | EndOfWire
+    | FacingWire
+    | EachWire
+    | InOneFlatFaceWire
+)
 type AxisWire = Literal["long", "hole_axis"]
 
 
@@ -99,7 +132,15 @@ class AnyWayWire(TypedDict):
     kind: Literal["any"]
 
 
-type DirectionWire = AlongWire | AcrossWire | AnyWayWire
+class IntoWire(TypedDict):
+    kind: Literal["into"]
+
+
+class AwayWire(TypedDict):
+    kind: Literal["away"]
+
+
+type DirectionWire = AlongWire | AcrossWire | AnyWayWire | IntoWire | AwayWire
 
 
 class FarEndWire(TypedDict):
@@ -116,7 +157,29 @@ class OnHolesWire(TypedDict):
     direction: DirectionWire
 
 
-type LoadWire = FarEndWire | OnHolesWire
+class OnLargestFlatWire(TypedDict):
+    kind: Literal["on_largest_flat"]
+    middle: bool
+    force_n: float
+    direction: DirectionWire
+
+
+class OnOppositeWire(TypedDict):
+    kind: Literal["on_opposite"]
+    middle: bool
+    force_n: float
+    direction: DirectionWire
+
+
+class OnFarthestWire(TypedDict):
+    kind: Literal["on_farthest"]
+    curve: CurveWire
+    diameter_mm: float | None
+    force_n: float
+    direction: DirectionWire
+
+
+type LoadWire = FarEndWire | OnHolesWire | OnLargestFlatWire | OnOppositeWire | OnFarthestWire
 
 
 class LoadCaseWire(TypedDict):
