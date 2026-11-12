@@ -5,7 +5,7 @@
 (* catch_up, the done callback), chat/answer_driver.py (waiting_on and    *)
 (* delivery), operations/confirmation.ask_to_confirm (answers_recorded)   *)
 (* and confirmations/web.py record (the on_recorded hook). A page answer   *)
-(* only tells the conversation; it changes no mode.                        *)
+(* only tells the conversation. Lifting a stop's hold is AutoHold.tla's.   *)
 (*                                                                         *)
 (* The transcript is the claim. What a conversation was told is derived    *)
 (* from its own transcript, which survives a crash with the ledger. The    *)

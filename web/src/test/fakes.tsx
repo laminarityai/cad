@@ -2,7 +2,7 @@ import { act } from "@testing-library/react";
 import { vi } from "vitest";
 import type { Api } from "@/api/client";
 import type { ChatApi, Follower } from "@/api/chat";
-import type { AutoRun, ConversationState, ConversationView, Event, ExportFormat, Mode, Picked, PersonStop, StopReason, Tessellated, VariantSetView } from "@/api/types";
+import type { AutoRun, ConversationView, Event, ExportFormat, Picked, PersonStop, StopReason, Tessellated, VariantSetView } from "@/api/types";
 import type { Mounted, OnPick, Shapes, ViewerEngine } from "@/features/viewer/engine";
 import type { Pick } from "@/features/viewer/selection";
 import { brief } from "./fixtures";
@@ -126,21 +126,20 @@ export class FakeChat implements ChatApi {
   readonly transcript: { seq: number; event: Event }[] = [];
   readonly sent: string[] = [];
   readonly picked: (Picked | undefined)[] = [];
-  readonly modes: Mode[] = [];
   readonly stops: string[] = [];
   readonly followed: string[] = [];
-  mode: Mode = "design";
   autoRun: AutoRun | null = null;
+  stoppedRun: string | null = null;
   onSend: (text: string) => void = () => undefined;
   private readonly open = new Set<Follower>();
 
-  create = vi.fn<ChatApi["create"]>(() => Promise.resolve({ conversation_id: "c_new", mode: this.mode }));
+  create = vi.fn<ChatApi["create"]>(() => Promise.resolve({ conversation_id: "c_new" }));
 
   read = vi.fn((conversationId: string): Promise<ConversationView> =>
     Promise.resolve({
       conversation_id: conversationId,
-      mode: this.mode,
       auto_run: this.autoRun?.state.kind === "running" ? this.autoRun.run_id : null,
+      stopped_run: this.stoppedRun,
       project_id: "p1",
       brief_id: "b1",
       run: this.autoRun,
@@ -150,33 +149,23 @@ export class FakeChat implements ChatApi {
   send = vi.fn((_conversationId: string, text: string, selection?: Picked) => {
     this.sent.push(text);
     this.picked.push(selection);
+    this.stoppedRun = null;
     this.say({ kind: "user", text, selection: selection ? noteOf(selection) : null });
     this.onSend(text);
     return Promise.resolve({ seq: this.transcript.length });
   });
 
-  setMode = vi.fn((conversationId: string, mode: Mode): Promise<ConversationState> => {
-    this.modes.push(mode);
-    this.mode = mode;
-    if (mode !== "auto" && this.autoRun?.state.kind === "running") this.autoRun = stoppedRun(this.autoRun.run_id, "stopped_by_person", "You stopped the run.");
-    return Promise.resolve({
-      conversation_id: conversationId,
-      mode,
-      auto_run: null,
-    });
-  });
-
   stop = vi.fn((runId: string): Promise<PersonStop> => {
     this.stops.push(runId);
-    this.mode = "design";
+    this.stoppedRun = runId;
     const run = stoppedRun(runId, "stopped_by_person", "You stopped the run.");
     this.autoRun = run;
     return Promise.resolve({
       run,
       conversation: {
         conversation_id: "c_new",
-        mode: "design",
         auto_run: null,
+        stopped_run: runId,
       },
     });
   });
@@ -194,7 +183,7 @@ export class FakeChat implements ChatApi {
   stopsItself(reason: Exclude<StopReason["kind"], "stopped_by_person">, report: string): void {
     const runId = this.autoRun?.run_id ?? "run_1";
     this.autoRun = stoppedRun(runId, reason, report);
-    this.mode = "design";
+    this.stoppedRun = runId;
     this.say({ kind: "stop_report", run_id: runId, reason, report });
   }
 

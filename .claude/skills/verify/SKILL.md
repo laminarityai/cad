@@ -11,7 +11,7 @@ What a user touches today:
 - **The confirmation page** in the signed-in web app. `ask_to_confirm` hands the server's opener a local sign-in link, which lands on `/projects/<project_id>/confirm` with a session cookie. Drive it in a real browser with `browser.py`, and its refusals with `human.py` and `curl`: [features/phase-4/hosted-confirmation.md](features/phase-4/hosted-confirmation.md).
 
 - **The MCP server over HTTP** (`uv run cad-http`), with accounts. Drive it with `curl` and `cad-call --url`: [features/hosted-mcp.md](features/hosted-mcp.md).
-- **The web app** at `/app` on `cad-http`: the project workspace with the chat, the viewers, the scorecards and Auto mode. Drive it in a real browser with `browser.py web shot` and `browser.py web walk`: [Chat](features/phase-4/chat.md), [Web shell](features/phase-4/web-shell.md) and [Auto mode](features/phase-4/auto-mode.md).
+- **The web app** at `/app` on `cad-http`: the project workspace with the chat, the viewers, the scorecards and the Auto run status. Drive it in a real browser with `browser.py web shot` and `browser.py web walk`: [Chat](features/phase-4/chat.md), [Web shell](features/phase-4/web-shell.md) and [Auto](features/phase-4/auto.md).
 
 Run every command from the repo root. Run each command as written, and replace only a `<placeholder>` or a `$VARIABLE` this file sets.
 

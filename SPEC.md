@@ -50,14 +50,15 @@ Friction is a defect. The one step the agent cannot take for you is confirming w
 
 ## How the agent works
 
-### Modes
+### Auto
 
-You switch modes in the chat, the way you switch modes in Claude Code.
+There are no modes to pick. A new brief builds at once. The agent makes variants, runs checks and shows scorecards. It asks you only to confirm a target you stated.
 
-- **Design mode** is the default. A new brief builds at once: the agent makes variants, runs checks, shows scorecards, and stops for you to pick a variant or ask for a change. It asks you only to confirm a target you stated.
-- **Auto mode.** The agent revises variants against the checks without stopping. It stops in three cases. The first is that every requirement passes, which the checks decide. The second is that it needs a decision only you can make, such as relaxing one of two conflicting requirements, changing a requirement you confirmed, or using a source it found. The third is that the agent judges it is stuck, in which case it reports what it tried and asks how to proceed. There is no budget. An account's usage limit also ends a run when it refuses a build.
+When a variant fails a target you confirmed and a check decides, the agent starts an Auto run. It revises variants against the checks without stopping, and only against confirmed targets that a check decides, never against a value it assumed. It stops in four cases. The first is that every such requirement passes, which the checks decide. The second is that it needs a decision only you can make, such as relaxing one of two conflicting requirements, changing a requirement you confirmed, or using a source it found. The third is that the agent judges it is stuck, in which case it reports what it tried and asks how to proceed. The fourth is that you press Stop. There is no budget. An account's usage limit also ends a run when it refuses a build.
 
-Deeper analysis is not a mode. When you ask whether a chosen variant will hold a load, or a requirement needs it, the agent runs slower analysis of that one variant, such as full FEA and tolerance stack-ups, in whichever mode you are in.
+After a run stops, the agent builds nothing more in that chat until you write or answer the confirmation page. Then it can start a new run.
+
+Deeper analysis is not a mode. When you ask whether a chosen variant will hold a load, or a requirement needs it, the agent runs slower analysis of that one variant, such as full FEA and tolerance stack-ups.
 
 ### Checks
 
@@ -93,7 +94,7 @@ The MCP server is the product ([ADR-0002](docs/adr/0002-mcp-server-is-the-produc
 
 - **Sandbox.** Every variant is Python written by an AI. The server runs it in a locked-down container with no network access and with time and memory limits. This is a security requirement from the first release.
 - **Hosted, with accounts.** The first version is hosted only. The web app and MCP clients both sign in through Clerk with Google, and accounts carry usage limits because FEA costs compute. Accounts and usage limits ship in phase 4.
-- **Modes travel as guidance.** Outside clients get the tools and the same checks. They also get the modes and stopping rules as guidance, and the server does not enforce them for those clients. In a web app conversation the server enforces the mode. It also holds each Auto run and refuses to build past a stop ([ADR-0010](docs/adr/0010-the-server-holds-the-auto-run.md)). Auto mode runs only in the web app for now.
+- **Auto travels as guidance.** Outside clients get the tools and the same checks. They also get the stopping rules as guidance, and the server does not enforce them for those clients. In a web app conversation the server holds each Auto run and refuses to build past a stop until you write or answer ([ADR-0010](docs/adr/0010-the-server-holds-the-auto-run.md)). Auto runs only in the web app for now.
 - **Long jobs stream.** FEA takes seconds to minutes, so it runs as a background job and the scorecard fills in as results arrive.
 
 ## Stack
@@ -128,8 +129,8 @@ The first version is built in five phases, in this order. Each phase ends when i
    - Exit: on the private brief set, across at least five domains, every number on every scorecard traces to a confirmed source. The one exception is an agent's own measurement, which is counted as not verified.
 3. **Physics and manufacturing.** FEA under stated loads and deeper analysis of one chosen variant.
    - Exit: FEA results land within a stated error of hand calculations on beam and plate cases with known answers.
-4. **Web app.** Chat, 3D viewer, scorecards, the mode switcher, Auto mode with its stopping rules, and accounts with usage limits.
-   - Exit: a change asked for in chat rebuilds the variant and updates its scorecard without a page reload, and Auto mode stops correctly on a brief whose requirements conflict.
+4. **Web app.** Chat, 3D viewer, scorecards, Auto runs with their stopping rules, and accounts with usage limits.
+   - Exit: a change asked for in chat rebuilds the variant and updates its scorecard without a page reload, and an Auto run stops correctly on a brief whose requirements conflict.
 5. **Onshape.** Send a variant to Onshape, and read a part from an Onshape document into a project as a context part, through the REST API.
    - Exit: a variant sent from the workspace opens in Onshape with the volume and bounding box its scorecard reports, and a part read from an Onshape document becomes a context part that the fit check measures against.
 
@@ -157,7 +158,7 @@ The canonical private brief set is the 20 per-brief files in `~/cad-evals/briefs
 - **Silent edit damage.** About 64% of edits that look successful break unrelated features ([BenchCAD](https://arxiv.org/html/2605.10865v1)), so regression checks run on every commit.
 - **Running AI-written code.** Every variant is code an AI wrote, and outside MCP clients can send code too. The sandbox ships in phase 1.
 - **Compute cost.** Any MCP client can trigger FEA on our servers, so accounts and usage limits ship in phase 4, the phase that hosts the server.
-- **Auto mode relies on the agent to stop.** If the agent never judges itself stuck, a run keeps spending until the account's usage limit refuses a build. Watch run lengths and costs from the first Auto run.
+- **Auto relies on the agent to stop.** If the agent never judges itself stuck, a run keeps spending until the account's usage limit refuses a build. Watch run lengths and costs from the first Auto run.
 - **Speed.** FEA takes seconds to minutes. The scorecard fills in as results arrive while the viewer stays live.
 - **Onshape API limits.** Onshape tracks API usage per user or company. Check the published limits before relying on live sync.
 - **Vendor terms.** Most vendors' data terms are unknown. The data policy above holds until each vendor gives written permission.

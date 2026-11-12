@@ -107,9 +107,13 @@ SCORE_VARIANT = (
     "the sandbox image and the confirmed requirements are unchanged. Scoring a rebuilt "
     "variant by its new id gives the same scorecard with rebuilt_from empty. "
     "When the user asks about one variant they picked, score only that variant. "
-    "Under an Auto run, which the conversation holds, pass the run's brief_id: once the run has "
-    "stopped, the scorecard is refused before any check runs, and a check the account's usage "
-    "limit refuses stops the run. " + OWN_MEASUREMENTS + RULE + " " + NOT_VERIFIED
+    "Under this conversation's Auto run, pass the run's brief_id. After any stop in this "
+    "conversation, every score is refused before any check runs until the person writes or "
+    "answers. A check the account's usage limit refuses stops the run. "
+    + OWN_MEASUREMENTS
+    + RULE
+    + " "
+    + NOT_VERIFIED
 )
 
 SCORECARD = (
@@ -255,12 +259,12 @@ def judged(
 
 
 def score_variant(tenant: Tenant, arguments: ScoreVariantInput) -> material.ReportedScorecard:
-    gate(tenant.roots, tenant.conversations, tenant.auto_run, tenant.mode, arguments.brief_id)
+    gate(tenant.roots, tenant.conversations, tenant.bound_run, arguments.brief_id)
     basis = judged(tenant, arguments.brief_id, arguments.material_key, arguments.variant_id)
     if arguments.own_measurements:
         own.refuse_unless_unchecked(basis.confirmed, arguments.own_measurements)
     with stops_at_the_limit(
-        tenant.roots, tenant.conversations, tenant.auto_run, arguments.variant_id
+        tenant.roots, tenant.conversations, tenant.bound_run, arguments.variant_id
     ):
         scored = score.score_variant(
             arguments.variant_id,

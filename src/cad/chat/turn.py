@@ -3,9 +3,7 @@
 The turn is a client of the same MCP tools as any outside client (ADR-0002). It opens an in-memory
 `mcp.Client` on a server built from the registry, so the agent's tool list is the registry's
 AGENT list and nothing else. The server gets an `AgentToken` built from the person's verified
-session, naming only the conversation. At each tool call it reads the conversation's mode and Auto
-run from the account's store, so a switch of mode or a press of Stop reaches the next call, even
-in the middle of a turn. The token never leaves this process.
+session, naming only the conversation. The token never leaves this process.
 """
 
 import json
@@ -31,13 +29,8 @@ from cad.chat.log import (
 )
 from cad.chat.model import Message, Model, ModelUnavailable, Text, ToolResult, ToolSpec, ToolUse
 from cad.conversations import store
-from cad.conversations.model import ConversationId, Mode
-from cad.operations.guidance import (
-    CHAT_MODE_NOTES,
-    CHAT_ON_THE_PAGE,
-    CHAT_OPEN_PROJECT,
-    INSTRUCTIONS,
-)
+from cad.conversations.model import ConversationId
+from cad.operations.guidance import CHAT_AUTO, CHAT_ON_THE_PAGE, CHAT_OPEN_PROJECT, INSTRUCTIONS
 from cad.operations.model import Tenant
 from cad.operations.registry import OPERATIONS
 from cad.operations.tenants import Tenants, bind
@@ -129,7 +122,7 @@ async def _converse(model: Model, tenants: Tenants, token: AgentToken, channel: 
 
 
 def _system(tenant: Tenant) -> str:
-    parts = [INSTRUCTIONS, CHAT_MODE_NOTES[tenant.mode or Mode.DESIGN], CHAT_ON_THE_PAGE]
+    parts = [INSTRUCTIONS, CHAT_AUTO, CHAT_ON_THE_PAGE]
     if tenant.conversation is not None:
         held = store.read(tenant.conversations, tenant.conversation)
         if held.project_id is not None:

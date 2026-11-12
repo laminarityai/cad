@@ -14,7 +14,7 @@ function mistakes() {
   // @ts-expect-error a query parameter the route does not have
   void request("get", "/v1/variants/{variant_id}/scorecard", { path: { variant_id: "v1" }, query: { brief: "b1" } });
   // @ts-expect-error a body the route does not take
-  void request("put", "/v1/conversations/{conversation_id}/mode", { path: { conversation_id: "c1" }, body: { mode: "nope" } });
+  void request("post", "/v1/conversations/{conversation_id}/messages", { path: { conversation_id: "c1" }, body: { words: "thicker" } });
 }
 
 describe("request", () => {

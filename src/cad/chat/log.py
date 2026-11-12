@@ -1,8 +1,7 @@
 """A conversation's transcript: an append-only list of events, one JSON line each.
 
 The transcript is what the stream shows and what the next turn sends the model, so a reload or a
-restart loses nothing. It lives in the account's conversations directory, beside the
-conversation's mode, so one account's transcript is never in another's partition.
+restart loses nothing.
 """
 
 import asyncio

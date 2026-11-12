@@ -67,9 +67,10 @@ BUILD_VARIANT = (
     "If the set changes while a build runs so that it cannot take "
     "the code, the build finishes and is stored, but the error says it joined no set and names "
     "its variant id. Without brief_id the variant joins no set, and slot is refused. "
-    "Under an Auto run, which the conversation holds, pass the run's brief_id: the build is "
-    "refused before it starts once the run has stopped, and a build of code the store does not "
-    "hold is charged to the account's usage limit, whose refusal stops the run. "
+    "Under this conversation's Auto run, pass the run's brief_id. After any stop in this "
+    "conversation, every build is refused before it starts until the person writes or "
+    "answers. A build of code the store does not hold is charged to the account's usage "
+    "limit, whose refusal stops the run. "
     "context_parts_out_of_date names the confirmed context parts that came from an "
     "earlier revision of the slot this build joined: " + UPDATE_PART
 )
@@ -131,14 +132,12 @@ def chooser(tenant: Tenant, brief_id: str, key: str | None, reason: str | None) 
 
 
 def build_variant(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResult:
-    running = gate(
-        tenant.roots, tenant.conversations, tenant.auto_run, tenant.mode, arguments.brief_id
-    )
+    running = gate(tenant.roots, tenant.conversations, tenant.bound_run, arguments.brief_id)
     if running is not None and arguments.brief_id is not None and arguments.slot is not None:
         variant_sets.refuse_a_slot_out_of_turn(tenant.roots, arguments.brief_id, arguments.slot)
     option = _option(arguments.label, arguments.differs)
     vid = entry.variant_id(arguments.code, image.image_tag(image.BUILD))
-    with stops_at_the_limit(tenant.roots, tenant.conversations, tenant.auto_run, vid):
+    with stops_at_the_limit(tenant.roots, tenant.conversations, tenant.bound_run, vid):
         if arguments.brief_id is not None:
             resolve = chooser(
                 tenant, arguments.brief_id, arguments.material_key, arguments.material_reason

@@ -3,25 +3,40 @@ from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from pathlib import Path
-from typing import TYPE_CHECKING, Final
+from typing import TYPE_CHECKING, Any, Final
 
 import pytest
 from mcp import Client
 from mcp.server import MCPServer
 
 from cad.auto.log import run_dir
-from cad.auto.model import AccountLimit, AutoRun, NeedsPerson, Running, RunNotHeld, Stopped
+from cad.auto.model import (
+    AccountLimit,
+    AutoRun,
+    NeedsPerson,
+    Running,
+    RunNotHeld,
+    RunRefused,
+    Stopped,
+)
+from cad.briefs import store as briefs_store
 from cad.briefs.store import read_brief
 from cad.conversations import store
-from cad.conversations.model import ConversationId, Mode
+from cad.conversations.model import ConversationId
+from cad.operations import auto as operations_auto
 from cad.operations.auto import StartInput, auto_start
-from cad.operations.briefs import CreateBriefInput, create_brief
+from cad.operations.briefs import (
+    CreateBriefInput,
+    ProposeRequirementsInput,
+    create_brief,
+    propose_requirements,
+)
 from cad.operations.registry import OPERATIONS
 from cad.operations.tenants import bind
 from cad.operations.tools import tools
 from cad.sandbox.image import BUILD, image_tag
 from cad.variants import entry
-from tests.support.auto_session import TEXT, running
+from tests.support.auto_session import PLA_CHOICE, TEXT, running
 from tests.support.rows import UNDER_150
 
 LIGHTER: Final = {
@@ -36,10 +51,6 @@ pytestmark = pytest.mark.anyio
 
 NO_DOCKER: Final = "unix:///nonexistent/docker.sock"
 PLATE: Final = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
-PLA_CHOICE: Final = {
-    "material_key": "prusament-pla",
-    "material_reason": "PLA is light and prints easily",
-}
 CUBE_TEXT: Final = "A block that fits in a 20 mm cube, PLA, at least 50 g"
 CUBE: Final = (
     {
@@ -63,42 +74,73 @@ async def test_the_auto_operations_are_agent_tools(s: Session) -> None:
     assert {"auto_start", "auto_revise", "auto_ask"} <= names
 
 
-@pytest.mark.parametrize("mode", [None, Mode.DESIGN])
-async def test_auto_start_is_refused_outside_an_auto_mode_conversation(
-    s: Session, mode: Mode | None
-) -> None:
+async def test_auto_start_is_refused_for_a_caller_with_no_conversation(s: Session) -> None:
     brief_id = await s.confirmed(TEXT, UNDER_150)
-    if mode is None:
-        served = tools(lambda: s.tenant, OPERATIONS)
-    else:
-        store.set_mode(s.tenant.roots, s.tenant.conversations, s.conversation, mode)
-        served = tools(lambda: s.bound, OPERATIONS)
-    async with Client(MCPServer("cad", tools=served)) as client:
-        result = await client.call_tool(
-            "auto_start",
-            {
-                "brief_id": brief_id,
-                "material_key": "prusament-pla",
-                "material_reason": "PLA is light and prints easily",
-            },
-        )
+    async with Client(MCPServer("cad", tools=tools(lambda: s.tenant, OPERATIONS))) as client:
+        result = await client.call_tool("auto_start", {"brief_id": brief_id, **PLA_CHOICE})
     assert result.is_error
     text = result.content[0].model_dump()["text"]
-    assert "auto_start needs a web app conversation the person switched to Auto mode" in text
+    assert "auto_start needs a web app conversation, and this caller has none" in text
     project = read_brief(s.roots, brief_id).project
     assert not (s.roots.projects / project / "auto").exists()
 
 
+async def test_auto_start_is_refused_with_nothing_a_check_decides(s: Session) -> None:
+    unchecked = {"target": {"kind": "unchecked", "statement": "looks tidy"}, "quote": "tidy"}
+    made_of = {"target": {"kind": "made_of", "material": "prusament-pla"}, "quote": "PLA"}
+    brief_id = await s.confirmed("A tidy plate in PLA", unchecked, made_of)
+    text = await s.refusal("auto_start", brief_id=brief_id, **PLA_CHOICE)
+    assert f"brief {brief_id} has no confirmed requirement that a check decides" in text, text
+    held = store.read(s.tenant.conversations, s.conversation)
+    assert (held.auto_run, held.stopped_run, held.last_run) == (None, None, None)
+
+
+async def test_auto_start_is_refused_while_a_proposal_waits_for_the_person(s: Session) -> None:
+    brief_id = await s.confirmed(TEXT, UNDER_150)
+    await s.propose(brief_id, LIGHTER)
+    text = await s.refusal("auto_start", brief_id=brief_id, **PLA_CHOICE)
+    assert f"a proposal on brief {brief_id} waits for the person" in text, text
+    assert store.read(s.tenant.conversations, s.conversation).last_run is None
+
+
+@pytest.mark.parametrize("read", ["watermark", "confirmed_requirements"])
+async def test_a_proposal_that_lands_during_auto_start_never_runs_under_the_run(
+    s: Session, monkeypatch: pytest.MonkeyPatch, read: str
+) -> None:
+    brief_id = await s.confirmed(TEXT, UNDER_150)
+    owner = operations_auto if read == "watermark" else briefs_store
+    real = getattr(owner, read)
+    landed: list[bool] = []
+
+    def then_propose(*arguments: Any) -> Any:
+        found = real(*arguments)
+        if not landed:
+            landed.append(True)
+            proposal = ProposeRequirementsInput.model_validate(
+                {"brief_id": brief_id, "requirements": [LIGHTER]}
+            )
+            propose_requirements(s.bound, proposal)
+        return found
+
+    monkeypatch.setattr(owner, read, then_propose)
+    arguments = StartInput(brief_id=brief_id, **PLA_CHOICE)
+    if read == "watermark":
+        with pytest.raises(RunRefused, match="waits for the person"):
+            auto_start(s.bound, arguments)
+        assert store.read(s.tenant.conversations, s.conversation).last_run is None
+        return
+    run = auto_start(s.bound, arguments)
+    assert isinstance(run.state, Stopped) and isinstance(run.state.reason, NeedsPerson)
+    assert run.state.reason.why == "proposes_requirements"
+    held = store.read(s.tenant.conversations, s.conversation)
+    assert (held.auto_run, held.stopped_run) == (None, run.run_id)
+
+
 async def test_two_concurrent_starts_of_one_brief_make_one_run(s: Session) -> None:
     brief_id = await s.confirmed(TEXT, UNDER_150)
-    arguments = StartInput(
-        brief_id=brief_id,
-        material_key="prusament-pla",
-        material_reason="PLA is light and prints easily",
-    )
+    arguments = StartInput(brief_id=brief_id, **PLA_CHOICE)
     other = ConversationId("c-other")
     store.create(s.tenant.conversations, other)
-    store.set_mode(s.tenant.roots, s.tenant.conversations, other, Mode.AUTO)
     callers = [s.bound, s.bound, bind(s.tenant, other)]
     with ThreadPoolExecutor(3) as pool:
         racers = [(caller, pool.submit(auto_start, caller, arguments)) for caller in callers]
@@ -125,7 +167,7 @@ async def test_a_conflicting_brief_stops_at_start_with_its_proof_and_builds_noth
     assert bounds.statement.startswith("min_mass 50 g > density(prusament-pla) 1.24 g/cm³")
     assert bounds.statement.endswith("envelope 8 cm³ = 9.92 g")
     assert bounds.statement in run.state.report
-    await s.left_auto(brief_id, run.run_id)
+    await s.held(brief_id, run.run_id)
     assert s.meter.asked == []
     assert not s.tenant.variants.exists()
 
@@ -143,13 +185,18 @@ async def test_proposing_requirements_under_a_run_stops_it(
     reason = stopped.state.reason
     assert isinstance(reason, NeedsPerson) and reason.why == "proposes_requirements"
     assert s.meter.asked == []
-    await s.left_auto(brief_id, run_id)
+    text = await s.refusal("auto_start", brief_id=brief_id, **PLA_CHOICE)
+    assert f"a proposal on brief {brief_id} waits for the person" in text, text
+    project = read_brief(s.roots, brief_id).project
+    answer = await s.call("ask_to_confirm", project_id=project)
+    assert answer["status"] == "answered", answer
+    await s.held(brief_id, run_id)
 
 
 async def test_auto_ask_stops_the_run_with_the_agents_note_and_nothing_spends_after(
-    s: Session, monkeypatch: pytest.MonkeyPatch
+    s: Session,
 ) -> None:
-    brief_id, run_id = await running(s)
+    _, run_id = await running(s)
     note = "Tried four wall thicknesses; the stiffness needs more than 150 g. Relax which one?"
     asked = await s.call("auto_ask", run_id=run_id, note=note)
     assert asked["state"]["reason"] == {
@@ -161,10 +208,11 @@ async def test_auto_ask_stops_the_run_with_the_agents_note_and_nothing_spends_af
     }
     assert note in asked["state"]["report"]
     text = await s.refusal("auto_ask", run_id=run_id, note="a second note")
-    assert f"RunNotHeld: auto run {run_id} is not this conversation's" in text
+    assert f"RunStopped: auto run {run_id} has stopped" in text
     assert s.run(run_id).state == AutoRun.model_validate(asked).state
-    monkeypatch.setenv("DOCKER_HOST", NO_DOCKER)
-    await s.left_auto(brief_id, run_id)
+    s.person_acts()
+    text = await s.refusal("auto_ask", run_id=run_id, note="a third note")
+    assert f"RunNotHeld: auto run {run_id} is not this conversation's" in text
     assert s.meter.asked == []
     assert records(s, run_id) == 2
 
@@ -185,7 +233,7 @@ async def test_a_build_the_account_limit_refuses_stops_the_run_and_starts_nothin
     assert (s.meter.asked, started) == (["build"], [])
     assert entry.read_manifest(s.tenant.variants, vid) is None
     monkeypatch.setenv("DOCKER_HOST", NO_DOCKER)
-    await s.left_auto(brief_id, run_id)
+    await s.held(brief_id, run_id)
     assert s.meter.asked == ["build"]
 
 
@@ -202,7 +250,7 @@ async def test_a_check_the_account_limit_refuses_stops_the_run(s: Session) -> No
     reason = run.state.reason
     assert isinstance(reason, AccountLimit) and reason.refused == built["variant_id"]
     assert s.meter.asked == ["build", "check"]
-    await s.left_auto(brief_id, run_id)
+    await s.held(brief_id, run_id)
 
 
 async def test_a_build_the_account_limit_refuses_for_an_outside_client_stops_no_run(
@@ -250,23 +298,15 @@ async def test_a_run_builds_only_for_its_own_brief(s: Session) -> None:
 
 async def test_starting_a_brief_with_a_live_run_returns_that_run(s: Session) -> None:
     brief_id, run_id = await running(s)
-    again = await s.start(
-        brief_id=brief_id,
-        material_key="prusament-pla",
-        material_reason="PLA is light and prints easily",
-    )
+    again = await s.start(brief_id=brief_id, **PLA_CHOICE)
     assert again.run_id == run_id
 
 
 async def test_starting_a_brief_whose_run_stopped_starts_a_new_run(s: Session) -> None:
     brief_id, run_id = await running(s)
     await s.call("auto_ask", run_id=run_id, note="stuck")
-    store.set_mode(s.tenant.roots, s.tenant.conversations, s.conversation, Mode.AUTO)
-    again = await s.start(
-        brief_id=brief_id,
-        material_key="prusament-pla",
-        material_reason="PLA is light and prints easily",
-    )
+    s.person_acts()
+    again = await s.start(brief_id=brief_id, **PLA_CHOICE)
     assert again.run_id != run_id
     assert isinstance(again.state, Running)
 
@@ -284,5 +324,5 @@ async def test_a_revision_that_passes_every_checked_requirement_stops_the_run(
     assert s.meter.asked.count("build") == 1
     asked = list(s.meter.asked)
     monkeypatch.setenv("DOCKER_HOST", NO_DOCKER)
-    await s.left_auto(brief_id, run_id)
+    await s.held(brief_id, run_id)
     assert s.meter.asked == asked

@@ -9,7 +9,7 @@ from mcp.server import MCPServer
 from cad.confirmations.waiting import Bell, Door
 from cad.context_parts.ingest import ingest
 from cad.conversations import store
-from cad.conversations.model import ConversationId, Mode
+from cad.conversations.model import ConversationId
 from cad.operations.model import Tenant
 from cad.operations.registry import OPERATIONS
 from cad.operations.tenants import bind
@@ -45,7 +45,6 @@ async def s(tmp_path: Path, meter: Ledger, person: "Person") -> AsyncIterator[Se
     )
     cid = ConversationId("c1")
     store.create(tenant.conversations, cid)
-    store.set_mode(tenant.roots, tenant.conversations, cid, Mode.AUTO)
     served = tools(lambda: bind(tenant, cid), OPERATIONS)
     async with Client(MCPServer("cad", tools=served)) as client:
         yield Session(client, tenant, meter, cid)

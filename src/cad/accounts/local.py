@@ -140,7 +140,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--url", default="http://127.0.0.1:8765", help="the server's own URL")
     parser.add_argument("--root", type=Path, default=DATA_ROOT, help="the server's data root")
     parser.add_argument(
-        "--conversation", help="an agent token's conversation id, whose mode the server enforces"
+        "--conversation", help="an agent token's conversation id, whose Auto run the server binds"
     )
     args = parser.parse_args(argv)
     if args.conversation is not None and args.kind != "agent":

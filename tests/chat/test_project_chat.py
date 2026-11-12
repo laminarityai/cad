@@ -9,7 +9,7 @@ from cad.accounts.principal import AccountId
 from cad.chat.log import Channel, UserSaid, transcript_path
 from cad.chat.model import Message, Model, ToolSpec
 from cad.conversations import store
-from cad.conversations.model import ConversationId, Mode
+from cad.conversations.model import ConversationId
 from cad.operations.briefs import (
     BriefCreated,
     CreateBriefInput,
@@ -72,8 +72,8 @@ async def test_the_project_chat_names_the_project_and_its_briefs_to_the_agent(
     assert started.status_code == 201, started.text
     assert read.json() == {
         "conversation_id": cid,
-        "mode": "design",
         "auto_run": None,
+        "stopped_run": None,
         "project_id": made.project_id,
         "brief_id": made.brief_id,
         "run": None,
@@ -122,13 +122,11 @@ async def test_the_read_answers_only_the_account_that_holds_the_conversation(
 ) -> None:
     async with chat.client() as alice, chat.client(BOB) as bob, chat.client(None) as nobody:
         cid = await chat.conversation(alice)
-        tenant = chat.tenants.of(AccountId(ALICE))
-        store.set_mode(tenant.roots, tenant.conversations, ConversationId(cid), Mode.DESIGN)
         own = await alice.get(f"/v1/conversations/{cid}")
         other = await bob.get(f"/v1/conversations/{cid}")
         unknown = await alice.get("/v1/conversations/c_0000000000000000")
         anonymous = await nobody.get(f"/v1/conversations/{cid}")
-    assert own.json()["mode"] == "design"
+    assert own.json()["conversation_id"] == cid
     assert (other.status_code, unknown.status_code, anonymous.status_code) == (404, 404, 401)
     assert not list(chat.tenants.of(AccountId(BOB)).conversations.glob("*.json"))
 

@@ -88,12 +88,12 @@ def test_a_templated_name_is_a_path_parameter_and_every_other_argument_is_not() 
         assert elsewhere <= ({"query"} if method == "GET" else set()), path
 
 
-def test_a_put_carries_its_remaining_argument_in_a_json_body() -> None:
-    one = described()[("PUT", "/v1/conversations/{conversation_id}/mode")]
+def test_a_post_carries_its_remaining_arguments_in_a_json_body() -> None:
+    one = described()[("POST", "/v1/conversations/{conversation_id}/messages")]
     body = cast(Json, one["requestBody"])
     schema = cast(Json, cast(Json, cast(Json, body["content"])["application/json"])["schema"])
-    assert list(cast(Json, schema["properties"])) == ["mode"]
-    assert schema["required"] == ["mode"]
+    assert list(cast(Json, schema["properties"])) == ["text", "selection"]
+    assert schema["required"] == ["text"]
 
 
 def test_a_mesh_names_its_etag_and_a_304_and_a_scorecard_does_not() -> None:

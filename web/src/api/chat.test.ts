@@ -41,12 +41,10 @@ describe("httpChat requests", () => {
     ]);
   });
 
-  it("sets the mode with PUT and stops a run with a bodiless POST", async () => {
+  it("stops a run with a bodiless POST", async () => {
     const fetcher = reply();
-    await httpChat.setMode("c1", "auto");
     await httpChat.stop("run 1");
     expect(fetcher.mock.calls).toEqual([
-      ["/v1/conversations/c1/mode", { method: "PUT", credentials: "same-origin", headers: JSON_BODY, body: '{"mode":"auto"}' }],
       ["/v1/auto/run%201/stop", { method: "POST", credentials: "same-origin", headers: JSON_ACCEPT }],
     ]);
   });

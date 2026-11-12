@@ -101,16 +101,14 @@ _Avoid_: Reference, citation, research
 A family of designs controlled by parameters, which an engineering skill may bundle as a starting point for variants. The first version has none. A person changes a variant by asking in chat, and the agent edits its code.
 _Avoid_: Model, generator
 
-## Modes
+## Auto
 
-**Mode**:
-A setting on the conversation that decides what the agent does next and when it hands back to the user.
+**Auto run**:
+The agent revising a brief's variants against the checks without stopping. The agent starts one when a scored variant fails a requirement that the user confirmed and a check decides. It revises only against those requirements, never against an assumption. It stops when every such requirement passes, when it needs a decision from the user, when the agent judges that it is stuck, or when the user presses Stop. An account's usage limit also ends a run when it refuses a build. There are no modes, so the user picks nothing to start a run.
+_Avoid_: Auto mode, Design mode, Plan mode
 
-**Design mode**:
-The default mode. A new brief builds at once: the agent makes variants, runs checks, shows scorecards, and stops for the user to pick a variant or ask for a change. There is no Plan mode, because nothing waits for a confirmation before it builds.
-
-**Auto mode**:
-The agent revises variants against the checks without stopping, until every requirement passes, it needs a decision from the user, or it judges that it is stuck. An account's usage limit also ends a run when it refuses a build.
+**Hold**:
+What a stopped Auto run puts on its web app conversation. While it holds, the server refuses every build, score and new run in that conversation. The user's next message or confirmation page answer lifts it. No tool can.
 
 **Deeper analysis**:
 Slower analysis of one chosen variant, such as full FEA and tolerance stack-ups. It runs when the user asks about that variant or a requirement needs it. It is not a mode.

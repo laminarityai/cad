@@ -11,7 +11,7 @@ from cad.accounts.principal import AccountId
 from cad.auto import log
 from cad.auto.model import AutoRun, Started, nth_run_id
 from cad.conversations import store
-from cad.conversations.model import ConversationId, Mode
+from cad.conversations.model import ConversationId
 from cad.operations.tenants import Tenants
 from cad.projects.model import ProjectId
 from tests.support.hosted import BASE, MCP
@@ -41,11 +41,6 @@ async def http(app: Starlette, token: str | None = None) -> AsyncGenerator[httpx
         yield client
 
 
-async def put_mode(app: Starlette, token: str, cid: str, mode: str) -> httpx2.Response:
-    async with http(app, token) as client:
-        return await client.put(f"/v1/conversations/{cid}/mode", json={"mode": mode})
-
-
 async def stop(app: Starlette, token: str, run_id: str) -> httpx2.Response:
     async with http(app, token) as client:
         return await client.post(f"/v1/auto/{run_id}/stop")
@@ -60,9 +55,12 @@ async def agent_call(app: Starlette, token: str, tool: str, **arguments: Any) ->
 
 
 def start_briefless_run(tenants: Tenants, account: AccountId, cid: ConversationId) -> str:
+    store.create(tenants.of(account).conversations, cid)
+    return briefless_run_in(tenants, account, cid)
+
+
+def briefless_run_in(tenants: Tenants, account: AccountId, cid: ConversationId) -> str:
     tenant = tenants.of(account)
-    store.create(tenant.conversations, cid)
-    store.set_mode(tenant.roots, tenant.conversations, cid, Mode.AUTO)
     run_id = nth_run_id(PROJECT, "b" * 16, 1)
     started = Started(
         conversation=cid,

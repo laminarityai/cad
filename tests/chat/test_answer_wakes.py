@@ -4,7 +4,7 @@ import threading
 from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, NoReturn
 
 import anyio.to_thread
 import httpx2
@@ -12,7 +12,7 @@ import pytest
 
 from cad.accounts.local import LocalIssuer
 from cad.accounts.principal import AccountId
-from cad.chat.log import Answered, Channel, DriverSaid, transcript_path
+from cad.chat.log import Answered, Channel, DriverSaid, Event, transcript_path
 from cad.chat.model import Message, Model, ToolSpec
 from cad.chat.scripted import Scripted, Step
 from cad.confirmations.answers import Ledger, read_ledger
@@ -20,12 +20,13 @@ from cad.confirmations.waiting import Door
 from cad.confirmations.web import LocalSignIn
 from cad.context_parts.ingest import ingest
 from cad.conversations import store
-from cad.conversations.model import ConversationId, Mode
+from cad.conversations.model import ConversationId
 from cad.operations import confirmation
 from cad.operations.tenants import Tenants
 from cad.projects.model import ProjectId
 from cad.server.hosted import build_app
 from tests.support.chat import ALICE, TEXT, Chat, call, script, step
+from tests.support.conversations import briefless_run_in
 from tests.support.rows import UNDER_150
 
 pytestmark = pytest.mark.anyio
@@ -94,8 +95,16 @@ def model() -> Model:
     return script(*asked(), step("Building it now."))
 
 
-def mode_of(chat: Chat, cid: str) -> Mode:
-    return store.read(chat.tenants.of(AccountId(ALICE)).conversations, ConversationId(cid)).mode
+def hold(chat: Chat, cid: str) -> str:
+    tenant = chat.tenants.of(AccountId(ALICE))
+    run_id = briefless_run_in(chat.tenants, AccountId(ALICE), ConversationId(cid))
+    store.stop_by_person(tenant.roots, tenant.conversations, run_id)
+    return run_id
+
+
+def stopped_run(chat: Chat, cid: str) -> str | None:
+    conversations = chat.tenants.of(AccountId(ALICE)).conversations
+    return store.read(conversations, ConversationId(cid)).stopped_run
 
 
 def project_of(events: Sequence[Any]) -> str:
@@ -121,12 +130,11 @@ async def answer(chat: Chat, client: httpx2.AsyncClient, cid: str, verdict: str 
     return await chat.post_page(client, project, body)
 
 
-async def test_a_page_answer_starts_one_turn_with_no_message_and_changes_no_mode(
+async def test_a_page_answer_starts_one_turn_with_no_message(
     chat: Chat,
 ) -> None:
     async with chat.client() as client:
         cid = await waiting(chat, client)
-        assert mode_of(chat, cid) is Mode.DESIGN
         before = len(await chat.events(client, cid))
         assert await answer(chat, client, cid) == 200
         await chat.finish()
@@ -138,7 +146,40 @@ async def test_a_page_answer_starts_one_turn_with_no_message_and_changes_no_mode
     assert "with no rebuild" in after[0]["text"]
     assert "http" not in after[0]["text"]
     assert after[1]["text"] == "Building it now."
-    assert mode_of(chat, cid) is Mode.DESIGN
+
+
+async def test_a_page_answer_lifts_the_stop_that_holds_the_conversation(chat: Chat) -> None:
+    async with chat.client() as client:
+        cid = await waiting(chat, client)
+        run_id = hold(chat, cid)
+        assert stopped_run(chat, cid) == run_id
+        assert await answer(chat, client, cid) == 200
+        await chat.finish()
+        events = await chat.events(client, cid)
+    assert kinds(events)[-3:] == ["driver", "agent", "turn_ended"]
+    assert stopped_run(chat, cid) is None
+
+
+class Crash(Exception):
+    pass
+
+
+async def test_a_crash_once_the_persons_message_is_recorded_leaves_no_hold(
+    chat: Chat, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    real = Channel.append
+
+    def append_then_crash(channel: Channel, event: Event) -> NoReturn:
+        real(channel, event)
+        raise Crash
+
+    async with chat.client() as client:
+        cid = await chat.conversation(client)
+        hold(chat, cid)
+        monkeypatch.setattr(Channel, "append", append_then_crash)
+        with pytest.raises(Crash):
+            await chat.say(client, cid, "try again")
+    assert stopped_run(chat, cid) is None
 
 
 async def test_a_replayed_answer_starts_no_second_turn(chat: Chat) -> None:
@@ -165,7 +206,6 @@ async def test_a_declined_answer_wakes_the_agent_and_keeps_what_it_built(chat: C
     assert "confirmed 0 and declined 1" in driver["text"]
     assert "Nothing you built is gone" in driver["text"]
     assert kinds(events)[-1] == "turn_ended"
-    assert mode_of(chat, cid) is Mode.DESIGN
 
 
 async def test_an_answer_during_a_turn_starts_one_follow_up_after_it(chat: Chat) -> None:
@@ -189,7 +229,6 @@ async def test_an_answer_during_a_turn_starts_one_follow_up_after_it(chat: Chat)
         ("agent", "Building it now."),
         ("turn_ended", ""),
     ]
-    assert mode_of(chat, cid) is Mode.DESIGN
 
 
 async def test_an_answer_the_turns_own_ask_sees_starts_no_follow_up(
@@ -209,7 +248,6 @@ async def test_an_answer_the_turns_own_ask_sees_starts_no_follow_up(
     assert (results[-1]["status"], results[-1]["answers_recorded"]) == ("answered", 1)
     assert "driver" not in kinds(events)
     assert kinds(events).count("turn_ended") == 2
-    assert mode_of(chat, cid) is Mode.DESIGN
 
 
 async def test_an_answer_between_the_count_and_the_items_still_ends_the_wait(
@@ -237,7 +275,6 @@ async def test_an_answer_between_the_count_and_the_items_still_ends_the_wait(
         events = await chat.events(client, cid)
     result = json.loads([one for one in events if one["kind"] == "tool_result"][-1]["text"])
     assert (result["status"], result["answers_recorded"]) == ("answered", 1)
-    assert mode_of(chat, cid) is Mode.DESIGN
 
 
 @pytest.fixture
@@ -268,6 +305,25 @@ async def test_a_delivery_a_restart_cut_off_runs_once_when_the_conversation_open
     assert kinds(events).count("turn_ended") == 2
 
 
+async def test_a_restart_rerunning_a_delivery_keeps_a_stop_pressed_after_it(
+    chat: Chat, restarted: Chat
+) -> None:
+    async with chat.client() as client:
+        cid = await waiting(chat, client)
+        project = project_of(await chat.events(client, cid))
+    conversations = chat.tenants.of(AccountId(ALICE)).conversations
+    Channel(transcript_path(conversations, ConversationId(cid))).append(
+        DriverSaid(text="answered", answered=Answered(project_id=project, through=1))
+    )
+    run_id = hold(chat, cid)
+    async with restarted.client() as client:
+        await restarted.events(client, cid)
+        await restarted.finish()
+        events = await restarted.events(client, cid)
+    assert kinds(events)[-4:] == ["driver", "stop_report", "agent", "turn_ended"]
+    assert stopped_run(restarted, cid) == run_id
+
+
 async def test_after_a_restart_an_answer_is_told_once_when_the_conversation_opens(
     chat: Chat, restarted: Chat
 ) -> None:
@@ -281,7 +337,6 @@ async def test_after_a_restart_an_answer_is_told_once_when_the_conversation_open
         events = await restarted.events(client, cid)
     assert kinds(events).count("driver") == 1
     assert kinds(events)[-3:] == ["driver", "agent", "turn_ended"]
-    assert mode_of(restarted, cid) is Mode.DESIGN
 
 
 async def test_after_a_restart_a_conversation_already_told_starts_nothing(

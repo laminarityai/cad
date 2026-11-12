@@ -1,14 +1,14 @@
-# Chat and mode switcher
+# Chat
 
-The person chats with our own agent. The agent runs in the `cad-http` process and reaches the MCP tools through an in-memory `mcp.Client`, with an `AgentToken` built for each turn from the person's session. The token names the account and the conversation and never leaves the process, so the agent's tool list is the registry's agent list and nothing else. The person switches between Design and Auto mode with `PUT /v1/conversations/{id}/mode`. `set_mode` is person-only, so the agent cannot call it.
+The person chats with our own agent. The agent runs in the `cad-http` process and reaches the MCP tools through an in-memory `mcp.Client`, with an `AgentToken` built for each turn from the person's session. The token names the account and the conversation and never leaves the process, so the agent's tool list is the registry's agent list and nothing else. A conversation has no mode. It records its running Auto run and the stopped run that holds it, and only the person's message or page answer lifts the hold ([Auto](auto.md)).
 
-Design: `docs/design/phase-4.md` §1a, §2.4 (our own chat agent needs no Clerk token) and §2.5 (modes are conversation state). Unit 8 of §4. The project workspace in the web app renders the stream: see The web half below.
+Design: `docs/design/phase-4.md` §1a, §2.4 (our own chat agent needs no Clerk token) and §2.5 (the Auto run, ADR-0010). Unit 8 of §4. The project workspace in the web app renders the stream: see The web half below.
 
 ## Routes
 
 All three take the person's session (`__session` cookie or Bearer). An agent token gets 401. A conversation id of another account is 404, and nothing of it is read or written.
 
-- `POST /v1/conversations` starts a conversation in Design mode. Body `{}`, content type `application/json`. Answers 201 with `conversation_id`.
+- `POST /v1/conversations` starts a conversation. Body `{}`, content type `application/json`. Answers 201 with `conversation_id`.
 - `POST /v1/conversations/{id}/messages` takes `{"text": "..."}`, records it and starts one agent turn. 202 with the message's `seq`, 409 while the last turn still runs, 415 for any content type but `application/json`, 422 for an empty or unknown field. A turn starts on this call, or on a page answer the conversation waits on (below).
 - `GET /v1/conversations/{id}/stream` replays the transcript and then follows it as server-sent events. Each event's `id` is its `seq`. `Last-Event-ID` or `?after=N` resumes. `?follow=false` ends after what is held, for `curl`.
 
@@ -18,9 +18,9 @@ Events are `user`, `agent`, `tool_call`, `tool_result`, `driver` (the Auto remin
 
 A conversation waits on a project when its last `ask_to_confirm` result is `pending`. Each result carries `answers_recorded`, the count of the project's page answers. When the person answers the page (`POST /projects/{pid}/confirm` answers 200), each open conversation of the account that waits on that project gets a `driver` event with `answered: {"project_id", "through"}` and starts a turn, with no `user` event. The text counts what was confirmed and declined and quotes the note, and holds no URL or token. If a turn is running, the follow-up turn starts when it ends, unless that turn's own `ask_to_confirm` returned the answer. A replayed POST is 409 and starts nothing. A conversation not opened since a restart is told when its stream opens, and a `driver` with `answered` that no turn followed runs then.
 
-An answer, confirmed or declined, changes no mode and deletes nothing built: a brief builds at once, so the options already stand when the card appears.
+An answer, confirmed or declined, deletes nothing built: a brief builds at once, so the options already stand when the card appears.
 
-- **Wake.** Run a script that creates a brief, proposes a stated target, builds and scores an option, calls `ask_to_confirm` and ends. Open the page with `--opener` and confirm. `/stream?follow=false` shows `driver`, the next step's reply and `turn_ended` after the first `turn_ended`, and `GET /v1/conversations/$CID` shows `"mode": "design"` before and after.
+- **Wake.** Run a script that creates a brief, proposes a stated target, builds and scores an option, calls `ask_to_confirm` and ends. Open the page with `--opener` and confirm. `/stream?follow=false` shows `driver`, the next step's reply and `turn_ended` after the first `turn_ended`, and `GET /v1/conversations/$CID` shows `"stopped_run": null` after.
 
 ## The model
 
@@ -38,9 +38,9 @@ export PERSON_B=$(uv run cad-token --root "$ROOT" person user_bob)
 ```
 
 - **One turn.** `CID=$(curl -s -X POST localhost:8765/v1/conversations -H "cookie: __session=$PERSON_A" -H "content-type: application/json" -d '{}' | jq -r .conversation_id)`, then post `{"text": "hi"}` to `/messages` and read `/stream?follow=false`. With a script whose one step calls `server_info`, the stream shows the call, a result holding the head SHA, and the reply.
-- **A fresh brief builds at once.** A script that calls `create_brief`, `propose_requirements` and `build_variant` in a new conversation, with no `ask_to_confirm` before it, gets a `tool_result` with no error and a variant id. The conversation starts in Design.
+- **A fresh brief builds at once.** A script that calls `create_brief`, `propose_requirements` and `build_variant` in a new conversation, with no `ask_to_confirm` before it, gets a `tool_result` with no error and a variant id.
 - **Another account.** Post to alice's conversation with `PERSON_B`. 404, and alice's stream gains no event.
-- **No `set_mode` for the agent.** A script that calls `set_mode` gets an unknown-tool result.
+- **No `auto_stop` for the agent.** A script that calls `auto_stop` gets an unknown-tool result.
 - **The agent cannot answer a confirmation.** A script that calls `ask_to_confirm` shows the call and no `tool_result` until the person answers on the page, and no answer file is written by the agent.
 
 ## Proof the tests give
@@ -49,7 +49,7 @@ export PERSON_B=$(uv run cad-token --root "$ROOT" person user_bob)
 
 ## The web half
 
-The project workspace (`web/src/features/workspace/`) is one page per project at `/projects/{id}`. The empty `/app` is a chat start: the first message makes the conversation, the agent's `create_brief` binds it to the new project, and the page moves to the project. `GET /v1/projects/{id}/conversation` returns the project's one conversation, made on the first read, so every part of the project opens the same chat. The chat follows the stream with `fetch` and resumes with `?after=N`; the chat section carries `aria-busy` while a turn runs. A confirmation waiting on the person shows as a card in the chat titled "Confirm your targets" (`data-confirm-card`), and only when a target the person stated waits. A brief with no stated number shows no card. The card is read from `GET /v1/projects/{id}/confirmation` and posted to the same person-only handler as `/projects/{id}/confirm`, with the snapshot the server sealed. The Checks pane groups what the person asked for, what awaits their Confirm (a waiting row with the measure beside it, no verdict) and what the agent assumed. The mode picker (`web/src/features/mode/`) sits by the chat input and sends `PUT /v1/conversations/{id}/mode`; Shift+Tab in the input cycles Design and Auto. In Auto the chat shows an `Auto run` section above the input with the run's status and a Stop button (`POST /v1/auto/{run_id}/stop`), and a `stop_report` line names why the run stopped.
+The project workspace (`web/src/features/workspace/`) is one page per project at `/projects/{id}`. The empty `/app` is a chat start: the first message makes the conversation, the agent's `create_brief` binds it to the new project, and the page moves to the project. `GET /v1/projects/{id}/conversation` returns the project's one conversation, made on the first read, so every part of the project opens the same chat. The chat follows the stream with `fetch` and resumes with `?after=N`; the chat section carries `aria-busy` while a turn runs. A confirmation waiting on the person shows as a card in the chat titled "Confirm your targets" (`data-confirm-card`), and only when a target the person stated waits. A brief with no stated number shows no card. The card is read from `GET /v1/projects/{id}/confirmation` and posted to the same person-only handler as `/projects/{id}/confirm`, with the snapshot the server sealed. The Checks pane groups what the person asked for, what awaits their Confirm (a waiting row with the measure beside it, no verdict) and what the agent assumed. There is no mode picker. While the conversation has a running run, or a stopped run that holds it, the chat shows an `Auto run` section above the input (`web/src/features/auto/`) with the run's status and, while it runs, a Stop button (`POST /v1/auto/{run_id}/stop`). A `stop_report` line names why the run stopped. The section disappears when the person's next message lifts the hold, and the stop report stays in the chat.
 
 Drive it with a live model. Start `cad-http` on a fresh root with the key loaded and `CAD_CHAT_MODEL` set (Sonnet by default), then:
 

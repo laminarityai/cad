@@ -24,9 +24,10 @@ ANSWERED: Final = (
     "and declined {declined}.{notes} Call ask_to_confirm with project_id {project} to read each "
     "item's outcome, and list_requirements for what they confirmed. Nothing you built is gone, "
     "and the scorecards now judge it against what they confirmed with no rebuild. Then carry on "
-    "without waiting for them: score again to read the verdicts, revise what fails, and for "
-    "what they declined, read their note and propose again, file the value as an assumption, "
-    "or drop it."
+    "without waiting for them. Score again to read the verdicts. For what they declined, read "
+    "their note and propose again, file the value as an assumption, or drop it. When nothing "
+    "waits for the person and an option fails a requirement they confirmed that a check "
+    "decides, call auto_start with its brief_id, then auto_revise until the run stops."
 )
 
 

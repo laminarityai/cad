@@ -4,7 +4,7 @@ import { useServices } from "@/app/context";
 import { Refused } from "@/api/client";
 import { chatReducer, chatStart, type Line } from "@/features/chat/state";
 import { cn } from "@/lib/utils";
-import { isStopKind, reasonText } from "@/features/mode/run";
+import { isStopKind, reasonText } from "@/features/auto/run";
 import { Markdown } from "./Markdown";
 
 export const DOING: Record<string, string> = {
@@ -167,8 +167,8 @@ export interface PointedAt {
   onRemove: () => void;
 }
 
-export function Composer(props: { placeholder: string; onSend: (text: string) => Promise<void>; big?: boolean; tools?: ReactNode; onCycle?: () => void; selection?: PointedAt | null }) {
-  const { placeholder, onSend, big, tools, onCycle, selection } = props;
+export function Composer(props: { placeholder: string; onSend: (text: string) => Promise<void>; big?: boolean; selection?: PointedAt | null }) {
+  const { placeholder, onSend, big, selection } = props;
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
@@ -189,9 +189,6 @@ export function Composer(props: { placeholder: string; onSend: (text: string) =>
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
       void submit();
-    } else if (event.key === "Tab" && event.shiftKey && onCycle) {
-      event.preventDefault();
-      onCycle();
     }
   };
   return (
@@ -232,7 +229,6 @@ export function Composer(props: { placeholder: string; onSend: (text: string) =>
           <button type="button" disabled title="Coming soon" aria-label="Attach files" className="rounded-lg p-1.5 text-ink-3 disabled:cursor-not-allowed">
             <Paperclip className="size-[18px]" />
           </button>
-          {tools}
         </div>
         <button
           type="submit"

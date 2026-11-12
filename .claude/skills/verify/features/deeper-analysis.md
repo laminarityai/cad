@@ -10,7 +10,7 @@ Deeper analysis is slower analysis of one variant the user picks. It is not a mo
 
 ## How to get to it (user POV)
 
-After the scorecards of a Design mode run, the user names one variant and asks whether it will hold a load or how long it takes to print.
+After the scorecards of a brief's options, the user names one variant and asks whether it will hold a load or how long it takes to print.
 
 ## Driving it with claude_session.py
 

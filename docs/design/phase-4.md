@@ -8,7 +8,7 @@ Later on 2026-11-08 the operator settled the rest at MVP size. Auto mode stops w
 
 The operator then made two more decisions on 2026-11-08. First, there are no sliders. The person changes a variant by asking in chat, and the agent edits the code and rebuilds. The templates ADR, approved earlier that day as ADR-0010, was withdrawn with sliders, so the Auto mode ADR takes its number. Second, sign-in is Clerk with Google sign-in, in place of the email magic link. Clerk is the OAuth 2.1 authorization server for MCP clients, and our server is only the resource server (§2.4, §2.7).
 
-Phase 4 in SPEC: chat, 3D viewer, scorecards, the mode switcher, Auto mode with its stopping rules, and accounts with usage limits. Exit: a change asked for in chat rebuilds the variant and updates its scorecard without a page reload, and Auto mode stops correctly on a brief whose requirements conflict.
+Phase 4 in SPEC: chat, 3D viewer, scorecards, Auto runs with their stopping rules, and accounts with usage limits. Exit: a change asked for in chat rebuilds the variant and updates its scorecard without a page reload, and an Auto run stops correctly on a brief whose requirements conflict. Phase 4 shipped a mode switcher, which was removed on 2026-11-11 (ADR-0010 amendment).
 
 ## What the design starts from
 
@@ -81,7 +81,7 @@ OPERATIONS: Final[tuple[Operation, ...]]
 ```
 
 - `AGENT`: `build_variant`, `score_variant`, `propose_requirements`, `submit_research`, `ask_to_confirm`, `auto_start`, `auto_revise`, `auto_ask`.
-- `PERSON`: `answer_page`, `set_mode`, `list_projects`, `project`, `variant_set`, `view`, `geometry`, `mesh`.
+- `PERSON`: `answer_page`, `auto_stop`, `list_projects`, `project`, `variant_set`, `view`, `geometry`, `mesh`.
 - Both: `list_requirements` (the brief, its proposals and derived status, served at `GET /v1/briefs/{bid}`), `scorecard`, `search_knowledge`, `list_materials`, `server_info`.
 
 A route exists for each `PERSON` or `BOTH` operation, from the `ROUTES` table beside the registry, and for nothing else. A test fails when the two differ.
@@ -215,7 +215,7 @@ A revision counts only once its scorecard has no pending check. The server waits
 
 State lives in an append-only signed log at `projects/<pid>/auto/<run>/NNNN.signed`. `AutoState` is a fold over that log, never a stored field, as brief status already is. Replaying `auto_revise` with the same code gives the same variant id, which is already in the log, so it returns the same state without appending.
 
-**Modes** are conversation state. `set_mode` is `PERSON` only. The `AgentToken` carries only the conversation (§2.4). The server reads the mode from the conversation store at each call. Plan mode was removed on 2026-11-11 (ADR-0004 amendment): a brief builds at once, and `build_variant` is no longer refused for want of a confirmation. Switching to Auto mode is the person's act, and `auto_start` in a conversation whose mode is not Auto is refused. A run's start record names the conversation that started it, and only that conversation, while in Auto mode, can revise, ask or restart it (ADR-0010, amendment). Every stop of a run, not only the person's Stop, moves its conversation to Design.
+**Modes** were removed on 2026-11-11. Plan mode went first (ADR-0004 amendment). A brief builds at once, and `build_variant` is no longer refused for want of a confirmation. Then `set_mode` and the mode picker went (ADR-0010, 2026-11-11 amendment). The `AgentToken` carries only the conversation (§2.4). The server reads the conversation's running run and stopped run from the conversation store at each call. The agent calls `auto_start` when a scored option fails a confirmed requirement that a check decides. A run's start record names the conversation that started it, and only that conversation can revise or ask on it. Every stop of a run holds its conversation. The server refuses every build, score and start there until the person's next message or page answer.
 
 ### 2.6 Reads and streaming
 
@@ -230,8 +230,7 @@ GET  /v1/variants/{vid}/scorecard                   ScorecardSnapshot
 GET  /v1/variants/{vid}/events                      SSE
 GET  /v1/geometry/{version}/{brep_sha256}.json      three-cad-viewer shapes, immutable, ETag
 POST /v1/projects/{pid}/answers                     PersonSession + CSRF
-PUT  /v1/conversations/{cid}/mode                   PersonSession
-POST /v1/auto/{run}/stop                            PersonSession; the run and the conversation's mode
+POST /v1/auto/{run}/stop                            PersonSession; the run and the conversation's running and stopped run
 GET  /.well-known/oauth-protected-resource          RFC 9728 metadata naming Clerk
 POST /mcp                                           streamable HTTP MCP, AgentToken from a Clerk OAuth token
 ```

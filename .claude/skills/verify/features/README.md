@@ -48,7 +48,7 @@ Cost: **free** is `cad-call` alone. The cost table in `../SKILL.md` gives the ti
 `docs/design/phase-4.md` designs these surfaces, and each is built. Unit 3 is [Hosted MCP and accounts](./hosted-mcp.md), unit 4 [Hosted confirmation](./phase-4/hosted-confirmation.md), unit 5 [Geometry](./geometry.md) and the [Download](./download.md) that follows it.
 
 - [Web shell](./phase-4/web-shell.md): the React app at `/app`, its viewers and its scorecards. Unit 6.
-- [Auto mode](./phase-4/auto-mode.md): the server-held Auto run and its stops. Units 7 and 9.
-- [Chat](./phase-4/chat.md): the chat routes, the mode switcher and the project workspace. Unit 8.
+- [Auto](./phase-4/auto.md): the server-held Auto run, its stops and the hold a stop puts on the conversation. Units 7 and 9.
+- [Chat](./phase-4/chat.md): the chat routes and the project workspace. Unit 8.
 
 Units 1 and 2 change tools that exist. Unit 1 added `slot` to `build_variant` ([Build variant](./build-variant.md)). Unit 2 moved the tools into a registry and deleted `scorecard.json`: [Score variant](./score-variant.md) reads a card back through `scorecard`.
