@@ -37,7 +37,7 @@ An agent measurement becomes an agent-written check with no limit. It runs throu
 
 ## Walls the person states
 
-A wall thickness the person states is a design target, not printability, so SPEC's printability exclusion does not cover it. A `min_wall` team check will be built for it. It decides only a limit the person confirmed. It has no default derived from a printer and gives no universal verdict on walls nobody stated. Printability itself stays deferred.
+A wall thickness the person states is a design target, not printability, so SPEC's printability exclusion does not cover it. The `min_wall` team check decides it ([docs/design/min-wall.md](../design/min-wall.md)). It decides only a limit the person confirmed. It has no default derived from a printer and gives no universal verdict on walls nobody stated. Printability itself stays deferred.
 
 ## What still holds from ADR-0008
 
@@ -70,4 +70,4 @@ A new scorecard row type for an approved check's verdict joins the scorecard mod
 
 A requirement first stated after its brief has variants cannot get an agent-written check. It stays unverified until a team check decides it.
 
-A person may still read an approved agent-written check as a team check. The label, the page's words and the separate count are the defence. The only real evidence of a check's honesty is agreement with a team check, so stored agent-written checks get rerun on the same variants against the holes check and, once it exists, `min_wall`.
+A person may still read an approved agent-written check as a team check. The label, the page's words and the separate count are the defence. The only real evidence of a check's honesty is agreement with a team check, so stored agent-written checks get rerun on the same variants against the holes check and `min_wall`.

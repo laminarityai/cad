@@ -24,6 +24,10 @@ _Avoid_: Constraint, goal
 A requirement for round holes, either for a metric fastener size (2 holes that fit an M5 bolt, or tapped for M4) or of a stated diameter (an 8 mm hole). A person states the size or diameter and the count, and confirms it. A hole counts when its diameter lies in the fasteners table's band for the size, or within the tolerance of the stated diameter. A stated diameter's tolerance is 0.05 mm either way unless the person states a length or picks a class of the tolerances table (H7, H8, H9, H11 of ISO 286, or ISO 2768-f, -m, -c), whose band is read by exact key and the diameter's size range. A clearance hole may name a series (close, medium or coarse), which narrows its band to that series' diameter. A group of coaxial holes, such as a counterbore, is one hole, and its diameter is the narrowest.
 _Avoid_: Mounting hole, screw hole
 
+**Wall**:
+The material between a face of a part and the face across from it. Its thickness at a point is how far you go straight into the material, at right angles to the face, until you come out through a face on the far side. The `min_wall` check reports the thinnest, and a wall limit is held only when the person states one.
+_Avoid_: Shell, skin
+
 **Assumption**:
 A value the agent filled in so that it could build, such as a load or a size limit the person did not state. It is stored apart from every proposal, never appears on a confirmation page, and never gets a verdict. The scorecard lists it with the measure beside the assumed value. The person turns it into a requirement by stating it.
 _Avoid_: Default, guess, soft requirement
@@ -65,7 +69,7 @@ A fixed, deterministic test of a variant against a requirement or an engineering
 _Avoid_: Validator, test, verification
 
 **Universal check**:
-A check that applies to every variant whatever it is, such as building as a closed solid, interference, mass, extents (the bounding box), round holes, manufacturability, or FEA under stated loads.
+A check that applies to every variant whatever it is, such as building as a closed solid, interference, mass, extents (the bounding box), round holes, the thinnest wall, manufacturability, or FEA under stated loads.
 
 **Load case**:
 Where a part is held, where the load acts, and the load's force and direction, in a requirement the fea check decides. It finds regions by fixed rules that read only the geometry, never by a face the agent names, and the user confirms its words (ADR-0007). A reviewed phrase, such as "the bores of exactly 2 holes of 5.5 mm", is one our team wrote and reviewed.
