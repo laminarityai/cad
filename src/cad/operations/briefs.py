@@ -22,7 +22,7 @@ from cad.checks.report import QUICK, closure
 from cad.context_parts.store import stored_parts
 from cad.conversations import store as conversations
 from cad.conversations.model import ConversationId, UnknownConversation
-from cad.operations.guidance import PLAN_MODE
+from cad.operations.guidance import BUILD_FIRST
 from cad.operations.model import BOTH, Audience, Input, Tenant, operation
 from cad.operations.research import brief_table
 from cad.projects.membership import project_for_new_brief
@@ -44,7 +44,7 @@ CREATE_BRIEF = (
     "add the brief to that project. Pass the project_id an earlier create_brief returned to add "
     "this brief to that project; a brief stays in the project it was created in. Pass name, a "
     'short noun name for the part, such as "Desk box" or "Lid": the person\'s page shows it. '
-    + PLAN_MODE
+    + BUILD_FIRST
 )
 PROPOSE_REQUIREMENTS = (
     "If the brief names a material, call list_materials before you propose. Propose the whole "

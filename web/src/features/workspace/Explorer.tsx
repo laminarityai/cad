@@ -7,7 +7,6 @@ import type { Brief, Part, ViewAction } from "./model";
 import { Dot } from "./bits";
 
 const STATE_TEXT = {
-  drafting: "Drafting",
   waiting: "Needs your OK",
   building: "Building",
   ready: "",

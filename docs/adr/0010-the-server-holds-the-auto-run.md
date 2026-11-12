@@ -21,7 +21,7 @@ The server does not judge progress. It has no margin, no stall rule, no tradeoff
 
 Run state is an append-only log of signed records at `projects/<pid>/auto/<run>/NNNN.signed`, signed under ADR-0003's scheme. The run's state is derived from the log and is never a stored field, as brief status already is. A replayed `auto_revise` with the same code gives the same variant id, which the log already holds, so it returns the same state and appends nothing.
 
-The person switches modes, in the web app's chat. `set_mode` is an operation that only a person session can call, and no MCP tool exposes it. The agent token that our backend builds for each turn carries the conversation's mode. The server refuses `auto_start` under a token whose conversation is not in Auto mode, and refuses `build_variant` in a conversation in Plan mode.
+The person switches modes, in the web app's chat. `set_mode` is an operation that only a person session can call, and no MCP tool exposes it. The agent token that our backend builds for each turn carries the conversation's mode. The server refuses `auto_start` under a token whose conversation is not in Auto mode, and refuses `build_variant` in a conversation in Plan mode. (Plan mode was removed on 2026-11-11, so that last refusal is gone. See the 2026-11-11 amendment to ADR-0004.)
 
 ## How this refines ADR-0002
 

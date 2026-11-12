@@ -6,13 +6,13 @@ import pytest
 from mcp import Client
 
 from cad.operations.guidance import (
+    BUILD_FIRST,
     CHANGES,
     CONTEXT_PARTS,
     DEEPER_ANALYSIS,
     MATERIAL,
     NOT_VERIFIED,
     OPTIONS,
-    PLAN_MODE,
     RESEARCH,
     RULE,
 )
@@ -241,7 +241,7 @@ async def test_the_server_tells_every_client_that_only_check_results_are_measure
     assert instructions == " ".join(
         (
             RULE,
-            PLAN_MODE,
+            BUILD_FIRST,
             CHANGES,
             OPTIONS,
             CONTEXT_PARTS,

@@ -1,7 +1,7 @@
 import type { Api } from "@/api/client";
 import type { BriefView, ConfirmationCard, ContextPartView, MemberView, Outcome, VariantSetView } from "@/api/types";
 
-export type BriefState = "drafting" | "waiting" | "building" | "ready";
+export type BriefState = "waiting" | "building" | "ready";
 
 export interface Revision {
   n: number;
@@ -78,7 +78,6 @@ function slotsOf(set: VariantSetView | null): Slot[] {
 
 function stateOf(brief: BriefView, confirmation: Confirmation, slots: Slot[]): BriefState {
   if (confirmation?.items.some((item) => item.brief_id === brief.brief_id)) return "waiting";
-  if (brief.confirmed_proposal === null && slots.length === 0) return "drafting";
   return slots.length === 0 ? "building" : "ready";
 }
 

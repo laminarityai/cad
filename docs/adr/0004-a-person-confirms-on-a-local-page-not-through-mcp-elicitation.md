@@ -115,7 +115,7 @@ They are unchanged. An agent that reaches the server only through MCP cannot ans
 
 ## Amendment (2026-11-11): assumptions, and a variant set that belongs to the brief
 
-The operator decided this on 2026-11-11. It is the first step toward a brief that builds without waiting. This amendment does not yet change when the agent builds.
+The operator decided this on 2026-11-11. It is the first step toward a brief that builds without waiting. Its last section, "A brief builds first, and only a stated target is confirmed", changes when the agent builds.
 
 The opening sentence of this ADR, "A check reads only requirements that a person confirmed", is replaced. A check may now measure before a person confirms anything. What holds is the core claim: a requirement verdict compares a check's measure with a target a person confirmed.
 
@@ -142,8 +142,23 @@ A variant set was keyed by the brief and the signed decision, so each new confir
 
 Sets stored under the old key are not read and are not migrated. The product is not deployed, so only local projects lose their set membership.
 
+### A brief builds first, and only a stated target is confirmed
+
+Status: Proposed. The operator decided on 2026-11-11 that a brief builds at once and that only a target the person stated needs a Confirm. This section records that decision. The operator has not yet approved its text.
+
+A fresh brief no longer waits for a confirmation. In one turn the agent creates the brief, proposes the targets the person stated, files its own numbers as assumptions, builds 3 to 5 options, scores them, and calls `ask_to_confirm` last, and only when a stated target waits. The rule of this ADR does not change. A requirement verdict compares a check's measure with a target a person confirmed, and only a person can confirm.
+
+What the person confirms. The Confirm card lists the targets the person stated and nothing else. One click confirms them. A brief that states no number shows no card. The answer is the same signed `PageAnswer`, and no agent token is accepted on its handler.
+
+What a waiting target shows. No verdict rests on a target until the person confirms it. Until then the scorecard reads `awaiting_confirmation`, and the Checks pane lists each waiting target as waiting on the person, with the measure beside it. That row has no pass or fail field. A result that read a load the person stated and has not confirmed is shown on that row, never among the checks that passed. After Confirm, the same stored check results are judged against the confirmed set, and nothing is rebuilt. The fea check runs under a load that is assumed or awaits Confirm, so the measure exists before the click.
+
+What a confirmation no longer does. It no longer ends a mode, because Plan is gone. A conversation starts in Design, and `Mode.PLAN` leaves the picker. It no longer starts a variant set either. Options built before a confirmation stay in the brief's set, and confirming, editing or declining a target deletes none of them. A declined target leaves every option in place, and the agent reads the person's note and proposes again, files the value as an assumption, or drops it. `auto_start` still refuses a brief with no confirmed requirements, so an Auto run has something to revise against.
+
+What this replaces. It replaces the sentence of the 2026-11-10 amendment that says the server moves the conversation out of planning, and the agent rule "Build no geometry for a brief until its requirements are confirmed". The refusal of `build_variant` in Plan mode, which ADR-0010 describes, goes with it. ADR-0010 stays as it is until the Auto change replaces its mode rules.
+
 ### Considered options
 
+- **Keep Plan as a mode that ends at Confirm.** Rejected. The person waits on a click before seeing anything, which is the friction this decision removes.
 - **Refuse a requirement whose number is not in its quote.** Rejected by the operator. "Yes, make that a target" after the agent names an assumption would be refused, and the person would have to retype the number.
 - **Give an assumption a labelled verdict, counted apart like a researched value.** Rejected by the operator. A researched value is read from a cited page. An assumption is the agent's own number, and a pass against it would let the agent grade its own design.
 - **Keep assumptions as prose in the agent's reply.** Rejected. The check could not measure against them, and the next turn could not read them back.

@@ -102,6 +102,7 @@ async def test_nothing_waiting_asks_the_client_for_nothing(server: MCPServer) ->
         result = await client.call_tool("ask_to_confirm", {"project_id": project_id})
     assert result.structured_content is not None
     assert result.structured_content["status"] == "nothing_to_confirm"
+    assert "needs no confirmation" in result.structured_content["next"]
     assert asked == []
 
 

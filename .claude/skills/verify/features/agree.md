@@ -32,6 +32,7 @@ A replay builds into a temporary store, `agree-store-*` under the temp directory
 
 ## Gotchas
 
+- The live prompt names no brief and proposes no requirement, so the agent builds and scores with no Confirm and no brief_id. The server's instructions say a brief builds at once, and nothing in this lane waits on a person. A scorecard with no brief has no requirement rows, which is what `agree.py` compares.
 - A live row with no scored variant is a disagreement, not a skipped row. So is a row whose `claude_session.py` run failed, for example on a tool call outside cad.
 - A scorecard whose `closed_solid` is `unknown` (the checks did not finish) never agrees, even when `grade.py` also finds no output.
 - `sonnet/shaft_collar/0` disagrees in a replay. `closed_solid` fails on an edge used by more than two faces, and `grade.py` has no such test.

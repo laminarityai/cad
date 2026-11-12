@@ -34,7 +34,7 @@ PROJECT = "${create_brief.project_id}"
 
 
 def asked(**joined: str) -> list[Step]:
-    """A Plan turn: store the brief, propose, ask, and end the message while the page waits."""
+    """A turn that builds first: store the brief, propose, ask, end the message while it waits."""
     return [
         step("Storing the brief.", call("create_brief", **joined)),
         step(
@@ -121,10 +121,12 @@ async def answer(chat: Chat, client: httpx2.AsyncClient, cid: str, verdict: str 
     return await chat.post_page(client, project, body)
 
 
-async def test_a_page_answer_starts_one_turn_with_no_message_and_ends_plan(chat: Chat) -> None:
+async def test_a_page_answer_starts_one_turn_with_no_message_and_changes_no_mode(
+    chat: Chat,
+) -> None:
     async with chat.client() as client:
         cid = await waiting(chat, client)
-        assert mode_of(chat, cid) is Mode.PLAN
+        assert mode_of(chat, cid) is Mode.DESIGN
         before = len(await chat.events(client, cid))
         assert await answer(chat, client, cid) == 200
         await chat.finish()
@@ -133,6 +135,7 @@ async def test_a_page_answer_starts_one_turn_with_no_message_and_ends_plan(chat:
     assert after[0]["answered"]["through"] == 1
     assert "confirmed 1 and declined 0" in after[0]["text"]
     assert '"thinner please"' in after[0]["text"]
+    assert "with no rebuild" in after[0]["text"]
     assert "http" not in after[0]["text"]
     assert after[1]["text"] == "Building it now."
     assert mode_of(chat, cid) is Mode.DESIGN
@@ -152,7 +155,7 @@ async def test_a_replayed_answer_starts_no_second_turn(chat: Chat) -> None:
     assert kinds(events).count("turn_ended") == 2
 
 
-async def test_a_declined_answer_wakes_the_agent_and_stays_in_plan(chat: Chat) -> None:
+async def test_a_declined_answer_wakes_the_agent_and_keeps_what_it_built(chat: Chat) -> None:
     async with chat.client() as client:
         cid = await waiting(chat, client)
         assert await answer(chat, client, cid, "decline") == 200
@@ -160,8 +163,9 @@ async def test_a_declined_answer_wakes_the_agent_and_stays_in_plan(chat: Chat) -
         events = await chat.events(client, cid)
     driver = next(one for one in events if one["kind"] == "driver")
     assert "confirmed 0 and declined 1" in driver["text"]
+    assert "Nothing you built is gone" in driver["text"]
     assert kinds(events)[-1] == "turn_ended"
-    assert mode_of(chat, cid) is Mode.PLAN
+    assert mode_of(chat, cid) is Mode.DESIGN
 
 
 async def test_an_answer_during_a_turn_starts_one_follow_up_after_it(chat: Chat) -> None:
@@ -208,7 +212,7 @@ async def test_an_answer_the_turns_own_ask_sees_starts_no_follow_up(
     assert mode_of(chat, cid) is Mode.DESIGN
 
 
-async def test_an_answer_between_the_count_and_the_items_still_ends_plan(
+async def test_an_answer_between_the_count_and_the_items_still_ends_the_wait(
     chat: Chat, pages: Pages, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     first_read = [True]
@@ -234,45 +238,6 @@ async def test_an_answer_between_the_count_and_the_items_still_ends_plan(
     result = json.loads([one for one in events if one["kind"] == "tool_result"][-1]["text"])
     assert (result["status"], result["answers_recorded"]) == ("answered", 1)
     assert mode_of(chat, cid) is Mode.DESIGN
-
-
-async def test_a_switch_back_to_plan_stands_through_the_next_ask(chat: Chat) -> None:
-    async with chat.client() as client:
-        cid = await waiting(chat, client)
-        assert await answer(chat, client, cid) == 200
-        await chat.finish()
-        tenant = chat.tenants.of(AccountId(ALICE))
-        store.set_mode(tenant.roots, tenant.conversations, ConversationId(cid), Mode.PLAN)
-        steps = (
-            *asked(),
-            step("Built."),
-            step("Asking.", call("ask_to_confirm", project_id=PROJECT)),
-        )
-        chat.app.state.chat.model = script(*steps, step("Still in Plan."))
-        await chat.say(client, cid, "is it confirmed?")
-        await chat.finish()
-        events = await chat.events(client, cid)
-    assert json.loads(events[-3]["text"])["status"] == "answered"
-    assert mode_of(chat, cid) is Mode.PLAN
-
-
-async def test_a_first_pending_ask_in_a_project_with_confirmed_briefs_stays_in_plan(
-    chat: Chat,
-) -> None:
-    async with chat.client() as client:
-        first = await waiting(chat, client)
-        assert await answer(chat, client, first) == 200
-        await chat.finish()
-        project = project_of(await chat.events(client, first))
-        chat.app.state.chat.model = script(*asked(project_id=project))
-        second = await waiting(chat, client, "and a second plate under 150 g in the same project")
-        events = await chat.events(client, second)
-    result = json.loads(
-        next(one for one in reversed(events) if one["kind"] == "tool_result")["text"]
-    )
-    assert (result["status"], result["answers_recorded"]) == ("pending", 1)
-    assert mode_of(chat, second) is Mode.PLAN
-    assert mode_of(chat, first) is Mode.DESIGN
 
 
 @pytest.fixture

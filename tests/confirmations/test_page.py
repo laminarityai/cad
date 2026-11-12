@@ -98,7 +98,9 @@ async def test_a_confirm_on_the_page_confirms_the_set_for_tools_and_checks(
             "note": "",
         }
     ]
-    assert "build_variant" in asked["next"]
+    assert "score_variant" in asked["next"]
+    assert "no rebuild" in asked["next"]
+    assert "build_variant" not in asked["next"]
     assert listed["confirmed_proposal"] == 1
     assert {r["status"] for r in listed["proposals"][0]["requirements"]} == {"confirmed"}
     checked = store.confirmed_requirements(s.roots, brief.brief_id)

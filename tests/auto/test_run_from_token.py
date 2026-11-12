@@ -8,6 +8,7 @@ from mcp import Client
 from mcp.server import MCPServer
 
 from cad.auto.model import Running, RunStopped, Stopped, StoppedByPerson
+from cad.chat.log import Channel, UserSaid, transcript_path
 from cad.conversations import store
 from cad.conversations.model import ConversationId, Mode
 from cad.operations.registry import OPERATIONS
@@ -26,7 +27,7 @@ UNDER_150: Final = {
     "target": {"kind": "max_mass", "mass": {"magnitude": 150, "unit": "g"}},
     "quote": "under 150 g",
 }
-PLAN_REFUSAL: Final = "build_variant is refused in Plan mode"
+AUTO_REFUSAL: Final = "this conversation is in Auto mode, so call auto_start first"
 
 
 async def running(s: Session) -> tuple[str, str]:
@@ -83,13 +84,15 @@ async def test_the_person_leaving_auto_stops_the_next_build(s: Session, started:
     assert (started, s.meter.asked) == ([], [])
 
 
-async def test_build_variant_is_refused_in_plan_mode_before_anything_starts(
+async def test_a_conversation_that_never_chose_a_mode_builds_with_nothing_confirmed(
     s: Session, started: list[str]
 ) -> None:
-    store.set_mode(s.tenant.roots, s.tenant.conversations, s.conversation, Mode.PLAN)
-    text = await s.refusal("build_variant", code=PLATE)
-    assert PLAN_REFUSAL in text
-    assert (started, s.meter.asked) == ([], [])
+    fresh = ConversationId("c-fresh")
+    store.create(s.tenant.conversations, fresh)
+    text = await refusal_in(s, fresh, "build_variant", code=PLATE)
+    assert "Plan mode" not in text
+    assert AUTO_REFUSAL not in text
+    assert (len(started), s.meter.asked) == (1, ["build"])
 
 
 async def test_build_variant_in_design_mode_reaches_the_sandbox(
@@ -104,16 +107,16 @@ async def test_build_variant_in_design_mode_reaches_the_sandbox(
 async def test_two_conversations_of_one_account_never_leak_a_mode(
     s: Session, started: list[str]
 ) -> None:
-    planning, designing = ConversationId("c-plan"), ConversationId("c-design")
-    store.create(s.tenant.conversations, planning)
+    automatic, designing = ConversationId("c-auto"), ConversationId("c-design")
+    store.create(s.tenant.conversations, automatic)
     store.create(s.tenant.conversations, designing)
-    store.set_mode(s.tenant.roots, s.tenant.conversations, planning, Mode.PLAN)
+    store.set_mode(s.tenant.roots, s.tenant.conversations, automatic, Mode.AUTO)
     store.set_mode(s.tenant.roots, s.tenant.conversations, designing, Mode.DESIGN)
     for round_ in range(5):
-        in_plan = await refusal_in(s, planning, "build_variant", code=PLATE)
+        in_auto = await refusal_in(s, automatic, "build_variant", code=PLATE)
         in_design = await refusal_in(s, designing, "build_variant", code=PLATE + f"# {round_}\n")
-        assert PLAN_REFUSAL in in_plan
-        assert PLAN_REFUSAL not in in_design
+        assert AUTO_REFUSAL in in_auto
+        assert AUTO_REFUSAL not in in_design
     assert (len(started), s.meter.asked) == (5, ["build"] * 5)
     assert (s.tenant.mode, s.tenant.conversation, s.tenant.auto_run) == (None, None, None)
 
@@ -131,6 +134,23 @@ async def test_auto_mode_with_no_run_refuses_a_build_and_a_score(
     ):
         assert "this conversation is in Auto mode, so call auto_start first" in text
     assert (started, s.meter.asked) == ([], [])
+
+
+async def test_auto_mode_builds_a_brief_with_nothing_confirmed_and_needs_a_run_once_it_is(
+    s: Session, started: list[str]
+) -> None:
+    Channel(transcript_path(s.tenant.conversations, s.conversation)).append(UserSaid(text=TEXT))
+    brief = await s.call("create_brief")
+    chosen = {"material_key": "prusament-pla", "material_reason": "PLA prints easily"}
+    text = await s.refusal("build_variant", code=PLATE, brief_id=brief["brief_id"], **chosen)
+    assert "this test starts no container" in text
+    assert len(started) == 1
+    await s.propose(brief["brief_id"], UNDER_150)
+    answer = await s.call("ask_to_confirm", project_id=brief["project_id"])
+    assert answer["status"] == "answered", answer
+    text = await s.refusal("build_variant", code=PLATE, brief_id=brief["brief_id"], **chosen)
+    assert AUTO_REFUSAL in text
+    assert len(started) == 1
 
 
 async def test_build_variant_takes_no_auto_run_argument(s: Session) -> None:
@@ -184,7 +204,7 @@ async def test_another_auto_conversation_cannot_take_a_running_run_on_its_brief(
     text = await refusal_in(s, third, "auto_start", **start)
     assert f"RunNotHeld: brief {brief_id} has Auto run {run_id} in another" in text
     assert store.read(s.tenant.conversations, third).auto_run is None
-    store.set_mode(s.tenant.roots, s.tenant.conversations, third, Mode.PLAN)
+    store.set_mode(s.tenant.roots, s.tenant.conversations, third, Mode.DESIGN)
     assert isinstance(s.run(run_id).state, Running)
     assert store.read(s.tenant.conversations, s.conversation).auto_run == run_id
 

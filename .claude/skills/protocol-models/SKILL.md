@@ -1,11 +1,11 @@
 ---
 name: protocol-models
-description: Model-check the check job queue (src/cad/checks/lanes.py, job_store.py, including Lanes.peek, the completion listeners and drop_unstarted) the confirmation answer flow (src/cad/confirmations/, operations/confirmation.py, records/signed.py) and how the chat carries on after a page answer (chat/routes.py Chat._deliver, answered, catch_up; chat/answer_driver.py; conversations/store.confirmed) with TLA+. Use when you change how jobs take off, run, are stored or refused, how a worker starts or dies, or who may post the confirmation page, how its snapshot is sealed, or how an answer is appended; when you change what starts a chat turn, how a page answer reaches a conversation, or when Plan ends; when `verify` warns that covered code changed; or when a race, a crash, or a second session could break one of these flows.
+description: Model-check the check job queue (src/cad/checks/lanes.py, job_store.py, including Lanes.peek, the completion listeners and drop_unstarted) the confirmation answer flow (src/cad/confirmations/, operations/confirmation.py, records/signed.py) and how the chat carries on after a page answer (chat/routes.py Chat._deliver, answered, catch_up; chat/answer_driver.py) with TLA+. Use when you change how jobs take off, run, are stored or refused, how a worker starts or dies, or who may post the confirmation page, how its snapshot is sealed, or how an answer is appended; when you change what starts a chat turn, how a page answer reaches a conversation; when `verify` warns that covered code changed; or when a race, a crash, or a second session could break one of these flows.
 ---
 
 # Protocol models
 
-Unit tests run one interleaving per test. These models run every interleaving, within small bounds, of the threads, server processes, crashes, store errors and agent actions that touch three flows: the check job queue, the confirmation answer flow, and the chat carrying on after the person answers the page. A bug in any of them is expensive and rarely shows up in a test. The queue can run a container twice, leave a check pending forever, or trust a forged result. The answer flow can record an answer twice, lose one it reported as recorded, record an answer for an item the page never showed, or record one that the agent or another account gave. The carry-on flow can start two turns for one answer, never tell a conversation an answer it waits on, or end Plan after the person picked Plan again.
+Unit tests run one interleaving per test. These models run every interleaving, within small bounds, of the threads, server processes, crashes, store errors and agent actions that touch three flows: the check job queue, the confirmation answer flow, and the chat carrying on after the person answers the page. A bug in any of them is expensive and rarely shows up in a test. The queue can run a container twice, leave a check pending forever, or trust a forged result. The answer flow can record an answer twice, lose one it reported as recorded, record an answer for an item the page never showed, or record one that the agent or another account gave. The carry-on flow can start two turns for one answer, or never tell a conversation an answer it waits on.
 
 ## Run
 
@@ -112,25 +112,21 @@ The principals are the tenant's person sessions (`Persons`), a person of another
 
 ### CarryOn.tla: the chat carries on after a page answer
 
-After the person answers the confirmation page, the conversation that waits on the answer starts its next turn by itself, and a confirm moves it from Plan to Design. The transcript is the claim. `waiting_on` and `told_through` are derived from the conversation's own transcript, which survives a crash with the ledger and the conversation record. `Channel.running`, the channel cache, pending `on_recorded` calls and scheduled done callbacks live in memory, and a crash loses them. Each `_deliver` runs synchronously on the one event loop, from its `running` check to its append, so the model makes it one step.
+After the person answers the confirmation page, the conversation that waits on the answer starts its next turn by itself. The answer changes no mode: a brief builds before it is confirmed, so there is no Plan to end. The transcript is the claim. `waiting_on` is derived from the conversation's own transcript, which survives a crash with the ledger. `Channel.running`, the channel cache, pending `on_recorded` calls and scheduled done callbacks live in memory, and a crash loses them. Each `_deliver` runs synchronously on the one event loop, from its `running` check to its append, so the model makes it one step.
 
 | Property | Kind | The harm it rules out |
 | --- | --- | --- |
 | `OneTurnPerDelivery` | invariant | Two turns act on one delivery, after a double POST, a restart, or an answer that lands while a turn runs. The heal may start a turn again for a delivery whose turn a crash cut before it appended anything. That turn did nothing, so it does not count. |
 | `NoAnswerToldTwice` | invariant | A transcript event tells the conversation an answer that an earlier event already told it, so the agent acts on it twice. |
 | `NoDeliveryWhileRunning` | action | A delivery `DriverSaid` is appended while a turn runs, which starts a second turn beside the first. |
-| `PlanEndsOnlyOnAnEdge` | action | Plan ends in a step that does not move the told cursor over a confirming answer. A level-triggered rule ("the brief is confirmed") would override the person's switch back to Plan. |
-| `PendingAskKeepsPlan` | action | A pending `ask_to_confirm` result ends Plan, for example the first ask on a new brief in a project whose older brief was confirmed. |
-| `PlanEndsOncePerConfirm` | action | One confirming answer ends Plan twice for a conversation, so a switch back to Plan does not stick. It fails when a crash falls between `store.confirmed` and the append: see known finding 4. |
 | `EveryAnswerTold` | temporal | An answer recorded while the conversation waits is never told to it, so the chat stays silent after the person confirmed. |
 | `EveryDeliveryRuns` | temporal | A delivery is appended and no turn ever acts on it, for example after a crash between the append and the turn's start. |
 | `TypeOK` | invariant | A variable takes a value the model did not mean to allow. |
 
 | Config | Bounds | Checks |
 | --- | --- | --- |
-| `CarryOn.cfg` | 2 conversations, 2 answers, 2 proposals, 2 asks, 2 messages, 1 crash, 1 switch to Plan, 1 extra `on_recorded` call, symmetry over the conversations | invariants and action properties |
+| `CarryOn.cfg` | 2 conversations, 2 answers, 2 proposals, 2 asks, 2 messages, 1 crash, 1 extra `on_recorded` call, symmetry over the conversations | invariants and action properties |
 | `CarryOnLive.cfg` | 1 conversation, 2 answers, 2 proposals, 2 asks, 1 message, 1 crash | both temporal properties |
-| `CarryOnCut.cfg` | 1 conversation, 1 answer, 1 crash, with `CutBetween` | known finding 4, which must still be found |
 
 Liveness holds under weak fairness on the loop's own steps (the hook, the done callback, the running turn) and on `catch_up`. `catch_up` is fair because the browser's EventSource opens the stream again by itself after a restart. A conversation whose page is closed hears its answer when the person opens it. The person's and the agent's choices (answer, message, propose, ask, switch) are not fair. One conversation is enough for liveness, because each conversation's cursor and channel are its own.
 
@@ -138,19 +134,18 @@ How the model maps to the code:
 
 | Model | Code |
 | --- | --- |
-| `ledger`, `pending` | the project's signed answers (`read_ledger`), TRUE when an answer confirms a requirements item (`confirms_requirements`), and whether `items.pending` is empty |
-| `wait`, `told`, `tail` | `answer_driver.waiting_on` (None is -1), `told_through`, and whether the transcript's last event is a `DriverSaid` with `answered` |
-| `mode` | the conversation record's mode. `store.confirmed` moves Plan to Design and leaves Design and Auto alone |
-| `Deliver(D)` | `Chat._deliver` for each conversation in `D`: return while `channel.running`, `waiting_on`, `delivery` over the ledger, `store.confirmed` when `ends_plan`, then `_begin` (set `running`, append `DriverSaid(answered=Answered(through=len(ledger)))`, create the turn task) |
+| `ledger`, `pending` | the project's signed answers (`read_ledger`), and whether `items.pending` is empty |
+| `wait`, `told`, `tail` | `answer_driver.waiting_on` (None is -1), the answers the transcript has told the conversation, and whether the transcript's last event is a `DriverSaid` with `answered` |
+| `Deliver(D)` | `Chat._deliver` for each conversation in `D`: return while `channel.running`, `waiting_on`, `delivery` over the ledger, then `_begin` (set `running`, append `DriverSaid(answered=Answered(through=len(ledger)))`, create the turn task) |
 | `Hook` | `Chat.answered`, which `confirmations/web.py` `record` calls through `on_recorded` after a recorded answer: `_deliver` on every channel `Channels.open_in` holds |
 | `DoneCallback(c)` | the turn task's done callback, which the loop runs some time after `run_turn`'s `finally` cleared `running` |
 | `CatchUp(c)` | `Chat.catch_up` on stream open: the restart heal (not running and a `DriverSaid` tail, so start the turn and append nothing), else `_deliver` |
 | `Start(c)` | `Chat.start`: refused while running, else `UserSaid` and a turn |
 | `TurnActs(c)` | the turn's first append (`AgentSaid`, `ToolCalled` or `TurnFailed`) |
 | `AskRead`, `AskItems`, `AskAfter` | `operations/confirmation.ask_to_confirm` after its wait: `answers_recorded` read before the items, the items, and for a result that is not pending the ledger's length read again (see the `answered-count-before-items` mutant) |
-| `AskReturn(c)` | `answer_driver.settle` then the `ToolReturned` append, with no await between: move the cursor to `answers_recorded`, and call `store.confirmed` only for a result that is not pending whose new answers confirm |
+| `AskReturn(c)` | the `ToolReturned` append: the told cursor moves to `answers_recorded`, and a pending result starts the wait |
 | `Answer` | `web.py` `record`: one answer to everything pending in the project. Answers.tla shows one recorded POST per answer. `ExtraHook` calls `on_recorded` a second time anyway |
-| `Crash` | the process dies: `running`, the channel cache, pending hooks and callbacks go. `CutDeliver` and `CutAsk` die between `store.confirmed` and the append after it |
+| `Crash` | the process dies: `running`, the channel cache, pending hooks and callbacks go |
 
 ## Known findings
 
@@ -159,7 +154,6 @@ Each finding is a check that must keep finding its violation. When the code is f
 1. `JobLanesTwoServersRefusal` (`InterruptedMeansInterrupted`). Two server processes on one store, for example two Claude Code sessions on `~/.cad`, share `.attempt` files. Server A dies once while fea runs, so `.attempt` is 1. Server B starts the same fea job and `begin_attempt` makes it 2. A restarts, and `score_variant` refuses fea as "interrupted 2 times" while B's healthy run is still going. It clears once B stores its result. It is transient and low severity. The phase-4 one-replica lease would remove it.
 2. `AnswersStale` (`StaleWritesNothing`). `answer_page` checks that the pending items still match the page, then appends. If the agent proposes a new revision between the two, the answer is still recorded. It binds to the exact item sha the page showed, so `AnswersWhatThePageShowed` holds, and the newer revision stays pending. Low severity. The trace is 9 states: `Get`, `Post`, the POST passes `Unseal`, `CheckLedger` and `CheckPending`, then `ReadSlots`, `Propose`, and `Publish` links the answer. `StaleWritesNothing` counts only that order (the `stale` ghost requires `at = rev`, so the pending check passed), so this check cannot pass on a stale answer that got past a broken Changed guard. `ChangedWritesNothing` in `Answers.cfg` catches that one.
 3. `JobLanesPeek` (`PeekMeansInterrupted`). One server, one crash. The server dies once while fea runs, so `.attempt` is 1. It restarts, `score_variant` starts a healthy rerun, and `begin_attempt` makes `.attempt` 2. While that run is going, `Lanes.peek` (the scorecard operation) reports fea refused as "interrupted 2 times". `settle` does not, because `_take_off` looks in `_flying` first, and `peek` does not. It clears once the run stores its result. Transient and low severity, but it needs only one server, unlike finding 1. Reproduced against the real code: `job_store.begin_attempt` once, then `Lanes.settle` with a gated background runner, then `Lanes.peek` returns `Refused(INTERRUPTED)` while `.attempt` is 2.
-4. `CarryOnCut` (`PlanEndsOncePerConfirm`). `_deliver` and `settle` call `store.confirmed` before the append that moves the cursor, so a crash between them leaves the mode in Design and the cursor where it was. The person picks Plan again, the stream reopens, and `catch_up` delivers the same confirm and ends Plan a second time. The trace is 12 states: a message turn proposes and asks (pending), the person confirms while the result returns, the turn ends, the done callback's `_deliver` writes Design and the process dies, the person picks Plan, and `catch_up` delivers. Low severity: it needs a crash in a window with no await and a mode switch before the stream reopens. Writing the mode with the cursor it was written for, so that `confirmed` is a no-op for a cursor already applied, would remove it.
 
 ## A failure: real bug or modeling error
 
@@ -175,7 +169,7 @@ When a check fails, read the trace as a story in code terms: which thread or pro
 `check_models.py` reads the block below. It warns when a covered file changed after the sync commit, and it prints a note instead when the commit is not in the clone (CI checks out shallow). The warning does not fail the run. When you see it, read the diff, update the model if the protocol changed, run the checks and the mutants, and only then move `sync` to the new commit. Use `/maintain-formal-verification-skill` for that work.
 
 ```coverage
-sync: a4c95db
+sync: 1bafd93
 JobLanes: src/cad/checks/lanes.py src/cad/checks/job_store.py src/cad/checks/jobs.py src/cad/sandbox/container.py
 Answers: src/cad/confirmations/web.py src/cad/confirmations/snapshot.py src/cad/operations/confirmation.py src/cad/confirmations/page.py src/cad/confirmations/answers.py src/cad/confirmations/items.py src/cad/records/signed.py
 CarryOn: src/cad/chat/routes.py src/cad/chat/answer_driver.py src/cad/chat/turn.py src/cad/chat/log.py src/cad/conversations/store.py src/cad/operations/confirmation.py src/cad/confirmations/web.py

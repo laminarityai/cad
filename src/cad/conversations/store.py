@@ -54,17 +54,6 @@ def set_mode(roots: Roots, directory: Path, cid: ConversationId, mode: Mode) -> 
         return _switch(roots, directory, cid, mode)
 
 
-def confirmed(directory: Path, cid: ConversationId) -> Conversation:
-    """The conversation was just told that the person confirmed requirements. Plan ends there, and
-    Design and Auto stay as they are. Callers call it once per told answer, so a later switch back
-    to Plan stands until the person confirms again."""
-    with _LOCK:
-        held = read(directory, cid)
-        if held.mode is not Mode.PLAN:
-            return held
-        return _write(directory, cid, held.moved(Mode.DESIGN))
-
-
 def record_event(roots: Roots, directory: Path, run_id: str, make: log.Make) -> AutoRun:
     """Every record of a run goes through here. A run that is stopped after it, by any reason,
     takes its conversation out of Auto mode, to Design, when it is the conversation's current

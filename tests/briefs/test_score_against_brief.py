@@ -63,6 +63,85 @@ async def test_a_brief_nobody_confirmed_runs_every_check_and_judges_nothing(s: S
     assert [r["verdict"] for r in card["results"]] == ["pass"] * 4
 
 
+async def test_a_target_that_waits_shows_its_measure_beside_it_and_no_verdict(s: Session) -> None:
+    brief_id, _ = await proposed(s)
+    card = await s.call(
+        "score_variant", variant_id=await plate(s), material_key="prusament-pla", brief_id=brief_id
+    )
+    rows = card["awaiting"]
+    assert [row["check_id"] for row in rows] == ["mass", "mass", "extents"]
+    assert all(row["label"] == "waiting for your Confirm, no verdict" for row in rows)
+    assert not {"verdict", "comparisons", "mark"} & set(rows[0])
+    [value] = rows[0]["values"]
+    assert value["proposed"] == {"magnitude": 150.0, "unit": "g"}
+    assert value["measured"] is not None
+    assert "requirements" not in card["basis"]
+
+
+async def test_fea_is_asked_for_a_load_that_awaits_confirm_and_for_an_assumed_one(
+    s: Session,
+) -> None:
+    created = await s.call("create_brief", text=f"{PLATE_TEXT}, holds 10 N")
+    load = {
+        "support": {"kind": "flat_end"},
+        "load": {
+            "kind": "far_end",
+            "force": {"magnitude": 10, "unit": "N"},
+            "direction": {"kind": "any"},
+        },
+    }
+    row = {
+        "target": {"kind": "min_safety_factor", "load": load, "factor": 2},
+        "quote": "holds 10 N",
+    }
+    await s.call("propose_requirements", brief_id=created["brief_id"], requirements=[row])
+    card = await s.call(
+        "score_variant",
+        variant_id=await plate(s),
+        material_key="prusament-pla",
+        brief_id=created["brief_id"],
+    )
+    asked = [one["instance"] for one in card["results"] if one["check_id"] == "fea"]
+    assert len(asked) == 1 and asked[0] != ""
+    assert [row["instance"] for row in card["awaiting"]] == asked
+    other = {**load, "load": {**load["load"], "force": {"magnitude": 20, "unit": "N"}}}
+    mine = {
+        "target": {
+            "kind": "max_deflection",
+            "load": other,
+            "deflection": {"magnitude": 1, "unit": "mm"},
+        },
+        "why": "a desk shelf",
+    }
+    await s.call("propose_requirements", brief_id=created["brief_id"], assumptions=[mine])
+    again = await s.call(
+        "score_variant",
+        variant_id=await plate(s),
+        material_key="prusament-pla",
+        brief_id=created["brief_id"],
+    )
+    loads = {one["instance"] for one in again["results"] if one["check_id"] == "fea"}
+    assert len(loads) == 2
+    assert {row["instance"] for row in again["assumptions"]} <= loads
+
+
+async def test_confirming_judges_the_stored_results_with_no_rebuild(
+    s: Session, person: Person
+) -> None:
+    brief_id, project_id = await proposed(s)
+    variant_id = await plate(s)
+    score = {"variant_id": variant_id, "material_key": "prusament-pla", "brief_id": brief_id}
+    waiting = await s.call("score_variant", **score)
+    ran = sorted(jobs_path(s, variant_id).iterdir())
+    person.answer = "confirm"
+    assert (await s.call("ask_to_confirm", project_id=project_id))["status"] == "answered"
+    judged = await s.call("score_variant", **score)
+    assert sorted(jobs_path(s, variant_id).iterdir()) == ran
+    assert judged["results"] == waiting["results"]
+    assert judged["basis"]["kind"] == "against_brief"
+    assert "awaiting" not in judged
+
+
 async def test_a_confirmed_brief_is_judged_requirement_by_requirement(
     s: Session, person: Person
 ) -> None:

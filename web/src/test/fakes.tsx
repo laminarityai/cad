@@ -129,7 +129,7 @@ export class FakeChat implements ChatApi {
   readonly modes: Mode[] = [];
   readonly stops: string[] = [];
   readonly followed: string[] = [];
-  mode: Mode = "plan";
+  mode: Mode = "design";
   autoRun: AutoRun | null = null;
   onSend: (text: string) => void = () => undefined;
   private readonly open = new Set<Follower>();

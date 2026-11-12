@@ -5,10 +5,6 @@ The transcript says what the conversation has been told. An `ask_to_confirm` res
 `DriverSaid` with `answered` says the server told the agent about answers up to `through`. So
 a conversation whose last such event is a pending result waits on any answer past its count,
 and appending the delivery is what ends the wait: it can never be delivered twice.
-
-Plan ends on an edge, not a level. The conversation moves to Design only in the step that tells
-it about a new answer that confirms a requirements item, so a person who switches back to Plan
-stays there until they confirm again.
 """
 
 from collections.abc import Sequence
@@ -18,19 +14,19 @@ from typing import Final
 from pydantic import ValidationError
 
 from cad.chat.log import Answered, DriverSaid, Event, ToolCalled, ToolReturned
-from cad.chat.model import ToolResult, ToolUse
-from cad.confirmations.answers import Ledger, PageAnswer, read_ledger
-from cad.conversations import store
+from cad.confirmations.answers import Ledger
 from cad.operations.confirmation import AskResult
-from cad.operations.model import Tenant
 from cad.projects.model import ProjectId
 
 ASK: Final = "ask_to_confirm"
 ANSWERED: Final = (
     "The person answered the confirmation page of project {project}: they confirmed {confirmed} "
     "and declined {declined}.{notes} Call ask_to_confirm with project_id {project} to read each "
-    "item's outcome, and list_requirements for what they confirmed. Then carry on without "
-    "waiting for them: build and score what they confirmed, and revise what they declined."
+    "item's outcome, and list_requirements for what they confirmed. Nothing you built is gone, "
+    "and the scorecards now judge it against what they confirmed with no rebuild. Then carry on "
+    "without waiting for them: score again to read the verdicts, revise what fails, and for "
+    "what they declined, read their note and propose again, file the value as an assumption, "
+    "or drop it."
 )
 
 
@@ -38,12 +34,6 @@ ANSWERED: Final = (
 class Waiting:
     project: ProjectId
     through: int
-
-
-@dataclass(frozen=True, slots=True)
-class Delivery:
-    event: DriverSaid
-    ends_plan: bool
 
 
 def waiting_on(events: Sequence[Event]) -> Waiting | None:
@@ -62,21 +52,7 @@ def waiting_on(events: Sequence[Event]) -> Waiting | None:
     return found
 
 
-def told_through(events: Sequence[Event], project: ProjectId) -> int:
-    calls = _ask_calls(events)
-    told = 0
-    for event in events:
-        if isinstance(event, DriverSaid) and event.answered is not None:
-            if event.answered.project_id == project:
-                told = max(told, event.answered.through)
-            continue
-        result = _asked(event, calls)
-        if result is not None and result.project_id == project:
-            told = max(told, result.answers_recorded)
-    return told
-
-
-def delivery(waiting: Waiting, ledger: Ledger) -> Delivery | None:
+def delivery(waiting: Waiting, ledger: Ledger) -> DriverSaid | None:
     """One event for every answer past what the conversation was told, or None."""
     through = len(ledger.answers)
     new = [page for _, page in ledger.answers[waiting.through : through]]
@@ -90,46 +66,13 @@ def delivery(waiting: Waiting, ledger: Ledger) -> Delivery | None:
         declined=verdicts.count("declined"),
         notes=notes,
     )
-    event = DriverSaid(text=text, answered=Answered(project_id=waiting.project, through=through))
-    return Delivery(event, confirms_requirements(new))
-
-
-def confirms_requirements(pages: Sequence[PageAnswer]) -> bool:
-    return any(
-        one.item.kind == "requirements" and one.verdict == "confirmed"
-        for page in pages
-        for one in page.answers
-    )
-
-
-def settle(tenant: Tenant, events: Sequence[Event], call: ToolUse, result: ToolResult) -> None:
-    """The agent's own `ask_to_confirm` saw new answers. Runs before its result is appended, so
-    `events` still holds what the conversation was told before it."""
-    if call.name != ASK or result.is_error or tenant.conversation is None:
-        return
-    asked = _parsed(result.text)
-    if asked is None or asked.status == "pending":
-        return
-    project = ProjectId(asked.project_id)
-    before = told_through(events, project)
-    if asked.answers_recorded <= before:
-        return
-    ledger = read_ledger(tenant.roots.projects, project)
-    new = [page for _, page in ledger.answers[before : asked.answers_recorded]]
-    if confirms_requirements(new):
-        store.confirmed(tenant.conversations, tenant.conversation)
+    return DriverSaid(text=text, answered=Answered(project_id=waiting.project, through=through))
 
 
 def _ask_calls(events: Sequence[Event]) -> frozenset[str]:
     return frozenset(
         one.call_id for one in events if isinstance(one, ToolCalled) and one.name == ASK
     )
-
-
-def _asked(event: Event, calls: frozenset[str]) -> AskResult | None:
-    if not isinstance(event, ToolReturned) or event.call_id not in calls or event.is_error:
-        return None
-    return _parsed(event.text)
 
 
 def _parsed(text: str) -> AskResult | None:

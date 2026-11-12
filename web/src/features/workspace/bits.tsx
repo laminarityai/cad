@@ -2,7 +2,7 @@ import { ChevronDown, CircleCheck, CircleDashed, CircleX, LoaderCircle, Sparkles
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import type { Line, Status } from "./cards";
-import { assumedOf, linesOf, type Card } from "./cards";
+import { assumedOf, awaitingOf, linesOf, type Card } from "./cards";
 import type { Material } from "./model";
 
 const DOT: Record<Status | "none", string> = {
@@ -64,6 +64,27 @@ function Row({ line }: { line: Line }) {
   );
 }
 
+function AwaitingRows({ rows }: { rows: ReturnType<typeof awaitingOf> }) {
+  return (
+    <>
+      <h3 className="px-4 pb-1 pt-3 text-[13px] font-medium text-ink-3">Awaiting your Confirm</h3>
+      <ul data-awaiting>
+        {rows.map((one) => (
+          <li key={one.key} className="border-b border-rule-2 px-4 py-2.5 last:border-b-0">
+            <p className="text-[15px] leading-snug">{one.label}</p>
+            <p className="text-[13px] text-wait">Waiting for you, no verdict yet</p>
+            {one.values.map((value) => (
+              <p key={value.measure} className="font-mono text-[14px] tabular-nums text-ink-2">
+                {value.measure}: {value.measured ?? "not measured"}, your target {value.target}
+              </p>
+            ))}
+          </li>
+        ))}
+      </ul>
+    </>
+  );
+}
+
 function AssumedRows({ rows }: { rows: ReturnType<typeof assumedOf> }) {
   return (
     <>
@@ -94,6 +115,7 @@ export function Checks({ card, material }: { card: Card | undefined; material: M
   const snapshot = card?.snapshot ?? null;
   const { asked, also } = snapshot ? linesOf(snapshot) : { asked: [], also: [] };
   const assumed = snapshot ? assumedOf(snapshot) : [];
+  const waiting = snapshot ? awaitingOf(snapshot) : [];
   const loud = also.filter((one) => one.status !== "pass" && one.status !== "researched");
   const quiet = also.filter((one) => one.status === "pass" || one.status === "researched");
   return (
@@ -124,6 +146,7 @@ export function Checks({ card, material }: { card: Card | undefined; material: M
               </ul>
             </>
           ) : null}
+          {waiting.length > 0 ? <AwaitingRows rows={waiting} /> : null}
           {loud.length > 0 ? (
             <>
               <h3 className="px-4 pb-1 pt-3 text-[13px] font-medium text-ink-3">Needs a look</h3>

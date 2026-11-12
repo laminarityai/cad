@@ -2,10 +2,10 @@
 (***************************************************************************)
 (* The chat carries on after the person answers the confirmation page, for *)
 (* one account and one project: chat/routes.py (Chat._deliver, answered,   *)
-(* catch_up, the done callback), chat/answer_driver.py (waiting_on,        *)
-(* told_through, delivery, settle), conversations/store.confirmed,         *)
-(* operations/confirmation.ask_to_confirm (answers_recorded) and           *)
-(* confirmations/web.py record (the on_recorded hook).                     *)
+(* catch_up, the done callback), chat/answer_driver.py (waiting_on and    *)
+(* delivery), operations/confirmation.ask_to_confirm (answers_recorded)   *)
+(* and confirmations/web.py record (the on_recorded hook). A page answer   *)
+(* only tells the conversation; it changes no mode.                        *)
 (*                                                                         *)
 (* The transcript is the claim. What a conversation was told is derived    *)
 (* from its own transcript, which survives a crash with the ledger. The    *)
@@ -23,15 +23,12 @@ CONSTANTS
     MaxAsks,       \* ask_to_confirm calls
     MaxMessages,   \* messages the person may send, which start turns
     MaxCrashes,
-    MaxSwitches,   \* times the person may switch a conversation back to Plan
-    MaxExtraHooks, \* extra on_recorded calls, as if record called it twice
-    CutBetween     \* a crash may fall between store.confirmed and the append after it
+    MaxExtraHooks  \* extra on_recorded calls, as if record called it twice
 
 VARIABLES
     \* On disk.
-    ledger,     \* the project's answers: a sequence, TRUE when the answer confirms requirements
+    ledger,     \* the project's answers, in order
     pending,    \* items.pending of the project is not empty
-    mode,       \* the conversation record's mode, "plan" or "design"
     wait,       \* waiting_on(transcript): -1 for None, else the pending result's answers_recorded
     told,       \* told_through(transcript)
     tail,       \* the transcript's last event is a DriverSaid with `answered`
@@ -51,14 +48,13 @@ VARIABLES
     dup,        \* a second turn acted on a delivery
     toldSet,    \* the answer numbers some event told the conversation
     twice,      \* an event told an answer the conversation was told before
-    ended,      \* the told cursor of the step that last ended Plan
     \* Bounds.
-    proposals, asks, messages, crashes, switches, extra
+    proposals, asks, messages, crashes, extra
 
-disk == <<ledger, pending, mode, wait, told, tail>>
+disk == <<ledger, pending, wait, told, tail>>
 memory == <<running, turn, seen, rec, asked, cached, callbacks, hooks>>
-ghost == <<dels, on, served, dup, toldSet, twice, ended>>
-bounds == <<proposals, asks, messages, crashes, switches, extra>>
+ghost == <<dels, on, served, dup, toldSet, twice>>
+bounds == <<proposals, asks, messages, crashes, extra>>
 vars == <<disk, memory, ghost, bounds>>
 
 Turns == {"none", "fresh", "busy", "items", "after", "return"}
@@ -67,7 +63,6 @@ None == -1
 Init ==
     /\ ledger = <<>>
     /\ pending = FALSE
-    /\ mode = [c \in Convs |-> "plan"]
     /\ wait = [c \in Convs |-> None]
     /\ told = [c \in Convs |-> 0]
     /\ tail = [c \in Convs |-> FALSE]
@@ -85,10 +80,7 @@ Init ==
     /\ dup = FALSE
     /\ toldSet = [c \in Convs |-> {}]
     /\ twice = FALSE
-    /\ ended = [c \in Convs |-> 0]
-    /\ proposals = 0 /\ asks = 0 /\ messages = 0 /\ crashes = 0 /\ switches = 0 /\ extra = 0
-
-Confirms(lo, hi) == \E i \in lo + 1..hi : ledger[i]
+    /\ proposals = 0 /\ asks = 0 /\ messages = 0 /\ crashes = 0 /\ extra = 0
 
 -----------------------------------------------------------------------------
 (* Chat._deliver and the restart heal.                                     *)
@@ -96,16 +88,11 @@ Confirms(lo, hi) == \E i \in lo + 1..hi : ledger[i]
 \* _deliver's guards: not running, waiting_on is not None, and delivery() finds an answer past it.
 CanDeliver(c) == ~running[c] /\ wait[c] # None /\ Len(ledger) > wait[c]
 
-\* delivery().ends_plan: some answer in (waiting.through, through] confirms requirements.
-EndsPlan(c) == mode[c] = "plan" /\ Confirms(wait[c], Len(ledger))
-
-\* _deliver for every conversation in D at once: store.confirmed when ends_plan, then _begin,
-\* which sets running, appends DriverSaid(answered=Answered(through=len(ledger))) and creates the
-\* turn's task. One step: nothing else on the loop runs between them.
+\* _deliver for every conversation in D at once: _begin sets running, appends
+\* DriverSaid(answered=Answered(through=len(ledger))) and creates the turn's task. One step:
+\* nothing else on the loop runs between them.
 Deliver(D) ==
     LET L == Len(ledger) IN
-    /\ mode' = [c \in Convs |-> IF c \in D /\ EndsPlan(c) THEN "design" ELSE mode[c]]
-    /\ ended' = [c \in Convs |-> IF c \in D /\ EndsPlan(c) THEN L ELSE ended[c]]
     /\ twice' = (twice \/ \E c \in D : (wait[c] + 1..L) \cap toldSet[c] # {})
     /\ toldSet' = [c \in Convs |-> IF c \in D THEN toldSet[c] \cup (wait[c] + 1..L) ELSE toldSet[c]]
     /\ told' = [c \in Convs |-> IF c \in D THEN L ELSE told[c]]
@@ -141,7 +128,7 @@ CatchUp(c) ==
             /\ turn' = [turn EXCEPT ![c] = "fresh"]
             /\ on' = [on EXCEPT ![c] = dels[c]]
             /\ UNCHANGED <<disk, seen, rec, asked, callbacks, hooks, dels, served, dup, toldSet,
-                           twice, ended, bounds>>
+                           twice, bounds>>
        ELSE IF CanDeliver(c) THEN
             /\ Deliver({c})
             /\ UNCHANGED <<callbacks, hooks>>
@@ -163,18 +150,6 @@ DoneCallback(c) ==
     /\ Deliver(IF CanDeliver(c) THEN {c} ELSE {})
     /\ UNCHANGED <<cached, hooks>>
 
-\* A crash after store.confirmed and before the append that follows it in _deliver.
-CutDeliver(c) ==
-    /\ CutBetween
-    /\ crashes < MaxCrashes
-    /\ CanDeliver(c)
-    /\ EndsPlan(c)
-    /\ mode' = [mode EXCEPT ![c] = "design"]
-    /\ ended' = [ended EXCEPT ![c] = Len(ledger)]
-    /\ Lost
-    /\ UNCHANGED <<ledger, pending, wait, told, tail, dels, served, dup, toldSet, twice,
-                   proposals, asks, messages, switches, extra>>
-
 -----------------------------------------------------------------------------
 (* The person.                                                             *)
 
@@ -183,10 +158,10 @@ CutDeliver(c) ==
 Answer ==
     /\ pending
     /\ Len(ledger) < MaxAnswers
-    /\ \E confirms \in BOOLEAN : ledger' = Append(ledger, confirms)
+    /\ ledger' = Append(ledger, TRUE)
     /\ pending' = FALSE
     /\ hooks' = hooks + 1
-    /\ UNCHANGED <<mode, wait, told, tail, running, turn, seen, rec, asked, cached, callbacks,
+    /\ UNCHANGED <<wait, told, tail, running, turn, seen, rec, asked, cached, callbacks,
                    ghost, bounds>>
 
 \* record calls on_recorded a second time for one answer, which the code does not do.
@@ -196,7 +171,7 @@ ExtraHook ==
     /\ extra' = extra + 1
     /\ hooks' = hooks + 1
     /\ UNCHANGED <<disk, running, turn, seen, rec, asked, cached, callbacks, ghost, proposals,
-                   asks, messages, crashes, switches>>
+                   asks, messages, crashes>>
 
 \* Chat.start: refused while running, else UserSaid and a turn.
 Start(c) ==
@@ -208,24 +183,14 @@ Start(c) ==
     /\ on' = [on EXCEPT ![c] = 0]
     /\ tail' = [tail EXCEPT ![c] = FALSE]
     /\ cached' = [cached EXCEPT ![c] = TRUE]
-    /\ UNCHANGED <<ledger, pending, mode, wait, told, seen, rec, asked, callbacks, hooks, dels,
-                   served, dup, toldSet, twice, ended, proposals, asks, crashes, switches, extra>>
-
-\* The person picks Plan again after the conversation moved to Design.
-SwitchToPlan(c) ==
-    /\ mode[c] = "design"
-    /\ switches < MaxSwitches
-    /\ switches' = switches + 1
-    /\ mode' = [mode EXCEPT ![c] = "plan"]
-    /\ UNCHANGED <<ledger, pending, wait, told, tail, memory, ghost, proposals, asks, messages,
-                   crashes, extra>>
+    /\ UNCHANGED <<ledger, pending, wait, told, seen, rec, asked, callbacks, hooks, dels,
+                   served, dup, toldSet, twice, proposals, asks, crashes, extra>>
 
 \* The server process dies. The transcripts, the conversation records and the ledger stay.
 Crash ==
     /\ crashes < MaxCrashes
     /\ Lost
-    /\ UNCHANGED <<disk, dels, served, dup, toldSet, twice, ended, proposals, asks, messages,
-                   switches, extra>>
+    /\ UNCHANGED <<disk, dels, served, dup, toldSet, twice, proposals, asks, messages, extra>>
 
 -----------------------------------------------------------------------------
 (* The running turn (chat/turn.py).                                        *)
@@ -240,8 +205,8 @@ TurnActs(c) ==
     /\ tail' = [tail EXCEPT ![c] = FALSE]
     /\ dup' = (dup \/ (on[c] # 0 /\ on[c] \in served[c]))
     /\ served' = IF on[c] # 0 THEN [served EXCEPT ![c] = @ \cup {on[c]}] ELSE served
-    /\ UNCHANGED <<ledger, pending, mode, wait, told, running, seen, rec, asked, cached,
-                   callbacks, hooks, dels, on, toldSet, twice, ended, bounds>>
+    /\ UNCHANGED <<ledger, pending, wait, told, running, seen, rec, asked, cached,
+                   callbacks, hooks, dels, on, toldSet, twice, bounds>>
 
 \* propose_requirements: a new revision is pending in the project.
 Propose(c) ==
@@ -249,8 +214,7 @@ Propose(c) ==
     /\ proposals < MaxProposals
     /\ proposals' = proposals + 1
     /\ pending' = TRUE
-    /\ UNCHANGED <<ledger, mode, wait, told, tail, memory, ghost, asks, messages, crashes,
-                   switches, extra>>
+    /\ UNCHANGED <<ledger, wait, told, tail, memory, ghost, asks, messages, crashes, extra>>
 
 \* ask_to_confirm, after its wait: answers_recorded = len(ledger.answers), read before the items.
 AskRead(c) ==
@@ -260,7 +224,7 @@ AskRead(c) ==
     /\ Go(c, "items")
     /\ seen' = [seen EXCEPT ![c] = Len(ledger)]
     /\ UNCHANGED <<disk, running, rec, asked, cached, callbacks, hooks, ghost, proposals,
-                   messages, crashes, switches, extra>>
+                   messages, crashes, extra>>
 
 \* ask_to_confirm reads the pending items. Pending: the result carries the count read before.
 AskItems(c) ==
@@ -281,18 +245,14 @@ AskAfter(c) ==
     /\ rec' = [rec EXCEPT ![c] = Len(ledger)]
     /\ UNCHANGED <<disk, running, seen, cached, callbacks, hooks, ghost, bounds>>
 
-\* answer_driver.settle, then the ToolReturned append, with no await between. settle moves the
-\* cursor for every result, and calls store.confirmed only for a result that is not pending and
-\* whose answers (told_through, answers_recorded] confirm requirements.
+\* The ToolReturned append. The result tells the conversation every answer up to its
+\* answers_recorded, so the told cursor moves to it. A pending result also starts the wait.
 AskReturn(c) ==
     LET s == told[c]
         n == rec[c]
         new == s + 1..n
-        ends == ~asked[c] /\ Confirms(s, n) /\ mode[c] = "plan"
     IN
     /\ turn[c] = "return"
-    /\ mode' = [mode EXCEPT ![c] = IF ends THEN "design" ELSE @]
-    /\ ended' = [ended EXCEPT ![c] = IF ends THEN n ELSE @]
     /\ twice' = (twice \/ new \cap toldSet[c] # {})
     /\ toldSet' = [toldSet EXCEPT ![c] = @ \cup new]
     /\ told' = [told EXCEPT ![c] = IF n > s THEN n ELSE s]
@@ -305,18 +265,6 @@ AskReturn(c) ==
     /\ UNCHANGED <<ledger, pending, running, cached, callbacks, hooks, dels, on, served, dup,
                    bounds>>
 
-\* A crash after settle's store.confirmed and before the ToolReturned append.
-CutAsk(c) ==
-    /\ CutBetween
-    /\ crashes < MaxCrashes
-    /\ turn[c] = "return"
-    /\ ~asked[c] /\ Confirms(told[c], rec[c]) /\ mode[c] = "plan"
-    /\ mode' = [mode EXCEPT ![c] = "design"]
-    /\ ended' = [ended EXCEPT ![c] = rec[c]]
-    /\ Lost
-    /\ UNCHANGED <<ledger, pending, wait, told, tail, dels, served, dup, toldSet, twice,
-                   proposals, asks, messages, switches, extra>>
-
 \* run_turn returns; its finally clears running, and the loop schedules the done callback.
 TurnEnd(c) ==
     /\ Busy(c)
@@ -325,7 +273,7 @@ TurnEnd(c) ==
     /\ on' = [on EXCEPT ![c] = 0]
     /\ callbacks' = [callbacks EXCEPT ![c] = @ + 1]
     /\ UNCHANGED <<disk, seen, rec, asked, cached, hooks, dels, served, dup, toldSet, twice,
-                   ended, bounds>>
+                   bounds>>
 
 -----------------------------------------------------------------------------
 
@@ -338,10 +286,9 @@ Finished ==
 Next ==
     \/ Answer \/ ExtraHook \/ Hook \/ Crash \/ Finished
     \/ \E c \in Convs :
-        \/ CatchUp(c) \/ DoneCallback(c) \/ CutDeliver(c)
-        \/ Start(c) \/ SwitchToPlan(c)
+        \/ CatchUp(c) \/ DoneCallback(c) \/ Start(c)
         \/ TurnActs(c) \/ Propose(c) \/ AskRead(c) \/ AskItems(c) \/ AskAfter(c)
-        \/ AskReturn(c) \/ CutAsk(c) \/ TurnEnd(c)
+        \/ AskReturn(c) \/ TurnEnd(c)
 
 Spec == Init /\ [][Next]_vars
 
@@ -365,7 +312,6 @@ Conversations == Permutations(Convs)
 TypeOK ==
     /\ ledger \in Seq(BOOLEAN) /\ Len(ledger) <= MaxAnswers
     /\ pending \in BOOLEAN
-    /\ mode \in [Convs -> {"plan", "design"}]
     /\ wait \in [Convs -> {None} \cup 0..MaxAnswers]
     /\ told \in [Convs -> 0..MaxAnswers]
     /\ tail \in [Convs -> BOOLEAN]
@@ -378,7 +324,6 @@ TypeOK ==
     /\ dels \in [Convs -> Nat] /\ on \in [Convs -> Nat] /\ served \in [Convs -> SUBSET Nat]
     /\ dup \in BOOLEAN /\ twice \in BOOLEAN
     /\ toldSet \in [Convs -> SUBSET (1..MaxAnswers)]
-    /\ ended \in [Convs -> 0..MaxAnswers]
 
 \* No two turns act on one delivery: not a double POST, a restart or an answer during a turn.
 \* The heal may start a turn again for a delivery whose turn a crash cut before it appended
@@ -390,24 +335,6 @@ NoAnswerToldTwice == ~twice
 
 \* A delivery is never appended to a transcript while a turn runs in it.
 NoDeliveryWhileRunning == [][\A c \in Convs : dels'[c] > dels[c] => ~running[c]]_vars
-
-\* Plan ends only in a step that moves the told cursor over an answer that confirms
-\* requirements, so a person who picks Plan again stays in Plan until they confirm again.
-PlanEndsOnlyOnAnEdge ==
-    [][\A c \in Convs :
-        mode[c] = "plan" /\ mode'[c] = "design" =>
-            told'[c] > told[c] /\ Confirms(told[c], told'[c])]_vars
-
-\* A pending ask_to_confirm result never ends Plan, even when its answers_recorded moves the
-\* cursor over an older confirming answer.
-PendingAskKeepsPlan ==
-    [][\A c \in Convs :
-        turn[c] = "return" /\ asked[c] /\ mode[c] = "plan" => mode'[c] = "plan"]_vars
-
-\* Each confirming answer ends Plan at most once for a conversation.
-PlanEndsOncePerConfirm ==
-    [][\A c \in Convs :
-        mode[c] = "plan" /\ mode'[c] = "design" => Confirms(ended[c], ended'[c])]_vars
 
 \* Every answer recorded while the conversation waits is told to it.
 EveryAnswerTold ==

@@ -7,7 +7,6 @@ export interface ModeInfo {
 }
 
 const MODES: Record<Mode, Omit<ModeInfo, "mode">> = {
-  plan: { label: "Plan", hint: "Turns your words into requirements. Nothing builds. Ends when you confirm them." },
   design: { label: "Design", hint: "Builds and revises when you ask." },
   auto: { label: "Auto", hint: "Revises on its own until every check passes or it needs you. Leaving Auto stops the run." },
 };
@@ -20,5 +19,5 @@ export function labelOf(mode: Mode | null): string {
 
 export function nextMode(mode: Mode | null): Mode {
   const at = PICKABLE.findIndex((one) => one.mode === mode);
-  return PICKABLE[(at + 1) % PICKABLE.length]?.mode ?? "plan";
+  return PICKABLE[(at + 1) % PICKABLE.length]?.mode ?? "design";
 }

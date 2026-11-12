@@ -72,7 +72,7 @@ async def test_the_project_chat_names_the_project_and_its_briefs_to_the_agent(
     assert started.status_code == 201, started.text
     assert read.json() == {
         "conversation_id": cid,
-        "mode": "plan",
+        "mode": "design",
         "auto_run": None,
         "project_id": made.project_id,
         "brief_id": made.brief_id,

@@ -33,7 +33,6 @@ CHECKS: Final = (
     Check("AnswersStale", "Answers.tla", "AnswersStale.cfg", finding="StaleWritesNothing"),
     CARRY_ON,
     CARRY_ON_LIVE,
-    Check("CarryOnCut", "CarryOn.tla", "CarryOnCut.cfg", finding="PlanEndsOncePerConfirm"),
 )
 
 
@@ -228,14 +227,6 @@ MUTANTS: Final = (
         "NoDeliveryWhileRunning",
     ),
     Mutant(
-        "pending-ask-ends-plan",
-        "settle calls store.confirmed for a pending result too, so the first ask on a new brief"
-        " ends Plan over an older brief's confirm",
-        CARRY_ON,
-        (("ends == ~asked[c] /\\ Confirms(s, n)", "ends == Confirms(s, n)"),),
-        "PendingAskKeepsPlan",
-    ),
-    Mutant(
         "delivery-keeps-waiting",
         "waiting_on stops treating a delivery as the end of the wait, so the done callback"
         " delivers the same answers again",
@@ -247,14 +238,6 @@ MUTANTS: Final = (
             ),
         ),
         "NoAnswerToldTwice",
-    ),
-    Mutant(
-        "plan-ends-on-level",
-        "_deliver ends Plan when any answer in the ledger confirms, not only a new one, so a"
-        " delivery of a decline overrides the person's switch back to Plan",
-        CARRY_ON,
-        (("Confirms(wait[c], Len(ledger))", "Confirms(0, Len(ledger))"),),
-        "PlanEndsOnlyOnAnEdge",
     ),
     Mutant(
         "heal-after-act",

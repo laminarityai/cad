@@ -29,7 +29,7 @@ function mount(chat: FakeChat, mode: Mode | null = null) {
 
 const picker = () => screen.findByRole("button", { name: /^Mode:/ });
 
-async function choose(label: "Plan" | "Design" | "Auto") {
+async function choose(label: "Design" | "Auto") {
   await userEvent.click(await picker());
   await userEvent.click(await screen.findByRole("menuitemradio", { name: new RegExp(`^${label}`) }));
 }
@@ -42,28 +42,31 @@ function autoRunning(chat: FakeChat) {
 }
 
 describe("mode switcher", () => {
-  it("offers Plan, Design and Auto and sends the one picked", async () => {
+  it("offers Design and Auto, not Plan, and sends the one picked", async () => {
     const chat = new FakeChat();
     mount(chat);
-    await choose("Design");
+    await userEvent.click(await picker());
+    expect(await screen.findAllByRole("menuitemradio")).toHaveLength(2);
+    expect(screen.queryByRole("menuitemradio", { name: /^Plan/ })).not.toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
     await choose("Auto");
-    await choose("Plan");
-    expect(chat.modes).toEqual(["design", "auto", "plan"]);
+    await choose("Design");
+    expect(chat.modes).toEqual(["auto", "design"]);
     await waitFor(async () => {
-      expect(await picker()).toHaveAttribute("data-mode", "plan");
+      expect(await picker()).toHaveAttribute("data-mode", "design");
     });
   });
 
   it("shows the mode the server holds, not the one asked for", async () => {
     const chat = new FakeChat();
     chat.setMode.mockImplementationOnce((conversationId: string) => {
-      chat.mode = "design";
-      return Promise.resolve({ conversation_id: conversationId, mode: "design", auto_run: null });
+      chat.mode = "auto";
+      return Promise.resolve({ conversation_id: conversationId, mode: "auto", auto_run: null });
     });
-    mount(chat);
-    await choose("Auto");
+    mount(chat, "auto");
+    await choose("Design");
     await waitFor(async () => {
-      expect(await picker()).toHaveAttribute("data-mode", "design");
+      expect(await picker()).toHaveAttribute("data-mode", "auto");
     });
   });
 
@@ -75,15 +78,16 @@ describe("mode switcher", () => {
       expect(await picker()).toHaveAttribute("data-mode", "auto");
     });
     await userEvent.type(screen.getByRole("textbox", { name: "Message" }), "{Shift>}{Tab}{/Shift}");
-    expect(chat.modes).toEqual(["auto", "plan"]);
-    expect([nextMode("plan"), nextMode("design"), nextMode("auto"), nextMode(null)]).toEqual(["design", "auto", "plan", "plan"]);
+    expect(chat.modes).toEqual(["auto", "design"]);
+    expect([nextMode("design"), nextMode("auto"), nextMode(null)]).toEqual(["auto", "design", "design"]);
   });
 
-  it("asks for what the person needs in Plan and for a change after it", async () => {
+  it("starts a conversation in Design and asks for a change", async () => {
     const chat = new FakeChat();
     mount(chat);
-    expect(await screen.findByPlaceholderText("Describe what you need")).toBeInTheDocument();
-    await choose("Design");
+    await waitFor(async () => {
+      expect(await picker()).toHaveAttribute("data-mode", "design");
+    });
     expect(await screen.findByPlaceholderText(/Ask for a change, such as/)).toBeInTheDocument();
   });
 

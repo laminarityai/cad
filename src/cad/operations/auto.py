@@ -149,7 +149,8 @@ def auto_start(tenant: Tenant, arguments: StartInput) -> AutoRun:
     confirmed = briefs.confirmed_requirements(roots, arguments.brief_id)
     if confirmed is None:
         raise briefs.BriefRefused(
-            f"brief {arguments.brief_id} has no confirmed requirements; Plan mode comes first"
+            f"brief {arguments.brief_id} has no confirmed requirements, "
+            "so there is nothing to revise against"
         )
     pinned = material.pinned_by(confirmed) is not None
     if not pinned and (arguments.material_key is None or arguments.material_reason is None):

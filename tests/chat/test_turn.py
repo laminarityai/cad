@@ -54,7 +54,7 @@ def recording() -> Recording:
     return Recording(
         script(
             step("Looking.", call("create_brief")),
-            step("Building.", call("build_variant", code="result = None")),
+            step("Starting.", call("auto_start", brief_id="b" * 16)),
             step("It was refused."),
         )
     )
@@ -75,7 +75,7 @@ async def test_a_refused_tool_is_a_result_the_agent_reads_not_a_failed_turn(
         events = await chat.events(client, cid)
     results = [one for one in events if one["kind"] == "tool_result"]
     assert [one["is_error"] for one in results] == [False, True]
-    assert "build_variant is refused in Plan mode" in results[1]["text"]
+    assert "this caller's mode is design" in results[1]["text"]
     assert [one["kind"] for one in events][-2:] == ["agent", "turn_ended"]
     assert "turn_failed" not in {one["kind"] for one in events}
     assert len(recording.offered) == 3
@@ -92,7 +92,8 @@ async def test_the_agent_is_offered_the_agent_tools_and_nothing_a_person_alone_m
     assert set(recording.offered[0]) == agent
     assert {"auto_start", "auto_revise", "auto_ask", "build_variant"} <= agent
     assert {"auto_stop", "set_mode"}.isdisjoint(agent)
-    assert "Plan mode" in recording.systems[0]
+    assert "Design mode" in recording.systems[0]
+    assert "Plan mode" not in recording.systems[0]
 
 
 @pytest.mark.docker

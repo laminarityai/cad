@@ -12,6 +12,7 @@ from cad.errors import Refused
 from cad.frozen import Frozen
 from cad.research.requests import ResearchRequest
 from cad.scorecard.assumed import AssumedRow
+from cad.scorecard.awaiting import AwaitingRow
 from cad.scorecard.model import Scorecard
 from cad.tables.materials import PROJECT_PREFIX, MaterialsTable
 from cad.variant_sets.model import MaterialChoice
@@ -56,10 +57,12 @@ class ReportedScorecard(Scorecard):
     request for each material value a check needed that the table lacks. `research_problem`
     says why the project's researched values cannot be read; while it is set, no request is
     made, because no answer could be stored. `assumptions` lists the values the agent filled in,
-    each beside its measure and none with a verdict."""
+    each beside its measure and none with a verdict. `awaiting` lists each stated target that waits
+    for the person's Confirm, beside its measure and with no verdict."""
 
     material: MaterialUse
     assumptions: tuple[AssumedRow, ...] = Field(default=(), exclude_if=lambda one: not one)
+    awaiting: tuple[AwaitingRow, ...] = Field(default=(), exclude_if=lambda one: not one)
     research: tuple[ResearchRequest, ...] = Field(default=(), exclude_if=lambda one: not one)
     research_problem: str | None = Field(default=None, exclude_if=lambda one: one is None)
 
