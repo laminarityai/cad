@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from provenance import NotVerified, Resolved
+from chain import NotVerified, Resolved
 
 from cad.scorecard.model import AgentMeasurement, AgentValue
 from cad.tables.materials import UNITS

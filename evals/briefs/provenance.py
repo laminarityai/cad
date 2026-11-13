@@ -29,118 +29,39 @@ The product ships hosted, so users cannot edit a stored card. The tracer re-runs
 shows where a number came from and not that the geometry produced it; `agree.py` checks that.
 """
 
-import math
 from collections import Counter
-from collections.abc import Iterator, Mapping
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-import pint
 from binding import Unbound, Unlinked, bind, link
 from cardnumbers import Found, numbers_in, path_of
+from chain import (
+    AgentCheckedNumber,
+    BoundStep,
+    ConfirmedStep,
+    NotVerified,
+    Outcome,
+    Resolved,
+    Unresolved,
+)
 from confirmation import BasisFailure, Shown, check_basis
 from fitted import Unfitted, check_fits
+from measures import same, trace_measure
 
 from cad.briefs.holes import FastenerHoles, PlainHoles
 from cad.briefs.model import AgentLimit, Requirement, limits
 from cad.briefs.words import describe
 from cad.checks.container.check import Quick
 from cad.checks.report import CheckSpec
-from cad.checks.result import CheckResult, Measure
 from cad.records.roots import Roots
 from cad.scorecard.holes import band
 from cad.scorecard.material import ReportedScorecard
-from cad.scorecard.model import AgainstBrief, AgentChecked, Checked, Scorecard
+from cad.scorecard.model import AgainstBrief, AgentChecked, Checked, PendingCheck, Scorecard
+from cad.scorecard.unjudged import Reported
 from cad.tables.fields import FIELDS, Field
-from cad.tables.materials import (
-    UNITS,
-    FromResearch,
-    Known,
-    MaterialsTable,
-    Source,
-    UnknownMaterial,
-    magnitude,
-)
-
-REL_TOL = 1e-9
-
-
-@dataclass(frozen=True, slots=True)
-class CheckStep:
-    check_id: str
-    version: str
-
-
-@dataclass(frozen=True, slots=True)
-class TableStep:
-    material_key: str
-    field: str
-    source: Source
-
-
-@dataclass(frozen=True, slots=True)
-class ResearchedStep:
-    """A value the server read from a quote on a page it fetched, signed in the project's
-    research ledger as record `record`."""
-
-    material_key: str
-    field: str
-    source: Source
-    record: int
-
-
-@dataclass(frozen=True, slots=True)
-class ConfirmedStep:
-    """A limit a person confirmed on the page, in the decision the card names."""
-
-    brief_id: str
-    decision_sha256: str
-    requirement_id: str
-    statement: str
-
-
-@dataclass(frozen=True, slots=True)
-class BoundStep:
-    """A bound of a research request: the server accepts a researched `field` only in it."""
-
-    field: str
-    bound: Literal["low", "high"]
-
-
-type Step = CheckStep | TableStep | ResearchedStep | ConfirmedStep | BoundStep
-
-
-@dataclass(frozen=True, slots=True)
-class Resolved:
-    steps: tuple[Step, ...]
-
-
-@dataclass(frozen=True, slots=True)
-class Stale:
-    reason: str
-
-
-@dataclass(frozen=True, slots=True)
-class Unresolved:
-    reason: str
-
-
-@dataclass(frozen=True, slots=True)
-class NotVerified:
-    """The agent's own measurement: information that no check made and nothing grades."""
-
-    reason: str = "agent's own measurement"
-
-
-@dataclass(frozen=True, slots=True)
-class AgentCheckedNumber:
-    """A number an approved agent-written check produced or read. Our team has not reviewed it."""
-
-    reason: str = "agent-written check you approved, not reviewed by our team"
-
-
-type Outcome = Resolved | Stale | Unresolved | NotVerified | AgentCheckedNumber
+from cad.tables.materials import UNITS, MaterialsTable
 
 
 @dataclass(frozen=True, slots=True)
@@ -205,10 +126,11 @@ def _place(
     path = path_of(found.where)
     match found.where:
         case ("results", int() as index, "measured", int() as place, "value"):
-            result = card.results[index]
-            assert isinstance(result, CheckResult), "only a finished check has measures"
+            results: Sequence[Reported] = card.results
+            result = results[index]
+            assert not isinstance(result, PendingCheck), "a pending check has no measures"
             measure = result.measured[place]
-            outcome = _trace(card, result, measure, table, specs)
+            outcome = trace_measure(card, result, measure, table, specs)
             return Traced(f"{result.check_id}.{measure.name}", found.value, outcome)
         case ("research", int() as index, "low" | "high" as bound) if isinstance(
             card, ReportedScorecard
@@ -245,7 +167,7 @@ def _confirmed(card: Scorecard, index: int, place: int, shown: Shown | None) -> 
         return Unresolved(f"requirement {entry.requirement_id} confirmed no limit {place}")
     expected = confirmed[place].quantity
     held = entry.comparisons[place].limit
-    if not _same(held, expected):
+    if not same(held, expected):
         return Unresolved(
             f"the card's limit is {held:g~P}, but the person confirmed {expected:g~P}"
         )
@@ -271,7 +193,7 @@ def _agent_limit(card: Scorecard, index: int, shown: Shown | None) -> Outcome:
         return Unresolved(f"requirement {entry.requirement_id} confirmed no agent-written limit")
     if target.limit is None:
         return AgentCheckedNumber()
-    if not _same(entry.limit, target.limit):
+    if not same(entry.limit, target.limit):
         return Unresolved(
             f"the card's limit is {entry.limit:g~P}, but the person confirmed {target.limit:g~P}"
         )
@@ -291,7 +213,7 @@ def _band(
     wanted = band(requirement.target)
     expected = UNITS.Quantity((wanted.low, wanted.high)[place], "mm")
     held = entry.comparisons[place].limit
-    if not _same(held, expected):
+    if not same(held, expected):
         return Unresolved(f"the card's limit is {held:g~P}, but the band is {expected:g~P}")
     return Resolved(
         (ConfirmedStep(brief_id, decision_sha256, requirement.id, describe(requirement)),)
@@ -302,82 +224,6 @@ def _bound(field: Field, bound: Literal["low", "high"], value: str) -> Outcome:
     if f"{getattr(FIELDS[field], bound):g}" != value:
         return Unresolved(f"{value} is not the {bound} bound the server sets for {field}")
     return Resolved((BoundStep(field, bound),))
-
-
-def _same(held: pint.Quantity, expected: pint.Quantity) -> bool:
-    unit = str(expected.units)
-    try:
-        value = magnitude(held, unit)
-    except pint.DimensionalityError:
-        return False
-    return math.isclose(value, magnitude(expected, unit), rel_tol=REL_TOL)
-
-
-def _trace(
-    card: Scorecard,
-    result: CheckResult,
-    measure: Measure,
-    table: MaterialsTable,
-    specs: Mapping[str, CheckSpec],
-) -> Outcome:
-    spec = specs.get(result.check_id)
-    if spec is None:
-        return Unresolved(f"no check called {result.check_id!r} is registered")
-    base = measure.name.split(":", 1)[0]
-    unit = spec.measures.get(base)
-    if unit is None:
-        return Unresolved(f"{spec.id} does not declare a measure called {base!r}")
-    if measure.value.units != UNITS.Unit(unit):
-        return Unresolved(f"{measure.name} is in {measure.value.units:~P}, not {unit}")
-    if result.version != spec.version:
-        return Stale(
-            f"{spec.id} version {result.version[:12]} is not the current {spec.version[:12]}"
-        )
-    steps: list[Step] = [CheckStep(spec.id, spec.version)]
-    field = spec.reads.get(base)
-    if field is not None:
-        read = _table_step(card, result, measure, field, unit, table)
-        if not isinstance(read, TableStep | ResearchedStep):
-            return read
-        steps.append(read)
-    return Resolved(tuple(steps))
-
-
-def _table_step(
-    card: Scorecard,
-    result: CheckResult,
-    measure: Measure,
-    field: str,
-    unit: str,
-    table: MaterialsTable,
-) -> TableStep | ResearchedStep | Stale | Unresolved:
-    if card.table_version != table.version:
-        return Stale(
-            f"scored against materials table {_short(card.table_version)}, "
-            f"not the current {_short(table.version)}"
-        )
-    try:
-        material = table.get_material(card.material_key)
-    except UnknownMaterial:
-        return Unresolved(f"the materials table has no row {card.material_key!r}")
-    cited = material.value(field)
-    if not isinstance(cited, Known):
-        return Unresolved(f"{card.material_key} has no cited {field}: the table says unknown")
-    if not math.isclose(measure.value.m_as(unit), cited.magnitude_in(unit), rel_tol=REL_TOL):  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
-        return Unresolved(
-            f"{measure.name} is {measure.value:g~P}, but {card.material_key} {field} "
-            f"is {cited.quantity:g~P}"
-        )
-    if cited.source not in result.sources:
-        return Unresolved(f"the {result.check_id} result does not carry the {field} source")
-    if isinstance(cited.basis, FromResearch):
-        return ResearchedStep(card.material_key, field, cited.source, cited.basis.record)
-    return TableStep(card.material_key, field, cited.source)
-
-
-def _short(version: str) -> str:
-    head, plus, research = version.partition("+")
-    return head[:12] + plus + research
 
 
 def _incomplete(

@@ -23,28 +23,23 @@ from pathlib import Path
 from typing import Final, assert_never
 
 from binding import Unbound, Unlinked
-from confirmation import Misjudged, Superseded, Unconfirmed
-from fitted import Unfitted
-from provenance import (
+from chain import (
     AgentCheckedNumber,
     BoundStep,
-    CardFailure,
-    CardTrace,
     CheckStep,
     ConfirmedStep,
-    Incomplete,
     NotVerified,
     ResearchedStep,
     Resolved,
     Stale,
     Step,
     TableStep,
-    Traced,
-    Unreadable,
     Unresolved,
-    trace_card,
 )
-from pydantic import ValidationError
+from confirmation import Misjudged, Superseded, Unconfirmed
+from fitted import Unfitted
+from provenance import CardFailure, CardTrace, Incomplete, Traced, Unreadable, trace_card
+from pydantic import TypeAdapter, ValidationError
 from tracking import RequirementOutcome, describe, describe_apart, outcomes_of, track
 from transcript_cards import read_cards
 
@@ -53,7 +48,7 @@ from cad.briefs.store import BriefRefused
 from cad.checks.report import SPECS
 from cad.records.roots import HOME_ROOTS, Roots
 from cad.research.overlay import project_table, table_named
-from cad.scorecard import material
+from cad.scorecard.material import ReportedScorecard, ScorecardSnapshot
 from cad.scorecard.model import AgainstBrief, AwaitingConfirmation, Scorecard
 from cad.tables.materials import MaterialsTable, load_materials
 from cad.variants import entry
@@ -229,11 +224,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     return exit_code(counts, require_judged=args.require_judged)
 
 
+SHOWN: Final = TypeAdapter[ScorecardSnapshot | ReportedScorecard | Scorecard](
+    ScorecardSnapshot | ReportedScorecard | Scorecard
+)
+"""A card a tool returned: `scorecard` adds an etag, `score_variant` does not, and an older
+server did not report the material."""
+
+
 def _read(
     order: int, text: str, root: Path, roots: Roots, table: MaterialsTable
 ) -> tuple[CardTrace, tuple[RequirementOutcome, ...]]:
     try:
-        card = material.STORED.validate_json(text)
+        card = SHOWN.validate_json(text)
     except ValidationError as error:
         return CardTrace(f"card {order + 1}", (Unreadable(str(error).splitlines()[0]),), ()), ()
     trace = trace_card(card, root, roots, _table_scored_against(card, roots, table), SPEC_BY_ID)

@@ -3,8 +3,9 @@ from datetime import date
 from pathlib import Path
 
 import pytest
+from chain import BoundStep, ResearchedStep, Resolved
 from mcp import Client
-from provenance import BoundStep, CardTrace, ResearchedStep, Resolved, trace_card
+from provenance import CardTrace, trace_card
 from trace_store import SPEC_BY_ID, main
 
 from cad.briefs import store as briefs

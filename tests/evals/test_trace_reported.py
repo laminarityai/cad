@@ -4,7 +4,7 @@ measure_only result, and a card from the scorecard tool carries an etag."""
 from pathlib import Path
 
 import pytest
-from provenance import CheckStep, Resolved
+from chain import CheckStep, Resolved
 from trace_store import SPEC_BY_ID, main
 
 from cad.briefs import store as briefs

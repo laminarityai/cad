@@ -1,7 +1,7 @@
 from pathlib import Path
 
+from chain import NotVerified, Stale, Unresolved
 from outcome import Share, Trace
-from provenance import NotVerified, Stale, Unresolved
 from trace_store import TracedStore, exit_code, tally, trace_cards
 from tracking import NoRequirements, track
 from tracking import Share as TrackedShare

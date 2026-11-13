@@ -2,8 +2,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from chain import ConfirmedStep, Resolved, Unresolved
 from confirmation import Misjudged, Superseded, Unconfirmed
-from provenance import ConfirmedStep, Resolved, Unresolved
 from tracking import By, RequirementOutcome, outcomes_of
 
 from cad.briefs import store as briefs

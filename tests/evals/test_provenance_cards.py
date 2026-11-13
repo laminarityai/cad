@@ -1,10 +1,8 @@
 from pathlib import Path
 
 from binding import bind
-from provenance import (
-    Incomplete,
-    Resolved,
-)
+from chain import Resolved
+from provenance import Incomplete
 
 from cad.checks.result import StepMissing
 from cad.sandbox.outcome import Build, NoResult
