@@ -1,7 +1,6 @@
-"""Each result on a card the session was shown must equal the server's reading of the same
-variant, material and brief, which rests on the stored, signed job result. A card whose value or
-verdict was changed, or that carries another variant's results, is untraced, and the reason names
-both values."""
+"""Each result on a card the session was shown must equal the signed job result that the card's
+own variant, material, table version and instance key. A card whose value or verdict was changed
+is untraced, and the reason names both values."""
 
 from pathlib import Path
 
@@ -48,36 +47,26 @@ def untraced_after(tmp_path: Path, change: str) -> tuple[str, tuple[str, ...]]:
     return vid, traced.untraced
 
 
-def test_a_shown_value_the_reading_does_not_hold_is_untraced(tmp_path: Path) -> None:
+def test_a_shown_value_the_signed_job_does_not_hold_is_untraced(tmp_path: Path) -> None:
     vid, untraced = untraced_after(tmp_path, "value")
     assert untraced == (
-        f"{vid}: mass.mass = 2 kg: Unresolved mass is 2 kg on the card, but the server's "
-        "reading holds 1 kg",
+        f"{vid}: mass.mass = 2 kg: Unresolved mass is 2 kg on the card, but the signed job "
+        "result holds 1 kg",
     )
 
 
-def test_a_shown_verdict_the_reading_does_not_hold_leaves_the_result_untraced(
-    tmp_path: Path,
-) -> None:
+def test_a_shown_verdict_the_signed_job_does_not_hold_fails_the_card(tmp_path: Path) -> None:
     vid, untraced = untraced_after(tmp_path, "verdict")
-    assert len(untraced) == 4, untraced
-    assert all(
-        line.startswith(f"{vid}: mass.")
-        and line.endswith(
-            "Unresolved the card shows mass fail, but the server's reading holds pass"
-        )
-        for line in untraced
-    ), untraced
+    assert untraced == (
+        f"{vid}: Unsigned the card shows mass fail, but its signed job result holds pass",
+    )
 
 
-def test_a_shown_card_with_no_brief_has_no_reading_to_bind_its_results(tmp_path: Path) -> None:
+def test_a_shown_card_with_no_brief_binds_to_its_quick_job(tmp_path: Path) -> None:
     home, variants, _, _ = a_session(tmp_path)
     vid = scored_variant(variants)
     write_transcript(variants, genuine_card(variant_id=vid))
     traced = trace_session(home, transcript_of(variants))
     assert (traced.shown.cards, traced.read.cards, traced.no_brief) == (1, 0, 1)
-    results = [line for line in traced.untraced if line.startswith(f"{vid}: ")]
-    assert results and all(
-        line.endswith("Unresolved the server reads no card scored with no brief")
-        for line in results
-    ), traced.untraced
+    assert traced.shown.numbers == traced.shown.resolved > 0
+    assert traced.untraced == ("1 card(s) scored with no brief",)

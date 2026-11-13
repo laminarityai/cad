@@ -250,6 +250,7 @@ COUNTS = Tally(
     misjudged=0,
     superseded=0,
     unfitted=0,
+    unsigned=0,
     judged=1,
     awaiting=0,
     judged_later=0,

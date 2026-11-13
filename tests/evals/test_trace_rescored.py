@@ -3,6 +3,7 @@ two honest cards. Each rests on its own signed job, which the server keys by the
 material and table version, so both trace. A card that shows one job's values under the other
 job's table version is untraced."""
 
+import json
 from datetime import date
 from pathlib import Path
 
@@ -118,3 +119,22 @@ def test_a_card_scored_before_research_traces_beside_the_card_scored_after(
     assert traced.traced, traced.untraced
     assert traced.shown.cards == 2
     assert traced.shown.numbers == traced.shown.resolved > 0
+
+
+def test_a_card_showing_one_jobs_results_under_the_other_jobs_table_version_is_untraced(
+    tmp_path: Path,
+) -> None:
+    home, variants, _, before, after = rescored(tmp_path)
+    earlier, later = json.loads(before), json.loads(after)
+    swapped = (
+        {**earlier, "table_version": later["table_version"]},
+        {**later, "table_version": earlier["table_version"]},
+    )
+    for honest, forged in zip((after, before), swapped, strict=True):
+        write_transcript(variants, honest, json.dumps(forged))
+        traced = trace_session(home, transcript_of(variants))
+        assert not traced.traced
+        assert any(
+            line.startswith(f"{forged['variant_id']}: Unsigned the card shows mass")
+            for line in traced.untraced
+        ), traced.untraced

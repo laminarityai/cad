@@ -13,14 +13,14 @@ nothing proves nothing. With `--require-judged`, a card with no brief fails too,
 card awaiting confirmation unless a later card judges its variant against the same brief: in
 build-first the agent scores before the person confirms.
 
-Limit: a transcript is unsigned, and this command reads nothing from the server, so a hand-edited
-card is not detected. The brief-set run compares each card with the server's reading after the
-session (`tracefacts.trace_session`).
+Limit: a transcript is unsigned, and this command binds no card to the signed job results, so a
+hand-edited card is not detected. The brief-set run binds each card the session was shown to them
+(`tracefacts.trace_session`).
 """
 
 import argparse
 import sys
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, assert_never
@@ -43,9 +43,9 @@ from chain import (
 )
 from confirmation import Misjudged, Superseded, Unconfirmed
 from fitted import Unfitted
-from measures import NoReading, Reading
 from provenance import CardFailure, CardTrace, Incomplete, Traced, Unreadable, trace_card
 from pydantic import TypeAdapter, ValidationError
+from signedjobs import Unsigned
 from tracking import RequirementOutcome, describe, describe_apart, outcomes_of, track
 from transcript_cards import read_cards
 
@@ -73,6 +73,7 @@ class Tally:
     misjudged: int
     superseded: int
     unfitted: int
+    unsigned: int
     judged: int
     awaiting: int
     judged_later: int
@@ -100,6 +101,7 @@ def tally(traces: Sequence[CardTrace]) -> Tally:
         misjudged=_cards_with(traces, Misjudged),
         superseded=_cards_with(traces, Superseded),
         unfitted=_cards_with(traces, Unfitted),
+        unsigned=_cards_with(traces, Unsigned),
         judged=bases.count("against_brief"),
         awaiting=len(waiting) - later,
         judged_later=later,
@@ -138,6 +140,7 @@ def exit_code(counts: Tally, *, require_judged: bool = False) -> int:
         + counts.misjudged
         + counts.superseded
         + counts.unfitted
+        + counts.unsigned
         + counts.stale
         + counts.unresolved
     )
@@ -167,36 +170,16 @@ class TracedStore:
         return tuple(outcome for one in self.cards for outcome in one.outcomes)
 
 
-type Readings = Mapping[tuple[str, str, str], Scorecard]
-"""The server's reading of each variant a session scored with a brief, by `reading_key`."""
-
-
-def reading_key(card: Scorecard) -> tuple[str, str, str] | None:
-    """The variant, material and brief the server reads a card's variant for, or None for a card
-    scored with no brief."""
-    if not isinstance(card.basis, AgainstBrief | AwaitingConfirmation):
-        return None
-    return (card.variant_id, card.material_key, card.basis.brief_id)
-
-
-def readings_of(read: TracedStore) -> Readings:
-    return {
-        key: one.card
-        for one in read.cards
-        if one.card is not None and (key := reading_key(one.card)) is not None
-    }
-
-
 def trace_cards(
-    cards: Sequence[str | CardTrace], root: Path, roots: Roots, *, readings: Readings | None
+    cards: Sequence[str | CardTrace], root: Path, roots: Roots, *, bind_jobs: bool
 ) -> TracedStore:
     """`cards` is the JSON text of each scorecard in the order the session got them, or the
-    trace of one that could not be read. With `readings`, each result on a card must equal the
-    reading of the same variant, material and brief; None compares with nothing."""
+    trace of one that could not be read. With `bind_jobs`, each result on a card must equal the
+    signed job result its own variant, material, table version and instance key."""
     table = load_materials()
     return TracedStore(
         tuple(
-            TracedCard(order, *_read(order, text, root, roots, table, readings))
+            TracedCard(order, *_read(order, text, root, roots, table, bind_jobs=bind_jobs))
             for order, text in enumerate(cards)
         )
     )
@@ -229,7 +212,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         cards,
         args.root,
         Roots(briefs=args.briefs_root, projects=args.projects_root),
-        readings=None,
+        bind_jobs=False,
     )
     for trace in found.traces:
         _print(trace, args.steps)
@@ -242,7 +225,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     print(
         f"cards unconfirmed: {counts.unconfirmed}, misjudged: {counts.misjudged}, "
-        f"superseded: {counts.superseded}, unfitted: {counts.unfitted}"
+        f"superseded: {counts.superseded}, unfitted: {counts.unfitted}, "
+        f"unsigned: {counts.unsigned}"
     )
     print(
         f"cards judged: {counts.judged}, awaiting confirmation: {counts.awaiting} "
@@ -286,7 +270,8 @@ def _read(
     root: Path,
     roots: Roots,
     table: MaterialsTable,
-    readings: Readings | None,
+    *,
+    bind_jobs: bool,
 ) -> tuple[CardTrace, tuple[RequirementOutcome, ...], Scorecard | None]:
     if isinstance(text, CardTrace):
         return text, (), None
@@ -296,22 +281,8 @@ def _read(
         failure = Unreadable(str(error).splitlines()[0])
         return CardTrace(f"card {order + 1}", (failure,), ()), (), None
     scored = _table_scored_against(card, roots, table)
-    trace = trace_card(card, root, roots, scored, SPEC_BY_ID, _reading(card, readings))
+    trace = trace_card(card, root, roots, scored, SPEC_BY_ID, bind_jobs=bind_jobs)
     return trace, outcomes_of(card), card
-
-
-def _reading(card: Scorecard, readings: Readings | None) -> Reading:
-    if readings is None:
-        return None
-    key = reading_key(card)
-    if key is None:
-        return NoReading("the server reads no card scored with no brief")
-    found = readings.get(key)
-    if found is None:
-        return NoReading(
-            f"the server holds no reading of variant {card.variant_id} for brief {key[2]}"
-        )
-    return found
 
 
 def _table_scored_against(card: Scorecard, roots: Roots, git: MaterialsTable) -> MaterialsTable:

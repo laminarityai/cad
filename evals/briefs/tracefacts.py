@@ -4,7 +4,7 @@ from typing import Final
 from chain import NotVerified, Stale, Unresolved
 from outcome import NONE_COUNTED, Counted, Share, Trace
 from readings import READ_AFTER, read_after
-from trace_store import TracedStore, exit_code, readings_of, tally, trace_cards
+from trace_store import TracedStore, exit_code, tally, trace_cards
 from tracking import NoRequirements, track
 from tracking import Share as TrackedShare
 from transcript_cards import read_cards
@@ -22,16 +22,17 @@ def _share(found: TrackedShare) -> Share:
 
 
 def trace_session(home: Path, transcript: Path) -> Trace:
-    """Trace the server's reading of each variant the session scored with a brief, then the cards
-    the session was shown against those readings, and count the two apart. The rates come from
+    """Trace the cards the session was shown, each bound to the signed job results its own
+    variant, material and table version key, and the server's reading of each variant the session
+    scored with a brief, and count the two apart. The rates come from
     the reading of the last variant scored, the judged state the person sees after Confirm, or
     from the last card when nothing was scored with a brief."""
     stores = home / ".cad"
     variants = stores / "variants"
     roots = Roots(briefs=stores / "briefs", projects=stores / "projects")
     cards = read_cards(transcript)
-    read = trace_cards(read_after(stores, cards), variants, roots, readings=None)
-    shown = trace_cards(cards, variants, roots, readings=readings_of(read))
+    shown = trace_cards(cards, variants, roots, bind_jobs=True)
+    read = trace_cards(read_after(stores, cards), variants, roots, bind_jobs=False)
     counts = tally((*shown.traces, *read.traces))
     untraced: list[str] = []
     measured: list[str] = []
