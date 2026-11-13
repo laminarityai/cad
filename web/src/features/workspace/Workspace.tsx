@@ -6,7 +6,9 @@ import { summaryOf, toPicked, useSelection, type Selection } from "@/features/vi
 import type { OnPick } from "@/features/viewer/engine";
 import type { Where } from "@/features/viewer/where";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
+import { Loading } from "@/components/ui/busy";
 import { Tooltip } from "@/components/ui/tooltip";
+import { sinceOf, stalledOf, workingLabel, workingOf, type Working } from "@/features/chat/working";
 import { RunStatus } from "@/features/auto/RunStatus";
 import { AUTO_TOOLS } from "@/features/auto/run";
 import { useAuto } from "@/features/auto/useAuto";
@@ -34,11 +36,11 @@ function TopBar({ title }: { title: string }) {
   );
 }
 
-const WAITING_TEXT: Record<Brief["state"], string> = {
-  waiting: "Your targets wait for your Confirm in the chat.",
-  building: "Building the options…",
-  ready: "",
-};
+function NoOptions({ brief, working }: { brief: Brief; working: Working | null }) {
+  if (brief.state === "waiting") return <p className="px-5 py-8 text-[16px] text-ink-2">Your targets wait for your Confirm in the chat.</p>;
+  if (working?.briefId === brief.id) return <Loading label={workingLabel(working)} className="px-5 py-8" />;
+  return <p className="px-5 py-8 text-[16px] text-ink-2">No options yet. Ask for them in the chat, such as: build three options.</p>;
+}
 
 function slotOf(brief: Brief, view: View) {
   const chosen = view.slotOf[brief.id];
@@ -53,8 +55,9 @@ function Center(props: {
   where: Where | null;
   selection: Selection | null;
   onPick: OnPick;
+  working: Working | null;
 }) {
-  const { brief, view, cards, dispatch, where, selection, onPick } = props;
+  const { brief, view, cards, dispatch, where, selection, onPick, working } = props;
   const slot = slotOf(brief, view);
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -96,7 +99,7 @@ function Center(props: {
           </TabsPanel>
         </Tabs>
       ) : (
-        <p className="px-5 py-8 text-[16px] text-ink-2">{WAITING_TEXT[brief.state]}</p>
+        <NoOptions brief={brief} working={working} />
       )}
     </div>
   );
@@ -127,6 +130,7 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
   const [view, dispatch] = useReducer(viewReducer, viewStart);
   const [answered, setAnswered] = useState<string | null>(null);
   const [forNewPart, setForNewPart] = useState(false);
+  const [sent, setSent] = useState<{ seq: number; at: number } | null>(null);
   const auto = useAuto(model.conversationId);
   const chat = useProjectChat(model.conversationId, (change) => {
     if (change.kind === "turn_ended" || change.kind === "stop_report" || AUTO_TOOLS.has(change.name)) auto.reload();
@@ -202,14 +206,17 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
       placeholder={placeholder}
       selection={selection ? { label: summaryOf(selection), onRemove: clear } : null}
       onSend={async (text) => {
-        await chatApi.send(model.conversationId, text, selection ? toPicked(selection) : undefined);
+        const at = Date.now();
+        const { seq } = await chatApi.send(model.conversationId, text, selection ? toPicked(selection) : undefined);
+        setSent({ seq, at });
         clear();
       }}
     />
   );
-  const status = <RunStatus run={auto.run} problem={auto.problem} onStop={() => void auto.stop()} />;
-  const chatPane = <ChatPane lines={chat.lines} running={chat.turn === "running"} card={card} composer={composer} status={status} />;
-  const center = <Center brief={brief} view={view} cards={cards} dispatch={dispatch} where={where} selection={selection} onPick={onPick} />;
+  const working = workingOf(chat, auto.run);
+  const status = <RunStatus run={auto.run} working={working} problem={auto.problem} onStop={() => void auto.stop()} />;
+  const chatPane = <ChatPane lines={chat.lines} working={working} stalled={stalledOf(chat)} since={sinceOf(chat, sent)} card={card} composer={composer} status={status} />;
+  const center = <Center brief={brief} view={view} cards={cards} dispatch={dispatch} where={where} selection={selection} onPick={onPick} working={working} />;
 
   const explorer = (
     <Explorer
@@ -223,6 +230,7 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
       sources={sources}
       dispatch={dispatch}
       onNew={onNew}
+      working={working}
       onChanged={reload}
     />
   );
@@ -279,6 +287,7 @@ export function Start() {
   const { chat } = useServices();
   const navigate = useNavigate();
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [sent, setSent] = useState<{ seq: number; at: number } | null>(null);
   const state = useProjectChat(conversationId, () => {
     if (conversationId === null) return;
     chat.read(conversationId).then(
@@ -289,16 +298,18 @@ export function Start() {
     );
   });
   const send = async (text: string) => {
+    const at = Date.now();
     const id = conversationId ?? (await chat.create()).conversation_id;
     setConversationId(id);
-    await chat.send(id, text);
+    const { seq } = await chat.send(id, text);
+    setSent({ seq, at });
   };
   if (conversationId !== null) {
     return (
       <div className="flex h-dvh flex-col bg-background text-ink">
         <TopBar title="New project" />
         <main className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col">
-          <ChatPane lines={state.lines} running={state.turn === "running"} card={null} composer={<Composer placeholder="Ask anything" onSend={send} />} />
+          <ChatPane lines={state.lines} working={workingOf(state, null)} stalled={stalledOf(state)} since={sinceOf(state, sent)} card={null} composer={<Composer placeholder="Ask anything" onSend={send} />} />
         </main>
       </div>
     );

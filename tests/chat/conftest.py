@@ -26,3 +26,11 @@ async def chat(local: LocalIssuer, chat_tenants: Tenants, model: Model) -> Async
     app = build_app(local.issuer(), chat_tenants, LocalSignIn(local), model)
     async with app.router.lifespan_context(app):
         yield Chat(app, local, chat_tenants)
+
+
+@pytest.fixture
+async def restarted(local: LocalIssuer, chat_tenants: Tenants, model: Model) -> AsyncIterator[Chat]:
+    """A second server process over the same account store, with nothing in memory."""
+    app = build_app(local.issuer(), chat_tenants, LocalSignIn(local), model)
+    async with app.router.lifespan_context(app):
+        yield Chat(app, local, chat_tenants)

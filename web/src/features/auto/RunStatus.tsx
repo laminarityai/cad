@@ -1,8 +1,14 @@
+import { Loading } from "@/components/ui/busy";
+import type { Working } from "@/features/chat/working";
 import { cn } from "@/lib/utils";
 import { reasonText, type RunView } from "./run";
 
-export function RunStatus(props: { run: RunView | null; problem: string | null; onStop: () => void }) {
-  const { run, problem, onStop } = props;
+const tried = (revisions: number) => (revisions === 0 ? "no revision settled yet" : `${String(revisions)} ${revisions === 1 ? "revision" : "revisions"} tried`);
+
+const IDLE = "Nothing is working on it now. Send a message to carry it on, or stop it.";
+
+export function RunStatus(props: { run: RunView | null; working: Working | null; problem: string | null; onStop: () => void }) {
+  const { run, working, problem, onStop } = props;
   const running = run?.status === "running";
   return (
     <>
@@ -15,15 +21,19 @@ export function RunStatus(props: { run: RunView | null; problem: string | null; 
         <section
           aria-label="Auto run"
           data-run={run.status}
-          className={cn("flex flex-wrap items-center gap-3 rounded-xl border bg-panel-2 px-3.5 py-2.5", running ? "border-accent" : "border-rule")}
+          className={cn("flex flex-wrap items-center gap-3 rounded-xl border bg-panel-2 px-3.5 py-2.5", running && working !== null ? "border-accent" : "border-rule")}
         >
           <div className="min-w-0 flex-1 basis-44">
             <h3 className="text-[13px] text-ink-3">Auto run</h3>
-            {run.status === "running" ? (
-              <p role="status" className="text-[15px]">
-                Running · {run.revisions === 0 ? "no revision settled yet" : `${String(run.revisions)} ${run.revisions === 1 ? "revision" : "revisions"} tried`}
-                {run.settling ? " · waiting on checks" : ""}
-              </p>
+            {run.status === "running" && working !== null ? (
+              <Loading label={`Running · ${tried(run.revisions)}`} />
+            ) : run.status === "running" ? (
+              <>
+                <p role="status" className="text-[15px]">
+                  Running · {tried(run.revisions)}
+                </p>
+                <p className="pt-0.5 text-[14px] text-ink-2">{IDLE}</p>
+              </>
             ) : (
               <>
                 <p role="status" className="text-[15px]">

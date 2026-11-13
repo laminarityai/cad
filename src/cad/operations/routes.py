@@ -148,8 +148,11 @@ def session_person(person_of: PersonOf, request: Request) -> PersonSession | Res
 def refusal(error: Refused | Unavailable) -> Response:
     if isinstance(error, Unavailable):
         return refuse(503, str(error))
-    status = 404 if isinstance(error, NotFound) else 400
-    return refuse(status, f"{type(error).__name__}: {error}")
+    kind = type(error).__name__
+    message = f"{kind}: {error}"
+    if isinstance(error, NotFound):
+        return refuse(404, message)
+    return JSONResponse({"error": message, "kind": kind}, 400)
 
 
 def refuse(status: int, message: str, headers: dict[str, str] | None = None) -> Response:

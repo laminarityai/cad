@@ -1,33 +1,35 @@
-import { ChevronDown, CircleCheck, Crosshair, CircleDashed, CircleX, LoaderCircle, Sparkles } from "lucide-react";
+import type { ReactNode } from "react";
+import { ChevronDown, CircleCheck, Crosshair, CircleDashed, CircleX, Sparkles } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "@/components/ui/collapsible";
+import { Spinner } from "@/components/ui/busy";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { Line, Status } from "./cards";
-import { assumedOf, awaitingOf, linesOf, type Card } from "./cards";
+import { assumedOf, awaitingOf, linesOf, MISSING, type Card } from "./cards";
 import type { Material } from "./model";
 
-const DOT: Record<Status | "none", string> = {
+const DOT: Record<Exclude<Status, "running"> | "none", string> = {
   pass: "bg-pass",
   researched: "bg-res",
   agent: "bg-accent",
   fail: "bg-fail",
   unknown: "bg-unk",
-  running: "bg-wait motion-safe:animate-pulse",
   unchecked: "bg-rule",
   none: "bg-rule",
 };
 
 export function Dot({ status, className }: { status: Status | "none"; className?: string }) {
+  if (status === "running") return <Spinner className={cn("size-3", className)} />;
   return <span aria-hidden className={cn("inline-block size-2.5 shrink-0 rounded-full", DOT[status], className)} />;
 }
 
-const PILL: Record<Status, { text: string; tone: string; Icon: typeof CircleCheck }> = {
+const PILL: Record<Status, { text: string; tone: string; Icon: (props: { className?: string }) => ReactNode }> = {
   pass: { text: "Pass", tone: "text-pass", Icon: CircleCheck },
   researched: { text: "Pass", tone: "text-res", Icon: Sparkles },
   agent: { text: "Pass", tone: "text-accent", Icon: CircleCheck },
   fail: { text: "Fail", tone: "text-fail", Icon: CircleX },
   unknown: { text: "Unknown", tone: "text-unk", Icon: CircleDashed },
-  running: { text: "Checking", tone: "text-wait", Icon: LoaderCircle },
+  running: { text: "Checking", tone: "text-wait", Icon: Spinner },
   unchecked: { text: "No test yet", tone: "text-ink-3", Icon: CircleDashed },
 };
 
@@ -48,7 +50,7 @@ function Row({ line, where }: { line: Line; where: WhereControl }) {
         disabled={!more}
         className="flex w-full items-start gap-2.5 px-4 py-2.5 text-left hover:bg-panel-2 disabled:cursor-default"
       >
-        <pill.Icon className={cn("mt-0.5 size-[18px] shrink-0", pill.tone, line.status === "running" && "motion-safe:animate-spin")} />
+        <pill.Icon className={cn("mt-0.5 size-[18px] shrink-0", pill.tone)} />
         <span className="min-w-0 flex-1 text-[15px] leading-snug">{line.label}</span>
         <span className="shrink-0 text-right">
           {line.value ? <span className="block font-mono text-[14px] tabular-nums">{line.value}</span> : <span className={cn("block text-[13px]", pill.tone)}>{pill.text}</span>}
@@ -165,9 +167,9 @@ export function Checks({ card, material, where = NO_WHERE }: { card: Card | unde
       </header>
       {!card ? (
         <p className="px-4 py-3 text-[15px] text-ink-3">Checks show once an option is built.</p>
-      ) : !snapshot ? (
-        <p className="flex items-center gap-2 px-4 py-3 text-[15px] text-ink-2">
-          <LoaderCircle className="size-4 motion-safe:animate-spin" /> Checking
+      ) : card.snapshot === null ? (
+        <p data-missing={card.missing} className="px-4 py-3 text-[15px] text-ink-2">
+          {MISSING[card.missing]}
         </p>
       ) : (
         <div className="min-h-0 overflow-y-auto">

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef } from "react";
-import { NotFound, SignedOut } from "@/api/client";
+import { NotFound, Refused, SignedOut } from "@/api/client";
 import { sleep } from "@/lib/sleep";
 
 export type Resource<T> =
@@ -7,7 +7,7 @@ export type Resource<T> =
   | { status: "ok"; data: T }
   | { status: "signed_out" }
   | { status: "not_found" }
-  | { status: "error"; message: string };
+  | { status: "error"; message: string; kind: string | null };
 
 type State<T> = Record<string, Resource<T>>;
 
@@ -23,7 +23,7 @@ export const said = (error: unknown) => (error instanceof Error ? error.message 
 function failed<T>(error: unknown): Resource<T> {
   if (error instanceof SignedOut) return { status: "signed_out" };
   if (error instanceof NotFound) return { status: "not_found" };
-  return { status: "error", message: said(error) };
+  return { status: "error", message: said(error), kind: error instanceof Refused ? error.kind : null };
 }
 
 function reduce<T>(state: State<T>, action: Action<T>): State<T> {

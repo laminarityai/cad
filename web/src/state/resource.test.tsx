@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { NotFound, SignedOut } from "@/api/client";
+import { NotFound, Refused, SignedOut } from "@/api/client";
 import { useResource, useResources } from "./resource";
 
 const settle = () => act(() => vi.advanceTimersByTimeAsync(0));
@@ -25,12 +25,13 @@ describe("useResource", () => {
     expect(load).toHaveBeenCalledTimes(1);
   });
 
-  it("names a sign-out, a missing thing and any other failure", async () => {
+  it("names a sign-out, a missing thing, a refusal by its kind and any other failure", async () => {
     const outcomes: [unknown, unknown][] = [
       [new SignedOut(), { status: "signed_out" }],
       [new NotFound("x"), { status: "not_found" }],
-      [new Error("boom"), { status: "error", message: "boom" }],
-      ["odd", { status: "error", message: "the request failed" }],
+      [new Refused(400, "NotScored: v1", "NotScored"), { status: "error", message: "NotScored: v1", kind: "NotScored" }],
+      [new Error("boom"), { status: "error", message: "boom", kind: null }],
+      ["odd", { status: "error", message: "the request failed", kind: null }],
     ];
     for (const [error, resource] of outcomes) {
       const { result } = renderHook(() => useResource(() => Promise.reject(error as Error), "k"));
@@ -84,7 +85,7 @@ describe("useResource", () => {
     const load = vi.fn().mockRejectedValueOnce(new Error("down")).mockResolvedValue("up");
     const { result } = renderHook(() => useResource(load, "k", 1000));
     await settle();
-    expect(result.current.resource).toEqual({ status: "error", message: "down" });
+    expect(result.current.resource).toEqual({ status: "error", message: "down", kind: null });
     await tick(1000);
     expect(result.current.resource).toEqual({ status: "ok", data: "up" });
   });
@@ -208,7 +209,7 @@ describe("useResources", () => {
     down = true;
     rerender({ keys: ["a", "b"] });
     await settle();
-    expect(result.current.resources).toEqual({ a: { status: "ok", data: "A" }, b: { status: "error", message: "server restarting" } });
+    expect(result.current.resources).toEqual({ a: { status: "ok", data: "A" }, b: { status: "error", message: "server restarting", kind: null } });
   });
 
   it("follows each key on its own, and a sign-out ends only the key that had it", async () => {

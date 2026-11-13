@@ -2,7 +2,7 @@ import type { Api } from "@/api/client";
 import type { Cut } from "@/features/viewer/section";
 import type { BriefView, ConfirmationCard, ContextPartView, DocumentView, MemberView, Outcome, VariantSetView } from "@/api/types";
 
-export type BriefState = "waiting" | "building" | "ready";
+export type BriefState = "waiting" | "empty" | "ready";
 
 export interface Revision {
   n: number;
@@ -89,7 +89,7 @@ function slotsOf(set: VariantSetView | null): Slot[] {
 
 function stateOf(brief: BriefView, confirmation: Confirmation, slots: Slot[]): BriefState {
   if (confirmation?.items.some((item) => item.brief_id === brief.brief_id)) return "waiting";
-  return slots.length === 0 ? "building" : "ready";
+  return slots.length === 0 ? "empty" : "ready";
 }
 
 const mm = (size: readonly number[]) => `${size.map((one) => String(Number(one.toPrecision(3)))).join(" × ")} mm`;

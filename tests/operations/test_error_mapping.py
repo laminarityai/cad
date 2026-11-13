@@ -18,6 +18,7 @@ from cad.operations.routes import Served, person_route
 from cad.operations.tenants import open_tenant
 from cad.operations.tools import agent_facing
 from cad.records.roots import Roots
+from cad.scorecard.score import NotScored
 
 type Answer = tuple[str | None, str | None]
 
@@ -183,3 +184,10 @@ def test_every_exception_maps_to_the_status_and_tool_error_it_always_has(tmp_pat
         for name, kind in defined_in_cad().items()
     }
     assert answers == EXPECTED
+
+
+def test_a_refusal_names_its_kind_so_the_page_never_reads_the_message(tmp_path: Path) -> None:
+    route = Raising(tmp_path)
+    route.error = NotScored("v1")
+    answer = route.client.get("/raise")
+    assert (answer.status_code, answer.json()["kind"]) == (400, "NotScored")

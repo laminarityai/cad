@@ -3,6 +3,7 @@ import { useRef, useState, type DragEvent, type ReactNode } from "react";
 import { useServices } from "@/app/context";
 import type { Unit } from "@/api/client";
 import type { Source } from "@/api/types";
+import { Shimmer } from "@/components/ui/busy";
 import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "@/components/ui/collapsible";
 import { toast } from "@/components/ui/toaster";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -263,7 +264,7 @@ export function Files(props: { projectId: string; parts: Part[]; documents: Doc[
         <Children>
           {adding.asking && isStl(adding.asking) ? <UnitPrompt file={adding.asking} onUnit={adding.unit} /> : null}
           {adding.asking && isPdf(adding.asking) ? <StandardPrompt file={adding.asking} onChoice={adding.standard} /> : null}
-          {adding.busy ? <li className="px-2 py-1 text-[13px] text-ink-3">Reading the file…</li> : null}
+          {adding.busy ? <li className="px-2 py-1 text-[13px] text-ink-3"><Shimmer>Reading the file…</Shimmer></li> : null}
           {adding.problem ? (
             <li role="alert" className="px-2 py-1 text-[13px] text-fail">
               {adding.problem}

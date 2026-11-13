@@ -989,6 +989,7 @@ export interface components {
         };
         Error: {
             error: string;
+            kind?: string;
         };
         Event: components["schemas"]["UserSaid"] | components["schemas"]["DriverSaid"] | components["schemas"]["AgentSaid"] | components["schemas"]["ToolCalled"] | components["schemas"]["ToolReturned"] | components["schemas"]["StopReport"] | components["schemas"]["TurnFailed"] | components["schemas"]["TurnEnded"];
         /** ExportFailure */

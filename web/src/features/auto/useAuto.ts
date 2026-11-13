@@ -23,7 +23,8 @@ function runToShow(view: ConversationView | null): RunView | null {
 export function useAuto(conversationId: string): Auto {
   const { chat } = useServices();
   const { resource, reload } = useResource(() => chat.read(conversationId), `conversation:${conversationId}`, CONVERSATION_FOLLOW_MS);
-  const run = runToShow(resource.status === "ok" ? resource.data : null);
+  const view = resource.status === "ok" ? resource.data : null;
+  const run = runToShow(view);
   const [problem, setProblem] = useState<string | null>(null);
   const held = useRef(run);
   useEffect(() => {

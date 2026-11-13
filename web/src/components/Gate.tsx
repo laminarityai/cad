@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { signInUrl } from "@/api/confirmation";
+import { Loading } from "@/components/ui/busy";
 import { Button } from "@/components/ui/button";
 import type { Resource } from "@/state/resource";
 
@@ -27,7 +28,7 @@ export function SignedOutView() {
 export function Gate<T>({ resource, children }: { resource: Resource<T>; children: (data: T) => ReactNode }) {
   switch (resource.status) {
     case "loading":
-      return <p className="p-6 font-mono text-xs text-ink-3">Loading…</p>;
+      return <Loading label="Loading" size="small" className="p-6" />;
     case "signed_out":
       return <SignedOutView />;
     case "not_found":

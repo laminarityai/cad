@@ -156,6 +156,7 @@ export class FakeChat implements ChatApi {
   readonly followed: string[] = [];
   autoRun: AutoRun | null = null;
   stoppedRun: string | null = null;
+  briefId: string | null = "b1";
   onSend: (text: string) => void = () => undefined;
   private readonly open = new Set<Follower>();
 
@@ -167,7 +168,7 @@ export class FakeChat implements ChatApi {
       auto_run: this.autoRun?.state.kind === "running" ? this.autoRun.run_id : null,
       stopped_run: this.stoppedRun,
       project_id: "p1",
-      brief_id: "b1",
+      brief_id: this.briefId,
       run: this.autoRun,
     }),
   );
@@ -211,6 +212,10 @@ export class FakeChat implements ChatApi {
     this.autoRun = stoppedRun(runId, reason, report);
     this.stoppedRun = runId;
     this.say({ kind: "stop_report", run_id: runId, reason, report });
+  }
+
+  drop(): void {
+    for (const one of this.open) one.onLink("reconnecting");
   }
 
   say(event: Event): void {

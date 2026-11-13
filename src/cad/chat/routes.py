@@ -12,7 +12,7 @@ person's cookie.
 import asyncio
 import logging
 import secrets
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass, field
 from typing import Final
 
@@ -25,7 +25,15 @@ from cad.accounts.principal import PersonSession
 from cad.briefs import store as briefs
 from cad.briefs.store import BriefRefused
 from cad.chat import answer_driver, log
-from cad.chat.log import Channel, Channels, DriverSaid, Event, UserSaid
+from cad.chat.log import (
+    Channel,
+    Channels,
+    DriverSaid,
+    Event,
+    TurnEnded,
+    TurnFailed,
+    UserSaid,
+)
 from cad.chat.model import Model
 from cad.chat.turn import agent_token, run_turn
 from cad.confirmations.answers import read_ledger
@@ -57,6 +65,7 @@ CHAT_ROUTES: Final = frozenset(
     }
 )
 STREAM_HEADERS: Final = {"Cache-Control": "no-store", "X-Accel-Buffering": "no"}
+CUT_OFF: Final = "The server stopped before this turn finished. Send a message to carry on."
 _LOG = logging.getLogger(__name__)
 
 
@@ -140,6 +149,9 @@ class Chat:
         if events and _is_delivery(events[-1]):
             self._run(person, cid, channel)
             return
+        if _turn_left_open(events):
+            channel.append(TurnFailed(message=CUT_OFF))
+            channel.append(TurnEnded())
         self._deliver(person, cid, channel, None)
 
     def _deliver(
@@ -349,6 +361,15 @@ async def _mint(tenant: Tenant, cid: ConversationId, picked: Picked) -> Selectio
 
 def _is_delivery(event: Event) -> bool:
     return isinstance(event, DriverSaid) and event.answered is not None
+
+
+def _turn_left_open(events: Sequence[Event]) -> bool:
+    for one in reversed(events):
+        if isinstance(one, TurnEnded):
+            return False
+        if isinstance(one, UserSaid | DriverSaid):
+            return True
+    return False
 
 
 def _holds(tenant: Tenant, project_id: str | None, brief_id: str) -> bool:

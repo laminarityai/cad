@@ -177,6 +177,53 @@
   }
 }
 
+/* Busy states, after Beautiful UI's keyframes (MIT, Copyright (c) 2026 Shane Levine). */
+@keyframes pixel-on {
+  0%,
+  100% {
+    opacity: 0.15;
+  }
+  18%,
+  42% {
+    opacity: 1;
+  }
+  62% {
+    opacity: 0.15;
+  }
+}
+@keyframes shimmer-text {
+  from {
+    background-position: 150% center;
+  }
+  to {
+    background-position: -50% center;
+  }
+}
+[data-busy-cell] {
+  opacity: 0.15;
+  animation: pixel-on 650ms ease-in-out infinite;
+}
+.busy-shimmer {
+  display: inline-block;
+  background-image: linear-gradient(90deg, var(--ink-3) 35%, var(--ink) 50%, var(--ink-3) 65%);
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: shimmer-text 1.4s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-busy-cell] {
+    animation: none;
+    opacity: 0.6;
+  }
+  .busy-shimmer {
+    animation: none;
+    background-image: none;
+    color: var(--ink-2);
+  }
+}
+
 /* three-cad-viewer ships unlayered CSS that paints the body and its canvas white or grey by its own
  * theme. Unlayered rules here win back the page's colours. */
 html body {

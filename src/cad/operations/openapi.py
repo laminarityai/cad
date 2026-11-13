@@ -155,7 +155,7 @@ def _schemas_named_by(paths: Mapping[str, object], schemas: Mapping[str, object]
 def _error_schema() -> Json:
     return {
         "type": "object",
-        "properties": {"error": {"type": "string"}},
+        "properties": {"error": {"type": "string"}, "kind": {"type": "string"}},
         "required": ["error"],
         "additionalProperties": False,
     }
