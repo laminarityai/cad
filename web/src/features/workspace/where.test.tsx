@@ -7,7 +7,7 @@ import { restore } from "@/api/snapshot";
 import type { Checked, Tessellated } from "@/api/types";
 import type { Shapes } from "@/features/viewer/engine";
 import { FakeChat, FakeViewer, fakeApi, meshOf } from "@/test/fakes";
-import { deflectionDone, massResult, snapshot } from "@/test/fixtures";
+import { deflectionDone, feaPending, massResult, snapshot } from "@/test/fixtures";
 import type { DoneCheck } from "@/api/snapshot";
 import { linesOf } from "./cards";
 import { Workspace } from "./Workspace";
@@ -68,6 +68,25 @@ describe("the faces on a stress requirement's row", () => {
     );
     const { asked } = linesOf(restore(wire));
     expect(asked.map((one) => one.where)).toEqual([{ support: [0], load: [1] }, undefined, undefined]);
+  });
+
+  it("sit beside the formula, sources and state of that load case's own result", () => {
+    const own = (instance: string, formula: string, url: string): DoneCheck => ({
+      ...feaResult(instance),
+      formula,
+      sources: [{ url, title: url, page: "1", retrieved: "2026-11-01", standard: null, quote: "q" }],
+    });
+    const done = snapshot(
+      "v1",
+      [stress("case-a", { requirement_id: "r2" }), stress("case-b", { requirement_id: "r3" })],
+      [own("case-a", "formula of case a", "https://a.example"), own("case-b", "formula of case b", "https://b.example")],
+    );
+    expect(linesOf(restore(done)).asked.map((one) => [one.formula, one.sources[0]?.url])).toEqual([
+      ["formula of case a", "https://a.example"],
+      ["formula of case b", "https://b.example"],
+    ]);
+    const half = snapshot("v1", [stress("case-a", { requirement_id: "r2" }), stress("case-b", { requirement_id: "r3" })], [own("case-a", "formula of case a", "https://a.example"), { ...feaPending(), instance: "case-b" }]);
+    expect(linesOf(restore(half)).asked.map((one) => one.status)).toEqual(["fail", "running"]);
   });
 
   it("are not on a row of another check", () => {
