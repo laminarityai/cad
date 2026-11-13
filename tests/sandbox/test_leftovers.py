@@ -1,9 +1,11 @@
 import json
 import os
+import re
 import secrets
 import signal
 import subprocess
 import sys
+import threading
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
@@ -14,6 +16,7 @@ import pytest
 
 from cad.sandbox import container
 from cad.sandbox.image import BUILD, current_image, image_tag
+from cad.sandbox.outcome import SandboxUnavailable
 
 pytestmark = [pytest.mark.usefixtures("alone_removing_orphans"), pytest.mark.docker]
 WAIT_SECONDS = 90
@@ -188,3 +191,26 @@ def test_a_sigterm_that_reaches_the_docker_cli_does_not_end_the_run(image_id: st
         os.kill(docker.pid, signal.SIGTERM)
         ran = running.result(timeout=WAIT_SECONDS)
     assert (ran.state.ExitCode, ran.attended.report) == (0, b"held\n")
+
+
+@pytest.fixture
+def stopping(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(container, "stopping", threading.Event())
+
+
+@pytest.mark.usefixtures("stopping")
+def test_a_stopping_server_removes_its_running_container_and_keeps_nothing_from_it(
+    image_id: str,
+) -> None:
+    held = "import time; time.sleep(60)"
+    job = container.Job("build", image_id, ("python", "-c", held), b"", wall_seconds=90)
+    refused = re.escape(container.STOPPING)
+    with ThreadPoolExecutor(1) as pool:
+        running = pool.submit(container.run, job)
+        docker = wait_for(lambda: running_docker(os.getpid()))
+        container.stop_owned()
+        with pytest.raises(SandboxUnavailable, match=refused):
+            running.result(timeout=WAIT_SECONDS)
+    assert status(named(docker)) is None
+    with pytest.raises(SandboxUnavailable, match=refused):
+        container.run(job)

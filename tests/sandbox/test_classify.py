@@ -121,8 +121,8 @@ def test_the_container_runs_locked_down() -> None:
     assert run_argv("cad-build-1", job) == (
         "docker", "run", "--name", "cad-build-1", "--label", "cad.sandbox=build",
         "--label", f"cad.owner-pid={os.getpid()}",
-        "--interactive", "--init", "--pull", "never", "--log-driver", "none",
-        "--network", "none",
+        "--interactive", "--sig-proxy=false", "--init", "--pull", "never",
+        "--log-driver", "none", "--network", "none",
         "--memory", "2048m", "--memory-swap", "2048m",
         "--pids-limit", "128", "--cpus", "2",
         "--read-only", "--tmpfs", "/tmp:rw,noexec,nosuid,size=256m",
