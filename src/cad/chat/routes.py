@@ -12,7 +12,7 @@ person's cookie.
 import asyncio
 import logging
 import secrets
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass, field
 from typing import Final
 
@@ -25,7 +25,15 @@ from cad.accounts.principal import PersonSession
 from cad.briefs import store as briefs
 from cad.briefs.store import BriefRefused
 from cad.chat import answer_driver, log
-from cad.chat.log import Channel, Channels, DriverSaid, Event, UserSaid
+from cad.chat.log import (
+    Channel,
+    Channels,
+    DriverSaid,
+    Event,
+    TurnEnded,
+    TurnFailed,
+    UserSaid,
+)
 from cad.chat.model import Model
 from cad.chat.turn import agent_token, run_turn
 from cad.confirmations.answers import read_ledger
@@ -57,6 +65,7 @@ CHAT_ROUTES: Final = frozenset(
     }
 )
 STREAM_HEADERS: Final = {"Cache-Control": "no-store", "X-Accel-Buffering": "no"}
+CUT_OFF: Final = "The server stopped before this turn finished. Send a message to carry on."
 _LOG = logging.getLogger(__name__)
 
 
@@ -133,13 +142,17 @@ class Chat:
 
     def catch_up(self, person: PersonSession, cid: ConversationId, channel: Channel) -> None:
         """The person opened the conversation: deliver an answer this process has not told it,
-        and run a delivery that a restart cut off before its turn started."""
+        run a delivery that a restart cut off before its turn started, and end a turn a restart
+        cut off after it started, so the page does not wait on it."""
         if channel.running:
             return
         events = channel.events()
         if events and _is_delivery(events[-1]):
             self._run(person, cid, channel)
             return
+        if _is_open(events):
+            channel.append(TurnFailed(message=CUT_OFF))
+            channel.append(TurnEnded())
         self._deliver(person, cid, channel, None)
 
     def _deliver(
@@ -349,6 +362,16 @@ async def _mint(tenant: Tenant, cid: ConversationId, picked: Picked) -> Selectio
 
 def _is_delivery(event: Event) -> bool:
     return isinstance(event, DriverSaid) and event.answered is not None
+
+
+def _is_open(events: Sequence[Event]) -> bool:
+    """A turn started and never ended. With no turn running in this process, a restart cut it."""
+    for one in reversed(events):
+        if isinstance(one, TurnEnded):
+            return False
+        if isinstance(one, UserSaid | DriverSaid):
+            return True
+    return False
 
 
 def _holds(tenant: Tenant, project_id: str | None, brief_id: str) -> bool:

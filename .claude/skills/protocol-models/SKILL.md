@@ -139,7 +139,7 @@ How the model maps to the code:
 | `Deliver(D)` | `Chat._deliver` for each conversation in `D`: return while `channel.running`, `waiting_on`, `delivery` over the ledger, then `_begin` (`lift_hold`, which AutoHold.tla covers, then set `running`, append `DriverSaid(answered=Answered(through=len(ledger)))`, create the turn task) |
 | `Hook` | `Chat.answered`, which `confirmations/web.py` `record` calls through `on_recorded` after a recorded answer: `_deliver` on every channel `Channels.open_in` holds |
 | `DoneCallback(c)` | the turn task's done callback, which the loop runs some time after `run_turn`'s `finally` cleared `running` |
-| `CatchUp(c)` | `Chat.catch_up` on stream open: the restart heal (not running and a `DriverSaid` tail, so start the turn and append nothing), else `_deliver` |
+| `CatchUp(c)` | `Chat.catch_up` on stream open: the restart heal (not running and a `DriverSaid` tail, so start the turn and append nothing), else `_deliver`. Before `_deliver`, a turn a restart cut off after it started gets `TurnFailed` and `TurnEnded`. Neither is a delivery, and the tail was not one, so `tail`, `told` and `wait` stay as they were and the model has no step for it |
 | `Start(c)` | `Chat.start`: refused while running, else `UserSaid` and a turn |
 | `TurnActs(c)` | the turn's first append (`AgentSaid`, `ToolCalled` or `TurnFailed`) |
 | `AskRead`, `AskItems`, `AskAfter` | `operations/confirmation.ask_to_confirm` after its wait: `answers_recorded` read before the items, the items, and for a result that is not pending the ledger's length read again (see the `answered-count-before-items` mutant) |

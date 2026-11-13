@@ -119,8 +119,9 @@ Lost ==
 
 \* Chat.catch_up on stream open, which loads the channel into the cache. A crash between the
 \* delivery's append and the turn's start leaves a DriverSaid tail: start the turn and append
-\* nothing. Otherwise _deliver. The browser's EventSource opens the stream again by itself after
-\* a restart, which is what makes this step fair.
+\* nothing. Otherwise _deliver, after ending a turn a restart cut off once it had started, which
+\* appends no delivery and so changes nothing here. The browser's EventSource opens the stream
+\* again by itself after a restart, which is what makes this step fair.
 CatchUp(c) ==
     /\ cached' = [cached EXCEPT ![c] = TRUE]
     /\ IF ~running[c] /\ tail[c] THEN
