@@ -5,7 +5,6 @@ import { reasonText, type RunView } from "./run";
 
 const tried = (revisions: number) => (revisions === 0 ? "no revision settled yet" : `${String(revisions)} ${revisions === 1 ? "revision" : "revisions"} tried`);
 
-/** The server moves a run on only inside a chat turn, which a message or a page answer starts. */
 const IDLE = "Nothing is working on it now. Send a message to carry it on, or stop it.";
 
 export function RunStatus(props: { run: RunView | null; working: Working | null; problem: string | null; onStop: () => void }) {

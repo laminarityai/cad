@@ -1,7 +1,6 @@
 import type { RunView } from "@/features/auto/run";
 import type { ChatState, Line } from "./state";
 
-/** What really runs now, and the brief it is known to be on. */
 export type Working = { kind: "turn"; briefId: string | null } | { kind: "tool"; name: string; briefId: string | null } | { kind: "checks"; briefId: string };
 
 const NOW: Record<string, string> = {
@@ -23,15 +22,10 @@ type Call = Extract<Line, { kind: "tool" }>;
 
 const briefOf = (call: Call): string | null => (typeof call.input.brief_id === "string" ? call.input.brief_id : null);
 
-/**
- * A running turn, or checks an Auto run waits on. A running Auto run with neither is not working:
- * the server moves it on only inside a turn. The brief is the open call's, else the brief of this
- * turn's latest call that names one, else the running run's, else the conversation's.
- */
-export function workingOf(chat: Pick<ChatState, "lines" | "turn" | "turnFrom">, run: RunView | null, conversationBrief: string | null): Working | null {
+export function workingOf(chat: Pick<ChatState, "lines" | "turn" | "turnStartSeq">, run: RunView | null, conversationBrief: string | null): Working | null {
   const runBrief = run?.status === "running" ? run.briefId : null;
   if (chat.turn === "running") {
-    const calls = chat.lines.filter((line): line is Call => line.kind === "tool" && line.seq > (chat.turnFrom ?? 0));
+    const calls = chat.lines.filter((line): line is Call => line.kind === "tool" && line.seq > (chat.turnStartSeq ?? 0));
     const open = calls.find((call) => call.result === null);
     const briefId = (open ? briefOf(open) : null) ?? calls.map(briefOf).findLast((one) => one !== null) ?? runBrief ?? conversationBrief;
     return open ? { kind: "tool", name: open.name, briefId } : { kind: "turn", briefId };
@@ -50,7 +44,6 @@ export function workingLabel(working: Working): string {
   }
 }
 
-/** When the running turn started, if this page sent the message that started it. */
-export function sinceOf(chat: Pick<ChatState, "turn" | "turnFrom">, sent: { seq: number; at: number } | null): number | null {
-  return chat.turn === "running" && sent !== null && sent.seq === chat.turnFrom ? sent.at : null;
+export function sinceOf(chat: Pick<ChatState, "turn" | "turnStartSeq">, sent: { seq: number; at: number } | null): number | null {
+  return chat.turn === "running" && sent !== null && sent.seq === chat.turnStartSeq ? sent.at : null;
 }

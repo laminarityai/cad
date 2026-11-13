@@ -13,8 +13,7 @@ export interface ChatState {
   lines: readonly Line[];
   seen: number;
   turn: "idle" | "running";
-  /** The seq of the event that started the running turn. */
-  turnFrom: number | null;
+  turnStartSeq: number | null;
   link: Link;
   problem: string | null;
 }
@@ -26,7 +25,7 @@ export type ChatAction =
   | { type: "problem"; message: string | null };
 
 export function chatStart(conversationId: string | null): ChatState {
-  return { conversationId, lines: [], seen: 0, turn: "idle", turnFrom: null, link: "connecting", problem: null };
+  return { conversationId, lines: [], seen: 0, turn: "idle", turnStartSeq: null, link: "connecting", problem: null };
 }
 
 function withEvent(lines: readonly Line[], seq: number, event: Event): readonly Line[] {
@@ -60,8 +59,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case "event": {
       if (action.seq <= state.seen) return state;
       const lines = withEvent(state.lines, action.seq, action.event);
-      if (action.event.kind === "turn_ended") return { ...state, lines, seen: action.seq, turn: "idle", turnFrom: null };
-      if (state.turn === "idle" && STARTS_TURN.has(action.event.kind)) return { ...state, lines, seen: action.seq, turn: "running", turnFrom: action.seq };
+      if (action.event.kind === "turn_ended") return { ...state, lines, seen: action.seq, turn: "idle", turnStartSeq: null };
+      if (state.turn === "idle" && STARTS_TURN.has(action.event.kind)) return { ...state, lines, seen: action.seq, turn: "running", turnStartSeq: action.seq };
       return { ...state, lines, seen: action.seq };
     }
     case "link":

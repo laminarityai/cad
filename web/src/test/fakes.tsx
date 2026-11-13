@@ -156,7 +156,6 @@ export class FakeChat implements ChatApi {
   readonly followed: string[] = [];
   autoRun: AutoRun | null = null;
   stoppedRun: string | null = null;
-  /** The brief the conversation was started on. A project's own conversation has none. */
   briefId: string | null = "b1";
   onSend: (text: string) => void = () => undefined;
   private readonly open = new Set<Follower>();

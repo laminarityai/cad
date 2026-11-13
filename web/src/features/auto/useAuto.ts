@@ -8,7 +8,6 @@ export const CONVERSATION_FOLLOW_MS = 3000;
 
 export interface Auto {
   run: RunView | null;
-  /** The brief the conversation was started on, if it was started on one. */
   briefId: string | null;
   problem: string | null;
   stop(): Promise<void>;

@@ -142,15 +142,14 @@ class Chat:
 
     def catch_up(self, person: PersonSession, cid: ConversationId, channel: Channel) -> None:
         """The person opened the conversation: deliver an answer this process has not told it,
-        run a delivery that a restart cut off before its turn started, and end a turn a restart
-        cut off after it started, so the page does not wait on it."""
+        and run a delivery that a restart cut off before its turn started."""
         if channel.running:
             return
         events = channel.events()
         if events and _is_delivery(events[-1]):
             self._run(person, cid, channel)
             return
-        if _is_open(events):
+        if _turn_left_open(events):
             channel.append(TurnFailed(message=CUT_OFF))
             channel.append(TurnEnded())
         self._deliver(person, cid, channel, None)
@@ -364,8 +363,7 @@ def _is_delivery(event: Event) -> bool:
     return isinstance(event, DriverSaid) and event.answered is not None
 
 
-def _is_open(events: Sequence[Event]) -> bool:
-    """A turn started and never ended. With no turn running in this process, a restart cut it."""
+def _turn_left_open(events: Sequence[Event]) -> bool:
     for one in reversed(events):
         if isinstance(one, TurnEnded):
             return False

@@ -13,8 +13,7 @@ export interface ToolRow {
   key: number;
   label: string;
   chip: string | null;
-  /** `queued` waits for the running call before it. `cut` is a call whose turn ended before it returned. */
-  status: "running" | "queued" | "done" | "refused" | "cut";
+  status: "running" | "queued" | "done" | "refused" | "unfinished";
   detail: readonly string[];
 }
 
@@ -23,7 +22,7 @@ function Row({ row }: { row: ToolRow }) {
     running: <Spinner className="size-4" />,
     queued: <CircleDashed aria-hidden className="size-4 shrink-0 text-ink-3" />,
     refused: <X aria-hidden className="size-4 shrink-0 text-fail" />,
-    cut: <X aria-hidden className="size-4 shrink-0 text-ink-3" />,
+    unfinished: <X aria-hidden className="size-4 shrink-0 text-ink-3" />,
     done: <Check aria-hidden className="size-4 shrink-0 text-ink-3" />,
   }[row.status];
   const head = (
@@ -33,7 +32,7 @@ function Row({ row }: { row: ToolRow }) {
       {row.chip === null ? null : <span className="min-w-0 truncate rounded-md border border-rule-2 bg-panel-2 px-1.5 py-px font-mono text-[12px] text-ink-2">{row.chip}</span>}
       {row.status === "refused" ? <span className="text-fail">refused</span> : null}
       {row.status === "queued" ? <span>next</span> : null}
-      {row.status === "cut" ? <span>did not finish</span> : null}
+      {row.status === "unfinished" ? <span>did not finish</span> : null}
     </>
   );
   if (row.detail.length === 0) return <li data-tool={row.status} className="flex h-7 items-center gap-2">{head}</li>;

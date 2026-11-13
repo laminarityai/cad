@@ -53,7 +53,6 @@ function useSeconds(since: number | null): number {
 
 const clock = (seconds: number) => (seconds < 60 ? `${String(seconds)}s` : `${String(Math.floor(seconds / 60))}m ${String(seconds % 60)}s`);
 
-/** `since` is when the work really started, in epoch ms. With none known, no clock shows. */
 export function Loading({ label, since = null, size = "regular", className }: { label: string; since?: number | null; size?: "regular" | "small"; className?: string }) {
   const seconds = useSeconds(since);
   return (

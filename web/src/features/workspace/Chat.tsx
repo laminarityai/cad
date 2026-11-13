@@ -103,12 +103,11 @@ function detailOf(input: Record<string, unknown>): string[] {
 
 type Call = Extract<Line, { kind: "tool" }>;
 
-/** The turn runs its calls one at a time, in order, so only the first open call of a live group runs. */
 function statusesOf(lines: readonly Call[], live: boolean): ToolRow["status"][] {
   const first = lines.findIndex((one) => one.result === null);
   return lines.map((one, at) => {
     if (one.result !== null) return one.result.isError ? "refused" : "done";
-    if (!live) return "cut";
+    if (!live) return "unfinished";
     return at === first ? "running" : "queued";
   });
 }
@@ -123,7 +122,7 @@ export function summaryText(lines: readonly Call[], live: boolean): string {
   const parts = [
     ...(done.length > 0 ? [activityText(done)] : []),
     ...(count("refused") > 0 ? [`${String(count("refused"))} refused`] : []),
-    ...(count("cut") > 0 ? [`${String(count("cut"))} did not finish`] : []),
+    ...(count("unfinished") > 0 ? [`${String(count("unfinished"))} did not finish`] : []),
     ...(running ? [nowLabel(running.name)] : []),
   ];
   const text = parts.map(lower).join(", ");
@@ -278,7 +277,6 @@ export function Composer(props: { placeholder: string; onSend: (text: string) =>
   );
 }
 
-/** `since` is when the running turn started, when this page saw it start. */
 export function ChatPane(props: { lines: readonly Line[]; working: Working | null; since?: number | null; card: ReactNode; composer: ReactNode; status?: ReactNode }) {
   const { lines, working, since = null, card, composer, status } = props;
   const turnLive = working !== null && working.kind !== "checks";
