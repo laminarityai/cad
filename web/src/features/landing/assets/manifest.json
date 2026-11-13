@@ -1,5 +1,25 @@
 {
-  "options-light.webp": [
+  "hero-dark.webm": [
+    800,
+    500
+  ],
+  "hero-light.webm": [
+    800,
+    500
+  ],
+  "hero-poster-dark.webp": [
+    800,
+    500
+  ],
+  "hero-poster-light.webp": [
+    800,
+    500
+  ],
+  "options-dark-narrow.webp": [
+    390,
+    844
+  ],
+  "options-dark.webp": [
     1280,
     800
   ],
@@ -7,44 +27,24 @@
     390,
     844
   ],
-  "waiting-light.webp": [
-    480,
-    640
-  ],
-  "scorecard-light.webp": [
-    480,
-    900
-  ],
-  "hero-light.webm": [
-    1280,
-    720
-  ],
-  "hero-poster-light.webp": [
-    1280,
-    720
-  ],
-  "options-dark.webp": [
+  "options-light.webp": [
     1280,
     800
   ],
-  "options-dark-narrow.webp": [
-    390,
-    844
+  "scorecard-dark.webp": [
+    678,
+    2230
+  ],
+  "scorecard-light.webp": [
+    678,
+    2230
   ],
   "waiting-dark.webp": [
-    480,
-    640
+    678,
+    1538
   ],
-  "scorecard-dark.webp": [
-    480,
-    900
-  ],
-  "hero-dark.webm": [
-    1280,
-    720
-  ],
-  "hero-poster-dark.webp": [
-    1280,
-    720
+  "waiting-light.webp": [
+    678,
+    1538
   ]
 }

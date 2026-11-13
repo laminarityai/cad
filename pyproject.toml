@@ -51,7 +51,6 @@ exclude = [
     "**/.*",
     "**/__pycache__",
     "tests/sandbox/parts",
-    "tools/landing_dry",
     "evals/bakeoff/grade.py",
     "evals/bakeoff/runs",
 ]

@@ -297,26 +297,25 @@ h3 {
   }
 }
 
-/* The scorecard: the largest thing on the page */
-.board {
+/* The scorecard: the largest thing on the page. Before and after sit side by side, the states under them. */
+.pair {
   display: grid;
-  gap: 32px;
+  gap: 24px;
   align-items: start;
 }
-@media (min-width: 64rem) {
-  .board {
-    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+@media (min-width: 44rem) {
+  .pair {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-}
-.plate.small {
-  max-width: 36rem;
 }
 .states {
   display: grid;
-  gap: 0;
+  gap: 0 32px;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
 }
 .state {
   display: grid;
+  align-content: start;
   gap: 2px;
   padding: 10px 0 10px 14px;
   border-left: 5px solid var(--rule);
@@ -426,7 +425,7 @@ h3 {
   content: counter(ref);
 }
 
-/* What it does not do yet */
+/* What it does not do */
 .limits {
   display: grid;
   gap: 0;

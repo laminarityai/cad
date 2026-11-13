@@ -67,7 +67,7 @@ describe("the landing page words", () => {
     expect(before).not.toMatch(/onshape|slicer|printab/i);
   });
 
-  it("names Onshape only under what it does not do yet", () => {
+  it("names Onshape only under what it does not do", () => {
     const start = page.indexOf('id="limits"');
     const end = page.indexOf('id="ways"');
     expect(page.slice(start, end)).toMatch(/Onshape/);

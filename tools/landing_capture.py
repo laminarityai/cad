@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import sys
 import tempfile
@@ -43,19 +44,27 @@ ASSETS: Final = LANDING / "assets"
 ARGS: Final = ["--enable-unsafe-swiftshader", "--use-gl=angle", "--use-angle=swiftshader"]
 DESKTOP: Final = ViewportSize(width=1280, height=800)
 PHONE: Final = ViewportSize(width=390, height=844)
+TALL: Final = ViewportSize(width=1280, height=1500)
 AGENT_SECONDS: Final = 900
 THEMES: Final = ("light", "dark")
 SCHEMES: Final[dict[str, Any]] = {"light": "light", "dark": "dark"}
 
 
 def person(
-    server: Server, browser: Browser, scheme: str, size: ViewportSize, video: Path | None
+    server: Server,
+    browser: Browser,
+    scheme: str,
+    size: ViewportSize,
+    video: Path | None,
+    scale: int = 1,
 ) -> BrowserContext:
-    token = LocalIssuer.open(server.data / "home", server.url).mint_person("demo")
+    token = LocalIssuer.open(server.data, server.url).mint_person("demo")
     recording: dict[str, Any] = (
         {"record_video_dir": str(video), "record_video_size": size} if video else {}
     )
-    context = browser.new_context(viewport=size, color_scheme=SCHEMES[scheme], **recording)
+    context = browser.new_context(
+        viewport=size, color_scheme=SCHEMES[scheme], device_scale_factor=scale, **recording
+    )
     context.add_cookies([{"name": "__session", "value": token, "url": server.url}])
     return context
 
@@ -99,12 +108,18 @@ def clean(page: Page, home: str) -> None:
         raise Missed(f"the page shows {found}, so no picture was taken")
 
 
-def expand(page: Page) -> None:
-    """Open the first two check lines, so the picture shows the formula and its source."""
-    for number in range(min(2, page.locator("[data-line]").count())):
+def expand(page: Page, lines: int = 2) -> None:
+    """Open the first check lines that open, so the picture shows the formula and its source."""
+    opened = 0
+    for number in range(page.locator("[data-line]").count()):
+        if opened == lines:
+            break
         trigger = page.locator("[data-line]").nth(number).locator("button").first
+        if not trigger.count() or not trigger.is_enabled():
+            continue
         if trigger.get_attribute("aria-expanded") != "true":
-            trigger.click()
+            trigger.click(timeout=5000)
+        opened += 1
     page.wait_for_timeout(400)
 
 
@@ -119,6 +134,39 @@ def still(page: Page, work: Path, home: str, name: str, element: Any = None) -> 
     (element if element is not None else page).screenshot(path=str(target))
     say(f"shot {target.name}")
     return target
+
+
+def card(
+    server: Server,
+    browser: Browser,
+    work: Path,
+    theme: str,
+    name: str,
+    url: str,
+    opened: bool,
+    quality: int,
+    out: Path,
+) -> tuple[int, int]:
+    """The checks panel alone, twice as sharp, in a window tall enough to show every line.
+
+    `opened` also expands each line and the group of passed lines, so the picture shows the math.
+    """
+    context = person(server, browser, theme, TALL, None, scale=2)
+    page = context.new_page()
+    page.goto(url)
+    wait(page, f"{name} drawn", DRAWN, 120)
+    wait(page, f"{name} lines", LINES, 120)
+    idle(page)
+    if opened:
+        more = checks(page).get_by_role("button", name=re.compile("more passed"))
+        if more.count():
+            more.first.click()
+        expand(page, 3)
+    sized = to_webp(
+        still(page, work, str(server.home), name, checks(page)), out / f"{name}.webp", quality
+    )
+    context.close()
+    return sized
 
 
 def watch(pages: dict[str, Page], starts: dict[str, float]) -> dict[str, dict[str, float]]:
@@ -180,10 +228,8 @@ def session(
             sizes[f"options-{theme}.webp"] = to_webp(
                 still(one, work, home, f"options-{theme}"), out / f"options-{theme}.webp", quality
             )
-            sizes[f"waiting-{theme}.webp"] = to_webp(
-                still(one, work, home, f"waiting-{theme}", checks(one)),
-                out / f"waiting-{theme}.webp",
-                quality,
+            sizes[f"waiting-{theme}.webp"] = card(
+                server, browser, work, theme, f"waiting-{theme}", page.url, False, quality, out
             )
         for theme in THEMES:
             narrow = person(server, browser, theme, PHONE, None)
@@ -203,13 +249,9 @@ def session(
         stop_auto(page)
         dark.reload()
         wait(dark, "dark judged", JUDGED, 120)
-        for theme, one in pages.items():
-            wait(one, "drawn", DRAWN, 120)
-            expand(one)
-            sizes[f"scorecard-{theme}.webp"] = to_webp(
-                still(one, work, home, f"scorecard-{theme}", checks(one)),
-                out / f"scorecard-{theme}.webp",
-                quality,
+        for theme in THEMES:
+            sizes[f"scorecard-{theme}.webp"] = card(
+                server, browser, work, theme, f"scorecard-{theme}", page.url, True, quality, out
             )
         driver.close()
         follower.close()
@@ -266,7 +308,10 @@ def main(argv: list[str]) -> int:
     finally:
         if server is not None:
             if server.over.is_set():
-                print("the spend guard stopped the server", file=sys.stderr)
+                print(
+                    "the guard stopped the server: spend over budget or disk under 0.25 GB",
+                    file=sys.stderr,
+                )
             server.stop()
     return 0
 

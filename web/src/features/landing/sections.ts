@@ -23,7 +23,7 @@ export function hero(cited: Cited): Raw {
     <p class="lede">Describe the part in your own words. ${cite(cited, "options")} ${fact("options").claim} Each one is checked against what you asked for, and each check shows its math and where every number came from.</p>
     <p class="actions">${demo}${open}</p>
     <div class="twice">
-      <p><strong>You can say what the part must do, but not size it.</strong> The agent picks the dimensions. You read the verdicts in plain words.</p>
+      <p><strong>Say what the part must do.</strong> The agent picks every dimension you did not state, and you read the verdicts in plain words.</p>
       <p><strong>You will check the numbers anyway.</strong> Every line of the scorecard opens to its formula and its source.</p>
     </div>
     <figure class="frame">
@@ -56,11 +56,11 @@ export function scorecard(cited: Cited): Raw {
     <h2>The scorecard</h2>
     <div class="body">
       <p class="lead">Every option comes with one. It holds what each check measured, the target you confirmed, the verdict, and the formula and source behind it. Open any line to read them.</p>
-      <div class="board">
-        <figure class="plate">${still("scorecard")}<figcaption>One option's scorecard, opened on two lines to show the math.</figcaption></figure>
-        <dl class="states">${STATES.map((one) => html`<div class="state" data-state="${one.id}"><dt>${one.name}</dt><dd>${one.means}</dd></div>`)}</dl>
+      <div class="pair">
+        <figure class="plate">${still("waiting")}<figcaption>Before you confirm. The measure sits beside the target, and no verdict is given yet.</figcaption></figure>
+        <figure class="plate">${still("scorecard")}<figcaption>After you confirm. The same results are judged. Here the stress check is unknown, because the part bends too far for it, and the line says why.</figcaption></figure>
       </div>
-      <figure class="plate small">${still("waiting")}<figcaption>The same option before the person confirmed. The measure sits beside the target, and no verdict is given yet.</figcaption></figure>
+      <dl class="states">${STATES.map((one) => html`<div class="state" data-state="${one.id}"><dt>${one.name}</dt><dd>${one.means}</dd></div>`)}</dl>
       <p class="aside">${cite(cited, "materials")} ${fact("materials").claim}</p>
     </div>
   </section>`;
@@ -81,7 +81,8 @@ export function trust(cited: Cited): Raw {
         <li>${claim(cited, "verify-by-hand")}</li>
         <li>${claim(cited, "back-of-envelope")}</li>
         <li>${claim(cited, "transparency")}</li>
-        <li>${claim(cited, "fea-with")} ${claim(cited, "fea-without")}</li>
+        <li>${claim(cited, "fea-with")}</li>
+        <li>${claim(cited, "fea-without")}</li>
       </ul>
       <p class="aside">Engineers already check AI by hand. The scorecard puts the checking where they can see it.</p>
     </div>
@@ -90,14 +91,14 @@ export function trust(cited: Cited): Raw {
 
 const LIMITS = [
   ["Freeform shapes", "Sweeps, lofts and sculpted surfaces are not reliable yet. The agent says so, offers the closest prismatic version, and marks the shape requirement unverified."],
-  ["Strength across print layers", "A printed part is usually weaker across its layers than along them. The checks do not model print direction, so a stress result on a printed part does not account for it."],
+  ["Strength across print layers", "The stress check reads a printed material's strength as measured in the build plane, and the scorecard says so beside the safety factor. A printed part is usually weaker across its layers. The check does not read that weaker value."],
   ["Print time and cost", "No slicer runs, so an option has no print time, filament weight or cost."],
   ["Sending to Onshape", "Not available. Download STEP, STL or 3MF and import it."],
 ] as const;
 
 export function limits(): Raw {
   return html`<section class="sheet" id="limits">
-    <h2>What it does not do yet</h2>
+    <h2>What it does not do</h2>
     <div class="body">
       <p class="lead">A design should never look more checked than it is. These are the edges today.</p>
       <dl class="limits">${LIMITS.map(([name, text]) => html`<div><dt>${name}</dt><dd>${text}</dd></div>`)}</dl>

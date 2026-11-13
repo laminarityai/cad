@@ -15,6 +15,7 @@ ROOT: Final = Path(__file__).resolve().parents[1]
 DRY: Final = ROOT / "tools" / "landing_dry" / "script.json"
 KEY_FILE: Final = Path.home() / ".config" / "cad" / "anthropic.env"
 FREE_BYTES: Final = 700_000_000
+STOP_BYTES: Final = 250_000_000
 
 
 class Missed(Exception):
@@ -105,7 +106,7 @@ class Server:
 
     def guard(self) -> None:
         while self.process.poll() is None:
-            if self.spent() > self.budget:
+            if self.spent() > self.budget or shutil.disk_usage(ROOT).free < STOP_BYTES:
                 self.over.set()
                 self.process.terminate()
                 return

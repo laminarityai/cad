@@ -62,7 +62,7 @@
     {
      "name": "build_variant",
      "input": {
-      "code": "@file:bracket_plain.py",
+      "code": "@file:bracket_plain.txt",
       "brief_id": "${create_brief.brief_id}",
       "slot": 1,
       "material_key": "prusament-petg",
@@ -89,7 +89,7 @@
     {
      "name": "build_variant",
      "input": {
-      "code": "@file:bracket_thick.py",
+      "code": "@file:bracket_thick.txt",
       "brief_id": "${create_brief.brief_id}",
       "slot": 2,
       "material_key": "prusament-petg",
@@ -116,7 +116,7 @@
     {
      "name": "build_variant",
      "input": {
-      "code": "@file:bracket_ribbed.py",
+      "code": "@file:bracket_ribbed.txt",
       "brief_id": "${create_brief.brief_id}",
       "slot": 3,
       "material_key": "prusament-petg",

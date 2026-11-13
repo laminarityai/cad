@@ -19,3 +19,14 @@ uv run cad-http --root "$(mktemp -d)" --port 8791 --opener true
 ```
 
 Open `http://127.0.0.1:8791/` signed out at 375 px and 1280 px, in both themes. The main button reads "Request a demo" and links to `DEMO_HREF`. The network log shows requests to the server only. `/app/` still answers 200.
+
+## How the committed pictures were taken
+
+One live session on 2026-11-13, model `claude-sonnet-5-5`, about 1.1 USD at list prices. The first run of the capture script failed in `expand` (a disabled trigger), so the stills and the hero loop were finished from that same session in two steps: the safety factor was scored again on the warm server with `cad-call --url` (no model, Docker only), then the scorecard stills and the loop were cut from the raw recordings by the same functions in `tools/landing_capture.py`, `landing_video.py` and `landing_media.py`. The fixed `expand` was not proven end to end in a live run. Run `uv run python tools/landing_capture.py --dry` after any change to the script. The scorecard still shows the stress check as unknown, because the part bends too far for a linear analysis. That is the real result and the page says so.
+
+The exact rerun command, from the repository root, with Docker running, at least 0.7 GB free on disk and 1.2 GB free memory:
+
+```
+uv run python tools/landing_capture.py --budget 1.6
+```
+
