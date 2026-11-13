@@ -251,12 +251,23 @@ def _warning(index: int, conflict: Conflict) -> str:
         if conflict.researched
         else ""
     )
+    heading, advice = (
+        (
+            "Not checked yet: the mass and the size",
+            "This is not a conflict and not a pass. The agent researches the density, and the "
+            "check runs once it is known.",
+        )
+        if conflict.unchecked
+        else (
+            "Warning: these requirements conflict",
+            "No design can meet all of them. Decline the item that is wrong and say which in "
+            "the note, or change its number.",
+        )
+    )
     return (
         f'<div class="warning" role="note" aria-labelledby="warning-{index}">'
-        f'<h2 id="warning-{index}">Warning: these requirements conflict</h2>'
-        f"<p>{html.escape(conflict.statement)}</p>{researched}"
-        "<p>No design can meet all of them. Decline the item that is wrong and say which in "
-        "the note, or change its number.</p>"
+        f'<h2 id="warning-{index}">{heading}</h2>'
+        f"<p>{html.escape(conflict.statement)}.</p>{researched}<p>{advice}</p>"
         f"<ul>{cited}</ul></div>"
     )
 

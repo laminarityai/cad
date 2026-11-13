@@ -676,10 +676,12 @@ export interface components {
             zmin: number;
             zmax: number;
         };
-        /** Bounds */
+        /**
+         * Bounds
+         * @description `quantity` is mass, volume, or the `check:measure` a measure limit binds to.
+         */
         Bounds: {
-            /** @enum {string} */
-            quantity: "mass" | "volume";
+            quantity: string;
             statement: string;
             requirements: string[];
             /** @default [] */

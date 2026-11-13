@@ -52,7 +52,7 @@ def test_a_cube_that_cannot_weigh_what_it_must_stops_with_its_bounds_before_any_
     assert result.stop == "conflict"
     [bounds] = result.bounds
     assert bounds.quantity == "mass"
-    assert "min_mass 80 g >" in bounds.statement
+    assert "The mass must be at least 80 g, but" in bounds.statement
     assert result.stopped_run == result.run_id
     assert (result.revisions, result.variants, result.containers) == (0, 0, 0)
     assert result.pages == 1

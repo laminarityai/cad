@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from functools import cache
 
-from cad.auto.bounds import bounds_conflicts
+from cad.auto.bounds import Unweighed, bounds_conflicts, unweighed
 from cad.auto.model import Bounds
 from cad.briefs import store
 from cad.briefs.model import MadeOf, Requirement
@@ -29,9 +29,13 @@ class Cited:
 
 @dataclass(frozen=True, slots=True)
 class Conflict:
+    """Requirements no design can meet together, or, when `unchecked`, a pair that is not
+    checked yet because a value it needs is unknown. An unchecked one claims no conflict."""
+
     statement: str
     cited: tuple[Cited, ...]
     researched: bool
+    unchecked: bool = False
 
 
 def conflicts(roots: Roots, project: ProjectId) -> tuple[Conflict, ...]:
@@ -44,6 +48,9 @@ def conflicts(roots: Roots, project: ProjectId) -> tuple[Conflict, ...]:
             continue
         table = table or project_table(_cached_git_table(), roots.projects, project).table
         found.extend(_conflict(state, bounds, waiting) for bounds in _bounds(waiting, table))
+        note = _unweighed(waiting, table)
+        if note is not None:
+            found.append(_note(state, note, waiting))
     return tuple(found)
 
 
@@ -60,6 +67,19 @@ def _bounds(requirements: tuple[Requirement, ...], table: MaterialsTable) -> tup
     except UnknownMaterial:
         unpinned = tuple(one for one in requirements if not isinstance(one.target, MadeOf))
         return bounds_conflicts(unpinned, table)
+
+
+def _unweighed(requirements: tuple[Requirement, ...], table: MaterialsTable) -> Unweighed | None:
+    try:
+        return unweighed(requirements, table)
+    except UnknownMaterial:
+        return None
+
+
+def _note(state: BriefState, note: Unweighed, requirements: tuple[Requirement, ...]) -> Conflict:
+    named: dict[str, Requirement] = {one.id: one for one in requirements}
+    cited = tuple(_cited(named[rid], state.brief.text) for rid in note.requirements)
+    return Conflict(note.statement, cited, researched=False, unchecked=True)
 
 
 def _conflict(state: BriefState, bounds: Bounds, requirements: tuple[Requirement, ...]) -> Conflict:

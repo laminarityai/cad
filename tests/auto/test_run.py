@@ -169,8 +169,8 @@ async def test_a_conflicting_brief_stops_at_start_with_its_proof_and_builds_noth
     reason = run.state.reason
     assert isinstance(reason, NeedsPerson) and reason.why == "conflict"
     [bounds] = reason.bounds
-    assert bounds.statement.startswith("min_mass 50 g > density(prusament-pla) 1.24 g/cm³")
-    assert bounds.statement.endswith("envelope 8 cm³ = 9.92 g")
+    assert bounds.statement.startswith("The mass must be at least 50 g, but Prusament PLA")
+    assert bounds.statement.endswith("weighs 9.92 g filling the whole 20 x 20 x 20 mm box (8 cm³)")
     assert bounds.statement in run.state.report
     await s.held(brief_id, run.run_id)
     assert s.meter.asked == []
