@@ -1890,6 +1890,11 @@ export interface components {
             ][];
             /** @default [] */
             described?: string[];
+            /** @default [] */
+            reasons?: [
+                string,
+                string
+            ][];
         };
         /** Started */
         Started: {

@@ -75,10 +75,13 @@ def test_meshes_that_disagree_by_more_than_three_percent_are_unknown() -> None:
     assert "safety_factor" not in by_name(found)
 
 
-def test_a_displacement_over_five_percent_of_the_extent_is_outside_linear_theory() -> None:
+def test_a_part_that_bends_over_five_percent_of_its_size_is_unknown_and_told_to_stiffen() -> None:
     found = fea.judged(solved(2, 11.0, 10), solved(1.3, 11.0, 10), 50.0, 200, [], False, None)
     assert found["verdict"] == "unknown"
-    assert "a linear analysis does not hold" in found["reason"]
+    assert found["reason"].startswith(
+        "the part bends 11 mm under this load, over 5% of its 200 mm size, which is too far for "
+        "a linear analysis to give a verdict; make it stiffer where it bends"
+    )
 
 
 @pytest.mark.parametrize(("fine_displacement", "verdict"), [(1.0, "pass"), (1.1, "unknown")])

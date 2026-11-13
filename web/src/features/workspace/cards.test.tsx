@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ServicesProvider } from "@/app/context";
 import { FakeChat, FakeViewer, fakeApi } from "@/test/fakes";
 import type { DoneCheck, Scorecard } from "@/api/snapshot";
-import { feaMeasureOnly, feaPending, massResult, snapshot } from "@/test/fixtures";
+import { deflectionDone, feaMeasureOnly, feaPending, massResult, snapshot } from "@/test/fixtures";
 import { restore } from "@/api/snapshot";
 import { assumedOf, awaitingOf, linesOf, passedExtents, summaryOf, useCards, type CardKey } from "./cards";
 
@@ -188,5 +188,22 @@ describe("passedExtents", () => {
     expect(passedExtents(card(extents("pass", ["x", "y"])))).toBeNull();
     expect(passedExtents(card(extents("pass", ["x", "y", "z"], "m")))).toBeNull();
     expect(passedExtents(null)).toBeNull();
+  });
+});
+
+describe("the reason on a requirement row", () => {
+  const bent = "the part bends 5.6 mm under this load, over 5% of its 100 mm size; make it stiffer";
+  const fea = (verdict: "pass" | "unknown", reason: string): DoneCheck => ({ ...massResult(), check_id: "fea", verdict, reason });
+  const row = (verdict: "pass" | "unknown", reason: string) => {
+    const done = snapshot("v1", [{ ...deflectionDone(), verdict: verdict === "pass" ? "fail" : "unknown", reason: "The scorecard's reason." }], [fea(verdict, reason)]);
+    return linesOf(restore(done)).asked[0]?.why;
+  };
+
+  it("adds the deciding check's own reason when that check did not pass, since the check has no row", () => {
+    expect(row("unknown", bent)).toBe("The scorecard's reason. The part bends 5.6 mm under this load, over 5% of its 100 mm size; make it stiffer.");
+  });
+
+  it("is the scorecard's alone when the check passed and measured", () => {
+    expect(row("pass", "solved at 2 mm and 1.3 mm")).toBe("The scorecard's reason.");
   });
 });

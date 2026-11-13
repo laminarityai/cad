@@ -134,6 +134,16 @@ function whereOf(result: DoneCheck | undefined): Where | undefined {
 
 const DESCRIBED_TAG = "load case the agent described, not reviewed by our team";
 
+function sentence(text: string): string {
+  const said = `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
+  return /[.!?]$/.test(said) ? said : `${said}.`;
+}
+
+/** A covered check has no row of its own, so a requirement row it did not pass says the check's reason. */
+function whyOf(reason: string, result: DoneCheck | undefined): string {
+  return result && result.verdict !== "pass" ? `${reason} ${sentence(result.reason)}` : reason;
+}
+
 export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
   const results = snapshot.results;
   const done = (id: string, instance: string) => results.find((one): one is DoneCheck => isDone(one) && one.check_id === id && one.instance === instance);
@@ -185,7 +195,7 @@ export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
       }
       const researched = "basis" in one && one.basis === "researched";
       const described = "load_case" in one && one.load_case === "described";
-      const reason = "reason" in one ? one.reason : "";
+      const reason = whyOf("reason" in one ? one.reason : "", result);
       const where = whereOf(result);
       asked.push({
         key,

@@ -115,6 +115,10 @@ CLAMPED_FACE_NOTE: Final = (
     "safety factor here are conservative."
 )
 LARGE_DISPLACEMENT_FRACTION: Final = 0.05
+STIFFER: Final = (
+    "make it stiffer where it bends, for example thicker or deeper there, shorter, or in a "
+    "stiffer material, and score it again"
+)
 TOL_FRACTION: Final = 1e-4
 
 
@@ -251,9 +255,9 @@ def judged(
     if fine.peaks.displacement > LARGE_DISPLACEMENT_FRACTION * part_extent:
         return finding(
             "unknown",
-            f"max_displacement {fine.peaks.displacement:g} mm is over "
-            f"{LARGE_DISPLACEMENT_FRACTION:.0%} of the part's {part_extent:g} mm extent, so a "
-            f"linear analysis does not hold{floored}",
+            f"the part bends {fine.peaks.displacement:.3g} mm under this load, over "
+            f"{LARGE_DISPLACEMENT_FRACTION:.0%} of its {part_extent:.3g} mm size, which is too "
+            f"far for a linear analysis to give a verdict; {STIFFER}{floored}",
             *measured,
             where=fine.where,
         )
