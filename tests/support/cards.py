@@ -89,7 +89,7 @@ def roots_beside(store: Path) -> Roots:
 
 
 def trace(card: Scorecard, root: Path) -> CardTrace:
-    return trace_card(card, root, roots_beside(root), table(), SPEC_BY_ID)
+    return trace_card(card, root, roots_beside(root), table(), SPEC_BY_ID, None)
 
 
 BRIEF_TEXT = "A plate under 150 g that fits in 120 x 80 x 40 mm and looks friendly"

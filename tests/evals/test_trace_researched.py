@@ -125,7 +125,7 @@ def stored_researched_card(store: Path) -> tuple[material.ReportedScorecard, Mat
 
 
 def traced(card: material.ReportedScorecard, store: Path, scored: MaterialsTable) -> CardTrace:
-    return trace_card(card, store, roots_beside(store), scored, SPEC_BY_ID)
+    return trace_card(card, store, roots_beside(store), scored, SPEC_BY_ID, None)
 
 
 def test_a_stored_card_that_read_a_researched_value_traces_it_to_the_record(

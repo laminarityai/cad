@@ -7,12 +7,13 @@ reading is that state: the operation the agent and the page call, over the sessi
 It builds, runs and waits for nothing, and it writes nothing.
 """
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Sequence
 from pathlib import Path
 from typing import Final
 
 from provenance import CardTrace, Unreadable
-from trace_store import TracedStore
+from pydantic import ValidationError
+from trace_store import SHOWN, reading_key
 
 from cad.accounts.principal import AccountId
 from cad.confirmations.waiting import Door
@@ -26,9 +27,9 @@ LOCAL: Final = AccountId("local")
 READ_AFTER: Final = "read after the session"
 
 
-def read_after(stores: Path, shown: TracedStore) -> tuple[str | CardTrace, ...]:
-    """The server's card for each variant scored with a brief, ordered by its last card in the
-    session, or why the server refused it."""
+def read_after(stores: Path, shown: Sequence[str | CardTrace]) -> tuple[str | CardTrace, ...]:
+    """The server's card for each variant scored with a brief, ordered by its last card in
+    `shown`, the cards the session got, or why the server refused it."""
     variants = stores / "variants"
     roots = Roots(briefs=stores / "briefs", projects=stores / "projects")
     tenant = open_tenant(LOCAL, roots, variants, stores / "geometry", None, Door(), ingest)
@@ -44,12 +45,17 @@ def read_after(stores: Path, shown: TracedStore) -> tuple[str | CardTrace, ...]:
     return tuple(readings)
 
 
-def _scored(shown: TracedStore) -> Iterator[ScorecardInput]:
+def _scored(shown: Sequence[str | CardTrace]) -> Iterator[ScorecardInput]:
     last: dict[tuple[str, str, str], None] = {}
-    for one in shown.cards:
-        if one.card is None or one.trace.brief_id is None:
+    for text in shown:
+        if isinstance(text, CardTrace):
             continue
-        key = (one.card.variant_id, one.card.material_key, one.trace.brief_id)
+        try:
+            key = reading_key(SHOWN.validate_json(text))
+        except ValidationError:
+            continue
+        if key is None:
+            continue
         last.pop(key, None)
         last[key] = None
     for variant_id, material_key, brief_id in last:

@@ -51,7 +51,7 @@ def untraced_after(tmp_path: Path, change: str) -> tuple[str, tuple[str, ...]]:
 def test_a_shown_value_the_reading_does_not_hold_is_untraced(tmp_path: Path) -> None:
     vid, untraced = untraced_after(tmp_path, "value")
     assert untraced == (
-        f"{vid}: mass.mass = 2 kilogram: Unresolved mass is 2 kg on the card, but the server's "
+        f"{vid}: mass.mass = 2 kg: Unresolved mass is 2 kg on the card, but the server's "
         "reading holds 1 kg",
     )
 
@@ -68,3 +68,16 @@ def test_a_shown_verdict_the_reading_does_not_hold_leaves_the_result_untraced(
         )
         for line in untraced
     ), untraced
+
+
+def test_a_shown_card_with_no_brief_has_no_reading_to_bind_its_results(tmp_path: Path) -> None:
+    home, variants, _, _ = a_session(tmp_path)
+    vid = scored_variant(variants)
+    write_transcript(variants, genuine_card(variant_id=vid))
+    traced = trace_session(home, transcript_of(variants))
+    assert (traced.shown.cards, traced.read.cards, traced.no_brief) == (1, 0, 1)
+    results = [line for line in traced.untraced if line.startswith(f"{vid}: ")]
+    assert results and all(
+        line.endswith("Unresolved the server reads no card scored with no brief")
+        for line in results
+    ), traced.untraced

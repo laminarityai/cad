@@ -4,10 +4,16 @@ read from the materials table by exact key when the check declares the read in `
 A result is a `CheckResult`, or a `MeasureOnly`: the same stored result, reported with no verdict
 because only a load nobody confirmed reads it. Both carry the check's measures, version and
 sources, so one rule places both.
+
+On a card the session was shown, each measure must also equal the server's reading of the same
+variant, material and brief at the same check and instance (`readings.py`), and a shown verdict
+must be the reading's. The reading rests on the stored, signed job result. A `MeasureOnly` shown
+before Confirm compares with the `CheckResult` the reading holds after it.
 """
 
 import math
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 
 import pint
 from chain import (
@@ -23,8 +29,9 @@ from chain import (
 
 from cad.checks.report import CheckSpec
 from cad.checks.result import CheckResult, Measure
-from cad.scorecard.model import Scorecard
-from cad.scorecard.unjudged import MeasureOnly
+from cad.scorecard.model import PendingCheck, Scorecard
+from cad.scorecard.requirements import result_of
+from cad.scorecard.unjudged import MeasureOnly, Reported
 from cad.tables.materials import (
     UNITS,
     FromResearch,
@@ -37,6 +44,18 @@ from cad.tables.materials import (
 REL_TOL = 1e-9
 
 type Measuring = CheckResult | MeasureOnly
+
+
+@dataclass(frozen=True, slots=True)
+class NoReading:
+    """A shown card whose variant, material and brief the server's readings do not hold."""
+
+    reason: str
+
+
+type Reading = Scorecard | NoReading | None
+"""What a card's results must equal: the server's reading, why there is none, or None for a card
+that is itself a reading, or a transcript traced with no server to read."""
 
 
 def same(held: pint.Quantity, expected: pint.Quantity) -> bool:
@@ -54,6 +73,7 @@ def trace_measure(
     measure: Measure,
     table: MaterialsTable,
     specs: Mapping[str, CheckSpec],
+    reading: Reading,
 ) -> Outcome:
     spec = specs.get(result.check_id)
     if spec is None:
@@ -68,6 +88,9 @@ def trace_measure(
         return Stale(
             f"{spec.id} version {result.version[:12]} is not the current {spec.version[:12]}"
         )
+    unread = _unread(result, measure, reading)
+    if unread is not None:
+        return unread
     steps: list[Step] = [CheckStep(spec.id, spec.version)]
     field = spec.reads.get(base)
     if field is not None:
@@ -76,6 +99,43 @@ def trace_measure(
             return read
         steps.append(read)
     return Resolved(tuple(steps))
+
+
+def _unread(result: Measuring, measure: Measure, reading: Reading) -> Unresolved | None:
+    if reading is None:
+        return None
+    if isinstance(reading, NoReading):
+        return Unresolved(reading.reason)
+    held = _finished(reading.results, result.check_id, result.instance)
+    if held is None:
+        named = f" for {result.instance}" if result.instance else ""
+        return Unresolved(f"the server's reading holds no finished {result.check_id} result{named}")
+    if isinstance(result, CheckResult):
+        verdict = held.verdict if isinstance(held, CheckResult) else "no verdict"
+        if verdict != result.verdict:
+            return Unresolved(
+                f"the card shows {result.check_id} {result.verdict}, but the server's reading "
+                f"holds {verdict}"
+            )
+    found = next((one for one in held.measured if one.name == measure.name), None)
+    if found is None:
+        return Unresolved(
+            f"{measure.name} is {measure.value:g~P} on the card, but the server's reading "
+            f"holds no {measure.name}"
+        )
+    if not same(measure.value, found.value):
+        return Unresolved(
+            f"{measure.name} is {measure.value:g~P} on the card, but the server's reading "
+            f"holds {found.value:g~P}"
+        )
+    return None
+
+
+def _finished(results: Sequence[Reported], check_id: str, instance: str) -> Measuring | None:
+    """A reading the server returned is a `ReportedScorecard`, whose results may be
+    `MeasureOnly`."""
+    held = result_of(results, check_id, instance)
+    return None if held is None or isinstance(held, PendingCheck) else held
 
 
 def _table_step(

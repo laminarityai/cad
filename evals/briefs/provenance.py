@@ -23,9 +23,14 @@ A card as a whole fails when it is bound to no signed build (`binding.bind`), na
 results, a registered check missing or repeated, an unregistered check, or no number at all), or
 fails `confirmation.check_basis`, or has a fit result that `fitted.check_fits` cannot place.
 
-What this does not prove. Stored scorecards are not signed, so a hand-edited value or verdict is not
-detected, and a table number that was edited together with the row it should match is not either.
-The product ships hosted, so users cannot edit a stored card. The tracer re-runs nothing, so it
+A card is not signed, so each result on a card the session was shown must equal the server's
+reading of the same variant, material and brief (`measures.trace_measure`), which rests on the
+stored, signed job result. A changed value or verdict, or another variant's results, is then
+unresolved. A reading is compared with nothing, since it is the server's own card.
+
+What this does not prove. `trace_store.py` run over a transcript alone reads nothing from the
+server, so it does not detect a hand-edited value or verdict. A table number that was edited
+together with the row it should match is not detected either. The tracer re-runs nothing, so it
 shows where a number came from and not that the geometry produced it; `agree.py` checks that.
 """
 
@@ -49,7 +54,7 @@ from chain import (
 )
 from confirmation import BasisFailure, Shown, check_basis
 from fitted import Unfitted, check_fits
-from measures import same, trace_measure
+from measures import Reading, same, trace_measure
 
 from cad.briefs.holes import FastenerHoles, PlainHoles
 from cad.briefs.model import AgentLimit, Requirement, limits
@@ -108,11 +113,12 @@ def trace_card(
     roots: Roots,
     table: MaterialsTable,
     specs: Mapping[str, CheckSpec],
+    reading: Reading,
 ) -> CardTrace:
     basis = check_basis(roots, card)
     store = rows.held(roots, card)
     numbers = tuple(
-        _place(card, found, table, specs, basis.shown, store)
+        _place(card, found, table, specs, basis.shown, store, reading)
         for found in numbers_in(card.model_dump())
     )
     bound = bind(root, card)
@@ -137,6 +143,7 @@ def _place(
     specs: Mapping[str, CheckSpec],
     shown: Shown | None,
     store: rows.Held | None,
+    reading: Reading,
 ) -> Traced:
     path = path_of(found.where)
     match found.where:
@@ -145,7 +152,7 @@ def _place(
             result = results[index]
             assert not isinstance(result, PendingCheck), "a pending check has no measures"
             measure = result.measured[place]
-            outcome = trace_measure(card, result, measure, table, specs)
+            outcome = trace_measure(card, result, measure, table, specs, reading)
             return Traced(f"{result.check_id}.{measure.name}", found.value, outcome)
         case ("research", int() as index, "low" | "high" as bound) if isinstance(
             card, ReportedScorecard
@@ -162,7 +169,7 @@ def _place(
             return Traced(path, found.value, NotVerified())
         case _:
             pass
-    in_row = rows.place(card, found.where, store, table, specs)
+    in_row = rows.place(card, found.where, store, table, specs, reading)
     if in_row is not None:
         return Traced(path, found.value, in_row)
     return Traced(path, found.value, Unresolved(f"no rule places a number at {path}"))

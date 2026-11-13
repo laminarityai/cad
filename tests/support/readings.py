@@ -4,7 +4,6 @@
 from pathlib import Path
 
 from readings import read_after
-from trace_store import trace_cards
 
 from cad.briefs import store as briefs
 from cad.checks.container.check import Quick
@@ -34,10 +33,7 @@ def a_session(tmp_path: Path) -> tuple[Path, Path, Roots, str]:
 
 def reading_of(home: Path, card: Scorecard) -> str:
     """The server's reading of the variant, material and brief that `card` names."""
-    stores = home / ".cad"
-    roots = Roots(stores / "briefs", stores / "projects")
-    shown = trace_cards([card.model_dump_json()], stores / "variants", roots)
-    [reading] = read_after(stores, shown)
+    [reading] = read_after(home / ".cad", [card.model_dump_json()])
     assert isinstance(reading, str), reading
     return reading
 

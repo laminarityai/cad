@@ -16,7 +16,7 @@ import pint
 from cardnumbers import Where
 from chain import AssumedStep, Outcome, ProposedStep, Resolved, Unresolved
 from confirmation import REFUSED
-from measures import Measuring, same, trace_measure
+from measures import Measuring, Reading, same, trace_measure
 
 from cad.briefs import assumptions
 from cad.briefs import store as briefs
@@ -72,6 +72,7 @@ def place(
     store: Held | None,
     table: MaterialsTable,
     specs: Mapping[str, CheckSpec],
+    reading: Reading,
 ) -> Outcome | None:
     """The outcome of a number in a row, or None when `where` is not in a row."""
     if not isinstance(card, ReportedScorecard) or store is None:
@@ -85,16 +86,16 @@ def place(
             row = card.awaiting[index]
             value = row.values[place]
             assert value.measured is not None
-            return _measured(card, row, value.measure, value.measured, table, specs)
+            return _measured(card, row, value.measure, value.measured, table, specs, reading)
         case ("awaiting", int() as index, "holes", "measured", int() as place):
-            return _hole(card, card.awaiting[index], place, table, specs)
+            return _hole(card, card.awaiting[index], place, table, specs, reading)
         case ("assumptions", int() as index, "values", int() as place, "assumed"):
             return _assumed(card.assumptions[index], place, store)
         case ("assumptions", int() as index, "values", int() as place, "measured"):
             row = card.assumptions[index]
             value = row.values[place]
             assert value.measured is not None
-            return _measured(card, row, value.measure, value.measured, table, specs)
+            return _measured(card, row, value.measure, value.measured, table, specs, reading)
         case _:
             return None
 
@@ -185,6 +186,7 @@ def _measured(
     shown: pint.Quantity,
     table: MaterialsTable,
     specs: Mapping[str, CheckSpec],
+    reading: Reading,
 ) -> Outcome:
     result = _result(card.results, row)
     if isinstance(result, Unresolved):
@@ -196,7 +198,7 @@ def _measured(
         return Unresolved(
             f"the row says {shown:g~P}, but {row.check_id} measured {measure.value:g~P}"
         )
-    return trace_measure(card, result, measure, table, specs)
+    return trace_measure(card, result, measure, table, specs, reading)
 
 
 def _hole(
@@ -205,6 +207,7 @@ def _hole(
     place: int,
     table: MaterialsTable,
     specs: Mapping[str, CheckSpec],
+    reading: Reading,
 ) -> Outcome:
     assert row.holes is not None
     result = _result(card.results, row)
@@ -214,7 +217,7 @@ def _hole(
     shown = row.holes.measured[place]
     if place >= len(named) or not same(shown, named[place].value):
         return Unresolved(f"the {row.check_id} result measured no hole of {shown:g~P} there")
-    return trace_measure(card, result, named[place], table, specs)
+    return trace_measure(card, result, named[place], table, specs, reading)
 
 
 def _result(results: Sequence[Reported], row: AwaitingRow | AssumedRow) -> Measuring | Unresolved:

@@ -82,7 +82,7 @@ def test_a_density_result_without_the_row_source_does_not_resolve(store: Path) -
 def test_a_density_the_table_marks_unknown_cannot_resolve(store: Path) -> None:
     real = table().get_material(KEY)
     unknown = MaterialsTable(table().version, {KEY: replace(real, density=Unknown())})
-    traced = trace_card(genuine_card(), store, roots_beside(store), unknown, SPEC_BY_ID)
+    traced = trace_card(genuine_card(), store, roots_beside(store), unknown, SPEC_BY_ID, None)
     assert "says unknown" in reasons(traced, Unresolved)[0]
 
 
