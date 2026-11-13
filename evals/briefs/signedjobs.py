@@ -14,6 +14,14 @@ under a new load, keys a new job and leaves the older one on disk, so each card 
 
 A shown result must equal its signed result in every field. It carries no verdict exactly when
 no target of the card's confirmed set reads its load, as `cad.scorecard.unjudged` reports it.
+
+The server stores no result for a background job it refused (`cad.checks.lanes`) or one that ran
+past its time limit (`job_store.write`), yet shows one (`cad.scorecard.score.scorecard_of`). A
+shown result no signed record holds is accepted only when the card's plan keys its job, no signed
+record holds that job, and it equals what the server shows for a refused job of its check and
+instance: `unknown_for_all` under its own reason, with no verdict when no confirmed target reads
+its load. It is unknown, measures nothing and carries no number. Its reason is text, which the
+tracer does not count.
 """
 
 from collections.abc import Iterator, Mapping, Sequence
@@ -27,8 +35,9 @@ from cad.briefs import assumptions
 from cad.briefs import store as briefs
 from cad.briefs.model import Target, load_of
 from cad.checks import job_store, jobs
+from cad.checks.container.check import Background
 from cad.checks.container.wire import LoadCaseWire
-from cad.checks.report import build_request
+from cad.checks.report import CheckSpec, build_request, unknown_for_all
 from cad.checks.result import CheckResult
 from cad.context_parts.ids import ContextPartId
 from cad.context_parts.store import confirmed_parts, part_brep
@@ -36,7 +45,7 @@ from cad.records.roots import Roots
 from cad.sandbox import image
 from cad.sandbox.outcome import SandboxUnavailable
 from cad.scorecard.model import AgainstBrief, AwaitingConfirmation, PendingCheck, Scorecard
-from cad.scorecard.unjudged import MeasureOnly, Reported, unconfirmed_loads
+from cad.scorecard.unjudged import MeasureOnly, Reported, unconfirmed_loads, without_verdicts
 from cad.tables.materials import MaterialsTable
 from cad.variants import entry
 
@@ -55,11 +64,14 @@ class Unsigned:
 @dataclass(frozen=True, slots=True)
 class SignedJobs:
     """The signed results of the jobs a card's own variant, material and table version key, by
-    check and instance, and the results the card reports with no verdict. `problem` says why no
-    job could be keyed."""
+    check and instance, the results the card reports with no verdict, and the check of each keyed
+    background job no signed record holds. `problem` says why no job could be keyed."""
 
     results: Mapping[tuple[str, str], CheckResult]
     unjudged: frozenset[tuple[str, str]] = field(default_factory=frozenset[tuple[str, str]])
+    unstored: Mapping[tuple[str, str], CheckSpec] = field(
+        default_factory=dict[tuple[str, str], CheckSpec]
+    )
     problem: str | None = None
 
     def result(self, check_id: str, instance: str) -> CheckResult | Unresolved:
@@ -72,6 +84,17 @@ class SignedJobs:
                 "material and table version"
             )
         return held
+
+    def refusal(self, check_id: str, instance: str, reason: str) -> Reported | None:
+        """What the server shows for a refused job of this check and instance, or None when a
+        signed record holds that job or the card's plan keys none."""
+        spec = self.unstored.get((check_id, instance))
+        if spec is None:
+            return None
+        (result,) = unknown_for_all(reason, (spec,))
+        refused = result.model_copy(update={"instance": instance})
+        (shown,) = without_verdicts((refused,), self.unjudged)
+        return shown
 
 
 def signed_jobs(
@@ -91,14 +114,21 @@ def signed_jobs(
     }
     request = build_request(card.material_key, table)
     plan = jobs.plan(root, held, request, table, jobs.Demand(loads=loads, parts=parts))
+    read = [(job, job_store.read(job)) for job in (plan.quick, *plan.background)]
     results = {
         (one.check_id, one.instance): one
-        for job in (plan.quick, *plan.background)
-        if (stored := job_store.read(job)) is not None
+        for _, stored in read
+        if stored is not None
         for one in stored.results
     }
+    unstored = {
+        (spec.id, job.instance): spec
+        for job, stored in read
+        if stored is None and isinstance(job.budget, Background)
+        for spec in job.checks
+    }
     judged = () if confirmed is None else [one.target for one in confirmed.requirements]
-    return SignedJobs(results, unconfirmed_loads(targets, judged))
+    return SignedJobs(results, unconfirmed_loads(targets, judged), unstored)
 
 
 def unsigned(card: Scorecard, signed: SignedJobs) -> Iterator[Unsigned]:
@@ -109,7 +139,8 @@ def unsigned(card: Scorecard, signed: SignedJobs) -> Iterator[Unsigned]:
         held = signed.result(shown.check_id, shown.instance)
         named = _named(shown.check_id, shown.instance)
         if isinstance(held, Unresolved):
-            yield Unsigned(held.reason)
+            if shown != signed.refusal(shown.check_id, shown.instance, shown.reason):
+                yield Unsigned(held.reason)
             continue
         verdict = _misjudged(shown, held, (shown.check_id, shown.instance) in signed.unjudged)
         if verdict is not None:
