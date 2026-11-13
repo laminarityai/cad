@@ -103,6 +103,9 @@ def build_app(
     model: Model | None = None,
     web: Path = DIST,
 ) -> Starlette:
+    """`model` runs the chat agent. None reads `CAD_CHAT_MODEL`, so a server with no model
+    configured still starts and answers every call but a chat message. `web` is the built web
+    app that `/app` serves."""
     verifier = Verifier(issuer)
     chat = Chat(model or from_environment(os.environ), tenants)
 
