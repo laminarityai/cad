@@ -48,10 +48,6 @@ class FacesWire(TypedDict):
 
 
 class WhereWire(FacesWire):
-    """`support` and `load` are the faces of the candidates whose stress the result reports.
-    `displacement`, sent only when they differ, are the faces of the candidates whose displacement
-    it reports."""
-
     displacement: NotRequired[FacesWire]
 
 

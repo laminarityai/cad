@@ -10,6 +10,7 @@ from cad.tables.fields import Printed, Wrought
 from cad.tables.materials import (
     FIELDS,
     TABLE_PATH,
+    FromTable,
     InvalidTable,
     Known,
     Unknown,
@@ -98,12 +99,15 @@ def test_every_strength_names_how_its_specimens_were_made() -> None:
     ]
     known = [value for value in strengths if isinstance(value, Known)]
     assert known
-    assert all(value.specimen is not None for value in known)
+    assert all(isinstance(value.basis, FromTable) and value.basis.specimen for value in known)
     pla = table.get_material("prusament-pla").yield_strength
     aluminium = table.get_material("kaiser-6061-t6").yield_strength
     assert isinstance(pla, Known)
     assert isinstance(aluminium, Known)
-    assert (pla.specimen, aluminium.specimen) == (Printed("X-Y"), Wrought("T6, T651"))
+    assert (pla.basis, aluminium.basis) == (
+        FromTable(Printed("X-Y")),
+        FromTable(Wrought("T6, T651")),
+    )
 
 
 @pytest.mark.parametrize(

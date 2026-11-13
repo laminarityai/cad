@@ -35,12 +35,12 @@ from cad.sandbox import container
 from cad.sandbox.container import Job, Ran, TooMuchOutput
 from cad.sandbox.image import ANALYSIS, image_tag
 from cad.sandbox.stage import CONTAINER_ENTRY, PACKAGE_PATH, Sources, read_sources
-from cad.tables.fields import Specimen
 from cad.tables.materials import (
     PROJECT_PREFIX,
     UNITS,
     Basis,
     FromResearch,
+    FromTable,
     Known,
     Material,
     MaterialsTable,
@@ -141,7 +141,6 @@ class TableRead:
     magnitude: float
     source: Source
     basis: Basis
-    specimen: Specimen | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -181,7 +180,7 @@ def _read(material: Material, wanted: Input) -> TableRead | None:
     if not isinstance(known, Known):
         return None
     magnitude = known.magnitude_in(WIRE_UNITS[wanted])
-    return TableRead(magnitude, known.source, known.basis, known.specimen)
+    return TableRead(magnitude, known.source, known.basis)
 
 
 def _value(material: Material, wanted: Input, read: TableRead | None) -> ValueWire:
@@ -199,15 +198,17 @@ def reads_of(spec: CheckSpec, request: Request) -> tuple[Read, ...]:
     for wanted in sorted(spec.takes):
         read = request.reads.get(wanted)
         value = request.wire["values"].get(wanted)
-        if read is not None and isinstance(read.basis, FromResearch):
-            source = read.source
-            reads.append(
-                ReadResearched(
-                    field=wanted, url=source.url, quote=source.quote, sha256=read.basis.sha256
-                )
-            )
-        elif read is not None:
-            reads.append(ReadCited(field=wanted, specimen=read.specimen))
+        if read is not None:
+            match read.basis:
+                case FromResearch(sha256=sha256):
+                    source = read.source
+                    reads.append(
+                        ReadResearched(
+                            field=wanted, url=source.url, quote=source.quote, sha256=sha256
+                        )
+                    )
+                case FromTable(specimen=specimen):
+                    reads.append(ReadCited(field=wanted, specimen=specimen))
         elif value is not None and value["kind"] == "unknown":
             reads.append(ReadMissing(field=wanted, reason=value["reason"]))
     return tuple(reads)

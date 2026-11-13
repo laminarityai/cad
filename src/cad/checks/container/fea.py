@@ -306,26 +306,24 @@ def solve_at(
 
 
 def where_of(pairs: Sequence[Pair]) -> WhereWire:
-    """The faces that decided the stress, and those that decided the displacement when they are
-    others."""
     stress = _deciding(pairs, lambda one: one.von_mises, STRESS_ERROR)
     bending = _deciding(pairs, lambda one: one.displacement, DISPLACEMENT_ERROR)
     return {**stress} if bending == stress else {**stress, "displacement": bending}
 
 
 def _deciding(pairs: Sequence[Pair], peak: Callable[[Peaks], float], error: float) -> FacesWire:
-    """The worst candidate's faces, and those of every other candidate whose peak is within the
-    check's stated error of it, since the check cannot tell those apart. A candidate that would
-    hold a face shown as loaded, or load one shown as held, is left out: a mirrored twin, such as
-    a bar held at its other end, would colour each face both ways."""
     worst = max(pairs, key=lambda one: peak(one.peaks))
     support, load = set(worst.where["support"]), set(worst.where["load"])
     for one in pairs:
         held, pressed = set(one.where["support"]), set(one.where["load"])
         near = peak(one.peaks) >= (1 - error) * peak(worst.peaks)
-        if near and not held & load and not pressed & support:
+        if near and _same_sides(held, pressed, support, load):
             support, load = support | held, load | pressed
     return {"support": sorted(support), "load": sorted(load)}
+
+
+def _same_sides(held: set[int], pressed: set[int], support: set[int], load: set[int]) -> bool:
+    return not held & load and not pressed & support
 
 
 def _unit_solve(

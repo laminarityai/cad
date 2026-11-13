@@ -59,7 +59,6 @@ export interface Line {
   tag?: string;
   /** The faces the stress check held and pushed on, for the row of a requirement that check decided. */
   where?: Where;
-  /** How the specimens behind the strength this verdict reads were made. */
   specimen?: string;
 }
 
@@ -127,8 +126,7 @@ function statusOf(verdict: string, researched: boolean): Status {
   return verdict === "fail" ? "fail" : "unknown";
 }
 
-/** The faces of the load case's own result: a requirement names the case, and each case has a result.
- * A row that compares the displacement shows the faces that decided it, when those are others. */
+/** The faces of the load case's own result: a requirement names the case, and each case has a result. */
 function whereOf(result: DoneCheck | undefined, measures: readonly string[]): Where | undefined {
   if (result?.check_id !== "fea" || !result.where) return undefined;
   const { displacement, support, load } = result.where;
@@ -150,7 +148,6 @@ function specimenText(specimen: Specimen): string {
   }
 }
 
-/** How the specimens behind the strength a result read were made, as the row's cited page states it. */
 function specimenOf(result: DoneCheck | undefined): string | undefined {
   for (const read of result?.reads ?? []) if (read.kind === "cited" && read.specimen) return specimenText(read.specimen);
   return undefined;
@@ -161,8 +158,7 @@ function sentence(text: string): string {
   return /[.!?]$/.test(said) ? said : `${said}.`;
 }
 
-/** A covered check has no row of its own, so a requirement row it did not pass says the check's reason. */
-function whyOf(reason: string, result: DoneCheck | undefined): string {
+function withUnpassedCheckReason(reason: string, result: DoneCheck | undefined): string {
   return result && result.verdict !== "pass" ? `${reason} ${sentence(result.reason)}` : reason;
 }
 
@@ -217,7 +213,7 @@ export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
       }
       const researched = "basis" in one && one.basis === "researched";
       const described = "load_case" in one && one.load_case === "described";
-      const reason = whyOf("reason" in one ? one.reason : "", result);
+      const reason = withUnpassedCheckReason("reason" in one ? one.reason : "", result);
       const measures = "comparisons" in one ? one.comparisons.map((comparison) => comparison.measure) : [];
       const where = whereOf(result, measures);
       const specimen = measures.includes("safety_factor") ? specimenOf(result) : undefined;

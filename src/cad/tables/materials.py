@@ -34,7 +34,7 @@ class Source:
 
 @dataclass(frozen=True, slots=True)
 class FromTable:
-    pass
+    specimen: Specimen | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,13 +48,9 @@ type Basis = FromTable | FromResearch
 
 @dataclass(frozen=True, slots=True)
 class Known:
-    """`specimen` is set on every strength value a row in git holds, and on no other value. A
-    researched value has none: the server reads only its number from the page."""
-
     quantity: pint.Quantity
     source: Source
     basis: Basis = FromTable()
-    specimen: Specimen | None = None
 
     def magnitude_in(self, unit: str) -> float:
         return magnitude(self.quantity, unit)
@@ -215,7 +211,7 @@ def _parse_value(key: str, field: Field, raw: object, problems: list[str]) -> Va
         return Unknown()
     source = _parse_source(key, field, mapping.get("source"), problems)
     specimen = _parse_specimen(key, field, mapping, problems)
-    return Unknown() if source is None else Known(quantity, source, specimen=specimen)
+    return Unknown() if source is None else Known(quantity, source, FromTable(specimen))
 
 
 def _parse_specimen(key: str, field: Field, mapping: Raw, problems: list[str]) -> Specimen | None:

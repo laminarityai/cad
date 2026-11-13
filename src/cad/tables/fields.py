@@ -18,7 +18,7 @@ STRENGTHS: Final[frozenset[Field]] = frozenset({"yield_strength", "tensile_stren
 @dataclass(frozen=True, slots=True)
 class Printed:
     """Printed specimens pulled in `direction`: X-Y in the build plane, Z across the layers, and
-    None when the page does not say. A printed part is weaker across its layers."""
+    None when the page does not say."""
 
     direction: Literal["X-Y", "Z"] | None
     form: Literal["printed"] = "printed"
