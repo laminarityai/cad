@@ -1,5 +1,6 @@
 """A row with no verdict traces to the brief store record that holds its number: any numbered
-assumption set, never edited once stored, since a card shows the set in force when it was scored."""
+assumption set, never edited once stored, since a card shows the set in force when it was scored.
+A store the server refuses to read leaves each row untraced with the server's reason."""
 
 from pathlib import Path
 
@@ -8,12 +9,14 @@ from chain import AssumedStep, Resolved, Unresolved
 from cad.briefs import assumptions
 from cad.briefs import store as briefs
 from cad.briefs.assumptions import Assumption, AssumptionSet
+from cad.confirmations.answers import ANSWERS
 from cad.projects.model import new_project_id
+from cad.records import signed
 from cad.records.roots import Roots
 from cad.scorecard import assumed, material
 from cad.scorecard.material import ReportedScorecard
 from cad.scorecard.model import AwaitingConfirmation
-from tests.support.cards import TARGET, genuine_card, reasons, trace
+from tests.support.cards import TARGET, drafts, genuine_card, reasons, trace
 
 
 def light(ounces: float) -> Assumption:
@@ -53,3 +56,17 @@ def test_a_row_no_numbered_set_holds_stays_untraced(store: Path, roots: Roots) -
     data["assumptions"][0]["values"][0]["assumed"]["magnitude"] = 9
     found = reasons(trace(ReportedScorecard.model_validate(data), store), Unresolved, "assumptions")
     assert found == [f"no assumption set of brief {brief_id} assumes 9 oz for mass"]
+
+
+def test_a_project_the_server_refuses_leaves_each_row_untraced(store: Path, roots: Roots) -> None:
+    project = new_project_id()
+    brief_id = briefs.create_brief(roots, "a solid plate", project).id
+    briefs.propose(roots, brief_id, drafts(({"kind": "closed_solid"}, "a solid plate")))
+    held = assumptions.assume(roots, brief_id, [light(5)], ())
+    assert held is not None
+    answers = roots.projects / project / ANSWERS
+    answers.mkdir(parents=True)
+    (answers / signed.slot_file(1)).write_bytes(b"not a signed answer")
+    traced = trace(assumed_card(brief_id, held), store)
+    found = reasons(traced, Unresolved, "assumptions[0].values[0].assumed")
+    assert len(found) == 1 and "failed the server's integrity check" in found[0], found
