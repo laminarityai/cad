@@ -8,7 +8,8 @@ from pydantic import TypeAdapter
 from cad.briefs.model import BriefId, Requirement, RequirementId, Target
 from cad.briefs.origins import BriefSpan
 from cad.checks import jobs
-from cad.checks.container.fea import CLAMPED_FACE_NOTE
+from cad.checks.container.calculix import Material
+from cad.checks.container.fea import CLAMPED_FACE_NOTE, LARGE_DISPLACEMENT_FRACTION, STIFFER
 from cad.checks.lanes import Lanes
 from cad.checks.result import CheckResult, Verdict
 from cad.geometry import job as tessellation
@@ -72,27 +73,7 @@ def test_the_cantilever_deflection_verdicts_match_the_hand_calc(
         return requirements.assess_requirements("1" * 16, "d" * 64, (above, below), results)
 
     case = TypeAdapter(LoadCase).validate_python(CASE)
-    lanes = Lanes(jobs.run_job)
-    card = score.score_variant(
-        built.variant_id,
-        KEY,
-        tmp_path,
-        assess,
-        lanes,
-        demand=jobs.Demand(loads={case.id: case.wire()}),
-    )
-    for _ in range(40):
-        if not card.pending:
-            break
-        card = score.score_variant(
-            built.variant_id,
-            KEY,
-            tmp_path,
-            assess,
-            lanes,
-            demand=jobs.Demand(loads={case.id: case.wire()}),
-        )
-    assert card.pending == ()
+    card = scored(built.variant_id, tmp_path, assess)
     found = fea_result(card)
     assert found.instance == case.id
     assert found.verdict == Verdict.PASS, found.reason
@@ -111,6 +92,50 @@ def test_the_cantilever_deflection_verdicts_match_the_hand_calc(
     (support,), (load,) = found.where.support, found.where.load
     assert {support, load} == set(ends)
     assert all(one.where is None for one in card.finished if one.check_id != "fea")
+
+
+def test_a_pla_cantilever_that_bends_past_the_linear_gate_is_unknown_and_told_to_stiffen(
+    tmp_path: Path,
+) -> None:
+    built = build_variant(box(BEAM_L, BEAM_B, BEAM_H), tmp_path)
+    assert built.outcome == Built(), built.output
+    pla = load_materials().get_material(KEY)
+    assert isinstance(pla.elastic_modulus, Known)
+    assert isinstance(pla.poisson_ratio, Known)
+    hand = timoshenko_tip(
+        Material(
+            pla.elastic_modulus.magnitude_in("MPa"),
+            pla.poisson_ratio.magnitude_in("dimensionless"),
+        )
+    )
+    assert hand > LARGE_DISPLACEMENT_FRACTION * BEAM_L
+
+    def assess(results: score.Results) -> Basis:
+        return requirements.assess_requirements("1" * 16, "d" * 64, (deflection("a", 2),), results)
+
+    card = scored(built.variant_id, tmp_path, assess)
+    found = fea_result(card)
+    assert found.verdict == Verdict.UNKNOWN
+    assert found.reason.startswith("the part bends")
+    assert STIFFER in found.reason
+    measured = magnitude(found.value("max_displacement"), "mm")
+    print(f"fea max_displacement {measured:.4f} mm, hand {hand:.4f} mm")
+    assert measured == pytest.approx(hand, rel=0.03)
+    assert isinstance(card.basis, AgainstBrief)
+    assert [one.verdict for one in card.basis.requirements] == [Verdict.UNKNOWN]
+
+
+def scored(variant: str, root: Path, assess: score.Assess) -> Scorecard:
+    case = TypeAdapter(LoadCase).validate_python(CASE)
+    demand = jobs.Demand(loads={case.id: case.wire()})
+    lanes = Lanes(jobs.run_job)
+    card = score.score_variant(variant, KEY, root, assess, lanes, demand=demand)
+    for _ in range(40):
+        if not card.pending:
+            break
+        card = score.score_variant(variant, KEY, root, assess, lanes, demand=demand)
+    assert card.pending == ()
+    return card
 
 
 def face_ends_along_x(read: Tessellated) -> tuple[int, int]:

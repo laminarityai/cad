@@ -81,6 +81,12 @@ def test_candidates_within_the_stated_error_of_the_worst_are_all_shown() -> None
     assert fea.where_of([top, bottom, beyond]) == {"support": [0], "load": [4, 5]}
 
 
+def test_a_mirrored_twin_that_swaps_the_held_and_pressed_faces_is_not_shown() -> None:
+    held_at_one_end = candidate(2.0, 20.0, support=0, load=1)
+    held_at_the_other = candidate(2.0, 20.0, support=1, load=0)
+    assert fea.where_of([held_at_one_end, held_at_the_other]) == {"support": [0], "load": [1]}
+
+
 @pytest.mark.parametrize("clamped_face", [True, False])
 def test_the_clamped_face_note_is_on_the_result_only_when_a_face_is_clamped(
     clamped_face: bool,

@@ -314,14 +314,18 @@ def where_of(pairs: Sequence[Pair]) -> WhereWire:
 
 
 def _deciding(pairs: Sequence[Pair], peak: Callable[[Peaks], float], error: float) -> FacesWire:
-    """The faces of every candidate whose peak is within the check's stated error of the worst,
-    since the check cannot tell those apart."""
-    worst = max(peak(one.peaks) for one in pairs)
-    near = [one.where for one in pairs if peak(one.peaks) >= (1 - error) * worst]
-    return {
-        "support": sorted({face for one in near for face in one["support"]}),
-        "load": sorted({face for one in near for face in one["load"]}),
-    }
+    """The worst candidate's faces, and those of every other candidate whose peak is within the
+    check's stated error of it, since the check cannot tell those apart. A candidate that would
+    hold a face shown as loaded, or load one shown as held, is left out: a mirrored twin, such as
+    a bar held at its other end, would colour each face both ways."""
+    worst = max(pairs, key=lambda one: peak(one.peaks))
+    support, load = set(worst.where["support"]), set(worst.where["load"])
+    for one in pairs:
+        held, pressed = set(one.where["support"]), set(one.where["load"])
+        near = peak(one.peaks) >= (1 - error) * peak(worst.peaks)
+        if near and not held & load and not pressed & support:
+            support, load = support | held, load | pressed
+    return {"support": sorted(support), "load": sorted(load)}
 
 
 def _unit_solve(
