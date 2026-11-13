@@ -58,6 +58,12 @@ KNOWN: dict[str, tuple[Solid, float]] = {
     # Past the point where the round turns 60 degrees from the bottom face, a ray up from the
     # bottom comes out at a corner, so the reading stops at 2 - 1 / 2.
     "2 mm plate with a 1 mm round": (fillet_edges(box(40, 20, 2), 1.0, top_long_edge), 1.5),
+    # Large for their walls: each needs about 125,000 rays.
+    "plate 300 x 200 x 1 mm": (box(300, 200, 1), 1.0),
+    "open box 250 x 200 x 100 mm, 1.5 mm walls": (
+        cut(box(250, 200, 100), box(247, 197, 100, (1.5, 1.5, 1.5))),
+        1.5,
+    ),
 }
 KNIFE = prism([(0, 0), (40, 0), (0, 5)], 10)
 
