@@ -59,7 +59,14 @@ from cad.checks.report import CheckSpec
 from cad.records.roots import Roots
 from cad.scorecard.holes import band
 from cad.scorecard.material import ReportedScorecard
-from cad.scorecard.model import AgainstBrief, AgentChecked, Checked, PendingCheck, Scorecard
+from cad.scorecard.model import (
+    AgainstBrief,
+    AgentChecked,
+    AwaitingConfirmation,
+    Checked,
+    PendingCheck,
+    Scorecard,
+)
 from cad.scorecard.unjudged import Reported
 from cad.tables.fields import FIELDS, Field
 from cad.tables.materials import UNITS, MaterialsTable
@@ -92,6 +99,7 @@ class CardTrace:
     failures: tuple[CardFailure, ...]
     numbers: tuple[Traced, ...]
     basis: BasisKind | None = None
+    brief_id: str | None = None
 
 
 def trace_card(
@@ -116,7 +124,10 @@ def trace_card(
         *basis.failures,
         *check_fits(roots, card),
     )
-    return CardTrace(card.variant_id, failures, numbers, card.basis.kind)
+    named = (
+        card.basis.brief_id if isinstance(card.basis, AgainstBrief | AwaitingConfirmation) else None
+    )
+    return CardTrace(card.variant_id, failures, numbers, card.basis.kind, named)
 
 
 def _place(

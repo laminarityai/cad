@@ -82,6 +82,7 @@ def test_a_variant_judged_later_does_not_cover_another_variant(tmp_path: Path) -
     assert not traced.traced
     assert traced.awaiting == 1
     assert any(
-        line.startswith(f"read after the session, {other}: Unreadable ") and "never" in line
+        line.startswith(f"read after the session, {other}: Unreadable ")
+        and "no stored check result" in line
         for line in traced.untraced
     ), traced.untraced

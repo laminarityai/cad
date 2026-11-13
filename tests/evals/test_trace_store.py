@@ -138,7 +138,7 @@ def test_a_card_judged_against_a_confirmed_brief_resolves_and_reports_its_requir
     assert main([*arguments, "--steps", "--require-judged"]) == 0
     out = lines(capsys)
     assert "cards unconfirmed: 0, misjudged: 0, superseded: 0" in out
-    assert "cards judged: 1, awaiting confirmation: 0, no brief: 0" in out
+    assert "cards judged: 1, awaiting confirmation: 0 (0 judged later), no brief: 0" in out
     assert "confirmed by a person: brief " in out
     assert "strict pass rate: 0/2 (0%)" in out
     assert "requirements covered by reviewed checks: 1/2 (50%)" in out
@@ -151,11 +151,15 @@ def test_awaiting_and_no_brief_cards_count_apart_and_fail_only_when_judgment_is_
     write_transcript(store, genuine_card(basis=AwaitingConfirmation(brief_id=brief_id)))
     arguments = arguments_for(store)
     assert main(arguments) == 0
-    assert "cards judged: 0, awaiting confirmation: 1, no brief: 0" in lines(capsys)
+    assert "cards judged: 0, awaiting confirmation: 1 (0 judged later), no brief: 0" in lines(
+        capsys
+    )
     assert main([*arguments, "--require-judged"]) == 1
     write_transcript(store, genuine_card())
     assert main([*arguments, "--require-judged"]) == 1
-    assert "cards judged: 0, awaiting confirmation: 0, no brief: 1" in lines(capsys)
+    assert "cards judged: 0, awaiting confirmation: 0 (0 judged later), no brief: 1" in lines(
+        capsys
+    )
 
 
 OTHER_VARIANT = "fedcba9876543210"
@@ -248,6 +252,7 @@ COUNTS = Tally(
     unfitted=0,
     judged=1,
     awaiting=0,
+    judged_later=0,
     no_brief=0,
     numbers=3,
     resolved=3,

@@ -3,6 +3,7 @@ from typing import Final
 
 from chain import NotVerified, Stale, Unresolved
 from outcome import Share, Trace
+from readings import READ_AFTER, read_after
 from trace_store import TracedStore, exit_code, tally, trace_cards
 from tracking import NoRequirements, track
 from tracking import Share as TrackedShare
@@ -21,22 +22,25 @@ def _share(found: TrackedShare) -> Share:
 
 
 def trace_session(home: Path, transcript: Path) -> Trace:
+    """Trace the cards the session was shown, then the server's reading of each variant it scored
+    with a brief. The rates come from the reading of the last variant scored, the judged state
+    the person sees after Confirm, or from the last card when nothing was scored with a brief."""
     stores = home / ".cad"
-    found: TracedStore = trace_cards(
-        read_cards(transcript),
-        stores / "variants",
-        Roots(briefs=stores / "briefs", projects=stores / "projects"),
-    )
+    variants = stores / "variants"
+    roots = Roots(briefs=stores / "briefs", projects=stores / "projects")
+    shown = trace_cards(read_cards(transcript), variants, roots)
+    read = trace_cards(read_after(stores, shown), variants, roots)
+    found = TracedStore((*shown.cards, *read.cards))
     counts = tally(found.traces)
     untraced: list[str] = []
     measured: list[str] = []
-    for card in found.traces:
-        untraced += [
-            f"{card.variant_id}: {type(one).__name__} {one.reason}" for one in card.failures
-        ]
-        for number in card.numbers:
+    for card in found.cards:
+        trace = card.trace
+        where = f"{READ_AFTER}, {trace.variant_id}" if card in read.cards else trace.variant_id
+        untraced += [f"{where}: {type(one).__name__} {one.reason}" for one in trace.failures]
+        for number in trace.numbers:
             outcome = number.outcome
-            head = f"{card.variant_id}: {number.label} = {number.value}"
+            head = f"{where}: {number.label} = {number.value}"
             if isinstance(outcome, Stale | Unresolved):
                 untraced.append(f"{head}: {type(outcome).__name__} {outcome.reason}")
             elif isinstance(outcome, NotVerified):
@@ -47,7 +51,8 @@ def trace_session(home: Path, transcript: Path) -> Trace:
         untraced.append(f"{counts.no_brief} card(s) scored with no brief")
     if not counts.cards:
         untraced.append(NO_CARD)
-    tracking = track(found.cards[-1].outcomes if found.cards else ())
+    last = (read.cards or shown.cards)[-1:]
+    tracking = track(last[0].outcomes if last else ())
     return Trace(
         traced=exit_code(counts, require_judged=True) == 0,
         cards=counts.cards,
