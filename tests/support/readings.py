@@ -10,13 +10,15 @@ from cad.checks.container.check import Quick
 from cad.checks.job_store import write
 from cad.checks.jobs import JobResult, JobSpec
 from cad.checks.report import QUICK, build_request
-from cad.checks.result import StepStored
+from cad.checks.result import CheckResult, StepStored
 from cad.projects.model import new_project_id
 from cad.records.roots import Roots
 from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.outcome import Build, Built
 from cad.scorecard.model import Scorecard
+from cad.tables.materials import MaterialsTable
 from cad.variants import entry
+from cad.variants.entry import Entry
 from tests.support.cards import BREP, BRIEF_TEXT, KEY, STEP, STEP_SHA, genuine_result, table
 
 
@@ -38,18 +40,25 @@ def reading_of(home: Path, card: Scorecard) -> str:
     return reading
 
 
-def scored_variant(variants: Path, code: str = "x = 1\n", version: str | None = None) -> str:
-    """`version`, when given, is the check version each stored result names."""
+def built(variants: Path, code: str = "x = 1\n") -> Entry:
+    """A variant stored as a build stores it, with no check result yet."""
     tag = image_tag(BUILD)
     vid = entry.variant_id(code, tag)
     entry.save(variants, vid, code, Build(outcome=Built(), output=""), BREP)
     (variants / vid / entry.STEP).write_bytes(STEP)
-    held = entry.open_entry(variants, vid, tag)
-    quick = JobSpec(variants, vid, held.brep_sha256, QUICK, Quick(), build_request(KEY, table()))
-    results = tuple(
-        genuine_result(spec).model_copy(update={"version": version or spec.version})
-        for spec in QUICK
-    )
+    return entry.open_entry(variants, vid, tag)
+
+
+def store_quick(
+    variants: Path,
+    held: Entry,
+    results: tuple[CheckResult, ...],
+    key: str = KEY,
+    scored_with: MaterialsTable | None = None,
+) -> None:
+    """Sign `results` as the quick job the server keys for `key` and the table `scored_with`."""
+    request = build_request(key, scored_with or table())
+    quick = JobSpec(variants, held.id, held.brep_sha256, QUICK, Quick(), request)
     write(
         quick,
         JobResult(
@@ -58,4 +67,14 @@ def scored_variant(variants: Path, code: str = "x = 1\n", version: str | None = 
             results=results,
         ),
     )
-    return vid
+
+
+def scored_variant(variants: Path, code: str = "x = 1\n", version: str | None = None) -> str:
+    """`version`, when given, is the check version each stored result names."""
+    held = built(variants, code)
+    results = tuple(
+        genuine_result(spec).model_copy(update={"version": version or spec.version})
+        for spec in QUICK
+    )
+    store_quick(variants, held, results)
+    return held.id
