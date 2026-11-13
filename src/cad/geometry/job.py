@@ -16,7 +16,11 @@ ENTRY: Final = "cad.geometry.container.tessellate"
 WALL_SECONDS: Final = 60
 SOURCES: Final = stage.read_sources(ENTRY)
 BOOT: Final = f"import sys; sys.path.insert(0, {stage.TARGET!r}); from {ENTRY} import main; main()"
-VERSION: Final = hashlib.sha256(json.dumps([IMAGE_TAG, SOURCES.digest]).encode()).hexdigest()[:12]
+# The host code that parses a stored mesh and dumps the bytes its immutable URL serves.
+SERVED: Final = stage.read_sources("cad.geometry.model")
+VERSION: Final = hashlib.sha256(
+    json.dumps([IMAGE_TAG, SOURCES.digest, SERVED.digest, SERVED.packages]).encode()
+).hexdigest()[:12]
 REPORT: Final = TypeAdapter[TessellationReport](
     Annotated[TessellationReport, Field(discriminator="kind")]
 )

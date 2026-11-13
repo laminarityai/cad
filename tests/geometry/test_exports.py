@@ -188,6 +188,7 @@ def test_no_export_file_feeds_a_check_version_the_mesh_version_or_a_variant_id()
     """Adding the export edits no file that a check version, the mesh version or a variant id
     hashes, so every one of them keeps its value."""
     hashed = set(report.DEPENDENCIES.files) | set(mesh_job.SOURCES.files)
+    hashed |= set(mesh_job.SERVED.files)
     hashed |= {f"{one.parent.name}/{one.name}" for one in trusted_files()}
     assert not [path for path in hashed if path.startswith(NEW_CODE)]
 
