@@ -93,7 +93,7 @@ A route exists for each `PERSON` or `BOTH` operation, from the `ROUTES` table be
 The person asks for a change in chat, and the agent edits the variant's code and calls `build_variant` with the member's `slot`. The new code becomes the slot's next revision, so the set never fills up with edits, and the viewer and scorecard show the slot's latest revision. `auto_revise` builds the same way. Each revision is a signed, append-only record, so earlier revisions stay readable. Code already built is a store hit with no build.
 
 ```python
-class Revision(_Frozen):  # one signed record; the log is one numbered file per revision
+class Revision(Frozen):  # one signed record; the log is one numbered file per revision
     slot: int  # 1..5
     code: str  # kept so a server update can rebuild the slot (variant_sets/model.py)
     code_sha256: str
@@ -101,7 +101,7 @@ class Revision(_Frozen):  # one signed record; the log is one numbered file per 
     joined_at: datetime
 
 
-class Member(_Frozen):  # derived by grouping the log on slot; never stored
+class Member(Frozen):  # derived by grouping the log on slot; never stored
     slot: int
     revisions: tuple[Revision, ...]  # oldest first; the last one is what the set shows
 ```
@@ -118,13 +118,13 @@ Tessellation runs as a job in the analysis image (ADR-0005), never in an agent p
 type Principal = PersonSession | AgentToken
 
 
-class PersonSession(_Frozen):
+class PersonSession(Frozen):
     kind: Literal["person"] = "person"
     account: AccountId  # the Clerk user id
     session_id: str  # the Clerk session id
 
 
-class AgentToken(_Frozen):
+class AgentToken(Frozen):
     kind: Literal["agent"] = "agent"
     account: AccountId
     token_id: str  # the Clerk OAuth token's id, or our chat agent's turn id
@@ -158,7 +158,7 @@ Local dev and the eval driver run the same Starlette app on 127.0.0.1, with no C
 ### 2.5 Auto mode (`cad/auto/`, ADR-0010)
 
 ```python
-class Standing(_Frozen):  # one settled revision, projected from a scorecard
+class Standing(Frozen):  # one settled revision, projected from a scorecard
     revision: int
     variant_id: VariantId | None  # None: the build failed
     passes: Mapping[RequirementId, bool | None]
@@ -168,27 +168,27 @@ class Standing(_Frozen):  # one settled revision, projected from a scorecard
 type StopReason = AllPass | NeedsPerson | AccountLimit
 
 
-class NeedsPerson(_Frozen):
+class NeedsPerson(Frozen):
     kind: Literal["conflict", "proposes_requirements", "source_to_confirm", "agent_asked"]
     requirements: tuple[RequirementId, ...]
     bounds: Bounds | None  # set only for a conflict found before any build
     note: str  # for agent_asked, the agent's report of what it tried
 
 
-class Bounds(_Frozen):  # proved from confirmed targets and tables, before any build
+class Bounds(Frozen):  # proved from confirmed targets and tables, before any build
     statement: str  # "min_mass 50 g > density(PLA) 1.24 g/cm³ × envelope 8 cm³ = 9.9 g"
     reads: tuple[Read, ...]  # table rows by exact key, researched rows labelled
 
 
-class AccountLimit(_Frozen):  # the usage cap refused a build under the run
+class AccountLimit(Frozen):  # the usage cap refused a build under the run
     refused: VariantId | None
 
 
-class Running(_Frozen):
+class Running(Frozen):
     history: tuple[Standing, ...]
 
 
-class Stopped(_Frozen):
+class Stopped(Frozen):
     history: tuple[Standing, ...]
     reason: StopReason
     report: str

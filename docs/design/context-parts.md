@@ -30,7 +30,7 @@ A context part is a signed record in the project store. Its geometry is a conten
 ContextPartId = NewType("ContextPartId", str)  # "part-" + brep_sha256[:16]
 
 
-class FromVariant(_Frozen):
+class FromVariant(Frozen):
     kind: Literal["variant"] = "variant"
     variant_id: str  # 16 hex
 
@@ -39,7 +39,7 @@ type PartOrigin = Annotated[FromVariant, Field(discriminator="kind")]
 # Later arms, one per path: FromUpload(file_name, step_sha256), then Onshape and Fusion (#60).
 
 
-class Facts(_Frozen):
+class Facts(Frozen):
     """Measured by the analysis container at ingest. Shown to the person and the agent so they can
     recognise the part and build in its frame. No check reads them."""
 
@@ -49,7 +49,7 @@ class Facts(_Frozen):
     box_max: tuple[float, float, float]
 
 
-class ContextPartRecord(_Frozen):
+class ContextPartRecord(Frozen):
     project: ProjectId
     brief_id: BriefId
     name: str  # 1..80 chars
@@ -119,13 +119,13 @@ class Demand:
 Two kinds, the way `min_mass` and `max_mass` pair:
 
 ```python
-class MinClearance(_Frozen):  # "at least 0.2 mm clear of the rail"
+class MinClearance(Frozen):  # "at least 0.2 mm clear of the rail"
     kind: Literal[Kind.MIN_CLEARANCE]
     part: ContextPartId
     clearance: Length
 
 
-class MaxClearance(_Frozen):  # "no more than 0.5 mm gap to the rail"
+class MaxClearance(Frozen):  # "no more than 0.5 mm gap to the rail"
     kind: Literal[Kind.MAX_CLEARANCE]
     part: ContextPartId
     clearance: Length

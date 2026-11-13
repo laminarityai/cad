@@ -133,17 +133,17 @@ The ADR-0007 amendment adds load cases the agent describes from a closed list of
 **Types** (new `src/cad/loads/model.py`, which is pydantic domain code. It sits outside `briefs/` so it does not collide with phase 2, and `briefs/model.py` imports it):
 
 ```python
-class Holes(_Frozen):  # "bolted / screwed through the N holes"
+class Holes(Frozen):  # "bolted / screwed through the N holes"
     kind: Literal["holes"] = "holes"
     count: Annotated[int, Field(ge=1, le=12)]
     diameter: Length | None = None  # bore diameter; strongly recommended
 
 
-class LargestFlat(_Frozen):  # "glued / sits on its base"
+class LargestFlat(Frozen):  # "glued / sits on its base"
     kind: Literal["largest_flat"] = "largest_flat"
 
 
-class FlatEnd(_Frozen):  # "fixed into the wall at one end"
+class FlatEnd(Frozen):  # "fixed into the wall at one end"
     kind: Literal["flat_end"] = "flat_end"
 
 
@@ -155,30 +155,30 @@ class Axis(StrEnum):
     HOLE_AXIS = "hole_axis"  # the common axis direction of the support holes (Holes support only)
 
 
-class Along(_Frozen):
+class Along(Frozen):
     kind: Literal["along"] = "along"
     axis: Axis  # 1-D subspace
 
 
-class Across(_Frozen):
+class Across(Frozen):
     kind: Literal["across"] = "across"
     axis: Axis  # 2-D plane normal to axis
 
 
-class AnyWay(_Frozen):
+class AnyWay(Frozen):
     kind: Literal["any"] = "any"  # all of R^3
 
 
 type Direction = Annotated[Along | Across | AnyWay, Field(discriminator="kind")]
 
 
-class FarEnd(_Frozen):  # "at the tip / at the end"
+class FarEnd(Frozen):  # "at the tip / at the end"
     kind: Literal["far_end"] = "far_end"
     force: Force
     direction: Direction
 
 
-class OnHoles(_Frozen):  # "hangs from the hole"
+class OnHoles(Frozen):  # "hangs from the hole"
     kind: Literal["on_holes"] = "on_holes"
     count: Annotated[int, Field(ge=1, le=12)]
     diameter: Length | None = None
@@ -189,7 +189,7 @@ class OnHoles(_Frozen):  # "hangs from the hole"
 type Load = Annotated[FarEnd | OnHoles, Field(discriminator="kind")]
 
 
-class LoadCase(_Frozen):
+class LoadCase(Frozen):
     support: Support
     load: Load
 
