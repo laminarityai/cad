@@ -11,18 +11,15 @@ from tests.support.lanes import FEA, LONG, GatedRunner, job, ran, wait_until, wi
 
 
 def running_once_interrupted(tmp_path: Path, runner: GatedRunner, lanes: Lanes) -> JobSpec:
-    """An fea interrupted once before, now running again, so its count reads 2."""
     fea = job(tmp_path, FEA)
     job_store.begin_attempt(fea)
     runner.background.gate.clear()
     assert lanes.settle(with_fea(tmp_path), 0).background == (Pending(),)
-    wait_until(lambda: job_store.interrupted_runs(fea) == job_store.ATTEMPT_CAP)
+    wait_until(lambda: job_store.unfinished_runs(fea) == job_store.ATTEMPT_CAP)
     return fea
 
 
 class Waiting:
-    """A caller settling `plan` on another thread, as a request does while a check runs."""
-
     def __init__(self, lanes: Lanes, plan: Plan) -> None:
         self._outcomes: list[tuple[Outcome, ...]] = []
         self._caller = threading.Thread(
@@ -44,15 +41,15 @@ def test_a_server_that_stops_mid_run_puts_the_attempt_count_back_and_stores_noth
     fea = running_once_interrupted(tmp_path, runner, lanes)
     waiting = Waiting(lanes, with_fea(tmp_path))
     lanes.close()
-    assert job_store.interrupted_runs(fea) == 1
+    assert job_store.unfinished_runs(fea) == 1
     runner.background.error = SandboxUnavailable(STOPPING)
     runner.background.gate.set()
     assert waiting.heard() == (Refused(STOPPING),)
-    assert (job_store.read(fea), job_store.interrupted_runs(fea)) == (None, 1)
+    assert (job_store.read(fea), job_store.unfinished_runs(fea)) == (None, 1)
     restarted = GatedRunner()
     settled = Lanes(restarted).settle(with_fea(tmp_path), LONG)
     assert settled.background == (Done(ran(fea)),)
-    assert job_store.interrupted_runs(fea) == 0
+    assert job_store.unfinished_runs(fea) == 0
 
 
 def test_a_stopping_server_refuses_its_queued_jobs_and_never_starts_them(
@@ -68,4 +65,4 @@ def test_a_stopping_server_refuses_its_queued_jobs_and_never_starts_them(
     assert lanes.settle(plan, 0).background == (Refused(STOPPED),)
     runner.background.gate.set()
     assert queued.key not in runner.runs
-    assert job_store.interrupted_runs(queued) == 0
+    assert job_store.unfinished_runs(queued) == 0

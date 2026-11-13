@@ -88,8 +88,7 @@ def label(kind: Kind) -> str:
 
 
 def remove_orphans() -> None:
-    """Remove every sandbox container whose server is gone, running or not. A server that died
-    mid-run never removed its own, and the next server runs that job again."""
+    """Remove every sandbox container whose server is gone, running or not."""
     listed = docker(
         "ps", "--all", "--filter", "label=cad.sandbox",
         "--format", f'[{{{{json .Names}}}},{{{{json (.Label "{OWNER}")}}}}]',

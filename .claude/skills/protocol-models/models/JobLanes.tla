@@ -278,7 +278,7 @@ Land(t) ==
                    cquick, cres, crashes, faults, tampers, cut, drops, told>>
 
 \* Lanes.peek, for the scorecard operation: job_store.read of quick, then _look for fea in one
-\* `with self._lock:`: job_store.read, the _flying lookup, then interrupted_runs against the
+\* `with self._lock:`: job_store.read, the _flying lookup, then unfinished_runs against the
 \* cap. A job flying here is pending, though its own attempt may have reached the cap. No wait,
 \* and no job started.
 Peek(t) ==
@@ -310,7 +310,7 @@ WorkerGet(p) ==
                    crashes, faults, tampers, cut, drops, told>>
 
 \* _attempt, in one `with self._lock:`: on a closed Lanes it raises SandboxUnavailable, else
-\* job_store.begin_attempt writes interrupted_runs + 1 with one os.replace and _running names
+\* job_store.begin_attempt writes unfinished_runs + 1 with one os.replace and _running names
 \* the job.
 WorkerBegin(p) ==
     /\ wpc[p] = "begin"

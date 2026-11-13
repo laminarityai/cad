@@ -25,7 +25,7 @@ runner.background.gate.clear()
 lanes = Lanes(runner)
 with checks_end_with_the_server(lanes):
     lanes.settle(with_fea(root), 0)
-    wait_until(lambda: job_store.interrupted_runs(job(root, FEA)) == 1)
+    wait_until(lambda: job_store.unfinished_runs(job(root, FEA)) == 1)
     print("running", flush=True)
     sys.stdin.read()
 """
@@ -47,10 +47,10 @@ def test_only_a_server_that_dies_mid_run_counts_the_run_as_interrupted(
     try:
         assert server.stdout is not None
         assert server.stdout.readline() == b"running\n"
-        assert job_store.interrupted_runs(job(tmp_path, FEA)) == 1
+        assert job_store.unfinished_runs(job(tmp_path, FEA)) == 1
         server.send_signal(stop)
         assert server.wait(LONG) == -stop
-        assert job_store.interrupted_runs(job(tmp_path, FEA)) == counted
+        assert job_store.unfinished_runs(job(tmp_path, FEA)) == counted
     finally:
         server.kill()
         server.wait()

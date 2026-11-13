@@ -104,12 +104,12 @@ def test_a_killed_server_leaves_nothing_in_flight_and_the_next_one_runs_the_job(
     runner.background.gate.clear()
     assert Lanes(runner).settle(with_fea(tmp_path), 0).background == (Pending(),)
     wait_for(job_store.result_path(job(tmp_path, FEA)).with_suffix(".attempt"))
-    assert job_store.interrupted_runs(job(tmp_path, FEA)) == 1
+    assert job_store.unfinished_runs(job(tmp_path, FEA)) == 1
     restarted = GatedRunner()
     settled = Lanes(restarted).settle(with_fea(tmp_path), LONG)
     assert settled.background == (Done(ran(job(tmp_path, FEA))),)
     assert restarted.runs == [job(tmp_path, FEA).key]
-    assert job_store.interrupted_runs(job(tmp_path, FEA)) == 0
+    assert job_store.unfinished_runs(job(tmp_path, FEA)) == 0
 
 
 def test_a_job_interrupted_twice_is_refused_and_not_started_a_third_time(
@@ -132,7 +132,7 @@ def test_a_background_job_that_fails_clears_its_attempt_and_is_not_stored(
     settled = lanes.settle(Plan(quick=job(tmp_path), background=(job(tmp_path, FEA),)), LONG)
     assert settled.background == (Refused("docker is not running"),)
     fea = job(tmp_path, FEA)
-    assert (job_store.read(fea), job_store.interrupted_runs(fea)) == (None, 0)
+    assert (job_store.read(fea), job_store.unfinished_runs(fea)) == (None, 0)
 
 
 def test_a_quick_job_that_fails_raises_stores_nothing_and_runs_again(
@@ -228,7 +228,7 @@ def test_a_peek_while_the_rerun_of_an_interrupted_job_runs_calls_it_pending(
     runner.background.gate.clear()
     lanes = Lanes(runner)
     assert lanes.settle(with_fea(tmp_path), 0).background == (Pending(),)
-    wait_until(lambda: job_store.interrupted_runs(fea) == job_store.ATTEMPT_CAP)
+    wait_until(lambda: job_store.unfinished_runs(fea) == job_store.ATTEMPT_CAP)
     peeked = lanes.peek(with_fea(tmp_path))
     assert peeked is not None
     assert peeked.background == (Pending(),)

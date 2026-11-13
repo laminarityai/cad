@@ -67,7 +67,6 @@ def running_build(client: int) -> tuple[Process, str] | None:
 
 
 def running_docker(parent: int) -> Process | None:
-    """The `docker run` that `parent` started, once its container runs."""
     for docker in children_of(parent):
         if docker.argv[1:2] == ["run"]:
             return docker if status(named(docker)) == "running" else None

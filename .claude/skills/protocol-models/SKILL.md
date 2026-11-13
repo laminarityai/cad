@@ -76,7 +76,7 @@ How the model maps to the code:
 | `WorkerGet` ... `WorkerSettle` | `Lanes._drain` (`_wake.wait` and `popleft` under `_lock`), then `_fly` / `_attempt` on the worker thread: `begin_attempt`, run, `end_attempt` in `finally`, `job_store.write` (skipped on a timeout), then `del _flying` and settle in one lock |
 | `WorkerBegin` | `_attempt` under `_lock`: `SandboxUnavailable` when `_closed`, else `job_store.begin_attempt` and `_running = job`. `begin_attempt` is modeled as one step. The code reads the count and then replaces the file, which is two steps (see Not covered) |
 | `WorkerEnd` | `_attempt`'s `finally` under `_lock`: while `_running` still names the job, clear it and `end_attempt`. After `close` took the attempt back, it does neither |
-| `Peek` | `Lanes.peek` and `_look`, under `_lock`: `job_store.read`, then pending while the job is in `_flying`, else `interrupted_runs >= ATTEMPT_CAP` |
+| `Peek` | `Lanes.peek` and `_look`, under `_lock`: `job_store.read`, then pending while the job is in `_flying`, else `unfinished_runs >= ATTEMPT_CAP` |
 | `WorkerExit` | `_drain`'s `finally`: clear `_worker`, restart it when the queue is not empty |
 | `WaitQuick`, `Land` | `settle`'s `quick.result()` and `_land`: Done, Pending on a timeout, Refused on `SandboxUnavailable` or `Superseded` |
 | `Close(p)` | `Lanes.close`, the first half of `server/stopping.end_checks`, under `_lock`: set `_closed`, refuse each queued job with `SandboxUnavailable(STOPPED)`, and `job_store.undo_attempt` the job `_running` names. The quick lane stays open |

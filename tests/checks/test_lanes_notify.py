@@ -150,7 +150,7 @@ def test_a_job_still_queued_when_its_variant_is_replaced_never_runs_and_its_call
     wait_for(job_store.result_path(first))
     assert second.key not in runner.runs
     assert job_store.read(second) is None
-    assert job_store.interrupted_runs(second) == 0
+    assert job_store.unfinished_runs(second) == 0
 
 
 def test_a_job_a_worker_already_took_is_not_dropped_and_ends_stored(

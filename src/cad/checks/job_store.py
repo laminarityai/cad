@@ -34,7 +34,7 @@ def write(job: JobSpec, result: JobResult) -> None:
     _replace(job, result_path(job), data, "result")
 
 
-def interrupted_runs(job: JobSpec) -> int:
+def unfinished_runs(job: JobSpec) -> int:
     try:
         return int(_attempt_path(job).read_text())
     except (OSError, ValueError):
@@ -42,7 +42,7 @@ def interrupted_runs(job: JobSpec) -> int:
 
 
 def begin_attempt(job: JobSpec) -> None:
-    _replace(job, _attempt_path(job), str(interrupted_runs(job) + 1).encode(), "attempt count")
+    _replace(job, _attempt_path(job), str(unfinished_runs(job) + 1).encode(), "attempt count")
 
 
 def end_attempt(job: JobSpec) -> None:
@@ -50,9 +50,7 @@ def end_attempt(job: JobSpec) -> None:
 
 
 def undo_attempt(job: JobSpec) -> None:
-    """Put the count back to its value before `begin_attempt`, for a run the server stopped: the
-    job did not interrupt it."""
-    earlier = interrupted_runs(job) - 1
+    earlier = unfinished_runs(job) - 1
     if earlier > 0:
         _replace(job, _attempt_path(job), str(earlier).encode(), "attempt count")
     else:

@@ -134,7 +134,6 @@ class Lanes:
             future.set_exception(error())
 
     def _look(self, job: JobSpec) -> Outcome:
-        """A job running here is pending, though its own attempt may have reached the cap."""
         with self._lock:
             stored = job_store.read(job)
             if stored is not None:
@@ -233,7 +232,7 @@ class Lanes:
 def _interrupted_too_often(job: JobSpec) -> bool:
     return (
         isinstance(job.budget, Background)
-        and job_store.interrupted_runs(job) >= job_store.ATTEMPT_CAP
+        and job_store.unfinished_runs(job) >= job_store.ATTEMPT_CAP
     )
 
 

@@ -77,8 +77,6 @@ def build_into_set(
 def _drop_replaced(
     root: Path, key: SetKey, variants_root: Path, joined: Joined, lanes: Lanes
 ) -> None:
-    """Variants are shared by every brief of the account, so a replaced revision keeps its queued
-    jobs while any set still shows it, or while a set cannot be read."""
     member = next((m for m in members(root, key) if m.slot == joined.slot), None)
     if member is None or len(member.revisions) < 2:
         return
@@ -193,7 +191,6 @@ def project_slots(root: Path, project: ProjectId) -> tuple[tuple[SetKey, Member]
 
 
 def account_slots(root: Path) -> tuple[tuple[SetKey, Member], ...]:
-    """Every slot of every variant set in every project under `root`."""
     if not files.is_directory(root):
         return ()
     projects = sorted(path.name for path in root.iterdir() if PROJECT_ID.fullmatch(path.name))
