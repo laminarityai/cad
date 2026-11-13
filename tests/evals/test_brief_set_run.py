@@ -30,6 +30,7 @@ from tests.support.cards import (
     transcript_of,
     write_transcript,
 )
+from tests.support.readings import scored_variant
 
 LIGHT = ({"kind": "max_mass", "mass": {"magnitude": 150, "unit": "g"}}, "under 150 g")
 FRIENDLY = ({"kind": "unchecked", "statement": "looks friendly"}, "looks friendly")
@@ -161,12 +162,11 @@ def a_home_with_a_build(tmp_path: Path) -> tuple[Path, Path]:
 
 
 def test_a_card_judged_against_a_confirmed_brief_is_traced(tmp_path: Path) -> None:
-    home, variants = a_home_with_a_build(tmp_path)
+    home, variants = a_home(tmp_path)
     roots = Roots(home / ".cad" / "briefs", home / ".cad" / "projects")
     brief_id = briefs.create_brief(roots, BRIEF_TEXT, new_project_id()).id
-    write_transcript(
-        variants, judged_card(confirm_on_page(roots, brief_id, drafts(LIGHT, FRIENDLY)))
-    )
+    card = judged_card(confirm_on_page(roots, brief_id, drafts(LIGHT, FRIENDLY)))
+    write_transcript(variants, card.model_copy(update={"variant_id": scored_variant(variants)}))
     traced = trace_session(home, transcript_of(variants))
     assert traced.traced, traced.untraced
     assert (traced.strict_pass, traced.coverage) == (
@@ -176,16 +176,18 @@ def test_a_card_judged_against_a_confirmed_brief_is_traced(tmp_path: Path) -> No
 
 
 def test_rates_count_the_requirements_of_the_last_card_once(tmp_path: Path) -> None:
-    home, variants = a_home_with_a_build(tmp_path)
+    home, variants = a_home(tmp_path)
     roots = Roots(home / ".cad" / "briefs", home / ".cad" / "projects")
     brief_id = briefs.create_brief(roots, BRIEF_TEXT, new_project_id()).id
     card = judged_card(confirm_on_page(roots, brief_id, drafts(LIGHT, FRIENDLY)))
-    second = entry.VariantId("fedcba9876543210")
-    entry.save(variants, second, "x = 2\n", Build(outcome=Built(), output=""), BREP)
-    (variants / second / entry.STEP).write_bytes(STEP)
-    write_transcript(variants, card, card.model_copy(update={"variant_id": second}))
+    first, second = scored_variant(variants), scored_variant(variants, "x = 2\n")
+    write_transcript(
+        variants,
+        card.model_copy(update={"variant_id": first}),
+        card.model_copy(update={"variant_id": second}),
+    )
     traced = trace_session(home, transcript_of(variants))
-    assert traced.cards == 2
+    assert traced.traced, traced.untraced
     assert traced.coverage == Share(numerator=1, denominator=2)
 
 

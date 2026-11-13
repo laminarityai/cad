@@ -14,7 +14,7 @@ from cad.briefs import store as briefs
 from cad.checks.result import Measure
 from cad.projects.model import new_project_id
 from cad.sandbox.outcome import Build, Built
-from cad.scorecard.model import AwaitingConfirmation, Scorecard
+from cad.scorecard.model import AgainstBrief, AwaitingConfirmation, Scorecard
 from cad.variants import entry
 from tests.support.cards import (
     BREP,
@@ -159,6 +159,33 @@ def test_awaiting_and_no_brief_cards_count_apart_and_fail_only_when_judgment_is_
 
 
 OTHER_VARIANT = "fedcba9876543210"
+
+
+def test_an_awaiting_card_is_still_awaiting_only_until_a_later_card_judges_its_variant(
+    store: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    judged = judged_against_a_brief(store)
+    assert isinstance(judged.basis, AgainstBrief)
+    waiting = judged.model_copy(
+        update={"basis": AwaitingConfirmation(brief_id=judged.basis.brief_id)}
+    )
+    entry.save(
+        store, entry.VariantId(OTHER_VARIANT), "x = 2\n", Build(outcome=Built(), output=""), BREP
+    )
+    (store / OTHER_VARIANT / entry.STEP).write_bytes(STEP)
+    elsewhere = waiting.model_copy(update={"variant_id": OTHER_VARIANT})
+    write_transcript(store, waiting, judged)
+    assert main([*arguments_for(store), "--require-judged"]) == 0
+    assert "cards judged: 1, awaiting confirmation: 0 (1 judged later), no brief: 0" in (
+        lines(capsys)
+    )
+    write_transcript(store, waiting, elsewhere, judged)
+    assert main([*arguments_for(store), "--require-judged"]) == 1
+    assert "cards judged: 1, awaiting confirmation: 1 (1 judged later), no brief: 0" in (
+        lines(capsys)
+    )
+    write_transcript(store, judged, waiting)
+    assert main([*arguments_for(store), "--require-judged"]) == 1
 
 
 def test_a_card_whose_deciding_measure_has_the_wrong_dimension_is_misjudged_and_the_run_goes_on(
