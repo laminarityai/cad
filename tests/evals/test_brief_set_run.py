@@ -6,7 +6,16 @@ import pytest
 import run
 from brief_set import load_set, prompt_for
 from friction import minutes_to_first_result, read_pages
-from outcome import BriefResult, Friction, Share, Trace, is_finished, read_results
+from outcome import (
+    NONE_COUNTED,
+    BriefResult,
+    Counted,
+    Friction,
+    Share,
+    Trace,
+    is_finished,
+    read_results,
+)
 from session import SessionFacts, SessionRun, failure_note
 from summary import markdown, summarize
 from tracefacts import NO_CARD, trace_session
@@ -45,12 +54,10 @@ def write_brief(directory: Path, name: str, text: str) -> None:
 def a_trace(**changes: object) -> Trace:
     base = Trace(
         traced=True,
-        cards=1,
-        judged=1,
+        shown=Counted(cards=1, judged=1, numbers=3, resolved=3),
+        read=NONE_COUNTED,
         awaiting=0,
         no_brief=0,
-        numbers=3,
-        resolved=3,
         untraced=(),
         agent_measurements=(),
         strict_pass=Share(numerator=1, denominator=2),

@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Final
 
 from chain import NotVerified, Stale, Unresolved
-from outcome import Share, Trace
+from outcome import NONE_COUNTED, Counted, Share, Trace
 from readings import READ_AFTER, read_after
 from trace_store import TracedStore, exit_code, tally, trace_cards
 from tracking import NoRequirements, track
@@ -22,29 +22,32 @@ def _share(found: TrackedShare) -> Share:
 
 
 def trace_session(home: Path, transcript: Path) -> Trace:
-    """Trace the cards the session was shown, then the server's reading of each variant it scored
-    with a brief. The rates come from the reading of the last variant scored, the judged state
-    the person sees after Confirm, or from the last card when nothing was scored with a brief."""
+    """Trace the cards the session was shown, each bound to the signed job results its own
+    variant, material and table version key, and the server's reading of each variant the session
+    scored with a brief, and count the two apart. The rates come from
+    the reading of the last variant scored, the judged state the person sees after Confirm, or
+    from the last card when nothing was scored with a brief."""
     stores = home / ".cad"
     variants = stores / "variants"
     roots = Roots(briefs=stores / "briefs", projects=stores / "projects")
-    shown = trace_cards(read_cards(transcript), variants, roots)
-    read = trace_cards(read_after(stores, shown), variants, roots)
-    found = TracedStore((*shown.cards, *read.cards))
-    counts = tally(found.traces)
+    cards = read_cards(transcript)
+    shown = trace_cards(cards, variants, roots, bind_jobs=True)
+    read = trace_cards(read_after(stores, cards), variants, roots, bind_jobs=False)
+    counts = tally((*shown.traces, *read.traces))
     untraced: list[str] = []
     measured: list[str] = []
-    for card in found.cards:
-        trace = card.trace
-        where = f"{READ_AFTER}, {trace.variant_id}" if card in read.cards else trace.variant_id
-        untraced += [f"{where}: {type(one).__name__} {one.reason}" for one in trace.failures]
-        for number in trace.numbers:
-            outcome = number.outcome
-            head = f"{where}: {number.label} = {number.value}"
-            if isinstance(outcome, Stale | Unresolved):
-                untraced.append(f"{head}: {type(outcome).__name__} {outcome.reason}")
-            elif isinstance(outcome, NotVerified):
-                measured.append(f"{head}: {outcome.reason}")
+    for prefix, store in (("", shown), (f"{READ_AFTER}, ", read)):
+        for card in store.cards:
+            trace = card.trace
+            where = prefix + trace.variant_id
+            untraced += [f"{where}: {type(one).__name__} {one.reason}" for one in trace.failures]
+            for number in trace.numbers:
+                outcome = number.outcome
+                head = f"{where}: {number.label} = {number.value}"
+                if isinstance(outcome, Stale | Unresolved):
+                    untraced.append(f"{head}: {type(outcome).__name__} {outcome.reason}")
+                elif isinstance(outcome, NotVerified):
+                    measured.append(f"{head}: {outcome.reason}")
     if counts.awaiting:
         untraced.append(f"{counts.awaiting} card(s) still awaiting confirmation")
     if counts.no_brief:
@@ -55,12 +58,10 @@ def trace_session(home: Path, transcript: Path) -> Trace:
     tracking = track(last[0].outcomes if last else ())
     return Trace(
         traced=exit_code(counts, require_judged=True) == 0,
-        cards=counts.cards,
-        judged=counts.judged,
+        shown=_counted(shown),
+        read=_counted(read),
         awaiting=counts.awaiting,
         no_brief=counts.no_brief,
-        numbers=counts.numbers,
-        resolved=counts.resolved,
         untraced=tuple(untraced),
         agent_measurements=tuple(measured),
         strict_pass=_share(tracking.strict_pass_rate),
@@ -72,19 +73,25 @@ def trace_session(home: Path, transcript: Path) -> Trace:
     )
 
 
+def _counted(store: TracedStore) -> Counted:
+    counts = tally(store.traces)
+    return Counted(
+        cards=counts.cards, judged=counts.judged, numbers=counts.numbers, resolved=counts.resolved
+    )
+
+
 def failed_trace(error: Exception) -> Trace:
     """The trace of a brief the tracer could not finish. It counts nothing and is not traced."""
     last = (str(error).splitlines() or [""])[-1]
     return Trace(
         traced=False,
-        cards=0,
-        judged=0,
+        shown=NONE_COUNTED,
+        read=NONE_COUNTED,
         awaiting=0,
         no_brief=0,
-        numbers=0,
-        resolved=0,
         untraced=(f"the tracer failed: {type(error).__name__}: {last}",),
         agent_measurements=(),
         strict_pass=NOTHING,
         coverage=NOTHING,
+        failed=True,
     )

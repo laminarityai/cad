@@ -3,7 +3,7 @@
 import hashlib
 from typing import Annotated, Final, Literal, Self
 
-from pydantic import Field, TypeAdapter, model_validator
+from pydantic import Field, model_validator
 
 from cad.briefs.model import MadeOf, Requirement
 from cad.briefs.store import ConfirmedSet
@@ -144,7 +144,3 @@ def _statement(pin: Requirement, scored: str) -> str:
         f"{said}. The materials table had no {scored} when the person confirmed this; it has "
         "one now, so the checks read the table's values, not researched ones."
     )
-
-
-STORED: Final = TypeAdapter[ReportedScorecard | Scorecard](ReportedScorecard | Scorecard)
-"""A stored card. Cards stored before the server reported the material have no `material`."""
