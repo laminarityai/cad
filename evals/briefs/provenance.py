@@ -2,12 +2,12 @@
 
 A scorecard is read as parsed data. The walk visits every quantity on it (a magnitude and a unit)
 and every bare int or float, so a number nobody thought of cannot hide in a new field. A number
-resolves when a placement rule accepts it. Today there is one: a `Measure` of a check result, which
-is either
+resolves when a placement rule accepts it:
 
-- computed by a registered check at the version that is current today, or
-- read by that check from the materials table, when the check declares the read in `READS`: the
-  value equals the table row found by exact key, and the result carries the row's `Source`.
+- a `Measure` of a check result, finished or measure-only, by `measures.trace_measure`;
+- a limit the person confirmed, or a research request's bound the server sets;
+- a number in a row with no verdict, a proposal waiting on the person or an assumption, by
+  `rows.place`. The row's own number is the agent's, and the step says so.
 
 A number in the card's `not_verified` list is the agent's own measurement. It is
 `NotVerified`, never resolved, and it fails nothing: ADR-0008 keeps it out of the exit.
@@ -35,6 +35,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+import rows
 from binding import Unbound, Unlinked, bind, link
 from cardnumbers import Found, numbers_in, path_of
 from chain import (
@@ -101,8 +102,10 @@ def trace_card(
     specs: Mapping[str, CheckSpec],
 ) -> CardTrace:
     basis = check_basis(roots, card)
+    store = rows.held(roots, card)
     numbers = tuple(
-        _place(card, found, table, specs, basis.shown) for found in numbers_in(card.model_dump())
+        _place(card, found, table, specs, basis.shown, store)
+        for found in numbers_in(card.model_dump())
     )
     bound = bind(root, card)
     linked = link(root, card)
@@ -122,6 +125,7 @@ def _place(
     table: MaterialsTable,
     specs: Mapping[str, CheckSpec],
     shown: Shown | None,
+    store: rows.Held | None,
 ) -> Traced:
     path = path_of(found.where)
     match found.where:
@@ -147,6 +151,9 @@ def _place(
             return Traced(path, found.value, NotVerified())
         case _:
             pass
+    in_row = rows.place(card, found.where, store, table, specs)
+    if in_row is not None:
+        return Traced(path, found.value, in_row)
     return Traced(path, found.value, Unresolved(f"no rule places a number at {path}"))
 
 
