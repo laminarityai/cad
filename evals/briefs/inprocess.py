@@ -174,19 +174,19 @@ def read_result(
     problems = [*([error] if error else []), *failures]
     report = next((one for one in events if one.get("kind") == "stop_report"), None)
     stop: str | None = None
-    text, revisions, bounds = "", 0, ()
+    text, builds, bounds = "", 0, ()
     if report is not None:
         run = log.read_run(tenant.roots, report["run_id"])
         assert isinstance(run.state, Stopped)
         reason = run.state.reason
         stop = reason.why if isinstance(reason, NeedsPerson) else reason.kind
-        text, revisions = run.state.report, len(run.state.history)
+        text, builds = run.state.report, len(run.state.builds)
         bounds = reason.bounds if isinstance(reason, NeedsPerson) else ()
     stopped_run = None
     if events:
         cid = ConversationId(events[0]["conversation_id"])
         stopped_run = store.read(tenant.conversations, cid).stopped_run
-    judged = judge(Expect.of(brief.grader), name != SCRIPTED, stop, text, revisions, bounds)
+    judged = judge(Expect.of(brief.grader), name != SCRIPTED, stop, text, builds, bounds)
     return AutoResult(
         id=brief.id,
         domain=brief.domain,
@@ -196,7 +196,7 @@ def read_result(
         stop=stop,
         bounds=bounds,
         report=text,
-        revisions=revisions,
+        builds=builds,
         stopped_run=stopped_run,
         variants=variant_count(base),
         containers=container_runs(base),

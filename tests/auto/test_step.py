@@ -18,6 +18,7 @@ from cad.auto.model import (
     Started,
     Stopped,
     StopReason,
+    Tried,
     Unsettled,
 )
 from cad.auto.step import fold, report, standing_of
@@ -187,13 +188,28 @@ def test_a_failed_build_never_passes_even_with_no_requirement_to_fail() -> None:
     assert state.history == (failed,)
 
 
+def test_every_build_under_the_run_counts_once_and_none_stops_it() -> None:
+    failed = Standing(revision=1, variant_id="v" * 16, code_sha256="b", built=False, marks=())
+    state = run(
+        Tried(code_sha256="a", variant_id="u" * 16),
+        Tried(code_sha256="a", variant_id="u" * 16),
+        Revised(standing=failed),
+        Tried(code_sha256="b", variant_id="v" * 16),
+    )
+    assert isinstance(state, Running)
+    assert (state.builds, state.history) == (("a", "b"), (failed,))
+    text = report(state.history, len(state.builds), NeedsPerson(why="agent_asked", note="x"), {})
+    assert "Builds tried: 2.\nThe latest the run checked did not build." in text
+    assert failed.variant_id not in text
+
+
 def test_the_report_labels_research_and_lists_the_unverified() -> None:
     rows = (checked("r1", PASS, researched=True), unverified("r2"))
     state = run(Revised(standing=settle(card(*rows))))
     assert isinstance(state, Stopped)
     assert "- requirement r1: passes on researched data" in state.report
     assert "neither pass nor fail: r2" in state.report
-    assert "Revisions tried: 1" in state.report
+    assert "Builds tried: 1." in state.report
 
 
 def test_the_report_lists_an_agent_check_pass_apart_with_its_label() -> None:
@@ -212,7 +228,7 @@ def test_the_persons_report_names_each_requirement_by_its_statement() -> None:
     state = run(Revised(standing=settle(card(*rows))))
     assert isinstance(state, Stopped)
     said = {"r1": "Mass at most 150 g", "r2": "Holds 5 kg"}
-    text = report(state.history, state.reason, said)
+    text = report(state.history, len(state.builds), state.reason, said)
     assert "- Mass at most 150 g: passes on researched data" in text
     assert "neither pass nor fail: Holds 5 kg" in text
     assert "r1" not in text
@@ -223,10 +239,10 @@ def test_the_persons_report_carries_each_checks_reason_and_names_the_option() ->
     standing = settle(card(*rows))
     said = {"r1": "Holds 5 kg", "r2": "Mass at most 150 g"}
     reason = NeedsPerson(why="agent_asked", note="stuck")
-    text = report((standing,), reason, said, "Thick walls, revision 2")
+    text = report((standing,), 3, reason, said, "Thick walls, revision 2")
     assert "- Holds 5 kg: unknown, and it is not a pass: the mesh did not converge" in text
     assert "- Mass at most 150 g: fails: 160 g" in text
-    assert "The latest is Thick walls, revision 2." in text
+    assert "Builds tried: 3.\nThe latest the run checked is Thick walls, revision 2." in text
     assert "could not decide" not in text
     assert standing.variant_id not in text
 

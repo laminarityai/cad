@@ -81,7 +81,9 @@ class AutoDriver:
         state = run.state
         brief_id = state.start.brief_id
         option = self._option(brief_id, state.history[-1].code_sha256) if state.history else None
-        said = report(state.history, state.reason, self._statements(brief_id), option)
+        said = report(
+            state.history, len(state.builds), state.reason, self._statements(brief_id), option
+        )
         return StopReport(run_id=run.run_id, reason=state.reason.kind, report=said)
 
     def nudge(self) -> str | None:

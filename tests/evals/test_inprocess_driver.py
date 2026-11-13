@@ -54,7 +54,7 @@ def test_a_cube_that_cannot_weigh_what_it_must_stops_with_its_bounds_before_any_
     assert bounds.quantity == "mass"
     assert "The mass must be at least 80 g, but" in bounds.statement
     assert result.stopped_run == result.run_id
-    assert (result.revisions, result.variants, result.containers) == (0, 0, 0)
+    assert (result.builds, result.variants, result.containers) == (0, 0, 0)
     assert result.pages == 1
     assert result.passed
     events = json.loads((tmp_path / "cube" / "events.json").read_text())
@@ -93,9 +93,9 @@ def test_the_agents_note_is_judged_only_for_a_live_model() -> None:
     assert missing == "the stop's report names none of mass"
 
 
-def test_the_revision_limit_and_the_bounds_of_a_conflict_are_judged() -> None:
-    limited = Expect.of({"expect": {"stop": "agent_asked", "within_revisions": 6}})
-    assert judge(limited, True, "agent_asked", "", 7, ()) == ("7 revisions, more than 6",)
+def test_the_build_limit_and_the_bounds_of_a_conflict_are_judged() -> None:
+    limited = Expect.of({"expect": {"stop": "agent_asked", "within_builds": 6}})
+    assert judge(limited, True, "agent_asked", "", 7, ()) == ("7 builds, more than 6",)
     conflict = Expect.of({"expect": {"stop": "conflict"}})
     assert judge(conflict, True, "conflict", "", 0, ()) == ("a conflict stop carried no Bounds",)
     held = (Bounds(quantity="mass", statement="a > b", requirements=("r1",)),)

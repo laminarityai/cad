@@ -3,7 +3,7 @@ import type { Working } from "@/features/chat/working";
 import { cn } from "@/lib/utils";
 import { reasonText, type RunView } from "./run";
 
-const tried = (revisions: number) => (revisions === 0 ? "no revision settled yet" : `${String(revisions)} ${revisions === 1 ? "revision" : "revisions"} tried`);
+const tried = (builds: number) => (builds === 0 ? "nothing built yet" : `${String(builds)} ${builds === 1 ? "build" : "builds"} tried`);
 
 const IDLE = "Nothing is working on it now. Send a message to carry it on, or stop it.";
 
@@ -26,11 +26,11 @@ export function RunStatus(props: { run: RunView | null; working: Working | null;
           <div className="min-w-0 flex-1 basis-44">
             <h3 className="text-[13px] text-ink-3">Auto run</h3>
             {run.status === "running" && working !== null ? (
-              <Loading label={`Running · ${tried(run.revisions)}`} />
+              <Loading label={`Running · ${tried(run.builds)}`} />
             ) : run.status === "running" ? (
               <>
                 <p role="status" className="text-[15px]">
-                  Running · {tried(run.revisions)}
+                  Running · {tried(run.builds)}
                 </p>
                 <p className="pt-0.5 text-[14px] text-ink-2">{IDLE}</p>
               </>

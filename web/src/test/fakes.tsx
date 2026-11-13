@@ -244,7 +244,7 @@ export function stoppedRun(runId: string, kind: StopReason["kind"], report: stri
   return {
     run_id: runId,
     settling: false,
-    state: { kind: "stopped", start: startOf(), history: [], reason, report },
+    state: { kind: "stopped", start: startOf(), history: [], builds: [], reason, report },
   };
 }
 
@@ -276,6 +276,7 @@ export function runningRun(revisions: number): AutoRun {
         built: true,
         marks: [],
       })),
+      builds: Array.from({ length: revisions }, (_, at) => String(at + 1).repeat(64)),
     },
   };
 }

@@ -27,6 +27,7 @@ async def test_the_stop_report_counts_every_build_under_the_run_once(
     for _ in range(2):
         await s.call("build_variant", code=FIRST, brief_id=brief_id, **PLA_CHOICE)
     await s.call("auto_revise", run_id=run_id, code=SECOND)
+    await s.call("auto_revise", run_id=run_id, code=FIRST)
     await s.call("auto_ask", run_id=run_id, note="stuck")
     state = s.run(run_id).state
     assert isinstance(state, Stopped)

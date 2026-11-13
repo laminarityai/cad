@@ -1791,6 +1791,8 @@ export interface components {
             start: components["schemas"]["Started"];
             /** @default [] */
             history: components["schemas"]["Standing"][];
+            /** @default [] */
+            builds: string[];
         };
         /** ScorecardSnapshot */
         ScorecardSnapshot: {
@@ -2003,6 +2005,8 @@ export interface components {
             kind: "stopped";
             start: components["schemas"]["Started"];
             history: components["schemas"]["Standing"][];
+            /** @default [] */
+            builds: string[];
             reason: components["schemas"]["StopReason"];
             report: string;
         };

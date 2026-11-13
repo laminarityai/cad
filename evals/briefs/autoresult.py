@@ -4,7 +4,7 @@ A brief's grader may carry an `expect` block:
 
     expect:
       stop: conflict          # a NeedsPerson reason, or all_pass
-      within_revisions: 6     # optional
+      within_builds: 6        # optional: every build under the run counts
       names: [[deflection, stiff], [mass, weigh]]   # optional, live models only
 
 `names` reads the note the agent wrote, so it is judged only for a live model: the scripted agent's
@@ -32,7 +32,7 @@ class Frozen(BaseModel):
 
 class Expect(Frozen):
     stop: str | None = None
-    within_revisions: int | None = None
+    within_builds: int | None = None
     names: tuple[tuple[str, ...], ...] = ()
 
     @staticmethod
@@ -49,7 +49,7 @@ class AutoResult(Frozen):
     stop: str | None
     bounds: tuple[Bounds, ...]
     report: str
-    revisions: int
+    builds: int
     stopped_run: str | None
     variants: int
     containers: int
@@ -68,7 +68,7 @@ def judge(
     live: bool,
     stop: str | None,
     report: str,
-    revisions: int,
+    builds: int,
     bounds: tuple[Bounds, ...],
 ) -> tuple[str, ...]:
     problems: list[str] = []
@@ -76,8 +76,8 @@ def judge(
         problems.append(f"expected the stop {expect.stop}, got {stop}")
     if stop == "conflict" and not bounds:
         problems.append("a conflict stop carried no Bounds")
-    if expect.within_revisions is not None and revisions > expect.within_revisions:
-        problems.append(f"{revisions} revisions, more than {expect.within_revisions}")
+    if expect.within_builds is not None and builds > expect.within_builds:
+        problems.append(f"{builds} builds, more than {expect.within_builds}")
     lowered = report.lower()
     for group in expect.names if live else ():
         if not any(word.lower() in lowered for word in group):
@@ -97,6 +97,6 @@ def summary_line(result: AutoResult) -> str:
     stop = result.stop or result.status
     extra = f"; {'; '.join(result.problems)}" if result.problems else ""
     return (
-        f"{result.id}: {verdict}, {stop}, {result.revisions} revisions, "
+        f"{result.id}: {verdict}, {stop}, {result.builds} builds, "
         f"{result.variants} variants, {result.seconds:.1f}s{extra}"
     )

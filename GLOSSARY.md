@@ -126,7 +126,7 @@ _Avoid_: Model, generator
 ## Auto
 
 **Auto run**:
-The agent revising a brief's variants against the checks without stopping. The agent starts one when a scored variant fails a requirement that the user confirmed and a check decides. It revises only against those requirements, never against an assumption. It stops when every such requirement passes, when it needs a decision from the user, when the agent judges that it is stuck, or when the user presses Stop. An account's usage limit also ends a run when it refuses a build. There are no modes, so the user picks nothing to start a run.
+The agent revising a brief's variants against the checks without stopping. The agent starts one when a scored variant fails a requirement that the user confirmed and a check decides. It revises only against those requirements, never against an assumption. It stops when every such requirement passes, when it needs a decision from the user, when the agent judges that it is stuck, or when the user presses Stop. An account's usage limit also ends a run when it refuses a build. The stop report counts the run's builds: every build the agent made under the run, once for each code, in a new slot or an old one, and whether or not it built. A build is not a revision, because a failed build adds none. There are no modes, so the user picks nothing to start a run.
 _Avoid_: Auto mode, Design mode, Plan mode
 
 **Hold**:
