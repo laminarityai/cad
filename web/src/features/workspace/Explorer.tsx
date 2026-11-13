@@ -11,9 +11,9 @@ import type { Brief, Doc, Part, ViewAction } from "./model";
 import { Dot } from "./bits";
 import { Children, Chevron, Files, ROW } from "./Files";
 
-function NoSlots({ state, working }: { state: Brief["state"]; working: Working | null }) {
-  const text = state === "waiting" ? "Needs your OK" : working !== null ? null : state === "empty" ? "No options yet" : "";
-  return <li className="px-2 py-1 text-[13px] text-ink-3">{text ?? <Shimmer>{workingLabel(working ?? { kind: "turn" })}</Shimmer>}</li>;
+function NoSlots({ brief, working }: { brief: Brief; working: Working | null }) {
+  const busy = brief.state !== "waiting" && working?.briefId === brief.id ? working : null;
+  return <li className="px-2 py-1 text-[13px] text-ink-3">{busy !== null ? <Shimmer>{workingLabel(busy)}</Shimmer> : brief.state === "waiting" ? "Needs your OK" : "No options yet"}</li>;
 }
 
 function BriefNode(props: { working: Working | null; brief: Brief; current: boolean; slot: number | undefined; open: boolean; cards: Record<string, Card>; dispatch: Dispatch<ViewAction>; toggle: () => void }) {
@@ -47,7 +47,7 @@ function BriefNode(props: { working: Working | null; brief: Brief; current: bool
       </div>
       <CollapsiblePanel>
         <Children>
-          {brief.slots.length === 0 ? <NoSlots state={brief.state} working={working} /> : null}
+          {brief.slots.length === 0 ? <NoSlots brief={brief} working={working} /> : null}
           {brief.slots.map((one) => {
             const latest = one.revisions.at(-1);
             const on = current && one.slot === slot;

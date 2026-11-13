@@ -8,7 +8,7 @@ import { ToolChips, type ToolRow } from "@/components/ui/tool-chips";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { isStopKind, reasonText } from "@/features/auto/run";
-import { workingLabel, type Working } from "@/features/chat/working";
+import { nowLabel, workingLabel, type Working } from "@/features/chat/working";
 import { Markdown } from "./Markdown";
 
 export const DOING: Record<string, string> = {
@@ -61,7 +61,7 @@ export function useProjectChat(conversationId: string | null, onChange?: (change
   return state;
 }
 
-type Shown = { kind: "line"; line: Line } | { kind: "activity"; key: number; lines: Extract<Line, { kind: "tool" }>[] };
+type Shown = { kind: "line"; line: Line } | { kind: "activity"; key: number; lines: Call[] };
 
 function grouped(lines: readonly Line[]): Shown[] {
   const out: Shown[] = [];
@@ -101,18 +101,48 @@ function detailOf(input: Record<string, unknown>): string[] {
   });
 }
 
-function rowOf(line: Extract<Line, { kind: "tool" }>): ToolRow {
-  return {
-    key: line.seq,
-    label: activityText([line.name]),
-    chip: CHIP[line.name]?.(line.input) ?? null,
-    status: line.result === null ? "running" : line.result.isError ? "refused" : "done",
-    detail: detailOf(line.input),
-  };
+type Call = Extract<Line, { kind: "tool" }>;
+
+/** The turn runs its calls one at a time, in order, so only the first open call of a live group runs. */
+function statusesOf(lines: readonly Call[], live: boolean): ToolRow["status"][] {
+  const first = lines.findIndex((one) => one.result === null);
+  return lines.map((one, at) => {
+    if (one.result !== null) return one.result.isError ? "refused" : "done";
+    if (!live) return "cut";
+    return at === first ? "running" : "queued";
+  });
 }
 
-function Activity({ lines, live }: { lines: Extract<Line, { kind: "tool" }>[]; live: boolean }) {
-  return <ToolChips summary={activityText(lines.map((one) => one.name))} rows={lines.map(rowOf)} live={live} />;
+const lower = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
+
+export function summaryText(lines: readonly Call[], live: boolean): string {
+  const statuses = statusesOf(lines, live);
+  const count = (status: ToolRow["status"]) => statuses.filter((one) => one === status).length;
+  const done = lines.filter((_, at) => statuses[at] === "done").map((one) => one.name);
+  const running = lines.find((_, at) => statuses[at] === "running");
+  const parts = [
+    ...(done.length > 0 ? [activityText(done)] : []),
+    ...(count("refused") > 0 ? [`${String(count("refused"))} refused`] : []),
+    ...(count("cut") > 0 ? [`${String(count("cut"))} did not finish`] : []),
+    ...(running ? [nowLabel(running.name)] : []),
+  ];
+  const text = parts.map(lower).join(", ");
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function Activity({ lines, live }: { lines: Call[]; live: boolean }) {
+  const statuses = statusesOf(lines, live);
+  const rows = lines.map((line, at): ToolRow => {
+    const status = statuses[at] ?? "done";
+    return {
+      key: line.seq,
+      label: status === "done" || status === "refused" ? activityText([line.name]) : nowLabel(line.name),
+      chip: CHIP[line.name]?.(line.input) ?? null,
+      status,
+      detail: detailOf(line.input),
+    };
+  });
+  return <ToolChips summary={summaryText(lines, live)} rows={rows} live={live} />;
 }
 
 export function driverText(text: string): string | null {
@@ -248,8 +278,10 @@ export function Composer(props: { placeholder: string; onSend: (text: string) =>
   );
 }
 
-export function ChatPane(props: { lines: readonly Line[]; working: Working | null; card: ReactNode; composer: ReactNode; status?: ReactNode }) {
-  const { lines, working, card, composer, status } = props;
+/** `since` is when the running turn started, when this page saw it start. */
+export function ChatPane(props: { lines: readonly Line[]; working: Working | null; since?: number | null; card: ReactNode; composer: ReactNode; status?: ReactNode }) {
+  const { lines, working, since = null, card, composer, status } = props;
+  const turnLive = working !== null && working.kind !== "checks";
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
     end.current?.scrollIntoView({ block: "end" });
@@ -257,8 +289,8 @@ export function ChatPane(props: { lines: readonly Line[]; working: Working | nul
   return (
     <section aria-label="Chat" aria-busy={working !== null} className="flex h-full min-h-0 flex-col">
       <div role="log" className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
-        {grouped(lines).map((one, at, all) => (one.kind === "activity" ? <Activity key={`a${String(one.key)}`} lines={one.lines} live={working !== null && at === all.length - 1} /> : <Said key={one.line.seq} line={one.line} />))}
-        {working === null ? null : <Loading label={workingLabel(working)} elapsed />}
+        {grouped(lines).map((one, at, all) => (one.kind === "activity" ? <Activity key={`a${String(one.key)}`} lines={one.lines} live={turnLive && at === all.length - 1} /> : <Said key={one.line.seq} line={one.line} />))}
+        {working === null ? null : <Loading label={workingLabel(working)} since={since} />}
         {card}
         <div ref={end} />
       </div>

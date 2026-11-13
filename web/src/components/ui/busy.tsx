@@ -37,34 +37,34 @@ export function Spinner({ className }: { className?: string }) {
   );
 }
 
-function useSeconds(on: boolean): number {
-  const [seconds, setSeconds] = useState(0);
+function useSeconds(since: number | null): number {
+  const [now, setNow] = useState(Date.now);
   useEffect(() => {
-    if (!on) return;
-    const started = Date.now();
+    if (since === null) return;
     const tick = setInterval(() => {
-      setSeconds(Math.floor((Date.now() - started) / 1000));
+      setNow(Date.now());
     }, 1000);
     return () => {
       clearInterval(tick);
     };
-  }, [on]);
-  return seconds;
+  }, [since]);
+  return since === null ? 0 : Math.max(0, Math.floor((now - since) / 1000));
 }
 
 const clock = (seconds: number) => (seconds < 60 ? `${String(seconds)}s` : `${String(Math.floor(seconds / 60))}m ${String(seconds % 60)}s`);
 
-export function Loading({ label, elapsed = false, size = "regular", className }: { label: string; elapsed?: boolean; size?: "regular" | "small"; className?: string }) {
-  const seconds = useSeconds(elapsed);
+/** `since` is when the work really started, in epoch ms. With none known, no clock shows. */
+export function Loading({ label, since = null, size = "regular", className }: { label: string; since?: number | null; size?: "regular" | "small"; className?: string }) {
+  const seconds = useSeconds(since);
   return (
     <div role="status" data-loading className={cn("flex w-fit items-center gap-2.5", size === "small" ? "text-[13px]" : "text-[14px]", className)}>
       <Grid />
       <Shimmer className="font-medium">{label}</Shimmer>
-      {elapsed ? (
+      {since === null ? null : (
         <span aria-hidden className="font-mono text-[12px] tabular-nums text-ink-3">
           {clock(seconds)}
         </span>
-      ) : null}
+      )}
     </div>
   );
 }

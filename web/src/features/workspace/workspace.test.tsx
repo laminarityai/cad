@@ -191,7 +191,7 @@ describe("the chat's driver line", () => {
   });
 
   it("tells a driver when the agent's turn is running", () => {
-    const { rerender } = render(<ChatPane lines={[]} working={{ kind: "turn" }} card={null} composer={null} />);
+    const { rerender } = render(<ChatPane lines={[]} working={{ kind: "turn", briefId: null }} card={null} composer={null} />);
     expect(screen.getByRole("region", { name: "Chat" })).toHaveAttribute("aria-busy", "true");
     rerender(<ChatPane lines={[]} working={null} card={null} composer={null} />);
     expect(screen.getByRole("region", { name: "Chat" })).toHaveAttribute("aria-busy", "false");

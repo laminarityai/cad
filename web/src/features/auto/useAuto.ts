@@ -8,6 +8,8 @@ export const CONVERSATION_FOLLOW_MS = 3000;
 
 export interface Auto {
   run: RunView | null;
+  /** The brief the conversation was started on, if it was started on one. */
+  briefId: string | null;
   problem: string | null;
   stop(): Promise<void>;
   reload(): void;
@@ -23,7 +25,8 @@ function runToShow(view: ConversationView | null): RunView | null {
 export function useAuto(conversationId: string): Auto {
   const { chat } = useServices();
   const { resource, reload } = useResource(() => chat.read(conversationId), `conversation:${conversationId}`, CONVERSATION_FOLLOW_MS);
-  const run = runToShow(resource.status === "ok" ? resource.data : null);
+  const view = resource.status === "ok" ? resource.data : null;
+  const run = runToShow(view);
   const [problem, setProblem] = useState<string | null>(null);
   const held = useRef(run);
   useEffect(() => {
@@ -42,5 +45,5 @@ export function useAuto(conversationId: string): Auto {
     reload();
   }, [chat, reload]);
 
-  return { run, problem, stop, reload };
+  return { run, briefId: view?.brief_id ?? null, problem, stop, reload };
 }

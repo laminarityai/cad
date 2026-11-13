@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, ChevronDown, X } from "lucide-react";
+import { Check, ChevronDown, CircleDashed, X } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "@/components/ui/collapsible";
 import { Shimmer, Spinner } from "@/components/ui/busy";
 import { cn } from "@/lib/utils";
@@ -13,19 +13,27 @@ export interface ToolRow {
   key: number;
   label: string;
   chip: string | null;
-  status: "running" | "done" | "refused";
+  /** `queued` waits for the running call before it. `cut` is a call whose turn ended before it returned. */
+  status: "running" | "queued" | "done" | "refused" | "cut";
   detail: readonly string[];
 }
 
 function Row({ row }: { row: ToolRow }) {
-  const icon =
-    row.status === "running" ? <Spinner className="size-4" /> : row.status === "refused" ? <X aria-hidden className="size-4 shrink-0 text-fail" /> : <Check aria-hidden className="size-4 shrink-0 text-ink-3" />;
+  const icon = {
+    running: <Spinner className="size-4" />,
+    queued: <CircleDashed aria-hidden className="size-4 shrink-0 text-ink-3" />,
+    refused: <X aria-hidden className="size-4 shrink-0 text-fail" />,
+    cut: <X aria-hidden className="size-4 shrink-0 text-ink-3" />,
+    done: <Check aria-hidden className="size-4 shrink-0 text-ink-3" />,
+  }[row.status];
   const head = (
     <>
       {icon}
       <span className="shrink-0 text-ink">{row.status === "running" ? <Shimmer>{row.label}</Shimmer> : row.label}</span>
       {row.chip === null ? null : <span className="min-w-0 truncate rounded-md border border-rule-2 bg-panel-2 px-1.5 py-px font-mono text-[12px] text-ink-2">{row.chip}</span>}
       {row.status === "refused" ? <span className="text-fail">refused</span> : null}
+      {row.status === "queued" ? <span>next</span> : null}
+      {row.status === "cut" ? <span>did not finish</span> : null}
     </>
   );
   if (row.detail.length === 0) return <li data-tool={row.status} className="flex h-7 items-center gap-2">{head}</li>;
