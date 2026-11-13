@@ -37,8 +37,6 @@ async function readMesh(api: Api, variantId: string, signal: AbortSignal): Promi
   }
 }
 
-/** Read one variant's mesh, keeping the last one drawn on screen while the next is made. With no
- * variant, read nothing and answer null. */
 export function useMesh(variantId: string): MeshState;
 export function useMesh(variantId: string | null): MeshState | null;
 export function useMesh(variantId: string | null): MeshState | null {

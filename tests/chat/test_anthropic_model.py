@@ -37,7 +37,9 @@ async def test_the_request_caches_the_tools_and_the_conversation_so_far() -> Non
     model = AnthropicModel(model="claude-sonnet-5-5", environ={})
     messages = Messages()
     model._client = SimpleNamespace(messages=messages)  # pyright: ignore[reportAttributeAccessIssue, reportPrivateUsage]
-    said = await model.reply("system", [Message(role="user", blocks=(Text(text="a block"),))], SPECS)
+    said = await model.reply(
+        "system", [Message(role="user", blocks=(Text(text="a block"),))], SPECS
+    )
     assert said.blocks == (Text(text="Done."),)
     assert messages.sent["cache_control"] == {"type": "ephemeral"}
     first, last = messages.sent["tools"]

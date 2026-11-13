@@ -49,7 +49,6 @@ function withEvent(lines: readonly Line[], seq: number, event: Event): readonly 
   }
 }
 
-/** A turn starts with the person's message or with the server telling the agent the person answered the page. */
 const STARTS_TURN: ReadonlySet<Event["kind"]> = new Set(["user", "driver"]);
 
 export function chatReducer(state: ChatState, action: ChatAction): ChatState {
