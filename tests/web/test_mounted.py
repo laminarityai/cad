@@ -17,9 +17,11 @@ def test_the_hosted_app_serves_the_page_without_a_session_and_keeps_its_other_ro
     dist = tmp_path / "dist"
     dist.mkdir()
     (dist / "index.html").write_text("<div id=root></div>")
+    (dist / "landing.html").write_text("<h1>landing</h1>")
     tenants = Tenants(tmp_path / "accounts", 60, Door(wait_seconds=0.3), ingest)
     local = LocalIssuer.open(tmp_path, BASE)
     app = build_app(local.issuer(), tenants, LocalSignIn(local), web=dist)
     with TestClient(app, base_url=BASE, follow_redirects=False) as client:
-        assert client.get("/app/projects/p1").status_code == 200
+        assert client.get("/").text == "<h1>landing</h1>"
+        assert client.get("/app/projects/p1").text == "<div id=root></div>"
         assert client.get("/v1/projects").status_code == 401

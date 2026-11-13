@@ -7,12 +7,14 @@ from starlette.testclient import TestClient
 from cad.web.static import ASSET_CACHE, NOT_BUILT, PAGE_CACHE, web_routes
 
 PAGE = "<!doctype html><div id=root></div>"
+LANDING = "<!doctype html><h1>landing</h1>"
 
 
 @pytest.fixture
 def dist(tmp_path: Path) -> Path:
     (tmp_path / "dist" / "assets").mkdir(parents=True)
     (tmp_path / "dist" / "index.html").write_text(PAGE)
+    (tmp_path / "dist" / "landing.html").write_text(LANDING)
     (tmp_path / "dist" / "assets" / "app-abc123.js").write_text("export {}")
     (tmp_path / "secret.txt").write_text("outside")
     return tmp_path / "dist"
@@ -22,10 +24,34 @@ def client(dist: Path) -> TestClient:
     return TestClient(Starlette(routes=web_routes(dist)), follow_redirects=False)
 
 
-def test_the_root_goes_to_the_app(dist: Path) -> None:
+def test_the_root_is_the_landing_page_and_is_not_cached(dist: Path) -> None:
     answer = client(dist).get("/")
+    assert answer.status_code == 200
+    assert answer.text == LANDING
+    assert answer.headers["cache-control"] == PAGE_CACHE
+    assert answer.headers["content-type"].startswith("text/html")
+
+
+def test_the_root_answers_a_head_request(dist: Path) -> None:
+    assert client(dist).head("/").status_code == 200
+
+
+def test_the_landing_page_is_not_the_app_page(dist: Path) -> None:
+    assert client(dist).get("/app/").text == PAGE
+
+
+def test_the_app_without_its_slash_still_goes_to_the_app(dist: Path) -> None:
+    answer = client(dist).get("/app")
     assert answer.status_code == 307
     assert answer.headers["location"] == "/app/"
+
+
+def test_a_build_without_the_landing_page_says_so_at_the_root(dist: Path) -> None:
+    (dist / "landing.html").unlink()
+    answer = client(dist).get("/")
+    assert answer.status_code == 503
+    assert answer.text == NOT_BUILT
+    assert client(dist).get("/app/").status_code == 200
 
 
 def test_the_app_page_is_not_cached(dist: Path) -> None:

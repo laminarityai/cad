@@ -1,4 +1,7 @@
-"""Serves the built web app under `/app`.
+"""Serves the built landing page at `/` and the built web app under `/app`.
+
+The landing page is `landing.html` in `dist`. It is public and static, so it needs no session,
+and it links to its own assets under `/app/assets`. It is not cached, like the app's page.
 
 A path with a file extension is an asset: it is served from `dist` or it is 404, so a missing
 script never answers with the page. Any other path under `/app` is a route of the app, and gets
@@ -16,6 +19,7 @@ from starlette.routing import Route
 ROOT: Final = Path(__file__).resolve().parents[3]
 DIST: Final = ROOT / "web" / "dist"
 PREFIX: Final = "/app"
+LANDING: Final = "landing.html"
 ASSET_CACHE: Final = "public, max-age=31536000, immutable"
 PAGE_CACHE: Final = "no-cache"
 NOT_BUILT: Final = "The web app is not built. Run `npm run build` in web/, or `uv run verify`."
@@ -26,6 +30,12 @@ def web_routes(dist: Path = DIST) -> list[Route]:
 
     async def to_app(_: Request) -> Response:
         return RedirectResponse(f"{PREFIX}/", status_code=307)
+
+    async def landing(_: Request) -> Response:
+        page = base / LANDING
+        if not page.is_file():
+            return PlainTextResponse(NOT_BUILT, status_code=503)
+        return FileResponse(page, headers={"Cache-Control": PAGE_CACHE})
 
     async def serve(request: Request) -> Response:
         index = base / "index.html"
@@ -43,7 +53,7 @@ def web_routes(dist: Path = DIST) -> list[Route]:
         return FileResponse(index, headers={"Cache-Control": PAGE_CACHE})
 
     return [
-        Route("/", to_app, methods=["GET"]),
+        Route("/", landing, methods=["GET", "HEAD"]),
         Route(PREFIX, to_app, methods=["GET"]),
         Route(f"{PREFIX}/", serve, methods=["GET", "HEAD"]),
         Route(f"{PREFIX}/{{path:path}}", serve, methods=["GET", "HEAD"]),

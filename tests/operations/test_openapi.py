@@ -27,7 +27,7 @@ NOT_API: Final = {
     ("GET", "/projects/{project_id}/confirm"): "the confirmation page, HTML for the browser",
     ("POST", "/projects/{project_id}/confirm"): "the confirmation page's form post",
     ("GET", "/local/sign-in"): "the local server's sign-in redirect, never hosted",
-    ("GET", "/"): "redirects to the web app",
+    ("GET", "/"): "the landing page, a static file",
     ("GET", "/app"): "redirects to the web app",
     ("GET", "/app/"): "the web app's static files",
     ("GET", "/app/{path:path}"): "the web app's static files",
