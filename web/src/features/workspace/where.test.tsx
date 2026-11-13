@@ -49,7 +49,7 @@ const SHAPES = {
   bb: { xmin: 0, xmax: 1, ymin: 0, ymax: 1, zmin: 0, zmax: 0 },
 } as unknown as Shapes;
 
-const feaResult = (instance: string, where?: { support: number[]; load: number[] }): DoneCheck => ({
+const feaResult = (instance: string, where?: DoneCheck["where"]): DoneCheck => ({
   ...massResult(),
   check_id: "fea",
   measured: [],
@@ -87,6 +87,19 @@ describe("the faces on a stress requirement's row", () => {
     ]);
     const half = snapshot("v1", [stress("case-a", { requirement_id: "r2" }), stress("case-b", { requirement_id: "r3" })], [own("case-a", "formula of case a", "https://a.example"), { ...feaPending(), instance: "case-b" }]);
     expect(linesOf(restore(half)).asked.map((one) => one.status)).toEqual(["fail", "running"]);
+  });
+
+  it("are the faces that decided the row's own measure", () => {
+    const comparing = (measure: string, requirement_id: string): Checked => {
+      const base = stress("case-a", { requirement_id });
+      return { ...base, comparisons: base.comparisons.map((one) => ({ ...one, measure })) };
+    };
+    const where = { support: [0], load: [1], displacement: { support: [0], load: [2] } };
+    const wire = snapshot("v1", [comparing("max_displacement", "r2"), comparing("safety_factor", "r3")], [feaResult("case-a", where)]);
+    expect(linesOf(restore(wire)).asked.map((one) => one.where)).toEqual([
+      { support: [0], load: [2] },
+      { support: [0], load: [1] },
+    ]);
   });
 
   it("are not on a row of another check", () => {

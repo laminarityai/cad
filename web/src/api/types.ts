@@ -1037,6 +1037,17 @@ export interface components {
             edges: number[];
         };
         /**
+         * Faces
+         * @description Faces of the variant that the `fea` check fixed (`support`) and pressed on (`load`), as
+         *     indices in the kernel's explorer order of the BREP the check read. The 3D view numbers the
+         *     faces of the same BREP the same way. The check finds them and the agent never names one
+         *     (ADR-0007).
+         */
+        Faces: {
+            support: number[];
+            load: number[];
+        };
+        /**
          * Facing
          * @description Fixed at one of two flat faces that face each other across a gap.
          */
@@ -1618,6 +1629,19 @@ export interface components {
             kind: "plus_minus";
             within: components["schemas"]["Length"];
         };
+        /**
+         * Printed
+         * @description Printed specimens pulled in `direction`: X-Y in the build plane, Z across the layers, and
+         *     None when the page does not say.
+         */
+        Printed: {
+            direction: ("X-Y" | "Z") | null;
+            /**
+             * @default printed
+             * @constant
+             */
+            form: "printed";
+        };
         /** ProjectConversation */
         ProjectConversation: {
             conversation_id: string;
@@ -1655,6 +1679,7 @@ export interface components {
         /**
          * ReadCited
          * @description The check read a value that a reviewed row in git cites; `sources` names the row's source.
+         *     `specimen`, on a strength, says how the specimens behind it were made, as that source does.
          */
         ReadCited: {
             /**
@@ -1663,6 +1688,8 @@ export interface components {
              */
             kind: "cited";
             field: string;
+            /** @default null */
+            specimen?: components["schemas"]["Specimen"] | null;
         };
         /**
          * ReadMissing
@@ -1852,6 +1879,17 @@ export interface components {
             normal_len: number;
             bb: components["schemas"]["BoundingBoxWire"];
         };
+        /**
+         * Sheet
+         * @description Specimens of plastic sheet, not printed.
+         */
+        Sheet: {
+            /**
+             * @default sheet
+             * @constant
+             */
+            form: "sheet";
+        };
         /** Source */
         Source: {
             url: string;
@@ -1862,6 +1900,7 @@ export interface components {
             standard: string | null;
             quote: string;
         };
+        Specimen: components["schemas"]["Printed"] | components["schemas"]["Wrought"] | components["schemas"]["Sheet"];
         /** Standing */
         Standing: {
             revision: number;
@@ -1874,6 +1913,11 @@ export interface components {
             ][];
             /** @default [] */
             described?: string[];
+            /** @default [] */
+            reasons?: [
+                string,
+                string
+            ][];
         };
         /** Started */
         Started: {
@@ -2129,14 +2173,29 @@ export interface components {
         };
         /**
          * Where
-         * @description The faces of the variant that the `fea` check's deciding candidate fixed (`support`) and
-         *     pressed on (`load`), as indices in the kernel's explorer order of the BREP the check read. The
-         *     3D view numbers the faces of the same BREP the same way. The check finds them and the agent
-         *     never names one (ADR-0007).
+         * @description `support` and `load` are the faces of the candidates that decided the stress. `displacement`
+         *     holds the faces of the candidates that decided the displacement, when they are others. A
+         *     candidate within the check's stated error of the worst is shown with it, since the check cannot
+         *     tell them apart.
          */
         Where: {
             support: number[];
             load: number[];
+            /** @default null */
+            displacement?: components["schemas"]["Faces"] | null;
+        };
+        /**
+         * Wrought
+         * @description Wrought metal in `condition`, the temper or condition the page prints, such as T6, T651
+         *     or hot-rolled, and None when the page prints none.
+         */
+        Wrought: {
+            condition: string | null;
+            /**
+             * @default wrought
+             * @constant
+             */
+            form: "wrought";
         };
         /** Read */
         cad__auto__model__Read: {
@@ -2292,6 +2351,7 @@ export type ExportPreparing = components['schemas']['ExportPreparing'];
 export type ExportReady = components['schemas']['ExportReady'];
 export type ExportView = components['schemas']['ExportView'];
 export type FaceFacts = components['schemas']['FaceFacts'];
+export type Faces = components['schemas']['Faces'];
 export type Facing = components['schemas']['Facing'];
 export type FarEnd = components['schemas']['FarEnd'];
 export type FastenerHoles = components['schemas']['FastenerHoles'];
@@ -2354,6 +2414,7 @@ export type PersonStop = components['schemas']['PersonStop'];
 export type Picked = components['schemas']['Picked'];
 export type PlainHoles = components['schemas']['PlainHoles'];
 export type PlusMinus = components['schemas']['PlusMinus'];
+export type Printed = components['schemas']['Printed'];
 export type ProjectConversation = components['schemas']['ProjectConversation'];
 export type ProjectList = components['schemas']['ProjectList'];
 export type ProjectSummary = components['schemas']['ProjectSummary'];
@@ -2379,7 +2440,9 @@ export type SetByAgent = components['schemas']['SetByAgent'];
 export type SetByRequirement = components['schemas']['SetByRequirement'];
 export type ShapeWire = components['schemas']['ShapeWire'];
 export type ShapesWire = components['schemas']['ShapesWire'];
+export type Sheet = components['schemas']['Sheet'];
 export type Source = components['schemas']['Source'];
+export type Specimen = components['schemas']['Specimen'];
 export type Standing = components['schemas']['Standing'];
 export type Started = components['schemas']['Started'];
 export type Status = components['schemas']['Status'];
@@ -2410,6 +2473,7 @@ export type Vec = components['schemas']['Vec'];
 export type Verdict = components['schemas']['Verdict'];
 export type Waiting = components['schemas']['Waiting'];
 export type Where = components['schemas']['Where'];
+export type Wrought = components['schemas']['Wrought'];
 export type CadAutoModelRead = components['schemas']['cad__auto__model__Read'];
 export type CadChecksResultRead = components['schemas']['cad__checks__result__Read'];
 export type ResponseRefused = components['responses']['Refused'];

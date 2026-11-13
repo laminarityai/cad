@@ -38,13 +38,17 @@ class MeasuredWire(TypedDict):
     unit: str
 
 
-class WhereWire(TypedDict):
-    """The faces of the variant that the deciding candidate of a load case fixed and loaded, as
-    indices in the kernel's explorer order of the BREP the check read. The viewer numbers the same
-    BREP's faces the same way, so an index names one face in both."""
+class FacesWire(TypedDict):
+    """Faces of the variant that a load case fixed and loaded, as indices in the kernel's explorer
+    order of the BREP the check read. The viewer numbers the same BREP's faces the same way, so an
+    index names one face in both."""
 
     support: list[int]
     load: list[int]
+
+
+class WhereWire(FacesWire):
+    displacement: NotRequired[FacesWire]
 
 
 class FindingWire(TypedDict):

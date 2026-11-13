@@ -11,6 +11,7 @@ materials:
         standard: ISO 1183
         quote: Density [g/cm3 ] 1.24 ISO 1183
     yield_strength:
+      specimen: {printed: X-Y}
       value: 51 MPa
       source:
         url: https://storage.googleapis.com/prusa3d-content-prod-14e8-wordpress-prusament-prod/2024/05/7ca620c4-prusament-pla-plablend.zip
@@ -51,6 +52,7 @@ materials:
         standard: ISO 1183
         quote: Density [g/cm3] 1.27 ISO 1183
     yield_strength:
+      specimen: {printed: X-Y}
       value: 47 MPa
       source:
         url: https://storage.googleapis.com/prusa3d-content-prod-14e8-wordpress-prusament-prod/2023/10/9f8d2165-tds_prusament-petg_n_en.pdf
@@ -84,6 +86,7 @@ materials:
         quote: Density ISO1183, GB/T1033 1.04 g/cm3 at 23 °C
     yield_strength: unknown
     tensile_strength:
+      specimen: {printed: X-Y}
       value: 33.4 MPa
       source:
         url: https://polymaker.com/wp-content/uploads/lana-downloads/TDS_Polymaker_PolyLite-ABS_V5.6_2025-12-30_EN.pdf
@@ -123,6 +126,7 @@ materials:
         standard: null
         quote: Nominal Density (68 °F/20 °C) 0.098 lbs./in.3 2.70 Mg/m3
     yield_strength:
+      specimen: {wrought: "T6, T651"}
       value: 276 MPa
       source:
         url: https://online.kaiseraluminum.com/depot/PublicProductInformation/Document/1015/Kaiser_Aluminum_6061_Sheet_Coil_and_Plate.pdf
@@ -132,6 +136,7 @@ materials:
         standard: null
         quote: KSI MPa KSI MPa KSI x 10 3 Gpa T451 35 241 21 145 25 65 24 165 14 97 10.0 68.3 T6, T651 45 310 40 276 17 95 30 207 14 97 10.0 68.3
     tensile_strength:
+      specimen: {wrought: "T6, T651"}
       value: 310 MPa
       source:
         url: https://online.kaiseraluminum.com/depot/PublicProductInformation/Document/1015/Kaiser_Aluminum_6061_Sheet_Coil_and_Plate.pdf
@@ -171,6 +176,7 @@ materials:
         standard: null
         quote: Density, lbs/in.3 (g/cm3) 0.29 (8.03)
     yield_strength:
+      specimen: {wrought: null}
       value: 42 ksi
       source:
         url: https://www.clevelandcliffs.com/_assets/_7ce3a04c09e74bf31ff5f89fc888db25/clevelandcliffs/db/1190/10510/file/CLF_ProductData_304-304LSS_052021.pdf
@@ -180,6 +186,7 @@ materials:
         standard: null
         quote: UTS, ksi. (MPa) 0.2% YS, ksi. (MPa) Elongation % in 2 in. (50.8 mm) Rockwell Hardness, B Type 304 95 (655) 42 (290) 55 84
     tensile_strength:
+      specimen: {wrought: null}
       value: 95 ksi
       source:
         url: https://www.clevelandcliffs.com/_assets/_7ce3a04c09e74bf31ff5f89fc888db25/clevelandcliffs/db/1190/10510/file/CLF_ProductData_304-304LSS_052021.pdf
@@ -220,6 +227,7 @@ materials:
         quote: Density ISO 1183 1.24 g/cm³
     yield_strength: unknown
     tensile_strength:
+      specimen: {printed: X-Y}
       value: 35 MPa
       source:
         url: https://store.bblcdn.com/s1/default/58b85d0f3db94878854a28fdb8a0006e/Bambu_PLA_Basic_Technical_Data_Sheet.pdf
@@ -252,6 +260,7 @@ materials:
         quote: Density ISO 1183 1.25 g/cm³
     yield_strength: unknown
     tensile_strength:
+      specimen: {printed: X-Y}
       value: 51 MPa
       source:
         url: https://store.bblcdn.com/s1/default/cb94589bf7994fdcbfa833badefae9cd/Bambu_PETG_Basic_Technical_Data_Sheet.pdf
@@ -284,6 +293,7 @@ materials:
         quote: Density ISO 1183 1.28 g/cm³
     yield_strength: unknown
     tensile_strength:
+      specimen: {printed: X-Y}
       value: 34 MPa
       source:
         url: https://store.bblcdn.com/3a230e260a3a47c2b0db0156e07eef91.pdf
@@ -316,6 +326,7 @@ materials:
         quote: Density ISO 1183 1.05 g/cm³
     yield_strength: unknown
     tensile_strength:
+      specimen: {printed: X-Y}
       value: 33 MPa
       source:
         url: https://store.bblcdn.com/s7/default/23b4cf2b83d5470bb96d19970b5f3ae8/Bambu_ABS_Technical_Data_Sheet_V3.pdf
@@ -356,6 +367,7 @@ materials:
         quote: Density ISO 1183 1.05 g/cm³
     yield_strength: unknown
     tensile_strength:
+      specimen: {printed: X-Y}
       value: 37 MPa
       source:
         url: https://store.bblcdn.com/ad7b08230c164e72856cffbe06bb7dc9.pdf
@@ -388,6 +400,7 @@ materials:
         quote: Density ISO 1183 1.22 g/cm³
     yield_strength: unknown
     tensile_strength:
+      specimen: {printed: X-Y}
       value: 27.3 MPa
       source:
         url: https://store.bblcdn.com/58df32731eab4c90a7dac9b12e13ba88.pdf
@@ -412,6 +425,7 @@ materials:
         quote: Density ISO1183, GB/T1033 1.17 g/cm3 at 23°C
     yield_strength: unknown
     tensile_strength:
+      specimen: {printed: X-Y}
       value: 109.3 MPa
       source:
         url: https://fiberon.polymaker.com/wp-content/uploads/TDS_FIBERON-PA6-CF20_V1.1_EN.pdf
@@ -444,6 +458,7 @@ materials:
         quote: Density ISO1183, GB/T1033 1.06 g/cm3 at 23°C
     yield_strength: unknown
     tensile_strength:
+      specimen: {printed: X-Y}
       value: 77.4 MPa
       source:
         url: https://fiberon.polymaker.com/wp-content/uploads/TDS_FIBERON-PA12-CF10_V1.1_EN.pdf
@@ -476,6 +491,7 @@ materials:
         quote: Density ISO 1183 1.20 g/cm³
     yield_strength: unknown
     tensile_strength:
+      specimen: {printed: X-Y}
       value: 62 MPa
       source:
         url: https://store.bblcdn.com/a52afdccddfd448583d119587122c8c5.pdf
@@ -516,6 +532,7 @@ materials:
         quote: Density ISO1183, GB/T1033 1.19 g/cm3 at 23°C
     yield_strength: unknown
     tensile_strength:
+      specimen: {printed: X-Y}
       value: 53.44 MPa
       source:
         url: https://polymaker.com/wp-content/uploads/TDS_Polymaker_PolyMax-PC_V5.5_2026-01-05_EN.pdf
@@ -548,6 +565,7 @@ materials:
         quote: Density ISO 1183 1.22 g/cm³
     yield_strength: unknown
     tensile_strength:
+      specimen: {printed: X-Y}
       value: 38 MPa
       source:
         url: https://store.bblcdn.com/842f399d4e274507953a5231126ec8c1.pdf
@@ -580,6 +598,7 @@ materials:
         quote: Density ISO 1183 1.25 g/cm³
     yield_strength: unknown
     tensile_strength:
+      specimen: {printed: X-Y}
       value: 35 MPa
       source:
         url: https://store.bblcdn.com/626e4f424bf345ae965ad0ddfcaf2459.pdf
@@ -612,6 +631,7 @@ materials:
         quote: Density 1.21 g/cm3 (0.0437 lb/in3) 1.21 g/cm3 (0.0437 lb/in3) ASTM D792
     yield_strength: unknown
     tensile_strength:
+      specimen: {printed: null}
       value: 60 MPa
       source:
         url: https://formlabs-media.formlabs.com/filer_public/dd/7f/dd7f3de9-55ae-4c82-ac52-408a4b5df64d/clear_resin_v5_tds___formlabs.pdf
@@ -643,6 +663,7 @@ materials:
         standard: null
         quote: Metric 2.80 Mg/m3
     yield_strength:
+      specimen: {wrought: "T6, T651"}
       value: 503 MPa
       source:
         url: https://online.kaiseraluminum.com/depot/PublicProductInformation/Document/1028/Kaiser_Aluminum_7075_Rod_and_Bar.pdf
@@ -652,6 +673,7 @@ materials:
         standard: null
         quote: KSI MPa KSI MPa KSI x 10 3 Gpa 0 33 228 15 103 17 60 22 152 10.3 71.0 T6, T651 83 572 73 503 11 150 48 331 23 158 10.3 71.0
     tensile_strength:
+      specimen: {wrought: "T6, T651"}
       value: 572 MPa
       source:
         url: https://online.kaiseraluminum.com/depot/PublicProductInformation/Document/1028/Kaiser_Aluminum_7075_Rod_and_Bar.pdf
@@ -691,6 +713,7 @@ materials:
         standard: null
         quote: Density, lbs/in.3 (g/cm3) 0.29 (8.03)
     yield_strength:
+      specimen: {wrought: null}
       value: 42 ksi
       source:
         url: https://www.clevelandcliffs.com/_assets/_464c1f648dd1e0c96c45d68cdce1cf31/clevelandcliffs/db/1190/10513/file/CLF_ProductData_316-316LSS_052021.pdf
@@ -700,6 +723,7 @@ materials:
         standard: null
         quote: UTS, ksi. (MPa) 0.2% YS, ksi. (MPa) Elongation % in 2 in. (50.8 mm) Rockwell Hardness, B 91 (627) 42 (290) 55 79
     tensile_strength:
+      specimen: {wrought: null}
       value: 91 ksi
       source:
         url: https://www.clevelandcliffs.com/_assets/_464c1f648dd1e0c96c45d68cdce1cf31/clevelandcliffs/db/1190/10513/file/CLF_ProductData_316-316LSS_052021.pdf
@@ -739,6 +763,7 @@ materials:
         standard: null
         quote: Density 7.87 g/cm3 at 20°C
     yield_strength:
+      specimen: {wrought: hot-rolled}
       value: 36 ksi
       source:
         url: https://www.clevelandcliffs.com/_assets/_7ce3a04c09e74bf31ff5f89fc888db25/clevelandcliffs/db/1190/10480/file/CLF_ProductData_HotRolled_062025.pdf
@@ -748,6 +773,7 @@ materials:
         standard: null
         quote: Quality Designation Description YS UTS % Elong. in 2” Rockwell Hardnessksi. MPa ksi. MPa Commercial Steel (CS T ype B) May be moderately formed. A specimen out in any direction can be bent flat on itself without cracking. 36 248 51 351 37 B61
     tensile_strength:
+      specimen: {wrought: hot-rolled}
       value: 51 ksi
       source:
         url: https://www.clevelandcliffs.com/_assets/_7ce3a04c09e74bf31ff5f89fc888db25/clevelandcliffs/db/1190/10480/file/CLF_ProductData_HotRolled_062025.pdf
@@ -779,6 +805,7 @@ materials:
         standard: null
         quote: Density g/cm3 8.5
     yield_strength:
+      specimen: {wrought: R400}
       value: 200 MPa
       source:
         url: https://www.wieland.com/en/content/download/9839/file/Z23_EX_EN.pdf
@@ -788,6 +815,7 @@ materials:
         standard: EN 12164
         quote: Temper Diameter Width across flats Tensile strength Rm Yield strength R p0.2 Elongation % Hardness mm mm MPa MPa A100 A11.3 A HB from to from to min. min. max. min. min. min. min. max. M all all as manufactured – without specified mechanical properties R340 10 80 10 60 340 – 280 – – 20 – – H070 10 80 10 60 – – – – – – 70 120 R400 2 25 2 20 400 200
     tensile_strength:
+      specimen: {wrought: R400}
       value: 400 MPa
       source:
         url: https://www.wieland.com/en/content/download/9839/file/Z23_EX_EN.pdf
@@ -844,6 +872,7 @@ materials:
         quote: Density ρ 1.19 1.19 1.19 g/cm³ ISO 1183
     yield_strength: unknown
     tensile_strength:
+      specimen: {sheet: null}
       value: 80 MPa
       source:
         url: https://www.plexiglas.de/files/plexiglas-content/pdf/technische-informationen/211-1-EN-PLEXIGLAS-GS-XT.pdf
@@ -884,6 +913,7 @@ materials:
         quote: Density ρ 1.19 1.19 1.19 g/cm³ ISO 1183
     yield_strength: unknown
     tensile_strength:
+      specimen: {sheet: null}
       value: 72 MPa
       source:
         url: https://www.plexiglas.de/files/plexiglas-content/pdf/technische-informationen/211-1-EN-PLEXIGLAS-GS-XT.pdf
@@ -947,6 +977,7 @@ materials:
         standard: ISO 1183
         quote: Density ISO 1183 g/cm³ 1.2
     yield_strength:
+      specimen: {sheet: null}
       value: 62 MPa
       source:
         url: https://plaskolite.com/docs/default-source/pds/pds329_tuf_gp_metric.pdf
@@ -956,6 +987,7 @@ materials:
         standard: ISO 527-2
         quote: Tensile Strength, Yield ISO 527-2 MPa 62
     tensile_strength:
+      specimen: {sheet: null}
       value: 66 MPa
       source:
         url: https://plaskolite.com/docs/default-source/pds/pds329_tuf_gp_metric.pdf

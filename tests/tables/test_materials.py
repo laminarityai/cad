@@ -6,9 +6,11 @@ from typing import Any
 import pytest
 import yaml
 
+from cad.tables.fields import Printed, Wrought
 from cad.tables.materials import (
     FIELDS,
     TABLE_PATH,
+    FromTable,
     InvalidTable,
     Known,
     Unknown,
@@ -85,6 +87,58 @@ def test_rejects_value_without_source(tmp_path: Path) -> None:
 
     assert "kaiser-6061-t6: yield_strength has no source" in problems_after(
         tmp_path, "kaiser-6061-t6", edit
+    )
+
+
+def test_every_strength_names_how_its_specimens_were_made() -> None:
+    table = load_materials()
+    strengths = [
+        material.value(field)
+        for material in table.materials.values()
+        for field in ("yield_strength", "tensile_strength")
+    ]
+    known = [value for value in strengths if isinstance(value, Known)]
+    assert known
+    assert all(isinstance(value.basis, FromTable) and value.basis.specimen for value in known)
+    pla = table.get_material("prusament-pla").yield_strength
+    aluminium = table.get_material("kaiser-6061-t6").yield_strength
+    assert isinstance(pla, Known)
+    assert isinstance(aluminium, Known)
+    assert (pla.basis, aluminium.basis) == (
+        FromTable(Printed("X-Y")),
+        FromTable(Wrought("T6, T651")),
+    )
+
+
+@pytest.mark.parametrize(
+    ("specimen", "problem"),
+    [
+        (None, "yield_strength specimen must name one of printed, wrought or sheet"),
+        ({"printed": "X-Z"}, "yield_strength specimen 'printed': 'X-Z' is not printed X-Y, Z"),
+        (
+            {"printed": "X-Y", "sheet": None},
+            "yield_strength specimen must name one of printed, wrought or sheet",
+        ),
+    ],
+)
+def test_rejects_a_strength_without_one_specimen_its_page_states(
+    tmp_path: Path, specimen: object, problem: str
+) -> None:
+    def edit(row: Row) -> None:
+        if specimen is None:
+            del row["yield_strength"]["specimen"]
+        else:
+            row["yield_strength"]["specimen"] = specimen
+
+    assert f"prusament-pla: {problem}" in problems_after(tmp_path, "prusament-pla", edit)
+
+
+def test_rejects_a_specimen_on_a_value_that_is_not_a_strength(tmp_path: Path) -> None:
+    def edit(row: Row) -> None:
+        row["density"]["specimen"] = {"printed": "X-Y"}
+
+    assert "prusament-pla: density is not a strength, so it takes no specimen" in problems_after(
+        tmp_path, "prusament-pla", edit
     )
 
 

@@ -1,5 +1,5 @@
 import math
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import date
 from typing import Final
@@ -40,7 +40,13 @@ from cad.checks.container.mesher import (
 )
 from cad.checks.container.regions import FAR_FRACTION, Bore, Candidate, Plane, Resolved, Unresolved
 from cad.checks.container.vectors import Point, cross, dot, norm, sub
-from cad.checks.container.wire import FindingWire, MeasuredWire, SourceLiteral, WhereWire
+from cad.checks.container.wire import (
+    FacesWire,
+    FindingWire,
+    MeasuredWire,
+    SourceLiteral,
+    WhereWire,
+)
 
 ID = "fea"
 _END_DEG: Final = math.degrees(features.END_CONE_RAD)
@@ -115,6 +121,10 @@ CLAMPED_FACE_NOTE: Final = (
     "safety factor here are conservative."
 )
 LARGE_DISPLACEMENT_FRACTION: Final = 0.05
+STIFFER: Final = (
+    "make it stiffer where it bends, for example thicker or deeper there, shorter, or in a "
+    "stiffer material, and score it again"
+)
 TOL_FRACTION: Final = 1e-4
 
 
@@ -131,7 +141,7 @@ class Pair:
     pressed on."""
 
     peaks: Peaks
-    where: WhereWire
+    where: FacesWire
 
 
 @dataclass(frozen=True, slots=True)
@@ -139,8 +149,6 @@ class Solved:
     size_mm: float
     peaks: Peaks
     where: WhereWire
-    """The faces of the candidate with the largest von Mises stress, which is the one whose stress
-    the result reports."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -251,9 +259,9 @@ def judged(
     if fine.peaks.displacement > LARGE_DISPLACEMENT_FRACTION * part_extent:
         return finding(
             "unknown",
-            f"max_displacement {fine.peaks.displacement:g} mm is over "
-            f"{LARGE_DISPLACEMENT_FRACTION:.0%} of the part's {part_extent:g} mm extent, so a "
-            f"linear analysis does not hold{floored}",
+            f"the part bends {fine.peaks.displacement:.3g} mm under this load, over "
+            f"{LARGE_DISPLACEMENT_FRACTION:.0%} of its {part_extent:.3g} mm size, which is too "
+            f"far for a linear analysis to give a verdict; {STIFFER}{floored}",
             *measured,
             where=fine.where,
         )
@@ -286,7 +294,6 @@ def solve_at(
             return found
         pairs.append(found)
     peaks = [one.peaks for one in pairs]
-    deciding = max(pairs, key=lambda one: one.peaks.von_mises)
     return Solved(
         size_mm,
         Peaks(
@@ -294,8 +301,33 @@ def solve_at(
             force_n * max(one.von_mises for one in peaks),
             force_n * max(one.support_von_mises for one in peaks),
         ),
-        deciding.where,
+        where_of(pairs),
     )
+
+
+def where_of(pairs: Sequence[Pair]) -> WhereWire:
+    stressed = max(pairs, key=lambda one: one.peaks.von_mises)
+    stress = _deciding(pairs, lambda one: one.von_mises, STRESS_ERROR, stressed)
+    bending = _deciding(pairs, lambda one: one.displacement, DISPLACEMENT_ERROR, stressed)
+    return {**stress} if bending == stress else {**stress, "displacement": bending}
+
+
+def _deciding(
+    pairs: Sequence[Pair], peak: Callable[[Peaks], float], error: float, stressed: Pair
+) -> FacesWire:
+    top = max(peak(one.peaks) for one in pairs)
+    near = [one for one in pairs if peak(one.peaks) >= (1 - error) * top]
+    worst = stressed if stressed in near else max(near, key=lambda one: peak(one.peaks))
+    support, load = set(worst.where["support"]), set(worst.where["load"])
+    for one in near:
+        held, pressed = set(one.where["support"]), set(one.where["load"])
+        if _same_sides(held, pressed, support, load):
+            support, load = support | held, load | pressed
+    return {"support": sorted(support), "load": sorted(load)}
+
+
+def _same_sides(held: set[int], pressed: set[int], support: set[int], load: set[int]) -> bool:
+    return not held & load and not pressed & support
 
 
 def _unit_solve(
@@ -319,7 +351,7 @@ def _unit_solve(
         _worst_stress(fields, [i for i, inside in enumerate(near) if not inside]),
         _worst_stress(fields, [i for i, inside in enumerate(near) if inside]),
     )
-    where: WhereWire = {
+    where: FacesWire = {
         "support": list(surfaces_of(mesh, fixed)),
         "load": list(surfaces_of(mesh, loaded)),
     }

@@ -1,7 +1,7 @@
 import { useServices } from "@/app/context";
 import { useResources } from "@/state/resource";
 import { restore, type DoneCheck, type ResultLine, type RunningCheck, type Scorecard } from "@/api/snapshot";
-import type { Source } from "@/api/types";
+import type { Source, Specimen } from "@/api/types";
 import type { Axis, Extents } from "@/features/viewer/dimensions";
 import type { Where } from "@/features/viewer/where";
 
@@ -59,6 +59,7 @@ export interface Line {
   tag?: string;
   /** The faces the stress check held and pushed on, for the row of a requirement that check decided. */
   where?: Where;
+  specimen?: string;
 }
 
 const CHECK_NAMES: Record<string, string> = {
@@ -126,13 +127,40 @@ function statusOf(verdict: string, researched: boolean): Status {
 }
 
 /** The faces of the load case's own result: a requirement names the case, and each case has a result. */
-function whereOf(result: DoneCheck | undefined): Where | undefined {
-  if (result?.check_id !== "fea") return undefined;
-  const where = result.where;
-  return where && where.support.length + where.load.length > 0 ? where : undefined;
+function whereOf(result: DoneCheck | undefined, measures: readonly string[]): Where | undefined {
+  if (result?.check_id !== "fea" || !result.where) return undefined;
+  const { displacement, support, load } = result.where;
+  const faces = displacement && measures.includes("max_displacement") ? displacement : { support, load };
+  return faces.support.length + faces.load.length > 0 ? faces : undefined;
 }
 
 const DESCRIBED_TAG = "load case the agent described, not reviewed by our team";
+
+function specimenText(specimen: Specimen): string {
+  switch (specimen.form) {
+    case "printed":
+      if (specimen.direction === "X-Y") return "strength of prints pulled in the build plane (X-Y), not across layers";
+      return specimen.direction === "Z" ? "strength of prints pulled across layers (Z)" : "strength of printed specimens, direction not stated";
+    case "wrought":
+      return `strength of wrought metal, ${specimen.condition ?? "temper not stated"}`;
+    case "sheet":
+      return "strength of plastic sheet, not printed";
+  }
+}
+
+function specimenOf(result: DoneCheck | undefined): string | undefined {
+  for (const read of result?.reads ?? []) if (read.kind === "cited" && read.specimen) return specimenText(read.specimen);
+  return undefined;
+}
+
+function sentence(text: string): string {
+  const said = `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
+  return /[.!?]$/.test(said) ? said : `${said}.`;
+}
+
+function withUnpassedCheckReason(reason: string, result: DoneCheck | undefined): string {
+  return result && result.verdict !== "pass" ? `${reason} ${sentence(result.reason)}` : reason;
+}
 
 export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
   const results = snapshot.results;
@@ -185,8 +213,10 @@ export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
       }
       const researched = "basis" in one && one.basis === "researched";
       const described = "load_case" in one && one.load_case === "described";
-      const reason = "reason" in one ? one.reason : "";
-      const where = whereOf(result);
+      const reason = withUnpassedCheckReason("reason" in one ? one.reason : "", result);
+      const measures = "comparisons" in one ? one.comparisons.map((comparison) => comparison.measure) : [];
+      const where = whereOf(result, measures);
+      const specimen = measures.includes("safety_factor") ? specimenOf(result) : undefined;
       asked.push({
         key,
         label: short(one.statement),
@@ -198,6 +228,7 @@ export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
         sources: result?.sources ?? [],
         ...(described ? { tag: DESCRIBED_TAG } : {}),
         ...(where ? { where } : {}),
+        ...(specimen ? { specimen } : {}),
       });
     }
   }
@@ -217,6 +248,7 @@ export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
           formula: one.formula,
           sources: one.sources,
         };
+      const specimen = specimenOf(one);
       return {
         key: `check:${one.check_id}:${one.instance}`,
         label,
@@ -228,6 +260,7 @@ export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
         why: one.reason,
         formula: one.formula,
         sources: one.sources,
+        ...(specimen ? { specimen } : {}),
       };
     });
   return { asked, also };

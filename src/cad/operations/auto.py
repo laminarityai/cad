@@ -43,8 +43,10 @@ from cad.variants import entry
 SETTLE_SECONDS: Final = 600
 AUTO_START = (
     "Start an Auto run on a brief. Call it when a scored option fails a requirement the person "
-    "confirmed and a check decides. The run then revises the brief's options until every such "
-    "requirement passes or the run stops. Only a web app conversation can start a run, and any "
+    "confirmed and a check decides, or that check reads unknown with a reason that says to "
+    "change the design, such as a part that bends too far for the stress check to decide. The "
+    "run then revises the brief's options until every such requirement passes or the run "
+    "stops. Only a web app conversation can start a run, and any "
     "other caller is refused. The start is also refused when the brief has no confirmed "
     "requirement that a check decides, when a proposal on the brief waits for the person, and "
     "after any stop in this conversation until the person writes or answers. A run revises "
@@ -83,8 +85,9 @@ AUTO_REVISE = (
     "on the brief whose variant set holds it. The server builds the code "
     "into the run's brief's variant set, scores it with the run's material and returns the run. "
     "A running state holds history, one standing per revision with each confirmed "
-    "requirement's mark, and failing, the requirements of the latest revision that fail or are "
-    "unknown: revise against those. Only the check results on the scorecard the server "
+    "requirement's mark and reasons, why each requirement that fails or is unknown got its mark, "
+    "in the deciding check's own words when that check did not pass: revise against those. "
+    "Only the check results on the scorecard the server "
     "computed decide a mark, and your own measurements never count. unverified means no check "
     "covers the requirement, and it counts as neither pass nor fail. pass_researched rests on a "
     'researched value: report it as "passes on researched data". '

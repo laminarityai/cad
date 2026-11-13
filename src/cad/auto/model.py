@@ -63,6 +63,9 @@ class Standing(Frozen):
     marks: tuple[tuple[str, Mark], ...]
     described: tuple[str, ...] = Field(default=(), exclude_if=lambda one: not one)
     """The requirements among `marks` that rest on a load case the agent described."""
+    reasons: tuple[tuple[str, str], ...] = Field(default=(), exclude_if=lambda one: not one)
+    """Why each requirement among `marks` that fails or is unknown got its mark: the deciding
+    check's own reason when that check did not pass, else the scorecard's."""
 
 
 class Read(Frozen):
