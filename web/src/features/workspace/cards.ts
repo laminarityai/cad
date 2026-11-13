@@ -1,5 +1,5 @@
 import { useServices } from "@/app/context";
-import { useResources } from "@/state/resource";
+import { useResources, type Resource } from "@/state/resource";
 import { restore, type DoneCheck, type ResultLine, type RunningCheck, type Scorecard } from "@/api/snapshot";
 import type { Source, Specimen } from "@/api/types";
 import type { Axis, Extents } from "@/features/viewer/dimensions";
@@ -7,8 +7,24 @@ import type { Where } from "@/features/viewer/where";
 
 const POLL_MS = 1500;
 
-export interface Card {
-  snapshot: Scorecard | null;
+/** A card with no scorecard says why: its first read has not answered, the option was never
+ * scored, or the read failed. Only the first is work that is happening. */
+export type Card = { snapshot: Scorecard } | { snapshot: null; missing: "reading" | "not_scored" | "unread" };
+
+const NOT_SCORED = "NotScored";
+
+function cardOf(resource: Resource<Scorecard>): Card {
+  switch (resource.status) {
+    case "ok":
+      return { snapshot: resource.data };
+    case "loading":
+      return { snapshot: null, missing: "reading" };
+    case "error":
+      return { snapshot: null, missing: resource.kind === NOT_SCORED ? "not_scored" : "unread" };
+    case "signed_out":
+    case "not_found":
+      return { snapshot: null, missing: "unread" };
+  }
 }
 
 export interface CardKey {
@@ -20,7 +36,7 @@ export interface CardKey {
 const entryOf = (one: CardKey) => `${one.variantId}|${one.materialKey ?? ""}|${one.briefId}`;
 
 /** Polls each card instead of streaming it: a browser holds six connections per host, and the
- * chat stream and the meshes need theirs. A card shows once it has been read or has failed to be. */
+ * chat stream and the meshes need theirs. */
 export function useCards(keys: CardKey[]): Record<string, Card> {
   const { api } = useServices();
   const { resources } = useResources(
@@ -32,10 +48,7 @@ export function useCards(keys: CardKey[]): Record<string, Card> {
     POLL_MS,
   );
   const cards: Record<string, Card> = {};
-  for (const [entry, resource] of Object.entries(resources)) {
-    if (resource.status === "loading") continue;
-    cards[entry.split("|")[0] ?? ""] = { snapshot: resource.status === "ok" ? resource.data : null };
-  }
+  for (const [entry, resource] of Object.entries(resources)) cards[entry.split("|")[0] ?? ""] = cardOf(resource);
   return cards;
 }
 
@@ -311,11 +324,18 @@ export function awaitingOf(snapshot: Scorecard): Awaiting[] {
   }));
 }
 
+export const MISSING: Record<Extract<Card, { snapshot: null }>["missing"], string> = {
+  reading: "Reading the checks",
+  not_scored: "Not checked yet.",
+  unread: "The checks could not be read.",
+};
+
 export function summaryOf(card: Card | undefined): {
   status: Status | "none";
   text: string;
 } {
-  if (!card?.snapshot) return { status: "none", text: card ? "Checking" : "" };
+  if (!card) return { status: "none", text: "" };
+  if (!card.snapshot) return { status: "none", text: MISSING[card.missing] };
   const { asked, also } = linesOf(card.snapshot);
   const all = [...asked, ...also];
   if (all.some((one) => one.status === "running")) return { status: "running", text: "Checking" };

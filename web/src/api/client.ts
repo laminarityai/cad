@@ -3,6 +3,7 @@ import type {
   Added,
   BriefView,
   ConfirmationCard,
+  Error as Refusal,
   ExportFormat,
   ExportView,
   Declined,
@@ -32,10 +33,12 @@ export class NotFound extends Error {
   }
 }
 
+/** `kind` is the server's name for the refusal, such as `NotScored`, when it gives one. */
 export class Refused extends Error {
   constructor(
     readonly status: number,
     message: string,
+    readonly kind: string | null = null,
   ) {
     super(message);
     this.name = "Refused";
@@ -110,8 +113,8 @@ async function fetchJson<T>(method: Uppercase<Method>, url: string, body?: unkno
 async function refusal(response: Response, url: string): Promise<Error> {
   if (response.status === 401) return new SignedOut();
   if (response.status === 404) return new NotFound(url);
-  const said = (await response.json().catch(() => null)) as { error?: string } | null;
-  return new Refused(response.status, said?.error ?? `HTTP ${String(response.status)}`);
+  const said = (await response.json().catch(() => null)) as Partial<Refusal> | null;
+  return new Refused(response.status, said?.error ?? `HTTP ${String(response.status)}`, said?.kind ?? null);
 }
 
 /** A file goes as the raw body, which `request` does not send, with its name, unit and whether it is a withheld standard in the query. */

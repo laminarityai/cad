@@ -1,11 +1,11 @@
 import type { ReactNode } from "react";
 import { ChevronDown, CircleCheck, Crosshair, CircleDashed, CircleX, Sparkles } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "@/components/ui/collapsible";
-import { Shimmer, Spinner } from "@/components/ui/busy";
+import { Spinner } from "@/components/ui/busy";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { Line, Status } from "./cards";
-import { assumedOf, awaitingOf, linesOf, type Card } from "./cards";
+import { assumedOf, awaitingOf, linesOf, MISSING, type Card } from "./cards";
 import type { Material } from "./model";
 
 const DOT: Record<Exclude<Status, "running"> | "none", string> = {
@@ -167,9 +167,9 @@ export function Checks({ card, material, where = NO_WHERE }: { card: Card | unde
       </header>
       {!card ? (
         <p className="px-4 py-3 text-[15px] text-ink-3">Checks show once an option is built.</p>
-      ) : !snapshot ? (
-        <p className="flex items-center gap-2 px-4 py-3 text-[15px] text-ink-2">
-          <Spinner className="size-4" /> <Shimmer>Checking</Shimmer>
+      ) : card.snapshot === null ? (
+        <p data-missing={card.missing} className="px-4 py-3 text-[15px] text-ink-2">
+          {MISSING[card.missing]}
         </p>
       ) : (
         <div className="min-h-0 overflow-y-auto">

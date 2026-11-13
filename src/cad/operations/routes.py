@@ -149,7 +149,8 @@ def refusal(error: Refused | Unavailable) -> Response:
     if isinstance(error, Unavailable):
         return refuse(503, str(error))
     status = 404 if isinstance(error, NotFound) else 400
-    return refuse(status, f"{type(error).__name__}: {error}")
+    kind = type(error).__name__
+    return JSONResponse({"error": f"{kind}: {error}", "kind": kind}, status)
 
 
 def refuse(status: int, message: str, headers: dict[str, str] | None = None) -> Response:

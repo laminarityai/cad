@@ -47,12 +47,12 @@ describe("useCards", () => {
     expect(scorecard).toHaveBeenCalledTimes(4);
   });
 
-  it("has no card until the first answer, and an empty one when the first read fails", async () => {
+  it("is reading until the first answer, says unread when the first read fails, and then the snapshot", async () => {
     const scorecard = vi.fn().mockRejectedValueOnce(new Error("down")).mockImplementation((variantId: string) => Promise.resolve(wire(variantId)));
     const { result } = mount(scorecard, [key("v1")]);
-    expect(result.current).toEqual({});
+    expect(result.current).toEqual({ v1: { snapshot: null, missing: "reading" } });
     await settle();
-    expect(result.current.v1?.snapshot).toBeNull();
+    expect(result.current).toEqual({ v1: { snapshot: null, missing: "unread" } });
     await tick(1500);
     expect(result.current.v1?.snapshot?.variant_id).toBe("v1");
   });
