@@ -622,10 +622,21 @@ export interface components {
             brief_id: string;
         };
         /**
+         * AwaitingHoles
+         * @description A holes target's band beside each diameter the holes check measured, narrowest first. No
+         *     count of the holes that fall in the band is given: that is the judgment Confirm waits for.
+         */
+        AwaitingHoles: {
+            count: number | null;
+            low: components["schemas"]["Measured"];
+            high: components["schemas"]["Measured"];
+            measured: components["schemas"]["Measured"][];
+        };
+        /**
          * AwaitingRow
          * @description The person stated this target and has not confirmed it, so it is not judged. `instance`
          *     names the result of `check_id` that read its load, which the card reports as a `MeasureOnly`
-         *     with no verdict.
+         *     with no verdict. A holes target shows its band in `holes` and has no `values`.
          */
         AwaitingRow: {
             /**
@@ -643,6 +654,8 @@ export interface components {
             check_id: string;
             instance: string;
             values: components["schemas"]["AwaitingValue"][];
+            /** @default null */
+            holes: components["schemas"]["AwaitingHoles"] | null;
         };
         /** AwaitingValue */
         AwaitingValue: {
@@ -676,10 +689,12 @@ export interface components {
             zmin: number;
             zmax: number;
         };
-        /** Bounds */
+        /**
+         * Bounds
+         * @description `quantity` is mass, volume, or the `check:measure` a measure limit binds to.
+         */
         Bounds: {
-            /** @enum {string} */
-            quantity: "mass" | "volume";
+            quantity: string;
             statement: string;
             requirements: string[];
             /** @default [] */
@@ -2309,6 +2324,7 @@ export type Attached = components['schemas']['Attached'];
 export type AutoRun = components['schemas']['AutoRun'];
 export type AutoState = components['schemas']['AutoState'];
 export type AwaitingConfirmation = components['schemas']['AwaitingConfirmation'];
+export type AwaitingHoles = components['schemas']['AwaitingHoles'];
 export type AwaitingRow = components['schemas']['AwaitingRow'];
 export type AwaitingValue = components['schemas']['AwaitingValue'];
 export type Away = components['schemas']['Away'];

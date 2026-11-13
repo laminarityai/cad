@@ -5,6 +5,7 @@ from pathlib import Path
 from cad.auto.log import read_run
 from cad.auto.model import AutoRun, Capped, Proposed, Running, RunRefused, RunStopped, Started
 from cad.briefs import store as briefs
+from cad.briefs.store import Status
 from cad.conversations.store import record_event
 from cad.projects.membership import project_briefs
 from cad.projects.model import ProjectId
@@ -62,11 +63,17 @@ def watermark(roots: Roots, project: ProjectId) -> tuple[tuple[str, int], ...]:
 
 
 def _proposed_since(roots: Roots, start: Started) -> tuple[str, ...] | None:
+    """The rows each fresh proposal adds to the set confirmed before it, or None when no brief
+    has a fresh proposal. A carried confirmed row is not new, so it is not listed."""
     seen = dict(start.watermark)
     grew = False
     ids: list[str] = []
     for brief in project_briefs(roots, ProjectId(start.project)):
-        fresh = briefs.read_state(roots, brief).proposals[seen.get(brief, 0) :]
-        grew = grew or bool(fresh)
-        ids.extend(one.id for state in fresh for one in state.requirements)
+        held: set[str] = set()
+        for number, proposal in enumerate(briefs.read_state(roots, brief).proposals):
+            if number >= seen.get(brief, 0):
+                grew = True
+                ids.extend(one.id for one in proposal.requirements if one.id not in held)
+            if proposal.status is Status.CONFIRMED:
+                held = {one.id for one in proposal.requirements}
     return tuple(ids) if grew else None

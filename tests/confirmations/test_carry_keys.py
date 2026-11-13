@@ -39,6 +39,28 @@ async def test_a_new_limit_on_the_same_load_case_replaces_the_old_one(s: Session
     assert one["requirement"]["target"]["deflection"]["magnitude"] == 3
 
 
+async def test_two_limits_on_one_load_case_in_one_call_keep_the_stricter(s: Session) -> None:
+    brief_id = (await s.call("create_brief", text=WORDS))["brief_id"]
+    abuse = hole_hook()
+    abuse["load"]["force"] = {"magnitude": 150, "unit": "N"}
+    said = await s.text(
+        "propose_requirements",
+        brief_id=brief_id,
+        requirements=[
+            {
+                "target": {"kind": "min_safety_factor", "load": hole_hook(), "factor": 3},
+                "quote": "Will it hold 5 kg",
+            },
+            {
+                "target": {"kind": "min_safety_factor", "load": abuse, "factor": 1.2},
+                "quote": "About 49 N",
+            },
+        ],
+    )
+    assert "keep the one the brief states" not in said
+    assert "keep the stricter limit" in said and "unchecked" in said
+
+
 def mass_row(brief_id: str, grams: float) -> Requirement:
     target = MinMass.model_validate({"mass": {"magnitude": grams, "unit": "g"}})
     start = CUBE_TEXT.index("at least 50 g")
@@ -98,6 +120,33 @@ async def test_a_carried_row_keeps_the_label_of_the_persons_edit(s: Session) -> 
     assert mass["plain"] == "Mass at most 120 g"
     assert mass["edited_by_user"] == {"proposed": "150 g", "confirmed": "120 g"}
     assert shelf["edited_by_user"] is None
+
+
+async def test_an_earlier_proposal_takes_no_label_from_a_later_edit(s: Session) -> None:
+    at_120 = {
+        "target": {"kind": "max_mass", "mass": {"magnitude": 120, "unit": "g"}},
+        "quote": "under 150 g",
+    }
+    brief = await s.proposed(at_120)
+    await s.ask(brief)
+    first = store.read_state(s.roots, brief.brief_id).latest
+    assert first is not None
+    [kept] = first.requirement_ids
+    await s.call(
+        "propose_requirements",
+        brief_id=brief.brief_id,
+        requirements=[s.rows.under_150],
+        remove=[kept],
+    )
+    await s.ask(brief)
+    second = store.read_state(s.roots, brief.brief_id).latest
+    assert second is not None
+    [loose] = (one for one in second.requirement_ids if one != kept)
+    assert s.post(s.person.url, "confirm", fields={f"edit-0-{loose}": "120 g"})[0] == 200
+    listed = await s.call("list_requirements", brief_id=brief.brief_id)
+    [earlier], [later] = (one["requirements"] for one in listed["proposals"])
+    assert earlier["edited_by_user"] is None
+    assert later["edited_by_user"] == {"proposed": "150 g", "confirmed": "120 g"}
 
 
 async def test_the_card_marks_the_carried_row_and_the_persons_edit(s: Session) -> None:

@@ -61,6 +61,7 @@ async def test_an_unknown_fea_result_counts_as_a_result(s: Session) -> None:
     store_a_fea_result(s, build_into_the_set(s, brief_id))
     text = await refused(s, brief_id, row(CLAMPED))
     assert REFUSAL in text and "requirements[0]" in text
+    assert "pass the old requirement's id in remove" in text
 
 
 async def waiting_id(s: Session, brief_id: str) -> str:
@@ -99,6 +100,22 @@ async def test_removing_the_described_case_is_refused_after_a_result(s: Session)
     old = await waiting_id(s, brief_id)
     text = await s.text("propose_requirements", brief_id=brief_id, remove=[old])
     assert "leaves out the described load case" in text
+
+
+async def test_swapping_the_described_case_for_a_reviewed_one_is_refused_after_a_result(
+    s: Session,
+) -> None:
+    brief_id = await brief_of(s, row(shelf()))
+    store_a_fea_result(s, build_into_the_set(s, brief_id))
+    old = await waiting_id(s, brief_id)
+    text = await refused_removing(s, brief_id, old, row(hole_hook()))
+    assert "leaves out the described load case" in text
+
+
+async def refused_removing(s: Session, brief_id: str, old: str, *rows: Part) -> str:
+    return await s.text(
+        "propose_requirements", brief_id=brief_id, requirements=list(rows), remove=[old]
+    )
 
 
 async def test_a_reviewed_phrase_is_accepted_after_a_result_when_the_case_is_kept(

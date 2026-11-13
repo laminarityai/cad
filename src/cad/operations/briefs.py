@@ -139,7 +139,7 @@ class BriefView(BaseModel):
 def _view(state: BriefState, proposed: ProposalState, names: Mapping[str, str]) -> ProposalView:
     confirmed = state.confirmed
     in_force = {r.id for r in confirmed.requirements} if confirmed else set[str]()
-    changed = carry.edited(state)
+    changed = carry.edited(state, proposed.proposal.number)
     return ProposalView(
         brief_id=state.brief.id,
         proposal=proposed.proposal.number,

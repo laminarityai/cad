@@ -3,7 +3,42 @@ from cad.checks.result import Verdict
 from cad.scorecard import awaiting, requirements
 from cad.scorecard.awaiting import AwaitingRow
 from cad.tables.materials import UNITS
-from tests.support.scorecard import checked, max_mass, requirement, result, suite, weighing
+from tests.support.scorecard import (
+    checked,
+    max_mass,
+    quantity,
+    requirement,
+    result,
+    suite,
+    weighing,
+)
+
+
+def test_a_holes_row_shows_the_stated_band_beside_each_measured_diameter() -> None:
+    eight = requirement({"kind": "plain_holes", "diameter": quantity(8, "mm"), "count": 2})
+    found = result(
+        "holes",
+        Verdict.PASS,
+        hole_count=(2, ""),
+        hole_diameter__0=(7.9, "mm"),
+        hole_diameter__1=(8.4, "mm"),
+    )
+    [row] = awaiting.rows([eight], suite(found))
+    assert row.values == ()
+    assert row.holes is not None
+    assert row.holes.count == 2
+    assert (row.holes.low, row.holes.high) == (
+        UNITS.Quantity(7.95, "mm"),
+        UNITS.Quantity(8.05, "mm"),
+    )
+    assert row.holes.measured == (UNITS.Quantity(7.9, "mm"), UNITS.Quantity(8.4, "mm"))
+
+
+def test_a_holes_row_with_nothing_measured_shows_the_band_alone() -> None:
+    eight = requirement({"kind": "plain_holes", "diameter": quantity(8, "mm")})
+    [row] = awaiting.rows([eight], suite())
+    assert row.holes is not None
+    assert (row.holes.count, row.holes.measured) == (None, ())
 
 
 def test_a_row_shows_the_stated_value_beside_the_measure_and_holds_no_verdict() -> None:

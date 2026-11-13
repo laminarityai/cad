@@ -45,7 +45,7 @@ WORDS: Final = {
     Mark.PASS_RESEARCHED: "passes on researched data",
     Mark.PASS_AGENT_CHECK: f"passes the {AGENT_CHECK}",
     Mark.FAIL: "fails",
-    Mark.UNKNOWN: "unknown: the check could not decide, and it is not a pass",
+    Mark.UNKNOWN: "unknown, and it is not a pass",
     Mark.UNVERIFIED: "not checked: no check covers it, so it is neither pass nor fail",
     Mark.AWAITS_PERSON: "waits on the person to confirm its context part",
 }
@@ -183,8 +183,14 @@ def _stop(state: Running, reason: StopReason) -> Stopped:
 
 
 def report(
-    history: tuple[Standing, ...], reason: StopReason, said: Mapping[str, str] = NO_STATEMENTS
+    history: tuple[Standing, ...],
+    reason: StopReason,
+    said: Mapping[str, str] = NO_STATEMENTS,
+    option: str | None = None,
 ) -> str:
+    """The stop report. The agent's copy names ids. The person's passes `said`, each
+    requirement's statement, and `option`, the name the latest variant has in its set."""
+
     def named(rids: Sequence[str]) -> str:
         return ", ".join(said.get(rid, rid) for rid in rids)
 
@@ -194,14 +200,19 @@ def report(
     else:
         latest = history[-1]
         built = "" if latest.built else ", which did not build"
-        lines.append(
-            f"Revisions tried: {len(history)}. The latest is variant {latest.variant_id}{built}."
-        )
+        name = option or f"variant {latest.variant_id}"
+        lines.append(f"Revisions tried: {len(history)}. The latest is {name}{built}.")
+        because = dict(latest.reasons)
         lines.extend(
-            f"- {said.get(rid, f'requirement {rid}')}: {WORDS[mark]}{_described(rid, latest)}"
+            f"- {said.get(rid, f'requirement {rid}')}: {WORDS[mark]}{_because(because.get(rid))}"
+            f"{_described(rid, latest)}"
             for rid, mark in latest.marks
         )
     return "\n".join(lines)
+
+
+def _because(reason: str | None) -> str:
+    return f": {reason}" if reason else ""
 
 
 def _described(rid: str, standing: Standing) -> str:
@@ -239,6 +250,11 @@ def _needs_person(reason: NeedsPerson, ids: str) -> str:
         case "conflict":
             proofs = " ".join(f"{one.statement}." for one in reason.bounds)
             return f"The confirmed requirements conflict, so no variant was built. {proofs}"
+        case "proposes_requirements" if not reason.requirements:
+            return (
+                "A change to the confirmed requirements was proposed, and only the person can "
+                "confirm it."
+            )
         case "proposes_requirements":
             return f"New requirements were proposed, and only the person can confirm them: {ids}."
         case "source_to_confirm":
