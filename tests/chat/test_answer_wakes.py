@@ -1,7 +1,7 @@
 import asyncio
 import json
 import threading
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, NoReturn
@@ -10,21 +10,18 @@ import anyio.to_thread
 import httpx2
 import pytest
 
-from cad.accounts.local import LocalIssuer
 from cad.accounts.principal import AccountId
 from cad.chat.log import Answered, Channel, DriverSaid, Event, transcript_path
 from cad.chat.model import Message, Model, ToolSpec
 from cad.chat.scripted import Scripted, Step
 from cad.confirmations.answers import Ledger, read_ledger
 from cad.confirmations.waiting import Door
-from cad.confirmations.web import LocalSignIn
 from cad.context_parts.ingest import ingest
 from cad.conversations import store
 from cad.conversations.model import ConversationId
 from cad.operations import confirmation
 from cad.operations.tenants import Tenants
 from cad.projects.model import ProjectId
-from cad.server.hosted import build_app
 from tests.support.chat import ALICE, TEXT, Chat, call, script, step
 from tests.support.conversations import briefless_run_in
 from tests.support.rows import UNDER_150
@@ -275,14 +272,6 @@ async def test_an_answer_between_the_count_and_the_items_still_ends_the_wait(
         events = await chat.events(client, cid)
     result = json.loads([one for one in events if one["kind"] == "tool_result"][-1]["text"])
     assert (result["status"], result["answers_recorded"]) == ("answered", 1)
-
-
-@pytest.fixture
-async def restarted(local: LocalIssuer, chat_tenants: Tenants, model: Model) -> AsyncIterator[Chat]:
-    """A second server process over the same account store, with nothing in memory."""
-    app = build_app(local.issuer(), chat_tenants, LocalSignIn(local), model)
-    async with app.router.lifespan_context(app):
-        yield Chat(app, local, chat_tenants)
 
 
 async def test_a_delivery_a_restart_cut_off_runs_once_when_the_conversation_opens(

@@ -5,15 +5,18 @@ import { describe, expect, it, vi } from "vitest";
 import { ServicesProvider } from "@/app/context";
 import { Gate } from "@/components/Gate";
 import { FakeChat, FakeViewer, fakeApi, runningRun, setOf } from "@/test/fakes";
+import { brief } from "@/test/fixtures";
 import { ChatPane } from "./Chat";
 import { Workspace } from "./Workspace";
 
-function mount(chat: FakeChat, members: string[]) {
+const briefOn = (id: string) => ({ brief_id: id, created_at: "2026-11-10T00:00:00Z", proposals: 1, confirmed_proposal: 1 });
+
+function mount(chat: FakeChat, members: string[], emptyBrief: string | null = null) {
+  const briefs = emptyBrief === null ? [briefOn("b1")] : [briefOn(emptyBrief), briefOn("b1")];
   const api = fakeApi(members, {
-    project: vi.fn(() =>
-      Promise.resolve({ project_id: "p1", briefs: [{ brief_id: "b1", created_at: "2026-11-10T00:00:00Z", proposals: 1, confirmed_proposal: 1 }], context_parts: [], documents: [] }),
-    ),
-    variantSet: vi.fn(() => Promise.resolve(setOf(members))),
+    project: vi.fn(() => Promise.resolve({ project_id: "p1", briefs, context_parts: [], documents: [] })),
+    brief: vi.fn((briefId: string) => Promise.resolve({ ...brief(true), brief_id: briefId })),
+    variantSet: vi.fn((_project: string, briefId: string) => Promise.resolve(setOf(briefId === emptyBrief ? [] : members))),
   });
   return render(
     <ServicesProvider services={{ api, viewer: new FakeViewer(), chat }}>
@@ -77,7 +80,7 @@ describe("the tool rows in the chat", () => {
     expect(within(rows[0] as HTMLElement).getByText("Wide base")).toBeInTheDocument();
     say(chat, { kind: "tool_result", call_id: "a", text: "{}", is_error: false }, { kind: "tool_result", call_id: "b", text: "refused", is_error: true });
     say(chat, { kind: "turn_ended" });
-    await userEvent.click(await screen.findByRole("button", { name: "Built, checked" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Built, 1 refused" }));
     await waitFor(() => {
       expect(within(log).getAllByRole("listitem")[0]).toHaveAttribute("data-tool", "done");
     });
@@ -101,18 +104,126 @@ describe("the tool rows in the chat", () => {
   });
 });
 
-describe("the Auto run line", () => {
-  it("shows the run as working while it runs, even between turns", async () => {
+describe("a tool row while its call runs", () => {
+  it("says what it is doing now, and says it is done only when the result comes", async () => {
     const chat = new FakeChat();
-    chat.say({ kind: "user", text: "go", selection: null });
-    chat.autoRun = runningRun(1);
-    chat.say({ kind: "tool_call", call_id: "a", name: "auto_start", input: {} });
-    chat.say({ kind: "tool_result", call_id: "a", text: JSON.stringify(chat.autoRun), is_error: false });
+    mount(chat, ["v1"]);
+    await screen.findByPlaceholderText(/Ask for a change, such as/);
+    say(
+      chat,
+      { kind: "user", text: "build", selection: null },
+      { kind: "tool_call", call_id: "s", name: "create_brief", input: {} },
+      { kind: "tool_result", call_id: "s", text: "{}", is_error: false },
+      { kind: "tool_call", call_id: "a", name: "build_variant", input: { label: "Slim base", slot: 1 } },
+    );
+    const log = screen.getByRole("log");
+    const row = (await within(log).findAllByRole("listitem"))[1] as HTMLElement;
+    expect(row).toHaveTextContent("Building an option");
+    expect(row).not.toHaveTextContent(/Built/);
+    expect(within(log).queryByText(/built/i)).toBeNull();
+    say(chat, { kind: "tool_result", call_id: "a", text: "{}", is_error: false });
+    await waitFor(() => {
+      expect(within(log).getAllByRole("listitem")[1]).toHaveTextContent("Built");
+    });
+  });
+});
+
+describe("a turn the server cut off", () => {
+  it("shows no work and says the call did not finish", async () => {
+    const chat = new FakeChat();
+    chat.say({ kind: "user", text: "a hook", selection: null });
+    chat.say({ kind: "tool_call", call_id: "a", name: "build_variant", input: { label: "Wide base", slot: 1 } });
+    chat.say({ kind: "turn_failed", message: "The server stopped before this turn finished. Send a message to carry on." });
     chat.say({ kind: "turn_ended" });
+    mount(chat, []);
+    expect(await screen.findByText(/Send a message to carry on/)).toBeInTheDocument();
+    expect(screen.queryByText(/Building/)).toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(document.querySelector("[data-spinner]")).toBeNull();
+    expect(screen.getByRole("region", { name: "Chat" })).toHaveAttribute("aria-busy", "false");
+    await userEvent.click(screen.getByRole("button", { name: /did not finish/ }));
+    expect(within(screen.getByRole("log")).getByRole("listitem")).toHaveTextContent("did not finish");
+  });
+});
+
+describe("an empty brief while another brief is worked on", () => {
+  it("says it has no options, and only the brief the work is on says what is being done", async () => {
+    const chat = new FakeChat();
+    chat.briefId = null;
+    mount(chat, ["v1"], "b0");
+    const explorer = await screen.findByRole("region", { name: "Explorer" });
+    await within(explorer).findByText("No options yet");
+    say(chat, { kind: "user", text: "another", selection: null }, { kind: "tool_call", call_id: "a", name: "build_variant", input: { brief_id: "b1", label: "Slim base", slot: 2 } });
+    await screen.findAllByText(/Building an option/);
+    expect(within(explorer).queryByText(/Building/)).toBeNull();
+    expect(within(explorer).getByText("No options yet")).toBeInTheDocument();
+  });
+
+  it("says it has no options while a turn only answers a question", async () => {
+    const chat = new FakeChat();
+    chat.briefId = null;
+    mount(chat, ["v1"], "b0");
+    const explorer = await screen.findByRole("region", { name: "Explorer" });
+    await within(explorer).findByText("No options yet");
+    say(chat, { kind: "user", text: "what is PETG?", selection: null });
+    await waitFor(() => {
+      expect(screen.getByRole("region", { name: "Chat" })).toHaveAttribute("aria-busy", "true");
+    });
+    expect(within(explorer).queryByRole("status")).toBeNull();
+    expect(within(explorer).getByText("No options yet")).toBeInTheDocument();
+  });
+});
+
+describe("the clock", () => {
+  it("counts from when the person sent the message", async () => {
+    const chat = new FakeChat();
+    mount(chat, ["v1"]);
+    await userEvent.type(await screen.findByRole("textbox", { name: "Message" }), "build{Enter}");
+    const working = await screen.findByText("Working");
+    expect(working.closest("[role=status]")).toHaveTextContent(/0s$/);
+  });
+
+  it("is not shown for a turn whose start the page did not see", async () => {
+    const chat = new FakeChat();
+    chat.say({ kind: "user", text: "a hook", selection: null });
+    mount(chat, ["v1"]);
+    const working = await screen.findByText("Working");
+    expect(working.closest("[role=status]")).not.toHaveTextContent(/\ds$/);
+  });
+});
+
+function idleRun(): FakeChat {
+  const chat = new FakeChat();
+  chat.say({ kind: "user", text: "go", selection: null });
+  chat.autoRun = runningRun(1);
+  chat.say({ kind: "tool_call", call_id: "a", name: "auto_start", input: {} });
+  chat.say({ kind: "tool_result", call_id: "a", text: JSON.stringify(chat.autoRun), is_error: false });
+  chat.say({ kind: "turn_ended" });
+  return chat;
+}
+
+describe("the Auto run line", () => {
+  it("says nothing works on a running run between turns, and shows no loader or clock", async () => {
+    mount(idleRun(), ["v1"]);
+    const run = await screen.findByRole("region", { name: "Auto run" }, { timeout: 6000 });
+    expect(run).toHaveTextContent("1 revision tried");
+    expect(run).toHaveTextContent("Nothing is working on it now. Send a message to carry it on, or stop it.");
+    expect(document.querySelector("[data-loading]")).toBeNull();
+    expect(screen.queryByText(/Auto run working/)).toBeNull();
+    expect(screen.getByRole("region", { name: "Chat" })).toHaveAttribute("aria-busy", "false");
+    expect(within(run).getByRole("button", { name: "Stop" })).toBeInTheDocument();
+  });
+
+  it("shows the run working while a turn carries it on", async () => {
+    const chat = idleRun();
     mount(chat, ["v1"]);
     const run = await screen.findByRole("region", { name: "Auto run" }, { timeout: 6000 });
-    expect(within(run).getByRole("status")).toHaveTextContent("Running · 1 revision tried");
-    expect(screen.getByRole("region", { name: "Chat" })).toHaveAttribute("aria-busy", "true");
+    say(chat, { kind: "user", text: "carry on", selection: null });
+    await waitFor(() => {
+      expect(run.querySelector("[data-loading]")).not.toBeNull();
+    });
+    expect(run).not.toHaveTextContent(/Nothing is working/);
+    expect(run).not.toHaveTextContent(/\ds/);
   });
 });
 
