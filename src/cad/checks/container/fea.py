@@ -306,18 +306,22 @@ def solve_at(
 
 
 def where_of(pairs: Sequence[Pair]) -> WhereWire:
-    stress = _deciding(pairs, lambda one: one.von_mises, STRESS_ERROR)
-    bending = _deciding(pairs, lambda one: one.displacement, DISPLACEMENT_ERROR)
+    stressed = max(pairs, key=lambda one: one.peaks.von_mises)
+    stress = _deciding(pairs, lambda one: one.von_mises, STRESS_ERROR, stressed)
+    bending = _deciding(pairs, lambda one: one.displacement, DISPLACEMENT_ERROR, stressed)
     return {**stress} if bending == stress else {**stress, "displacement": bending}
 
 
-def _deciding(pairs: Sequence[Pair], peak: Callable[[Peaks], float], error: float) -> FacesWire:
-    worst = max(pairs, key=lambda one: peak(one.peaks))
+def _deciding(
+    pairs: Sequence[Pair], peak: Callable[[Peaks], float], error: float, stressed: Pair
+) -> FacesWire:
+    top = max(peak(one.peaks) for one in pairs)
+    near = [one for one in pairs if peak(one.peaks) >= (1 - error) * top]
+    worst = stressed if stressed in near else max(near, key=lambda one: peak(one.peaks))
     support, load = set(worst.where["support"]), set(worst.where["load"])
-    for one in pairs:
+    for one in near:
         held, pressed = set(one.where["support"]), set(one.where["load"])
-        near = peak(one.peaks) >= (1 - error) * peak(worst.peaks)
-        if near and _same_sides(held, pressed, support, load):
+        if _same_sides(held, pressed, support, load):
             support, load = support | held, load | pressed
     return {"support": sorted(support), "load": sorted(load)}
 

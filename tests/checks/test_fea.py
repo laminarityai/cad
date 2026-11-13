@@ -87,6 +87,12 @@ def test_a_mirrored_twin_that_swaps_the_held_and_pressed_faces_is_not_shown() ->
     assert fea.where_of([held_at_one_end, held_at_the_other]) == {"support": [0], "load": [1]}
 
 
+def test_a_tie_in_displacement_keeps_the_faces_of_the_candidate_that_decided_the_stress() -> None:
+    stressed_most = candidate(2.0, 20.0, support=1, load=0)
+    bends_a_hair_more = candidate(2.0 * (1 + fea.DISPLACEMENT_ERROR / 2), 19.0, support=0, load=1)
+    assert fea.where_of([stressed_most, bends_a_hair_more]) == {"support": [1], "load": [0]}
+
+
 @pytest.mark.parametrize("clamped_face", [True, False])
 def test_the_clamped_face_note_is_on_the_result_only_when_a_face_is_clamped(
     clamped_face: bool,
