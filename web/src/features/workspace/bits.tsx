@@ -34,6 +34,8 @@ const PILL: Record<Status, { text: string; tone: string; Icon: typeof CircleChec
 export interface WhereControl {
   /** The row whose faces are drawn on the part, if any. */
   shown: string | null;
+  /** The section is on, and a cut draws the whole part, so no faces can be shown. */
+  hidden: boolean;
   onToggle: (key: string) => void;
 }
 
@@ -70,13 +72,14 @@ function Row({ line, where }: { line: Line; where: WhereControl }) {
         <button
           type="button"
           data-show-where
-          aria-pressed={where.shown === line.key}
+          aria-pressed={!where.hidden && where.shown === line.key}
+          disabled={where.hidden}
           onClick={() => {
             where.onToggle(line.key);
           }}
-          className="mb-2 ml-11 flex items-center gap-1.5 rounded-full border border-rule px-3 py-1 text-[13px] text-ink-2 hover:bg-panel-2 aria-pressed:border-accent aria-pressed:text-accent"
+          className="mb-2 ml-11 flex items-center gap-1.5 rounded-full border border-rule px-3 py-1 text-[13px] text-ink-2 hover:bg-panel-2 disabled:cursor-default disabled:text-ink-3 disabled:hover:bg-transparent aria-pressed:border-accent aria-pressed:text-accent"
         >
-          <Crosshair className="size-3.5" /> {where.shown === line.key ? "Showing where it held and pushed" : "Show where it held and pushed"}
+          <Crosshair className="size-3.5" /> {where.hidden ? "Hidden while the section is on" : where.shown === line.key ? "Showing where it held and pushed" : "Show where it held and pushed"}
         </button>
       ) : null}
     </Collapsible>
@@ -138,7 +141,7 @@ function MaterialLabel({ material }: { material: Material }) {
   return material.chosenBy === "agent" ? <Tooltip label="Ask in the chat to change it.">{label}</Tooltip> : label;
 }
 
-const NO_WHERE: WhereControl = { shown: null, onToggle: () => undefined };
+const NO_WHERE: WhereControl = { shown: null, hidden: false, onToggle: () => undefined };
 
 export function Checks({ card, material, where = NO_WHERE }: { card: Card | undefined; material: Material | null; where?: WhereControl }) {
   const snapshot = card?.snapshot ?? null;

@@ -8,8 +8,10 @@ agent. The check measures every round hole in the part, so the matching holes ar
 from `hole_diameter:i`.
 
 The card carries the band as two comparisons on `hole_diameter`, the lower and then the upper
-limit, so each number on it is a quantity a reader can trace. Both carry the requirement's verdict.
-A reason holds no digit, as the other reasons hold none.
+limit, so each number on it is a quantity a reader can trace. Each comparison passes when enough
+holes meet its own bound: the confirmed count, or one hole when no count was stated. Only the
+requirement's verdict counts the holes that meet both. A reason holds no digit, as the other
+reasons hold none.
 """
 
 from dataclasses import dataclass
@@ -74,9 +76,13 @@ def judged(requirement: Requirement, statement: str, result: CheckResult) -> Che
         raise TypeError(f"{type(target).__name__} is not a holes requirement")
     wanted = band(target)
     low, high = wanted.low - DIAMETER_NOISE_MM, wanted.high + DIAMETER_NOISE_MM
-    matching = sum(low <= size <= high for size in _diameters(result))
+    sizes = _diameters(result)
+    matching = sum(low <= size <= high for size in sizes)
     verdict, reason = _verdict(result, matching, target.count)
-    limits = ((Comparator.AT_LEAST, wanted.low), (Comparator.AT_MOST, wanted.high))
+    limits = (
+        (Comparator.AT_LEAST, wanted.low, sum(size >= low for size in sizes)),
+        (Comparator.AT_MOST, wanted.high, sum(size <= high for size in sizes)),
+    )
     return Checked(
         requirement_id=requirement.id,
         statement=statement,
@@ -88,9 +94,9 @@ def judged(requirement: Requirement, statement: str, result: CheckResult) -> Che
                 measure=MEASURE,
                 comparator=comparator,
                 limit=UNITS.Quantity(limit, "mm"),
-                verdict=verdict,
+                verdict=_bound(result, meeting, target.count),
             )
-            for comparator, limit in limits
+            for comparator, limit, meeting in limits
         ),
     )
 
@@ -98,6 +104,14 @@ def judged(requirement: Requirement, statement: str, result: CheckResult) -> Che
 def _diameters(result: CheckResult) -> list[float]:
     named = (m for m in result.measured if m.name.startswith(f"{MEASURE}:"))
     return [magnitude(m.value, "mm") for m in named]
+
+
+def _bound(result: CheckResult, meeting: int, count: int | None) -> Verdict:
+    """A bound waits for a full count, as every other kind's comparison waits for a measured
+    result."""
+    if result.verdict is not Verdict.PASS:
+        return Verdict.UNKNOWN
+    return Verdict.PASS if meeting >= (1 if count is None else count) else Verdict.FAIL
 
 
 def _verdict(result: CheckResult, matching: int, count: int | None) -> tuple[Verdict, str]:

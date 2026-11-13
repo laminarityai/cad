@@ -126,10 +126,9 @@ function statusOf(verdict: string, researched: boolean): Status {
 }
 
 /** The faces of the load case's own result: a requirement names the case, and each case has a result. */
-function whereOf(results: ResultLine[], checkId: string, instance: string): Where | undefined {
-  if (checkId !== "fea") return undefined;
-  const found = results.find((one): one is DoneCheck => isDone(one) && one.check_id === checkId && one.instance === instance);
-  const where = found?.where;
+function whereOf(result: DoneCheck | undefined): Where | undefined {
+  if (result?.check_id !== "fea") return undefined;
+  const where = result.where;
   return where && where.support.length + where.load.length > 0 ? where : undefined;
 }
 
@@ -137,8 +136,8 @@ const DESCRIBED_TAG = "load case the agent described, not reviewed by our team";
 
 export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
   const results = snapshot.results;
-  const done = (id: string) => results.find((one): one is DoneCheck => isDone(one) && one.check_id === id);
-  const running = (id: string) => results.some((one) => isRunning(one) && one.check_id === id);
+  const done = (id: string, instance: string) => results.find((one): one is DoneCheck => isDone(one) && one.check_id === id && one.instance === instance);
+  const running = (id: string, instance: string) => results.some((one) => isRunning(one) && one.check_id === id && one.instance === instance);
   const asked: Line[] = [];
   const covered = new Set<string>();
   if (snapshot.basis.kind === "against_brief") {
@@ -170,8 +169,9 @@ export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
         continue;
       }
       covered.add(one.check_id);
-      const result = done(one.check_id);
-      if (one.kind === "waiting" || running(one.check_id)) {
+      const instance = "instance" in one ? (one.instance ?? "") : "";
+      const result = done(one.check_id, instance);
+      if (one.kind === "waiting" || running(one.check_id, instance)) {
         asked.push({
           key,
           label: short(one.statement),
@@ -186,7 +186,7 @@ export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
       const researched = "basis" in one && one.basis === "researched";
       const described = "load_case" in one && one.load_case === "described";
       const reason = "reason" in one ? one.reason : "";
-      const where = "instance" in one ? whereOf(results, one.check_id, one.instance ?? "") : undefined;
+      const where = whereOf(result);
       asked.push({
         key,
         label: short(one.statement),

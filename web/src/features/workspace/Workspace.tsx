@@ -16,7 +16,7 @@ import { linesOf, sourcesOf, useCards, type CardKey } from "./cards";
 import { CHANGES_PAGE, ChatPane, Composer, useProjectChat } from "./Chat";
 import { ConfirmCard } from "./Confirm";
 import { Explorer } from "./Explorer";
-import { loadWorkspace, viewReducer, viewStart, type Brief, type View, type ViewAction, type Workspace as Model } from "./model";
+import { loadWorkspace, stageKey, viewReducer, viewStart, type Brief, type View, type ViewAction, type Workspace as Model } from "./model";
 import { SlotTabs, Stage } from "./Stage";
 import { useNarrow } from "./useNarrow";
 
@@ -81,9 +81,10 @@ function Center(props: {
             className="mx-4 mb-4 flex min-h-0 flex-1 flex-col overflow-hidden rounded-b-xl rounded-tr-xl border border-t-0 border-rule bg-panel"
           >
             <Stage
-              key={`${brief.id}:${String(slot.slot)}`}
+              key={stageKey(brief.id, slot.slot)}
               slot={slot}
-              revision={view.revisionOf[`${brief.id}:${String(slot.slot)}`] ?? null}
+              revision={view.revisionOf[stageKey(brief.id, slot.slot)] ?? null}
+              cut={view.cutOf[stageKey(brief.id, slot.slot)] ?? null}
               dispatch={dispatch}
               briefId={brief.id}
               fit={brief.fits[0] ?? null}
@@ -104,7 +105,7 @@ function Center(props: {
 function shown(brief: Brief, view: View): { variantId: string; slot: number } | null {
   const slot = slotOf(brief, view);
   if (!slot) return null;
-  const n = view.revisionOf[`${brief.id}:${String(slot.slot)}`] ?? slot.revisions.length;
+  const n = view.revisionOf[stageKey(brief.id, slot.slot)] ?? slot.revisions.length;
   const revision = slot.revisions[n - 1];
   return revision ? { variantId: revision.variantId, slot: slot.slot } : null;
 }
@@ -176,6 +177,7 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
       material={onScreen ? (brief.materialOf[onScreen.slot] ?? null) : null}
       where={{
         shown: where ? shownKey : null,
+        hidden: onScreen ? Boolean(view.cutOf[stageKey(brief.id, onScreen.slot)]) : false,
         onToggle: (key) => {
           if (onScreen) setAsked(shownKey === key ? null : { variantId: onScreen.variantId, key });
         },
