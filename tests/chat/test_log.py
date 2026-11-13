@@ -41,6 +41,27 @@ def test_a_line_a_crash_cut_short_is_dropped(tmp_path: Path) -> None:
     assert [one.seq for one in Channel(path).after(0)] == [1, 2]
 
 
+def test_a_disk_that_fills_while_the_cut_line_is_dropped_keeps_the_transcript(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "c1.jsonl"
+    Channel(path).append(UserSaid(text="hi"))
+    with path.open("ab") as file:
+        file.write(b'{"seq": 2, "event": {"kind": "ag')
+    kept = path.read_bytes()
+
+    def fills_halfway(self: Path, data: bytes) -> int:
+        with self.open("wb") as file:
+            file.write(data[: len(data) // 2])
+        raise OSError("no space left on device")
+
+    monkeypatch.setattr(Path, "write_bytes", fills_halfway)
+    with pytest.raises(OSError, match="no space"):
+        Channel(path)
+    assert path.read_bytes() == kept
+    assert [p.name for p in tmp_path.iterdir()] == [path.name]
+
+
 async def test_a_waiter_wakes_for_the_next_append(tmp_path: Path) -> None:
     channel = Channel(tmp_path / "c1.jsonl")
     waiting = asyncio.create_task(channel.wait_after(0))

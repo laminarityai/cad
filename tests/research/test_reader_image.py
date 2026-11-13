@@ -15,6 +15,7 @@ def test_no_reader_file_feeds_a_check_version_the_mesh_version_or_a_variant_id()
     src = Path(pdf.__file__).parents[2]
     assert all((src / path).exists() for path in READER_CODE)
     hashed = set(report.DEPENDENCIES.files) | set(mesh_job.SOURCES.files)
+    hashed |= set(mesh_job.SERVED.files)
     assert not hashed & set(READER_CODE)
     trusted = {path for directory in entry.TRUSTED_DIRECTORIES for path in directory.glob("*.py")}
     assert not trusted & {src / path for path in READER_CODE}

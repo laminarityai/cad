@@ -8,6 +8,7 @@ from cad.briefs.store import BriefState, ConfirmedSet
 from cad.context_parts.store import newest_parts
 from cad.geometry import job
 from cad.geometry import store as meshes
+from cad.geometry.lane import TESSELLATIONS
 from cad.geometry.model import Tessellated, UnknownMesh
 from cad.operations.model import BOTH, Audience, Input, Tenant, operation
 from cad.operations.research import brief_table
@@ -43,7 +44,9 @@ VARIANT_SET = (
 )
 VIEW = (
     "What the viewer needs for one built variant: the hash that names its BREP, whether its mesh "
-    "is tessellated, failed or pending, and once it is tessellated, the mesh_url to fetch it from."
+    "is tessellated, failed or pending, and once it is tessellated, the mesh_url to fetch it from. "
+    "A build starts its mesh, and this read starts it too when no job is making it, so pending "
+    "means a job is running: read it again."
 )
 MESH = (
     "The mesh of one BREP made by one tessellator version, in three-cad-viewer's shapes format. "
@@ -229,7 +232,7 @@ def _etag(tenant: Tenant, brief_id: str, material_key: str | None, variant_id: s
 
 def view(tenant: Tenant, arguments: VariantInput) -> VariantView:
     held = entry.open_entry(tenant.variants, arguments.variant_id, image.image_tag(image.BUILD))
-    stored = meshes.read(tenant.geometry, held.brep_sha256)
+    stored = TESSELLATIONS.start(tenant.geometry, held)
     return VariantView(
         variant_id=held.id,
         brep_sha256=held.brep_sha256,

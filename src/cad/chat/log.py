@@ -17,6 +17,7 @@ from cad.accounts.principal import AccountId
 from cad.chat.model import Attached, Block, Message, Text, ToolResult, ToolUse
 from cad.conversations.model import ConversationId
 from cad.frozen import Frozen
+from cad.records import files
 from cad.selections.model import SelectionNote
 
 TRANSCRIPTS: Final = "chat"
@@ -161,7 +162,7 @@ def _readable_prefix(path: Path) -> list[Stamped]:
         except (ValidationError, ValueError):
             break
     if len(loaded) < len(lines):
-        path.write_bytes(b"".join(one.model_dump_json().encode() + b"\n" for one in loaded))
+        files.replace(path, b"".join(one.model_dump_json().encode() + b"\n" for one in loaded))
     return loaded
 
 
