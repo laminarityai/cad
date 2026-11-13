@@ -10,6 +10,7 @@ from outcome import BriefResult, Friction, Share, Trace, is_finished
 from session import SessionFacts, SessionRun, failure_note
 from summary import markdown, summarize
 from tracefacts import NO_CARD, trace_session
+from tracking import By, Decided
 
 from cad.briefs import store as briefs
 from cad.checks.job_store import JOBS
@@ -234,6 +235,25 @@ def test_the_summary_pools_requirements_and_names_untraced_numbers() -> None:
     assert "v1: mass.volume = 3: Stale old" in text
     assert "SESSION FAILED: timed out" in text
     assert "| d | - | not run" in text
+
+
+def test_the_summary_prints_the_tracers_lines_counted_apart() -> None:
+    first = a_trace(
+        by={By.TEAM: Decided(2, 1), By.NONE: Decided(1, 0)},
+        uncovered={"walls and thickness": 1},
+        agent_measurements=("v1: wall = 2: not verified",),
+    )
+    second = a_trace(
+        by={By.TEAM: Decided(1, 1), By.NONE: Decided(2, 0)},
+        uncovered={"walls and thickness": 1, "other": 1},
+    )
+    text = markdown(summarize([a_result("a", first), a_result("b", second)], [], "m"), [])
+    assert f"requirements by {By.TEAM}: 3, 2 passing" in text
+    assert f"requirements by {By.AGENT_CHECK}: 0, 0 passing" in text
+    assert "requirements no check decides, by keyword family: walls and thickness 2, other 1" in (
+        text
+    )
+    assert "agent measurements: 1, not verified" in text
 
 
 def stub_session(monkeypatch: pytest.MonkeyPatch, *, failing: set[str]) -> list[str]:

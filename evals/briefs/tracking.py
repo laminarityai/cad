@@ -172,11 +172,15 @@ def describe(share: Share) -> str:
 
 
 def describe_apart(tracking: Tracking) -> list[str]:
+    return apart(tracking.by, tracking.uncovered)
+
+
+def apart(by: Mapping[By, Decided], uncovered: Mapping[str, int]) -> list[str]:
     lines = [
-        f"requirements by {by}: {decided.requirements}, {decided.passes} passing"
-        for by, decided in tracking.by.items()
+        f"requirements by {one}: {decided.requirements}, {decided.passes} passing"
+        for one, decided in by.items()
     ]
-    families = ", ".join(f"{name} {count}" for name, count in tracking.uncovered.items())
+    families = ", ".join(f"{name} {count}" for name, count in uncovered.items())
     lines.append(f"requirements no check decides, by keyword family: {families or 'none'}")
     return lines
 

@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Final, Literal
 
 from pydantic import BaseModel, ConfigDict
+from tracking import By, Decided
 
 RESULT: Final = "result.json"
 
@@ -30,6 +31,8 @@ class Trace(Frozen):
     coverage: Share
     agent_coverage: Share = Share(numerator=0, denominator=0)
     described_coverage: Share = Share(numerator=0, denominator=0)
+    by: dict[By, Decided] = {}
+    uncovered: dict[str, int] = {}
 
 
 class Friction(Frozen):

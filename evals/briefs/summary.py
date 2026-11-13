@@ -1,7 +1,9 @@
 import statistics
+from collections import Counter
 from collections.abc import Sequence
 
-from outcome import BriefResult, Frozen, Share
+from outcome import BriefResult, Frozen, Share, Trace
+from tracking import By, Decided, apart
 
 
 def pooled(shares: Sequence[Share]) -> Share:
@@ -50,6 +52,9 @@ class Overall(Frozen):
     coverage: Share
     agent_coverage: Share
     described_coverage: Share
+    agent_measurements: int
+    by: dict[By, Decided]
+    uncovered: dict[str, int]
     median_confirmation_pages: float | None
     median_minutes_to_first_result: float | None
     cost_usd: float
@@ -58,6 +63,24 @@ class Overall(Frozen):
 class Summary(Frozen):
     overall: Overall
     briefs: tuple[BriefResult, ...]
+
+
+def _pooled_by(traces: Sequence[Trace]) -> dict[By, Decided]:
+    none = Decided(0, 0)
+    return {
+        by: Decided(
+            sum(one.by.get(by, none).requirements for one in traces),
+            sum(one.by.get(by, none).passes for one in traces),
+        )
+        for by in By
+    }
+
+
+def _pooled_uncovered(traces: Sequence[Trace]) -> dict[str, int]:
+    families: Counter[str] = Counter()
+    for one in traces:
+        families.update(one.uncovered)
+    return dict(families.most_common())
 
 
 def summarize(results: Sequence[BriefResult], missing: Sequence[str], model: str) -> Summary:
@@ -80,6 +103,9 @@ def summarize(results: Sequence[BriefResult], missing: Sequence[str], model: str
         coverage=pooled([one.coverage for one in traces]),
         agent_coverage=pooled([one.agent_coverage for one in traces]),
         described_coverage=pooled([one.described_coverage for one in traces]),
+        agent_measurements=sum(len(one.agent_measurements) for one in traces),
+        by=_pooled_by(traces),
+        uncovered=_pooled_uncovered(traces),
         median_confirmation_pages=statistics.median(pages) if pages else None,
         median_minutes_to_first_result=statistics.median(minutes) if minutes else None,
         cost_usd=sum(one.cost_usd or 0.0 for one in results),
@@ -102,6 +128,8 @@ def markdown(summary: Summary, missing: Sequence[str]) -> str:
         f"{percent(overall.agent_coverage)}",
         "requirements decided on a load case the agent described, counted apart: "
         f"{percent(overall.described_coverage)}",
+        *apart(overall.by, overall.uncovered),
+        f"agent measurements: {overall.agent_measurements}, not verified",
         f"confirmation pages per brief: median {_number(overall.median_confirmation_pages)}",
         f"minutes to first result: median {_number(overall.median_minutes_to_first_result)}",
         f"cost: ${overall.cost_usd:.2f}",
