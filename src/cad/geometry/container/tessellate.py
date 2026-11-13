@@ -107,7 +107,7 @@ class _Build123d(Protocol):
 
 
 def main() -> None:
-    serve(lambda args, brep: tessellate(brep))
+    serve(lambda args, brep: iter([tessellate(brep)]))
 
 
 def tessellate(brep: bytes) -> TessellationReport:

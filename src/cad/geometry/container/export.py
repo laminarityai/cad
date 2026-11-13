@@ -43,7 +43,7 @@ class _Build123d(Protocol):
 
 
 def main() -> None:
-    serve(lambda args, brep: export(brep, int(args[0])))
+    serve(lambda args, brep: iter([export(brep, int(args[0]))]))
 
 
 def export(brep: bytes, report_cap: int) -> ExportReport:
