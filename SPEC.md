@@ -35,7 +35,7 @@ The full user research is in the report *AI CAD harness user needs*. The knowled
 
 Attachments are context, not input to convert. The agent reads them for intent and dimensions, and every dimension it takes from an image becomes a requirement you confirm, with the others. No verdict rests on it until you do.
 
-Existing CAD parts can be context too, and the agent designs with them. A context part is a part you bring or an earlier variant, such as the housing a new part mounts to, a motor, a board or a wheel. You add a STEP or STL file to the project by dragging it in, and adding it confirms it. For an STL you say whether it is in millimetres or inches. A part the new part must fit with stays where it is, and the fit check measures against it. A part used as a component may be placed and copied by the agent, such as four of your wheels on a drivetrain. Checks score only what the agent made, and the scorecard shows which geometry you supplied, which the agent placed, and which it made ([ADR-0012](docs/adr/0012-a-supplied-part-is-read-by-the-build-and-never-graded.md)). Reading a part directly from Onshape or Fusion through their MCP servers is a later goal, tracked in [#60](https://github.com/laminarityai/cad/issues/60).
+Existing CAD parts can be context too, and the agent designs with them. A context part is a part you bring or an earlier variant, such as the housing a new part mounts to, a motor, a board or a wheel. You add a STEP or STL file to the project by dragging it in, and adding it confirms it. For an STL you say whether it is in millimetres or inches. A part the new part must fit with stays where it is, and the fit check measures against it. A part used as a component may be placed and copied by the agent, such as four of your wheels on a drivetrain. Checks score only what the agent made, and the scorecard shows which geometry you supplied, which the agent placed, and which it made ([ADR-0012](docs/adr/0012-a-supplied-part-is-read-by-the-build-and-never-graded.md)). Reading a part directly from Onshape is phase 5. The server calls Onshape's REST API under your own sign-in, because Onshape's MCP server cannot carry geometry. Fusion is a later milestone, after the first version. Both are tracked in [#60](https://github.com/laminarityai/cad/issues/60).
 
 ## Asking you
 
@@ -135,6 +135,7 @@ The first version is built in five phases, in this order. Each phase ends when i
    - Exit: a change asked for in chat rebuilds the variant and updates its scorecard without a page reload, and an Auto run stops correctly on a brief whose requirements conflict.
 5. **Onshape.** Send a variant to Onshape, and read a part from an Onshape document into a project as a context part, through the REST API.
    - Exit: a variant sent from the workspace opens in Onshape with the volume and bounding box its scorecard reports, and a part read from an Onshape document becomes a context part that the fit check measures against.
+   - An Onshape App Store listing follows once both work. Onshape counts a private app's calls against the app owner's yearly quota, and it does not count a listed app's calls. The listing does not need the extension panel.
 
 Track progress with three numbers on a private set of briefs that spans at least five domains. The first is the strict pass rate, graded by executable checks, not "valid STL" rates. The second is the share of requirements covered by reviewed checks, which shows whether the "checks decide" claim holds as the agent takes on new domains. Verdicts that rest on researched values, and verdicts of agent-written checks you approved, are counted on their own lines beside it. The third is friction: how many times you are asked to confirm something, and how many minutes pass, from brief to first scorecard. A change that raises friction needs a stated reason. Report public benchmarks such as Text2CAD-Bench and BenchCAD-Edit alongside.
 
@@ -148,6 +149,7 @@ The canonical private brief set is the 20 per-brief files in `~/cad-evals/briefs
 - Voice input.
 - Robot simulation export and comparing predictions with measured test data.
 - The Onshape extension panel.
+- Reading from Fusion and sending to Fusion. It is a later milestone, after Onshape works ([research](docs/design/onshape-fusion-integration.md)).
 - Self-hosting the server.
 - Printability checks. You know your printer better than we do, many designs are never printed, and the product's job is the design.
 - Print time and cost from a slicer. Slicing is bound up with printability, because the slice read its print orientation from the printability check, and the same reasons hold. The choice of PrusaSlicer stays recorded in [ADR-0005](docs/adr/0005-checks-run-in-an-analysis-image.md) for when slicing returns.
