@@ -1,0 +1,506 @@
+@import "../../tokens.css";
+
+:root {
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --max: 74rem;
+  --pad: max(16px, calc((100% - var(--max)) / 2));
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg);
+  color: var(--ink);
+  scroll-behavior: smooth;
+  scroll-padding-top: 72px;
+  -webkit-text-size-adjust: 100%;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 1.0625rem;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  counter-reset: ref;
+  overflow-wrap: break-word;
+}
+
+h1,
+h2,
+h3,
+p,
+ol,
+ul,
+dl,
+dd,
+figure {
+  margin: 0;
+}
+
+a {
+  color: inherit;
+}
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+/* The bar */
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 10px var(--pad);
+  background: var(--bg);
+  border-bottom: 1px solid var(--rule);
+}
+.mark {
+  font-weight: 650;
+  font-size: 1.125rem;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+.bar nav {
+  display: none;
+  gap: 20px;
+  font-size: 0.9375rem;
+  color: var(--ink-2);
+}
+.bar nav a {
+  text-decoration: none;
+}
+.bar nav a:hover,
+.textlink:hover {
+  color: var(--ink);
+  text-decoration: underline;
+}
+.bar-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.bar-actions .textlink {
+  display: none;
+}
+@media (min-width: 40rem) {
+  .bar-actions .textlink {
+    display: inline;
+  }
+}
+@media (min-width: 52rem) {
+  .bar nav {
+    display: flex;
+  }
+}
+
+.textlink {
+  color: var(--accent);
+  text-underline-offset: 3px;
+  font-weight: 500;
+}
+.button {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 22px;
+  background: var(--ink);
+  color: var(--bg);
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid var(--ink);
+}
+.button:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px 28px;
+}
+
+/* The hero */
+.hero {
+  padding: 56px var(--pad) 64px;
+  display: grid;
+  gap: 28px;
+}
+h1 {
+  max-width: 22ch;
+  font-size: clamp(2.25rem, 7vw, 4.5rem);
+  font-weight: 650;
+  line-height: 1.03;
+  letter-spacing: -0.032em;
+  text-wrap: balance;
+}
+.lede {
+  max-width: 40rem;
+  font-size: 1.1875rem;
+  color: var(--ink-2);
+}
+.twice {
+  display: grid;
+  gap: 16px 40px;
+  max-width: 52rem;
+  color: var(--ink-2);
+}
+.twice strong {
+  display: block;
+  color: var(--ink);
+  font-weight: 600;
+}
+@media (min-width: 44rem) {
+  .twice {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* A capture, in a frame with a caption bar */
+.frame,
+.plate {
+  background: var(--panel-2);
+  border: 1px solid var(--rule);
+}
+.frame {
+  margin-top: 12px;
+}
+figcaption {
+  padding: 10px 14px;
+  border-top: 1px solid var(--rule);
+  background: var(--panel);
+  color: var(--ink-2);
+  font-size: 0.875rem;
+  line-height: 1.45;
+}
+video,
+img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.loop video[data-scheme="dark"] {
+  display: none;
+}
+@media (prefers-color-scheme: dark) {
+  .loop video[data-scheme="light"] {
+    display: none;
+  }
+  .loop video[data-scheme="dark"] {
+    display: block;
+  }
+}
+
+/* A sheet: the name of the section in a left margin, the content beside it */
+.sheet,
+.next,
+.foot {
+  padding: 56px var(--pad);
+  border-top: 1px solid var(--rule);
+}
+.sheet {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: minmax(0, 1fr);
+}
+h2 {
+  font-size: 1.25rem;
+  font-weight: 650;
+  letter-spacing: -0.012em;
+  line-height: 1.25;
+}
+@media (min-width: 60rem) {
+  .sheet {
+    grid-template-columns: 12rem minmax(0, 1fr);
+    gap: 48px;
+  }
+  .sheet > h2 {
+    position: sticky;
+    top: 80px;
+    align-self: start;
+  }
+}
+h3 {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+.body {
+  display: grid;
+  gap: 36px;
+  min-width: 0;
+}
+.lead {
+  max-width: 44rem;
+  font-size: 1.1875rem;
+}
+.aside {
+  max-width: 44rem;
+  color: var(--ink-2);
+}
+.shot {
+  display: block;
+  border: 1px solid var(--rule);
+}
+
+/* How it works: the steps are a sequence, so they are numbered */
+.steps {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 28px 32px;
+  counter-reset: step;
+}
+.steps li {
+  counter-increment: step;
+  border-top: 2px solid var(--ink);
+  padding-top: 12px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+}
+.steps h3::before {
+  content: counter(step);
+  display: inline-block;
+  min-width: 1.6em;
+  margin-right: 0.4em;
+  font-family: var(--font-mono);
+  color: var(--ink-3);
+}
+.steps p {
+  color: var(--ink-2);
+}
+@media (min-width: 44rem) {
+  .steps {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 72rem) {
+  .steps {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* The scorecard: the largest thing on the page */
+.board {
+  display: grid;
+  gap: 32px;
+  align-items: start;
+}
+@media (min-width: 64rem) {
+  .board {
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  }
+}
+.plate.small {
+  max-width: 36rem;
+}
+.states {
+  display: grid;
+  gap: 0;
+}
+.state {
+  display: grid;
+  gap: 2px;
+  padding: 10px 0 10px 14px;
+  border-left: 5px solid var(--rule);
+  border-bottom: 1px solid var(--rule-2);
+}
+.state dt {
+  font-weight: 650;
+}
+.state dd {
+  color: var(--ink-2);
+  font-size: 0.9375rem;
+}
+.state[data-state="pass"] {
+  border-left-color: var(--pass);
+}
+.state[data-state="pass"] dt {
+  color: var(--pass);
+}
+.state[data-state="fail"] {
+  border-left-color: var(--fail);
+}
+.state[data-state="fail"] dt {
+  color: var(--fail);
+}
+.state[data-state="wait"] {
+  border-left-color: var(--wait);
+}
+.state[data-state="wait"] dt {
+  color: var(--wait);
+}
+.state[data-state="res"] {
+  border-left-color: var(--res);
+}
+.state[data-state="res"] dt {
+  color: var(--res);
+}
+.state[data-state="unk"] {
+  border-left-color: var(--unk);
+}
+.state[data-state="unk"] dt {
+  color: var(--unk);
+}
+.state[data-state="assumed"] {
+  border-left-color: var(--accent);
+}
+.state[data-state="assumed"] dt {
+  color: var(--accent);
+}
+
+/* Trust */
+.reasons {
+  display: grid;
+  gap: 28px 40px;
+}
+.reasons div {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+  border-top: 1px solid var(--rule);
+  padding-top: 12px;
+}
+.reasons p {
+  color: var(--ink-2);
+}
+@media (min-width: 44rem) {
+  .reasons {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.subhead {
+  margin-bottom: -16px;
+}
+.evidence {
+  list-style: none;
+  padding: 0;
+  display: grid;
+}
+.evidence li {
+  padding: 12px 0;
+  border-top: 1px solid var(--rule);
+  max-width: 48rem;
+}
+.evidence li:last-child {
+  border-bottom: 1px solid var(--rule);
+}
+.stat {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.evidence .stat {
+  font-size: 1.5rem;
+  margin-right: 0.15em;
+}
+.ref {
+  margin: 0 0.35em 0 0.1em;
+  padding: 0 2px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  vertical-align: super;
+  color: var(--accent);
+  text-decoration: none;
+}
+.ref::after {
+  counter-increment: ref;
+  content: counter(ref);
+}
+
+/* What it does not do yet */
+.limits {
+  display: grid;
+  gap: 0;
+  max-width: 48rem;
+}
+.limits div {
+  display: grid;
+  gap: 4px;
+  padding: 14px 0;
+  border-top: 1px solid var(--rule);
+}
+.limits div:last-child {
+  border-bottom: 1px solid var(--rule);
+}
+.limits dt {
+  font-weight: 600;
+}
+.limits dd {
+  color: var(--ink-2);
+}
+
+/* Two ways in */
+.two {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 32px 48px;
+}
+.two > div {
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  max-width: 34rem;
+}
+.two p {
+  color: var(--ink-2);
+}
+@media (min-width: 52rem) {
+  .two {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* The next step */
+.next {
+  display: grid;
+  gap: 24px;
+  padding-block: 72px;
+}
+.next h2 {
+  font-size: clamp(1.75rem, 4.5vw, 2.75rem);
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  max-width: 20ch;
+}
+
+/* The foot */
+.foot {
+  display: grid;
+  gap: 16px;
+  color: var(--ink-2);
+  font-size: 0.875rem;
+}
+.foot h2 {
+  font-size: 0.9375rem;
+  color: var(--ink);
+}
+.sources {
+  padding-left: 1.4em;
+  display: grid;
+  gap: 6px;
+  max-width: 56rem;
+}
+.sources .stat {
+  color: var(--ink);
+}
+.sources a {
+  color: var(--accent);
+}
