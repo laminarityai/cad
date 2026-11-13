@@ -136,7 +136,96 @@ async def test_removing_a_requirement_the_brief_never_had_is_refused(s: Session)
     said = await s.text(
         "propose_requirements", brief_id=created["brief_id"], remove=["0123456789abcdef"]
     )
-    assert "0123456789abcdef is not a requirement of brief" in said
+    assert "0123456789abcdef is not in the set being carried" in said
+
+
+async def test_a_waiting_proposal_carries_into_the_next_one(s: Session) -> None:
+    created = await s.call("create_brief", text=CUBE_TEXT)
+    await s.call("propose_requirements", brief_id=created["brief_id"], requirements=[CUBE, PLA])
+    await s.call("propose_requirements", brief_id=created["brief_id"], requirements=[min_mass(5)])
+    body = await page(s, created["project_id"])
+    for quote in ("fits in a 20 mm cube", "PLA", "at least 50 g"):
+        assert f'<q class="origin">{html.escape(quote)}</q>' in body
+    assert "Remove:" not in body
+    s.person.answer = "confirm"
+    await s.call("ask_to_confirm", project_id=created["project_id"])
+    assert await in_force(s, created["brief_id"]) == [
+        "Fits inside a box of 20 mm x 20 mm x 20 mm",
+        "Made of Prusament PLA",
+        "Mass at least 5 g",
+    ]
+
+
+async def test_removing_a_waiting_row_needs_no_removal_row(s: Session) -> None:
+    created = await s.call("create_brief", text=CUBE_TEXT)
+    first = await s.call(
+        "propose_requirements", brief_id=created["brief_id"], requirements=[CUBE, PLA]
+    )
+    pla = first["requirements"][1]["requirement"]["id"]
+    proposed = await s.call("propose_requirements", brief_id=created["brief_id"], remove=[pla])
+    assert [row["plain"] for row in proposed["requirements"]] == [
+        "Fits inside a box of 20 mm x 20 mm x 20 mm"
+    ]
+    assert "Remove:" not in await page(s, created["project_id"])
+
+
+async def declined(s: Session, brief_id: str, project_id: str, *rows: Any) -> list[str]:
+    proposed = await s.call("propose_requirements", brief_id=brief_id, requirements=list(rows))
+    s.person.answer = "decline"
+    await s.call("ask_to_confirm", project_id=project_id)
+    s.person.answer = None
+    return [row["requirement"]["id"] for row in proposed["requirements"]]
+
+
+async def test_a_declined_proposal_does_not_carry(s: Session) -> None:
+    created = await s.call("create_brief", text=CUBE_TEXT)
+    cube, _ = await declined(s, created["brief_id"], created["project_id"], CUBE, PLA)
+    proposed = await s.call(
+        "propose_requirements", brief_id=created["brief_id"], requirements=[min_mass(5)]
+    )
+    assert [row["plain"] for row in proposed["requirements"]] == ["Mass at least 5 g"]
+    assert "Remove:" not in await page(s, created["project_id"])
+    said = await s.text("propose_requirements", brief_id=created["brief_id"], remove=[cube])
+    assert f"{cube} is not in the set being carried" in said
+
+
+async def test_after_a_decline_the_confirmed_set_carries(s: Session) -> None:
+    created = await confirmed_cube(s)
+    pla = await id_of(s, created["brief_id"], "made_of")
+    await s.call("propose_requirements", brief_id=created["brief_id"], remove=[pla])
+    s.person.answer = "decline"
+    await s.call("ask_to_confirm", project_id=created["project_id"])
+    await declined(s, created["brief_id"], created["project_id"], min_mass(5))
+    proposed = await s.call(
+        "propose_requirements", brief_id=created["brief_id"], requirements=[min_mass(6)]
+    )
+    assert [row["plain"] for row in proposed["requirements"]] == [
+        "Fits inside a box of 20 mm x 20 mm x 20 mm",
+        "Made of Prusament PLA",
+        "Mass at least 6 g",
+    ]
+    assert "Remove:" not in await page(s, created["project_id"])
+
+
+async def test_a_changed_envelope_needs_the_old_one_removed(s: Session) -> None:
+    created = await confirmed_cube(s)
+    wider = {**CUBE, "target": {"kind": "envelope", "edges": [{"magnitude": 30, "unit": "mm"}] * 3}}
+    said = await s.text("propose_requirements", brief_id=created["brief_id"], requirements=[wider])
+    assert "pass its id in remove" in said
+    cube = await id_of(s, created["brief_id"], "envelope")
+    await s.call(
+        "propose_requirements", brief_id=created["brief_id"], requirements=[wider], remove=[cube]
+    )
+    body = await page(s, created["project_id"])
+    assert body.count("Remove: ") == 1
+    assert body.count("Remove: Fits inside a box of 20 mm x 20 mm x 20 mm") == 1
+    assert body.count("Fits inside a box of 30 mm x 30 mm x 30 mm") == 1
+    s.person.answer = "confirm"
+    await s.call("ask_to_confirm", project_id=created["project_id"])
+    assert await in_force(s, created["brief_id"]) == [
+        "Fits inside a box of 30 mm x 30 mm x 30 mm",
+        "Made of Prusament PLA",
+    ]
 
 
 async def test_a_second_material_needs_the_confirmed_one_removed(s: Session) -> None:
