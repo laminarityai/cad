@@ -79,8 +79,7 @@ function grouped(lines: readonly Line[]): Shown[] {
 
 type Call = Extract<Line, { kind: "tool" }>;
 
-/** What a call that ended well did, in the words of the activity summary. */
-export function doneWord(call: Pick<Call, "name" | "result">): string {
+function doneWord(call: Pick<Call, "name" | "result">): string {
   if (call.result !== null && buildOf(call.name, call.result.text) === "unread") return BUILD_UNREAD;
   return DOING[call.name] ?? WORKED;
 }
@@ -141,10 +140,8 @@ function summaryText(lines: readonly Call[], phase: Phase): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-const FAILED = "Build failed";
-
 function labelOf(line: Call, status: ToolRow["status"]): string {
-  if (status === "failed") return FAILED;
+  if (status === "failed") return "Build failed";
   return status === "done" || status === "refused" ? activityText([doneWord(line)]) : nowLabel(line.name);
 }
 

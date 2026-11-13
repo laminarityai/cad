@@ -1,6 +1,6 @@
 import { autoRunOf } from "@/features/auto/run";
 
-export type Build = "built" | "failed" | "unread";
+type Build = "built" | "failed" | "unread";
 
 const BUILDS: ReadonlySet<string> = new Set(["build_variant", "auto_revise"]);
 

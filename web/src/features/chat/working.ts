@@ -25,7 +25,6 @@ type Turn = Pick<ChatState, "lines" | "turn" | "turnStartSeq" | "link">;
 /** A turn runs, but the stream dropped, so nothing on the page knows whether it still moves. */
 export const stalledOf = (chat: Turn): boolean => chat.turn === "running" && chat.link === "reconnecting";
 
-/** The brief a call works on: the one it names, or the running run's for an Auto tool. */
 function briefOf(call: Call, runBrief: string | null): string | null {
   if (typeof call.input.brief_id === "string") return call.input.brief_id;
   return AUTO_TOOLS.has(call.name) ? runBrief : null;
