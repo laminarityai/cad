@@ -18,7 +18,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Final, Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from cad.auto.model import Bounds
 
@@ -38,6 +38,18 @@ class Expect(Frozen):
     @staticmethod
     def of(grader: Mapping[str, Any]) -> "Expect":
         return Expect.model_validate(grader.get("expect") or {})
+
+
+def expect_problems(brief_id: str, grader: Mapping[str, Any]) -> list[str]:
+    """What is wrong with a brief's expect block, so a run can refuse it before any session."""
+    try:
+        Expect.of(grader)
+    except ValidationError as error:
+        return [
+            f"brief {brief_id}: expect.{'.'.join(map(str, one['loc']))}: {one['msg']}"
+            for one in error.errors()
+        ]
+    return []
 
 
 class AutoResult(Frozen):
