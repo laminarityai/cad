@@ -1,10 +1,11 @@
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
 
-from cad.verify.steps import STEPS
+from cad.verify.steps import SKILLS_CONFIG, STEPS
 
 ROOT = Path(__file__).resolve().parents[2]
 TYPE_ERROR = 'x: int = "a"\n'
@@ -34,9 +35,8 @@ def type_errors_in(project: Path) -> set[str]:
 def make_project(path: Path) -> Path:
     path.mkdir(parents=True, exist_ok=True)
     (path / "pyproject.toml").write_text((ROOT / "pyproject.toml").read_text())
-    (path / ".claude").mkdir()
-    config = ".claude/pyrightconfig.json"
-    (path / config).write_text((ROOT / config).read_text())
+    (path / SKILLS_CONFIG).parent.mkdir(parents=True)
+    (path / SKILLS_CONFIG).write_text((ROOT / SKILLS_CONFIG).read_text())
     (path / ".venv").symlink_to(ROOT / ".venv")
     return path
 
@@ -89,3 +89,22 @@ def test_type_errors_fail_in_a_worktree_nested_under_another_checkout(tmp_path: 
     path.parent.mkdir(parents=True)
     path.write_text(TYPE_ERROR)
     assert type_errors_in(worktree) == {"src/cad/app.py"}
+
+
+def test_a_bare_type_check_in_a_nested_worktree_reads_the_worktrees_own_project(
+    tmp_path: Path,
+) -> None:
+    outer = make_project(tmp_path / "repo")
+    worktree = make_project(outer / ".claude" / "worktrees" / "agent")
+    path = worktree / "src" / "cad" / "app.py"
+    path.parent.mkdir(parents=True)
+    path.write_text(TYPE_ERROR)
+    done = subprocess.run(
+        [sys.executable, "-m", "basedpyright", "--outputjson"],
+        capture_output=True,
+        text=True,
+        check=False,
+        cwd=worktree,
+    )
+    files = {d["file"] for d in json.loads(done.stdout)["generalDiagnostics"]}
+    assert files == {str(path.resolve())}

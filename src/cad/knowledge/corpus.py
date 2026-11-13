@@ -26,7 +26,6 @@ Files are read as UTF-8, with a byte order mark or Windows line endings accepted
 A number in a unit's text is never a value a check reads; checks read the tables by exact key.
 """
 
-import hashlib
 import re
 from collections.abc import Hashable, Mapping
 from dataclasses import dataclass
@@ -87,7 +86,6 @@ class Unit:
 
 @dataclass(frozen=True, slots=True)
 class Corpus:
-    version: str
     units: Mapping[str, Unit]
 
 
@@ -109,10 +107,8 @@ def load(path: Path = CORPUS_PATH) -> Corpus:
         for nested in sorted(path.glob("*/**/*.md"))
     )
     units: dict[str, Unit] = {}
-    digest = hashlib.sha256()
     for file in files:
         data = file.read_bytes()
-        digest.update(file.name.encode() + b"\0" + data + b"\0")
         try:
             text = data.decode("utf-8-sig").replace("\r\n", "\n")
         except UnicodeDecodeError as error:
@@ -127,7 +123,7 @@ def load(path: Path = CORPUS_PATH) -> Corpus:
                 units[unit.pointer.id] = unit
     if problems:
         raise InvalidCorpus("\n".join(problems))
-    return Corpus(version=digest.hexdigest(), units=units)
+    return Corpus(units=units)
 
 
 def _parse(stem: str, text: str) -> tuple[list[Unit], list[str]]:
@@ -136,6 +132,8 @@ def _parse(stem: str, text: str) -> tuple[list[Unit], list[str]]:
         return [], ["no front matter"]
     try:
         meta: object = yaml.load(match["yaml"], _UniqueKeyLoader)
+    except yaml.MarkedYAMLError as error:
+        return [], [f"front matter is not valid YAML{_where(error)}"]
     except yaml.YAMLError as error:
         return [], [f"front matter is not valid YAML: {str(error).splitlines()[0]}"]
     source, problems = _source(stem, meta)
@@ -156,6 +154,15 @@ def _parse(stem: str, text: str) -> tuple[list[Unit], list[str]]:
         else:
             units.append(unit)
     return units, problems
+
+
+def _where(error: yaml.MarkedYAMLError) -> str:
+    """The file's line and column of the problem. The front matter starts on line 2."""
+    mark = error.problem_mark or error.context_mark
+    said = error.problem or error.context or "a syntax error"
+    if mark is None:
+        return f": {said}"
+    return f" at line {mark.line + 2}, column {mark.column + 1}: {said}"
 
 
 def _source(stem: str, meta: object) -> tuple[Source | None, list[str]]:

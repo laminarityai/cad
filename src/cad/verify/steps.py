@@ -5,6 +5,7 @@ from pathlib import Path
 PYTHON = sys.executable
 ROOT = Path(__file__).resolve().parents[3]
 MODELS = ROOT / ".claude" / "skills" / "protocol-models"
+SKILLS_CONFIG = ".claude/skills/pyrightconfig.json"
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,16 +35,16 @@ API_WEB = ("web/package.json", "web/package-lock.json", "web/src/api/*")
 
 
 STEPS: tuple[Step, ...] = (
-    # -p names the config: searching upward from a worktree under .claude/ finds
-    # .claude/pyrightconfig.json first, which checks only the skills.
     Step(
         "basedpyright",
         (PYTHON, "-m", "basedpyright", "-p", "pyproject.toml"),
         inputs=PYTHON_INPUTS,
     ),
+    # The skills' config sits under .claude/skills/, so it is never an ancestor of a worktree
+    # under .claude/worktrees/ that a bare `basedpyright` would find before the worktree's own.
     Step(
         "basedpyright skills",
-        (PYTHON, "-m", "basedpyright", "-p", ".claude/pyrightconfig.json"),
+        (PYTHON, "-m", "basedpyright", "-p", SKILLS_CONFIG),
         inputs=(*PYTHON_INPUTS, ".claude/*"),
     ),
     Step("ruff check", (PYTHON, "-m", "ruff", "check")),

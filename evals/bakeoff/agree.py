@@ -28,7 +28,7 @@ import yaml
 from inputs import Attempt, as_result_contract, brief_prompt, read_session, stored_attempts
 
 from cad.checks.container.extents import SORTED_NAMES
-from cad.checks.result import CheckResult, StepStored, Verdict
+from cad.checks.result import CheckResult, StepMissing, Verdict
 from cad.sandbox.outcome import Built
 from cad.scorecard import score
 from cad.variants import entry, store
@@ -43,6 +43,12 @@ EXTENT_TOL_MM: Final = 0.002
 INVALID_CATEGORIES: Final = frozenset({"no_output", "invalid_solid"})
 UNSCORED: Final = "unscored"
 FLOAT_SLACK: Final = 1e-9
+DRIVER_FAILURES: Final = (
+    "claude exited",
+    "cad is not connected",
+    "tools available outside cad:",
+    "tools outside cad:",
+)
 
 type Extents = tuple[float, float, float]
 
@@ -169,7 +175,9 @@ def card_side(root: Path, variant_id: str) -> CardSide:
     verdict = next(r for r in card.finished if r.check_id == "closed_solid").verdict
     if card.brep_sha256 != sha256_of(directory / entry.BREP):
         raise EvidenceError("result.brep is not the BREP the scorecard measured")
-    if isinstance(card.step, StepStored) and card.step.sha256 != sha256_of(directory / entry.STEP):
+    if isinstance(card.step, StepMissing):
+        raise EvidenceError(f"the scorecard keeps no STEP: {card.step.reason}")
+    if card.step.sha256 != sha256_of(directory / entry.STEP):
         raise EvidenceError("result.step is not the STEP the scorecard names")
     if verdict != Verdict.PASS:
         return CardSide(verdict.value, None, None)
@@ -212,6 +220,17 @@ def replay_one(attempt: Attempt, root: Path) -> Row:
     return evaluate(attempt.label, attempt.part, built.variant_id, root, time.monotonic() - started)
 
 
+def session_failure(stdout: str, stderr: str) -> str:
+    """Why the session driver exited 1: its own failure lines, else the last line of the
+    traceback it raised, else the error the session reported. The driver's last stdout line is
+    often the model's reply, so it is not a reason."""
+    failures = [line for line in stdout.splitlines() if line.startswith(DRIVER_FAILURES)]
+    if failures:
+        return "; ".join(failures)
+    raised = stderr.strip().splitlines()
+    return raised[-1] if raised else "the session reported an error"
+
+
 def live_one(part: str, brief: str, out: Path, model: str) -> Row:
     started = time.monotonic()
     transcript = out / f"{part}.json"
@@ -235,8 +254,8 @@ def live_one(part: str, brief: str, out: Path, model: str) -> Row:
         part, part, session.scored_variant, home / ".cad" / "variants", time.monotonic() - started
     )
     if done.returncode != 0:
-        last = (done.stdout.strip().splitlines() or ["no output"])[-1]
-        reasons = (*row.agreement.reasons, f"the session failed: {last}")
+        failure = session_failure(done.stdout, done.stderr)
+        reasons = (*row.agreement.reasons, f"the session failed: {failure}")
         row = replace(row, agreement=Agreement(False, reasons))
     return replace(row, cost_usd=session.cost_usd, tool_calls=session.tool_calls)
 

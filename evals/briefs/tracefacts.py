@@ -60,4 +60,6 @@ def trace_session(home: Path, transcript: Path) -> Trace:
         coverage=_share(tracking.reviewed_coverage),
         agent_coverage=_share(tracking.agent_coverage),
         described_coverage=_share(tracking.described_coverage),
+        by=dict(tracking.by),
+        uncovered=dict(tracking.uncovered),
     )

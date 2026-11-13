@@ -104,22 +104,19 @@ def drawn(page: Page) -> None:
 
 
 def open_tab(page: Page, name: str) -> None:
+    if not name:
+        return
     tab = page.get_by_role("tablist", name="Panes").get_by_role("tab", name=name)
     if tab.count():
         tab.click()
         page.wait_for_timeout(300)
 
 
-def pick_material(page: Page, given: dict[str, str]) -> None:
-    if given["tab"]:
-        open_tab(page, given["tab"])
-
-
 def shot(run: Path, path: str, name: str, given: dict[str, str]) -> int:
     with sync_playwright() as playwright:
         browser, page = open_page(playwright, run, path, given)
         drawn(page)
-        pick_material(page, given)
+        open_tab(page, given["tab"])
         if given["slot"]:
             page.locator(f"[data-slot-tab='{given['slot']}']").click()
             drawn(page)
@@ -137,7 +134,7 @@ def watch(run: Path, path: str, name: str, given: dict[str, str]) -> int:
     with sync_playwright() as playwright:
         browser, page = open_page(playwright, run, path, given)
         drawn(page)
-        pick_material(page, given)
+        open_tab(page, given["tab"])
         navigations: list[str] = []
         page.on("framenavigated", lambda frame: navigations.append(frame.url))
         last: dict[str, str] = {}
