@@ -1,9 +1,16 @@
+"""Requirements whose bounds no design can meet together, said in the words the person reads.
+
+Each quantity gathers its lower and upper bounds. Mass also gains the upper bound that the
+material's density puts on it inside the tightest volume, when the table knows the density."""
+
 import math
+from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Final, Literal, assert_never
 
 from cad.auto.model import Bounds, Read
+from cad.briefs.bindable import BINDABLE
 from cad.briefs.holes import FastenerHoles, PlainHoles
 from cad.briefs.model import (
     AgentLimit,
@@ -20,53 +27,103 @@ from cad.briefs.model import (
     MinSafetyFactor,
     Requirement,
     Unchecked,
+    amount,
 )
 from cad.checks.result import Comparator
 from cad.scorecard.requirements import UNIT_CONVERSION_NOISE
 from cad.tables.materials import FromResearch, Known, MaterialsTable, magnitude
 
-VOLUME: Final = ("mass", "volume")
+MASS: Final = "mass"
+VOLUME: Final = "volume"
+_VOLUME_MEASURE: Final = ("mass", "volume")
 
 
 @dataclass(frozen=True, slots=True)
 class _Bound:
+    """`words` finishes "but ..." for an upper bound and starts the sentence for a lower one.
+    `space` names a volume upper bound as the room a material fills."""
+
     value: float
     words: str
     requirements: tuple[str, ...]
     reads: tuple[Read, ...] = ()
+    space: str = ""
+
+
+@dataclass(frozen=True, slots=True)
+class Unweighed:
+    """A material whose density is unknown, so a mass bound inside a volume is not checked."""
+
+    statement: str
+    requirements: tuple[str, ...]
+
+
+@dataclass
+class _Gathered:
+    lows: defaultdict[str, list[_Bound]]
+    highs: defaultdict[str, list[_Bound]]
+    made_of: Requirement | None = None
 
 
 def bounds_conflicts(
     requirements: Sequence[Requirement], table: MaterialsTable
 ) -> tuple[Bounds, ...]:
-    volume_hi: list[_Bound] = []
-    volume_lo: list[_Bound] = []
-    mass_hi: list[_Bound] = []
-    mass_lo: list[_Bound] = []
-    made_of: Requirement | None = None
+    gathered = _gather(requirements)
+    through = _through_density(gathered, table)
+    if through is not None:
+        gathered.highs[MASS].append(through)
+    quantities = dict.fromkeys((*gathered.lows, *gathered.highs))
+    found = (_conflict(one, gathered.lows[one], gathered.highs[one]) for one in quantities)
+    return tuple(one for one in found if one is not None)
+
+
+def unweighed(requirements: Sequence[Requirement], table: MaterialsTable) -> Unweighed | None:
+    """The note for a minimum mass inside a volume when the material has no density yet. It
+    says the pair is not checked, never that it can or cannot be met."""
+    gathered = _gather(requirements)
+    lowest = max(gathered.lows[MASS], key=lambda bound: bound.value, default=None)
+    room = min(gathered.highs[VOLUME], key=lambda bound: bound.value, default=None)
+    made_of = gathered.made_of
+    if made_of is None or lowest is None or room is None:
+        return None
+    assert isinstance(made_of.target, MadeOf)
+    key = table.row_key(made_of.target.material)
+    if isinstance(table.get_material(key).density, Known):
+        return None
+    return Unweighed(
+        f"{table.name_of(key)} has no density yet, so whether the mass can be at least "
+        f"{lowest.value:g} g within {room.space} is not checked until its density is researched",
+        tuple(dict.fromkeys((*lowest.requirements, made_of.id, *room.requirements))),
+    )
+
+
+def _gather(requirements: Sequence[Requirement]) -> _Gathered:
+    gathered = _Gathered(defaultdict(list), defaultdict(list))
     for one in requirements:
         rid = (one.id,)
         match one.target:
             case Envelope(edges=edges):
+                box = " x ".join(f"{magnitude(edge, 'mm'):g}" for edge in edges)
                 volume = math.prod(magnitude(edge, "mm") for edge in edges)
-                volume_hi.append(_Bound(volume, f"envelope {_cm3(volume)}", rid))
-            case MeasureLimit() as limit if (limit.check_id, limit.measure) == VOLUME:
-                volume = magnitude(limit.limit, "mm^3")
-                if limit.comparator is Comparator.AT_MOST:
-                    volume_hi.append(_Bound(volume, f"volume at most {_cm3(volume)}", rid))
-                else:
-                    volume_lo.append(_Bound(volume, f"volume at least {_cm3(volume)}", rid))
+                space = f"the whole {box} mm box ({_cm3(volume)})"
+                words = f"the whole {box} mm box holds {_cm3(volume)}"
+                gathered.highs[VOLUME].append(_Bound(volume, words, rid, space=space))
+            case MeasureLimit() as limit:
+                _gather_limit(gathered, limit, rid)
             case MaxMass(mass=mass):
                 grams = magnitude(mass, "g")
-                mass_hi.append(_Bound(grams, f"max_mass {grams:g} g", rid))
+                gathered.highs[MASS].append(
+                    _Bound(grams, f"the mass must be at most {grams:g} g", rid)
+                )
             case MinMass(mass=mass):
                 grams = magnitude(mass, "g")
-                mass_lo.append(_Bound(grams, f"min_mass {grams:g} g", rid))
+                gathered.lows[MASS].append(
+                    _Bound(grams, f"the mass must be at least {grams:g} g", rid)
+                )
             case MadeOf():
-                made_of = one
+                gathered.made_of = one
             case (
                 ClosedSolid()
-                | MeasureLimit()
                 | Unchecked()
                 | MinSafetyFactor()
                 | MaxDeflection()
@@ -80,49 +137,62 @@ def bounds_conflicts(
                 pass
             case _:
                 assert_never(one.target)
-    found = [_conflict("volume", volume_lo, volume_hi)]
-    tightest = min(volume_hi, key=lambda bound: bound.value, default=None)
-    if made_of is not None and tightest is not None:
-        through = _mass_from_volume(made_of, tightest, table)
-        if through is not None:
-            mass_hi.append(through)
-    found.append(_conflict("mass", mass_lo, mass_hi))
-    return tuple(one for one in found if one is not None)
+    return gathered
 
 
-def _mass_from_volume(made_of: Requirement, volume: _Bound, table: MaterialsTable) -> _Bound | None:
+def _gather_limit(gathered: _Gathered, limit: MeasureLimit, rid: tuple[str, ...]) -> None:
+    key = (limit.check_id, limit.measure)
+    bindable = BINDABLE[key]
+    value = magnitude(limit.limit, bindable.unit)
+    quantity = VOLUME if key == _VOLUME_MEASURE else f"{limit.check_id}:{limit.measure}"
+    if limit.comparator is Comparator.AT_MOST:
+        words = f"{bindable.words} must be at most {amount(limit.limit)}"
+        space = f"the most volume allowed ({amount(limit.limit)})"
+        gathered.highs[quantity].append(_Bound(value, words, rid, space=space))
+    else:
+        words = f"{bindable.words} must be at least {amount(limit.limit)}"
+        gathered.lows[quantity].append(_Bound(value, words, rid))
+
+
+def _through_density(gathered: _Gathered, table: MaterialsTable) -> _Bound | None:
+    made_of = gathered.made_of
+    room = min(gathered.highs[VOLUME], key=lambda bound: bound.value, default=None)
+    if made_of is None or room is None:
+        return None
     assert isinstance(made_of.target, MadeOf)
     key = table.row_key(made_of.target.material)
     density = table.get_material(key).density
     if not isinstance(density, Known):
         return None
     per_cm3 = density.magnitude_in("g/cm^3")
-    grams = per_cm3 * volume.value / 1000
+    grams = per_cm3 * room.value / 1000
     basis: Literal["table", "researched"] = (
         "researched" if isinstance(density.basis, FromResearch) else "table"
     )
     read = Read(material_key=key, field="density", value=f"{per_cm3:g} g/cm³", basis=basis)
     return _Bound(
         grams,
-        f"density({key}) {read.value} \N{MULTIPLICATION SIGN} {volume.words} = {grams:g} g",
-        (made_of.id, *volume.requirements),
+        f"{table.name_of(key)} at {read.value} weighs {grams:g} g filling {room.space}",
+        (made_of.id, *room.requirements),
         (read,),
     )
 
 
-def _conflict(
-    quantity: Literal["mass", "volume"], lows: list[_Bound], highs: list[_Bound]
-) -> Bounds | None:
+def _conflict(quantity: str, lows: list[_Bound], highs: list[_Bound]) -> Bounds | None:
     lo = max(lows, key=lambda bound: bound.value, default=None)
     hi = min(highs, key=lambda bound: bound.value, default=None)
     if lo is None or hi is None or lo.value <= hi.value * (1 + UNIT_CONVERSION_NOISE):
         return None
     return Bounds(
         quantity=quantity,
-        statement=f"{lo.words} > {hi.words}",
+        statement=f"{_capital(lo.words)}, but {hi.words}",
         requirements=tuple(dict.fromkeys((*lo.requirements, *hi.requirements))),
         reads=(*lo.reads, *hi.reads),
     )
+
+
+def _capital(words: str) -> str:
+    return words[:1].upper() + words[1:]
 
 
 def _cm3(mm3: float) -> str:

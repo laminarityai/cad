@@ -53,7 +53,8 @@ def check_proposed(
                 f"requirements[{index}] describes a load case that no earlier proposal of this "
                 "brief carried, and a stress result of this brief already exists, so a new "
                 f"description could be chosen for its result. {USE_A_REVIEWED_PHRASE}. The "
-                "described case the brief holds may be proposed again with a new force"
+                "described case the brief holds may be proposed again with a new force: pass "
+                "the old requirement's id in remove"
             )
     newest = state.latest
     if newest is None or newest.status is Status.DECLINED:

@@ -169,8 +169,8 @@ async def test_a_conflicting_brief_stops_at_start_with_its_proof_and_builds_noth
     reason = run.state.reason
     assert isinstance(reason, NeedsPerson) and reason.why == "conflict"
     [bounds] = reason.bounds
-    assert bounds.statement.startswith("min_mass 50 g > density(prusament-pla) 1.24 g/cm³")
-    assert bounds.statement.endswith("envelope 8 cm³ = 9.92 g")
+    assert bounds.statement.startswith("The mass must be at least 50 g, but Prusament PLA")
+    assert bounds.statement.endswith("weighs 9.92 g filling the whole 20 x 20 x 20 mm box (8 cm³)")
     assert bounds.statement in run.state.report
     await s.held(brief_id, run.run_id)
     assert s.meter.asked == []
@@ -196,6 +196,39 @@ async def test_proposing_requirements_under_a_run_stops_it(
     answer = await s.call("ask_to_confirm", project_id=project)
     assert answer["status"] == "answered", answer
     await s.held(brief_id, run_id)
+
+
+PLATE_ROW: Final = {"target": {"kind": "unchecked", "statement": "a plate"}, "quote": "plate"}
+
+
+async def test_a_proposal_that_carries_the_confirmed_set_names_only_its_new_rows(
+    s: Session,
+) -> None:
+    brief_id, run_id = await running(s)
+    added = await s.call("propose_requirements", brief_id=brief_id, requirements=[PLATE_ROW])
+    kinds = {one["requirement"]["target"]["kind"]: one for one in added["requirements"]}
+    assert set(kinds) == {"max_mass", "unchecked"}
+    await s.refusal("build_variant", code=PLATE, brief_id=brief_id)
+    stopped = s.run(run_id)
+    assert isinstance(stopped.state, Stopped)
+    reason = stopped.state.reason
+    assert isinstance(reason, NeedsPerson)
+    assert reason.requirements == (kinds["unchecked"]["requirement"]["id"],)
+
+
+async def test_a_proposal_that_only_removes_a_row_says_a_change_waits(s: Session) -> None:
+    brief_id = await s.confirmed(TEXT, UNDER_150, PLATE_ROW)
+    run = await s.start(brief_id=brief_id, **PLA_CHOICE)
+    confirmed = briefs_store.read_state(s.roots, brief_id).confirmed
+    assert confirmed is not None
+    plate = confirmed.requirement_ids[-1]
+    await s.call("propose_requirements", brief_id=brief_id, remove=[plate])
+    run_id = run.run_id
+    text = await s.refusal("build_variant", code=PLATE, brief_id=brief_id)
+    assert "A change to the confirmed requirements was proposed" in text
+    stopped = s.run(run_id)
+    assert isinstance(stopped.state, Stopped)
+    assert stopped.state.reason.model_dump()["requirements"] == ()
 
 
 async def test_auto_ask_stops_the_run_with_the_agents_note_and_nothing_spends_after(

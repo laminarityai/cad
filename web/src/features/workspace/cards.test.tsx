@@ -123,6 +123,7 @@ describe("what waits for the person's Confirm", () => {
     check_id: "mass",
     instance: "",
     values: [{ measure: "mass", proposed: { magnitude: 30, unit: "g" }, measured: { magnitude: 0.2, unit: "kg" } }],
+    holes: null,
   };
 
   it("lists the measure beside the stated target and counts as neither a pass nor a fail", () => {
@@ -133,6 +134,18 @@ describe("what waits for the person's Confirm", () => {
       { key: "awaiting:r1", label: "Mass at most 30 g", values: [{ measure: "mass", target: "30 g", measured: "200 g" }] },
     ]);
     expect(summaryOf({ snapshot: held })).toEqual(summaryOf({ snapshot: plain }));
+  });
+
+  it("puts each measured diameter beside a waiting holes target's band", () => {
+    const mm = (magnitude: number) => ({ magnitude, unit: "mm" });
+    const band = { count: 2, low: mm(7.95), high: mm(8.05) };
+    const twoHoles = { ...awaitingRow, statement: "2 holes of 8 mm", check_id: "holes", values: [], holes: { ...band, measured: [mm(7.9), mm(8.4)] } };
+    const unmeasured = { ...twoHoles, requirement_id: "r2", holes: { ...band, count: null, measured: [] } };
+    const held = restore({ ...snapshot("v1", [], [massResult()]), awaiting: [twoHoles, unmeasured] });
+    expect(awaitingOf(held).map((one) => one.values)).toEqual([
+      [{ measure: "hole diameters", target: "2 holes from 7.95 mm to 8.05 mm", measured: "7.9 mm and 8.4 mm" }],
+      [{ measure: "hole diameters", target: "a hole from 7.95 mm to 8.05 mm", measured: null }],
+    ]);
   });
 
   it("never lists a result that read a load awaiting Confirm as a check that passed", () => {

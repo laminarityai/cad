@@ -76,7 +76,9 @@ class Read(Frozen):
 
 
 class Bounds(Frozen):
-    quantity: Literal["mass", "volume"]
+    """`quantity` is mass, volume, or the `check:measure` a measure limit binds to."""
+
+    quantity: str
     statement: str
     requirements: tuple[str, ...]
     reads: tuple[Read, ...] = ()

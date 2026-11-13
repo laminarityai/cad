@@ -10,12 +10,15 @@ same stored check results are judged against the confirmed set, with no rebuild.
 from collections.abc import Mapping, Sequence
 from typing import Literal
 
-from cad.briefs.model import Requirement, deciding_check, limits
+from cad.briefs.holes import FastenerHoles, PlainHoles
+from cad.briefs.model import Requirement, Target, deciding_check, limits
 from cad.briefs.words import NO_NAMES, describe
-from cad.checks.result import CheckResult, Measured
+from cad.checks.result import CheckResult, Measure, Measured
 from cad.frozen import Frozen
+from cad.scorecard.holes import MEASURE, band
 from cad.scorecard.requirements import instance, result_of
 from cad.scorecard.unjudged import MeasureOnly, Reported
+from cad.tables.materials import UNITS
 
 
 class AwaitingValue(Frozen):
@@ -24,10 +27,20 @@ class AwaitingValue(Frozen):
     measured: Measured | None
 
 
+class AwaitingHoles(Frozen):
+    """A holes target's band beside each diameter the holes check measured, narrowest first. No
+    count of the holes that fall in the band is given: that is the judgment Confirm waits for."""
+
+    count: int | None
+    low: Measured
+    high: Measured
+    measured: tuple[Measured, ...]
+
+
 class AwaitingRow(Frozen):
     """The person stated this target and has not confirmed it, so it is not judged. `instance`
     names the result of `check_id` that read its load, which the card reports as a `MeasureOnly`
-    with no verdict."""
+    with no verdict. A holes target shows its band in `holes` and has no `values`."""
 
     kind: Literal["awaiting"] = "awaiting"
     label: Literal["waiting for your Confirm, no verdict"] = "waiting for your Confirm, no verdict"
@@ -36,6 +49,7 @@ class AwaitingRow(Frozen):
     check_id: str
     instance: str
     values: tuple[AwaitingValue, ...]
+    holes: AwaitingHoles | None = None
 
 
 def rows(
@@ -72,4 +86,17 @@ def _row(
             )
             for one in limits(target)
         ),
+        holes=_holes(target, measures),
+    )
+
+
+def _holes(target: Target, measures: Sequence[Measure]) -> AwaitingHoles | None:
+    if not isinstance(target, FastenerHoles | PlainHoles):
+        return None
+    wanted = band(target)
+    return AwaitingHoles(
+        count=target.count,
+        low=UNITS.Quantity(wanted.low, "mm"),
+        high=UNITS.Quantity(wanted.high, "mm"),
+        measured=tuple(one.value for one in measures if one.name.startswith(f"{MEASURE}:")),
     )

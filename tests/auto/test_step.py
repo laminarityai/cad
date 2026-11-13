@@ -218,6 +218,19 @@ def test_the_persons_report_names_each_requirement_by_its_statement() -> None:
     assert "r1" not in text
 
 
+def test_the_persons_report_carries_each_checks_reason_and_names_the_option() -> None:
+    rows = (checked("r1", UNKNOWN, "the mesh did not converge"), checked("r2", FAIL, "160 g"))
+    standing = settle(card(*rows))
+    said = {"r1": "Holds 5 kg", "r2": "Mass at most 150 g"}
+    reason = NeedsPerson(why="agent_asked", note="stuck")
+    text = report((standing,), reason, said, "Thick walls, revision 2")
+    assert "- Holds 5 kg: unknown, and it is not a pass: the mesh did not converge" in text
+    assert "- Mass at most 150 g: fails: 160 g" in text
+    assert "The latest is Thick walls, revision 2." in text
+    assert "could not decide" not in text
+    assert standing.variant_id not in text
+
+
 @pytest.mark.parametrize(
     ("event", "reason"),
     [

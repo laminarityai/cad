@@ -16,19 +16,10 @@ from pydantic import ValidationError
 from cad.chat.log import Answered, DriverSaid, Event, ToolCalled, ToolReturned
 from cad.confirmations.answers import Ledger
 from cad.operations.confirmation import AskResult
+from cad.operations.guidance import CHAT_PAGE_ANSWERED
 from cad.projects.model import ProjectId
 
 ASK: Final = "ask_to_confirm"
-ANSWERED: Final = (
-    "The person answered the confirmation page of project {project}: they confirmed {confirmed} "
-    "and declined {declined}.{notes} Call ask_to_confirm with project_id {project} to read each "
-    "item's outcome, and list_requirements for what they confirmed. Nothing you built is gone, "
-    "and the scorecards now judge it against what they confirmed with no rebuild. Then carry on "
-    "without waiting for them. Score again to read the verdicts. For what they declined, read "
-    "their note and propose again, file the value as an assumption, or drop it. When nothing "
-    "waits for the person and an option fails a requirement they confirmed that a check "
-    "decides, call auto_start with its brief_id, then auto_revise until the run stops."
-)
 
 
 @dataclass(frozen=True, slots=True)
@@ -61,7 +52,7 @@ def delivery(waiting: Waiting, ledger: Ledger) -> DriverSaid | None:
         return None
     verdicts = [one.verdict for page in new for one in page.answers]
     notes = "".join(f' Their note: "{page.note}".' for page in new if page.note)
-    text = ANSWERED.format(
+    text = CHAT_PAGE_ANSWERED.format(
         project=waiting.project,
         confirmed=verdicts.count("confirmed"),
         declined=verdicts.count("declined"),

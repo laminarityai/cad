@@ -158,6 +158,23 @@ async def test_a_run_that_passes_every_checked_requirement_stops_with_all_pass(
     assert events[-2]["reason"] == "all_pass"
 
 
+@pytest.mark.docker
+async def test_the_persons_report_names_the_option_and_never_its_variant_id(chat: Chat) -> None:
+    revise = step("Revising.", call("auto_revise", run_id=RUN, code=PLATE))
+    chat.app.state.chat.model = script(*confirmed(), revise, revise, revise)
+    async with chat.client() as client:
+        cid = await chat.conversation(client)
+        await chat.say(client, cid, TEXT)
+        await chat.finish()
+        events = await chat.events(client, cid)
+    state = run_of(chat, cid).state
+    assert isinstance(state, Stopped)
+    said = events[-2]["report"]
+    assert "The latest is Option 1, revision 1." in said
+    assert state.history[-1].variant_id not in said
+    assert "- Mass at most 150 g: passes" in said
+
+
 @dataclass
 class PressesStop:
     inner: Model
