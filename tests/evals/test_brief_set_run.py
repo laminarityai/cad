@@ -6,7 +6,7 @@ import pytest
 import run
 from brief_set import load_set, prompt_for
 from friction import minutes_to_first_result, read_pages
-from outcome import BriefResult, Friction, Share, Trace, is_finished
+from outcome import BriefResult, Friction, Share, Trace, is_finished, read_results
 from session import SessionFacts, SessionRun, failure_note
 from summary import markdown, summarize
 from tracefacts import NO_CARD, trace_session
@@ -303,3 +303,30 @@ def test_only_runs_the_named_briefs(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     started = stub_session(monkeypatch, failing=set())
     run.main(["--briefs", str(briefs_dir), "--out", str(out), "--only", "two"])
     assert started == ["two"]
+
+
+def test_a_tracer_failure_fails_that_briefs_trace_and_the_other_briefs_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    briefs_dir, out = tmp_path / "set", tmp_path / "out"
+    briefs_dir.mkdir()
+    for name in ("one", "two", "three"):
+        write_brief(briefs_dir, name, "x")
+    started = stub_session(monkeypatch, failing=set())
+
+    def tracer(home: Path, transcript: Path) -> Trace:
+        if home.parent.name == "one":
+            raise AssertionError("first line\nonly a finished check has measures")
+        return a_trace()
+
+    monkeypatch.setattr(run, "trace_session", tracer)
+    arguments = ["--briefs", str(briefs_dir), "--out", str(out), "--jobs", "1"]
+    assert run.main([*arguments, "--require-traced"]) == 1
+    assert sorted(started) == ["one", "three", "two"]
+    [one, three, two] = read_results(out, ["one", "three", "two"])
+    assert (one.status, two.status, three.status) == ("finished",) * 3
+    assert one.trace is not None and not one.trace.traced
+    assert one.trace.untraced == (
+        "the tracer failed: AssertionError: only a finished check has measures",
+    )
+    assert two.trace == a_trace() and three.trace == a_trace()
