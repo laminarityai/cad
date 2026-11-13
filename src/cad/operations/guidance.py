@@ -1,5 +1,7 @@
 from typing import Final
 
+from cad.briefs.bindable import BINDABLE
+
 BUILD_FIRST = (
     "A brief builds at once, so nothing waits on the person before you build. Work in this "
     "order in one turn. Store the brief with create_brief. In chat pass no text, and the server "
@@ -17,19 +19,85 @@ BUILD_FIRST = (
     "as an assumption, or drop it."
 )
 
+PROPOSE_REQUIREMENTS = (
+    "If the brief names a material, call list_materials before you propose. Propose the "
+    "requirements for a brief. Each has a target and a quote copied exactly from the "
+    "brief. The target kind is closed_solid; max_mass or min_mass with a mass "
+    "such as {magnitude: 150, unit: g}; envelope with three edge lengths; measure_limit, which "
+    "holds one team check's measure to a limit the user confirms, with check_id, measure, a "
+    "comparator (at_most or at_least) and a limit such as {magnitude: 30, unit: cm^3} in the "
+    "measure's unit or one of its kind; the measures are "
+    + "; ".join(
+        f"check_id {check}, measure {measure}: {bound.words}, in {bound.unit}"
+        for (check, measure), bound in BINDABLE.items()
+    )
+    + "; made_of with a "
+    "material, only when the brief names one, quoting its words (at most one per brief). When the "
+    "brief names no material, propose no made_of and do not ask the person for one: you choose "
+    "it for each variant when you build it. When the brief names one, call "
+    "list_materials first, and copy the key of the table's row for that material when it lists "
+    "one; for a generic name such as PLA or PETG use the row for that polymer, and the person "
+    "confirms the choice on the page. Otherwise give "
+    "a key of your own that names it, such as acme-pla-matte. The server stores a material the "
+    "table lacks as the project's own row, project- and your key, and the reply's research "
+    "asks for each value its checks read; answer it with submit_research. min_safety_factor (a "
+    "factor, against yield) or max_deflection (a length), each with a load; "
+    "min_clearance or max_clearance with a part, the part_id of a context part of this project "
+    "from propose_context_part or list_files, and a clearance length, which the fit check "
+    "decides against that part with the variant built in the part's frame; fits_with with a "
+    "part, when the brief says the new part fits with it and states no clearance, which the "
+    "fit check passes when the two do not overlap; agent_limit with the check_sha256 "
+    "write_check returned for an agent-written check of this brief, its comparator, and the "
+    "person's limit in a unit like the check's, or limit null when the check's source writes "
+    "the limit, which the check decides once the person approves it; or unchecked with a "
+    "statement, for anything no check decides. A load has a support, which is holes (a count "
+    "and an optional bore diameter), largest_flat or flat_end, and a load, which is far_end or "
+    "on_holes (a count and an optional diameter), each with a force such as {magnitude: 49, "
+    "unit: N} and a direction: along or across the long axis or the hole_axis, or any. Propose "
+    "factor 2 unless the brief states one. Words for where the part is held or loaded that "
+    "none of these say are an unchecked requirement. Proposing never confirms: every new row is "
+    "proposed until the user confirms the set. A new proposal replaces one the user has not "
+    "answered. The server carries every requirement the user confirmed into the new proposal, "
+    "so pass only new or changed requirements. To drop or change a confirmed requirement, pass "
+    "its id from list_requirements in remove, with any replacement in requirements: the user "
+    "sees each removal as its own row, and the requirement stays in force until they confirm. "
+    "Proposing the same set again, undecided or confirmed, changes nothing, so it never "
+    "asks the person twice. A quote may come from "
+    "words the person said after the brief was created. In chat, the server finds them in the "
+    "person's messages and adds that message to the brief, so quote it exactly and pass no "
+    "said. From any other client, pass the person's new words verbatim as said. A quote may "
+    "also come from a document the person added: pass its file_id from list_files with the "
+    "words. The server checks the words of a Markdown, text or PDF file, and labels a quote "
+    "from an image or a scanned PDF as read by you. Propose as a requirement only a "
+    "number the person stated, and quote the words that state it. A number the person did not "
+    "state, such as a load or a limit you fill in to build, goes under assumptions, a list of "
+    "{target, why}: why is one line saying what you assumed and why. The server stores the "
+    "assumptions as their own numbered set beside the proposals. Each call's assumptions replace "
+    "the earlier set, so pass every assumption that should stay, or an empty list to clear them. "
+    "An assumption is never on the confirmation page, never confirmed, and never gets a verdict: "
+    "the scorecard lists it under assumptions, with the measure beside the assumed value, and a "
+    "check measures against it so you can see how the design does. Say what you assumed in your "
+    "reply. Leave requirements out to change only the assumptions: that writes no proposal, so it "
+    "never asks the person again and never stops an Auto run. The person turns an assumption "
+    "into a target by stating it. An assumption holds a number a check measures, so a made_of, "
+    "closed_solid or unchecked target is not one."
+)
+
+
 CHANGES = (
     "Sort each change the person asks for. With no number stated, such as shorter, stiffer or "
     "less plastic, build it as the next revision of the slot it names, with build_variant and "
     "that slot. That needs no new brief, no proposal and no confirmation. Pick the amount "
     "yourself and say it in one line. A number the person states, such as 20 N or at most "
-    "30 g, is proposed on that slot's own brief, with every requirement that stays in force "
-    "and the new one, quoting the person's words exactly. The server adds their message to the "
-    "brief. Build and score the slot's next revision without waiting, then call ask_to_confirm "
-    "last. Only a part the project does not have, such as a lid, gets a new brief, in the same "
-    "project. Take sensible defaults and say each in one line instead of asking. Ask only for "
-    "a target only the person can set, and never invent one for them to confirm. Never ask the "
-    "person to pick among options you can build. A message that carries a selection names "
-    "where the change goes. Read it with read_selection and build the slot's next revision."
+    "30 g, is proposed on that slot's own brief, quoting the person's words exactly. The server "
+    "adds their message to the brief and keeps every confirmed requirement. When the new number "
+    "replaces a confirmed one, pass the old one's id in remove. Build and score the slot's "
+    "next revision without waiting, then call ask_to_confirm last. Only a part the project "
+    "does not have, such as a lid, gets a new brief, in the same project. Take sensible "
+    "defaults and say each in one line instead of asking. Ask only for a target only the "
+    "person can set, and never invent one for them to confirm. Never ask the person to pick "
+    "among options you can build. A message that carries a selection names where the change "
+    "goes. Read it with read_selection and build the slot's next revision."
 )
 
 OPTIONS = (

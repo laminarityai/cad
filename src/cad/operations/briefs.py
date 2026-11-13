@@ -6,7 +6,6 @@ from pydantic import BaseModel, ConfigDict, Field
 from cad.agent_checks import limits
 from cad.briefs import assumptions, clearances, described, made_of, said, source, store
 from cad.briefs.assumptions import MAX_ASSUMPTIONS, Assumption
-from cad.briefs.bindable import BINDABLE
 from cad.briefs.edits import placeholder
 from cad.briefs.model import (
     MAX_BRIEF_CHARS,
@@ -26,7 +25,7 @@ from cad.confirmations.requirements import plain_names
 from cad.context_parts.store import stored_parts
 from cad.conversations import store as conversations
 from cad.conversations.model import ConversationId, UnknownConversation
-from cad.operations.guidance import BUILD_FIRST
+from cad.operations.guidance import BUILD_FIRST, PROPOSE_REQUIREMENTS
 from cad.operations.model import BOTH, Audience, Input, Tenant, operation
 from cad.operations.research import brief_table
 from cad.projects.membership import project_for_new_brief
@@ -52,67 +51,6 @@ CREATE_BRIEF = (
     'short noun name for the part, such as "Desk box" or "Lid": the person\'s page shows it. '
     + BUILD_FIRST
 )
-PROPOSE_REQUIREMENTS = (
-    "If the brief names a material, call list_materials before you propose. Propose the whole "
-    "set of requirements for a brief. Each has a target and a quote copied exactly from the "
-    "brief. The target kind is closed_solid; max_mass or min_mass with a mass "
-    "such as {magnitude: 150, unit: g}; envelope with three edge lengths; measure_limit, which "
-    "holds one team check's measure to a limit the user confirms, with check_id, measure, a "
-    "comparator (at_most or at_least) and a limit such as {magnitude: 30, unit: cm^3} in the "
-    "measure's unit or one of its kind; the measures are "
-    + "; ".join(
-        f"check_id {check}, measure {measure}: {bound.words}, in {bound.unit}"
-        for (check, measure), bound in BINDABLE.items()
-    )
-    + "; made_of with a "
-    "material, only when the brief names one, quoting its words (at most one per brief). When the "
-    "brief names no material, propose no made_of and do not ask the person for one: you choose "
-    "it for each variant when you build it. When the brief names one, call "
-    "list_materials first, and copy the key of the table's row for that material when it lists "
-    "one; for a generic name such as PLA or PETG use the row for that polymer, and the person "
-    "confirms the choice on the page. Otherwise give "
-    "a key of your own that names it, such as acme-pla-matte. The server stores a material the "
-    "table lacks as the project's own row, project- and your key, and the reply's research "
-    "asks for each value its checks read; answer it with submit_research. min_safety_factor (a "
-    "factor, against yield) or max_deflection (a length), each with a load; "
-    "min_clearance or max_clearance with a part, the part_id of a context part of this project "
-    "from propose_context_part or list_files, and a clearance length, which the fit check "
-    "decides against that part with the variant built in the part's frame; fits_with with a "
-    "part, when the brief says the new part fits with it and states no clearance, which the "
-    "fit check passes when the two do not overlap; agent_limit with the check_sha256 "
-    "write_check returned for an agent-written check of this brief, its comparator, and the "
-    "person's limit in a unit like the check's, or limit null when the check's source writes "
-    "the limit, which the check decides once the person approves it; or unchecked with a "
-    "statement, for anything no check decides. A load has a support, which is holes (a count "
-    "and an optional bore diameter), largest_flat or flat_end, and a load, which is far_end or "
-    "on_holes (a count and an optional diameter), each with a force such as {magnitude: 49, "
-    "unit: N} and a direction: along or across the long axis or the hole_axis, or any. Propose "
-    "factor 2 unless the brief states one. Words for where the part is held or loaded that "
-    "none of these say are an unchecked requirement. Proposing never confirms: every new row is "
-    "proposed until the user confirms the set. A new proposal replaces the old one for "
-    "confirmation, and what the user already confirmed stays in force until they confirm the "
-    "new set. Proposing the same set again, undecided or confirmed, changes nothing, so it never "
-    "asks the person twice. A quote may come from "
-    "words the person said after the brief was created. In chat, the server finds them in the "
-    "person's messages and adds that message to the brief, so quote it exactly and pass no "
-    "said. From any other client, pass the person's new words verbatim as said. A quote may "
-    "also come from a document the person added: pass its file_id from list_files with the "
-    "words. The server checks the words of a Markdown, text or PDF file, and labels a quote "
-    "from an image or a scanned PDF as read by you. Propose every "
-    "requirement that should stay in force, with the new one. Propose as a requirement only a "
-    "number the person stated, and quote the words that state it. A number the person did not "
-    "state, such as a load or a limit you fill in to build, goes under assumptions, a list of "
-    "{target, why}: why is one line saying what you assumed and why. The server stores the "
-    "assumptions as their own numbered set beside the proposals. Each call's assumptions replace "
-    "the earlier set, so pass every assumption that should stay, or an empty list to clear them. "
-    "An assumption is never on the confirmation page, never confirmed, and never gets a verdict: "
-    "the scorecard lists it under assumptions, with the measure beside the assumed value, and a "
-    "check measures against it so you can see how the design does. Say what you assumed in your "
-    "reply. Leave requirements out to change only the assumptions: that writes no proposal, so it "
-    "never asks the person again and never stops an Auto run. The person turns an assumption "
-    "into a target by stating it. An assumption holds a number a check measures, so a made_of, "
-    "closed_solid or unchecked target is not one."
-)
 LIST_REQUIREMENTS = (
     "Show a brief's text, every proposal with its status (proposed, confirmed, declined or "
     "superseded), and which proposal the user last confirmed: its requirements are the only "
@@ -121,6 +59,9 @@ LIST_REQUIREMENTS = (
     "own words. assumptions lists the agent's assumptions in force: no verdict ever rests on "
     "one."
 )
+
+
+type RequirementIdText = Annotated[str, Field(pattern=r"^[0-9a-f]{16}$")]
 
 
 class RequirementDraft(BaseModel):
@@ -230,13 +171,13 @@ def _assumed(
 
 
 def _made_of_requests(
-    table: ProjectTable, brief_id: str, drafts: Sequence[store.Draft]
+    table: ProjectTable, brief_id: str, targets: Sequence[Target]
 ) -> tuple[ResearchRequest, ...]:
-    key = next((d.target.material for d in drafts if isinstance(d.target, MadeOf)), None)
+    key = next((one.material for one in targets if isinstance(one, MadeOf)), None)
     if key is None or table.problem is not None:
         return ()
     checks = [spec.id for spec in QUICK]
-    checks += [check for d in drafts if (check := deciding_check(d.target)) is not None]
+    checks += [check for one in targets if (check := deciding_check(one)) is not None]
     fields = sorted({str(one) for spec in closure(checks) for one in spec.takes})
     return requests_before_scoring(table.table, key, fields, brief_id, AFTER_PROPOSAL)
 
@@ -260,6 +201,9 @@ class ProposeRequirementsInput(Input):
     brief_id: str
     requirements: (
         Annotated[list[RequirementDraft], Field(min_length=1, max_length=MAX_REQUIREMENTS)] | None
+    ) = None
+    remove: (
+        Annotated[list[RequirementIdText], Field(min_length=1, max_length=MAX_REQUIREMENTS)] | None
     ) = None
     assumptions: Annotated[list[AssumptionDraft], Field(max_length=MAX_ASSUMPTIONS)] | None = None
     said: Annotated[str, Field(min_length=1, max_length=MAX_BRIEF_CHARS)] | None = None
@@ -292,20 +236,25 @@ def _project_of(tenant: Tenant, cid: ConversationId) -> str | None:
 
 
 def propose_requirements(tenant: Tenant, arguments: ProposeRequirementsInput) -> Proposed:
-    if arguments.requirements is None and arguments.assumptions is None:
+    if (
+        arguments.requirements is None
+        and arguments.remove is None
+        and arguments.assumptions is None
+    ):
         raise store.BadProposal(
-            "pass requirements, assumptions or both: with neither there is nothing to store"
+            "pass requirements, remove, assumptions or a mix: with none there is nothing to store"
         )
     project = store.read_brief(tenant.roots, arguments.brief_id).project
     parts = {one.record.id for one in stored_parts(tenant.roots.projects, project)}
     drafts: list[store.Draft] = []
+    targets: list[Target] = []
     table = brief_table(tenant.roots, arguments.brief_id)
-    if arguments.requirements is not None:
+    if arguments.requirements is not None or arguments.remove is not None:
         words = source.later_words(tenant.conversations, tenant.conversation, arguments.said)
         text = store.read_brief(tenant.roots, arguments.brief_id).text
         drafts = [
             _draft(tenant, project, index, one, lambda quote: said.typed(text, quote, words))
-            for index, one in enumerate(arguments.requirements)
+            for index, one in enumerate(arguments.requirements or ())
         ]
         clearances.check_proposed([one.target for one in drafts], parts)
         limits.check_proposed(
@@ -317,7 +266,10 @@ def propose_requirements(tenant: Tenant, arguments: ProposeRequirementsInput) ->
             lambda: has_stress_result(tenant.roots, tenant.variants, arguments.brief_id),
         )
         drafts = made_of.with_row_keys(drafts, table.table)
-        store.propose(tenant.roots, arguments.brief_id, drafts, words)
+        stored = store.propose(
+            tenant.roots, arguments.brief_id, drafts, words, arguments.remove or ()
+        )
+        targets = [one.target for one in stored.requirements]
     held = assumptions.in_force(tenant.roots, arguments.brief_id)
     if arguments.assumptions is not None:
         held = assumptions.assume(
@@ -335,7 +287,7 @@ def propose_requirements(tenant: Tenant, arguments: ProposeRequirementsInput) ->
         status=None if shown is None else shown.status,
         requirements=[] if shown is None else shown.requirements,
         assumptions=_assumed(held, names),
-        research=_made_of_requests(table, arguments.brief_id, drafts),
+        research=_made_of_requests(table, arguments.brief_id, targets),
     )
 
 

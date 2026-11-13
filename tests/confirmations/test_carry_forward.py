@@ -44,7 +44,9 @@ async def page(s: Session, project_id: str) -> str:
 async def id_of(s: Session, brief_id: str, kind: str) -> str:
     listed = await s.call("list_requirements", brief_id=brief_id)
     rows = listed["proposals"][listed["confirmed_proposal"] - 1]["requirements"]
-    return next(row["requirement"]["id"] for row in rows if row["requirement"]["target"]["kind"] == kind)
+    return next(
+        row["requirement"]["id"] for row in rows if row["requirement"]["target"]["kind"] == kind
+    )
 
 
 async def test_confirming_a_narrower_proposal_keeps_what_was_confirmed_before(s: Session) -> None:
@@ -107,14 +109,16 @@ def store_mass_alone(s: Session, brief_id: str) -> None:
         signed.Store(s.roots.briefs, "brief"),
         s.roots.briefs / brief_id / store.PROPOSALS,
         lambda number: f"{brief_id}/proposal/{number}",
-        lambda existing: Proposal(
-            brief_id=BriefId(brief_id),
-            number=len(existing) + 1,
-            requirements=(requirement,),
-            created_at=datetime.now(UTC),
-        )
-        .model_dump_json()
-        .encode(),
+        lambda existing: (
+            Proposal(
+                brief_id=BriefId(brief_id),
+                number=len(existing) + 1,
+                requirements=(requirement,),
+                created_at=datetime.now(UTC),
+            )
+            .model_dump_json()
+            .encode()
+        ),
     )
 
 

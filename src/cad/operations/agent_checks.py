@@ -121,9 +121,9 @@ def write_check_operation(tenant: Tenant, arguments: WriteCheckInput) -> CheckWr
         title=stored.check.title,
         next_step=(
             "The check is frozen. Propose its requirement again as agent_limit with this "
-            "check_sha256, the comparator and the person's limit, with every requirement that "
-            "stays in force, then call ask_to_confirm: the person approves the check on the "
-            "same page. It decides nothing until they do, and a variant's verdict on it is "
+            "check_sha256, the comparator and the person's limit, and pass the requirement_id "
+            "you wrote it for in remove, then call ask_to_confirm: the person approves the check "
+            "on the same page. It decides nothing until they do, and a variant's verdict on it is "
             "labelled as an agent-written check they approved, not reviewed by our team."
         ),
     )

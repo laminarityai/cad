@@ -16,7 +16,7 @@ from cad.briefs.model import (
     load_of,
 )
 from cad.briefs.origins import quoted
-from cad.briefs.store import ProposalState, Status, TamperedBrief
+from cad.briefs.store import BriefState, ProposalState, Status, TamperedBrief
 from cad.briefs.words import describe
 from cad.confirmations.answers import Edit, ItemKindName, ItemRef
 from cad.confirmations.items import Changes, Editable, Refused, Row, Section
@@ -33,6 +33,8 @@ DESCRIBED_NOTE: Final = (
     "The agent described where this part is held and loaded. Confirm only if these words match "
     "how it will be used."
 )
+REMOVE: Final = "Remove: "
+REMOVE_NOTE: Final = "You confirmed this before. Confirming takes it out of your targets."
 AGENT_DECIDES: Final = (
     "Decided by the agent-written check below once you approve it. Our team has not reviewed it"
 )
@@ -55,10 +57,14 @@ class Requirements:
         return tuple(refs)
 
     def section(self, ref: ItemRef) -> Section:
-        text, shown = self._shown(ref)
+        state, shown = self._shown(ref)
+        text = state.brief.text
         names = plain_names(self._roots, shown.proposal.brief_id)
         rows = tuple(_row(r, text, names) for r in shown.proposal.requirements)
-        return Section(title=TITLE, brief_id=shown.proposal.brief_id, context=text, rows=rows)
+        removed = tuple(_removal(r, text, names) for r in _dropped(state, shown))
+        return Section(
+            title=TITLE, brief_id=shown.proposal.brief_id, context=text, rows=rows + removed
+        )
 
     def edit(self, ref: ItemRef, edits: Sequence[Edit]) -> Refused | Changes:
         proposed = self._shown(ref)[1].proposal.requirements
@@ -71,8 +77,8 @@ class Requirements:
             if new.id != old.id
         )
 
-    def _shown(self, ref: ItemRef) -> tuple[str, ProposalState]:
-        """The brief text and the proposal the ref names. Raises when either changed."""
+    def _shown(self, ref: ItemRef) -> tuple[BriefState, ProposalState]:
+        """The brief and the proposal the ref names. Raises when either changed."""
         match = SLOT.fullmatch(ref.slot)
         if match is None:
             raise TamperedBrief(f"no proposal is stored at {ref.slot!r}")
@@ -80,7 +86,7 @@ class Requirements:
         shown = state.proposal(int(match.group(2)))
         if shown is None or shown.ref != ref:
             raise TamperedBrief(f"brief {state.brief.id} changed since the page opened")
-        return state.brief.text, shown
+        return state, shown
 
 
 def plain_names(roots: Roots, brief_id: str) -> dict[str, str]:
@@ -106,6 +112,24 @@ def _row(requirement: Requirement, text: str, names: Mapping[str, str]) -> Row:
         decides=_decides(requirement.target),
         editable=_editable(requirement),
         note=_note(requirement.target),
+    )
+
+
+def _dropped(state: BriefState, shown: ProposalState) -> tuple[Requirement, ...]:
+    """The confirmed requirements that confirming `shown` takes out of force."""
+    confirmed = state.confirmed
+    kept = {r.id for r in shown.proposal.requirements}
+    return tuple(r for r in confirmed.requirements if r.id not in kept) if confirmed else ()
+
+
+def _removal(requirement: Requirement, text: str, names: Mapping[str, str]) -> Row:
+    source, quote = quoted(text, requirement.origin)
+    return Row(
+        headline=f"{REMOVE}{describe(requirement, names)}",
+        quote=quote,
+        source=source,
+        decides="No check reads it once you confirm",
+        note=REMOVE_NOTE,
     )
 
 
