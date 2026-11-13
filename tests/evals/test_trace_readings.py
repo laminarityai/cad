@@ -34,7 +34,8 @@ def test_a_card_scored_before_confirm_is_judged_by_the_reading_after_the_session
     confirm_on_page(roots, brief_id, drafts(LIGHT, FRIENDLY))
     traced = trace_session(home, transcript_of(variants))
     assert traced.traced, traced.untraced
-    assert (traced.cards, traced.judged, traced.awaiting) == (2, 1, 0)
+    assert (traced.shown.cards, traced.read.cards, traced.read.judged) == (1, 1, 1)
+    assert traced.awaiting == 0
     assert (traced.strict_pass, traced.coverage) == (
         Share(numerator=0, denominator=2),
         Share(numerator=1, denominator=2),
@@ -50,7 +51,7 @@ def test_a_brief_the_person_never_confirmed_stays_awaiting(tmp_path: Path) -> No
     )
     traced = trace_session(home, transcript_of(variants))
     assert not traced.traced
-    assert (traced.judged, traced.awaiting) == (0, 2)
+    assert (traced.shown.judged, traced.read.judged, traced.awaiting) == (0, 0, 2)
     assert "2 card(s) still awaiting confirmation" in traced.untraced
 
 

@@ -17,14 +17,28 @@ class Share(Frozen):
     denominator: int
 
 
-class Trace(Frozen):
-    traced: bool
+class Counted(Frozen):
+    """Cards of one origin, those the session was shown or the server's readings after it, and
+    the numbers on them."""
+
     cards: int
     judged: int
-    awaiting: int
-    no_brief: int
     numbers: int
     resolved: int
+
+
+NONE_COUNTED: Final = Counted(cards=0, judged=0, numbers=0, resolved=0)
+
+
+class Trace(Frozen):
+    """`awaiting` and `no_brief` count over both origins, since a reading can judge a card the
+    session was shown. `failed` says the tracer itself raised, so the trace counts nothing."""
+
+    traced: bool
+    shown: Counted
+    read: Counted
+    awaiting: int
+    no_brief: int
     untraced: tuple[str, ...]
     agent_measurements: tuple[str, ...]
     strict_pass: Share
@@ -33,6 +47,7 @@ class Trace(Frozen):
     described_coverage: Share = Share(numerator=0, denominator=0)
     by: dict[By, Decided] = {}
     uncovered: dict[str, int] = {}
+    failed: bool = False
 
 
 class Friction(Frozen):

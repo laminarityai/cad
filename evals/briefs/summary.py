@@ -2,7 +2,8 @@ import statistics
 from collections import Counter
 from collections.abc import Sequence
 
-from outcome import BriefResult, Frozen, Share, Trace
+from outcome import BriefResult, Counted, Frozen, Share, Trace
+from readings import READ_AFTER
 from tracking import By, Decided, apart
 
 
@@ -19,6 +20,22 @@ def percent(share: Share) -> str:
     return f"{share.numerator}/{share.denominator} ({share.numerator / share.denominator:.0%})"
 
 
+def _cards(counted: Counted) -> str:
+    return (
+        f"{counted.cards}, {counted.judged} judged, "
+        f"{counted.resolved}/{counted.numbers} numbers resolved"
+    )
+
+
+def _pooled_counts(counts: Sequence[Counted]) -> Counted:
+    return Counted(
+        cards=sum(one.cards for one in counts),
+        judged=sum(one.judged for one in counts),
+        numbers=sum(one.numbers for one in counts),
+        resolved=sum(one.resolved for one in counts),
+    )
+
+
 def _number(value: float | None) -> str:
     return "-" if value is None else f"{value:.1f}"
 
@@ -31,8 +48,12 @@ def _row(one: BriefResult) -> str:
         verdict = f"not traced: {one.note}"
     else:
         verdict = "traced" if trace.traced else f"not traced ({len(trace.untraced)} untraced)"
-    strict = percent(trace.strict_pass) if trace else "-"
-    coverage = percent(trace.coverage) if trace else "-"
+    if trace is None:
+        strict = coverage = "-"
+    elif trace.failed:
+        strict = coverage = "trace failed"
+    else:
+        strict, coverage = percent(trace.strict_pass), percent(trace.coverage)
     cost = "-" if one.cost_usd is None else f"${one.cost_usd:.2f}"
     return (
         f"| {one.id} | {one.domain} | {verdict} | {strict} | {coverage} "
@@ -48,6 +69,8 @@ class Overall(Frozen):
     session_failed: int
     not_run: int
     traced: int
+    shown: Counted
+    read: Counted
     strict_pass: Share
     coverage: Share
     agent_coverage: Share
@@ -99,6 +122,8 @@ def summarize(results: Sequence[BriefResult], missing: Sequence[str], model: str
         session_failed=len(results) - len(finished),
         not_run=len(missing),
         traced=sum(one.traced for one in traces),
+        shown=_pooled_counts([one.shown for one in traces]),
+        read=_pooled_counts([one.read for one in traces]),
         strict_pass=pooled([one.strict_pass for one in traces]),
         coverage=pooled([one.coverage for one in traces]),
         agent_coverage=pooled([one.agent_coverage for one in traces]),
@@ -122,6 +147,8 @@ def markdown(summary: Summary, missing: Sequence[str]) -> str:
         f"briefs: {overall.briefs}, finished: {overall.finished}, "
         f"session failed: {overall.session_failed}, not run: {overall.not_run}",
         f"traced: {overall.traced}/{overall.briefs}",
+        f"cards the session was shown: {_cards(overall.shown)}",
+        f"cards {READ_AFTER}: {_cards(overall.read)}",
         f"strict pass rate: {percent(overall.strict_pass)}",
         f"requirements covered by reviewed checks: {percent(overall.coverage)}",
         "requirements covered by agent-written checks the person approved: "
