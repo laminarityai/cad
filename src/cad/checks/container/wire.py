@@ -76,9 +76,11 @@ type StepWire = StepWritten | StepNotWritten
 
 
 class CheckedReport(TypedDict):
+    """The first message on the report channel. The STEP follows as a message of its own, so the
+    results reach the host even when the container dies writing the STEP."""
+
     kind: Literal["checked"]
     results: list[ResultWire]
-    step: StepWire
 
 
 type PartAxisWire = Literal["middle", "short"]

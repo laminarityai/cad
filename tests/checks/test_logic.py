@@ -9,22 +9,23 @@ from cad.checks.container import closed_solid, interference
 from cad.checks.container.check import Subject
 from cad.checks.container.inputs import Input, Inputs
 from cad.checks.container.kernel import EdgeUses, Shape, Unreadable, VolumeProps
-from cad.checks.container.runner import run
 from cad.checks.container.suite import CHECKS
 from cad.checks.container.wire import (
+    CheckedReport,
     FindingWire,
     ResultWire,
+    StepWire,
     ValueUnknown,
     ValueWire,
 )
 from tests.support.check_fakes import (
     KNOWN,
-    REPORT_CAP,
     UNREADABLE_BREP,
     FakeKernel,
     FakeShape,
     NoFem,
     request,
+    run_report,
 )
 
 UNKNOWN: ValueUnknown = {"kind": "unknown", "reason": "no material with key 'x'"}
@@ -42,7 +43,7 @@ def unreadable() -> Subject:
 def checked(
     kernel: FakeKernel, density: ValueWire = KNOWN, brep: bytes = b"brep"
 ) -> dict[str, ResultWire]:
-    return by_id(run(request(density), brep, kernel, REPORT_CAP)["results"])
+    return by_id(run_report(request(density), brep, kernel)[0]["results"])
 
 
 def measured(found: FindingWire) -> dict[str, float]:
@@ -264,7 +265,7 @@ def by_id(results: list[ResultWire]) -> dict[str, ResultWire]:
 
 
 def test_a_check_that_raises_becomes_unknown_and_the_others_still_run() -> None:
-    report = run(request(), b"brep", FakeKernel(invalid_raises=True), REPORT_CAP)
+    report, _ = run_report(request(), b"brep", FakeKernel(invalid_raises=True))
     results = by_id(report["results"])
     assert results["closed_solid"]["verdict"] == "unknown"
     assert (
@@ -299,7 +300,7 @@ def test_every_check_runs_after_the_checks_whose_verdicts_it_reads() -> None:
 
 
 def test_the_report_lists_every_check_in_suite_order_with_the_step_of_the_measured_shape() -> None:
-    report = run(request(), b"brep", FakeKernel(), REPORT_CAP)
+    report, step = run_report(request(), b"brep", FakeKernel())
     assert [result["id"] for result in report["results"]] == [
         "closed_solid",
         "interference",
@@ -308,13 +309,12 @@ def test_the_report_lists_every_check_in_suite_order_with_the_step_of_the_measur
         "holes",
         "min_wall",
     ]
-    step = report["step"]
     assert step["kind"] == "written"
     assert base64.b64decode(step["base64"]) == b"STEP bytes"
 
 
 def test_an_unreadable_brep_still_reports_every_quick_check_and_no_step() -> None:
-    report = run(request(), UNREADABLE_BREP, FakeKernel(), REPORT_CAP)
+    report, step = run_report(request(), UNREADABLE_BREP, FakeKernel())
     verdicts = {result["id"]: result["verdict"] for result in report["results"]}
     assert verdicts == {
         "closed_solid": "fail",
@@ -324,35 +324,39 @@ def test_an_unreadable_brep_still_reports_every_quick_check_and_no_step() -> Non
         "holes": "unknown",
         "min_wall": "unknown",
     }
-    assert report["step"] == {
+    assert step == {
         "kind": "missing",
         "reason": "no STEP was derived, because the BREP could not be read",
     }
 
 
 def test_a_step_that_cannot_be_written_leaves_the_checks_standing() -> None:
-    report = run(request(), b"brep", FakeKernel(step_raises=True), REPORT_CAP)
-    assert report["step"] == {
+    report, step = run_report(request(), b"brep", FakeKernel(step_raises=True))
+    assert step == {
         "kind": "missing",
         "reason": "the STEP writer raised RuntimeError: no STEP",
     }
     assert {result["verdict"] for result in report["results"]} == {"pass"}
 
 
+def sent_bytes(report: CheckedReport, step: StepWire) -> int:
+    return sum(len(json.dumps(message).encode()) + 1 for message in (report, step))
+
+
 def test_a_step_too_large_for_the_report_is_left_out_and_the_checks_stand() -> None:
     cap = 64 * 1024
-    report = run(request(), b"brep", FakeKernel(step=b"x" * cap), cap)
+    report, step = run_report(request(), b"brep", FakeKernel(step=b"x" * cap), cap)
     assert {result["verdict"] for result in report["results"]} == {"pass"}
-    assert report["step"]["kind"] == "missing"
-    assert report["step"]["reason"].startswith("the STEP is 65536 bytes, over the ")
-    assert len(json.dumps(report).encode()) <= cap
+    assert step["kind"] == "missing"
+    assert step["reason"].startswith("the STEP is 65536 bytes, over the ")
+    assert sent_bytes(report, step) <= cap
 
 
 def test_a_step_near_the_room_left_is_sent_only_when_the_report_still_fits() -> None:
     cap = 64 * 1024
     kinds: set[str] = set()
     for size in range(cap * 3 // 4 - 3000, cap * 3 // 4 + 4):
-        report = run(request(), b"brep", FakeKernel(step=b"x" * size), cap)
-        assert len(json.dumps(report).encode()) <= cap, size
-        kinds.add(report["step"]["kind"])
+        report, step = run_report(request(), b"brep", FakeKernel(step=b"x" * size), cap)
+        assert sent_bytes(report, step) <= cap, size
+        kinds.add(step["kind"])
     assert kinds == {"written", "missing"}

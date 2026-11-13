@@ -1,9 +1,8 @@
 import pytest
 
 from cad.checks.container.kernel import Shape, ocp_kernel
-from cad.checks.container.runner import run
 from cad.checks.container.wire import RequestWire, ResultWire
-from tests.support.check_fakes import REPORT_CAP
+from tests.support.check_fakes import run_report
 from tests.support.solids import box, box_face, brep_bytes, compound, cut
 
 KERNEL = ocp_kernel()
@@ -24,7 +23,7 @@ def fitted(variant: Shape, context: Shape | None = RAIL) -> ResultWire:
         "load_cases": [],
         "context_bytes": len(tail),
     }
-    report = run(request, brep_bytes(variant) + tail, KERNEL, REPORT_CAP)
+    report, _ = run_report(request, brep_bytes(variant) + tail, KERNEL)
     assert [one["id"] for one in report["results"]] == ["interference", "fit"]
     return report["results"][1]
 

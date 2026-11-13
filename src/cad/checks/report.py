@@ -2,7 +2,7 @@ import hashlib
 import math
 from base64 import b64decode
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Final
 
 from pydantic import TypeAdapter, ValidationError
@@ -17,6 +17,7 @@ from cad.checks.container.wire import (
     RequestWire,
     ResultWire,
     SourceLiteral,
+    StepWire,
     ValueWire,
 )
 from cad.checks.result import (
@@ -53,6 +54,7 @@ SCORER: Final = "cad.scorecard.score"
 
 # NaN passes `strict=True`, so `parse` checks `math.isfinite` itself.
 REPORT: Final = TypeAdapter(CheckedReport)
+STEP: Final = TypeAdapter(StepWire)
 
 
 @dataclass(frozen=True, slots=True)
@@ -236,35 +238,57 @@ class Parsed:
 
 
 def parse(ran: Ran, request: Request, job: Job) -> Parsed:
+    """The container sends the results as one line and then the STEP as another. Results whose
+    line is whole stand even when the container dies after it, as while it writes the STEP."""
     expected = closure(request.wire["checks"])
     seen, state = ran.attended, ran.state
-    if seen.killed_at_deadline:
-        reason = f"the check container ran past {job.wall_seconds} s and was killed"
-        return Parsed(unknown_for_all(reason, expected), StepMissing(reason=reason), timed_out=True)
-    if state.OOMKilled and (isinstance(seen.report, TooMuchOutput) or state.ExitCode != 0):
-        return _refused(f"the check container ran out of memory ({job.memory_mb} MB)", expected)
     if isinstance(seen.report, TooMuchOutput):
+        if state.OOMKilled:
+            return _refused(_out_of_memory(job), expected)
         cap = container.REPORT_CAP // 2**20
         return _refused(f"the check container sent more than {cap} MiB", expected)
+    line, newline, rest = seen.report.partition(b"\n")
+    stopped = _stopped(ran, job)
+    if stopped is not None and not newline:
+        parsed = _refused(f"{stopped} before it sent a report", expected)
+    elif not seen.report:
+        parsed = _refused("the check container sent no report", expected)
+    else:
+        try:
+            report = REPORT.validate_json(line, strict=True)
+            step: StepWire = (
+                {"kind": "missing", "reason": f"{stopped} while it wrote the STEP"}
+                if stopped is not None
+                else STEP.validate_json(rest, strict=True)
+            )
+        except ValidationError as error:
+            first = error.errors()[0]
+            where = ".".join(str(part) for part in first["loc"])
+            reason = f"the check container sent a malformed report: {where}: {first['msg']}"
+            return _refused(reason, expected)
+        parsed = _accepted(report, step, request, expected)
+    return replace(parsed, timed_out=seen.killed_at_deadline)
+
+
+def _stopped(ran: Ran, job: Job) -> str | None:
+    """Why the container stopped before it finished, or None when it exited on its own."""
+    state = ran.state
+    if ran.attended.killed_at_deadline:
+        return f"the check container ran past {job.wall_seconds} s and was killed"
+    if state.OOMKilled and state.ExitCode != 0:
+        return _out_of_memory(job)
     if state.ExitCode != 0:
-        code = state.ExitCode
-        return _refused(
-            f"the check container exited with code {code} before it sent a report", expected
-        )
-    if not seen.report:
-        return _refused("the check container sent no report", expected)
-    try:
-        report = REPORT.validate_json(seen.report, strict=True)
-    except ValidationError as error:
-        first = error.errors()[0]
-        where = ".".join(str(part) for part in first["loc"])
-        return _refused(
-            f"the check container sent a malformed report: {where}: {first['msg']}", expected
-        )
-    return _accepted(report, request, expected)
+        return f"the check container exited with code {state.ExitCode}"
+    return None
 
 
-def _accepted(report: CheckedReport, request: Request, expected: Sequence[CheckSpec]) -> Parsed:
+def _out_of_memory(job: Job) -> str:
+    return f"the check container ran out of memory ({job.memory_mb} MB)"
+
+
+def _accepted(
+    report: CheckedReport, step: StepWire, request: Request, expected: Sequence[CheckSpec]
+) -> Parsed:
     wire_ids = [result["id"] for result in report["results"]]
     if wire_ids != [spec.id for spec in expected]:
         return _refused(
@@ -276,7 +300,6 @@ def _accepted(report: CheckedReport, request: Request, expected: Sequence[CheckS
         if problem is not None:
             return _refused(f"{spec.id}: {problem}", expected)
         results.append(_result(spec, wire, request))
-    step = report["step"]
     if step["kind"] == "missing":
         return Parsed(tuple(results), StepMissing(reason=_one_line(step["reason"])))
     try:

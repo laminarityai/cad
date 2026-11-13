@@ -94,8 +94,14 @@ def ran(
     return Ran(Attended(killed_at_deadline=killed, report=report, output=""), state)
 
 
+def lines(report: dict[str, Any]) -> bytes:
+    """The results line and the STEP line the container sends for `report`."""
+    results = {name: value for name, value in report.items() if name != "step"}
+    return b"".join(json.dumps(one).encode() + b"\n" for one in (results, report["step"]))
+
+
 def sent(report: dict[str, Any]) -> Ran:
-    return ran(json.dumps(report).encode())
+    return ran(lines(report))
 
 
 def with_result(index: int, **changes: Any) -> dict[str, Any]:
@@ -229,7 +235,7 @@ MISBEHAVIORS = {
     "not-json": ran(b"not json"),
     "not-an-object": ran(b"[]"),
     "wrong-kind": sent({**good_report(), "kind": "won"}),
-    "nonzero-exit-with-a-good-report": ran(json.dumps(good_report()).encode(), exit_code=1),
+    "nonzero-exit-before-the-results-line-ends": ran(lines(good_report())[:-200], exit_code=1),
     "ids-out-of-order": sent({**good_report(), "results": good_report()["results"][::-1]}),
     "a-missing-id": sent({**good_report(), "results": good_report()["results"][:2]}),
     "a-duplicated-id": sent(
@@ -306,6 +312,47 @@ def test_only_a_run_past_the_wall_time_is_marked_timed_out(request_for_pla: Requ
         ]
     }
     assert timed_out == {"timeout": True, "oom": False, "exit": False, "good": False}
+
+
+RESULTS_LINE = lines(good_report()).partition(b"\n")[0] + b"\n"
+
+
+@pytest.mark.parametrize(
+    ("seen", "reason", "timed_out"),
+    [
+        pytest.param(
+            ran(RESULTS_LINE + b'{"kind": "wri', oom=True, exit_code=137),
+            "the check container ran out of memory (1536 MB) while it wrote the STEP",
+            False,
+            id="oom",
+        ),
+        pytest.param(
+            ran(RESULTS_LINE, exit_code=139),
+            "the check container exited with code 139 while it wrote the STEP",
+            False,
+            id="exit",
+        ),
+        pytest.param(
+            ran(RESULTS_LINE, killed=True),
+            "the check container ran past 60 s and was killed while it wrote the STEP",
+            True,
+            id="timeout",
+        ),
+        pytest.param(
+            ran(lines(good_report()), exit_code=1),
+            "the check container exited with code 1 while it wrote the STEP",
+            False,
+            id="exit-after-the-step",
+        ),
+    ],
+)
+def test_results_sent_before_the_container_stopped_stand_without_the_step(
+    seen: Ran, reason: str, timed_out: bool, request_for_pla: Request
+) -> None:
+    parsed = parse(seen, request_for_pla, OWN_LIMITS)
+    assert [result.verdict for result in parsed.results] == [Verdict.PASS] * len(QUICK)
+    assert parsed.step == StepMissing(reason=reason)
+    assert parsed.timed_out is timed_out
 
 
 def test_a_step_the_container_left_out_keeps_the_verdicts_and_says_why(
