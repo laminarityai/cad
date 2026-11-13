@@ -6,10 +6,12 @@ from cad.auto.gate import gate, stops_at_the_limit
 from cad.briefs import store as briefs
 from cad.context_parts.model import UPDATE_PART
 from cad.context_parts.store import out_of_date_in
+from cad.geometry.lane import TESSELLATIONS
 from cad.operations.model import Audience, Input, Tenant, operation
 from cad.operations.research import brief_table
 from cad.operations.scorecards import MaterialKey
 from cad.sandbox import container, host, image
+from cad.sandbox.outcome import Built
 from cad.scorecard import material
 from cad.variant_sets import store as variant_sets
 from cad.variant_sets.model import (
@@ -132,6 +134,15 @@ def chooser(tenant: Tenant, brief_id: str, key: str | None, reason: str | None) 
 
 
 def build_variant(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResult:
+    """A built variant's mesh starts at once, beside its checks, so the viewer has it sooner."""
+    built = _build(tenant, arguments)
+    if isinstance(built.outcome, Built):
+        held = entry.open_entry(tenant.variants, built.variant_id, image.image_tag(image.BUILD))
+        TESSELLATIONS.start(tenant.geometry, held)
+    return built
+
+
+def _build(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResult:
     running = gate(tenant.roots, tenant.conversations, tenant.bound_run, arguments.brief_id)
     if running is not None and arguments.brief_id is not None and arguments.slot is not None:
         variant_sets.refuse_a_slot_out_of_turn(tenant.roots, arguments.brief_id, arguments.slot)

@@ -10,6 +10,7 @@ from cad.geometry.model import Tessellated
 from cad.operations import reads
 from cad.operations.model import Tenant
 from cad.operations.tenants import Tenants
+from cad.operations.variants import BuildVariantInput, build_variant
 from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.outcome import Build, Built, NoResult
 from cad.variants import entry
@@ -67,6 +68,27 @@ def stored_build(tenant: Tenant, code: str, outcome: Built | NoResult) -> str:
     return vid
 
 
+def test_a_build_starts_its_mesh_so_view_turns_ready_with_no_geometry_read(
+    alice: Tenant, run: Gated
+) -> None:
+    vid = stored_build(alice, "result = 1", Built())
+    build_variant(alice, BuildVariantInput(code="result = 1"))
+    assert run.started.wait(5)
+    pending = reads.view(alice, reads.VariantInput(variant_id=vid))
+    assert (pending.mesh, pending.mesh_url) == ("pending", None)
+    run.gate.set()
+    assert (
+        TESSELLATIONS.read(
+            alice.geometry, entry.open_entry(alice.variants, vid, image_tag(BUILD)), 5
+        )
+        == MESH
+    )
+    ready = reads.view(alice, reads.VariantInput(variant_id=vid))
+    assert ready.mesh == "tessellated"
+    assert ready.mesh_url == f"/v1/geometry/{job.VERSION}/{SHA}.json"
+    assert run.calls == [SHA]
+
+
 def test_view_starts_the_mesh_it_reports_pending_when_no_job_is_making_it(
     alice: Tenant, run: Gated
 ) -> None:
@@ -75,3 +97,9 @@ def test_view_starts_the_mesh_it_reports_pending_when_no_job_is_making_it(
     assert [reads.view(alice, asked).mesh for _ in range(3)] == ["pending"] * 3
     assert run.started.wait(5)
     assert run.calls == [SHA]
+
+
+def test_a_build_with_no_shape_starts_no_mesh(alice: Tenant, run: Gated) -> None:
+    stored_build(alice, "result = None", NoResult(reason="no shape"))
+    build_variant(alice, BuildVariantInput(code="result = None"))
+    assert not run.started.wait(0.2)
