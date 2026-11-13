@@ -265,8 +265,9 @@ def parse(ran: Ran, request: Request, job: Job) -> Parsed:
             first = error.errors()[0]
             where = ".".join(str(part) for part in first["loc"])
             reason = f"the check container sent a malformed report: {where}: {first['msg']}"
-            return _refused(reason, expected)
-        parsed = _accepted(report, step, request, expected)
+            parsed = _refused(reason, expected)
+        else:
+            parsed = _accepted(report, step, request, expected)
     return replace(parsed, timed_out=seen.killed_at_deadline)
 
 
