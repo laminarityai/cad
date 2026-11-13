@@ -15,7 +15,7 @@ The pictures are real captures. `uv run python tools/landing_capture.py --dry` w
 
 ```
 cd web && npm run build && cd ..
-uv run cad-http --root "$(mktemp -d)" --port 8791 --opener true
+HOME="$(mktemp -d)" uv run cad-http --root "$(mktemp -d)" --port 8791 --opener true
 ```
 
 Open `http://127.0.0.1:8791/` signed out at 375 px and 1280 px, in both themes. The main button reads "Request a demo" and links to `DEMO_HREF`. The network log shows requests to the server only. `/app/` still answers 200.

@@ -358,9 +358,11 @@ h3 {
 .state[data-state="unk"] dt {
   color: var(--unk);
 }
+.state[data-state="agent"],
 .state[data-state="assumed"] {
   border-left-color: var(--accent);
 }
+.state[data-state="agent"] dt,
 .state[data-state="assumed"] dt {
   color: var(--accent);
 }

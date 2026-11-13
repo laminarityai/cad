@@ -35,7 +35,7 @@ export function hero(cited: Cited): Raw {
 
 const STEPS = [
   ["Brief", "Say what you need. Add images, drawings, documents or CAD files if you have them. The agent reads them for intent and dimensions."],
-  ["Variants", "The options are built at once, in a sandbox with no network. Nothing waits on you first."],
+  ["Options", "The options are built at once, in a sandbox with no network. Nothing waits on you first."],
   ["Checks", "Each option gets a scorecard. A target you stated waits for one click from you, and then the same results are judged."],
   ["Change and download", "Pick an option and ask for a change in the chat. It is rebuilt and checked again. Download it as STEP, STL or 3MF."],
 ] as const;
@@ -72,7 +72,7 @@ export function trust(cited: Cited): Raw {
     <div class="body">
       <div class="reasons">
         <div><h3>The agent proposes. Checks decide.</h3><p>The agent builds the options and chooses a material. Whether an option passes is the verdict of a check, and only of a check.</p></div>
-        <div><h3>The agent cannot change a check.</h3><p>A check is fixed code. The agent cannot edit it, its inputs, or the tables it reads. Its only move is to change the design and run the checks again.</p></div>
+        <div><h3>The agent cannot change a check.</h3><p>A check is fixed code. The agent cannot edit it, its inputs, or the tables it reads. Its only move is to change the option and run the checks again. For a requirement no check covers, the agent may write a new check before it builds anything. The server freezes that check, it decides nothing until you approve it for your project, and every verdict on it is labelled and counted apart.</p></div>
         <div><h3>Every number has a cited source.</h3><p>Checks read strengths, densities, fastener sizes and tolerances from tables by exact key, never from search or from the model. When a value is missing, the agent reads it from a public page, the server fetches the page and finds the quote on it, and the scorecard labels the result researched.</p></div>
         <div><h3>You confirm the targets.</h3><p>A verdict rests only on a target you confirmed. A number the agent fills in itself is an assumption, shown apart, with no verdict.</p></div>
       </div>

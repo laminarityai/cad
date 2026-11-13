@@ -75,7 +75,7 @@ describe("the landing page words", () => {
   });
 
   it("names every scorecard state in plain words", () => {
-    for (const name of ["Pass", "Fail", "Waiting for you", "Researched", "Unknown", "No test yet", "Assumed by the agent"]) {
+    for (const name of ["Pass", "Fail", "Waiting for you", "Researched", "Agent-written check", "Unknown", "No test yet", "Assumed by the agent"]) {
       expect(page).toContain(`<dt>${name}</dt>`);
     }
   });

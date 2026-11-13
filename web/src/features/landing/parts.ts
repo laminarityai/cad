@@ -41,7 +41,7 @@ export function still(key: StillKey, className = ""): Raw {
 export function loop(): Raw {
   const video = (theme: "light" | "dark") => {
     const [width, height] = size(videoFile(theme));
-    return html`<video data-scheme="${theme}" src="${url(videoFile(theme))}" poster="${url(posterFile(theme))}" width="${width}" height="${height}" muted loop playsinline preload="none" aria-label="A brief typed into the chat, then the options it built and their checks filling in."></video>`;
+    return html`<video data-scheme="${theme}" src="${url(videoFile(theme))}" poster="${url(posterFile(theme))}" width="${width}" height="${height}" muted loop playsinline preload="none" aria-label="The options built from a brief, then their checks filling in."></video>`;
   };
   return html`<div class="loop" data-loop>${video("light")}${video("dark")}</div>`;
 }

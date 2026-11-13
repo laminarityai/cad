@@ -53,7 +53,7 @@
     {
       "id": "checks",
       "value": "8",
-      "claim": "checks, fixed code the agent cannot change, can measure an option.",
+      "claim": "checks written by our team, fixed code the agent cannot change, can measure an option.",
       "source": {
         "kind": "repo",
         "label": "Counted in this repository: the length of CHECKS in src/cad/checks/container/suite.py.",
