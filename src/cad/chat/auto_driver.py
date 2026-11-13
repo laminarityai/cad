@@ -27,16 +27,12 @@ from cad.chat.log import Event, StopReport, ToolCalled, ToolReturned, TurnFailed
 from cad.chat.model import ToolResult, ToolUse
 from cad.confirmations.requirements import plain_names
 from cad.conversations import store
+from cad.operations.guidance import CHAT_AUTO_NUDGE
 from cad.operations.model import Tenant
 from cad.projects.model import ProjectRefused
 
 AUTO_TOOLS: Final = frozenset({"auto_start", "auto_revise", "auto_ask"})
 MAX_NUDGES: Final = 3
-NUDGE: Final = (
-    "Auto run {run_id} has not stopped. Call auto_revise with new build123d code for the "
-    "failing requirements, or auto_ask with a note if you are stuck or the person must decide. "
-    "Do not end your message while the run is running."
-)
 
 
 @dataclass
@@ -84,7 +80,7 @@ class AutoDriver:
         if self._stopped() is not None:
             return None
         self.nudges += 1
-        return NUDGE.format(run_id=self.run_id)
+        return CHAT_AUTO_NUDGE.format(run_id=self.run_id)
 
     def _statements(self, brief_id: str) -> dict[str, str]:
         roots = self.tenant.roots

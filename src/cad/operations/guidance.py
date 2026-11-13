@@ -317,6 +317,23 @@ CHAT_AUTO: Final = (
     "builds in this conversation until the person writes or answers."
 )
 
+CHAT_AUTO_NUDGE: Final = (
+    "Auto run {run_id} has not stopped. Call auto_revise with new build123d code for the "
+    "failing requirements, or auto_ask with a note if you are stuck or the person must decide. "
+    "Do not end your message while the run is running."
+)
+
+CHAT_PAGE_ANSWERED: Final = (
+    "The person answered the confirmation page of project {project}: they confirmed {confirmed} "
+    "and declined {declined}.{notes} Call ask_to_confirm with project_id {project} to read each "
+    "item's outcome, and list_requirements for what they confirmed. Nothing you built is gone, "
+    "and the scorecards now judge it against what they confirmed with no rebuild. Then carry on "
+    "without waiting for them. Score again to read the verdicts. For what they declined, read "
+    "their note and propose again, file the value as an assumption, or drop it. When nothing "
+    "waits for the person and an option fails a requirement they confirmed that a check "
+    "decides, call auto_start with its brief_id, then auto_revise until the run stops."
+)
+
 CHAT_OPEN_PROJECT: Final = (
     "This conversation is the chat of project {project_id}. Its briefs, oldest first, each with "
     "its brief_id and its first words:\n{briefs}\nThe person's page shows every brief of this "
