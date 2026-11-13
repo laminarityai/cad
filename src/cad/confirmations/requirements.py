@@ -3,7 +3,7 @@ from collections.abc import Mapping, Sequence
 from typing import Final
 
 from cad.agent_checks.store import checks_of
-from cad.briefs import store
+from cad.briefs import carry, store
 from cad.briefs.bindable import BINDABLE
 from cad.briefs.edits import apply_edits, placeholder
 from cad.briefs.model import (
@@ -11,6 +11,7 @@ from cad.briefs.model import (
     MadeOf,
     MeasureLimit,
     Requirement,
+    RequirementId,
     Target,
     deciding_check,
     load_of,
@@ -35,6 +36,8 @@ DESCRIBED_NOTE: Final = (
 )
 REMOVE: Final = "Remove: "
 REMOVE_NOTE: Final = "You confirmed this before. Confirming takes it out of your targets."
+CONFIRMED_NOTE: Final = "You confirmed this before."
+EDITED_NOTE: Final = "You confirmed this before, after you changed it from {before}."
 AGENT_DECIDES: Final = (
     "Decided by the agent-written check below once you approve it. Our team has not reviewed it"
 )
@@ -60,7 +63,10 @@ class Requirements:
         state, shown = self._shown(ref)
         text = state.brief.text
         names = plain_names(self._roots, shown.proposal.brief_id)
-        rows = tuple(_row(r, text, names) for r in shown.proposal.requirements)
+        before = _confirmed_before(state, shown)
+        rows = tuple(
+            _row(r, text, names, before.get(r.id, "")) for r in shown.proposal.requirements
+        )
         removed = tuple(_removal(r, text, names) for r in _dropped(state, shown))
         return Section(
             title=TITLE, brief_id=shown.proposal.brief_id, context=text, rows=rows + removed
@@ -102,7 +108,24 @@ def _editable(requirement: Requirement) -> Editable | None:
     return None if shown is None else Editable(row=requirement.id, placeholder=shown)
 
 
-def _row(requirement: Requirement, text: str, names: Mapping[str, str]) -> Row:
+def _confirmed_before(state: BriefState, shown: ProposalState) -> dict[RequirementId, str]:
+    """The note for each row of `shown` that an earlier confirmed set holds, so the card tells a
+    carried row from a new one and keeps the person's own change in sight."""
+    confirmed = state.confirmed
+    if confirmed is None or confirmed.proposal.number >= shown.proposal.number:
+        return {}
+    changed = carry.edited(state)
+    notes: dict[RequirementId, str] = {}
+    for one in confirmed.requirements:
+        was = changed.get(one.id)
+        shown_was = None if was is None else placeholder(was)
+        notes[one.id] = (
+            CONFIRMED_NOTE if shown_was is None else EDITED_NOTE.format(before=shown_was)
+        )
+    return notes
+
+
+def _row(requirement: Requirement, text: str, names: Mapping[str, str], before: str) -> Row:
     source, quote = quoted(text, requirement.origin)
     return Row(
         headline=describe(requirement, names),
@@ -110,7 +133,7 @@ def _row(requirement: Requirement, text: str, names: Mapping[str, str]) -> Row:
         source=source,
         decides=_decides(requirement.target),
         editable=_editable(requirement),
-        note=_note(requirement.target),
+        note=" ".join(one for one in (before, _note(requirement.target)) if one),
     )
 
 

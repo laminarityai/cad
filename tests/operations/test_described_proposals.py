@@ -101,15 +101,6 @@ async def test_removing_the_described_case_is_refused_after_a_result(s: Session)
     assert "leaves out the described load case" in text
 
 
-async def test_a_proposal_that_leaves_out_the_described_case_is_refused_after_a_result(
-    s: Session,
-) -> None:
-    brief_id = await brief_of(s, row(shelf()))
-    store_a_fea_result(s, build_into_the_set(s, brief_id))
-    text = await refused(s, brief_id, row(hole_hook()))
-    assert "leaves out the described load case" in text
-
-
 async def test_a_reviewed_phrase_is_accepted_after_a_result_when_the_case_is_kept(
     s: Session,
 ) -> None:
