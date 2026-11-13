@@ -54,3 +54,11 @@ def test_the_default_key_is_outside_the_store_and_the_check_mount() -> None:
     assert key == Path.home() / ".cad" / "variants.key"
     assert not key.is_relative_to(entry.VARIANTS_ROOT)
     assert not key.is_relative_to(stage.check_mount().source)
+
+
+def test_reading_a_variant_whose_key_is_gone_creates_no_key(tmp_path: Path) -> None:
+    vid = stored(tmp_path / "variants")
+    (tmp_path / "variants.key").unlink()
+    with pytest.raises(entry.StaleVariant):
+        entry.open_entry(tmp_path / "variants", vid, TAG)
+    assert not (tmp_path / "variants.key").exists()
