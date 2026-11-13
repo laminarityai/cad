@@ -53,7 +53,7 @@ uv run python .claude/skills/verify/scripts/browser.py start "$CAD_BROWSER"
 - `build-image` is needed only for recipes that start a container. It prints `sandbox image cad-sandbox:<tag> is current` and then the same line for `cad-analysis:<tag>`, or builds a missing image, which takes minutes. With Docker down it prints the cause and exits 1. `cad-reader build-image` does the same for `cad-reader:<tag>`, the image that reads a researched PDF.
 - `browser.py start` is needed only for recipes that open the confirmation page. It returns when the browser answers, and prints `browser ready: {...}` and `opener: <path>`. Running it again on the same directory reuses the running browser.
 
-Each stdio `cad-call` and each Claude Code session starts its own server and stops it. `uv run cad-http` is the long-running server. `cad-call --url` talks to it, and so do the web app and `curl`.
+Each stdio `cad-call` and each Claude Code session starts its own server and stops it. A server that stops ends its own checks, so a background check longer than one stdio call ends with that call and starts over on the next. `uv run cad-http` is the long-running server. `cad-call --url` talks to it, and so do the web app and `curl`. Prove a run longer than one call, such as fea, there.
 
 ## Doctor
 
