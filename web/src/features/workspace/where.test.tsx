@@ -156,11 +156,22 @@ describe("showing where the check held and pushed", () => {
       expect(ids(viewer.shown[viewer.shown.length - 1])).toEqual(["/variant/part"]);
     });
     expect(container.querySelector("[data-where-legend]")).toBeNull();
+    const hidden = screen.getByRole("button", { name: "Hidden while the section is on" });
+    expect(hidden).toBeDisabled();
+    expect(hidden).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByRole("button", { name: /^Show(ing)? where it held and pushed$/ })).toBeNull();
     await userEvent.click(screen.getByRole("button", { name: "Section" }));
     await waitFor(() => {
       expect(ids(viewer.shown[viewer.shown.length - 1])).toEqual(["/variant/part", "/variant/support", "/variant/load"]);
     });
     expect(container.querySelector("[data-where-legend]")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Showing where it held and pushed" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("cannot be turned on while the section is on", async () => {
+    await open(true);
+    await userEvent.click(await screen.findByRole("button", { name: "Section" }));
+    expect(await screen.findByRole("button", { name: "Hidden while the section is on" })).toBeDisabled();
   });
 
   it("is not drawn again when the scorecard is read again with the same faces", async () => {

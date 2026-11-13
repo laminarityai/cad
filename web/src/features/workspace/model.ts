@@ -1,4 +1,5 @@
 import type { Api } from "@/api/client";
+import type { Cut } from "@/features/viewer/section";
 import type { BriefView, ConfirmationCard, ContextPartView, DocumentView, MemberView, Outcome, VariantSetView } from "@/api/types";
 
 export type BriefState = "waiting" | "building" | "ready";
@@ -146,11 +147,19 @@ export interface View {
   briefId: string | null;
   slotOf: Record<string, number>;
   revisionOf: Record<string, number | null>;
+  /** The section on each option's stage, by `stageKey`, so the Checks pane knows when it hides the faces. */
+  cutOf: Record<string, Cut | null>;
 }
 
-export type ViewAction = { type: "brief"; briefId: string } | { type: "slot"; briefId: string; slot: number } | { type: "revision"; key: string; n: number | null };
+export const stageKey = (briefId: string, slot: number) => `${briefId}:${String(slot)}`;
 
-export const viewStart: View = { briefId: null, slotOf: {}, revisionOf: {} };
+export type ViewAction =
+  | { type: "brief"; briefId: string }
+  | { type: "slot"; briefId: string; slot: number }
+  | { type: "revision"; key: string; n: number | null }
+  | { type: "cut"; key: string; cut: Cut | null };
+
+export const viewStart: View = { briefId: null, slotOf: {}, revisionOf: {}, cutOf: {} };
 
 export function viewReducer(view: View, action: ViewAction): View {
   switch (action.type) {
@@ -166,5 +175,7 @@ export function viewReducer(view: View, action: ViewAction): View {
         ...view,
         revisionOf: { ...view.revisionOf, [action.key]: action.n },
       };
+    case "cut":
+      return { ...view, cutOf: { ...view.cutOf, [action.key]: action.cut } };
   }
 }

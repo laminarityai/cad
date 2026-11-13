@@ -16,7 +16,7 @@ import { TabsList, TabsTab } from "@/components/ui/tabs";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { passedExtents, summaryOf, type Card } from "./cards";
-import type { Brief, Fit, Slot, ViewAction } from "./model";
+import { stageKey, type Brief, type Fit, type Slot, type ViewAction } from "./model";
 import { Dot } from "./bits";
 import { Download } from "./Download";
 
@@ -142,6 +142,7 @@ const at = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: "numeri
 export function Stage(props: {
   slot: Slot;
   revision: number | null;
+  cut: Cut | null;
   dispatch: Dispatch<ViewAction>;
   briefId: string;
   fit: Fit | null;
@@ -150,16 +151,18 @@ export function Stage(props: {
   cards: Record<string, Card>;
   onPick: OnPick;
 }) {
-  const { slot, revision, dispatch, briefId, fit, where, selection, cards, onPick } = props;
+  const { slot, revision, cut, dispatch, briefId, fit, where, selection, cards, onPick } = props;
   const [showFit, setShowFit] = useState(true);
   const [showSize, setShowSize] = useState(false);
-  const [cut, setCut] = useState<Cut | null>(null);
   const newest = slot.revisions.length;
   const showing = Math.min(revision ?? newest, newest);
   const shown = slot.revisions[showing - 1];
   if (!shown) return null;
   const size = passedExtents(cards[shown.variantId]?.snapshot);
-  const key = `${briefId}:${String(slot.slot)}`;
+  const key = stageKey(briefId, slot.slot);
+  const setCut = (next: Cut | null) => {
+    dispatch({ type: "cut", key, cut: next });
+  };
   // A cut draws a cap across a closed solid. The held and pushed faces are drawn apart from the part, which
   // leaves it open, and the library then fills the cap across them, so the colours wait for the whole part.
   const marked = cut ? null : where;
@@ -194,7 +197,7 @@ export function Stage(props: {
               aria-label="Section"
               data-section-toggle
               onClick={() => {
-                setCut((was) => (was ? null : { axis: "x", at: null }));
+                setCut(cut ? null : { axis: "x", at: null });
               }}
               className={cn(
                 "flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[14px] shadow-sm",
