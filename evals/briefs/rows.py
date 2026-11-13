@@ -15,6 +15,7 @@ from dataclasses import dataclass
 import pint
 from cardnumbers import Where
 from chain import AssumedStep, Outcome, ProposedStep, Resolved, Unresolved
+from confirmation import REFUSED
 from measures import Measuring, same, trace_measure
 
 from cad.briefs import assumptions
@@ -55,7 +56,7 @@ def held(roots: Roots, card: Scorecard) -> Held | None:
     try:
         state = briefs.read_state(roots, basis.brief_id)
         sets = assumptions.every_set(roots, basis.brief_id)
-    except briefs.BriefRefused as error:
+    except REFUSED as error:
         return Held(basis.brief_id, {}, (), str(error))
     proposed: dict[str, tuple[int, Requirement]] = {
         requirement.id: (one.proposal.number, requirement)

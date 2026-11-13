@@ -1,6 +1,7 @@
 """Check a stored scorecard's basis against the signed brief store."""
 
 from dataclasses import dataclass
+from typing import Final
 
 import pint
 
@@ -23,6 +24,9 @@ from cad.scorecard.model import (
 )
 from cad.scorecard.requirements import NoDecidingResult, assess_requirements, labelled
 from cad.scorecard.waiting import Waiting
+
+REFUSED: Final = (BriefRefused, ProjectRefused, StoreUnusable)
+"""What the server raises when it refuses to read a brief's or project's stores."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,7 +112,7 @@ def _against(roots: Roots, card: Scorecard, basis: AgainstBrief) -> BasisCheck:
 def _state(roots: Roots, brief_id: str) -> BriefState | Unconfirmed:
     try:
         return store.read_state(roots, brief_id)
-    except (BriefRefused, ProjectRefused, StoreUnusable) as error:
+    except REFUSED as error:
         return Unconfirmed(str(error))
 
 
