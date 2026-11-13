@@ -181,7 +181,6 @@ def propose(
     words: said.Words = said.BRIEF_ONLY,
     remove: Sequence[str] = (),
 ) -> ProposalState:
-    """Store carry.next_set as the next proposal, or return the latest when it holds that set."""
     root = roots.briefs
     state = read_state(roots, raw_id)
     brief = _add_quoted(roots, state.brief, drafts, words)

@@ -1,6 +1,3 @@
-"""The requirements a new proposal holds: the confirmed set, less the ones the agent names in
-remove, then each draft, found in the brief. A person's Confirm is the only way one leaves."""
-
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -22,7 +19,6 @@ def next_set(
     words: said.Words,
     remove: Sequence[str],
 ) -> tuple[Requirement, ...] | str:
-    """The next proposal's requirements, or why the store refuses them."""
     known = {r.id for p in state.proposals for r in (*p.proposal.requirements, *p.requirements)}
     unknown = next((one for one in remove if one not in known), None)
     if unknown is not None:

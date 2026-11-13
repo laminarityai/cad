@@ -5,25 +5,12 @@ from typing import TYPE_CHECKING, Any, Final
 
 import pytest
 
+from tests.support.cube import CUBE, CUBE_TEXT, PLA, min_mass
+
 if TYPE_CHECKING:
     from tests.support.session import Session
 
 pytestmark = pytest.mark.anyio
-CUBE_TEXT: Final = "A block that fits in a 20 mm cube, PLA, at least 50 g"
-CUBE: Final = {
-    "target": {"kind": "envelope", "edges": [{"magnitude": 20, "unit": "mm"}] * 3},
-    "quote": "fits in a 20 mm cube",
-}
-PLA: Final = {"target": {"kind": "made_of", "material": "prusament-pla"}, "quote": "PLA"}
-
-
-def min_mass(grams: float) -> dict[str, Any]:
-    return {
-        "target": {"kind": "min_mass", "mass": {"magnitude": grams, "unit": "g"}},
-        "quote": "at least 50 g",
-    }
-
-
 WARNING: Final = "Warning: these requirements conflict"
 
 

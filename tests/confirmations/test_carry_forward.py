@@ -10,7 +10,7 @@ from cad.briefs import store
 from cad.briefs.model import BriefId, MinMass, Proposal, Requirement, requirement_id
 from cad.briefs.origins import BriefSpan
 from cad.records import signed
-from tests.confirmations.test_conflict_warning import CUBE, CUBE_TEXT, PLA, min_mass
+from tests.support.cube import CUBE, CUBE_TEXT, PLA, min_mass
 
 if TYPE_CHECKING:
     from tests.support.session import Session
@@ -94,8 +94,7 @@ async def test_a_declined_removal_keeps_the_requirement(s: Session) -> None:
     assert "Made of Prusament PLA" in await in_force(s, created["brief_id"])
 
 
-def store_mass_alone(s: Session, brief_id: str) -> None:
-    """A proposal as the store wrote it before it carried the confirmed set forward."""
+def store_proposal_without_carry(s: Session, brief_id: str) -> None:
     target = MinMass.model_validate({"mass": {"magnitude": 5, "unit": "g"}})
     start = CUBE_TEXT.index("at least 50 g")
     origin = BriefSpan(start=start, end=start + len("at least 50 g"))
@@ -126,7 +125,7 @@ async def test_a_proposal_stored_without_the_confirmed_rows_lists_each_as_a_remo
     s: Session,
 ) -> None:
     created = await confirmed_cube(s)
-    store_mass_alone(s, created["brief_id"])
+    store_proposal_without_carry(s, created["brief_id"])
     body = await page(s, created["project_id"])
     assert body.count("Remove: ") == 2
     assert body.count(REMOVE_PLA) == 1

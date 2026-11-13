@@ -78,7 +78,6 @@ class Requirements:
         )
 
     def _shown(self, ref: ItemRef) -> tuple[BriefState, ProposalState]:
-        """The brief and the proposal the ref names. Raises when either changed."""
         match = SLOT.fullmatch(ref.slot)
         if match is None:
             raise TamperedBrief(f"no proposal is stored at {ref.slot!r}")
@@ -116,7 +115,6 @@ def _row(requirement: Requirement, text: str, names: Mapping[str, str]) -> Row:
 
 
 def _dropped(state: BriefState, shown: ProposalState) -> tuple[Requirement, ...]:
-    """The confirmed requirements that confirming `shown` takes out of force."""
     confirmed = state.confirmed
     kept = {r.id for r in shown.proposal.requirements}
     return tuple(r for r in confirmed.requirements if r.id not in kept) if confirmed else ()
