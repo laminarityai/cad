@@ -15,9 +15,12 @@ from cad.accounts.local import LocalIssuer
 from cad.confirmations.waiting import Door
 from cad.confirmations.web import LocalSignIn
 from cad.context_parts.ingest import ingest
+from cad.geometry import job as mesh_job
+from cad.geometry.lane import TESSELLATIONS
 from cad.operations.tenants import Tenants
 from cad.records.roots import Roots
 from cad.sandbox import container
+from cad.sandbox.outcome import SandboxUnavailable
 from cad.server.app import build_server
 from cad.server.hosted import build_app
 from tests.support.browser import Person, local_pages
@@ -185,6 +188,19 @@ def _note_container_starts(event: str, arguments: tuple[object, ...]) -> None:
 
 
 sys.addaudithook(_note_container_starts)
+
+
+def _no_mesh(brep: bytes, brep_sha256: str) -> mesh_job.Ran:
+    del brep, brep_sha256
+    raise SandboxUnavailable("the tests tessellate no BREP in the background")
+
+
+@pytest.fixture(autouse=True)
+def builds_start_no_mesh_container(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A build and a view start the variant's mesh on a background thread, which would outlive
+    the test and charge its container to the next one. A test that wants a mesh made replaces
+    this runner or tessellates with a lane of its own."""
+    monkeypatch.setattr(TESSELLATIONS, "_run", _no_mesh)
 
 
 @pytest.fixture(autouse=True)

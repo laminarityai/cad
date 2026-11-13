@@ -30,6 +30,14 @@ class Tessellations:
         except TimeoutError:
             return TessellationPending(brep_sha256=held.brep_sha256)
 
+    def start(self, root: Path, held: Entry) -> Tessellated | TessellationFailed | None:
+        """The stored mesh, or None once a job is making it. Unlike `read`, it never waits and
+        never raises: a job that raised is started again by the next call."""
+        stored = store.read(root, held.brep_sha256)
+        if stored is None:
+            self._take_off(root, held)
+        return stored
+
     def _take_off(self, root: Path, held: Entry) -> Future[Tessellated | TessellationFailed]:
         return self._flights.take_off(
             store.path(root, held.brep_sha256), lambda: self._tessellate(root, held)
