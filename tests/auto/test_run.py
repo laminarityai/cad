@@ -51,7 +51,6 @@ pytestmark = pytest.mark.anyio
 
 
 def lighter(s: Session, brief_id: str) -> dict[str, Any]:
-    """The person's new limit, proposed with the confirmed one it replaces in remove."""
     confirmed = briefs_store.read_state(s.roots, brief_id).confirmed
     assert confirmed is not None
     return {"brief_id": brief_id, "requirements": [LIGHTER], "remove": confirmed.requirement_ids}

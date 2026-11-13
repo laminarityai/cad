@@ -121,8 +121,6 @@ class BriefState:
 
     @property
     def carried(self) -> tuple[Requirement, ...]:
-        """What the next proposal starts from: the waiting proposal, which already carries the
-        confirmed set, or else the confirmed set. A declined proposal's rows do not carry."""
         latest = self.latest
         if latest is not None and latest.status is Status.PROPOSED:
             return latest.requirements
