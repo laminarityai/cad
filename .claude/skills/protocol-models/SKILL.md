@@ -1,6 +1,6 @@
 ---
 name: protocol-models
-description: Model-check the check job queue (src/cad/checks/lanes.py, job_store.py, including Lanes.peek, the completion listeners and drop_unstarted) the confirmation answer flow (src/cad/confirmations/, operations/confirmation.py, records/signed.py) how the chat carries on after a page answer (chat/routes.py Chat._deliver, answered, catch_up; chat/answer_driver.py) and how a stop holds an Auto run's conversation until the person acts (conversations/store.py record_event, start_run, lift_hold; operations/tenants.bind; auto/gate.py; operations/auto.py auto_start; chat/routes.py Chat._begin) with TLA+. Use when you change how jobs take off, run, are stored or refused, how a worker starts or dies, or who may post the confirmation page, how its snapshot is sealed, or how an answer is appended; when you change what starts a chat turn, how a page answer reaches a conversation, what stops or holds an Auto run, or what auto_start reads before it opens one; when `verify` warns that covered code changed; or when a race, a crash, or a second session could break one of these flows.
+description: Model-check the check job queue (src/cad/checks/lanes.py, job_store.py, including Lanes.peek, the completion listeners, drop_unstarted and Lanes.close, and how a stopping or restarted server ends its checks: server/stopping.py, container.stop_owned and remove_orphans) the confirmation answer flow (src/cad/confirmations/, operations/confirmation.py, records/signed.py) how the chat carries on after a page answer (chat/routes.py Chat._deliver, answered, catch_up; chat/answer_driver.py) and how a stop holds an Auto run's conversation until the person acts (conversations/store.py record_event, start_run, lift_hold; operations/tenants.bind; auto/gate.py; operations/auto.py auto_start; chat/routes.py Chat._begin) with TLA+. Use when you change how jobs take off, run, are stored or refused, how a worker starts or dies, what a server does to its checks when it stops or starts, or who may post the confirmation page, how its snapshot is sealed, or how an answer is appended; when you change what starts a chat turn, how a page answer reaches a conversation, what stops or holds an Auto run, or what auto_start reads before it opens one; when `verify` warns that covered code changed; or when a race, a crash, or a second session could break one of these flows.
 ---
 
 # Protocol models
@@ -37,14 +37,15 @@ The properties are about the order in which threads, processes and crashes act o
 
 | Property | Kind | The harm it rules out |
 | --- | --- | --- |
-| `OneContainerPerKey` | invariant | Two containers run the same job in one server process, which doubles cost and races on the result file. |
+| `OneContainerPerKey` | invariant | Two containers run the same job in one server process, which doubles cost and races on the result file. It counts the containers that the process's dead incarnations left running. |
 | `NeverTrustForged` | invariant | A result file someone edited by hand is used as a check result. |
-| `InterruptedMeansInterrupted` | invariant | `settle` refuses a check as "interrupted 2 times" when fewer than 2 attempts in a row were cut off by a crash. |
+| `InterruptedMeansInterrupted` | invariant | `settle` refuses a check as "interrupted 2 times" when fewer than 2 attempts in a row were cut off by a crash. A clean stop is not a crash. |
 | `CapStopsReruns` | invariant | An fea job that kills the server every time it runs is started again and again. Once `Cap` attempts in a row were cut off, no fea container runs again. |
-| `QueuedIsCurrent` | invariant | A background job queued before a newer revision replaced its variant is still queued afterwards, so a container starts for a revision nobody wants. |
+| `QueuedIsCurrent` | invariant | A background job queued before its variant left its last set is still queued afterwards, so a container starts for a revision nobody wants. |
+| `KeptWhileShown` | invariant | A newer revision in one brief drops a queued job whose variant another brief's set still shows, so that brief's caller gets Superseded for a check it waits on. |
 | `NotifiedAfterStore` | invariant | A completion listener runs before the result is on disk, so the snapshot it takes misses the result it was told about. |
-| `PeekMeansInterrupted` | invariant | The same as `InterruptedMeansInterrupted`, for what `Lanes.peek` reports. It fails today: see known finding 3. |
-| `Converges` | temporal | After crashes, store faults and tampering, a job never ends up stored. The run must end with each job stored, or with fea refused at the attempt cap. |
+| `PeekMeansInterrupted` | invariant | The same as `InterruptedMeansInterrupted`, for what `Lanes.peek` reports. |
+| `Converges` | temporal | After crashes, clean stops, store faults and tampering, a job never ends up stored. The run must end with each job stored, or with fea refused at the attempt cap. |
 | `PendingEnds` | temporal | A caller who saw a check pending can poll forever without getting a verdict or a refusal. |
 | `TypeOK` | invariant | A variable takes a value the model did not mean to allow. It covers every variable. |
 
@@ -54,32 +55,41 @@ TLC's deadlock check is on but proves nothing for this model. A caller can alway
 
 | Config | Bounds | Checks |
 | --- | --- | --- |
-| `JobLanes.cfg` | 1 process, 2 callers, 1 crash, 1 run fault, 1 tamper, 1 replacement | invariants |
-| `JobLanesCap.cfg` | 1 process, 1 caller, 3 crashes, 1 fault, 1 tamper, with `peek` | invariants and both temporal properties |
-| `JobLanesTwoServers.cfg` | 2 processes on one store, 1 caller, 1 crash, 1 replacement per process | invariants (minus known finding 1) and both temporal properties |
-| `JobLanesTwoServersRefusal.cfg` | the same | known finding 1, which must still be found |
-| `JobLanesPeek.cfg` | 1 process, 1 caller, 1 crash, with `peek` | known finding 3, which must still be found |
+| `JobLanes.cfg` | 1 process, 2 callers, 1 crash, 1 run fault, 1 tamper, 2 sets | invariants |
+| `JobLanesCap.cfg` | 1 process, 1 caller, 3 crashes, 1 fault, 1 tamper, 1 set, with `peek` | invariants and both temporal properties |
+| `JobLanesStop.cfg` | 1 process, 1 caller, 1 clean stop, 2 crashes, 1 fault, 1 set, with `peek` | invariants and both temporal properties |
+| `JobLanesTwoServers.cfg` | 2 processes on one store, 1 caller, 1 crash, 2 sets | invariants (minus known finding 1) and both temporal properties |
+| `JobLanesTwoServersRefusal.cfg` | 2 processes on one store, 1 caller, 1 crash | known finding 1, which must still be found |
 
-Safety and liveness use separate configs because two callers with liveness takes minutes. One caller is enough for liveness, because a second caller only joins a flight the first one started. `CapStopsReruns` needs at least `Cap` crashes to be tested, so only `JobLanesCap` can catch a broken cap. The constant `Peeks` turns `Peek` on. `Peek` writes only `peeked`, so the configs that check neither `peeked` nor finding 3 leave it off, which keeps the run short.
+Safety and liveness use separate configs because two callers with liveness takes minutes. One caller is enough for liveness, because a second caller only joins a flight the first one started. `CapStopsReruns` needs at least `Cap` crashes to be tested, so only `JobLanesCap` and `JobLanesStop` can catch a broken cap. A clean stop multiplies the states of every other bound, so only `JobLanesStop` has one. Its two crashes cover a deploy during a check and a stop that a SIGKILL cuts short. `Sets` is how many variant sets show the variant: with 2, one `Replace` keeps the queued job and the second drops it. The constant `Peeks` turns `Peek` on. `Peek` writes only `peeked`, so the configs that do not check `PeekMeansInterrupted` leave it off, which keeps the run short.
 
 How the model maps to the code:
 
 | Model | Code |
 | --- | --- |
-| `FeaTakeOff`, `QuickTakeOff` | `Lanes._take_off`: `job_store.read`, flying lookup, `_interrupted_too_often`, new `Future`, all under `_lock` |
+| `FeaTakeOff`, `QuickTakeOff` | `Lanes._take_off`: `job_store.read`, flying lookup, the `_closed` refusal of a background job, `_interrupted_too_often`, new `Future`, all under `_lock` |
 | `FeaTakeOff` (queue branch) | `Lanes._enqueue_locked`, called inside the take-off lock: `_queue.append`, `_wake.notify`, and `_start_worker` when `_worker is None`. The model has no separate enqueue step, because the code has none: a drop cannot fall between take-off and append |
-| `Replace(p)` | `Lanes.drop_unstarted`, which `build_into_set` calls when a newer revision takes a variant's slot: under `_lock`, every queued job of the variant leaves `_queue` and `_flying`, and its `Future` gets `Superseded`. A job a worker already took is not in the queue and runs on. `replaces[p]` is ghost: each queued job carries the count at take-off, which `QueuedIsCurrent` compares. It is per process because a drop reaches only its own process's queue |
+| `Replace(p)` | `variant_sets.store._drop_replaced`, which `build_into_set` calls when a newer revision takes a variant's slot. It reads every set of the account with `account_slots`, and calls `Lanes.drop_unstarted` only when no set still shows the replaced variant: under `_lock`, every queued job of the variant leaves `_queue` and `_flying`, and its `Future` gets `Superseded`. A job a worker already took is not in the queue and runs on. `shown` counts the sets that show the variant. `drops[p]` is ghost: each queued job carries the count at take-off, which `QueuedIsCurrent` compares. It is per process because a drop reaches only its own process's queue |
+| `RefuseQueued` | `Lanes._refuse_locked`, which `drop_unstarted` and `close` share: each refused job leaves `_flying`, and its `Future` gets the error |
 | `NotifyQuick`, `WorkerNotify` | `Lanes._fly` after `set_result`: the listeners run on the thread that ran the job, outside `_lock`. A listener that raises is logged and swallowed, so the model has no step for it. `told` is ghost: what the listener saw of the store |
 | `RunQuick`, `WriteQuick`, `SettleQuick` | `Lanes._fly` on the caller thread for the quick job |
 | `WorkerGet` ... `WorkerSettle` | `Lanes._drain` (`_wake.wait` and `popleft` under `_lock`), then `_fly` / `_attempt` on the worker thread: `begin_attempt`, run, `end_attempt` in `finally`, `job_store.write` (skipped on a timeout), then `del _flying` and settle in one lock |
-| `WorkerBegin` | `job_store.begin_attempt`, modeled as one step. The code reads the count and then replaces the file, which is two steps (see Not covered) |
-| `Peek` | `Lanes.peek` and `_look`: `job_store.read`, then `interrupted_runs >= ATTEMPT_CAP`, with no lock and no `_flying` lookup |
+| `WorkerBegin` | `_attempt` under `_lock`: `SandboxUnavailable` when `_closed`, else `job_store.begin_attempt` and `_running = job`. `begin_attempt` is modeled as one step. The code reads the count and then replaces the file, which is two steps (see Not covered) |
+| `WorkerEnd` | `_attempt`'s `finally` under `_lock`: while `_running` still names the job, clear it and `end_attempt`. After `close` took the attempt back, it does neither |
+| `Peek` | `Lanes.peek` and `_look`, under `_lock`: `job_store.read`, then pending while the job is in `_flying`, else `interrupted_runs >= ATTEMPT_CAP` |
 | `WorkerExit` | `_drain`'s `finally`: clear `_worker`, restart it when the queue is not empty |
 | `WaitQuick`, `Land` | `settle`'s `quick.result()` and `_land`: Done, Pending on a timeout, Refused on `SandboxUnavailable` or `Superseded` |
-| `Crash(p)` | the server process dies: memory is lost, and `.attempt` and result files stay. The model stops its container with it. The code does not: `container.remove_orphans` removes only exited containers whose owner pid is dead (#148) |
+| `Close(p)` | `Lanes.close`, the first half of `server/stopping.end_checks`, under `_lock`: set `_closed`, refuse each queued job with `SandboxUnavailable(STOPPED)`, and `job_store.undo_attempt` the job `_running` names. The quick lane stays open |
+| `StopOwned(p)` | `container.stop_owned`, the second half of `end_checks`: set the `stopping` event, so `container.run` refuses before and after `docker run`, then `docker rm --force` every container labelled with this pid. A run whose container it removed raises `SandboxUnavailable(STOPPING)`, which spends no fault and is never stored |
+| `Exit(p)` | the end of `server/stopping.checks_end_with_the_server`. On SIGTERM its handler runs `end_checks`, restores the default action and raises SIGTERM again. The stdio server runs `end_checks` when the `with` block ends |
+| `Crash(p)` | the process dies without `end_checks`: SIGKILL, an out-of-memory kill, or a stop past systemd's timeout. Memory is lost, `.attempt` and result files stay, and its running containers go into `orphans` |
+| `Start(p)` | a new server: `hosted.py` and `__main__.py` call `container.remove_orphans` before they serve, which removes every `cad.sandbox` container whose owner pid is dead, running or not |
+| `up`, `stopping`, `orphans` | whether a server serves in the process slot; `Lanes._closed` and the `container.stopping` event; the containers dead incarnations left, which `docker ps` would list |
 | `Tamper(j)` | a person edits a stored result file, so its MAC no longer matches |
 | `disk`, `attempt` | `job_store` result and `.attempt` files; `Stored(j)` is `job_store.read` with the MAC verified |
-| `cut` (ghost) | fea attempts in a row that a crash really interrupted. An attempt that reaches `end_attempt` resets it, as `end_attempt` resets the file |
+| `cut` (ghost) | fea attempts in a row that a crash really interrupted. An attempt that reaches `end_attempt` resets it, as `end_attempt` resets the file, and a clean stop does not count |
+
+`StopOwned`, `Exit` and `Start` are weakly fair: a stop that began finishes, and a dead server is started again, by systemd or by the person opening a new session. `Close` is not fair, because a server need never stop.
 
 The model leaves out the account meter. It refuses inside `container.run`, before `docker run`, by raising `AccountLimitReached`, a `SandboxUnavailable`. So a refusal is a run fault, which the model covers, and is never stored. A run may return a timeout result, which is never stored (see 0f22adb). The phase-3 design said timeouts would be stored; the code deliberately does not store them.
 
@@ -196,7 +206,6 @@ Each finding is a check that must keep finding its violation. When the code is f
 
 1. `JobLanesTwoServersRefusal` (`InterruptedMeansInterrupted`). Two server processes on one store, for example two Claude Code sessions on `~/.cad`, share `.attempt` files. Server A dies once while fea runs, so `.attempt` is 1. Server B starts the same fea job and `begin_attempt` makes it 2. A restarts, and `score_variant` refuses fea as "interrupted 2 times" while B's healthy run is still going. It clears once B stores its result. It is transient and low severity. The phase-4 one-replica lease would remove it.
 2. `AnswersStale` (`StaleWritesNothing`). `answer_page` checks that the pending items still match the page, then appends. If the agent proposes a new revision between the two, the answer is still recorded. It binds to the exact item sha the page showed, so `AnswersWhatThePageShowed` holds, and the newer revision stays pending. Low severity. The trace is 9 states: `Get`, `Post`, the POST passes `Unseal`, `CheckLedger` and `CheckPending`, then `ReadSlots`, `Propose`, and `Publish` links the answer. `StaleWritesNothing` counts only that order (the `stale` ghost requires `at = rev`, so the pending check passed), so this check cannot pass on a stale answer that got past a broken Changed guard. `ChangedWritesNothing` in `Answers.cfg` catches that one.
-3. `JobLanesPeek` (`PeekMeansInterrupted`). One server, one crash. The server dies once while fea runs, so `.attempt` is 1. It restarts, `score_variant` starts a healthy rerun, and `begin_attempt` makes `.attempt` 2. While that run is going, `Lanes.peek` (the scorecard operation) reports fea refused as "interrupted 2 times". `settle` does not, because `_take_off` looks in `_flying` first, and `peek` does not. It clears once the run stores its result. Transient and low severity, but it needs only one server, unlike finding 1. Reproduced against the real code: `job_store.begin_attempt` once, then `Lanes.settle` with a gated background runner, then `Lanes.peek` returns `Refused(INTERRUPTED)` while `.attempt` is 2.
 
 ## A failure: real bug or modeling error
 
@@ -213,7 +222,7 @@ When a check fails, read the trace as a story in code terms: which thread or pro
 
 ```coverage
 sync: 21a7efb
-JobLanes: src/cad/checks/lanes.py src/cad/checks/job_store.py src/cad/checks/jobs.py src/cad/sandbox/container.py
+JobLanes: src/cad/checks/lanes.py src/cad/checks/job_store.py src/cad/checks/jobs.py src/cad/sandbox/container.py src/cad/server/stopping.py src/cad/variant_sets/store.py
 Answers: src/cad/confirmations/web.py src/cad/confirmations/snapshot.py src/cad/operations/confirmation.py src/cad/confirmations/page.py src/cad/confirmations/answers.py src/cad/confirmations/items.py src/cad/records/signed.py
 CarryOn: src/cad/chat/routes.py src/cad/chat/answer_driver.py src/cad/chat/turn.py src/cad/chat/log.py src/cad/conversations/store.py src/cad/operations/confirmation.py src/cad/confirmations/web.py
 AutoHold: src/cad/auto/gate.py src/cad/auto/log.py src/cad/operations/auto.py src/cad/conversations/store.py src/cad/chat/routes.py src/cad/operations/tenants.py
@@ -227,8 +236,10 @@ These are phase-4 plans. Model them when the code exists.
 
 ## Not covered
 
-- Real container behaviour, run time and Docker faults beyond "the run fails" or "the process dies".
-- `OneContainerPerKey` holds per process incarnation only. A crashed server's container keeps running, and a restarted server can start a second container for the same key next to it, because `container.remove_orphans` removes only exited containers whose owner pid is dead. Issue #148 tracks it.
+- Real container behaviour, run time and Docker faults beyond "the run fails" or "the process dies". A dockerd restart or a `docker kill` from outside ends a run the way a crashing check does, so its result is stored as the check's own.
+- A container that `container.run` starts after `stop_owned` listed this pid's containers. The model makes `StopOwned` one step. In the code, a run that passed its `stopping` check before the event was set can start `docker run` after the listing. The container then runs on as an orphan until the next server's `remove_orphans`.
+- Owner pids. `remove_orphans` treats a container as live while any process has its owner pid, so a reused pid keeps an orphan until that process ends. It also assumes every server that shares the Docker daemon shares one pid namespace.
+- The read in `_drop_replaced`. The model reads `shown` and drops in one step. The code reads the account's sets and then calls `drop_unstarted`, so a brief whose build joins the variant between the two still loses the queued job.
 - The lost update in `job_store.begin_attempt`. It reads `.attempt` and then replaces it, and the model makes that one step. Two servers that begin the same job at once can both write n + 1, so the real count can be lower than the model's, and the cap can allow more reruns across servers than `Cap`.
 - The account meter. Its refusal is a run fault, which is modeled. Its own file lock and day ledger are covered by `tests/accounts/test_meter.py`.
 - The Auto stop rules. `auto/step.py` folds a run's events with no concurrency, so `tests/auto/test_step.py` covers it. AutoHold.tla covers what a stop does to the conversation.
