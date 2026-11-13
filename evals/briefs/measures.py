@@ -4,6 +4,10 @@ read from the materials table by exact key when the check declares the read in `
 A result is a `CheckResult`, or a `MeasureOnly`: the same stored result, reported with no verdict
 because only a load nobody confirmed reads it. Both carry the check's measures, version and
 sources, so one rule places both.
+
+On a card the session was shown, each measure must also equal the measure of the same name in
+the signed job result the card's own variant, material, table version and instance key
+(`signedjobs.py`). A result's verdict and its other fields are compared there.
 """
 
 import math
@@ -20,6 +24,7 @@ from chain import (
     TableStep,
     Unresolved,
 )
+from signedjobs import SignedJobs
 
 from cad.checks.report import CheckSpec
 from cad.checks.result import CheckResult, Measure
@@ -54,7 +59,10 @@ def trace_measure(
     measure: Measure,
     table: MaterialsTable,
     specs: Mapping[str, CheckSpec],
+    signed: SignedJobs | None,
 ) -> Outcome:
+    """`signed` is None for a card that is not bound to its jobs: the server's own reading, or a
+    transcript traced alone."""
     spec = specs.get(result.check_id)
     if spec is None:
         return Unresolved(f"no check called {result.check_id!r} is registered")
@@ -68,6 +76,10 @@ def trace_measure(
         return Stale(
             f"{spec.id} version {result.version[:12]} is not the current {spec.version[:12]}"
         )
+    if signed is not None:
+        unsigned = _unsigned(measure, signed.result(result.check_id, result.instance))
+        if unsigned is not None:
+            return unsigned
     steps: list[Step] = [CheckStep(spec.id, spec.version)]
     field = spec.reads.get(base)
     if field is not None:
@@ -76,6 +88,23 @@ def trace_measure(
             return read
         steps.append(read)
     return Resolved(tuple(steps))
+
+
+def _unsigned(measure: Measure, held: CheckResult | Unresolved) -> Unresolved | None:
+    if isinstance(held, Unresolved):
+        return held
+    found = next((one for one in held.measured if one.name == measure.name), None)
+    if found is None:
+        return Unresolved(
+            f"{measure.name} is {measure.value:g~P} on the card, but the signed job result "
+            f"holds no {measure.name}"
+        )
+    if not same(measure.value, found.value):
+        return Unresolved(
+            f"{measure.name} is {measure.value:g~P} on the card, but the signed job result "
+            f"holds {found.value:g~P}"
+        )
+    return None
 
 
 def _table_step(

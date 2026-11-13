@@ -13,7 +13,9 @@ nothing proves nothing. With `--require-judged`, a card with no brief fails too,
 card awaiting confirmation unless a later card judges its variant against the same brief: in
 build-first the agent scores before the person confirms.
 
-Limit: a transcript is unsigned, so a hand-edited card is not detected.
+Limit: a transcript is unsigned, and this command binds no card to the signed job results, so a
+hand-edited card is not detected. The brief-set run binds each card the session was shown to them
+(`tracefacts.trace_session`).
 """
 
 import argparse
@@ -43,6 +45,7 @@ from confirmation import Misjudged, Superseded, Unconfirmed
 from fitted import Unfitted
 from provenance import CardFailure, CardTrace, Incomplete, Traced, Unreadable, trace_card
 from pydantic import TypeAdapter, ValidationError
+from signedjobs import Unsigned
 from tracking import RequirementOutcome, describe, describe_apart, outcomes_of, track
 from transcript_cards import read_cards
 
@@ -70,6 +73,7 @@ class Tally:
     misjudged: int
     superseded: int
     unfitted: int
+    unsigned: int
     judged: int
     awaiting: int
     judged_later: int
@@ -97,6 +101,7 @@ def tally(traces: Sequence[CardTrace]) -> Tally:
         misjudged=_cards_with(traces, Misjudged),
         superseded=_cards_with(traces, Superseded),
         unfitted=_cards_with(traces, Unfitted),
+        unsigned=_cards_with(traces, Unsigned),
         judged=bases.count("against_brief"),
         awaiting=len(waiting) - later,
         judged_later=later,
@@ -135,6 +140,7 @@ def exit_code(counts: Tally, *, require_judged: bool = False) -> int:
         + counts.misjudged
         + counts.superseded
         + counts.unfitted
+        + counts.unsigned
         + counts.stale
         + counts.unresolved
     )
@@ -164,13 +170,16 @@ class TracedStore:
         return tuple(outcome for one in self.cards for outcome in one.outcomes)
 
 
-def trace_cards(cards: Sequence[str | CardTrace], root: Path, roots: Roots) -> TracedStore:
+def trace_cards(
+    cards: Sequence[str | CardTrace], root: Path, roots: Roots, *, bind_jobs: bool
+) -> TracedStore:
     """`cards` is the JSON text of each scorecard in the order the session got them, or the
-    trace of one that could not be read."""
+    trace of one that could not be read. With `bind_jobs`, each result on a card must equal the
+    signed job result its own variant, material, table version and instance key."""
     table = load_materials()
     return TracedStore(
         tuple(
-            TracedCard(order, *_read(order, text, root, roots, table))
+            TracedCard(order, *_read(order, text, root, roots, table, bind_jobs=bind_jobs))
             for order, text in enumerate(cards)
         )
     )
@@ -200,7 +209,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     cards = [text for path in args.transcripts for text in read_cards(path)]
     found = trace_cards(
-        cards, args.root, Roots(briefs=args.briefs_root, projects=args.projects_root)
+        cards,
+        args.root,
+        Roots(briefs=args.briefs_root, projects=args.projects_root),
+        bind_jobs=False,
     )
     for trace in found.traces:
         _print(trace, args.steps)
@@ -213,7 +225,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     print(
         f"cards unconfirmed: {counts.unconfirmed}, misjudged: {counts.misjudged}, "
-        f"superseded: {counts.superseded}, unfitted: {counts.unfitted}"
+        f"superseded: {counts.superseded}, unfitted: {counts.unfitted}, "
+        f"unsigned: {counts.unsigned}"
     )
     print(
         f"cards judged: {counts.judged}, awaiting confirmation: {counts.awaiting} "
@@ -252,7 +265,13 @@ server did not report the material."""
 
 
 def _read(
-    order: int, text: str | CardTrace, root: Path, roots: Roots, table: MaterialsTable
+    order: int,
+    text: str | CardTrace,
+    root: Path,
+    roots: Roots,
+    table: MaterialsTable,
+    *,
+    bind_jobs: bool,
 ) -> tuple[CardTrace, tuple[RequirementOutcome, ...], Scorecard | None]:
     if isinstance(text, CardTrace):
         return text, (), None
@@ -261,7 +280,8 @@ def _read(
     except ValidationError as error:
         failure = Unreadable(str(error).splitlines()[0])
         return CardTrace(f"card {order + 1}", (failure,), ()), (), None
-    trace = trace_card(card, root, roots, _table_scored_against(card, roots, table), SPEC_BY_ID)
+    scored = _table_scored_against(card, roots, table)
+    trace = trace_card(card, root, roots, scored, SPEC_BY_ID, bind_jobs=bind_jobs)
     return trace, outcomes_of(card), card
 
 

@@ -82,15 +82,20 @@ def assume(
 
 def in_force(roots: Roots, raw_id: str) -> AssumptionSet | None:
     """The newest set of assumptions, or None when the agent never made one."""
+    held = every_set(roots, raw_id)
+    return held[-1] if held else None
+
+
+def every_set(roots: Roots, raw_id: str) -> tuple[AssumptionSet, ...]:
+    """Every set of assumptions the brief holds, oldest first."""
     brief = read_brief(roots, raw_id)
     directory = roots.briefs / brief.id / ASSUMPTIONS
     if not files.is_directory(directory):
-        return None
+        return ()
     records = signed.read_numbered(signed.Store(roots.briefs, "brief"), directory, _slot(brief.id))
     if records is None:
         raise TamperedBrief(_report(brief.id))
-    held = _parsed(records, brief.id)
-    return held[-1] if held else None
+    return _parsed(records, brief.id)
 
 
 def _parsed(records: tuple[bytes, ...], brief_id: BriefId) -> tuple[AssumptionSet, ...]:
