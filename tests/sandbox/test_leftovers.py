@@ -6,6 +6,7 @@ import subprocess
 import sys
 import time
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import NamedTuple
 
@@ -54,17 +55,24 @@ def wait_until(condition: Callable[[], bool]) -> None:
     wait_for(lambda: True if condition() else None)
 
 
-def wait_until_exited(name: str) -> None:
-    wait_until(lambda: status(name) == "exited")
-
-
-def running_build(client: int) -> tuple[Process, Process, str] | None:
+def running_build(client: int) -> tuple[Process, str] | None:
     for server in children_of(client):
-        for docker in children_of(server.pid):
-            if docker.argv[1:2] == ["run"]:
-                name = docker.argv[docker.argv.index("--name") + 1]
-                return (server, docker, name) if status(name) == "running" else None
+        docker = running_docker(server.pid)
+        if docker is not None:
+            return server, named(docker)
     return None
+
+
+def running_docker(parent: int) -> Process | None:
+    """The `docker run` that `parent` started, once its container runs."""
+    for docker in children_of(parent):
+        if docker.argv[1:2] == ["run"]:
+            return docker if status(named(docker)) == "running" else None
+    return None
+
+
+def named(docker: Process) -> str:
+    return docker.argv[docker.argv.index("--name") + 1]
 
 
 def cad_call(tool: str, arguments: str) -> list[str]:
@@ -92,18 +100,16 @@ def dead_pid() -> int:
     return int(ended.stdout)
 
 
-def test_only_exited_containers_whose_owner_is_gone_are_removed(image_id: str) -> None:
+def test_every_container_whose_owner_is_gone_is_removed_running_or_not(image_id: str) -> None:
     dead = dead_pid()
-    orphan = start(image_id, dead, "true")
-    owned = start(image_id, os.getpid(), "true")
     running = start(image_id, dead, "sleep", "60")
+    ended = start(image_id, dead, "true")
+    owned = start(image_id, os.getpid(), "sleep", "60")
     try:
-        for name in (orphan, owned):
-            wait_until_exited(name)
         container.remove_orphans()
-        assert (status(orphan), status(owned), status(running)) == (None, "exited", "running")
+        assert (status(running), status(ended), status(owned)) == (None, None, "running")
     finally:
-        container.docker("rm", "--force", orphan, owned, running)
+        container.docker("rm", "--force", running, ended, owned)
 
 
 def test_owner_labels_that_are_not_a_pid_keep_the_container_and_spare_the_rest(
@@ -117,10 +123,8 @@ def test_owner_labels_that_are_not_a_pid_keep_the_container_and_spare_the_rest(
     kept = [start(image_id, owner, "true") for owner in malformed]
     orphan = start(image_id, dead, "true")
     try:
-        for name in (*kept, orphan):
-            wait_until_exited(name)
         container.remove_orphans()
-        assert [status(name) for name in kept] == ["exited"] * len(malformed)
+        assert None not in [status(name) for name in kept]
         assert status(orphan) is None
     finally:
         container.docker("rm", "--force", *kept, orphan)
@@ -132,7 +136,6 @@ def test_a_non_ascii_owner_label_does_not_stop_server_start_under_an_ascii_local
     kept = start(image_id, "\u00b2", "true")
     ascii_locale = {**os.environ, "LC_ALL": "C", "PYTHONUTF8": "0", "PYTHONCOERCECLOCALE": "0"}
     try:
-        wait_until_exited(kept)
         started = subprocess.run(
             (sys.executable, "-m", "cad.server"),
             env=ascii_locale,
@@ -142,7 +145,7 @@ def test_a_non_ascii_owner_label_does_not_stop_server_start_under_an_ascii_local
             check=False,
         )
         assert started.returncode == 0, started.stderr
-        assert status(kept) == "exited"
+        assert status(kept) is not None
     finally:
         container.docker("rm", "--force", kept)
 
@@ -161,13 +164,12 @@ def test_a_server_killed_mid_build_leaves_no_container_after_the_next_start(
     )
     name = None
     try:
-        server, docker, name = wait_for(lambda: running_build(client.pid))
-        os.kill(server.pid, signal.SIGTERM)
-        os.kill(docker.pid, signal.SIGTERM)
+        server, name = wait_for(lambda: running_build(client.pid))
+        os.kill(server.pid, signal.SIGKILL)
         client.kill()
         client.wait()
         wait_until(lambda: not container.alive(server.pid))
-        wait_until_exited(name)
+        assert status(name) == "running"
         subprocess.run(cad_call("server_info", "{}"), env=env, check=True, capture_output=True)
         assert status(name) is None
     finally:
@@ -175,3 +177,14 @@ def test_a_server_killed_mid_build_leaves_no_container_after_the_next_start(
         client.wait()
         if name is not None:
             container.docker("rm", "--force", name)
+
+
+def test_a_sigterm_that_reaches_the_docker_cli_does_not_end_the_run(image_id: str) -> None:
+    held = "import time; time.sleep(5); print('held')"
+    job = container.Job("build", image_id, ("python", "-c", held), b"", wall_seconds=60)
+    with ThreadPoolExecutor(1) as pool:
+        running = pool.submit(container.run, job)
+        docker = wait_for(lambda: running_docker(os.getpid()))
+        os.kill(docker.pid, signal.SIGTERM)
+        ran = running.result(timeout=WAIT_SECONDS)
+    assert (ran.state.ExitCode, ran.attended.report) == (0, b"held\n")

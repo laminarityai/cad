@@ -19,6 +19,7 @@ from tests.support.lanes import (
     quick_only,
     ran,
     wait_for,
+    wait_until,
     with_fea,
 )
 
@@ -217,6 +218,23 @@ def test_a_peek_reports_a_stored_background_result_as_done_and_runs_nothing(
     runs = list(runner.runs)
     assert lanes.peek(plan) == settled
     assert runner.runs == runs
+
+
+def test_a_peek_while_the_rerun_of_an_interrupted_job_runs_calls_it_pending(
+    tmp_path: Path, runner: GatedRunner
+) -> None:
+    fea = job(tmp_path, FEA)
+    job_store.begin_attempt(fea)
+    runner.background.gate.clear()
+    lanes = Lanes(runner)
+    assert lanes.settle(with_fea(tmp_path), 0).background == (Pending(),)
+    wait_until(lambda: job_store.interrupted_runs(fea) == job_store.ATTEMPT_CAP)
+    peeked = lanes.peek(with_fea(tmp_path))
+    assert peeked is not None
+    assert peeked.background == (Pending(),)
+    runner.background.gate.set()
+    wait_for(job_store.result_path(fea))
+    assert lanes.settle(with_fea(tmp_path), 0).background == (Done(ran(fea)),)
 
 
 def test_a_peek_does_not_trust_a_result_signed_for_another_job(

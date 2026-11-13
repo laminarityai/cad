@@ -109,6 +109,28 @@ async def test_an_old_revision_that_another_slot_now_shows_keeps_its_queued_chec
     assert dropped == {thicker["variant_id"]}
 
 
+async def test_a_revision_keeps_the_queued_checks_of_a_variant_another_brief_still_shows(
+    s: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    dropped: set[str] = set()
+
+    def record(root: Path, variant_id: str) -> int:
+        dropped.add(variant_id)
+        return 0
+
+    monkeypatch.setattr(LANES, "drop_unstarted", record)
+    mine, theirs = await s.confirmed_brief(), await s.confirmed_brief()
+    plate = await s.call("build_variant", code=PLATE, brief_id=mine)
+    shared = await s.call("build_variant", code=PLATE, brief_id=theirs)
+    assert shared["variant_id"] == plate["variant_id"]
+    thicker = await s.call("build_variant", code=THICKER, brief_id=mine, slot=1)
+    assert plate["variant_id"] in shows(s, theirs)
+    assert dropped == set()
+    await s.call("build_variant", code=BRACKET, brief_id=theirs, slot=1)
+    assert dropped == {plate["variant_id"]}
+    assert thicker["variant_id"] in shows(s, mine)
+
+
 async def test_a_full_set_takes_a_revision_in_a_slot_and_refuses_new_code_without_one(
     s: Session,
 ) -> None:
