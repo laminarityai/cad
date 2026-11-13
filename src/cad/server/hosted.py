@@ -54,7 +54,6 @@ from cad.confirmations.web import ClerkSignIn, LocalSignIn, SignIn, confirm_rout
 from cad.context_parts.ingest import Ingest
 from cad.context_parts.ingest import ingest as read_part
 from cad.data_root import DATA_ROOT
-from cad.operations.events import events_route
 from cad.operations.guidance import INSTRUCTIONS
 from cad.operations.model import Tenant
 from cad.operations.registry import OPERATIONS, ROUTES
@@ -102,12 +101,10 @@ def build_app(
     tenants: Tenants,
     sign_in: SignIn,
     model: Model | None = None,
-    hooked: bool = True,
     web: Path = DIST,
 ) -> Starlette:
     """`model` runs the chat agent. None reads `CAD_CHAT_MODEL`, so a server with no model
-    configured still starts and answers every call but a chat message. `hooked` wakes the
-    scorecard events stream from the job queue instead of polling. `web` is the built web
+    configured still starts and answers every call but a chat message. `web` is the built web
     app that `/app` serves."""
     verifier = Verifier(issuer)
     chat = Chat(model or from_environment(os.environ), tenants)
@@ -139,7 +136,6 @@ def build_app(
     app.router.routes.extend(
         confirm_routes(verifier, tenants.of, origin(issuer), sign_in, chat.answered)
     )
-    app.router.routes.append(events_route(verifier.person, tenants.of, hooked=hooked))
     app.router.routes.extend(chat_routes(verifier.person, chat))
     app.router.routes.extend(upload_routes(verifier.person, tenants.of))
     app.router.routes.extend(web_routes(web))
@@ -206,7 +202,6 @@ def serve(
     opener: Opener | None,
     ingest: Ingest = read_part,
     environ: Mapping[str, str] = os.environ,
-    hooked: bool = True,
     person: AccountId = LOCAL_PERSON,
 ) -> None:
     issuer, local, sign_in = _trust(root, host, port, environ)
@@ -229,7 +224,7 @@ def serve(
         print(f"cad-http: sign in at {sign_in_link(local, person)}", flush=True)
     with held:
         uvicorn.run(
-            build_app(issuer, tenants, sign_in, hooked=hooked),
+            build_app(issuer, tenants, sign_in),
             host=host,
             port=port,
             log_level="warning",
@@ -259,11 +254,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         default=LOCAL_PERSON,
         help=f"local issuer only: the account the printed sign-in link is for ({LOCAL_PERSON})",
     )
-    parser.add_argument(
-        "--poll-events",
-        action="store_true",
-        help="serve scorecard events from a 500 ms store read only, as if no job announced itself",
-    )
     args = parser.parse_args(argv)
     logging.basicConfig(stream=sys.stderr, level=logging.INFO)
     if not os.environ.get(MODEL_VARIABLE, "").startswith(SCRIPTED_PREFIX):
@@ -277,7 +267,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         args.port,
         args.cap_seconds,
         opener,
-        hooked=not args.poll_events,
         person=args.account,
     )
     return 0
