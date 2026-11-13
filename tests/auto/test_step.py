@@ -38,7 +38,6 @@ from cad.scorecard.model import (
     Scorecard,
     Unverified,
 )
-from cad.scorecard.requirements import UNCONFIRMED_PART
 from cad.scorecard.waiting import Waiting
 from tests.support.scorecard import TARGET, agent_checked, result
 
@@ -54,8 +53,11 @@ START: Final = Started(
 RESEARCH: Final = ReadResearched(field="density", url="https://example.com", quote="1.2", sha256="")
 
 
-def checked(rid: str, verdict: Verdict, reason: str = "", researched: bool = False) -> Checked:
+def checked(
+    rid: str, verdict: Verdict, reason: str = "", researched: bool = False, waits: bool = False
+) -> Checked:
     return Checked(
+        waits_on="context_part" if waits else None,
         requirement_id=rid,
         statement=rid,
         check_id="mass",
@@ -136,7 +138,7 @@ PASS, FAIL, UNKNOWN = Verdict.PASS, Verdict.FAIL, Verdict.UNKNOWN
         ((checked("r1", PASS), checked("r2", UNKNOWN, "no measure")), None),
         ((unverified("r1"), checked("r2", FAIL)), None),
         (
-            (checked("r1", PASS), checked("r2", UNKNOWN, UNCONFIRMED_PART)),
+            (checked("r1", PASS), checked("r2", UNKNOWN, waits=True)),
             NeedsPerson(why="source_to_confirm", requirements=("r2",)),
         ),
     ],

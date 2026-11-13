@@ -56,11 +56,18 @@ class Checked(Frozen):
     basis: Literal["checks", "researched"] = "checks"
     researched: tuple[ReadResearched, ...] = Field(default=(), exclude_if=lambda one: not one)
     load_case: Literal["described"] | None = Field(default=None, exclude_if=lambda one: one is None)
+    waits_on: Literal["context_part"] | None = Field(
+        default=None, exclude_if=lambda one: one is None
+    )
+    """`context_part` when the requirement is unknown because its context part waits on the
+    person to confirm it, so the fit check did not measure against it."""
 
     @model_validator(mode="after")
     def _basis_names_the_research(self) -> Self:
         if (self.basis == "researched") != bool(self.researched):
             raise ValueError("basis is researched exactly when researched names a value")
+        if self.waits_on is not None and self.verdict is not Verdict.UNKNOWN:
+            raise ValueError("only an unknown requirement waits on a context part")
         return self
 
 

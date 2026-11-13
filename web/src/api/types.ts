@@ -825,6 +825,8 @@ export interface components {
             researched?: components["schemas"]["ReadResearched"][];
             /** @default null */
             load_case?: "described" | null;
+            /** @default null */
+            waits_on?: "context_part" | null;
         };
         /**
          * ClearanceSeries

@@ -33,7 +33,7 @@ from cad.scorecard.model import (
     Scorecard,
     Unverified,
 )
-from cad.scorecard.requirements import UNCONFIRMED_PART, result_of
+from cad.scorecard.requirements import result_of
 from cad.scorecard.waiting import Waiting
 
 NO_STATEMENTS: Final[Mapping[str, str]] = MappingProxyType({})
@@ -105,7 +105,7 @@ def _mark(row: Checked) -> Mark:
         case Verdict.FAIL:
             return Mark.FAIL
         case Verdict.UNKNOWN:
-            return Mark.AWAITS_PERSON if row.reason == UNCONFIRMED_PART else Mark.UNKNOWN
+            return Mark.AWAITS_PERSON if row.waits_on == "context_part" else Mark.UNKNOWN
 
 
 def _agent_mark(row: AgentChecked) -> Mark:
