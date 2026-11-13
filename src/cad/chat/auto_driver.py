@@ -30,6 +30,8 @@ from cad.conversations import store
 from cad.operations.guidance import CHAT_AUTO_NUDGE
 from cad.operations.model import Tenant
 from cad.projects.model import ProjectRefused
+from cad.variant_sets import store as variant_sets
+from cad.variant_sets.model import Member, SetRefused
 
 AUTO_TOOLS: Final = frozenset({"auto_start", "auto_revise", "auto_ask"})
 MAX_NUDGES: Final = 3
@@ -71,7 +73,9 @@ class AutoDriver:
         self.reported = True
         assert isinstance(run.state, Stopped)
         state = run.state
-        said = report(state.history, state.reason, self._statements(state.start.brief_id))
+        brief_id = state.start.brief_id
+        option = self._option(brief_id, state.history[-1].code_sha256) if state.history else None
+        said = report(state.history, state.reason, self._statements(brief_id), option)
         return StopReport(run_id=run.run_id, reason=state.reason.kind, report=said)
 
     def nudge(self) -> str | None:
@@ -91,6 +95,15 @@ class AutoDriver:
             return {}
         return {r.id: describe(r, names) for one in proposals for r in one.requirements}
 
+    def _option(self, brief_id: str, code_sha256: str) -> str | None:
+        """The name the person sees for the slot that holds this code, and its revision."""
+        roots = self.tenant.roots
+        try:
+            held = variant_sets.members(roots.projects, variant_sets.set_key(roots, brief_id))
+        except (BriefRefused, ProjectRefused, SetRefused):
+            return None
+        return next((name for member in held if (name := _named(member, code_sha256))), None)
+
     def _stopped(self) -> AutoRun | None:
         if self.run_id is None:
             return None
@@ -99,6 +112,15 @@ class AutoDriver:
         except UnknownRun:
             return None
         return run if isinstance(run.state, Stopped) else None
+
+
+def _named(member: Member, code_sha256: str) -> str | None:
+    labels = [one.option.label for one in member.revisions if one.option is not None]
+    label = labels[-1] if labels else f"Option {member.slot}"
+    numbers = [
+        n for n, one in enumerate(member.revisions, start=1) if one.code_sha256 == code_sha256
+    ]
+    return f"{label}, revision {numbers[-1]}" if numbers else None
 
 
 def _last_run(events: Sequence[Event]) -> str | None:
