@@ -316,12 +316,30 @@ export function awaitingOf(snapshot: Scorecard): Awaiting[] {
   return snapshot.awaiting.map((one) => ({
     key: `awaiting:${one.requirement_id}`,
     label: short(one.statement),
-    values: one.values.map((value) => ({
-      measure: value.measure,
-      target: quantity(value.proposed),
-      measured: value.measured ? quantity(value.measured) : null,
-    })),
+    values: [
+      ...one.values.map((value) => ({
+        measure: value.measure,
+        target: quantity(value.proposed),
+        measured: value.measured ? quantity(value.measured) : null,
+      })),
+      ...(one.holes ? [holesBand(one.holes)] : []),
+    ],
   }));
+}
+
+type WaitingHoles = NonNullable<Scorecard["awaiting"][number]["holes"]>;
+
+/** A holes target's band beside every diameter the check measured. It counts none of them into the
+ * band: that is the judgment Confirm waits for. */
+function holesBand(holes: WaitingHoles): Awaiting["values"][number] {
+  const holeCount = holes.count === null ? "a hole" : `${String(holes.count)} holes`;
+  const sizes = holes.measured.map(quantity);
+  const listed = sizes.length > 1 ? `${sizes.slice(0, -1).join(", ")} and ${sizes[sizes.length - 1] ?? ""}` : sizes[0];
+  return {
+    measure: "hole diameters",
+    target: `${holeCount} from ${quantity(holes.low)} to ${quantity(holes.high)}`,
+    measured: listed ?? null,
+  };
 }
 
 export const MISSING: Record<Extract<Card, { snapshot: null }>["missing"], string> = {

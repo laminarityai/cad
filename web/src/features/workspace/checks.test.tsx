@@ -14,6 +14,7 @@ const waiting = {
   check_id: "mass",
   instance: "",
   values: [{ measure: "mass", proposed: { magnitude: 30, unit: "g" }, measured: { magnitude: 41.2, unit: "g" } }],
+  holes: null,
 };
 
 const assumed = {
