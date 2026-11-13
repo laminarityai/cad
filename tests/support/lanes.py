@@ -1,5 +1,6 @@
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -75,9 +76,13 @@ def with_fea(root: Path) -> Plan:
 
 
 def wait_for(path: Path) -> None:
+    wait_until(path.exists, f"{path.name} never appeared")
+
+
+def wait_until(condition: Callable[[], bool], never: str = "the condition never held") -> None:
     deadline = time.monotonic() + LONG
-    while not path.exists():
-        assert time.monotonic() < deadline, f"{path.name} never appeared"
+    while not condition():
+        assert time.monotonic() < deadline, never
         time.sleep(0.01)
 
 

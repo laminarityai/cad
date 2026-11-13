@@ -28,12 +28,14 @@ CHUNK = 64 * 1024
 DOCKER_TIMEOUT_SECONDS = 15
 KILL_GRACE_SECONDS = 10
 NO_DOCKER = "docker is not installed: no `docker` command on PATH"
+STOPPING = "the server is stopping, so it ended this run and kept nothing from it; run it again"
 OWNER = "cad.owner-pid"
 PID = re.compile("[1-9][0-9]{0,9}")
 PID_MAX = 2**31 - 1
 ROW = TypeAdapter(tuple[str, str])
 
 SLOTS = threading.Semaphore(DOCKER_MEMORY_BUDGET_MB // MEMORY_MB)
+stopping = threading.Event()
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,8 +88,9 @@ def label(kind: Kind) -> str:
 
 
 def remove_orphans() -> None:
+    """Remove every sandbox container whose server is gone, running or not."""
     listed = docker(
-        "ps", "--all", "--filter", "label=cad.sandbox", "--filter", "status=exited",
+        "ps", "--all", "--filter", "label=cad.sandbox",
         "--format", f'[{{{{json .Names}}}},{{{{json (.Label "{OWNER}")}}}}]',
     )  # fmt: skip
     if listed.returncode != 0:
@@ -95,7 +98,18 @@ def remove_orphans() -> None:
     owned = (owned_by(line) for line in listed.stdout.split("\n"))
     orphans = [name for name, pid in filter(None, owned) if not alive(pid)]
     if orphans:
-        docker("rm", *orphans)
+        docker("rm", "--force", *orphans)
+
+
+def stop_owned() -> None:
+    """For a server that is stopping: refuse every later run and remove the containers this
+    process started. A run whose container this removes raises instead of returning, so the
+    server never keeps a result from a run it ended itself."""
+    stopping.set()
+    listed = docker("ps", "--all", "--quiet", "--filter", f"label={OWNER}={os.getpid()}")
+    names = listed.stdout.split()
+    if listed.returncode == 0 and names:
+        docker("rm", "--force", *names)
 
 
 def owned_by(row: str) -> tuple[str, int] | None:
@@ -124,8 +138,10 @@ def run(job: Job) -> Ran:
     meter has nothing left."""
     name = f"cad-{job.kind}-{secrets.token_hex(8)}"
     with SLOTS, meter.charged(job.kind, ceiling_seconds(job)):
+        _refuse_when_stopping()
         try:
             seen = attend(name, run_argv(name, job), job.stdin, job.wall_seconds)
+            _refuse_when_stopping()
             state = inspect(name)
             if state is None or state.Status == "created" or state.Error:
                 cause = state.Error if state is not None and state.Error else seen.output
@@ -133,6 +149,11 @@ def run(job: Job) -> Ran:
             return Ran(seen, state)
         finally:
             docker("rm", "--force", name)
+
+
+def _refuse_when_stopping() -> None:
+    if stopping.is_set():
+        raise SandboxUnavailable(STOPPING)
 
 
 def ceiling_seconds(job: Job) -> float:
@@ -150,8 +171,8 @@ def run_argv(name: str, job: Job) -> tuple[str, ...]:
     return (
         "docker", "run", "--name", name, "--label", label(job.kind),
         "--label", f"{OWNER}={os.getpid()}",
-        "--interactive", "--init", "--pull", "never", "--log-driver", "none",
-        "--network", "none",
+        "--interactive", "--sig-proxy=false", "--init", "--pull", "never",
+        "--log-driver", "none", "--network", "none",
         "--memory", f"{job.memory_mb}m", "--memory-swap", f"{job.memory_mb}m",
         "--pids-limit", str(PIDS), "--cpus", str(CPUS),
         "--read-only", "--tmpfs", f"/tmp:rw,noexec,nosuid,size={job.tmpfs_mb}m",

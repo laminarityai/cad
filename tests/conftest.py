@@ -33,7 +33,6 @@ pytest_plugins = ("shards",)
 
 @pytest.fixture
 def alone_removing_orphans(tmp_path_factory: pytest.TempPathFactory) -> Iterator[None]:
-    """A server start removes exited orphans daemon-wide, so xdist workers take turns here."""
     with (tmp_path_factory.getbasetemp().parent / "removes-orphans.lock").open("w") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         yield

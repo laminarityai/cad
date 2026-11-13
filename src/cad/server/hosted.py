@@ -62,6 +62,7 @@ from cad.operations.tenants import ACCOUNTS, Tenants, bind
 from cad.operations.tools import tools
 from cad.sandbox import container, meter
 from cad.sandbox.outcome import SandboxUnavailable
+from cad.server.stopping import checks_end_with_the_server
 from cad.server.uploads import upload_routes
 from cad.web.static import DIST, web_routes
 
@@ -222,7 +223,7 @@ def serve(
     logging.getLogger(__name__).info("serving %s, tokens from %s", issuer.resource, issuer.url)
     if local is not None:
         print(f"cad-http: sign in at {sign_in_link(local, person)}", flush=True)
-    with held:
+    with held, checks_end_with_the_server():
         uvicorn.run(
             build_app(issuer, tenants, sign_in),
             host=host,
