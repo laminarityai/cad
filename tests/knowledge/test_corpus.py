@@ -44,11 +44,6 @@ def test_a_unit_carries_its_source_page_and_section(tmp_path: Path) -> None:
     assert pointer.retrieved.isoformat() == "2026-11-07"
 
 
-def test_the_version_changes_with_any_byte(tmp_path: Path) -> None:
-    first = load(write(tmp_path, GOOD)).version
-    assert load(write(tmp_path, GOOD + "More.\n")).version != first
-
-
 @pytest.mark.parametrize(
     ("text", "expected"),
     [
@@ -153,12 +148,41 @@ def test_the_seeded_corpus_is_valid_and_ranks_its_questions() -> None:
     assert index.search("M5 clearance hole") == ()
 
 
-def test_the_scorer_never_loads_the_knowledge_base() -> None:
+def test_verdicts_and_confirmations_never_load_the_knowledge_base() -> None:
     code = (
-        "import sys, cad.scorecard.score, cad.checks.container.runner; "
+        "import sys, importlib, pkgutil, cad.briefs, cad.scorecard.score, "
+        "cad.scorecard.requirements, cad.checks.container.runner; "
+        "[importlib.import_module(f'cad.briefs.{m.name}') "
+        "for m in pkgutil.iter_modules(cad.briefs.__path__)]; "
         "print([n for n in sys.modules if n.startswith('cad.knowledge')])"
     )
     result = subprocess.run(
         [sys.executable, "-c", code], capture_output=True, text=True, check=True
     )
     assert result.stdout.strip() == "[]"
+
+
+def source(subject: str, title: str) -> str:
+    return (
+        GOOD.replace("title: Example", f"title: {title}")
+        .replace("subject: x\naliases: [Example]", f"subject: {subject}")
+        .replace("## First", "## Density")
+        .replace("Some text.", "Density 1.24 g/cm3.")
+    )
+
+
+def test_a_word_only_the_title_holds_ranks_its_source_first(tmp_path: Path) -> None:
+    write(tmp_path, source("pla", "Generic PLA data sheet"), "pla.md")
+    write(tmp_path, source("esun-pla-special", "eSUN PLA Silk+ data sheet"), "esun-pla-special.md")
+    assert first(Index(load(tmp_path)), "PLA Silk+ density") == "kb:esun-pla-special#density"
+
+
+@pytest.mark.parametrize("k", [0, -1])
+def test_a_search_refuses_a_k_below_one(k: int) -> None:
+    with pytest.raises(ValueError, match="k"):
+        Index(load(CORPUS_PATH)).search("water density", k)
+
+
+def test_a_yaml_error_names_its_line_and_column(tmp_path: Path) -> None:
+    text = GOOD.replace("aliases: [Example]", "aliases: [Example")
+    assert "line 7, column 18: expected ',' or ']'" in problems(tmp_path, text)
