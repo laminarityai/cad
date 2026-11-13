@@ -90,8 +90,8 @@ def _append(
 
 def _unreadable(run_id: str) -> str:
     return (
-        f"auto run {run_id}'s records failed the server's integrity check, so Auto cannot go on "
-        "and this chat cannot take more messages; start a new project to carry on"
+        f"auto run {run_id}'s records failed the server's integrity check, so Auto cannot run "
+        "again on this brief; create a new brief to run Auto"
     )
 
 

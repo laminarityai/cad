@@ -65,7 +65,8 @@ def refuse_if_full(root: Path, cap_bytes: int) -> None:
         raise SandboxUnavailable(
             f"this account's variant store is full ({used} of {cap_bytes} bytes), so no code can "
             "be built until space is freed, including the rebuild an older variant needs before "
-            "it is scored; a variant built by this server can still be scored"
+            "it is scored; a variant built by this version of the server can still be "
+            "scored"
         )
 
 

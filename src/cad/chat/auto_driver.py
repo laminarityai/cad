@@ -37,6 +37,12 @@ NUDGE: Final = (
     "failing requirements, or auto_ask with a note if you are stuck or the person must decide. "
     "Do not end your message while the run is running."
 )
+# Every later turn reads the same damaged log and fails here, so only on this path is the chat
+# itself done. A run damaged after its report was posted leaves the chat working.
+ENDED: Final = (
+    "auto run {run_id}'s records failed the server's integrity check, so Auto cannot go on "
+    "and this chat cannot take more messages; start a new project to carry on"
+)
 
 
 @dataclass
@@ -68,8 +74,8 @@ class AutoDriver:
             return None
         try:
             run = self._stopped()
-        except TamperedRun as tampered:
-            return TurnFailed(message=str(tampered))
+        except TamperedRun:
+            return TurnFailed(message=ENDED.format(run_id=self.run_id))
         if run is None:
             return None
         self.reported = True
