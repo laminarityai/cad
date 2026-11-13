@@ -2,8 +2,9 @@
 the person's Confirm, or a value the agent assumed.
 
 A row's own number resolves to the brief store record that holds it, found by exact key: an
-awaiting row's requirement id in a stored proposal, an assumed row's check and instance in the
-assumption set in force. Both are the agent's numbers, so the step says so and never names a
+awaiting row's requirement id in a stored proposal, an assumed row's check and instance in a
+numbered assumption set. A card shows the set in force when it was scored, and no set is edited
+once stored. Both are the agent's numbers, so the step says so and never names a
 confirmation. A row's measured number must equal the measure that the row's result holds on the
 same card, and then traces as that measure does.
 """
@@ -37,11 +38,11 @@ from cad.tables.materials import UNITS, MaterialsTable
 @dataclass(frozen=True, slots=True)
 class Held:
     """What the brief store holds for the card's brief: every proposed requirement by id, with
-    the number of the newest proposal that holds it, and the assumption set in force."""
+    the number of the newest proposal that holds it, and every numbered assumption set."""
 
     brief_id: str
     proposed: Mapping[str, tuple[int, Requirement]]
-    assumed: AssumptionSet | None
+    assumed: tuple[AssumptionSet, ...]
     problem: str | None = None
 
 
@@ -53,15 +54,15 @@ def held(roots: Roots, card: Scorecard) -> Held | None:
         return None
     try:
         state = briefs.read_state(roots, basis.brief_id)
-        in_force = assumptions.in_force(roots, basis.brief_id)
+        sets = assumptions.every_set(roots, basis.brief_id)
     except briefs.BriefRefused as error:
-        return Held(basis.brief_id, {}, None, str(error))
+        return Held(basis.brief_id, {}, (), str(error))
     proposed: dict[str, tuple[int, Requirement]] = {
         requirement.id: (one.proposal.number, requirement)
         for one in state.proposals
         for requirement in one.proposal.requirements
     }
-    return Held(basis.brief_id, proposed, in_force)
+    return Held(basis.brief_id, proposed, sets)
 
 
 def place(
@@ -158,21 +159,20 @@ def _assumed(row: AssumedRow, place: int, store: Held) -> Outcome:
     if store.problem is not None:
         return Unresolved(store.problem)
     shown = row.values[place]
-    in_force = () if store.assumed is None else store.assumed.assumptions
-    for one in in_force:
-        target = one.target
-        assumed = limits(target)
-        if (
-            (deciding_check(target), instance(target)) == (row.check_id, row.instance)
-            and place < len(assumed)
-            and assumed[place].measure == shown.measure
-            and same(shown.assumed, assumed[place].quantity)
-        ):
-            assert store.assumed is not None
-            step = AssumedStep(store.brief_id, store.assumed.number, row.check_id, row.instance)
-            return Resolved((step,))
+    for held in reversed(store.assumed):
+        for one in held.assumptions:
+            target = one.target
+            assumed = limits(target)
+            if (
+                (deciding_check(target), instance(target)) == (row.check_id, row.instance)
+                and place < len(assumed)
+                and assumed[place].measure == shown.measure
+                and same(shown.assumed, assumed[place].quantity)
+            ):
+                step = AssumedStep(store.brief_id, held.number, row.check_id, row.instance)
+                return Resolved((step,))
     return Unresolved(
-        f"no assumption in force for brief {store.brief_id} assumes {shown.assumed:g~P} "
+        f"no assumption set of brief {store.brief_id} assumes {shown.assumed:g~P} "
         f"for {row.check_id}"
     )
 
