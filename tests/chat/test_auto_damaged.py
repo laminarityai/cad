@@ -5,7 +5,7 @@ import pytest
 
 from cad.accounts.principal import AccountId
 from cad.auto.log import read_run, run_dir
-from tests.chat.test_auto_driver import RUN, confirmed, kinds, run_of
+from tests.support.auto_chat import RUN, confirmed, kinds, run_of
 from tests.support.chat import ALICE, TEXT, UNDER_150, Chat, call, script, step
 
 pytestmark = pytest.mark.anyio
