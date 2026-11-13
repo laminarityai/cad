@@ -32,7 +32,7 @@ from functools import partial
 from pathlib import Path
 from typing import Final
 
-from autoresult import AutoResult
+from autoresult import AutoResult, expect_problems
 from brief_set import BriefInput, load_set, prompt_for
 from friction import minutes_to_first_result, read_pages
 from inprocess import SCRIPTED, MissingKey, require_key, run_set
@@ -165,6 +165,9 @@ def main(argv: Sequence[str] | None = None) -> int:
             print(missing, file=sys.stderr)
             return 1
     briefs, skipped = load_set(args.briefs)
+    problems = [line for one in briefs for line in expect_problems(one.id, one.grader)]
+    if problems:
+        parser.error("; ".join(problems))
     unknown = sorted(set(args.only) - {one.id for one in briefs})
     if unknown:
         parser.error(f"not in the set: {', '.join(unknown)}")

@@ -1,8 +1,8 @@
 import type { AutoRun, StopReason } from "@/api/types";
 
 export type RunView =
-  | { runId: string; status: "running"; revisions: number; briefId: string }
-  | { runId: string; status: "stopped"; revisions: number; reason: StopKind; agentChecked: number; described: number; note: string; report: string };
+  | { runId: string; status: "running"; builds: number; briefId: string }
+  | { runId: string; status: "stopped"; builds: number; reason: StopKind; agentChecked: number; described: number; note: string; report: string };
 
 export type StopKind = StopReason["kind"];
 
@@ -32,13 +32,13 @@ export function reasonText(kind: StopKind, agentChecked = 0, described = 0): str
 
 export function viewOf(run: AutoRun): RunView {
   if (run.state.kind === "running") {
-    return { runId: run.run_id, status: "running", revisions: run.state.history.length, briefId: run.state.start.brief_id };
+    return { runId: run.run_id, status: "running", builds: run.state.builds.length, briefId: run.state.start.brief_id };
   }
   const { reason } = run.state;
   return {
     runId: run.run_id,
     status: "stopped",
-    revisions: run.state.history.length,
+    builds: run.state.builds.length,
     reason: reason.kind,
     agentChecked: reason.kind === "all_pass" ? reason.agent_checked.length : 0,
     described: reason.kind === "all_pass" ? (reason.described?.length ?? 0) : 0,
@@ -60,5 +60,5 @@ export function autoRunOf(text: string): AutoRun | null {
 export function stoppedBy(run: RunView): RunView {
   return run.status === "stopped"
     ? run
-    : { runId: run.runId, status: "stopped", revisions: run.revisions, reason: "stopped_by_person", agentChecked: 0, described: 0, note: "", report: "You stopped the Auto run. Nothing more builds under it." };
+    : { runId: run.runId, status: "stopped", builds: run.builds, reason: "stopped_by_person", agentChecked: 0, described: 0, note: "", report: "You stopped the Auto run. Nothing more builds under it." };
 }

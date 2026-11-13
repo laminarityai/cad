@@ -6,7 +6,7 @@ Per brief it starts `claude_session.py` with `--opener .claude/skills/verify/scr
 
 ## The in-process driver
 
-`--driver inprocess` runs the chat agent in the runner's process, the way the web app does, and stops at the Auto stop instead of tracing scorecards. It writes `<out>/<id>/auto.json` (the stop, its `Bounds`, the revisions, the run that holds the conversation, the variants and the container runs the account's meter holds), `events.json` (the stream) and `human.jsonl`, and `<out>/auto-summary.json`. `--model scripted` (the default) plays the grader's requirements and builds nothing, so every brief stops with `agent_asked` or `conflict` in about a second. `--model <anthropic id>` runs a live agent that sees only the brief. A grader's `expect` block (`stop`, `within_revisions`, `names`) says what a brief must do, and a brief without one passes when its run stops. Recipe: [Auto](phase-4/auto.md).
+`--driver inprocess` runs the chat agent in the runner's process, the way the web app does, and stops at the Auto stop instead of tracing scorecards. It writes `<out>/<id>/auto.json` (the stop, its `Bounds`, the builds under the run, the run that holds the conversation, the variants and the container runs the account's meter holds), `events.json` (the stream) and `human.jsonl`, and `<out>/auto-summary.json`. `--model scripted` (the default) plays the grader's requirements and builds nothing, so every brief stops with `agent_asked` or `conflict` in about a second. `--model <anthropic id>` runs a live agent that sees only the brief. A grader's `expect` block (`stop`, `within_builds`, `names`) says what a brief must do, and a brief without one passes when its run stops. Recipe: [Auto](phase-4/auto.md).
 
 ## Sub-features
 

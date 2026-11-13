@@ -126,7 +126,7 @@ async def test_the_persons_report_names_the_option_and_never_its_variant_id(chat
     state = run_of(chat, cid).state
     assert isinstance(state, Stopped)
     said = events[-2]["report"]
-    assert "The latest is Option 1, revision 1." in said
+    assert "The latest the run checked is Option 1, revision 1." in said
     assert state.history[-1].variant_id not in said
     assert "- Mass at most 150 g: passes" in said
 

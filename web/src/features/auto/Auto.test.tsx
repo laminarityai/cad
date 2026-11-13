@@ -41,7 +41,7 @@ describe("Auto run status", () => {
     expect(screen.queryByRole("button", { name: /^Mode/ })).not.toBeInTheDocument();
     autoRunning(chat);
     const shown = await screen.findByRole("region", { name: "Auto run" }, { timeout: CONVERSATION_FOLLOW_MS + 2000 });
-    expect(shown).toHaveTextContent("Running · 2 revisions tried");
+    expect(shown).toHaveTextContent("Running · 2 builds tried");
     expect(screen.getByRole("button", { name: "Stop" })).toBeInTheDocument();
   });
 

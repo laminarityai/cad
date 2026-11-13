@@ -255,9 +255,10 @@ def test_a_clearance_is_held_against_the_fit_result_for_its_own_part(
 def test_a_clearance_on_a_part_with_no_fit_result_is_unknown_not_an_error() -> None:
     given = clearance("min_clearance", 0.2)
     judged = checked(requirements.judge(given, (*suite(), fitted(0.5, part="part-" + "b" * 16))))
-    assert (judged.verdict, judged.reason) == (
+    assert (judged.verdict, judged.reason, judged.waits_on) == (
         Verdict.UNKNOWN,
         "The context part is not confirmed, so the fit check did not measure against it.",
+        "context_part",
     )
     assert [one.verdict for one in judged.comparisons] == [Verdict.UNKNOWN]
 

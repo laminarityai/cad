@@ -140,6 +140,16 @@ class Revised(Frozen):
     standing: Standing
 
 
+class Tried(Frozen):
+    """A build under the run that no `Revised` holds yet, such as one `build_variant` made into a
+    new slot, or an `auto_revise` whose checks still run. It counts among the run's builds and
+    never stops the run."""
+
+    kind: Literal["tried"] = "tried"
+    code_sha256: str
+    variant_id: str
+
+
 class Proposed(Frozen):
     kind: Literal["proposed"] = "proposed"
     requirements: tuple[str, ...]
@@ -161,7 +171,8 @@ class PersonStopped(Frozen):
 
 
 type Event = Annotated[
-    Started | Revised | Proposed | Asked | Capped | PersonStopped, Field(discriminator="kind")
+    Started | Revised | Tried | Proposed | Asked | Capped | PersonStopped,
+    Field(discriminator="kind"),
 ]
 
 
@@ -169,6 +180,9 @@ class Running(Frozen):
     kind: Literal["running"] = "running"
     start: Started
     history: tuple[Standing, ...] = ()
+    builds: tuple[str, ...] = ()
+    """The code sha256 of every build under the run, once each, whichever tool made it and
+    whether or not it built. `history` holds only the builds that `auto_revise` recorded."""
 
     @property
     def failing(self) -> tuple[str, ...]:
@@ -182,6 +196,7 @@ class Stopped(Frozen):
     kind: Literal["stopped"] = "stopped"
     start: Started
     history: tuple[Standing, ...]
+    builds: tuple[str, ...] = ()
     reason: StopReason
     report: str
 
