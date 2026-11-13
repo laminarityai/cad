@@ -49,6 +49,13 @@ if TYPE_CHECKING:
 
 pytestmark = pytest.mark.anyio
 
+
+def lighter(s: Session, brief_id: str) -> dict[str, Any]:
+    confirmed = briefs_store.read_state(s.roots, brief_id).confirmed
+    assert confirmed is not None
+    return {"brief_id": brief_id, "requirements": [LIGHTER], "remove": confirmed.requirement_ids}
+
+
 NO_DOCKER: Final = "unix:///nonexistent/docker.sock"
 PLATE: Final = (Path(__file__).parents[1] / "sandbox/parts/plate.py").read_text()
 CUBE_TEXT: Final = "A block that fits in a 20 mm cube, PLA, at least 50 g"
@@ -97,7 +104,7 @@ async def test_auto_start_is_refused_with_nothing_a_check_decides(s: Session) ->
 
 async def test_auto_start_is_refused_while_a_proposal_waits_for_the_person(s: Session) -> None:
     brief_id = await s.confirmed(TEXT, UNDER_150)
-    await s.propose(brief_id, LIGHTER)
+    await s.call("propose_requirements", **lighter(s, brief_id))
     text = await s.refusal("auto_start", brief_id=brief_id, **PLA_CHOICE)
     assert f"a proposal on brief {brief_id} waits for the person" in text, text
     assert store.read(s.tenant.conversations, s.conversation).last_run is None
@@ -116,9 +123,7 @@ async def test_a_proposal_that_lands_during_auto_start_never_runs_under_the_run(
         found = real(*arguments)
         if not landed:
             landed.append(True)
-            proposal = ProposeRequirementsInput.model_validate(
-                {"brief_id": brief_id, "requirements": [LIGHTER]}
-            )
+            proposal = ProposeRequirementsInput.model_validate(lighter(s, brief_id))
             propose_requirements(s.bound, proposal)
         return found
 
@@ -176,7 +181,7 @@ async def test_proposing_requirements_under_a_run_stops_it(
     s: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     brief_id, run_id = await running(s)
-    await s.propose(brief_id, LIGHTER)
+    await s.call("propose_requirements", **lighter(s, brief_id))
     monkeypatch.setenv("DOCKER_HOST", NO_DOCKER)
     text = await s.refusal("build_variant", code=PLATE, brief_id=brief_id)
     assert "New requirements were proposed, and only the person can confirm them" in text

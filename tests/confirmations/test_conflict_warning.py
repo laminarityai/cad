@@ -5,25 +5,12 @@ from typing import TYPE_CHECKING, Any, Final
 
 import pytest
 
+from tests.support.cube import CUBE, CUBE_TEXT, PLA, min_mass
+
 if TYPE_CHECKING:
     from tests.support.session import Session
 
 pytestmark = pytest.mark.anyio
-CUBE_TEXT: Final = "A block that fits in a 20 mm cube, PLA, at least 50 g"
-CUBE: Final = {
-    "target": {"kind": "envelope", "edges": [{"magnitude": 20, "unit": "mm"}] * 3},
-    "quote": "fits in a 20 mm cube",
-}
-PLA: Final = {"target": {"kind": "made_of", "material": "prusament-pla"}, "quote": "PLA"}
-
-
-def min_mass(grams: float) -> dict[str, Any]:
-    return {
-        "target": {"kind": "min_mass", "mass": {"magnitude": grams, "unit": "g"}},
-        "quote": "at least 50 g",
-    }
-
-
 WARNING: Final = "Warning: these requirements conflict"
 
 
@@ -69,7 +56,7 @@ async def test_a_brief_with_no_conflict_shows_no_warning(s: Session) -> None:
     assert 'class="warning"' not in body
 
 
-async def test_a_proposal_that_replaces_the_confirmed_set_is_not_warned_of_the_old_set(
+async def test_a_proposal_that_adds_to_the_confirmed_set_is_warned_of_a_conflict_with_it(
     s: Session,
 ) -> None:
     created = await s.call("create_brief", text=CUBE_TEXT)
@@ -79,20 +66,8 @@ async def test_a_proposal_that_replaces_the_confirmed_set_is_not_warned_of_the_o
     s.person.answer = None
     await propose(s, created["brief_id"], min_mass(50))
     body = await page(s, created["project_id"])
-    assert WARNING not in body
-
-
-async def test_confirming_a_proposal_replaces_the_confirmed_set(s: Session) -> None:
-    created = await s.call("create_brief", text=CUBE_TEXT)
-    await propose(s, created["brief_id"], CUBE, PLA)
-    s.person.answer = "confirm"
-    await s.call("ask_to_confirm", project_id=created["project_id"])
-    await propose(s, created["brief_id"], min_mass(50))
-    await s.call("ask_to_confirm", project_id=created["project_id"])
-    listed = await s.call("list_requirements", brief_id=created["brief_id"])
-    assert listed["confirmed_proposal"] == 2
-    statuses = [[r["status"] for r in p["requirements"]] for p in listed["proposals"]]
-    assert statuses == [["proposed", "proposed"], ["confirmed"]]
+    assert body.count(WARNING) == 1
+    assert "envelope 8 cm³ = 9.92 g" in body
 
 
 async def test_a_proposal_that_repeats_the_confirmed_set_with_a_conflict_is_warned_of(

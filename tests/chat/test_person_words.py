@@ -14,7 +14,7 @@ pytestmark = pytest.mark.anyio
 
 LATER = "and it has to stay under 120 g"
 UNDER_120 = {
-    "target": {"kind": "max_mass", "mass": {"magnitude": 120, "unit": "g"}},
+    "target": {"kind": "unchecked", "statement": "stays under 120 g"},
     "quote": "under 120 g",
 }
 BRIEF_ID = "${create_brief.brief_id}"

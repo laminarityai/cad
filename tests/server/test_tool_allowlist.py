@@ -22,7 +22,7 @@ ALLOWED_ARGUMENTS = {
     "list_materials": set[str](),
     "create_brief": {"text", "name", "project_id"},
     # assumptions are the agent's own numbers, listed with the measure, never a verdict.
-    "propose_requirements": {"brief_id", "requirements", "assumptions", "said"},
+    "propose_requirements": {"brief_id", "requirements", "remove", "assumptions", "said"},
     "ask_to_confirm": {"project_id"},
     "list_requirements": {"brief_id"},
     "propose_context_part": {"brief_id", "quote", "name", "variant_id"},

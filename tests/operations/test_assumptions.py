@@ -27,10 +27,10 @@ async def test_an_assumptions_only_call_writes_no_proposal_and_leaves_auto_runni
     assert [one["check"] for one in listed["assumptions"]] == ["mass"]
 
 
-async def test_a_call_with_neither_requirements_nor_assumptions_is_refused(s: Session) -> None:
+async def test_a_call_with_no_requirements_removals_or_assumptions_is_refused(s: Session) -> None:
     brief = await s.proposed(s.rows.under_150)
     text = await s.text("propose_requirements", brief_id=brief.brief_id)
-    assert "pass requirements, assumptions or both" in text
+    assert "pass requirements, remove, assumptions or a mix" in text
 
 
 async def test_an_assumption_alone_proposes_nothing_for_a_brief_with_no_proposal(

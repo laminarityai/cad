@@ -106,6 +106,26 @@ async def test_the_page_asks_the_person_to_approve_the_check_beside_its_requirem
     assert asked["items"][1]["check_sha256"] == sha256
 
 
+async def test_the_check_replaces_its_waiting_unchecked_row_only_when_removed(
+    s: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    brief_id, project, sha256 = await written(s, monkeypatch)
+    carried = await s.call(
+        "propose_requirements", brief_id=brief_id, requirements=[held_to(sha256)]
+    )
+    assert [row["requirement"]["target"]["kind"] for row in carried["requirements"]] == [
+        "unchecked",
+        "agent_limit",
+    ]
+    unchecked_id = carried["requirements"][0]["requirement"]["id"]
+    replaced = await s.call("propose_requirements", brief_id=brief_id, remove=[unchecked_id])
+    assert [row["requirement"]["target"]["kind"] for row in replaced["requirements"]] == [
+        "agent_limit"
+    ]
+    await s.call("ask_to_confirm", project_id=project)
+    assert "Remove:" not in s.get(s.person.url)[1]
+
+
 async def test_declining_only_the_check_keeps_the_requirements_confirmed(
     s: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:

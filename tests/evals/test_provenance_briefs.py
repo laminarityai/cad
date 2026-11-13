@@ -34,6 +34,7 @@ BOX = (
     "fits in 120 x 80 x 40 mm",
 )
 FRIENDLY = ({"kind": "unchecked", "statement": "looks friendly"}, "looks friendly")
+PLATE = ({"kind": "unchecked", "statement": "a plate"}, "A plate")
 FIRST_LIMIT = "basis.requirements[0].comparisons[0].limit"
 
 
@@ -180,7 +181,7 @@ def test_a_card_scored_before_a_newer_confirmation_is_superseded(
     store: Path, roots: Roots, brief_id: str, confirmed: ConfirmedSet
 ) -> None:
     card = judged_card(confirmed)
-    confirm(roots, brief_id, drafts(LIGHT))
+    confirm(roots, brief_id, drafts(PLATE))
     traced = trace(card, store)
     assert [type(failure) for failure in traced.failures] == [Superseded]
     assert all(isinstance(one.outcome, Resolved) for one in traced.numbers)

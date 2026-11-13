@@ -169,14 +169,29 @@ def test_a_tampered_answer_refuses_the_brief_but_keeps_it_in_its_project(roots: 
 
 
 def test_a_newer_proposal_leaves_the_confirmed_set_in_force(roots: Roots) -> None:
-    brief_id = proposed(roots, UNDER_150, SHELF)
+    brief_id = proposed(roots, UNDER_150)
     answer_on_page(roots, brief_id, 1, Confirmed())
     store.propose(roots, brief_id, [SHELF])
-    store.propose(roots, brief_id, [UNDER_150])
+    under_150 = store.read_state(roots, brief_id).proposals[0].requirement_ids[0]
+    store.propose(roots, brief_id, [SHELF], remove=[under_150])
     assert statuses(roots, brief_id) == [Status.CONFIRMED, Status.SUPERSEDED, Status.PROPOSED]
     confirmed = store.confirmed_requirements(roots, brief_id)
     assert confirmed is not None
     assert confirmed.proposal == 1
+
+
+def test_a_proposal_carries_the_confirmed_set_and_adds_the_new_rows(roots: Roots) -> None:
+    brief_id = proposed(roots, UNDER_150)
+    answer_on_page(roots, brief_id, 1, Confirmed())
+    carried = store.propose(roots, brief_id, [SHELF])
+    assert [r.target for r in carried.requirements] == [UNDER_150.target, SHELF.target]
+
+
+def test_proposing_part_of_the_confirmed_set_changes_nothing(roots: Roots) -> None:
+    brief_id = proposed(roots, UNDER_150, SHELF)
+    answer_on_page(roots, brief_id, 1, Confirmed())
+    assert store.propose(roots, brief_id, [SHELF]).proposal.number == 1
+    assert statuses(roots, brief_id) == [Status.CONFIRMED]
 
 
 def test_a_confirmed_set_cannot_be_made_outside_the_store(roots: Roots) -> None:

@@ -11,7 +11,7 @@ from typing import Final
 
 from pydantic import BaseModel, ValidationError
 
-from cad.briefs import said
+from cad.briefs import carry, said
 from cad.briefs.edits import apply_edits
 from cad.briefs.model import (
     MAX_BRIEF_CHARS,
@@ -26,7 +26,6 @@ from cad.briefs.model import (
     Requirement,
     RequirementId,
     Target,
-    requirement_id,
 )
 from cad.briefs.origins import BriefSpan, FileQuote
 from cad.confirmations.answers import Edit, ItemRef, Ledger, read_ledger
@@ -120,6 +119,14 @@ class BriefState:
         found = [p for p in self.proposals if p.status is Status.CONFIRMED]
         return found[-1] if found else None
 
+    @property
+    def carried(self) -> tuple[Requirement, ...]:
+        latest = self.latest
+        if latest is not None and latest.status is Status.PROPOSED:
+            return latest.requirements
+        confirmed = self.confirmed
+        return confirmed.requirements if confirmed else ()
+
     def proposal(self, number: int) -> ProposalState | None:
         return self.proposals[number - 1] if 1 <= number <= len(self.proposals) else None
 
@@ -176,12 +183,18 @@ def create_brief(
 
 
 def propose(
-    roots: Roots, raw_id: str, drafts: Sequence[Draft], words: said.Words = said.BRIEF_ONLY
+    roots: Roots,
+    raw_id: str,
+    drafts: Sequence[Draft],
+    words: said.Words = said.BRIEF_ONLY,
+    remove: Sequence[str] = (),
 ) -> ProposalState:
-    """Store drafts as the next proposal, or return the latest when it already holds this set."""
     root = roots.briefs
-    brief = _add_quoted(roots, read_brief(roots, raw_id), drafts, words)
-    requirements = _resolve(brief, drafts, words)
+    state = read_state(roots, raw_id)
+    brief = _add_quoted(roots, state.brief, drafts, words)
+    requirements = carry.next_set(state, brief, drafts, words, remove)
+    if isinstance(requirements, str):
+        raise BadProposal(requirements)
     ids = [r.id for r in requirements]
     unchanged: ProposalState | None = None
 
@@ -324,25 +337,6 @@ def _status(answered: Answered | None, *, newest: bool) -> Status:
     if answered is None:
         return Status.PROPOSED if newest else Status.SUPERSEDED
     return Status.CONFIRMED if answered.answer.verdict == "confirmed" else Status.DECLINED
-
-
-def _resolve(brief: Brief, drafts: Sequence[Draft], words: said.Words) -> tuple[Requirement, ...]:
-    requirements: list[Requirement] = []
-    for index, draft in enumerate(drafts):
-        start = brief.text.find(draft.quote) if draft.quote else -1
-        if (draft.cited is None or draft.typed) and start < 0:
-            raise BadProposal(
-                f"requirements[{index}]: the quote does not appear in brief {brief.id}; "
-                + words.refusal_hint
-            )
-        origin = draft.cited or BriefSpan(start=start, end=start + len(draft.quote))
-        rid = requirement_id(brief.id, draft.target, origin)
-        if any(r.id == rid for r in requirements):
-            raise BadProposal(f"requirements[{index}] repeats an earlier requirement")
-        requirements.append(
-            Requirement(id=rid, brief_id=brief.id, target=draft.target, origin=origin)
-        )
-    return tuple(requirements)
 
 
 def _belongs(proposal: Proposal, brief: Brief) -> bool:

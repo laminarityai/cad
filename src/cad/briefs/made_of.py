@@ -7,11 +7,6 @@ from cad.tables.materials import PROJECT_PREFIX, MaterialsTable
 
 
 def with_row_keys(drafts: Sequence[Draft], table: MaterialsTable) -> list[Draft]:
-    if sum(isinstance(d.target, MadeOf) for d in drafts) > 1:
-        raise BadProposal(
-            "a set holds at most one made_of: a part is made of one material; "
-            "keep the one the brief names"
-        )
     return [_resolved(index, d, table) for index, d in enumerate(drafts)]
 
 
