@@ -1,5 +1,6 @@
 import argparse
 import os
+import subprocess
 import sys
 from collections.abc import Mapping, Sequence
 from pathlib import Path
@@ -22,6 +23,23 @@ def stamps_for(*, no_cache: bool, environ: Mapping[str, str], cache: Path = CACH
     if no_cache or environ.get("CI"):
         return None
     return Stamps.scan(ROOT, cache)
+
+
+NO_HOOKS = (
+    "The pre-commit hooks are not installed in this clone. Run `uvx pre-commit install` once."
+)
+
+
+def hooks_missing(root: Path) -> bool:
+    """Every worktree of a clone shares its hooks, so one install covers them all."""
+    found = subprocess.run(
+        ["git", "rev-parse", "--git-path", "hooks/pre-commit"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    return found.returncode == 0 and not (root / found.stdout.strip()).is_file()
 
 
 def main(argv: Sequence[str] | None = None) -> int:
@@ -47,6 +65,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     code = run_steps(steps, stamps_for(no_cache=args.no_cache, environ=os.environ))
     if code == 0 and len(steps) < len(STEPS) and args.only is None:
         print("The slow steps run in CI: push and read `gh pr checks`.")
+    if args.only is None and not os.environ.get("CI") and hooks_missing(ROOT):
+        print(NO_HOOKS)
     return code
 
 
