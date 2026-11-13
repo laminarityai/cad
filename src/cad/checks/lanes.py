@@ -3,7 +3,7 @@ import logging
 import threading
 import time
 from collections import deque
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Collection, Iterable
 from concurrent.futures import Future
 from contextlib import suppress
 from dataclasses import dataclass
@@ -102,16 +102,18 @@ class Lanes:
 
         return unsubscribe
 
-    def drop_unstarted(self, root: Path, variant_id: str) -> int:
-        """Drop the queued background jobs of a variant that a newer revision replaced. A job a
-        worker already took runs on and is stored. A caller waiting on a dropped job is refused.
-        Returns how many were dropped."""
+    def drop_unstarted(self, root: Path, replaced: Callable[[], Collection[str]]) -> int:
+        """Drop the queued background jobs of each variant that `replaced` names, for revisions
+        a newer one replaced. `replaced` runs under the lock that queues jobs, so its answer
+        holds for every job in the queue. A job a worker already took runs on and is stored. A
+        caller waiting on a dropped job is refused. Returns how many were dropped."""
         with self._lock:
+            gone = replaced()
             kept = deque[Queued]()
             dropped = deque[Queued]()
             for item in self._queue:
                 _, job, _ = item
-                (dropped if (job.root, job.variant_id) == (root, variant_id) else kept).append(item)
+                (dropped if job.root == root and job.variant_id in gone else kept).append(item)
             self._queue = kept
             self._refuse_locked(dropped, lambda: Superseded(SUPERSEDED))
         return len(dropped)

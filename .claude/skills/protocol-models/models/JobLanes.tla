@@ -399,9 +399,9 @@ RefuseQueued(p, how) ==
                    THEN [kind |-> "future", st |-> how] ELSE cfea[t]]
       ELSE UNCHANGED <<flying, cfea>>
 
-\* A newer revision replaces the variant in one set's slot. variant_sets.store reads every set
-\* of the account and calls Lanes.drop_unstarted only when none still shows the variant:
-\* `with self._lock:` over the queue, and every queued job of the variant gets Superseded. A
+\* A newer revision replaces the variant in one set's slot. variant_sets.store calls
+\* Lanes.drop_unstarted, which in one `with self._lock:` reads every set of the account and,
+\* when none still shows the variant, gives every queued job of the variant Superseded. A
 \* variant another brief's set still shows keeps its queued job.
 Replace(p) ==
     /\ up[p]

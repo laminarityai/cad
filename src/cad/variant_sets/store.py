@@ -80,13 +80,15 @@ def _drop_replaced(
     member = next((m for m in members(root, key) if m.slot == joined.slot), None)
     if member is None or len(member.revisions) < 2:
         return
+    earlier = {revision.built_as for revision in member.revisions[:-1]}
+
+    def unshown() -> set[VariantId]:
+        return earlier - {held.latest.built_as for _, held in account_slots(root)}
+
     try:
-        shown = {held.latest.built_as for _, held in account_slots(root)}
+        lanes.drop_unstarted(variants_root, unshown)
     except SetRefused as error:
         LOG.warning("no queued check is dropped: %s", error)
-        return
-    for replaced in {revision.built_as for revision in member.revisions[:-1]} - shown:
-        lanes.drop_unstarted(variants_root, replaced)
 
 
 def set_key(roots: Roots, brief_id: str) -> SetKey:

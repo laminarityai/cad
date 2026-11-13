@@ -143,7 +143,7 @@ def test_a_job_still_queued_when_its_variant_is_replaced_never_runs_and_its_call
     )
     caller.start()
     time.sleep(0.2)
-    assert lanes.drop_unstarted(tmp_path, OTHER) == 1
+    assert lanes.drop_unstarted(tmp_path, lambda: {OTHER}) == 1
     caller.join(LONG)
     assert waiting == [(Refused(SUPERSEDED),)]
     runner.background.gate.set()
@@ -158,7 +158,7 @@ def test_a_job_a_worker_already_took_is_not_dropped_and_ends_stored(
 ) -> None:
     lanes = Lanes(runner)
     first, _ = queue_behind_a_running_job(tmp_path, runner, lanes)
-    assert lanes.drop_unstarted(tmp_path, VID) == 0
+    assert lanes.drop_unstarted(tmp_path, lambda: {VID}) == 0
     runner.background.gate.set()
     wait_for(job_store.result_path(first))
     assert job_store.read(first) == ran(first)
@@ -170,8 +170,8 @@ def test_a_drop_names_one_variant_in_one_store_and_leaves_the_rest_queued(
     lanes = Lanes(runner)
     _, second = queue_behind_a_running_job(tmp_path, runner, lanes)
     lanes.settle(Plan(quick=job(tmp_path), background=(second,)), 0)
-    assert lanes.drop_unstarted(tmp_path / "another-account", OTHER) == 0
-    assert lanes.drop_unstarted(tmp_path, "0" * 16) == 0
+    assert lanes.drop_unstarted(tmp_path / "another-account", lambda: {OTHER}) == 0
+    assert lanes.drop_unstarted(tmp_path, lambda: {"0" * 16}) == 0
     runner.background.gate.set()
     wait_for(job_store.result_path(second))
     assert job_store.read(second) == ran(second)
@@ -183,10 +183,31 @@ def test_a_dropped_job_runs_again_when_its_variant_is_scored_again(
     lanes = Lanes(runner)
     _, second = queue_behind_a_running_job(tmp_path, runner, lanes)
     lanes.settle(Plan(quick=job(tmp_path), background=(second,)), 0)
-    assert lanes.drop_unstarted(tmp_path, OTHER) == 1
+    assert lanes.drop_unstarted(tmp_path, lambda: {OTHER}) == 1
     runner.background.gate.set()
     again = lanes.settle(Plan(quick=job(tmp_path), background=(second,)), LONG)
     assert again.background == (Done(ran(second)),)
+
+
+def test_a_job_queued_while_a_drop_reads_what_was_replaced_is_kept(
+    tmp_path: Path, runner: GatedRunner
+) -> None:
+    lanes = Lanes(runner)
+    _, second = queue_behind_a_running_job(tmp_path, runner, lanes)
+    queuing = threading.Thread(
+        target=lambda: lanes.settle(Plan(quick=job(tmp_path), background=(second,)), 0)
+    )
+
+    def replaced() -> set[str]:
+        queuing.start()
+        queuing.join(0.2)
+        return {OTHER}
+
+    assert lanes.drop_unstarted(tmp_path, replaced) == 0
+    queuing.join(LONG)
+    runner.background.gate.set()
+    wait_for(job_store.result_path(second))
+    assert job_store.read(second) == ran(second)
 
 
 def test_a_drop_notifies_nobody_because_the_store_did_not_change(
@@ -197,5 +218,5 @@ def test_a_drop_notifies_nobody_because_the_store_did_not_change(
     lanes.settle(Plan(quick=job(tmp_path), background=(second,)), 0)
     heard = Heard()
     lanes.subscribe(heard)
-    lanes.drop_unstarted(tmp_path, OTHER)
+    lanes.drop_unstarted(tmp_path, lambda: {OTHER})
     assert heard.jobs == []
