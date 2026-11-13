@@ -25,10 +25,12 @@ from typing import Final, assert_never
 from binding import Unbound, Unlinked
 from chain import (
     AgentCheckedNumber,
+    AssumedStep,
     BoundStep,
     CheckStep,
     ConfirmedStep,
     NotVerified,
+    ProposedStep,
     ResearchedStep,
     Resolved,
     Stale,
@@ -292,6 +294,17 @@ def _step(step: Step) -> str:
                 f"confirmed by a person: brief {step.brief_id}, answer "
                 f"{step.decision_sha256[:12]}, requirement {step.requirement_id} "
                 f"({step.statement})"
+            )
+        case ProposedStep():
+            return (
+                f"proposed by the agent, not confirmed: brief {step.brief_id}, proposal "
+                f"{step.proposal}, requirement {step.requirement_id} ({step.statement})"
+            )
+        case AssumedStep():
+            named = f" for {step.instance}" if step.instance else ""
+            return (
+                f"assumed by the agent, no verdict: brief {step.brief_id}, assumption set "
+                f"{step.number}, {step.check_id}{named}"
             )
         case _:
             assert_never(step)

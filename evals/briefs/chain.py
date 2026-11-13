@@ -48,7 +48,31 @@ class BoundStep:
     bound: Literal["low", "high"]
 
 
-type Step = CheckStep | TableStep | ResearchedStep | ConfirmedStep | BoundStep
+@dataclass(frozen=True, slots=True)
+class ProposedStep:
+    """A value the agent proposed in numbered proposal `proposal` and the person has not confirmed
+    on the card. It is the agent's number, and no verdict rests on it."""
+
+    brief_id: str
+    proposal: int
+    requirement_id: str
+    statement: str
+
+
+@dataclass(frozen=True, slots=True)
+class AssumedStep:
+    """A value the agent assumed in the brief's assumption set `number`, for the result of
+    `check_id` at `instance`. No verdict rests on it."""
+
+    brief_id: str
+    number: int
+    check_id: str
+    instance: str
+
+
+type Step = (
+    CheckStep | TableStep | ResearchedStep | ConfirmedStep | BoundStep | ProposedStep | AssumedStep
+)
 
 
 @dataclass(frozen=True, slots=True)
