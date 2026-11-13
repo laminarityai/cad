@@ -57,18 +57,16 @@ def blind(roots: Roots, project: ProjectId, brief_id: str) -> str | None:
 
 
 def written_for(roots: Roots, brief_id: str, requirement_id: str) -> WrittenFor | str:
-    """The unchecked requirement of the brief's newest or confirmed proposal the check is for."""
+    """The unchecked requirement the check is for, in the set the next proposal carries, so the
+    agent_limit can take its place there."""
     state = briefs.read_state(roots, brief_id)
-    held = [
-        *(state.latest.requirements if state.latest else ()),
-        *(state.confirmed.requirements if state.confirmed else ()),
-    ]
-    found = next((one for one in held if one.id == requirement_id), None)
+    found = next((one for one in state.carried if one.id == requirement_id), None)
     if found is None or not isinstance(found.target, Unchecked):
         return (
-            f"requirement {requirement_id!r} is not an unchecked requirement of brief {brief_id}: "
-            "propose the requirement as unchecked first, and write a check only for a "
-            "requirement no team check decides"
+            f"requirement {requirement_id!r} is not an unchecked requirement in the set being "
+            f"carried into the next proposal of brief {brief_id}: propose the requirement as "
+            "unchecked first, again after a decline, and write a check only for a requirement "
+            "no team check decides"
         )
     source, words = quoted(state.brief.text, found.origin)
     return WrittenFor(found, source, words)

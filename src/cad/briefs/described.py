@@ -32,11 +32,15 @@ def described_cases(targets: Sequence[Target]) -> dict[UnitCaseKey, int]:
 
 
 def check_proposed(
-    state: BriefState, targets: Sequence[Target], stressed: Callable[[], bool]
+    state: BriefState,
+    targets: Sequence[Target],
+    kept: Sequence[Target],
+    stressed: Callable[[], bool],
 ) -> None:
-    """Raises BadProposal when `stressed()` and `targets` hold a described load case that no
-    earlier proposal carried, or leave out one that the newest proposal carried and the person
-    has not declined. `stressed` is asked only when a described load case is in play."""
+    """Raises BadProposal when `stressed()` and `targets`, the proposed rows, hold a described
+    load case that no earlier proposal carried, or when they and `kept`, the carried rows that
+    stay, leave out one that the newest proposal carried and the person has not declined.
+    `stressed` is asked only when a described load case is in play."""
     earlier: set[UnitCaseKey] = set()
     for proposal in state.proposals:
         earlier |= described_cases([one.target for one in proposal.requirements]).keys()
@@ -54,14 +58,15 @@ def check_proposed(
     newest = state.latest
     if newest is None or newest.status is Status.DECLINED:
         return
-    kept = described_cases([one.target for one in newest.requirements])
-    if lost := [case for case in kept if case not in proposed]:
+    held = described_cases([one.target for one in newest.requirements])
+    next_set = described_cases([*kept, *targets])
+    if lost := [case for case in held if case not in next_set]:
         raise BadProposal(
             f"the proposal leaves out the described load case of requirement "
-            f"{newest.requirements[kept[lost[0]]].id}, which proposal {newest.proposal.number} "
-            "carried, and a stress result of this brief already exists. Propose it again, "
-            "with a new force if the person gave one. Only a decline by the person lets a "
-            "proposal leave it out"
+            f"{newest.requirements[held[lost[0]]].id}, which proposal {newest.proposal.number} "
+            "carried, and a stress result of this brief already exists. Leave its id out of "
+            "remove, or pass it in remove with the same case and the person's new force in "
+            "requirements. Only a decline by the person lets a proposal leave it out"
         )
 
 

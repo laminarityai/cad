@@ -1,7 +1,6 @@
 from typing import Final
 
 from cad.briefs.bindable import BINDABLE
-from cad.briefs.model import ONE_PER_BRIEF
 
 BUILD_FIRST = (
     "A brief builds at once, so nothing waits on the person before you build. Work in this "
@@ -60,9 +59,12 @@ PROPOSE_REQUIREMENTS = (
     "proposed until the user confirms the set. The server builds each new proposal from the "
     "one still waiting for the user, or from the confirmed set when none waits, so pass only "
     "new or changed requirements. A declined proposal does not carry: after a decline, pass "
-    "again each of its requirements that should stay. A brief holds at most one of each of "
-    + ", ".join(sorted(ONE_PER_BRIEF))
-    + ". To drop or change a requirement in the set being carried, pass its id from "
+    "again each of its requirements that should stay. A brief holds one requirement of each of "
+    "envelope, made_of, max_mass and min_mass; one min_safety_factor and one max_deflection per "
+    "load case, where the same support and load with a new force is the same case; one "
+    "min_clearance, one max_clearance and one fits_with per part; one measure_limit per measure "
+    "and comparator; and one agent_limit per check_sha256 and comparator. To drop or change a "
+    "requirement in the set being carried, pass its id from "
     "list_requirements in remove, with any replacement in requirements. The user sees the "
     "removal of a requirement they confirmed as its own row, and it stays in force until they "
     "confirm. Proposing the same set again, undecided or confirmed, changes nothing, so it never "
@@ -90,7 +92,7 @@ PROPOSE_REQUIREMENTS = (
 CHECK_WRITTEN: Final = (
     "The check is frozen. Propose its requirement again as agent_limit with this check_sha256, "
     "the comparator and the person's limit, and pass the requirement_id you wrote it for in "
-    "remove, so the agent_limit takes that unchecked row's place in the waiting proposal. Then "
+    "remove, so the agent_limit takes that unchecked row's place in the set being carried. Then "
     "call ask_to_confirm: the person approves the check on the same page. It decides nothing "
     "until they do, and a variant's verdict on it is labelled as an agent-written check they "
     "approved, not reviewed by our team."
@@ -216,7 +218,8 @@ LOAD_CASES: Final = (
     "only before any fea result exists for the brief. An unknown fea result counts, and so "
     "does the measure-only result of an assumed load. Once one exists, the server refuses a "
     "new described load case and tells you so: use a reviewed phrase, or say it is not "
-    "checked. The same load case with a new force is accepted. A support that rests, slides "
+    "checked. The same load case with a new force is accepted in place of the old one: pass "
+    "the old requirement's id in remove. A support that rests, slides "
     "or pivots is not checked. A pass on a described load case is labelled load_case "
     "described. Report it as a pass on a load case you described and the person confirmed, "
     "never as a reviewed verdict or a plain pass."

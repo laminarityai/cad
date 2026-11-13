@@ -148,7 +148,7 @@ async def test_a_second_made_of_is_refused(s: Session) -> None:
     text = await s.text(
         "propose_requirements", brief_id=created["brief_id"], requirements=[MADE_OF, other]
     )
-    assert "at most one made_of" in text
+    assert "a brief holds one made_of" in text
 
 
 async def test_the_page_says_a_made_of_fixes_the_material_and_gives_no_number_to_edit(

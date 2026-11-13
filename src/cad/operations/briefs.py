@@ -4,7 +4,7 @@ from typing import Annotated, Final, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 from cad.agent_checks import limits
-from cad.briefs import assumptions, clearances, described, made_of, said, source, store
+from cad.briefs import assumptions, carry, clearances, described, made_of, said, source, store
 from cad.briefs.assumptions import MAX_ASSUMPTIONS, Assumption
 from cad.briefs.edits import placeholder
 from cad.briefs.model import (
@@ -139,6 +139,7 @@ class BriefView(BaseModel):
 def _view(state: BriefState, proposed: ProposalState, names: Mapping[str, str]) -> ProposalView:
     confirmed = state.confirmed
     in_force = {r.id for r in confirmed.requirements} if confirmed else set[str]()
+    changed = carry.edited(state)
     return ProposalView(
         brief_id=state.brief.id,
         proposal=proposed.proposal.number,
@@ -149,7 +150,7 @@ def _view(state: BriefState, proposed: ProposalState, names: Mapping[str, str]) 
                 plain=describe(r, names),
                 check=deciding_check(r.target),
                 status="confirmed" if r.id in in_force else "proposed",
-                edited_by_user=_user_edit(was, r),
+                edited_by_user=_user_edit(changed.get(r.id, was), r),
             )
             for was, r in zip(proposed.proposal.requirements, proposed.requirements, strict=True)
         ],
@@ -260,9 +261,11 @@ def propose_requirements(tenant: Tenant, arguments: ProposeRequirementsInput) ->
         limits.check_proposed(
             tenant.roots.projects, project, arguments.brief_id, [one.target for one in drafts]
         )
+        state = store.read_state(tenant.roots, arguments.brief_id)
         described.check_proposed(
-            store.read_state(tenant.roots, arguments.brief_id),
+            state,
             [one.target for one in drafts],
+            [one.target for one in carry.kept_after(state, arguments.remove or ())],
             lambda: has_stress_result(tenant.roots, tenant.variants, arguments.brief_id),
         )
         drafts = made_of.with_row_keys(drafts, table.table)

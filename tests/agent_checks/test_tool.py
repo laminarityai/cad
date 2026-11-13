@@ -176,3 +176,20 @@ async def test_a_check_written_for_another_brief_cannot_decide_this_one(
         requirements=[{**held_to(sha256), "quote": "A lid"}],
     )
     assert "names a check written for brief" in text
+
+
+async def test_a_check_is_refused_for_a_row_of_a_declined_proposal(
+    s: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("cad.agent_checks.write.fetch_source", fetching())
+    brief_id, requirement_id = await unchecked(s)
+    s.person.answer = "decline"
+    await s.call("ask_to_confirm", project_id=briefs.read_brief(s.roots, brief_id).project)
+    text = await s.text(
+        "write_check",
+        brief_id=brief_id,
+        requirement_id=requirement_id,
+        check=snap_fit().model_dump(mode="json"),
+    )
+    assert "CheckRefused" in text
+    assert f"requirement '{requirement_id}' is not an unchecked requirement" in text

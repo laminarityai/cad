@@ -63,18 +63,41 @@ async def test_an_unknown_fea_result_counts_as_a_result(s: Session) -> None:
     assert REFUSAL in text and "requirements[0]" in text
 
 
-async def test_the_same_case_with_a_new_force_is_accepted_after_a_result(s: Session) -> None:
-    brief_id = await brief_of(s, row(shelf()))
-    store_a_fea_result(s, build_into_the_set(s, brief_id))
-    assert (await propose(s, brief_id, row(heavier())))["proposal"] == 2
+async def waiting_id(s: Session, brief_id: str) -> str:
+    listed = await s.call("list_requirements", brief_id=brief_id)
+    return listed["proposals"][-1]["requirements"][0]["requirement"]["id"]
 
 
-async def test_a_proposal_that_leaves_out_the_described_case_is_refused_after_a_result(
+async def test_the_same_case_with_a_new_force_replaces_the_old_one_after_a_result(
     s: Session,
 ) -> None:
     brief_id = await brief_of(s, row(shelf()))
     store_a_fea_result(s, build_into_the_set(s, brief_id))
-    text = await refused(s, brief_id, row(hole_hook()))
+    assert "pass its id in remove" in await refused(s, brief_id, row(heavier()))
+    old = await waiting_id(s, brief_id)
+    replaced = await s.call(
+        "propose_requirements", brief_id=brief_id, requirements=[row(heavier())], remove=[old]
+    )
+    [one] = replaced["requirements"]
+    assert one["requirement"]["target"]["load"]["load"]["force"]["magnitude"] == 98.0
+
+
+async def test_a_narrower_proposal_keeps_the_described_case_after_a_result(s: Session) -> None:
+    brief_id = await brief_of(s, row(shelf()))
+    store_a_fea_result(s, build_into_the_set(s, brief_id))
+    bracket = {"target": {"kind": "unchecked", "statement": "a shelf bracket"}, "quote": "shelf"}
+    kept = await s.call("propose_requirements", brief_id=brief_id, requirements=[bracket])
+    assert [one["requirement"]["target"]["kind"] for one in kept["requirements"]] == [
+        "min_safety_factor",
+        "unchecked",
+    ]
+
+
+async def test_removing_the_described_case_is_refused_after_a_result(s: Session) -> None:
+    brief_id = await brief_of(s, row(shelf()))
+    store_a_fea_result(s, build_into_the_set(s, brief_id))
+    old = await waiting_id(s, brief_id)
+    text = await s.text("propose_requirements", brief_id=brief_id, remove=[old])
     assert "leaves out the described load case" in text
 
 
