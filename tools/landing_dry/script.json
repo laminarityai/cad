@@ -1,0 +1,155 @@
+{
+ "steps": [
+  {
+   "text": "I will build three options.",
+   "calls": [
+    {
+     "name": "create_brief"
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "name": "propose_requirements",
+     "input": {
+      "brief_id": "${create_brief.brief_id}",
+      "requirements": [
+       {
+        "target": {
+         "kind": "envelope",
+         "edges": [
+          {
+           "magnitude": 120,
+           "unit": "mm"
+          },
+          {
+           "magnitude": 100,
+           "unit": "mm"
+          },
+          {
+           "magnitude": 40,
+           "unit": "mm"
+          }
+         ]
+        },
+        "quote": "fit inside a box 120 mm by 100 mm by 40 mm"
+       },
+       {
+        "target": {
+         "kind": "max_mass",
+         "mass": {
+          "magnitude": 60,
+          "unit": "g"
+         }
+        },
+        "quote": "weigh under 60 g"
+       },
+       {
+        "target": {
+         "kind": "made_of",
+         "material": "prusament-petg"
+        },
+        "quote": "print it in PETG"
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "name": "build_variant",
+     "input": {
+      "code": "@file:bracket_plain.py",
+      "brief_id": "${create_brief.brief_id}",
+      "slot": 1,
+      "material_key": "prusament-petg",
+      "material_reason": "The brief says PETG.",
+      "label": "Plain L",
+      "differs": "Equal 4 mm plates"
+     }
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "name": "score_variant",
+     "input": {
+      "variant_id": "${build_variant.variant_id}",
+      "brief_id": "${create_brief.brief_id}"
+     }
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "name": "build_variant",
+     "input": {
+      "code": "@file:bracket_thick.py",
+      "brief_id": "${create_brief.brief_id}",
+      "slot": 2,
+      "material_key": "prusament-petg",
+      "material_reason": "The brief says PETG.",
+      "label": "Thick L",
+      "differs": "6 mm plates for more stiffness"
+     }
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "name": "score_variant",
+     "input": {
+      "variant_id": "${build_variant.variant_id}",
+      "brief_id": "${create_brief.brief_id}"
+     }
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "name": "build_variant",
+     "input": {
+      "code": "@file:bracket_ribbed.py",
+      "brief_id": "${create_brief.brief_id}",
+      "slot": 3,
+      "material_key": "prusament-petg",
+      "material_reason": "The brief says PETG.",
+      "label": "Ribbed L",
+      "differs": "A small rib under the arm"
+     }
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "name": "score_variant",
+     "input": {
+      "variant_id": "${build_variant.variant_id}",
+      "brief_id": "${create_brief.brief_id}"
+     }
+    }
+   ]
+  },
+  {
+   "calls": [
+    {
+     "name": "ask_to_confirm",
+     "input": {
+      "project_id": "${create_brief.project_id}"
+     }
+    }
+   ]
+  },
+  {
+   "text": "Three options are built and checked. Confirm your targets on the card."
+  }
+ ]
+}
