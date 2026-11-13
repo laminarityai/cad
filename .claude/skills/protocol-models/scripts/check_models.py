@@ -27,8 +27,11 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Final
 
-from targets import CHECKS, MUTANTS, Check, Mutant
+import flow_mutants
+import job_lanes_mutants
+from targets import CHECKS, Check, Mutant
 
+MUTANTS: Final = (*job_lanes_mutants.MUTANTS, *flow_mutants.MUTANTS)
 SKILL: Final = Path(__file__).resolve().parents[1]
 MODELS: Final = SKILL / "models"
 REPO: Final = SKILL.parents[2]

@@ -7,6 +7,7 @@ from cad.confirmations.waiting import program_opener
 from cad.sandbox import container
 from cad.sandbox.outcome import SandboxUnavailable
 from cad.server.app import build_server
+from cad.server.stopping import checks_end_with_the_server
 
 
 def main() -> None:
@@ -21,7 +22,8 @@ def main() -> None:
     logging.basicConfig(stream=sys.stderr, level=logging.INFO)
     with suppress(SandboxUnavailable):
         container.remove_orphans()
-    build_server(opener=program_opener(args.opener)).run("stdio")
+    with checks_end_with_the_server():
+        build_server(opener=program_opener(args.opener)).run("stdio")
 
 
 if __name__ == "__main__":

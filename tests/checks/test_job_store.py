@@ -123,7 +123,7 @@ def test_attempts_count_up_and_end_clears_them(tmp_path: Path) -> None:
     job_store.begin_attempt(spec)
     job_store.begin_attempt(spec)
     attempt = job_store.result_path(spec).with_suffix(".attempt")
-    assert (attempt.read_bytes(), job_store.interrupted_runs(spec)) == (b"2", 2)
+    assert (attempt.read_bytes(), job_store.unfinished_runs(spec)) == (b"2", 2)
     assert sorted(p.name for p in attempt.parent.iterdir()) == [attempt.name]
     job_store.end_attempt(spec)
-    assert job_store.interrupted_runs(spec) == 0
+    assert job_store.unfinished_runs(spec) == 0

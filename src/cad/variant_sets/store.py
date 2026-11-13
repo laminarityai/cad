@@ -10,7 +10,7 @@ from pydantic import ValidationError
 from cad.briefs import store as briefs
 from cad.briefs.model import BriefId
 from cad.checks.lanes import LANES, Lanes
-from cad.projects.model import ProjectId
+from cad.projects.model import PROJECT_ID, ProjectId
 from cad.records import files, signed
 from cad.records.roots import Roots, project_store
 from cad.sandbox.outcome import Built
@@ -77,13 +77,18 @@ def build_into_set(
 def _drop_replaced(
     root: Path, key: SetKey, variants_root: Path, joined: Joined, lanes: Lanes
 ) -> None:
-    held = members(root, key)
-    member = next((m for m in held if m.slot == joined.slot), None)
+    member = next((m for m in members(root, key) if m.slot == joined.slot), None)
     if member is None or len(member.revisions) < 2:
         return
-    shown = {m.latest.built_as for m in held}
-    for replaced in {revision.built_as for revision in member.revisions[:-1]} - shown:
-        lanes.drop_unstarted(variants_root, replaced)
+    earlier = {revision.built_as for revision in member.revisions[:-1]}
+
+    def unshown() -> set[VariantId]:
+        return earlier - {held.latest.built_as for _, held in account_slots(root)}
+
+    try:
+        lanes.drop_unstarted(variants_root, unshown)
+    except SetRefused as error:
+        LOG.warning("no queued check is dropped: %s", error)
 
 
 def set_key(roots: Roots, brief_id: str) -> SetKey:
@@ -185,6 +190,13 @@ def project_slots(root: Path, project: ProjectId) -> tuple[tuple[SetKey, Member]
         key = SetKey(project, BriefId(revisions.parent.name))
         found.extend((key, member) for member in members(root, key))
     return tuple(found)
+
+
+def account_slots(root: Path) -> tuple[tuple[SetKey, Member], ...]:
+    if not files.is_directory(root):
+        return ()
+    projects = sorted(path.name for path in root.iterdir() if PROJECT_ID.fullmatch(path.name))
+    return tuple(slot for project in projects for slot in project_slots(root, ProjectId(project)))
 
 
 def refuse_a_slot_out_of_turn(roots: Roots, brief_id: str, slot: int) -> None:
