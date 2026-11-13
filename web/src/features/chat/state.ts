@@ -49,6 +49,8 @@ function withEvent(lines: readonly Line[], seq: number, event: Event): readonly 
   }
 }
 
+const STARTS_TURN: ReadonlySet<Event["kind"]> = new Set(["user", "driver"]);
+
 export function chatReducer(state: ChatState, action: ChatAction): ChatState {
   switch (action.type) {
     case "open":
@@ -56,7 +58,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case "event": {
       if (action.seq <= state.seen) return state;
       const lines = withEvent(state.lines, action.seq, action.event);
-      const turn = action.event.kind === "user" ? "running" : action.event.kind === "turn_ended" ? "idle" : state.turn;
+      const turn = STARTS_TURN.has(action.event.kind) ? "running" : action.event.kind === "turn_ended" ? "idle" : state.turn;
       return { ...state, lines, seen: action.seq, turn };
     }
     case "link":

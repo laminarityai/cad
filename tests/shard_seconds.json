@@ -48,7 +48,6 @@
   "tests/knowledge/test_corpus.py": 2,
   "tests/operations/test_bodies.py": 7,
   "tests/operations/test_confirmation.py": 2,
-  "tests/operations/test_events.py": 2,
   "tests/operations/test_routes_from_registry.py": 6,
   "tests/operations/test_scorecard_op.py": 20,
   "tests/operations/test_scorecard_tools.py": 24,

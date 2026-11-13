@@ -4,7 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ServicesProvider } from "@/app/context";
 import { FakeChat, FakeViewer, fakeApi } from "@/test/fakes";
 import type { DoneCheck, Scorecard } from "@/api/snapshot";
-import { feaMeasureOnly, feaPending, massResult, snapshot } from "@/test/fixtures";
+import type { Checked, Specimen } from "@/api/types";
+import { deflectionDone, feaMeasureOnly, feaPending, massResult, snapshot } from "@/test/fixtures";
 import { restore } from "@/api/snapshot";
 import { assumedOf, awaitingOf, linesOf, passedExtents, summaryOf, useCards, type CardKey } from "./cards";
 
@@ -188,5 +189,52 @@ describe("passedExtents", () => {
     expect(passedExtents(card(extents("pass", ["x", "y"])))).toBeNull();
     expect(passedExtents(card(extents("pass", ["x", "y", "z"], "m")))).toBeNull();
     expect(passedExtents(null)).toBeNull();
+  });
+});
+
+describe("the reason on a requirement row", () => {
+  const bent = "the part bends 5.6 mm under this load, over 5% of its 100 mm size; make it stiffer";
+  const fea = (verdict: "pass" | "unknown", reason: string): DoneCheck => ({ ...massResult(), check_id: "fea", verdict, reason });
+  const row = (verdict: "pass" | "unknown", reason: string) => {
+    const done = snapshot("v1", [{ ...deflectionDone(), verdict: verdict === "pass" ? "fail" : "unknown", reason: "The scorecard's reason." }], [fea(verdict, reason)]);
+    return linesOf(restore(done)).asked[0]?.why;
+  };
+
+  it("adds the deciding check's own reason when that check did not pass, since the check has no row", () => {
+    expect(row("unknown", bent)).toBe("The scorecard's reason. The part bends 5.6 mm under this load, over 5% of its 100 mm size; make it stiffer.");
+  });
+
+  it("is the scorecard's alone when the check passed and measured", () => {
+    expect(row("pass", "solved at 2 mm and 1.3 mm")).toBe("The scorecard's reason.");
+  });
+});
+
+describe("the specimens behind a strength", () => {
+  const fea = (specimen: Specimen): DoneCheck => ({
+    ...massResult(),
+    check_id: "fea",
+    reads: [
+      { kind: "cited", field: "elastic_modulus" },
+      { kind: "cited", field: "yield_strength", specimen },
+    ],
+  });
+  const comparing = (measure: string, requirement_id: string): Checked => {
+    const base = deflectionDone();
+    return { ...base, requirement_id, comparisons: base.comparisons.map((one) => ({ ...one, measure })) };
+  };
+  const rows = (specimen: Specimen) => linesOf(restore(snapshot("v1", [comparing("safety_factor", "r2"), comparing("max_displacement", "r3")], [fea(specimen)]))).asked;
+
+  it("are stated beside a safety factor verdict, and not beside a deflection one, which reads no strength", () => {
+    expect(rows({ form: "printed", direction: "X-Y" }).map((one) => one.specimen)).toEqual(["strength of prints pulled in the build plane (X-Y), not across layers", undefined]);
+  });
+
+  it("say the temper of a metal, or that its page states none", () => {
+    expect(rows({ form: "wrought", condition: "T6, T651" })[0]?.specimen).toBe("strength of wrought metal, T6, T651");
+    expect(rows({ form: "wrought", condition: null })[0]?.specimen).toBe("strength of wrought metal, temper not stated");
+  });
+
+  it("are stated on the check's own row when no requirement covers it", () => {
+    const { also } = linesOf(restore(snapshot("v1", [], [fea({ form: "sheet" })])));
+    expect(also.find((one) => one.key.startsWith("check:fea"))?.specimen).toBe("strength of plastic sheet, not printed");
   });
 });

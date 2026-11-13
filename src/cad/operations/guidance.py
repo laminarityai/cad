@@ -281,12 +281,13 @@ CHAT_AUTO: Final = (
     "returns pending, the page shows a Confirm card in this chat. Tell the person in one short "
     "sentence to confirm it there, and end your message. When a scored option fails a "
     "requirement the person confirmed and a check decides, or an agent-written check the "
-    "person approved decides, call auto_start with its brief_id, then call auto_revise with "
-    "new build123d code for the failing requirements until the run "
-    "stops. Call auto_ask when you are stuck or the person must decide. The server decides when "
-    "the run stops, and the person can press Stop at any time. After a stop, give the person "
-    "the stop's report and end your message: nothing builds in this conversation until the "
-    "person writes or answers."
+    "person approved decides, or that check reads unknown with a reason that says to change "
+    "the design, such as a part that bends too far for the stress check, call auto_start with "
+    "its brief_id, then call auto_revise with new build123d code for the requirements that "
+    "fail or are unknown until the run stops. Call auto_ask when you are stuck or the person "
+    "must decide. The server decides when the run stops, and the person can press Stop at any "
+    "time. After a stop, give the person the stop's report and end your message: nothing "
+    "builds in this conversation until the person writes or answers."
 )
 
 CHAT_OPEN_PROJECT: Final = (

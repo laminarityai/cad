@@ -4,12 +4,14 @@ The client is built on the first reply and reads the key from the environment it
 key is never logged, never part of an error, and never sent to a tool.
 """
 
+import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Final, Literal, cast
 
 import anthropic
 from anthropic.types import (
+    CacheControlEphemeralParam,
     MessageParam,
     TextBlockParam,
     ToolParam,
@@ -40,6 +42,9 @@ IMAGE_TYPES: Final[dict[str, Literal["image/png", "image/jpeg"]]] = {
     "image/png": "image/png",
     "image/jpeg": "image/jpeg",
 }
+CACHED: Final[CacheControlEphemeralParam] = {"type": "ephemeral"}
+
+_LOG = logging.getLogger(__name__)
 
 
 @dataclass
@@ -58,7 +63,8 @@ class AnthropicModel:
                 max_tokens=MAX_TOKENS,
                 system=system,
                 messages=[_param(one) for one in messages],
-                tools=[_tool(one) for one in tools],
+                tools=_tools(tools),
+                cache_control=CACHED,
             )
         except anthropic.APIStatusError as error:
             raise ModelUnavailable(
@@ -68,6 +74,14 @@ class AnthropicModel:
             raise ModelUnavailable(
                 "the model could not be reached, so this turn stopped"
             ) from error
+        usage = response.usage
+        _LOG.info(
+            "model usage: input %d, cache read %d, cache write %d, output %d",
+            usage.input_tokens,
+            usage.cache_read_input_tokens or 0,
+            usage.cache_creation_input_tokens or 0,
+            usage.output_tokens,
+        )
         if response.stop_reason in ("refusal", "max_tokens"):
             raise ModelUnavailable(f"the model stopped with {response.stop_reason}")
         blocks: list[Block] = []
@@ -93,12 +107,17 @@ def _object(raw: object) -> dict[str, Any]:
     return {str(k): v for k, v in cast("dict[object, Any]", raw).items()}
 
 
-def _tool(spec: ToolSpec) -> ToolParam:
-    return {
-        "name": spec.name,
-        "description": spec.description,
-        "input_schema": spec.input_schema,
-    }
+def _tools(specs: Sequence[ToolSpec]) -> list[ToolParam]:
+    """The tools, with a cache breakpoint after the last. The request's own breakpoint moves to
+    the end of the conversation each step. This one holds the tools when the system text changes
+    under them, such as when a turn stores a brief."""
+    tools: list[ToolParam] = [
+        {"name": one.name, "description": one.description, "input_schema": one.input_schema}
+        for one in specs
+    ]
+    if tools:
+        tools[-1]["cache_control"] = CACHED
+    return tools
 
 
 def _param(message: Message) -> MessageParam:

@@ -12,11 +12,8 @@ from cad.chat.routes import (
 )
 from cad.confirmations.card import ConfirmationCard, ProjectArguments
 from cad.confirmations.web import CARD_PATH
-from cad.operations.events import EVENTS_PATH
 from cad.operations.openapi import Described, from_registry
 from cad.operations.registry import OPERATIONS, ROUTES
-from cad.operations.scorecards import ScorecardInput
-from cad.scorecard.material import ScorecardSnapshot
 from cad.uploads.web import PATHS, Added, AddFileInput, Declined, DeclineInput
 
 CHAT_PATHS: Final = dict(CHAT_ROUTES)
@@ -89,16 +86,6 @@ HAND_DESCRIBED: Final = (
         output=Declined,
         requires_json_body=True,
         failures=(400, 401, 404, 415, 422),
-    ),
-    Described(
-        name="scorecard_events",
-        path=EVENTS_PATH,
-        method="GET",
-        input=ScorecardInput,
-        output=ScorecardSnapshot,
-        events="server-sent events: id is the card's etag, and event `scorecard` carries the whole "
-        "card as data each time it changes. Event `refused` carries the refusal's name as plain "
-        "text and ends the stream.",
     ),
 )
 

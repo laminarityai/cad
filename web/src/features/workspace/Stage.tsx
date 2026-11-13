@@ -71,14 +71,14 @@ function Mesh(props: {
 }) {
   const { variantId, label, fit, where, selection, extents, cut, onCut, onPick } = props;
   const mesh = useMesh(variantId);
-  const fitMesh = useMesh(fit?.variantId ?? variantId);
+  const fitMesh = useMesh(fit?.variantId ?? null);
   const [measure, setMeasure] = useState<Measure | null>(null);
   const [track, setTrack] = useState<Track | null>(null);
   const topology = mesh.status === "ready" ? mesh.topology : null;
   const picks = selection?.picks ?? NO_PICKS;
   const readout = useMemo(() => (topology ? readoutOf(picks, topology, measure ?? unmeasured) : null), [picks, topology, measure]);
   const part = mesh.status === "ready" ? mesh.shapes : mesh.status === "loading" ? mesh.lastDrawn : null;
-  const ghost = fit && fitMesh.status === "ready" ? fitMesh.shapes : null;
+  const ghost = fitMesh?.status === "ready" ? fitMesh.shapes : null;
   const drawn = useDrawn(part, ghost, where);
   // The box of everything drawn, so a cut can reach the context part beside the part.
   const bb = drawn?.bb ?? null;

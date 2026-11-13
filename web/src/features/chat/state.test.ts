@@ -18,6 +18,13 @@ describe("chatReducer", () => {
     expect(state.lines[1]).toMatchObject({ name: "build_variant", result: { text: "{}", isError: false } });
   });
 
+  it("shows a turn the person's page answer started as running until it ends", () => {
+    const idle = play(chatStart("c1"), [{ kind: "user", text: "a block", selection: null }, { kind: "turn_ended" }]);
+    const driven = play(idle, [{ kind: "driver", text: "The person confirmed.", answered: null }, call("b", "build_variant")], 3);
+    expect(driven.turn).toBe("running");
+    expect(play(driven, [{ kind: "turn_ended" }], 5).turn).toBe("idle");
+  });
+
   it("ignores an event it has seen, so a resumed stream adds nothing twice", () => {
     const once = play(chatStart("c1"), [{ kind: "agent", text: "hi" }]);
     expect(chatReducer(once, { type: "event", seq: 1, event: { kind: "agent", text: "hi" } })).toBe(once);

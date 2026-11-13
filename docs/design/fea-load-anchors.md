@@ -91,6 +91,8 @@ After this note, the operator chose a wider route than option B. The ADR-0007 am
 
 On `main`, 4 corpus parts resolve and mesh, then stop at the 5% gate for linear analysis. With option A it is 8. The first 4 are `cantilever_bar` (5.6 mm on 100 mm), `l_filleted` (11.0 mm), `hook` (3.6 mm on 59 mm) and `truss_arm` (13.3 mm). Each is far over any deflection limit a person would set, yet the requirement is unknown. A geometrically nonlinear solve (`NLGEOM`) would decide them, but it breaks the superposition of unit solves that the worst-direction search relies on. This needs its own issue.
 
+[#260](https://github.com/laminarityai/cad/issues/260) keeps the verdict unknown, with no one-sided fail and no nonlinear solve: both are the operator's call. The reason now says what to do: the part bends that far, which is too far for a linear analysis to give a verdict, so make it stiffer and score it again. A requirement row that the stress check decides shows that reason, and each Auto standing carries it in `reasons`, so the agent has something to revise against.
+
 ## Not an anchor: the node-cap floor on thin, filleted walls
 
 With the floor at half each mesh's size, `i_beam_arm` (a 100 mm I-beam with 1 mm fillets at the web, on a wall plate) now passes, but `i_beam_flat` (the same beam with flat ends, sizes 1.79 and 1.20 mm) is still over the cap: its fine mesh has 157,432 nodes. The fillets set that count. With no element under the fine size it has 55,502 nodes, the same as with no curvature refinement. Three ways to fit it were measured in the check image (gmsh 4.8.0), and each has a cost:

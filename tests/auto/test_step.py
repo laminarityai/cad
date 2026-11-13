@@ -22,7 +22,8 @@ from cad.auto.model import (
 )
 from cad.auto.step import fold, report, standing_of
 from cad.briefs.assumptions import Assumption
-from cad.checks.result import ReadResearched, StepMissing, Verdict
+from cad.checks.container.fea import STIFFER
+from cad.checks.result import CheckResult, ReadResearched, StepMissing, Verdict
 from cad.conversations.model import ConversationId
 from cad.scorecard import assumed
 from cad.scorecard.material import MaterialUse, ReportedScorecard, SetByAgent
@@ -38,7 +39,7 @@ from cad.scorecard.model import (
 )
 from cad.scorecard.requirements import UNCONFIRMED_PART
 from cad.scorecard.waiting import Waiting
-from tests.support.scorecard import TARGET, agent_checked
+from tests.support.scorecard import TARGET, agent_checked, result
 
 START: Final = Started(
     conversation=ConversationId("c1"),
@@ -70,11 +71,14 @@ def unverified(rid: str) -> Unverified:
 
 
 def card(
-    *rows: RequirementResult, pending: bool = False, agent: tuple[AgentMeasurement, ...] = ()
+    *rows: RequirementResult,
+    pending: bool = False,
+    agent: tuple[AgentMeasurement, ...] = (),
+    finished: tuple[CheckResult, ...] = (),
 ) -> Scorecard:
     results = (
         (PendingCheck(check_id="fea", formula="", sources=(), version="1"),) if pending else ()
-    )
+    ) + finished
     return Scorecard(
         variant_id="v" * 16,
         material_key="prusament-pla",
@@ -150,6 +154,19 @@ def test_a_settled_revision_stops_the_run_only_by_the_table(
     else:
         assert isinstance(state, Stopped)
         assert state.reason == reason
+
+
+def test_a_revision_carries_the_check_reason_of_each_requirement_it_did_not_pass() -> None:
+    bent = result("mass", UNKNOWN).model_copy(update={"reason": f"bends too far; {STIFFER}"})
+    rows = (checked("r1", PASS), checked("r2", UNKNOWN, "no measure"), agent_checked("r3", FAIL))
+    standing = settle(card(*rows, finished=(bent,)))
+    assert standing.reasons == (("r2", f"bends too far; {STIFFER}"), ("r3", rows[2].reason))
+
+
+def test_a_requirement_that_misses_a_limit_its_check_measured_carries_the_card_reason() -> None:
+    measured = result("mass", PASS)
+    standing = settle(card(checked("r1", FAIL, "misses"), finished=(measured,)))
+    assert standing.reasons == (("r1", "misses"),)
 
 
 @pytest.mark.parametrize(

@@ -10,6 +10,7 @@ from cad.research.requests import requests_on
 from cad.scorecard import material, requirements
 from cad.scorecard.material import ReportedScorecard
 from cad.scorecard.model import Checked, NoBrief, PendingCheck, Scorecard
+from cad.tables.fields import Printed
 from cad.tables.materials import MaterialsTable, load_materials
 from tests.support.scorecard import max_mass, result
 
@@ -67,7 +68,7 @@ def test_a_researched_value_is_read_with_its_source_and_asks_for_nothing() -> No
     assert card.reads == (
         ReadCited(field="elastic_modulus"),
         ReadResearched(field="poisson_ratio", url=URL, quote=QUOTE, sha256="ab" * 32),
-        ReadCited(field="yield_strength"),
+        ReadCited(field="yield_strength", specimen=Printed("X-Y")),
     )
     assert requests_on([card], "prusament-petg", table, "b-1") == ()
 

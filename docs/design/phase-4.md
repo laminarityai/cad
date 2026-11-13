@@ -227,7 +227,6 @@ GET  /v1/projects/{pid}                             briefs, variant sets, waitin
 GET  /v1/briefs/{bid}                               brief, proposals, derived status
 GET  /v1/projects/{pid}/briefs/{bid}/set            VariantSetView: members, revisions, card etags
 GET  /v1/variants/{vid}/scorecard                   ScorecardSnapshot
-GET  /v1/variants/{vid}/events                      SSE
 GET  /v1/geometry/{version}/{brep_sha256}.json      three-cad-viewer shapes, immutable, ETag
 POST /v1/projects/{pid}/answers                     PersonSession + CSRF
 POST /v1/auto/{run}/stop                            PersonSession; the run and the conversation's running and stopped run
@@ -235,7 +234,7 @@ GET  /.well-known/oauth-protected-resource          RFC 9728 metadata naming Cle
 POST /mcp                                           streamable HTTP MCP, AgentToken from a Clerk OAuth token
 ```
 
-Each SSE event carries a whole `ScorecardSnapshot` with its etag, not a delta. The handler sends one on connect and one on each job completion, with an in-process notify as the fast path and a 500 ms store poll as the fallback. A reconnect needs no `Last-Event-ID`. The client replaces its copy. `score_variant`'s 20 s wait stays for MCP clients.
+The page reads the scorecard route every 1.5 s instead, since a browser holds six connections per host. The events stream planned here was built, never used by the page, and removed ([#232](https://github.com/laminarityai/cad/issues/232)). `score_variant`'s 20 s wait stays for MCP clients.
 
 ### 2.7 Accounts, tenancy and limits
 

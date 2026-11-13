@@ -32,7 +32,7 @@ from cad.scorecard.model import (
     Scorecard,
     Unverified,
 )
-from cad.scorecard.requirements import UNCONFIRMED_PART
+from cad.scorecard.requirements import UNCONFIRMED_PART, result_of
 from cad.scorecard.waiting import Waiting
 
 NO_STATEMENTS: Final[Mapping[str, str]] = MappingProxyType({})
@@ -60,16 +60,21 @@ def standing_of(card: Scorecard, revision: int, code_sha256: str) -> Standing | 
         return Unsettled()
     marks: list[tuple[str, Mark]] = []
     described: list[str] = []
+    reasons: list[tuple[str, str]] = []
     for row in basis.requirements:
         match row:
             case Checked():
                 marks.append((row.requirement_id, _mark(row)))
                 if row.load_case == "described":
                     described.append(row.requirement_id)
+                if row.verdict is not Verdict.PASS:
+                    reasons.append((row.requirement_id, _why(card, row)))
             case Unverified():
                 marks.append((row.requirement_id, Mark.UNVERIFIED))
             case AgentChecked():
                 marks.append((row.requirement_id, _agent_mark(row)))
+                if row.verdict is not Verdict.PASS:
+                    reasons.append((row.requirement_id, row.reason))
             case Waiting():
                 return Unsettled()
             case _:
@@ -81,7 +86,15 @@ def standing_of(card: Scorecard, revision: int, code_sha256: str) -> Standing | 
         built=True,
         marks=tuple(marks),
         described=tuple(described),
+        reasons=tuple(reasons),
     )
+
+
+def _why(card: Scorecard, row: Checked) -> str:
+    deciding = result_of(card.finished, row.check_id, row.instance)
+    if deciding is None or deciding.verdict is Verdict.PASS:
+        return row.reason
+    return deciding.reason
 
 
 def _mark(row: Checked) -> Mark:
