@@ -4,7 +4,8 @@ A scorecard is read as parsed data. The walk visits every quantity on it (a magn
 and every bare int or float, so a number nobody thought of cannot hide in a new field. A number
 resolves when a placement rule accepts it:
 
-- a `Measure` of a check result, finished or measure-only, by `measures.trace_measure`;
+- a `Measure` of a check result, finished or measure-only, by `measures.trace_measure`, and a
+  face index of its `where` by `measures.trace_face`;
 - a limit the person confirmed, or a research request's bound the server sets;
 - a number in a row with no verdict, a proposal waiting on the person or an assumption, by
   `rows.place`. The row's own number is the agent's, and the step says so.
@@ -26,8 +27,10 @@ fails `confirmation.check_basis`, or has a fit result that `fitted.check_fits` c
 A card is not signed, so with `bind_jobs` each result on a card the session was shown must equal
 the signed job result that the card's own variant, material, table version and instance key
 (`signedjobs`). A changed value is unresolved. A changed verdict, a dropped or added measure,
-another variant's results, or a result no signed job holds is `Unsigned`, and fails the card. The
-server's own reading is not bound, since the server made it from those records.
+another variant's results, or a result no signed job holds is `Unsigned`, and fails the card. A
+refusal shown over a signed record is the card's `binding.retries`, which only the session's other
+cards decide (`trace_store.trace_cards`). The server's own reading is not bound, since the server
+made it from those records.
 
 What this does not prove. `trace_store.py` run over a transcript alone binds no card to its jobs,
 so it does not detect a hand-edited value or verdict. A table number that was edited
@@ -37,7 +40,7 @@ shows where a number came from and not that the geometry produced it; `agree.py`
 
 from collections import Counter
 from collections.abc import Iterator, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
 
@@ -55,8 +58,8 @@ from chain import (
 )
 from confirmation import BasisFailure, Shown, check_basis
 from fitted import Unfitted, check_fits
-from measures import same, trace_measure
-from signedjobs import SignedJobs, Unsigned, signed_jobs, unsigned
+from measures import same, trace_face, trace_measure
+from signedjobs import Binding, SignedJobs, Unsigned, bind_results, running, signed_jobs
 
 from cad.briefs.holes import FastenerHoles, PlainHoles
 from cad.briefs.model import AgentLimit, Requirement, limits
@@ -107,6 +110,7 @@ class CardTrace:
     numbers: tuple[Traced, ...]
     basis: BasisKind | None = None
     brief_id: str | None = None
+    binding: Binding = field(default_factory=Binding)
 
 
 def trace_card(
@@ -121,6 +125,7 @@ def trace_card(
     basis = check_basis(roots, card)
     store = rows.held(roots, card)
     signed = signed_jobs(card, root, roots, table, basis.shown) if bind_jobs else None
+    binding = running(card) if signed is None else bind_results(card, signed)
     numbers = tuple(
         _place(card, found, table, specs, basis.shown, store, signed)
         for found in numbers_in(card.model_dump())
@@ -133,12 +138,12 @@ def trace_card(
         *_incomplete(card, numbers, specs),
         *basis.failures,
         *check_fits(roots, card),
-        *(() if signed is None else unsigned(card, signed)),
+        *binding.failures,
     )
     named = (
         card.basis.brief_id if isinstance(card.basis, AgainstBrief | AwaitingConfirmation) else None
     )
-    return CardTrace(card.variant_id, failures, numbers, card.basis.kind, named)
+    return CardTrace(card.variant_id, failures, numbers, card.basis.kind, named, binding)
 
 
 def _place(
@@ -159,6 +164,12 @@ def _place(
             measure = result.measured[place]
             outcome = trace_measure(card, result, measure, table, specs, signed)
             return Traced(f"{result.check_id}.{measure.name}", found.value, outcome)
+        case ("results", int() as index, "where", *at):
+            results = card.results
+            result = results[index]
+            assert not isinstance(result, PendingCheck), "a pending check has no faces"
+            outcome = trace_face(result, tuple(at), found.value, specs, signed)
+            return Traced(f"{result.check_id}.{path_of(('where', *at))}", found.value, outcome)
         case ("research", int() as index, "low" | "high" as bound) if isinstance(
             card, ReportedScorecard
         ):

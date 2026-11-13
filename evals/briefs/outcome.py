@@ -32,7 +32,9 @@ NONE_COUNTED: Final = Counted(cards=0, judged=0, numbers=0, resolved=0)
 
 class Trace(Frozen):
     """`awaiting` and `no_brief` count over both origins, since a reading can judge a card the
-    session was shown. `failed` says the tracer itself raised, so the trace counts nothing."""
+    session was shown. `cut_off` names each check job the server's reading after the session
+    shows still running. The server ends its checks when it stops, so none of them will report.
+    `failed` says the tracer itself raised, so the trace counts nothing."""
 
     traced: bool
     shown: Counted
@@ -47,13 +49,19 @@ class Trace(Frozen):
     described_coverage: Share = Share(numerator=0, denominator=0)
     by: dict[By, Decided] = {}
     uncovered: dict[str, int] = {}
+    cut_off: tuple[str, ...] = ()
     failed: bool = False
 
 
 class Friction(Frozen):
+    """`refused_tool_calls` counts the calls Claude Code refused as no such tool, such as a cad
+    tool named without its prefix. They reached nothing, so they are the model's friction and fail
+    no session."""
+
     confirmation_pages: int
     ask_calls: int
     minutes_to_first_result: float | None
+    refused_tool_calls: int = 0
 
 
 class BriefResult(Frozen):

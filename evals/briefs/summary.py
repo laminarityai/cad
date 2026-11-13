@@ -80,6 +80,8 @@ class Overall(Frozen):
     uncovered: dict[str, int]
     median_confirmation_pages: float | None
     median_minutes_to_first_result: float | None
+    refused_tool_calls: int
+    cut_off: int
     cost_usd: float
 
 
@@ -133,6 +135,8 @@ def summarize(results: Sequence[BriefResult], missing: Sequence[str], model: str
         uncovered=_pooled_uncovered(traces),
         median_confirmation_pages=statistics.median(pages) if pages else None,
         median_minutes_to_first_result=statistics.median(minutes) if minutes else None,
+        refused_tool_calls=sum(one.friction.refused_tool_calls for one in finished),
+        cut_off=sum(len(one.cut_off) for one in traces),
         cost_usd=sum(one.cost_usd or 0.0 for one in results),
     )
     return Summary(overall=overall, briefs=tuple(results))
@@ -159,6 +163,10 @@ def markdown(summary: Summary, missing: Sequence[str]) -> str:
         f"agent measurements: {overall.agent_measurements}, not verified",
         f"confirmation pages per brief: median {_number(overall.median_confirmation_pages)}",
         f"minutes to first result: median {_number(overall.median_minutes_to_first_result)}",
+        f"tool calls Claude Code refused as no such tool, model friction: "
+        f"{overall.refused_tool_calls}",
+        f"check jobs still running when the session ended, cut off: {overall.cut_off}; their "
+        f"requirements count as by {By.WAITING}, and against both rates",
         f"cost: ${overall.cost_usd:.2f}",
         "",
         "| brief | domain | trace | strict pass | covered | pages | minutes | cost |",
@@ -169,4 +177,6 @@ def markdown(summary: Summary, missing: Sequence[str]) -> str:
     for one in summary.briefs:
         if one.trace and one.trace.untraced:
             lines += ["", f"## Untraced in {one.id}", *(f"- {name}" for name in one.trace.untraced)]
+        if one.trace and one.trace.cut_off:
+            lines += ["", f"## Cut off in {one.id}", *(f"- {name}" for name in one.trace.cut_off)]
     return "\n".join(lines) + "\n"
