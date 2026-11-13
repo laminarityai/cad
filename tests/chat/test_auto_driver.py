@@ -304,9 +304,11 @@ async def test_a_run_of_another_conversation_is_never_reported_here(chat: Chat) 
     assert "stop_report" not in kinds(events)
 
 
-async def test_a_tampered_run_log_fails_the_turn_with_a_message_that_names_it(
+async def test_a_tampered_run_log_ends_the_chat_and_names_a_new_project_which_runs(
     chat: Chat,
 ) -> None:
+    """The web app gives a project one conversation, and its only other step is a new project,
+    which the app starts as a conversation with no project."""
     chat.app.state.chat.model = script(*confirmed(), *[step(f"Waiting {n}.") for n in range(4)])
     async with chat.client() as client:
         cid = await chat.conversation(client)
@@ -317,9 +319,20 @@ async def test_a_tampered_run_log_fails_the_turn_with_a_message_that_names_it(
         for record in sorted(run_dir(tenant.roots, run_id).iterdir()):
             if record.is_file():
                 record.write_bytes(record.read_bytes() + b"tampered")
-        seen = await chat.say(client, cid, "go on")
+        failed: list[list[Any]] = []
+        for said in ("go on", "keep working without Auto"):
+            seen = await chat.say(client, cid, said)
+            await chat.finish()
+            failed.append(await chat.events(client, cid, after=seen))
+        fresh = await chat.conversation(client)
+        seen = await chat.say(client, fresh, "a lid for the box")
         await chat.finish()
-        events = await chat.events(client, cid, after=seen)
-    assert kinds(events) == ["turn_failed", "turn_ended"]
-    assert run_id in events[0]["message"]
-    assert "create a new brief to run Auto again" in events[0]["message"]
+        started = await chat.events(client, fresh, after=seen)
+    for events in failed:
+        assert kinds(events) == ["turn_failed", "turn_ended"]
+        assert run_id in events[0]["message"]
+        assert "start a new project to carry on" in events[0]["message"]
+    assert "turn_failed" not in kinds(started)
+    stored = next(one for one in started if one["kind"] == "tool_result")
+    held = store.read(tenant.conversations, ConversationId(cid))
+    assert json.loads(stored["text"])["project_id"] != held.project_id

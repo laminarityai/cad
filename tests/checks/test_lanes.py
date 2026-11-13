@@ -124,6 +124,14 @@ def test_a_job_interrupted_twice_is_refused_and_not_started_a_third_time(
     assert runner.runs == [job(tmp_path).key]
 
 
+def test_the_interrupted_refusal_says_not_run_and_never_to_rebuild_the_same_shape() -> None:
+    """A clean stop does not count, so two interruptions most likely mean the analysis kills its
+    worker. A rebuild of the same shape would only buy two more crashes."""
+    assert "report the check as not run" in INTERRUPTED
+    assert "do not build the same shape again to retry it" in INTERRUPTED
+    assert "change the variant's code" not in INTERRUPTED
+
+
 def test_a_background_job_that_fails_clears_its_attempt_and_is_not_stored(
     tmp_path: Path, runner: GatedRunner
 ) -> None:
