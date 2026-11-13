@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from cad.checks.container.calculix import Material
+from cad.checks.container.fea import ERROR_BOUNDS
 from cad.checks.container.regions import Bore, Disc, FarFrom, Plane, Region
 from cad.checks.container.vectors import Point, scale, sub, unit
 
@@ -283,7 +284,7 @@ CASES: tuple[Case, ...] = (
         force=(0.0, 0.0, -PLATE_P),
         measure="max_displacement",
         expected=PLATE_P * PLATE_A**2 / (16 * math.pi * PLATE_D),
-        tolerance=0.05,
+        tolerance=ERROR_BOUNDS["max_displacement"],
         reference="w = Pa^2/(16 pi D), Roark Table 11.2",
     ),
     Case(
@@ -295,7 +296,7 @@ CASES: tuple[Case, ...] = (
         force=(HOLE_P, 0.0, 0.0),
         measure="max_von_mises",
         expected=(2 + (1 - HOLE_D / HOLE_W) ** 3) * HOLE_P / ((HOLE_W - HOLE_D) * HOLE_T),
-        tolerance=0.07,
+        tolerance=ERROR_BOUNDS["max_von_mises"],
         reference="sigma = Kt P/((W-d)t), Kt = 2 + (1-d/W)^3, Heywood via Peterson",
     ),
     Case(
