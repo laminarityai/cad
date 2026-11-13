@@ -1,7 +1,7 @@
-import type { RunView } from "@/features/auto/run";
+import { AUTO_TOOLS, type RunView } from "@/features/auto/run";
 import type { ChatState, Line } from "./state";
 
-export type Working = { kind: "turn"; briefId: string | null } | { kind: "tool"; name: string; briefId: string | null } | { kind: "checks"; briefId: string };
+export type Working = { kind: "turn"; briefId: string | null } | { kind: "tool"; name: string; briefId: string | null };
 
 const NOW: Record<string, string> = {
   build_variant: "Building an option",
@@ -20,28 +20,28 @@ export const nowLabel = (name: string): string => NOW[name] ?? "Working";
 
 type Call = Extract<Line, { kind: "tool" }>;
 
-const briefOf = (call: Call): string | null => (typeof call.input.brief_id === "string" ? call.input.brief_id : null);
+type Turn = Pick<ChatState, "lines" | "turn" | "turnStartSeq" | "link">;
 
-export function workingOf(chat: Pick<ChatState, "lines" | "turn" | "turnStartSeq">, run: RunView | null, conversationBrief: string | null): Working | null {
+/** A turn runs, but the stream dropped, so nothing on the page knows whether it still moves. */
+export const stalledOf = (chat: Turn): boolean => chat.turn === "running" && chat.link === "reconnecting";
+
+/** The brief a call works on: the one it names, or the running run's for an Auto tool. */
+function briefOf(call: Call, runBrief: string | null): string | null {
+  if (typeof call.input.brief_id === "string") return call.input.brief_id;
+  return AUTO_TOOLS.has(call.name) ? runBrief : null;
+}
+
+export function workingOf(chat: Turn, run: RunView | null): Working | null {
+  if (chat.turn !== "running" || stalledOf(chat)) return null;
   const runBrief = run?.status === "running" ? run.briefId : null;
-  if (chat.turn === "running") {
-    const calls = chat.lines.filter((line): line is Call => line.kind === "tool" && line.seq > (chat.turnStartSeq ?? 0));
-    const open = calls.find((call) => call.result === null);
-    const briefId = (open ? briefOf(open) : null) ?? calls.map(briefOf).findLast((one) => one !== null) ?? runBrief ?? conversationBrief;
-    return open ? { kind: "tool", name: open.name, briefId } : { kind: "turn", briefId };
-  }
-  return run?.status === "running" && run.settling ? { kind: "checks", briefId: run.briefId } : null;
+  const calls = chat.lines.filter((line): line is Call => line.kind === "tool" && line.seq > (chat.turnStartSeq ?? 0));
+  const open = calls.find((call) => call.result === null);
+  if (open) return { kind: "tool", name: open.name, briefId: briefOf(open, runBrief) };
+  return { kind: "turn", briefId: calls.map((call) => briefOf(call, runBrief)).findLast((one) => one !== null) ?? null };
 }
 
 export function workingLabel(working: Working): string {
-  switch (working.kind) {
-    case "tool":
-      return nowLabel(working.name);
-    case "checks":
-      return "Auto run waiting on checks";
-    case "turn":
-      return "Working";
-  }
+  return working.kind === "tool" ? nowLabel(working.name) : "Working";
 }
 
 export function sinceOf(chat: Pick<ChatState, "turn" | "turnStartSeq">, sent: { seq: number; at: number } | null): number | null {

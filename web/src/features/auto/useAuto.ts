@@ -8,7 +8,6 @@ export const CONVERSATION_FOLLOW_MS = 3000;
 
 export interface Auto {
   run: RunView | null;
-  briefId: string | null;
   problem: string | null;
   stop(): Promise<void>;
   reload(): void;
@@ -44,5 +43,5 @@ export function useAuto(conversationId: string): Auto {
     reload();
   }, [chat, reload]);
 
-  return { run, briefId: view?.brief_id ?? null, problem, stop, reload };
+  return { run, problem, stop, reload };
 }

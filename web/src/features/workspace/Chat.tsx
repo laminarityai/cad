@@ -9,6 +9,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { isStopKind, reasonText } from "@/features/auto/run";
 import { nowLabel, workingLabel, type Working } from "@/features/chat/working";
+import { buildOf } from "@/features/chat/built";
 import { Markdown } from "./Markdown";
 
 export const DOING: Record<string, string> = {
@@ -25,6 +26,7 @@ export const DOING: Record<string, string> = {
 };
 
 const WORKED = "worked";
+const BUILD_UNREAD = "build finished";
 
 export const CHANGES_PAGE: ReadonlySet<string> = new Set(["build_variant", "auto_revise", "score_variant", "propose_requirements", "propose_context_part", "create_brief", "ask_to_confirm"]);
 
@@ -75,14 +77,18 @@ function grouped(lines: readonly Line[]): Shown[] {
   return out;
 }
 
-export function activityText(names: readonly string[]): string {
+type Call = Extract<Line, { kind: "tool" }>;
+
+/** What a call that ended well did, in the words of the activity summary. */
+export function doneWord(call: Pick<Call, "name" | "result">): string {
+  if (call.result !== null && buildOf(call.name, call.result.text) === "unread") return BUILD_UNREAD;
+  return DOING[call.name] ?? WORKED;
+}
+
+export function activityText(words: readonly string[]): string {
   const counts = new Map<string, number>();
-  for (const name of names) {
-    const word = DOING[name] ?? WORKED;
-    counts.set(word, (counts.get(word) ?? 0) + 1);
-  }
-  const words = [...counts.entries()].map(([word, n]) => (n > 1 && (word === "built" || word === "checked") ? `${word} ${String(n)}` : word));
-  const text = words.join(", ");
+  for (const word of words) counts.set(word, (counts.get(word) ?? 0) + 1);
+  const text = [...counts.entries()].map(([word, n]) => (n > 1 && (word === "built" || word === "checked") ? `${word} ${String(n)}` : word)).join(", ");
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
@@ -101,27 +107,33 @@ function detailOf(input: Record<string, unknown>): string[] {
   });
 }
 
-type Call = Extract<Line, { kind: "tool" }>;
+/** `live` while the turn runs, `stalled` while it runs but the stream dropped, `over` once it ended. */
+type Phase = "live" | "stalled" | "over";
 
-function statusesOf(lines: readonly Call[], live: boolean): ToolRow["status"][] {
+function statusesOf(lines: readonly Call[], phase: Phase): ToolRow["status"][] {
   const first = lines.findIndex((one) => one.result === null);
   return lines.map((one, at) => {
-    if (one.result !== null) return one.result.isError ? "refused" : "done";
-    if (!live) return "unfinished";
+    if (one.result !== null) return one.result.isError ? "refused" : buildOf(one.name, one.result.text) === "failed" ? "failed" : "done";
+    if (phase === "over") return "unfinished";
+    if (phase === "stalled") return "unanswered";
     return at === first ? "running" : "queued";
   });
 }
 
 const lower = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
 
-export function summaryText(lines: readonly Call[], live: boolean): string {
-  const statuses = statusesOf(lines, live);
+const builds = (n: number) => `${String(n)} ${n === 1 ? "build" : "builds"}`;
+
+function summaryText(lines: readonly Call[], phase: Phase): string {
+  const statuses = statusesOf(lines, phase);
   const count = (status: ToolRow["status"]) => statuses.filter((one) => one === status).length;
-  const done = lines.filter((_, at) => statuses[at] === "done").map((one) => one.name);
+  const done = lines.filter((_, at) => statuses[at] === "done").map(doneWord);
   const running = lines.find((_, at) => statuses[at] === "running");
   const parts = [
     ...(done.length > 0 ? [activityText(done)] : []),
+    ...(count("failed") > 0 ? [`${builds(count("failed"))} failed`] : []),
     ...(count("refused") > 0 ? [`${String(count("refused"))} refused`] : []),
+    ...(count("unanswered") > 0 ? [`${String(count("unanswered"))} with no answer yet`] : []),
     ...(count("unfinished") > 0 ? [`${String(count("unfinished"))} did not finish`] : []),
     ...(running ? [nowLabel(running.name)] : []),
   ];
@@ -129,19 +141,26 @@ export function summaryText(lines: readonly Call[], live: boolean): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-function Activity({ lines, live }: { lines: Call[]; live: boolean }) {
-  const statuses = statusesOf(lines, live);
+const FAILED = "Build failed";
+
+function labelOf(line: Call, status: ToolRow["status"]): string {
+  if (status === "failed") return FAILED;
+  return status === "done" || status === "refused" ? activityText([doneWord(line)]) : nowLabel(line.name);
+}
+
+function Activity({ lines, phase }: { lines: Call[]; phase: Phase }) {
+  const statuses = statusesOf(lines, phase);
   const rows = lines.map((line, at): ToolRow => {
     const status = statuses[at] ?? "done";
     return {
       key: line.seq,
-      label: status === "done" || status === "refused" ? activityText([line.name]) : nowLabel(line.name),
+      label: labelOf(line, status),
       chip: CHIP[line.name]?.(line.input) ?? null,
       status,
       detail: detailOf(line.input),
     };
   });
-  return <ToolChips summary={summaryText(lines, live)} rows={rows} live={live} />;
+  return <ToolChips summary={summaryText(lines, phase)} rows={rows} live={phase === "live"} />;
 }
 
 export function driverText(text: string): string | null {
@@ -277,9 +296,11 @@ export function Composer(props: { placeholder: string; onSend: (text: string) =>
   );
 }
 
-export function ChatPane(props: { lines: readonly Line[]; working: Working | null; since?: number | null; card: ReactNode; composer: ReactNode; status?: ReactNode }) {
-  const { lines, working, since = null, card, composer, status } = props;
-  const turnLive = working !== null && working.kind !== "checks";
+const STALLED = "The server is not answering. The page is reconnecting.";
+
+export function ChatPane(props: { lines: readonly Line[]; working: Working | null; stalled?: boolean; since?: number | null; card: ReactNode; composer: ReactNode; status?: ReactNode }) {
+  const { lines, working, stalled = false, since = null, card, composer, status } = props;
+  const phase: Phase = working !== null ? "live" : stalled ? "stalled" : "over";
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
     end.current?.scrollIntoView({ block: "end" });
@@ -287,8 +308,13 @@ export function ChatPane(props: { lines: readonly Line[]; working: Working | nul
   return (
     <section aria-label="Chat" aria-busy={working !== null} className="flex h-full min-h-0 flex-col">
       <div role="log" className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
-        {grouped(lines).map((one, at, all) => (one.kind === "activity" ? <Activity key={`a${String(one.key)}`} lines={one.lines} live={turnLive && at === all.length - 1} /> : <Said key={one.line.seq} line={one.line} />))}
+        {grouped(lines).map((one, at, all) => (one.kind === "activity" ? <Activity key={`a${String(one.key)}`} lines={one.lines} phase={at === all.length - 1 ? phase : "over"} /> : <Said key={one.line.seq} line={one.line} />))}
         {working === null ? null : <Loading label={workingLabel(working)} since={since} />}
+        {stalled ? (
+          <p role="status" data-stalled className="text-[14px] text-ink-2">
+            {STALLED}
+          </p>
+        ) : null}
         {card}
         <div ref={end} />
       </div>

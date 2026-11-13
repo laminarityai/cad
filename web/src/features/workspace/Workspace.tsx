@@ -8,7 +8,7 @@ import type { Where } from "@/features/viewer/where";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 import { Loading } from "@/components/ui/busy";
 import { Tooltip } from "@/components/ui/tooltip";
-import { sinceOf, workingLabel, workingOf, type Working } from "@/features/chat/working";
+import { sinceOf, stalledOf, workingLabel, workingOf, type Working } from "@/features/chat/working";
 import { RunStatus } from "@/features/auto/RunStatus";
 import { AUTO_TOOLS } from "@/features/auto/run";
 import { useAuto } from "@/features/auto/useAuto";
@@ -213,9 +213,9 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
       }}
     />
   );
-  const working = workingOf(chat, auto.run, auto.briefId);
+  const working = workingOf(chat, auto.run);
   const status = <RunStatus run={auto.run} working={working} problem={auto.problem} onStop={() => void auto.stop()} />;
-  const chatPane = <ChatPane lines={chat.lines} working={working} since={sinceOf(chat, sent)} card={card} composer={composer} status={status} />;
+  const chatPane = <ChatPane lines={chat.lines} working={working} stalled={stalledOf(chat)} since={sinceOf(chat, sent)} card={card} composer={composer} status={status} />;
   const center = <Center brief={brief} view={view} cards={cards} dispatch={dispatch} where={where} selection={selection} onPick={onPick} working={working} />;
 
   const explorer = (
@@ -309,7 +309,7 @@ export function Start() {
       <div className="flex h-dvh flex-col bg-background text-ink">
         <TopBar title="New project" />
         <main className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col">
-          <ChatPane lines={state.lines} working={workingOf(state, null, null)} since={sinceOf(state, sent)} card={null} composer={<Composer placeholder="Ask anything" onSend={send} />} />
+          <ChatPane lines={state.lines} working={workingOf(state, null)} stalled={stalledOf(state)} since={sinceOf(state, sent)} card={null} composer={<Composer placeholder="Ask anything" onSend={send} />} />
         </main>
       </div>
     );

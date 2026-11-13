@@ -3,7 +3,7 @@ import type { Event } from "@/api/types";
 import { runningRun, stoppedRun } from "@/test/fakes";
 import { viewOf } from "@/features/auto/run";
 import { chatReducer, chatStart, type ChatState } from "./state";
-import { sinceOf, workingLabel, workingOf } from "./working";
+import { sinceOf, stalledOf, workingLabel, workingOf } from "./working";
 
 const play = (events: Event[]): ChatState => events.reduce((held, event, at) => chatReducer(held, { type: "event", seq: at + 1, event }), chatStart("c1"));
 const user: Event = { kind: "user", text: "a hook", selection: null };
@@ -13,36 +13,41 @@ const ended: Event = { kind: "turn_ended" };
 
 describe("workingOf", () => {
   it("is nothing before a turn and after it ends", () => {
-    expect(workingOf(play([]), null, null)).toBeNull();
-    expect(workingOf(play([user, { kind: "agent", text: "Done." }, ended]), null, null)).toBeNull();
+    expect(workingOf(play([]), null)).toBeNull();
+    expect(workingOf(play([user, { kind: "agent", text: "Done." }, ended]), null)).toBeNull();
   });
 
   it("is a turn while one runs, and the call that is running, which is the first open one", () => {
-    expect(workingOf(play([user]), null, null)).toEqual({ kind: "turn", briefId: null });
-    expect(workingOf(play([user, call("a", "build_variant"), call("b", "score_variant")]), null, null)).toEqual({ kind: "tool", name: "build_variant", briefId: null });
-    expect(workingOf(play([user, call("a", "build_variant"), done("a")]), null, null)).toEqual({ kind: "turn", briefId: null });
+    expect(workingOf(play([user]), null)).toEqual({ kind: "turn", briefId: null });
+    expect(workingOf(play([user, call("a", "build_variant"), call("b", "score_variant")]), null)).toEqual({ kind: "tool", name: "build_variant", briefId: null });
+    expect(workingOf(play([user, call("a", "build_variant"), done("a")]), null)).toEqual({ kind: "turn", briefId: null });
   });
 
-  it("is on the open call's brief, else this turn's latest named brief, else the run's, else the conversation's", () => {
-    expect(workingOf(play([user, call("a", "build_variant", { brief_id: "b2" })]), null, "b1")).toMatchObject({ briefId: "b2" });
-    expect(workingOf(play([user, call("a", "build_variant", { brief_id: "b2" }), done("a")]), null, "b1")).toMatchObject({ briefId: "b2" });
-    expect(workingOf(play([user, call("a", "build_variant", { brief_id: "b2" }), done("a"), ended, user]), null, "b1")).toMatchObject({ briefId: "b1" });
-    expect(workingOf(play([user]), viewOf(runningRun(1)), null)).toMatchObject({ briefId: "b1" });
+  it("is nothing while the stream reconnects, though the turn has not ended", () => {
+    const dropped = chatReducer(play([user, call("a", "build_variant", { brief_id: "b2" })]), { type: "link", link: "reconnecting" });
+    expect(workingOf(dropped, null)).toBeNull();
+    expect(stalledOf(dropped)).toBe(true);
+    expect(stalledOf(play([user, ended]))).toBe(false);
+  });
+
+  it("is on the brief the open call names, else the brief this turn last named, and an Auto tool's is the run's", () => {
+    const run = viewOf(runningRun(1));
+    expect(workingOf(play([user, call("a", "build_variant", { brief_id: "b2" })]), run)).toMatchObject({ briefId: "b2" });
+    expect(workingOf(play([user, call("a", "build_variant", { brief_id: "b2" }), done("a")]), run)).toMatchObject({ briefId: "b2" });
+    expect(workingOf(play([user, call("a", "propose_requirements", { brief_id: "b2" }), done("a"), call("b", "create_brief")]), run)).toMatchObject({ briefId: null });
+    expect(workingOf(play([user, call("a", "auto_revise", { slot: 1 })]), run)).toMatchObject({ briefId: "b1" });
+    expect(workingOf(play([user]), run)).toMatchObject({ briefId: null });
+    expect(workingOf(play([user, call("a", "build_variant", { brief_id: "b2" }), done("a"), ended, user]), run)).toMatchObject({ briefId: null });
   });
 
   it("is nothing for a running Auto run between turns, since only a turn moves it on", () => {
     const idle = play([user, ended]);
-    expect(workingOf(idle, viewOf(runningRun(1)), null)).toBeNull();
-    expect(workingOf(idle, viewOf(stoppedRun("run_1", "all_pass", "done")), null)).toBeNull();
-  });
-
-  it("is the run's checks when the run waits on them between turns", () => {
-    const idle = play([user, ended]);
-    expect(workingOf(idle, viewOf({ ...runningRun(1), settling: true }), null)).toEqual({ kind: "checks", briefId: "b1" });
+    expect(workingOf(idle, viewOf(runningRun(1)))).toBeNull();
+    expect(workingOf(idle, viewOf(stoppedRun("run_1", "all_pass", "done")))).toBeNull();
   });
 
   it("is nothing for a tool left open by a turn that failed", () => {
-    expect(workingOf(play([user, call("a", "build_variant"), { kind: "turn_failed", message: "no key" }, ended]), null, null)).toBeNull();
+    expect(workingOf(play([user, call("a", "build_variant"), { kind: "turn_failed", message: "no key" }, ended]), null)).toBeNull();
   });
 
   it("names a known tool in plain words and any other as working", () => {

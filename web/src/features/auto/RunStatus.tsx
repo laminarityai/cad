@@ -26,7 +26,7 @@ export function RunStatus(props: { run: RunView | null; working: Working | null;
           <div className="min-w-0 flex-1 basis-44">
             <h3 className="text-[13px] text-ink-3">Auto run</h3>
             {run.status === "running" && working !== null ? (
-              <Loading label={`Running · ${tried(run.revisions)}${run.settling ? " · waiting on checks" : ""}`} />
+              <Loading label={`Running · ${tried(run.revisions)}`} />
             ) : run.status === "running" ? (
               <>
                 <p role="status" className="text-[15px]">

@@ -10,6 +10,8 @@ import { brief } from "@/test/fixtures";
 import { ChatPane } from "./Chat";
 import { Workspace } from "./Workspace";
 
+const built = JSON.stringify({ outcome: { kind: "built" }, output: "", variant_id: "v2" });
+
 const briefOn = (id: string) => ({ brief_id: id, created_at: "2026-11-10T00:00:00Z", proposals: 1, confirmed_proposal: 1 });
 
 function mount(chat: FakeChat, members: string[], emptyBrief: string | null = null, scorecard?: Api["scorecard"]) {
@@ -80,7 +82,7 @@ describe("the tool rows in the chat", () => {
     expect(rows).toHaveLength(2);
     expect(rows[0]).toHaveAttribute("data-tool", "running");
     expect(within(rows[0] as HTMLElement).getByText("Wide base")).toBeInTheDocument();
-    say(chat, { kind: "tool_result", call_id: "a", text: "{}", is_error: false }, { kind: "tool_result", call_id: "b", text: "refused", is_error: true });
+    say(chat, { kind: "tool_result", call_id: "a", text: built, is_error: false }, { kind: "tool_result", call_id: "b", text: "refused", is_error: true });
     say(chat, { kind: "turn_ended" });
     await userEvent.click(await screen.findByRole("button", { name: "Built, 1 refused" }));
     await waitFor(() => {
@@ -93,7 +95,7 @@ describe("the tool rows in the chat", () => {
   it("shows the inputs of a call when its row opens, and never its code", async () => {
     render(
       <ChatPane
-        lines={[{ seq: 1, kind: "tool", callId: "a", name: "build_variant", input: { label: "Wide base", slot: 2, code: "secret_code()" }, result: { text: "{}", isError: false } }]}
+        lines={[{ seq: 1, kind: "tool", callId: "a", name: "build_variant", input: { label: "Wide base", slot: 2, code: "secret_code()" }, result: { text: built, isError: false } }]}
         working={null}
         card={null}
         composer={null}
@@ -123,7 +125,7 @@ describe("a tool row while its call runs", () => {
     expect(row).toHaveTextContent("Building an option");
     expect(row).not.toHaveTextContent(/Built/);
     expect(within(log).queryByText(/built/i)).toBeNull();
-    say(chat, { kind: "tool_result", call_id: "a", text: "{}", is_error: false });
+    say(chat, { kind: "tool_result", call_id: "a", text: built, is_error: false });
     await waitFor(() => {
       expect(within(log).getAllByRole("listitem")[1]).toHaveTextContent("Built");
     });

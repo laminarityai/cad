@@ -13,7 +13,7 @@ export interface ToolRow {
   key: number;
   label: string;
   chip: string | null;
-  status: "running" | "queued" | "done" | "refused" | "unfinished";
+  status: "running" | "queued" | "done" | "failed" | "refused" | "unfinished" | "unanswered";
   detail: readonly string[];
 }
 
@@ -21,7 +21,9 @@ function Row({ row }: { row: ToolRow }) {
   const icon = {
     running: <Spinner className="size-4" />,
     queued: <CircleDashed aria-hidden className="size-4 shrink-0 text-ink-3" />,
+    failed: <X aria-hidden className="size-4 shrink-0 text-fail" />,
     refused: <X aria-hidden className="size-4 shrink-0 text-fail" />,
+    unanswered: <CircleDashed aria-hidden className="size-4 shrink-0 text-ink-3" />,
     unfinished: <X aria-hidden className="size-4 shrink-0 text-ink-3" />,
     done: <Check aria-hidden className="size-4 shrink-0 text-ink-3" />,
   }[row.status];
@@ -33,6 +35,7 @@ function Row({ row }: { row: ToolRow }) {
       {row.status === "refused" ? <span className="text-fail">refused</span> : null}
       {row.status === "queued" ? <span>next</span> : null}
       {row.status === "unfinished" ? <span>did not finish</span> : null}
+      {row.status === "unanswered" ? <span>no answer yet</span> : null}
     </>
   );
   if (row.detail.length === 0) return <li data-tool={row.status} className="flex h-7 items-center gap-2">{head}</li>;

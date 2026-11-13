@@ -146,7 +146,7 @@ describe("the confirm card", () => {
 
 describe("the chat", () => {
   it("names tools in plain words and an unknown tool as worked", () => {
-    expect(activityText(["build_variant", "build_variant", "score_variant", "list_materials"])).toBe("Built 2, checked, worked");
+    expect(activityText(["built", "built", "checked", "worked"])).toBe("Built 2, checked, worked");
   });
 
   it("says inline that the agent is still answering when a send is refused", async () => {
