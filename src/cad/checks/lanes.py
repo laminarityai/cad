@@ -3,7 +3,7 @@ import logging
 import threading
 import time
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from concurrent.futures import Future
 from contextlib import suppress
 from dataclasses import dataclass
@@ -24,6 +24,10 @@ INTERRUPTED: Final = (
 SUPERSEDED: Final = (
     "a newer revision replaced this variant in its slot before this analysis started, so it was "
     "dropped; score the variant again to run it"
+)
+STOPPED: Final = (
+    "the server is stopping, so this analysis was not started; score the variant again once the "
+    "server is back"
 )
 LOG: Final = logging.getLogger(__name__)
 
@@ -64,6 +68,8 @@ class Lanes:
         self._queue = deque[Queued]()
         self._worker: threading.Thread | None = None
         self._listeners: list[Listener] = []
+        self._running: JobSpec | None = None
+        self._closed = False
 
     def settle(self, plan: Plan, wait_seconds: float) -> Settled:
         deadline = time.monotonic() + wait_seconds
@@ -75,8 +81,9 @@ class Lanes:
 
     def peek(self, plan: Plan) -> Settled | None:
         """What the store holds for `plan`, with no wait and no job started. A background job is
-        done when its result is stored, refused when it was interrupted too often, and pending
-        otherwise. None when the quick result is not stored: the variant was never scored."""
+        done when its result is stored, pending while it runs here, refused when it was
+        interrupted too often, and pending otherwise. None when the quick result is not stored:
+        the variant was never scored."""
         quick = job_store.read(plan.quick)
         if quick is None:
             return None
@@ -106,18 +113,35 @@ class Lanes:
                 _, job, _ = item
                 (dropped if (job.root, job.variant_id) == (root, variant_id) else kept).append(item)
             self._queue = kept
-            for _, job, future in dropped:
-                del self._flying[job_store.result_path(job)]
-                future.set_exception(Superseded(SUPERSEDED))
+            self._refuse_locked(dropped, lambda: Superseded(SUPERSEDED))
         return len(dropped)
 
+    def close(self) -> None:
+        """Take no more background jobs, for a server that is stopping. A queued job is refused
+        before it starts, and the running job's attempt is taken back, because the server ends
+        that run, not the job. Call it before the server removes its containers."""
+        with self._lock:
+            self._closed = True
+            self._refuse_locked(self._queue, lambda: SandboxUnavailable(STOPPED))
+            self._queue.clear()
+            running, self._running = self._running, None
+            if running is not None:
+                job_store.undo_attempt(running)
+
+    def _refuse_locked(self, queued: Iterable[Queued], error: Callable[[], Exception]) -> None:
+        for _, job, future in queued:
+            del self._flying[job_store.result_path(job)]
+            future.set_exception(error())
+
     def _look(self, job: JobSpec) -> Outcome:
-        stored = job_store.read(job)
-        if stored is not None:
-            return Done(stored)
-        if job_store.interrupted_runs(job) >= job_store.ATTEMPT_CAP:
+        """A job running here is pending, though its own attempt may have reached the cap."""
+        with self._lock:
+            stored = job_store.read(job)
+            if stored is not None:
+                return Done(stored)
+            if job_store.result_path(job) in self._flying or not _interrupted_too_often(job):
+                return Pending()
             return Refused(INTERRUPTED)
-        return Pending()
 
     def _take_off(self, job: JobSpec) -> Done | Refused | Future[JobResult]:
         path = job_store.result_path(job)
@@ -128,6 +152,8 @@ class Lanes:
             flying = self._flying.get(path)
             if flying is not None:
                 return flying
+            if self._closed and isinstance(job.budget, Background):
+                return Refused(STOPPED)
             if _interrupted_too_often(job):
                 return Refused(INTERRUPTED)
             future = Future[JobResult]()
@@ -164,11 +190,18 @@ class Lanes:
     def _attempt(self, job: JobSpec) -> JobResult:
         if isinstance(job.budget, Quick):
             return self._run(job)
-        job_store.begin_attempt(job)
+        with self._lock:
+            if self._closed:
+                raise SandboxUnavailable(STOPPED)
+            job_store.begin_attempt(job)
+            self._running = job
         try:
             return self._run(job)
         finally:
-            job_store.end_attempt(job)
+            with self._lock:
+                if self._running is job:
+                    self._running = None
+                    job_store.end_attempt(job)
 
     def _enqueue_locked(self, job: JobSpec, future: Future[JobResult]) -> None:
         """The job runs in a copy of the caller's context, so its container is charged to the

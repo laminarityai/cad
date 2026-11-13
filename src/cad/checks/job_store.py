@@ -49,6 +49,16 @@ def end_attempt(job: JobSpec) -> None:
     _attempt_path(job).unlink(missing_ok=True)
 
 
+def undo_attempt(job: JobSpec) -> None:
+    """Put the count back to its value before `begin_attempt`, for a run the server stopped: the
+    job did not interrupt it."""
+    earlier = interrupted_runs(job) - 1
+    if earlier > 0:
+        _replace(job, _attempt_path(job), str(earlier).encode(), "attempt count")
+    else:
+        end_attempt(job)
+
+
 def _replace(job: JobSpec, path: Path, data: bytes, what: str) -> None:
     try:
         path.parent.mkdir(exist_ok=True)
