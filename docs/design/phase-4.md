@@ -53,7 +53,7 @@ events.on("variant_built", e => viewer.replace(e.view));  // no reload; the time
 run = await mcp.call("auto_start", brief_id=b)  # Continue | Stopped, Bounds conflicts stop here
 while isinstance(run, Continue):
     run = await mcp.call("auto_revise", run_id=run.run_id, code=await llm.revise(run.failing))
-chat.post(run.report)  # reason, requirements, revisions tried, and the agent's note
+chat.post(run.report)  # reason, requirements, builds tried, and the agent's note
 ```
 
 The agent calls `auto_ask(note)` when it judges it is stuck or needs a decision only the person can make. The note says what it tried. The agent can always stop a run, and it can never keep one going past a stop the server decides.
