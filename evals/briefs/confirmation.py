@@ -61,12 +61,7 @@ def check_basis(roots: Roots, card: Scorecard) -> BasisCheck:
             return BasisCheck(None, ())
         case AwaitingConfirmation():
             state = _state(roots, basis.brief_id)
-            if isinstance(state, Unconfirmed):
-                return BasisCheck(None, (state,))
-            if state.confirmed is not None:
-                newer = state.confirmed.proposal.number
-                return BasisCheck(None, (Superseded(f"proposal {newer} is confirmed since"),))
-            return BasisCheck(None, ())
+            return BasisCheck(None, (state,) if isinstance(state, Unconfirmed) else ())
         case AgainstBrief():
             return _against(roots, card, basis)
 

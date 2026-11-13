@@ -2,14 +2,8 @@ import typing
 from dataclasses import replace
 from pathlib import Path
 
-from provenance import (
-    CheckStep,
-    Resolved,
-    Stale,
-    TableStep,
-    Unresolved,
-    trace_card,
-)
+from chain import CheckStep, Resolved, Stale, TableStep, Unresolved
+from provenance import trace_card
 from trace_store import SPEC_BY_ID
 
 from cad.checks.report import SPECS

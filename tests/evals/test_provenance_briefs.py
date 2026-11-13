@@ -2,8 +2,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
+from chain import ConfirmedStep, Resolved, Unresolved
 from confirmation import Misjudged, Superseded, Unconfirmed
-from provenance import ConfirmedStep, Resolved, Unresolved
 from tracking import By, RequirementOutcome, outcomes_of
 
 from cad.briefs import store as briefs
@@ -187,13 +187,15 @@ def test_a_card_scored_before_a_newer_confirmation_is_superseded(
     assert all(isinstance(one.outcome, Resolved) for one in traced.numbers)
 
 
-def test_an_awaiting_card_passes_until_its_brief_is_confirmed_and_is_then_superseded(
+def test_an_awaiting_card_stays_true_after_its_brief_is_confirmed(
     store: Path, roots: Roots, brief_id: str
 ) -> None:
+    """A card scored before Confirm is history: the server judges the same stored results after
+    Confirm, and whether any card was judged is the session's question, not this card's."""
     card = genuine_card(basis=AwaitingConfirmation(brief_id=brief_id))
     assert failures_of(card, store) == []
     confirm(roots, brief_id, drafts(LIGHT))
-    assert failures_of(card, store) == [Superseded]
+    assert failures_of(card, store) == []
 
 
 def test_a_brief_store_without_a_key_is_unconfirmed_and_no_key_is_made(

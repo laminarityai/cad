@@ -39,7 +39,7 @@ from inprocess import SCRIPTED, MissingKey, require_key, run_set
 from outcome import BriefResult, Friction, Trace, is_finished, read_results, write_result
 from session import run_session
 from summary import markdown, summarize
-from tracefacts import trace_session
+from tracefacts import failed_trace, trace_session
 
 from cad.chat.key_file import load_key
 
@@ -83,7 +83,7 @@ def run_one(brief: BriefInput, out: Path, model: str, timeout_s: float) -> Brief
     elif failed:
         note = session.note
     else:
-        trace = trace_session(home, directory / "transcript.json")
+        trace = _trace(home, directory / "transcript.json")
     if pages.errors:
         note = "; ".join(filter(None, [note, *pages.errors]))
     return BriefResult(
@@ -98,6 +98,14 @@ def run_one(brief: BriefInput, out: Path, model: str, timeout_s: float) -> Brief
         trace=trace,
         friction=friction,
     )
+
+
+def _trace(home: Path, transcript: Path) -> Trace:
+    """A bug in the tracer fails this brief's trace, and the other briefs still run."""
+    try:
+        return trace_session(home, transcript)
+    except Exception as error:
+        return failed_trace(error)
 
 
 def run_and_report(brief: BriefInput, out: Path, model: str, timeout_s: float) -> BriefResult:

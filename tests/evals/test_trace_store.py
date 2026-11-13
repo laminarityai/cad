@@ -14,7 +14,7 @@ from cad.briefs import store as briefs
 from cad.checks.result import Measure
 from cad.projects.model import new_project_id
 from cad.sandbox.outcome import Build, Built
-from cad.scorecard.model import AwaitingConfirmation, Scorecard
+from cad.scorecard.model import AgainstBrief, AwaitingConfirmation, Scorecard
 from cad.variants import entry
 from tests.support.cards import (
     BREP,
@@ -138,7 +138,7 @@ def test_a_card_judged_against_a_confirmed_brief_resolves_and_reports_its_requir
     assert main([*arguments, "--steps", "--require-judged"]) == 0
     out = lines(capsys)
     assert "cards unconfirmed: 0, misjudged: 0, superseded: 0" in out
-    assert "cards judged: 1, awaiting confirmation: 0, no brief: 0" in out
+    assert "cards judged: 1, awaiting confirmation: 0 (0 judged later), no brief: 0" in out
     assert "confirmed by a person: brief " in out
     assert "strict pass rate: 0/2 (0%)" in out
     assert "requirements covered by reviewed checks: 1/2 (50%)" in out
@@ -151,14 +151,45 @@ def test_awaiting_and_no_brief_cards_count_apart_and_fail_only_when_judgment_is_
     write_transcript(store, genuine_card(basis=AwaitingConfirmation(brief_id=brief_id)))
     arguments = arguments_for(store)
     assert main(arguments) == 0
-    assert "cards judged: 0, awaiting confirmation: 1, no brief: 0" in lines(capsys)
+    assert "cards judged: 0, awaiting confirmation: 1 (0 judged later), no brief: 0" in lines(
+        capsys
+    )
     assert main([*arguments, "--require-judged"]) == 1
     write_transcript(store, genuine_card())
     assert main([*arguments, "--require-judged"]) == 1
-    assert "cards judged: 0, awaiting confirmation: 0, no brief: 1" in lines(capsys)
+    assert "cards judged: 0, awaiting confirmation: 0 (0 judged later), no brief: 1" in lines(
+        capsys
+    )
 
 
 OTHER_VARIANT = "fedcba9876543210"
+
+
+def test_an_awaiting_card_is_still_awaiting_only_until_a_later_card_judges_its_variant(
+    store: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    judged = judged_against_a_brief(store)
+    assert isinstance(judged.basis, AgainstBrief)
+    waiting = judged.model_copy(
+        update={"basis": AwaitingConfirmation(brief_id=judged.basis.brief_id)}
+    )
+    entry.save(
+        store, entry.VariantId(OTHER_VARIANT), "x = 2\n", Build(outcome=Built(), output=""), BREP
+    )
+    (store / OTHER_VARIANT / entry.STEP).write_bytes(STEP)
+    elsewhere = waiting.model_copy(update={"variant_id": OTHER_VARIANT})
+    write_transcript(store, waiting, judged)
+    assert main([*arguments_for(store), "--require-judged"]) == 0
+    assert "cards judged: 1, awaiting confirmation: 0 (1 judged later), no brief: 0" in (
+        lines(capsys)
+    )
+    write_transcript(store, waiting, elsewhere, judged)
+    assert main([*arguments_for(store), "--require-judged"]) == 1
+    assert "cards judged: 1, awaiting confirmation: 1 (1 judged later), no brief: 0" in (
+        lines(capsys)
+    )
+    write_transcript(store, judged, waiting)
+    assert main([*arguments_for(store), "--require-judged"]) == 1
 
 
 def test_a_card_whose_deciding_measure_has_the_wrong_dimension_is_misjudged_and_the_run_goes_on(
@@ -221,6 +252,7 @@ COUNTS = Tally(
     unfitted=0,
     judged=1,
     awaiting=0,
+    judged_later=0,
     no_brief=0,
     numbers=3,
     resolved=3,

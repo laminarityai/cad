@@ -8,12 +8,8 @@ from typing import Any
 
 import pint
 import pytest
-from provenance import (
-    CardTrace,
-    Stale,
-    Unresolved,
-    trace_card,
-)
+from chain import Stale, Unresolved
+from provenance import CardTrace, trace_card
 from pydantic import TypeAdapter
 from trace_store import SPEC_BY_ID
 

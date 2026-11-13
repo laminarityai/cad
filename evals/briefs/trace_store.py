@@ -9,8 +9,9 @@ basis is checked against the brief and project stores, and every number on it is
 `provenance`). The summary counts each kind of failure on its own line, and counts cards judged
 against a brief apart from cards awaiting confirmation and cards with no brief. Exit code 1 means
 at least one card or number failed, or the transcripts hold no card or no number: a pass over
-nothing proves nothing. With `--require-judged`, a card awaiting confirmation or with no brief
-fails too.
+nothing proves nothing. With `--require-judged`, a card with no brief fails too, and so does a
+card awaiting confirmation unless a later card judges its variant against the same brief: in
+build-first the agent scores before the person confirms.
 
 Limit: a transcript is unsigned, so a hand-edited card is not detected.
 """
@@ -23,28 +24,25 @@ from pathlib import Path
 from typing import Final, assert_never
 
 from binding import Unbound, Unlinked
-from confirmation import Misjudged, Superseded, Unconfirmed
-from fitted import Unfitted
-from provenance import (
+from chain import (
     AgentCheckedNumber,
+    AssumedStep,
     BoundStep,
-    CardFailure,
-    CardTrace,
     CheckStep,
     ConfirmedStep,
-    Incomplete,
     NotVerified,
+    ProposedStep,
     ResearchedStep,
     Resolved,
     Stale,
     Step,
     TableStep,
-    Traced,
-    Unreadable,
     Unresolved,
-    trace_card,
 )
-from pydantic import ValidationError
+from confirmation import Misjudged, Superseded, Unconfirmed
+from fitted import Unfitted
+from provenance import CardFailure, CardTrace, Incomplete, Traced, Unreadable, trace_card
+from pydantic import TypeAdapter, ValidationError
 from tracking import RequirementOutcome, describe, describe_apart, outcomes_of, track
 from transcript_cards import read_cards
 
@@ -53,7 +51,7 @@ from cad.briefs.store import BriefRefused
 from cad.checks.report import SPECS
 from cad.records.roots import HOME_ROOTS, Roots
 from cad.research.overlay import project_table, table_named
-from cad.scorecard import material
+from cad.scorecard.material import ReportedScorecard, ScorecardSnapshot
 from cad.scorecard.model import AgainstBrief, AwaitingConfirmation, Scorecard
 from cad.tables.materials import MaterialsTable, load_materials
 from cad.variants import entry
@@ -74,6 +72,7 @@ class Tally:
     unfitted: int
     judged: int
     awaiting: int
+    judged_later: int
     no_brief: int
     numbers: int
     resolved: int
@@ -86,6 +85,8 @@ class Tally:
 def tally(traces: Sequence[CardTrace]) -> Tally:
     numbers = [one.outcome for trace in traces for one in trace.numbers]
     bases = [trace.basis for trace in traces]
+    waiting = [at for at, trace in enumerate(traces) if trace.basis == "awaiting_confirmation"]
+    later = sum(_judged_later(traces, at) for at in waiting)
     return Tally(
         cards=len(traces),
         unreadable=_cards_with(traces, Unreadable),
@@ -97,7 +98,8 @@ def tally(traces: Sequence[CardTrace]) -> Tally:
         superseded=_cards_with(traces, Superseded),
         unfitted=_cards_with(traces, Unfitted),
         judged=bases.count("against_brief"),
-        awaiting=bases.count("awaiting_confirmation"),
+        awaiting=len(waiting) - later,
+        judged_later=later,
         no_brief=bases.count("no_brief"),
         numbers=len(numbers),
         resolved=sum(isinstance(outcome, Resolved) for outcome in numbers),
@@ -105,6 +107,17 @@ def tally(traces: Sequence[CardTrace]) -> Tally:
         unresolved=sum(isinstance(outcome, Unresolved) for outcome in numbers),
         not_verified=sum(isinstance(outcome, NotVerified) for outcome in numbers),
         agent_checked=sum(isinstance(outcome, AgentCheckedNumber) for outcome in numbers),
+    )
+
+
+def _judged_later(traces: Sequence[CardTrace], at: int) -> bool:
+    """Whether a later card judges the variant of card `at` against the same brief. In
+    build-first a card scored before Confirm is history once that judgment exists."""
+    card = traces[at]
+    return any(
+        (later.basis, later.variant_id, later.brief_id)
+        == ("against_brief", card.variant_id, card.brief_id)
+        for later in traces[at + 1 :]
     )
 
 
@@ -135,6 +148,7 @@ class TracedCard:
     order: int
     trace: CardTrace
     outcomes: tuple[RequirementOutcome, ...]
+    card: Scorecard | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,8 +164,9 @@ class TracedStore:
         return tuple(outcome for one in self.cards for outcome in one.outcomes)
 
 
-def trace_cards(cards: Sequence[str], root: Path, roots: Roots) -> TracedStore:
-    """`cards` is the JSON text of each scorecard, in the order the session got them."""
+def trace_cards(cards: Sequence[str | CardTrace], root: Path, roots: Roots) -> TracedStore:
+    """`cards` is the JSON text of each scorecard in the order the session got them, or the
+    trace of one that could not be read."""
     table = load_materials()
     return TracedStore(
         tuple(
@@ -201,8 +216,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         f"superseded: {counts.superseded}, unfitted: {counts.unfitted}"
     )
     print(
-        f"cards judged: {counts.judged}, awaiting confirmation: {counts.awaiting}, "
-        f"no brief: {counts.no_brief}"
+        f"cards judged: {counts.judged}, awaiting confirmation: {counts.awaiting} "
+        f"({counts.judged_later} judged later), no brief: {counts.no_brief}"
     )
     print(
         f"numbers resolved: {counts.resolved}, stale: {counts.stale}, "
@@ -229,15 +244,25 @@ def main(argv: Sequence[str] | None = None) -> int:
     return exit_code(counts, require_judged=args.require_judged)
 
 
+SHOWN: Final = TypeAdapter[ScorecardSnapshot | ReportedScorecard | Scorecard](
+    ScorecardSnapshot | ReportedScorecard | Scorecard
+)
+"""A card a tool returned: `scorecard` adds an etag, `score_variant` does not, and an older
+server did not report the material."""
+
+
 def _read(
-    order: int, text: str, root: Path, roots: Roots, table: MaterialsTable
-) -> tuple[CardTrace, tuple[RequirementOutcome, ...]]:
+    order: int, text: str | CardTrace, root: Path, roots: Roots, table: MaterialsTable
+) -> tuple[CardTrace, tuple[RequirementOutcome, ...], Scorecard | None]:
+    if isinstance(text, CardTrace):
+        return text, (), None
     try:
-        card = material.STORED.validate_json(text)
+        card = SHOWN.validate_json(text)
     except ValidationError as error:
-        return CardTrace(f"card {order + 1}", (Unreadable(str(error).splitlines()[0]),), ()), ()
+        failure = Unreadable(str(error).splitlines()[0])
+        return CardTrace(f"card {order + 1}", (failure,), ()), (), None
     trace = trace_card(card, root, roots, _table_scored_against(card, roots, table), SPEC_BY_ID)
-    return trace, outcomes_of(card)
+    return trace, outcomes_of(card), card
 
 
 def _table_scored_against(card: Scorecard, roots: Roots, git: MaterialsTable) -> MaterialsTable:
@@ -290,6 +315,17 @@ def _step(step: Step) -> str:
                 f"confirmed by a person: brief {step.brief_id}, answer "
                 f"{step.decision_sha256[:12]}, requirement {step.requirement_id} "
                 f"({step.statement})"
+            )
+        case ProposedStep():
+            return (
+                f"proposed by the agent, not confirmed: brief {step.brief_id}, proposal "
+                f"{step.proposal}, requirement {step.requirement_id} ({step.statement})"
+            )
+        case AssumedStep():
+            named = f" for {step.instance}" if step.instance else ""
+            return (
+                f"assumed by the agent, no verdict: brief {step.brief_id}, assumption set "
+                f"{step.number}, {step.check_id}{named}"
             )
         case _:
             assert_never(step)

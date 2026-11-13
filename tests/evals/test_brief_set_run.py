@@ -6,7 +6,7 @@ import pytest
 import run
 from brief_set import load_set, prompt_for
 from friction import minutes_to_first_result, read_pages
-from outcome import BriefResult, Friction, Share, Trace, is_finished
+from outcome import BriefResult, Friction, Share, Trace, is_finished, read_results
 from session import SessionFacts, SessionRun, failure_note
 from summary import markdown, summarize
 from tracefacts import NO_CARD, trace_session
@@ -30,6 +30,7 @@ from tests.support.cards import (
     transcript_of,
     write_transcript,
 )
+from tests.support.readings import scored_variant
 
 LIGHT = ({"kind": "max_mass", "mass": {"magnitude": 150, "unit": "g"}}, "under 150 g")
 FRIENDLY = ({"kind": "unchecked", "statement": "looks friendly"}, "looks friendly")
@@ -161,12 +162,11 @@ def a_home_with_a_build(tmp_path: Path) -> tuple[Path, Path]:
 
 
 def test_a_card_judged_against_a_confirmed_brief_is_traced(tmp_path: Path) -> None:
-    home, variants = a_home_with_a_build(tmp_path)
+    home, variants = a_home(tmp_path)
     roots = Roots(home / ".cad" / "briefs", home / ".cad" / "projects")
     brief_id = briefs.create_brief(roots, BRIEF_TEXT, new_project_id()).id
-    write_transcript(
-        variants, judged_card(confirm_on_page(roots, brief_id, drafts(LIGHT, FRIENDLY)))
-    )
+    card = judged_card(confirm_on_page(roots, brief_id, drafts(LIGHT, FRIENDLY)))
+    write_transcript(variants, card.model_copy(update={"variant_id": scored_variant(variants)}))
     traced = trace_session(home, transcript_of(variants))
     assert traced.traced, traced.untraced
     assert (traced.strict_pass, traced.coverage) == (
@@ -176,16 +176,18 @@ def test_a_card_judged_against_a_confirmed_brief_is_traced(tmp_path: Path) -> No
 
 
 def test_rates_count_the_requirements_of_the_last_card_once(tmp_path: Path) -> None:
-    home, variants = a_home_with_a_build(tmp_path)
+    home, variants = a_home(tmp_path)
     roots = Roots(home / ".cad" / "briefs", home / ".cad" / "projects")
     brief_id = briefs.create_brief(roots, BRIEF_TEXT, new_project_id()).id
     card = judged_card(confirm_on_page(roots, brief_id, drafts(LIGHT, FRIENDLY)))
-    second = entry.VariantId("fedcba9876543210")
-    entry.save(variants, second, "x = 2\n", Build(outcome=Built(), output=""), BREP)
-    (variants / second / entry.STEP).write_bytes(STEP)
-    write_transcript(variants, card, card.model_copy(update={"variant_id": second}))
+    first, second = scored_variant(variants), scored_variant(variants, "x = 2\n")
+    write_transcript(
+        variants,
+        card.model_copy(update={"variant_id": first}),
+        card.model_copy(update={"variant_id": second}),
+    )
     traced = trace_session(home, transcript_of(variants))
-    assert traced.cards == 2
+    assert traced.traced, traced.untraced
     assert traced.coverage == Share(numerator=1, denominator=2)
 
 
@@ -303,3 +305,30 @@ def test_only_runs_the_named_briefs(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     started = stub_session(monkeypatch, failing=set())
     run.main(["--briefs", str(briefs_dir), "--out", str(out), "--only", "two"])
     assert started == ["two"]
+
+
+def test_a_tracer_failure_fails_that_briefs_trace_and_the_other_briefs_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    briefs_dir, out = tmp_path / "set", tmp_path / "out"
+    briefs_dir.mkdir()
+    for name in ("one", "two", "three"):
+        write_brief(briefs_dir, name, "x")
+    started = stub_session(monkeypatch, failing=set())
+
+    def tracer(home: Path, transcript: Path) -> Trace:
+        if home.parent.name == "one":
+            raise AssertionError("first line\nonly a finished check has measures")
+        return a_trace()
+
+    monkeypatch.setattr(run, "trace_session", tracer)
+    arguments = ["--briefs", str(briefs_dir), "--out", str(out), "--jobs", "1"]
+    assert run.main([*arguments, "--require-traced"]) == 1
+    assert sorted(started) == ["one", "three", "two"]
+    [one, three, two] = read_results(out, ["one", "three", "two"])
+    assert (one.status, two.status, three.status) == ("finished",) * 3
+    assert one.trace is not None and not one.trace.traced
+    assert one.trace.untraced == (
+        "the tracer failed: AssertionError: only a finished check has measures",
+    )
+    assert two.trace == a_trace() and three.trace == a_trace()
