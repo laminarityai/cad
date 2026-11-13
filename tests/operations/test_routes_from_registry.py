@@ -11,7 +11,6 @@ from cad.chat.routes import CHAT_ROUTES
 from cad.confirmations.web import CARD_PATH
 from cad.geometry import job, store
 from cad.geometry.model import Tessellated, TessellationFailed
-from cad.operations.events import EVENTS_PATH
 from cad.operations.model import Audience, Operation, Tenant
 from cad.operations.registry import OPERATIONS, ROUTES
 from cad.operations.routes import Served, person_routes
@@ -28,9 +27,7 @@ pytestmark = pytest.mark.anyio
 RAIL = b"CASCADE Topology V3, a rail\n"
 SHA = hashlib.sha256(RAIL).hexdigest()
 ALICE, BOB = AccountId("user_alice"), AccountId("user_bob")
-OUTSIDE_REGISTRY = (
-    CHAT_ROUTES | UPLOAD_ROUTES | {("scorecard_events", EVENTS_PATH), ("confirmation", CARD_PATH)}
-)
+OUTSIDE_REGISTRY = CHAT_ROUTES | UPLOAD_ROUTES | {("confirmation", CARD_PATH)}
 
 
 def tessellated(name: str) -> Tessellated:
@@ -123,7 +120,6 @@ def test_no_person_only_operation_is_an_agent_tool() -> None:
         "/v1/projects/p-0123456789abcdef/briefs/0123456789abcdef/set",
         "/v1/variants/0123456789abcdef",
         "/v1/variants/0123456789abcdef/geometry",
-        "/v1/variants/0123456789abcdef/events",
         f"/v1/geometry/{job.VERSION}/{SHA}.json",
         "/v1/server",
         "/v1/materials",
