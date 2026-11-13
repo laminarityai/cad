@@ -141,8 +141,9 @@ class Revised(Frozen):
 
 
 class Tried(Frozen):
-    """A build under the run that `auto_revise` did not record, such as one `build_variant` made
-    into a new slot. It counts among the run's builds and never stops the run."""
+    """A build under the run that no `Revised` holds yet, such as one `build_variant` made into a
+    new slot, or an `auto_revise` whose checks still run. It counts among the run's builds and
+    never stops the run."""
 
     kind: Literal["tried"] = "tried"
     code_sha256: str

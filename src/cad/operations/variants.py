@@ -169,7 +169,7 @@ def _build(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResult:
                 option,
             )
             if running is not None:
-                _count(tenant, code_sha256(arguments.code), built.variant_id)
+                count_build(tenant, code_sha256(arguments.code), built.variant_id)
             return with_out_of_date(tenant, arguments.brief_id, built)
         if arguments.slot is not None:
             raise SlotRefused("slot names a place in a brief's variant set, so pass brief_id too")
@@ -186,7 +186,7 @@ def _build(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResult:
     return SetBuildResult(variant_id=built.variant_id, outcome=built.outcome, output=built.output)
 
 
-def _count(tenant: Tenant, sha: str, variant_id: str) -> None:
+def count_build(tenant: Tenant, sha: str, variant_id: str) -> None:
     """A build under the run counts among its builds, once per code (ADR-0010)."""
     assert tenant.bound_run is not None
 

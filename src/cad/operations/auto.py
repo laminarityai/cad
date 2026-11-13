@@ -31,7 +31,7 @@ from cad.operations.agent_checks import approved_checks
 from cad.operations.conversations import ConversationState
 from cad.operations.guidance import AUTO_AGENT_CHECKS, AUTO_BUILDS, AUTO_DESCRIBED
 from cad.operations.model import Audience, Input, Tenant, operation
-from cad.operations.variants import MAX_CODE_CHARS, chooser, with_out_of_date
+from cad.operations.variants import MAX_CODE_CHARS, chooser, count_build, with_out_of_date
 from cad.sandbox import image
 from cad.sandbox.outcome import Built
 from cad.scorecard import material
@@ -241,6 +241,7 @@ def auto_revise(tenant: Tenant, arguments: ReviseInput) -> RevisedRun:
             )
             standing = standing_of(score_until_settled(tenant, scored), revision, sha)
             if isinstance(standing, Unsettled):
+                count_build(tenant, sha, built.variant_id)
                 return RevisedRun(run_id=run_id, state=running, settling=True)
         else:
             standing = Standing(
