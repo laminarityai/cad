@@ -1,6 +1,6 @@
 # Load faces that agent-written code places
 
-Status: design, not built. The operator approved agent-written code that picks the support and load faces for the `fea` check on 2026-11-12, with the words "the agent can write any code for tests we do not have" and "let's not get hung up on specific cases". This note settles how. The text of the ADR-0007 amendment it needs is in [ADR-0007](../adr/0007-a-load-names-anchors-never-faces.md), dated 2026-11-12.
+Status: design, not built past build step 1. The operator decided on 2026-11-12 to leave it there for now. The operator approved agent-written code that picks the support and load faces for the `fea` check on 2026-11-12, with the words "the agent can write any code for tests we do not have" and "let's not get hung up on specific cases". This note settles how. The text of the ADR-0007 amendment it needs is in [ADR-0007](../adr/0007-a-load-names-anchors-never-faces.md), dated 2026-11-12.
 
 Each claim carries one of three labels. "Measured" cites the note that measured it. "Read" cites the file it was read from, at origin/main 896f43a. "Inferred" is reasoning that no run has tested. A claim that needs a run is marked "not measured", and build step 1 takes it.
 

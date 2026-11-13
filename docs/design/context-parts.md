@@ -1,6 +1,6 @@
 # Context parts and the fit check
 
-SPEC says a context part is a part the new part must fit with. A person attaches one to the project, or an earlier variant becomes one, and confirms it on the one confirmation page before a check measures against it. The fit check then measures each variant against every confirmed context part of its project, and reports the overlap volume and the minimum clearance. Issue #92 holds the prototype that settles how the check measures. Reading parts from Onshape or Fusion (#60) is out of scope.
+SPEC says a context part is a part the new part must fit with. A person attaches one to the project, or an earlier variant becomes one, and confirms it on the one confirmation page before a check measures against it. The fit check then measures each variant against every confirmed context part of its project, and reports the overlap volume and the minimum clearance. Issue #92 holds the prototype that settles how the check measures. Reading parts from Onshape or Fusion (#60) is outside this note. SPEC puts Onshape in phase 5 and Fusion after the first version.
 
 ## Usage
 

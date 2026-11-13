@@ -169,7 +169,7 @@ Each step is one PR and ends in something a person can see.
 3. **Sections.** Memoize the stage's shapes, and make `show()` keep the section across a redraw. Add `section()` to the engine, and the Section toggle and panel. Test picking while cut, and caps on the held and pushed faces. Done when a section through the cap and its ghost stays on screen while the page polls, and a click on a cut-away face does not select it.
 4. **Pull apart.** Add `pullApart()`, the toggle and the camera fit. Done when the cap and the bracket separate and both stay in view.
 
-Step 4 is the one to drop if the section in step 3 shows fits well enough.
+Steps 1 to 3 are built. Step 4 is dropped: the operator decided on 2026-11-12 to skip the pull-apart view.
 
 ## What the run did not settle
 

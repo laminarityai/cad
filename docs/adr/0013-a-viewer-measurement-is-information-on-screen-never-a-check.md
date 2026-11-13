@@ -1,6 +1,6 @@
 # A viewer measurement is information on the screen and never a check
 
-Status: Proposed, 2026-11-12. Every rule below is the design's pick. The operator has not approved any of them yet.
+Status: Accepted, 2026-11-12. Every rule below was the design's pick. The operator approved all four on 2026-11-12.
 
 The viewer tools feature turns on measuring, sectioning and exploding in the 3D viewer, and draws the `extents` check's numbers as dimensions on the part. AGENTS.md says that checks decide and the agent never does. The server's guidance tells the agent to state a dimension only when a `score_variant` result returned it, and to name the check. A measure tool breaks the pattern. It computes a number in the person's browser from the drawn geometry, and no check computed that number. This ADR names that number, says where it may go, and says how the `extents` dimensions differ from it.
 
@@ -19,7 +19,7 @@ A viewer measurement is a number that the web app shows for the faces and edges 
 - **One face or edge.** The readout shows the topology facts the server sent with the mesh: area, length, radius, centre and normal. They come from the kernel and are the same numbers `read_selection` gives the agent.
 - **Two faces or edges.** The browser computes the distance and the angle between them. Two parallel planes get the gap between their planes, from the topology. Any other pair gets the distance between closest points, from the mesh.
 
-GLOSSARY.md gains the term when the operator accepts this ADR.
+GLOSSARY.md defines the term.
 
 ### The screen says it is not a check
 

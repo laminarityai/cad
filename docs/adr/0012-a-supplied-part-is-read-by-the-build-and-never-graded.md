@@ -64,7 +64,7 @@ A person also adds PDF, Markdown, plain text, PNG and JPEG files through the sam
 
 ### A licensed standard is stored and kept from the agent
 
-The operator decided on 2026-11-11 that a DIN or ISO document is stored and kept from the agent, and that a requirement can still cite it. The operator did not settle the details below. The main session picked them on 2026-11-12, and they wait for the operator's word.
+The operator decided on 2026-11-11 that a DIN or ISO document is stored and kept from the agent, and that a requirement can still cite it. The operator did not settle the details below at the time. The main session picked them on 2026-11-12, and the operator approved them the same day.
 
 - **The person marks it.** A PDF is withheld only when the person says so when adding it: the upload route takes a `withheld` flag that is off by default, and the web app asks once for each PDF. There is no detector, because a text heuristic can miss a standard or wrongly hide a datasheet. Only a PDF can be marked. Adding the same file again with the other choice records the new choice, so the person can change their mind through the same route. No tool sets, clears or reads around the flag.
 - **The agent sees the name and the fact.** `list_files` and the project read give a withheld file's name and `withheld: true`. `read_file` refuses it, the chat attaches no withheld file to the model whatever a result names, and the chat's list of the person's files marks it.

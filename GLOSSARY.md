@@ -96,6 +96,10 @@ The agent may write a check for a brief only while the brief has no variants, so
 A number that the agent's own measuring code reported for a requirement no check covers. The code runs only in the sandbox. The scorecard lists the number apart from the check results, labelled "agent's own measurement, not verified". It never passes or fails anything, no team check reads it, and its requirement stays unverified (ADR-0008). Under ADR-0011 it is an agent-written check with no limit.
 _Avoid_: Agent check, own check, self-check
 
+**Viewer measurement**:
+A number the web app shows for the faces and edges the user has selected in the 3D view. The browser works it out from the geometry it already holds, and the readout always ends "Measured on screen. Not a check." It never leaves the browser as data, never appears on the scorecard and never passes or fails anything. The agent reads its own exact numbers for the same selection with `read_selection` (ADR-0013).
+_Avoid_: Measured dimension, viewer check
+
 **Researched value**:
 A material value the tables lack, which the agent read from a public web page or PDF datasheet. The server fetched that page, checked that the agent's quote is on it and writes the agent's number, and cites it. A check reads it only in that project. Every result and verdict that rests on it is labelled researched and counted apart (ADR-0009).
 _Avoid_: Candidate value, extracted value, parsed value
