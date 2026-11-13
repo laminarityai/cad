@@ -2,13 +2,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from cad.briefs.model import Brief, MadeOf, Requirement, requirement_id
+from cad.briefs.model import ONE_PER_BRIEF, Brief, Requirement, requirement_id
 from cad.briefs.origins import BriefSpan
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from cad.briefs import said
+    from cad.briefs.kind import Kind
     from cad.briefs.store import BriefState, Draft
 
 
@@ -19,29 +20,45 @@ def next_set(
     words: said.Words,
     remove: Sequence[str],
 ) -> tuple[Requirement, ...] | str:
-    known = {r.id for p in state.proposals for r in (*p.proposal.requirements, *p.requirements)}
-    unknown = next((one for one in remove if one not in known), None)
-    if unknown is not None:
+    base = state.carried
+    ids = {r.id for r in base}
+    outside = next((one for one in remove if one not in ids), None)
+    if outside is not None:
         return (
-            f"remove: {unknown} is not a requirement of brief {brief.id}; "
-            "list_requirements shows each requirement's id"
+            f"remove: {outside} is not in the set being carried into the next proposal of brief "
+            f"{brief.id}, which is the waiting proposal, or the confirmed set when none waits; "
+            "list_requirements shows each requirement's id and status"
         )
-    confirmed = state.confirmed
-    kept = tuple(r for r in confirmed.requirements if r.id not in remove) if confirmed else ()
+    kept = tuple(r for r in base if r.id not in remove)
     new = _resolve(brief, drafts, words)
     if isinstance(new, str):
         return new
     held = [r.target for r in kept]
     added = tuple(r for r in new if r.target not in held)
-    material = next((r for r in kept if isinstance(r.target, MadeOf)), None)
-    if material is not None and any(isinstance(r.target, MadeOf) for r in added):
-        return (
-            f"the confirmed set holds a made_of, requirement {material.id}, and a part is made "
-            "of one material: to change it, pass its id in remove"
-        )
+    second = _second_of_a_kind(kept, added)
+    if second is not None:
+        return second
     if not kept and not added:
         return f"brief {brief.id} would hold no requirement: keep one or propose one"
     return (*kept, *added)
+
+
+def _second_of_a_kind(kept: Sequence[Requirement], added: Sequence[Requirement]) -> str | None:
+    first: dict[Kind, Requirement] = {}
+    for one in (*kept, *added):
+        kind = one.target.kind
+        if kind not in ONE_PER_BRIEF:
+            continue
+        earlier = first.setdefault(kind, one)
+        if earlier is one:
+            continue
+        if earlier in kept:
+            return (
+                f"the set being carried holds a {kind}, requirement {earlier.id}, and a brief "
+                f"holds one {kind}: to change it, pass its id in remove"
+            )
+        return f"a set holds at most one {kind}: keep the one the brief states"
+    return None
 
 
 def _resolve(

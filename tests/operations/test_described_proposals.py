@@ -34,7 +34,14 @@ async def test_a_described_case_is_accepted_and_may_be_replaced_while_no_result_
     s: Session,
 ) -> None:
     brief_id = await brief_of(s, row(shelf()))
-    again = await propose(s, brief_id, row(CLAMPED))
+    listed = await s.call("list_requirements", brief_id=brief_id)
+    [waiting] = listed["proposals"][-1]["requirements"]
+    again = await s.call(
+        "propose_requirements",
+        brief_id=brief_id,
+        requirements=[row(CLAMPED)],
+        remove=[waiting["requirement"]["id"]],
+    )
     assert again["proposal"] == 2
     assert "across a gap" in json.dumps(again["requirements"])
     assert "middle of its largest flat face" not in json.dumps(again["requirements"])

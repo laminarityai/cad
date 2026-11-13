@@ -137,7 +137,9 @@ def write(roots: Roots) -> tuple[str, StoredCheck]:
 
 def answer(roots: Roots, brief_id: str, stored: StoredCheck, check: Outcome) -> ConfirmedSet:
     """The person confirms the requirements on the page and answers the check with `check`."""
-    store.propose(roots, brief_id, [agent_limit(stored.sha256)])
+    store.propose(
+        roots, brief_id, [agent_limit(stored.sha256)], remove=[stored.check.requirement_id]
+    )
     state = store.read_state(roots, brief_id)
     project = state.brief.project
     assert confirming.AgentChecks(roots).pending(project) == (confirming.ref(project, stored),)

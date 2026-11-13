@@ -12,6 +12,7 @@ from cad.briefs.model import AgentLimit
 from cad.briefs.store import ConfirmedSet
 from cad.confirmations import agent_checks as confirming
 from cad.frozen import Frozen
+from cad.operations.guidance import CHECK_WRITTEN
 from cad.operations.model import Audience, Input, Tenant, operation
 from cad.records.roots import Roots
 from cad.sandbox import image
@@ -119,13 +120,7 @@ def write_check_operation(tenant: Tenant, arguments: WriteCheckInput) -> CheckWr
         check_sha256=stored.sha256,
         number=stored.number,
         title=stored.check.title,
-        next_step=(
-            "The check is frozen. Propose its requirement again as agent_limit with this "
-            "check_sha256, the comparator and the person's limit, and pass the requirement_id "
-            "you wrote it for in remove, then call ask_to_confirm: the person approves the check "
-            "on the same page. It decides nothing until they do, and a variant's verdict on it is "
-            "labelled as an agent-written check they approved, not reviewed by our team."
-        ),
+        next_step=CHECK_WRITTEN,
     )
 
 

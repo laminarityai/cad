@@ -33,7 +33,7 @@ A value the agent filled in so that it could build, such as a load or a size lim
 _Avoid_: Default, guess, soft requirement
 
 **Proposal**:
-One numbered set of requirements that the agent proposed for a brief. The user confirms or declines a proposal as a whole, on a confirmation page that only the user can answer. A newer proposal never changes an older one. The server carries every requirement the user confirmed into the next proposal. One leaves only when the agent names it for removal, and the page shows that removal as its own row, which takes effect when the user confirms.
+One numbered set of requirements that the agent proposed for a brief. The user confirms or declines a proposal as a whole, on a confirmation page that only the user can answer. A newer proposal never changes an older one. The server builds the next proposal from the one still waiting for the user, or from the confirmed set when none waits. A requirement leaves only when the agent names it for removal. The page shows the removal of a confirmed requirement as its own row, which takes effect when the user confirms. A declined proposal does not carry, so the agent proposes again each of its requirements that should stay.
 _Avoid_: Draft, revision
 
 **Confirmation page**:

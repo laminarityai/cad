@@ -119,6 +119,16 @@ class BriefState:
         found = [p for p in self.proposals if p.status is Status.CONFIRMED]
         return found[-1] if found else None
 
+    @property
+    def carried(self) -> tuple[Requirement, ...]:
+        """What the next proposal starts from: the waiting proposal, which already carries the
+        confirmed set, or else the confirmed set. A declined proposal's rows do not carry."""
+        latest = self.latest
+        if latest is not None and latest.status is Status.PROPOSED:
+            return latest.requirements
+        confirmed = self.confirmed
+        return confirmed.requirements if confirmed else ()
+
     def proposal(self, number: int) -> ProposalState | None:
         return self.proposals[number - 1] if 1 <= number <= len(self.proposals) else None
 

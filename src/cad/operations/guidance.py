@@ -1,6 +1,7 @@
 from typing import Final
 
 from cad.briefs.bindable import BINDABLE
+from cad.briefs.model import ONE_PER_BRIEF
 
 BUILD_FIRST = (
     "A brief builds at once, so nothing waits on the person before you build. Work in this "
@@ -15,8 +16,8 @@ BUILD_FIRST = (
     "until the person confirms it. Until then the scorecard shows the target as waiting on the "
     "person, with the measure beside it, and you report it that way. After they confirm, the "
     "same stored check results are judged and nothing is rebuilt. If the person declines, read "
-    "their note and keep every option you built. Then propose the target again, file its value "
-    "as an assumption, or drop it."
+    "their note and keep every option you built. A declined proposal does not carry, so for "
+    "each of its targets, propose it again, file its value as an assumption, or drop it."
 )
 
 PROPOSE_REQUIREMENTS = (
@@ -56,12 +57,15 @@ PROPOSE_REQUIREMENTS = (
     "unit: N} and a direction: along or across the long axis or the hole_axis, or any. Propose "
     "factor 2 unless the brief states one. Words for where the part is held or loaded that "
     "none of these say are an unchecked requirement. Proposing never confirms: every new row is "
-    "proposed until the user confirms the set. A new proposal replaces one the user has not "
-    "answered. The server carries every requirement the user confirmed into the new proposal, "
-    "so pass only new or changed requirements. To drop or change a confirmed requirement, pass "
-    "its id from list_requirements in remove, with any replacement in requirements: the user "
-    "sees each removal as its own row, and the requirement stays in force until they confirm. "
-    "Proposing the same set again, undecided or confirmed, changes nothing, so it never "
+    "proposed until the user confirms the set. The server builds each new proposal from the "
+    "one still waiting for the user, or from the confirmed set when none waits, so pass only "
+    "new or changed requirements. A declined proposal does not carry: after a decline, pass "
+    "again each of its requirements that should stay. A brief holds at most one of each of "
+    + ", ".join(sorted(ONE_PER_BRIEF))
+    + ". To drop or change a requirement in the set being carried, pass its id from "
+    "list_requirements in remove, with any replacement in requirements. The user sees the "
+    "removal of a requirement they confirmed as its own row, and it stays in force until they "
+    "confirm. Proposing the same set again, undecided or confirmed, changes nothing, so it never "
     "asks the person twice. A quote may come from "
     "words the person said after the brief was created. In chat, the server finds them in the "
     "person's messages and adds that message to the brief, so quote it exactly and pass no "
@@ -83,6 +87,14 @@ PROPOSE_REQUIREMENTS = (
     "closed_solid or unchecked target is not one."
 )
 
+CHECK_WRITTEN: Final = (
+    "The check is frozen. Propose its requirement again as agent_limit with this check_sha256, "
+    "the comparator and the person's limit, and pass the requirement_id you wrote it for in "
+    "remove, so the agent_limit takes that unchecked row's place in the waiting proposal. Then "
+    "call ask_to_confirm: the person approves the check on the same page. It decides nothing "
+    "until they do, and a variant's verdict on it is labelled as an agent-written check they "
+    "approved, not reviewed by our team."
+)
 
 CHANGES = (
     "Sort each change the person asks for. With no number stated, such as shorter, stiffer or "
@@ -90,9 +102,9 @@ CHANGES = (
     "that slot. That needs no new brief, no proposal and no confirmation. Pick the amount "
     "yourself and say it in one line. A number the person states, such as 20 N or at most "
     "30 g, is proposed on that slot's own brief, quoting the person's words exactly. The server "
-    "adds their message to the brief and keeps every confirmed requirement. When the new number "
-    "replaces a confirmed one, pass the old one's id in remove. Build and score the slot's "
-    "next revision without waiting, then call ask_to_confirm last. Only a part the project "
+    "adds their message to the brief and carries the set already waiting or confirmed. When the "
+    "new number replaces one in that set, pass the old one's id in remove. Build and score the "
+    "slot's next revision without waiting, then call ask_to_confirm last. Only a part the project "
     "does not have, such as a lid, gets a new brief, in the same project. Take sensible "
     "defaults and say each in one line instead of asking. Ask only for a target only the "
     "person can set, and never invent one for them to confirm. Never ask the person to pick "

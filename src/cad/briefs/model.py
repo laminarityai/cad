@@ -198,6 +198,9 @@ class AgentLimit(Frozen):
 ON_PART: Final = (MinClearance, MaxClearance, FitsWith)
 """The targets that name a context part, which the fit check decides against that part."""
 
+ONE_PER_BRIEF: Final = frozenset({Kind.ENVELOPE, Kind.MAX_MASS, Kind.MIN_MASS, Kind.MADE_OF})
+"""The kinds a brief holds at most one of, since a second would bind beside the first."""
+
 
 type Target = Annotated[
     ClosedSolid
