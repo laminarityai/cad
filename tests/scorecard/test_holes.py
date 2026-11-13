@@ -190,3 +190,24 @@ def test_an_unknown_result_carries_a_comparison_verdict_of_unknown() -> None:
         requirements.judge(requirement(M5_CLEARANCE), suite(result("holes", Verdict.UNKNOWN)))
     )
     assert {c.verdict for c in judged.comparisons} == {Verdict.UNKNOWN}
+
+
+def marks(target: dict[str, Any], *sizes: float, count: int | None = None) -> list[Verdict]:
+    more: dict[str, Any] = {} if count is None else {"count": count}
+    judged = checked(requirements.judge(requirement({**target, **more}), counted(*sizes)))
+    return [c.verdict for c in judged.comparisons]
+
+
+def test_each_bound_is_marked_by_whether_enough_holes_meet_it() -> None:
+    assert marks(M5_CLEARANCE, 4.2, 4.2, count=2) == [Verdict.FAIL, Verdict.PASS]
+    assert marks(M5_CLEARANCE, 7.0, 7.0, count=2) == [Verdict.PASS, Verdict.FAIL]
+    assert marks(M5_CLEARANCE, 5.5, 4.2, count=2) == [Verdict.FAIL, Verdict.PASS]
+    assert marks(M5_CLEARANCE, 5.5, 5.5, count=2) == [Verdict.PASS, Verdict.PASS]
+    assert marks(M5_CLEARANCE, 4.2) == [Verdict.FAIL, Verdict.PASS]
+    assert marks(M5_CLEARANCE) == [Verdict.FAIL, Verdict.FAIL]
+
+
+def test_marking_each_bound_leaves_the_requirement_verdict_as_the_count_decides() -> None:
+    assert verdict_of(M5_CLEARANCE, counted(4.2, 7.0), count=1) == Verdict.FAIL
+    assert marks(M5_CLEARANCE, 4.2, 7.0, count=1) == [Verdict.PASS, Verdict.PASS]
+    assert verdict_of(M5_CLEARANCE, counted(5.5, 5.5, 5.5), count=2) == Verdict.FAIL
