@@ -106,13 +106,12 @@ def propose_from_variant(
     parts = stored_parts(projects, project)
     standing = _newest_undeclined(parts, held.brep_sha256)
     if standing is not None:
+        write_content(brep_path(projects, project, held.brep_sha256), held.brep, held.brep_sha256)
         return standing
     read = ingest(Brep(held.brep))
     if isinstance(read, NotAPart):
         raise BadContextPart(f"variant {held.id} cannot be a context part: {read.reason}")
-    write_content(
-        projects / project / PARTS / f"{held.brep_sha256}.brep", held.brep, held.brep_sha256
-    )
+    write_content(brep_path(projects, project, held.brep_sha256), held.brep, held.brep_sha256)
     record = ContextPartRecord(
         project=project,
         brief_id=brief.id,
@@ -134,10 +133,10 @@ def add_upload(
     card. Idempotent like `propose_from_variant`: the same solids return the record that still
     stands, and solids declined before get a new record."""
     brep_sha256 = hashlib.sha256(read.brep).hexdigest()
+    write_content(brep_path(projects, project, brep_sha256), read.brep, brep_sha256)
     standing = _newest_undeclined(stored_parts(projects, project), brep_sha256)
     if standing is not None:
         return standing
-    write_content(brep_path(projects, project, brep_sha256), read.brep, brep_sha256)
     record = ContextPartRecord(
         project=project,
         name=name,
@@ -288,9 +287,12 @@ def part_brep(projects: Path, part: ConfirmedPart) -> bytes:
     data = files.read_regular(path, entry.MAX_FILE_BYTES)
     if data is None or hashlib.sha256(data).hexdigest() != record.brep_sha256:
         LOG.error("%s is missing or does not match its SHA-256", path)
+        source = variant_of(record)
+        again = (
+            "add its file again" if source is None else f"propose it again from variant {source}"
+        )
         raise TamperedProject(
-            f"context part {record.id} of project {record.project} has lost its geometry; "
-            "the operator must delete the project's context parts from the project store"
+            f"context part {record.id} of project {record.project} has lost its geometry; {again}"
         )
     return data
 
@@ -354,6 +356,6 @@ def _report(projects: Path, project: ProjectId) -> str:
         key.key_path(projects),
     )
     return (
-        f"project {project} has a context part this store did not sign or cannot read; "
-        "the operator must delete the project's context parts from the project store"
+        f"project {project}'s context parts failed the server's integrity check, so the project "
+        "cannot use them; start a new project and add its parts there"
     )

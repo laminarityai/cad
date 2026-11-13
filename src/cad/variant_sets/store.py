@@ -275,6 +275,6 @@ def _full(key: SetKey, built_as: VariantId | None = None) -> SetFull:
 def _report(key: SetKey, directory: Path) -> str:
     LOG.error("%s holds a variant set record this store did not sign or cannot read", directory)
     return (
-        f"the variant set of brief {key.brief_id} has a record this store did not sign or "
-        "cannot read; the operator must delete that set from the variant set store"
+        f"the variant set of brief {key.brief_id} failed the server's integrity check, so its "
+        "options cannot be shown; create a new brief to build options again"
     )

@@ -16,7 +16,7 @@ def fill(root: Path, size: int) -> None:
 
 def test_a_store_at_its_limit_refuses_new_code_before_it_builds(tmp_path: Path) -> None:
     fill(tmp_path, 1024)
-    with pytest.raises(SandboxUnavailable, match="1024 bytes, at its limit of 1024 bytes"):
+    with pytest.raises(SandboxUnavailable, match=r"full \(1024 of 1024 bytes\)"):
         store.build_variant(CODE, tmp_path, cap_bytes=1024)
     assert [path.name for path in tmp_path.iterdir()] == ["0123456789abcdef"]
 

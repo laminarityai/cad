@@ -22,7 +22,6 @@ from cad.records.roots import Roots, project_store
 
 AUTO: Final = "auto"
 EVENT: Final = TypeAdapter[Event](Event)
-_OPERATOR: Final = "the operator must delete the run's directory"
 
 type Make = Callable[[Running], Event | None]
 
@@ -38,7 +37,7 @@ def read_events(roots: Roots, run_id: str) -> tuple[Event, ...]:
     raw = signed.read_numbered(project_store(roots.projects), directory, _slot_of(run_id))
     events = None if raw is None else _parse(raw)
     if events is None:
-        raise TamperedRun(f"auto run {run_id}'s records cannot be read; {_OPERATOR}")
+        raise TamperedRun(_unreadable(run_id))
     return events
 
 
@@ -84,9 +83,17 @@ def _append(
     try:
         signed.append(store, run_dir(roots, run_id), _slot_of(run_id), record_for)
     except signed.Tampered as error:
-        raise TamperedRun(f"auto run {run_id}'s records cannot be read; {_OPERATOR}") from error
+        raise TamperedRun(_unreadable(run_id)) from error
     except signed.Contended as error:
         raise ProjectBusy(f"auto run {run_id} is being changed concurrently; try again") from error
+
+
+def _unreadable(run_id: str) -> str:
+    return (
+        f"auto run {run_id}'s records failed the server's integrity check, so Auto cannot go on "
+        "for its brief; keep working on the brief without Auto, or create a new brief to run Auto "
+        "again"
+    )
 
 
 def _encode(event: Event) -> bytes:

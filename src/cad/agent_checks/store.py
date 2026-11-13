@@ -20,7 +20,6 @@ from cad.records import signed
 from cad.records.roots import project_store
 
 AGENT_CHECKS: Final = "agent_checks"
-_OPERATOR: Final = "the operator must delete the project's agent_checks directory"
 LOG = logging.getLogger(__name__)
 
 
@@ -42,7 +41,7 @@ def checks_of(projects: Path, project: ProjectId) -> tuple[StoredCheck, ...]:
     found = None if raw is None else _parse_all(raw, project)
     if found is None:
         LOG.error("%s holds a record this store did not sign or cannot read", directory)
-        raise CheckRefused(f"project {project}'s agent-written checks cannot be read; {_OPERATOR}")
+        raise CheckRefused(_unreadable(project))
     return found
 
 
@@ -72,9 +71,7 @@ def freeze(projects: Path, check: AgentCheck, still_blind: Callable[[], str | No
     try:
         stored = signed.append(project_store(projects), directory, _slot_of(project), record_for)
     except signed.Tampered as error:
-        raise CheckRefused(
-            f"project {project}'s agent-written checks cannot be read; {_OPERATOR}"
-        ) from error
+        raise CheckRefused(_unreadable(project)) from error
     except signed.Contended as error:
         raise ProjectBusy(
             f"project {project} is storing a check concurrently; try again"
@@ -105,6 +102,13 @@ def _parse_all(raw: tuple[bytes, ...], project: ProjectId) -> tuple[StoredCheck,
     except ValidationError:
         return None
     return None if any(one.check.project != project for one in found) else found
+
+
+def _unreadable(project: ProjectId) -> str:
+    return (
+        f"project {project}'s agent-written checks failed the server's integrity check, so none of "
+        "them can run; start a new project to write these checks again"
+    )
 
 
 def _slot_of(project: ProjectId) -> Callable[[int], str]:

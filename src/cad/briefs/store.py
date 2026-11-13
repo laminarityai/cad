@@ -387,6 +387,6 @@ def _report(root: Path, brief_id: BriefId) -> str:
         key.key_path(root),
     )
     return (
-        f"brief {brief_id} has a record this store did not sign or cannot read; "
-        "the operator must delete the brief from the brief store"
+        f"brief {brief_id} failed the server's integrity check, so it cannot be used; create a new "
+        "brief to carry on"
     )

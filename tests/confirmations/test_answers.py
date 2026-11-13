@@ -94,7 +94,9 @@ def test_a_tampered_answer_refuses_the_project_without_a_host_path(
         lambda: answers.read_ledger(root, PROJECT),
         lambda: answers.append_answer(root, PROJECT, page(PROJECT, (SECOND, "c"))),
     ):
-        with pytest.raises(TamperedProject, match=f"project {PROJECT} .* operator") as refused:
+        with pytest.raises(
+            TamperedProject, match=f"project {PROJECT}'s .* start a new project"
+        ) as refused:
             attempt()
         assert str(tmp_path) not in str(refused.value)
 

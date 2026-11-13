@@ -128,6 +128,6 @@ def _report(projects: Path, project: ProjectId) -> str:
         key.key_path(projects),
     )
     return (
-        f"project {project} has an answer this store did not sign or cannot read; "
-        "the operator must delete the project's answers from the project store"
+        f"project {project}'s confirmation answers failed the server's integrity check, so nothing "
+        "confirmed in this project counts; start a new project and confirm its targets there"
     )

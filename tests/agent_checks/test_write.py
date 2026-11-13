@@ -133,7 +133,7 @@ def test_attack_a_record_the_store_did_not_sign_is_refused_on_read(roots: Roots)
     project = ProjectId(stored.check.project)
     [path] = (roots.projects / project / "agent_checks").glob("*.signed")
     path.write_bytes(path.read_bytes().replace(b"Snap arm strain", b"Snap arm strein"))
-    with pytest.raises(CheckRefused, match="cannot be read"):
+    with pytest.raises(CheckRefused, match="failed the server's integrity check"):
         store.checks_of(roots.projects, project)
 
 

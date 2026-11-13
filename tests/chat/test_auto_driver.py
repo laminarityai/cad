@@ -322,4 +322,4 @@ async def test_a_tampered_run_log_fails_the_turn_with_a_message_that_names_it(
         events = await chat.events(client, cid, after=seen)
     assert kinds(events) == ["turn_failed", "turn_ended"]
     assert run_id in events[0]["message"]
-    assert "cannot be read" in events[0]["message"]
+    assert "create a new brief to run Auto again" in events[0]["message"]

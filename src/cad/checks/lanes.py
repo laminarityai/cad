@@ -18,7 +18,7 @@ from cad.sandbox.outcome import SandboxUnavailable
 WAIT_SECONDS: Final = 20
 INTERRUPTED: Final = (
     f"the analysis was interrupted {job_store.ATTEMPT_CAP} times, so it was not started again; "
-    "the operator can delete its .attempt file to retry it"
+    "change the variant's code and build it again to run the analysis on the new variant"
 )
 
 SUPERSEDED: Final = (

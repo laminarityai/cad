@@ -272,7 +272,9 @@ def test_a_tampered_brief_is_refused_and_confirms_nothing(roots: Roots, tamper: 
     other = proposed(roots, UNDER_150)
     decide_before_pages(roots, brief_id, 1, Declined(note="no"))
     tamper(roots, brief_id, other)
-    with pytest.raises(store.TamperedBrief, match=f"brief {brief_id} .* operator must delete"):
+    with pytest.raises(
+        store.TamperedBrief, match=f"brief {brief_id} failed the server's integrity check"
+    ):
         store.read_state(roots, brief_id)
     with pytest.raises(store.TamperedBrief):
         store.confirmed_requirements(roots, brief_id)

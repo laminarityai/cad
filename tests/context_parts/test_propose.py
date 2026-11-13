@@ -96,7 +96,7 @@ async def test_a_tampered_or_unsigned_record_is_refused(s: Session) -> None:
     (stored.parent / "0002.signed").write_bytes(original.partition(b"\n")[2])
     unsigned = await propose(s, created, variant_id=s.variant("result = Box(1, 1, 1)\n", b"x"))
     assert "TamperedProject: project" in tampered
-    assert "has a context part this store did not sign" in unsigned
+    assert "context parts failed the server's integrity check" in unsigned
     assert len(records(s, project)) == 2
 
 
@@ -117,6 +117,23 @@ async def test_a_part_whose_geometry_changed_on_disk_is_refused(s: Session) -> N
     brep.symlink_to(s.variants / source / "result.brep")
     with pytest.raises(TamperedProject):
         part_brep(s.roots.projects, part)
+
+
+async def test_proposing_a_part_again_restores_its_lost_geometry(s: Session) -> None:
+    created = await brief(s)
+    await propose(s, created)
+    project = ProjectId(created["project_id"])
+    await s.call("ask_to_confirm", project_id=project)
+    s.post(s.person.url, "confirm")
+    [part] = confirmed_parts(s.roots.projects, project)
+    [brep] = (s.roots.projects / project / "parts").glob("*.brep")
+    brep.unlink()
+    source = variant_of(part.record)
+    with pytest.raises(TamperedProject, match=f"propose it again from variant {source}"):
+        part_brep(s.roots.projects, part)
+    await propose(s, created)
+    assert part_brep(s.roots.projects, part) == s.rows.rail
+    assert len(records(s, project)) == 1
 
 
 def clear_of(part: str) -> dict[str, Any]:

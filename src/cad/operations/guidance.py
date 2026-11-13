@@ -178,7 +178,7 @@ RESEARCH = (
     "researched rests on a value read from that cited quote: report a pass on it as "
     '"passes on researched data" and name the source. When a page is refused, try another. '
     "When a scorecard has a research_problem, tell the user what it says and research "
-    "nothing for that project: only the operator can fix it."
+    "nothing for that project."
 )
 
 DEEPER_ANALYSIS = (

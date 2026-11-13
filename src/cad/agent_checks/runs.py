@@ -85,8 +85,8 @@ def _parsed(raw: tuple[bytes, ...]) -> tuple[GeometryRun, ...]:
 
 def _unreadable(project: ProjectId) -> str:
     return (
-        f"project {project}'s agent-written check runs cannot be read; the operator must delete "
-        "the project's agent_check_runs directory"
+        f"project {project}'s agent-written check runs failed the server's integrity check, so "
+        "their results cannot be used; start a new project to run these checks again"
     )
 
 
