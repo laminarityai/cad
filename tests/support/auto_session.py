@@ -16,7 +16,7 @@ from cad.operations.tenants import bind
 from cad.records.roots import Roots
 from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.meter import AccountLimitReached, Kind, Reservation
-from cad.sandbox.outcome import Build, BuildFailed
+from cad.sandbox.outcome import Build, BuildFailed, Built
 from cad.variants import entry
 from tests.support.rows import UNDER_150
 
@@ -106,6 +106,13 @@ class Session:
         vid = entry.variant_id(code, image_tag(BUILD))
         failed = Build(outcome=BuildFailed(error="NameError", traceback=""), output="")
         entry.save(self.tenant.variants, vid, code, failed, None)
+        return vid
+
+    def built_variant(self, code: str) -> str:
+        """A stored build, so a call that builds this code starts no container."""
+        vid = entry.variant_id(code, image_tag(BUILD))
+        built = Build(outcome=Built(), output="")
+        entry.save(self.tenant.variants, vid, code, built, b"brep " + code.encode())
         return vid
 
     @property

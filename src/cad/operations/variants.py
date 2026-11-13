@@ -3,10 +3,13 @@ from typing import Annotated, Final
 from pydantic import BaseModel, Field
 
 from cad.auto.gate import gate, stops_at_the_limit
+from cad.auto.model import Running, Tried
 from cad.briefs import store as briefs
 from cad.context_parts.model import UPDATE_PART
 from cad.context_parts.store import out_of_date_in
+from cad.conversations.store import record_event
 from cad.geometry.lane import TESSELLATIONS
+from cad.operations.guidance import AUTO_BUILDS
 from cad.operations.model import Audience, Input, Tenant, operation
 from cad.operations.research import brief_table
 from cad.operations.scorecards import MaterialKey
@@ -26,6 +29,7 @@ from cad.variant_sets.model import (
     SetBuildResult,
     SetRefused,
     SlotRefused,
+    code_sha256,
 )
 from cad.variant_sets.placement import choose
 from cad.variants import entry, store
@@ -69,7 +73,9 @@ BUILD_VARIANT = (
     "If the set changes while a build runs so that it cannot take "
     "the code, the build finishes and is stored, but the error says it joined no set and names "
     "its variant id. Without brief_id the variant joins no set, and slot is refused. "
-    "Under this conversation's Auto run, pass the run's brief_id. After any stop in this "
+    "Under this conversation's Auto run, pass the run's brief_id. "
+    + AUTO_BUILDS
+    + " After any stop in this "
     "conversation, every build is refused before it starts until the person writes or "
     "answers. A build of code the store does not hold is charged to the account's usage "
     "limit, whose refusal stops the run. "
@@ -162,6 +168,8 @@ def _build(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResult:
                 resolve,
                 option,
             )
+            if running is not None:
+                count_build(tenant, code_sha256(arguments.code), built.variant_id)
             return with_out_of_date(tenant, arguments.brief_id, built)
         if arguments.slot is not None:
             raise SlotRefused("slot names a place in a brief's variant set, so pass brief_id too")
@@ -176,6 +184,16 @@ def _build(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResult:
             )
         built = store.build_variant(arguments.code, tenant.variants)
     return SetBuildResult(variant_id=built.variant_id, outcome=built.outcome, output=built.output)
+
+
+def count_build(tenant: Tenant, sha: str, variant_id: str) -> None:
+    """A build under the run counts among its builds, once per code (ADR-0010)."""
+    assert tenant.bound_run is not None
+
+    def make(state: Running) -> Tried | None:
+        return None if sha in state.builds else Tried(code_sha256=sha, variant_id=variant_id)
+
+    record_event(tenant.roots, tenant.conversations, tenant.bound_run, make)
 
 
 def with_out_of_date(tenant: Tenant, brief_id: str, built: SetBuildResult) -> SetBuildResult:

@@ -258,7 +258,7 @@ describe("a build that failed", () => {
       { kind: "tool_call", call_id: "a", name: "build_variant", input: { label: "Wide base", slot: 1 } },
       { kind: "tool_result", call_id: "a", text: failedBuild, is_error: false },
       { kind: "tool_call", call_id: "b", name: "auto_revise", input: { slot: 1 } },
-      { kind: "tool_result", call_id: "b", text: JSON.stringify({ ...runningRun(0), state: { ...runningRun(0).state, history: [{ revision: 1, variant_id: "v3", code_sha256: "e".repeat(64), built: false, marks: [] }] } }), is_error: false },
+      { kind: "tool_result", call_id: "b", text: JSON.stringify({ ...runningRun(0), state: { ...runningRun(0).state, history: [{ revision: 1, variant_id: "v3", code_sha256: "e".repeat(64), built: false, marks: [] }], builds: ["e".repeat(64)] } }), is_error: false },
       { kind: "turn_ended" },
     );
     const log = screen.getByRole("log");
@@ -319,7 +319,7 @@ describe("the Auto run line", () => {
   it("says nothing works on a running run between turns, and shows no loader or clock", async () => {
     mount(idleRun(), ["v1"]);
     const run = await screen.findByRole("region", { name: "Auto run" }, { timeout: 6000 });
-    expect(run).toHaveTextContent("1 revision tried");
+    expect(run).toHaveTextContent("1 build tried");
     expect(run).toHaveTextContent("Nothing is working on it now. Send a message to carry it on, or stop it.");
     expect(document.querySelector("[data-loading]")).toBeNull();
     expect(screen.queryByText(/Auto run working/)).toBeNull();

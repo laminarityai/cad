@@ -54,7 +54,7 @@ def test_a_cube_that_cannot_weigh_what_it_must_stops_with_its_bounds_before_any_
     assert bounds.quantity == "mass"
     assert "The mass must be at least 80 g, but" in bounds.statement
     assert result.stopped_run == result.run_id
-    assert (result.revisions, result.variants, result.containers) == (0, 0, 0)
+    assert (result.builds, result.variants, result.containers) == (0, 0, 0)
     assert result.pages == 1
     assert result.passed
     events = json.loads((tmp_path / "cube" / "events.json").read_text())
@@ -93,9 +93,9 @@ def test_the_agents_note_is_judged_only_for_a_live_model() -> None:
     assert missing == "the stop's report names none of mass"
 
 
-def test_the_revision_limit_and_the_bounds_of_a_conflict_are_judged() -> None:
-    limited = Expect.of({"expect": {"stop": "agent_asked", "within_revisions": 6}})
-    assert judge(limited, True, "agent_asked", "", 7, ()) == ("7 revisions, more than 6",)
+def test_the_build_limit_and_the_bounds_of_a_conflict_are_judged() -> None:
+    limited = Expect.of({"expect": {"stop": "agent_asked", "within_builds": 6}})
+    assert judge(limited, True, "agent_asked", "", 7, ()) == ("7 builds, more than 6",)
     conflict = Expect.of({"expect": {"stop": "conflict"}})
     assert judge(conflict, True, "conflict", "", 0, ()) == ("a conflict stop carried no Bounds",)
     held = (Bounds(quantity="mass", statement="a > b", requirements=("r1",)),)
@@ -144,3 +144,32 @@ def test_the_driver_runs_the_set_through_run_main(
     assert "1 of 1 briefs passed" in capsys.readouterr().out
     rows = json.loads((tmp_path / "out" / "auto-summary.json").read_text())
     assert [(one["id"], one["stop"]) for one in rows] == [("cube", "conflict")]
+
+
+@pytest.mark.parametrize("driver", ["session", "inprocess"])
+def test_an_unknown_expect_key_is_refused_before_any_session_starts(
+    driver: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def no_session(*_: object, **__: object) -> None:
+        raise AssertionError("a session started")
+
+    monkeypatch.setattr(run, "run_session", no_session)
+    monkeypatch.setattr(run, "run_set", no_session)
+    briefs = tmp_path / "briefs"
+    briefs.mkdir()
+    old = {**CUBE_GRADER, "expect": {"stop": "conflict", "within_revisions": 6}}
+    for name, graded in (("cube", CUBE_GRADER), ("old-cube", old)):
+        (briefs / f"{name}.yaml").write_text(
+            json.dumps({"id": name, "domain": "tests", "brief": HEAVY_CUBE, "grader": graded})
+        )
+    out = tmp_path / "out"
+    with pytest.raises(SystemExit):
+        run.main(["--driver", driver, "--briefs", str(briefs), "--out", str(out)])
+    err = capsys.readouterr().err
+    assert "brief old-cube" in err, err
+    assert "within_revisions" in err, err
+    assert "brief cube" not in err, err
+    assert not out.exists()

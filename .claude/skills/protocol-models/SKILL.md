@@ -198,7 +198,7 @@ The order of `auto_start`'s reads matters. It reads the watermark, then checks f
 | `Propose`, `Answer` | `propose_requirements` from any caller, and the person's page answer |
 | `acted`, `holdAt`, `on`, `untouched` | ghosts: the person acted since the last stop, the act count at that stop, the act a turn serves, and a crash-cut stop no call has healed |
 
-`record_proposals` reads the run and the proposals and then records, and the model makes that one step. A proposal that lands between the read and the record is caught at the next gate. The stop rules themselves (all pass, conflict, the agent asks) are the pure fold in `auto/step.py`, which `tests/auto/test_step.py` covers. The model only needs to know that a record stops a run.
+`record_proposals` reads the run and the proposals and then records, and the model makes that one step. A proposal that lands between the read and the record is caught at the next gate. The stop rules themselves (all pass, conflict, the agent asks) are the pure fold in `auto/step.py`, which `tests/auto/test_step.py` covers. The model only needs to know that a record stops a run. `Tried`, which `build_variant` and an `auto_revise` whose checks still run append through `record_event`, changes no hold and stops no run, so the model leaves it out.
 
 ## Known findings
 
@@ -225,7 +225,7 @@ sync: 21a7efb
 JobLanes: src/cad/checks/lanes.py src/cad/checks/job_store.py src/cad/checks/jobs.py src/cad/sandbox/container.py src/cad/server/stopping.py src/cad/variant_sets/store.py
 Answers: src/cad/confirmations/web.py src/cad/confirmations/snapshot.py src/cad/operations/confirmation.py src/cad/confirmations/page.py src/cad/confirmations/answers.py src/cad/confirmations/items.py src/cad/records/signed.py
 CarryOn: src/cad/chat/routes.py src/cad/chat/answer_driver.py src/cad/chat/turn.py src/cad/chat/log.py src/cad/conversations/store.py src/cad/operations/confirmation.py src/cad/confirmations/web.py
-AutoHold: src/cad/auto/gate.py src/cad/auto/log.py src/cad/operations/auto.py src/cad/conversations/store.py src/cad/chat/routes.py src/cad/operations/tenants.py
+AutoHold: src/cad/auto/gate.py src/cad/auto/log.py src/cad/operations/auto.py src/cad/conversations/store.py src/cad/chat/routes.py src/cad/operations/tenants.py src/cad/operations/variants.py
 ```
 
 ## Planned targets, not built yet

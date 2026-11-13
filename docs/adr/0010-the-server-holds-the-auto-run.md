@@ -44,7 +44,9 @@ The `auto_*` tools join the MCP tool list, because our own agent reaches the ser
 
 SPEC's sentence "only our own agent enforces them" changes to say that the server enforces the mode and Auto mode's stop rules in web app conversations, and that modes stay guidance for outside clients.
 
-The phase 4 exit, "Auto mode stops correctly on a brief whose requirements conflict", is tested on two briefs. On a brief whose bounds conflict, the run stops before any build with the proof. On a stiffness-against-mass brief, the agent stops and reports within six revisions, with a note that names both requirements.
+The phase 4 exit, "Auto mode stops correctly on a brief whose requirements conflict", is tested on two briefs. On a brief whose bounds conflict, the run stops before any build with the proof. On a stiffness-against-mass brief, the agent stops and reports within six builds, with a note that names both requirements. Every build under the run counts once for each code, whichever tool made it, in a new slot or an old one, and whether or not it built.
+
+On 2026-11-13 the operator chose to count every build and to add no cap. The server still sets no bound on builds, and the account's usage limit stays the only backstop.
 
 ## Amendment 2026-11-09: the person can stop a run
 

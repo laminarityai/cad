@@ -825,6 +825,8 @@ export interface components {
             researched?: components["schemas"]["ReadResearched"][];
             /** @default null */
             load_case?: "described" | null;
+            /** @default null */
+            waits_on?: "context_part" | null;
         };
         /**
          * ClearanceSeries
@@ -1791,6 +1793,8 @@ export interface components {
             start: components["schemas"]["Started"];
             /** @default [] */
             history: components["schemas"]["Standing"][];
+            /** @default [] */
+            builds: string[];
         };
         /** ScorecardSnapshot */
         ScorecardSnapshot: {
@@ -2003,6 +2007,8 @@ export interface components {
             kind: "stopped";
             start: components["schemas"]["Started"];
             history: components["schemas"]["Standing"][];
+            /** @default [] */
+            builds: string[];
             reason: components["schemas"]["StopReason"];
             report: string;
         };

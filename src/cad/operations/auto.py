@@ -29,9 +29,9 @@ from cad.conversations import store as conversations
 from cad.operations import scorecards
 from cad.operations.agent_checks import approved_checks
 from cad.operations.conversations import ConversationState
-from cad.operations.guidance import AUTO_AGENT_CHECKS, AUTO_DESCRIBED
+from cad.operations.guidance import AUTO_AGENT_CHECKS, AUTO_BUILDS, AUTO_DESCRIBED
 from cad.operations.model import Audience, Input, Tenant, operation
-from cad.operations.variants import MAX_CODE_CHARS, chooser, with_out_of_date
+from cad.operations.variants import MAX_CODE_CHARS, chooser, count_build, with_out_of_date
 from cad.sandbox import image
 from cad.sandbox.outcome import Built
 from cad.scorecard import material
@@ -87,6 +87,8 @@ AUTO_REVISE = (
     "A running state holds history, one standing per revision with each confirmed "
     "requirement's mark and reasons, why each requirement that fails or is unknown got its mark, "
     "in the deciding check's own words when that check did not pass: revise against those. "
+    + AUTO_BUILDS
+    + " "
     "Only the check results on the scorecard the server "
     "computed decide a mark, and your own measurements never count. unverified means no check "
     "covers the requirement, and it counts as neither pass nor fail. pass_researched rests on a "
@@ -239,6 +241,7 @@ def auto_revise(tenant: Tenant, arguments: ReviseInput) -> RevisedRun:
             )
             standing = standing_of(score_until_settled(tenant, scored), revision, sha)
             if isinstance(standing, Unsettled):
+                count_build(tenant, sha, built.variant_id)
                 return RevisedRun(run_id=run_id, state=running, settling=True)
         else:
             standing = Standing(

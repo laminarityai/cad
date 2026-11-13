@@ -21,6 +21,7 @@ from cad.auto.model import (
     StoppedByPerson,
     StopReason,
     TamperedRun,
+    Tried,
     Unsettled,
 )
 from cad.checks.result import Verdict
@@ -32,7 +33,7 @@ from cad.scorecard.model import (
     Scorecard,
     Unverified,
 )
-from cad.scorecard.requirements import UNCONFIRMED_PART, result_of
+from cad.scorecard.requirements import result_of
 from cad.scorecard.waiting import Waiting
 
 NO_STATEMENTS: Final[Mapping[str, str]] = MappingProxyType({})
@@ -104,7 +105,7 @@ def _mark(row: Checked) -> Mark:
         case Verdict.FAIL:
             return Mark.FAIL
         case Verdict.UNKNOWN:
-            return Mark.AWAITS_PERSON if row.reason == UNCONFIRMED_PART else Mark.UNKNOWN
+            return Mark.AWAITS_PERSON if row.waits_on == "context_part" else Mark.UNKNOWN
 
 
 def _agent_mark(row: AgentChecked) -> Mark:
@@ -134,7 +135,9 @@ def step(state: AutoState, event: Event) -> AutoState:
         return state
     match event:
         case Revised():
-            return _revised(state, event.standing)
+            return _revised(_counted(state, event.standing.code_sha256), event.standing)
+        case Tried():
+            return _counted(state, event.code_sha256)
         case Proposed():
             return _stop(
                 state, NeedsPerson(why="proposes_requirements", requirements=event.requirements)
@@ -149,6 +152,12 @@ def step(state: AutoState, event: Event) -> AutoState:
             raise TamperedRun("an auto run's log holds a second start record")
         case _:
             assert_never(event)
+
+
+def _counted(state: Running, code_sha256: str) -> Running:
+    if code_sha256 in state.builds:
+        return state
+    return state.model_copy(update={"builds": (*state.builds, code_sha256)})
 
 
 def _revised(state: Running, standing: Standing) -> AutoState:
@@ -177,31 +186,38 @@ def _stop(state: Running, reason: StopReason) -> Stopped:
     return Stopped(
         start=state.start,
         history=state.history,
+        builds=state.builds,
         reason=reason,
-        report=report(state.history, reason),
+        report=report(state.history, len(state.builds), reason),
     )
 
 
 def report(
     history: tuple[Standing, ...],
+    builds: int,
     reason: StopReason,
     said: Mapping[str, str] = NO_STATEMENTS,
     option: str | None = None,
 ) -> str:
-    """The stop report. The agent's copy names ids. The person's passes `said`, each
-    requirement's statement, and `option`, the name the latest variant has in its set."""
+    """The stop report. `builds` counts every build under the run. The agent's copy names ids.
+    The person's passes `said`, each requirement's statement, and `option`, the name the latest
+    checked variant has in its set."""
 
     def named(rids: Sequence[str]) -> str:
         return ", ".join(said.get(rid, rid) for rid in rids)
 
-    lines = [_reason(reason, named)]
-    if not history:
-        lines.append("No revision was tried.")
-    else:
+    lines = [
+        _reason(reason, named),
+        f"Builds tried: {builds}." if builds else "Nothing was built under the run.",
+    ]
+    if history:
         latest = history[-1]
-        built = "" if latest.built else ", which did not build"
         name = option or f"variant {latest.variant_id}"
-        lines.append(f"Revisions tried: {len(history)}. The latest is {name}{built}.")
+        lines.append(
+            f"The latest the run checked is {name}."
+            if latest.built
+            else "The latest the run checked did not build."
+        )
         because = dict(latest.reasons)
         lines.extend(
             f"- {said.get(rid, f'requirement {rid}')}: {WORDS[mark]}{_because(because.get(rid))}"

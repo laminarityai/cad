@@ -171,6 +171,7 @@ def judge(
             check_id=check_id,
             verdict=Verdict.UNKNOWN,
             reason=UNCONFIRMED_PART,
+            waits_on="context_part",
             comparisons=tuple(
                 Comparison(
                     measure=limit.measure,

@@ -255,6 +255,13 @@ AUTO_DESCRIBED: Final = (
     "pass on a load case you described, not reviewed by our team."
 )
 
+AUTO_BUILDS: Final = (
+    "Every build under an Auto run counts among the run's builds, once for each code, whether "
+    "build_variant or auto_revise made it, in a new slot or an old one, and whether or not it "
+    "built. The run's builds lists each one's code sha256, and the stop's report counts them. "
+    "history holds only what auto_revise recorded."
+)
+
 AUTO_AGENT_CHECKS: Final = (
     "A requirement an approved agent-written check decides counts in an Auto run, so the run "
     "may start on it. A check the person declined or has not approved decides nothing and does "
