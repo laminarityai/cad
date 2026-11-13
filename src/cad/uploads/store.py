@@ -4,7 +4,6 @@ file is a `Document` the chat agent reads."""
 
 import hashlib
 import logging
-import os
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -124,7 +123,6 @@ def add_document(
         withheld=withheld,
     )
     directory = projects / project / DOCUMENTS
-    directory.mkdir(parents=True, exist_ok=True)
     found: list[Document] = []
 
     def record_for(existing: tuple[bytes, ...]) -> bytes | None:
@@ -145,8 +143,6 @@ def add_document(
 
 def documents(projects: Path, project: ProjectId) -> tuple[Document, ...]:
     directory = projects / project / DOCUMENTS
-    if not os.path.lexists(directory):
-        return ()
     raw = signed.read_numbered(project_store(projects), directory, _slot_of(project))
     if raw is None:
         raise TamperedProject(_report(project))
@@ -161,7 +157,9 @@ def document(projects: Path, project: ProjectId, wanted: str) -> tuple[Document,
     data = files.read_regular(path, entry.MAX_FILE_BYTES)
     if data is None or hashlib.sha256(data).hexdigest() != found.sha256:
         LOG.error("%s is missing or does not match its SHA-256", path)
-        raise TamperedProject(f"file {wanted} of project {project} has lost its bytes")
+        raise TamperedProject(
+            f"file {wanted} of project {project} has lost its bytes; add the file again"
+        )
     return found, data
 
 
@@ -187,6 +185,6 @@ def _slot_of(project: ProjectId) -> Callable[[int], str]:
 
 def _report(project: ProjectId) -> str:
     return (
-        f"project {project} has a file record this store did not sign or cannot read; "
-        "the operator must delete the project's documents from the project store"
+        f"project {project}'s file records failed the server's integrity check, so the project "
+        "cannot use its files; start a new project and add the files there"
     )

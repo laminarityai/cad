@@ -17,8 +17,9 @@ from cad.sandbox.outcome import SandboxUnavailable
 
 WAIT_SECONDS: Final = 20
 INTERRUPTED: Final = (
-    f"the analysis was interrupted {job_store.ATTEMPT_CAP} times, so it was not started again; "
-    "the operator can delete its .attempt file to retry it"
+    f"the analysis did not finish for this variant in {job_store.ATTEMPT_CAP} tries and will not "
+    "run again for it; report the check as not run, and do not build the same shape again to "
+    "retry it. A revision that changes the shape is analysed as usual"
 )
 
 SUPERSEDED: Final = (

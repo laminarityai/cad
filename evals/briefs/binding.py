@@ -10,7 +10,6 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from cad.checks.result import StepStored
-from cad.records import key
 from cad.sandbox.outcome import SandboxUnavailable
 from cad.scorecard.model import Scorecard
 from cad.variants import entry
@@ -26,8 +25,6 @@ def bind(root: Path, card: Scorecard) -> Unbound | None:
         vid = entry.parse_variant_id(card.variant_id)
     except entry.VariantRefused as error:
         return Unbound(str(error))
-    if not key.key_path(root).is_file():
-        return Unbound(f"the store has no key at {key.key_path(root)}, so no build is signed")
     try:
         manifest = entry.read_manifest(root, vid)
     except SandboxUnavailable:
@@ -63,8 +60,6 @@ def link(root: Path, card: Scorecard) -> Unlinked | None:
         new = entry.parse_variant_id(card.variant_id)
     except entry.VariantRefused as error:
         return Unlinked(str(error))
-    if not key.key_path(root).is_file():
-        return Unlinked(f"the store has no key at {key.key_path(root)}, so no build is signed")
     try:
         old_manifest = entry.read_manifest(root, old)
         new_manifest = entry.read_manifest(root, new)

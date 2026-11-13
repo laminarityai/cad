@@ -1,6 +1,5 @@
 import hashlib
 import logging
-import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -107,13 +106,12 @@ def propose_from_variant(
     parts = stored_parts(projects, project)
     standing = _newest_undeclined(parts, held.brep_sha256)
     if standing is not None:
+        write_content(brep_path(projects, project, held.brep_sha256), held.brep, held.brep_sha256)
         return standing
     read = ingest(Brep(held.brep))
     if isinstance(read, NotAPart):
         raise BadContextPart(f"variant {held.id} cannot be a context part: {read.reason}")
-    write_content(
-        projects / project / PARTS / f"{held.brep_sha256}.brep", held.brep, held.brep_sha256
-    )
+    write_content(brep_path(projects, project, held.brep_sha256), held.brep, held.brep_sha256)
     record = ContextPartRecord(
         project=project,
         brief_id=brief.id,
@@ -135,10 +133,10 @@ def add_upload(
     card. Idempotent like `propose_from_variant`: the same solids return the record that still
     stands, and solids declined before get a new record."""
     brep_sha256 = hashlib.sha256(read.brep).hexdigest()
+    write_content(brep_path(projects, project, brep_sha256), read.brep, brep_sha256)
     standing = _newest_undeclined(stored_parts(projects, project), brep_sha256)
     if standing is not None:
         return standing
-    write_content(brep_path(projects, project, brep_sha256), read.brep, brep_sha256)
     record = ContextPartRecord(
         project=project,
         name=name,
@@ -153,7 +151,6 @@ def add_upload(
 def _append(projects: Path, record: ContextPartRecord) -> Stored:
     project = record.project
     directory = projects / project / CONTEXT_PARTS
-    directory.mkdir(parents=True, exist_ok=True)
     found: list[Stored] = []
 
     def record_for(existing: tuple[bytes, ...]) -> bytes | None:
@@ -179,11 +176,7 @@ def _append(projects: Path, record: ContextPartRecord) -> Stored:
 
 def stored_parts(projects: Path, project: ProjectId) -> tuple[Stored, ...]:
     directory = projects / project / CONTEXT_PARTS
-    if not os.path.lexists(directory):
-        return ()
-    store = project_store(projects)
-    readable = store.key_exists() or _left_by_crashed_first_proposal(directory)
-    raw = signed.read_numbered(store, directory, _slot_of(project)) if readable else None
+    raw = signed.read_numbered(project_store(projects), directory, _slot_of(project))
     if raw is None:
         raise TamperedProject(_report(projects, project))
     return _stored(projects, project, raw)
@@ -294,9 +287,12 @@ def part_brep(projects: Path, part: ConfirmedPart) -> bytes:
     data = files.read_regular(path, entry.MAX_FILE_BYTES)
     if data is None or hashlib.sha256(data).hexdigest() != record.brep_sha256:
         LOG.error("%s is missing or does not match its SHA-256", path)
+        source = variant_of(record)
+        again = (
+            "add its file again" if source is None else f"propose it again from variant {source}"
+        )
         raise TamperedProject(
-            f"context part {record.id} of project {record.project} has lost its geometry; "
-            "the operator must delete the project's context parts from the project store"
+            f"context part {record.id} of project {record.project} has lost its geometry; {again}"
         )
     return data
 
@@ -345,12 +341,6 @@ def write_content(path: Path, data: bytes, sha256: str) -> None:
     files.replace(path, data)
 
 
-def _left_by_crashed_first_proposal(directory: Path) -> bool:
-    return files.is_directory(directory) and all(
-        path.name.startswith(".") for path in directory.iterdir()
-    )
-
-
 def _ref(project: ProjectId, number: int, sha256: str) -> ItemRef:
     return ItemRef(kind="context_part", slot=_slot_of(project)(number), sha256=sha256)
 
@@ -366,6 +356,6 @@ def _report(projects: Path, project: ProjectId) -> str:
         key.key_path(projects),
     )
     return (
-        f"project {project} has a context part this store did not sign or cannot read; "
-        "the operator must delete the project's context parts from the project store"
+        f"project {project}'s context parts failed the server's integrity check, so the project "
+        "cannot use them; start a new project and add its parts there"
     )

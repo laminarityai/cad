@@ -80,16 +80,68 @@ def test_the_first_writer_of_a_slot_wins(things: Store) -> None:
 def test_an_unusable_key_names_the_store(tmp_path: Path, things: Store) -> None:
     signed.publish(things, "thing/1", things.root / "a" / "0001.signed", b"record")
     (tmp_path / "things.key").chmod(0o644)
-    with pytest.raises(signed.StoreUnusable, match="the thing store's key is unusable"):
+    with pytest.raises(signed.StoreUnusable, match="cannot use its signing key for thing records"):
         signed.read(things, "thing/1", things.root / "a" / "0001.signed")
 
 
-def test_key_exists_does_not_create_the_key(tmp_path: Path) -> None:
-    things = Store(tmp_path / "things", "thing")
-    assert not things.key_exists()
+def test_reading_a_store_whose_key_is_gone_trusts_nothing_and_creates_no_key(
+    tmp_path: Path, things: Store
+) -> None:
+    directory = things.root / "a"
+    append_text(things, directory, "one")
+    (tmp_path / "things.key").unlink()
+    assert signed.read(things, "thing/1", directory / "0001.signed") is None
+    assert signed.read_numbered(things, directory, slot_of) is None
+    with pytest.raises(signed.Tampered):
+        append_text(things, directory, "two")
     assert not (tmp_path / "things.key").exists()
-    signed.signed(things, "thing/1", b"record")
-    assert things.key_exists()
+
+
+def test_a_store_with_no_key_reads_a_missing_or_empty_directory_as_empty(tmp_path: Path) -> None:
+    things = Store(tmp_path / "things", "thing")
+    assert signed.read_numbered(things, things.root / "never", slot_of) == ()
+    (things.root / "empty").mkdir(parents=True)
+    assert signed.read_numbered(things, things.root / "empty", slot_of) == ()
+    assert not (tmp_path / "things.key").exists()
+
+
+def test_a_declined_first_append_leaves_nothing_and_the_next_one_lands(tmp_path: Path) -> None:
+    things = Store(tmp_path / "things", "thing")
+    directory = things.root / "p" / "research"
+    assert signed.append(things, directory, slot_of, lambda _existing: None) is None
+    assert not things.root.exists()
+    assert not (tmp_path / "things.key").exists()
+    assert append_text(things, directory, "one") == Appended(1)
+    assert signed.read_numbered(things, directory, slot_of) == (b"one",)
+
+
+def test_no_signed_error_names_a_server_path(tmp_path: Path, things: Store) -> None:
+    directory = things.root / "a"
+    append_text(things, directory, "one")
+    (directory / "0001.signed").rename(directory / "0002.signed")
+    with pytest.raises(signed.Tampered) as tampered:
+        append_text(things, directory, "two")
+
+    def always_beaten(existing: tuple[bytes, ...]) -> bytes:
+        number = len(existing) + 1
+        signed.publish(things, slot_of(number), things.root / "b" / signed.slot_file(number), b"x")
+        return b"mine"
+
+    with pytest.raises(signed.Contended) as contended:
+        signed.append(things, things.root / "b", slot_of, always_beaten)
+    (tmp_path / "things.key").chmod(0o644)
+    with pytest.raises(signed.StoreUnusable) as unusable:
+        signed.read(things, "thing/1", things.root / "b" / "0001.signed")
+    for error in (tampered.value, contended.value, unusable.value):
+        assert str(tmp_path) not in str(error)
+        assert "operator" not in str(error)
+
+
+def test_an_entry_is_not_created_over_an_empty_directory(tmp_path: Path) -> None:
+    things = Store(tmp_path / "things", "thing")
+    (things.root / "x").mkdir(parents=True)
+    assert not signed.create_entry(things, "x", ("x/top", "top.signed", b"top"), ())
+    assert list((things.root / "x").iterdir()) == []
 
 
 def test_an_entry_appears_whole_and_only_once(tmp_path: Path) -> None:

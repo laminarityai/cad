@@ -1,6 +1,5 @@
 import hashlib
 import logging
-import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
@@ -13,7 +12,7 @@ from cad.accounts.principal import AccountId
 from cad.briefs.model import MAX_NOTE_CHARS
 from cad.frozen import Frozen
 from cad.projects.model import ProjectBusy, ProjectId, TamperedProject
-from cad.records import files, key, signed
+from cad.records import key, signed
 from cad.records.roots import project_store
 
 type ItemKindName = Literal["requirements", "context_part", "agent_check"]
@@ -77,11 +76,7 @@ class Ledger:
 
 def read_ledger(projects: Path, project: ProjectId) -> Ledger:
     directory = projects / project / ANSWERS
-    if not os.path.lexists(directory):
-        return Ledger(())
-    store = project_store(projects)
-    _require_key(store, directory, project)
-    records = signed.read_numbered(store, directory, _slot_of(project))
+    records = signed.read_numbered(project_store(projects), directory, _slot_of(project))
     if records is None:
         raise TamperedProject(_report(projects, project))
     return Ledger(
@@ -94,8 +89,6 @@ def append_answer(projects: Path, project: ProjectId, answer: PageAnswer) -> boo
         raise ValueError(f"an answer for project {answer.project} cannot go in {project}")
     directory = projects / project / ANSWERS
     store = project_store(projects)
-    _require_key(store, directory, project)
-    directory.mkdir(parents=True, exist_ok=True)
     listed = tuple(a.item for a in answer.answers)
 
     def record_for(existing: tuple[bytes, ...]) -> bytes | None:
@@ -112,14 +105,6 @@ def append_answer(projects: Path, project: ProjectId, answer: PageAnswer) -> boo
         LOG.warning("%s: %s", directory, error)
         raise ProjectBusy(f"project {project} is being answered concurrently; try again") from error
     return isinstance(stored, signed.Appended)
-
-
-def _require_key(store: signed.Store, directory: Path, project: ProjectId) -> None:
-    if store.key_exists() or not os.path.lexists(directory):
-        return
-    if files.is_directory(directory) and all(p.name.startswith(".") for p in directory.iterdir()):
-        return
-    raise TamperedProject(_report(store.root, project))
 
 
 def _parse(projects: Path, project: ProjectId, record: bytes) -> PageAnswer:
@@ -143,6 +128,6 @@ def _report(projects: Path, project: ProjectId) -> str:
         key.key_path(projects),
     )
     return (
-        f"project {project} has an answer this store did not sign or cannot read; "
-        "the operator must delete the project's answers from the project store"
+        f"project {project}'s confirmation answers failed the server's integrity check, so nothing "
+        "confirmed in this project counts; start a new project and confirm its targets there"
     )

@@ -10,7 +10,6 @@ from cad.briefs.model import AgentLimit, Requirement, Target
 from cad.briefs.store import BriefRefused, BriefState, Status
 from cad.confirmations import agent_checks
 from cad.projects.model import ProjectRefused
-from cad.records import key
 from cad.records.roots import Roots
 from cad.records.signed import StoreUnusable
 from cad.scorecard.model import (
@@ -112,8 +111,6 @@ def _against(roots: Roots, card: Scorecard, basis: AgainstBrief) -> BasisCheck:
 
 
 def _state(roots: Roots, brief_id: str) -> BriefState | Unconfirmed:
-    if not key.key_path(roots.briefs).is_file():
-        return Unconfirmed(f"the brief store has no key at {key.key_path(roots.briefs)}")
     try:
         return store.read_state(roots, brief_id)
     except (BriefRefused, ProjectRefused, StoreUnusable) as error:

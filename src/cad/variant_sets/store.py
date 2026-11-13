@@ -145,7 +145,6 @@ def join(
         return None if placed.unchanged else _record(code, placed.slot, built_as, key, design)
 
     with _without_host_paths(key, directory):
-        directory.mkdir(parents=True, exist_ok=True)
         signed.append(project_store(root), directory, _revision_slot(key), next_revision)
     [result] = outcome
     if isinstance(result, SetRefused):
@@ -276,6 +275,6 @@ def _full(key: SetKey, built_as: VariantId | None = None) -> SetFull:
 def _report(key: SetKey, directory: Path) -> str:
     LOG.error("%s holds a variant set record this store did not sign or cannot read", directory)
     return (
-        f"the variant set of brief {key.brief_id} has a record this store did not sign or "
-        "cannot read; the operator must delete that set from the variant set store"
+        f"the variant set of brief {key.brief_id} failed the server's integrity check, so its "
+        "options cannot be shown; create a new brief to build options again"
     )

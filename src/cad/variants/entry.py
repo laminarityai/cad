@@ -142,9 +142,7 @@ def read_manifest(root: Path, vid: VariantId) -> Manifest | None:
         return None
     manifest = _signed_manifest(root, vid)
     if manifest is None:
-        raise SandboxUnavailable(
-            f"{_report_unsigned(root, vid)} before its code can be built again"
-        )
+        raise SandboxUnavailable(_report_unsigned(root, vid))
     return manifest
 
 
@@ -158,7 +156,7 @@ def open_entry(root: Path, raw_id: str, image_tag: str) -> Entry:
     if _stored_id(code, image_tag) != vid:
         raise _outdated_or_refused(vid, code, manifest)
     if manifest is None:
-        raise StaleVariant(f"{_report_unsigned(root, vid)}, then build its code again")
+        raise StaleVariant(_report_unsigned(root, vid))
     if not isinstance(manifest.outcome, Built):
         raise NotBuilt(
             f"variant {vid} has no shape: its build ended as {manifest.outcome.kind}; "
@@ -218,6 +216,6 @@ def _report_unsigned(root: Path, vid: VariantId) -> str:
         key.key_path(root),
     )
     return (
-        f"variant {vid} has a build record this store did not sign or cannot read; "
-        "the operator must delete it from the variant store"
+        f"variant {vid}'s build record failed the server's integrity check; change its code, even "
+        "by a comment, and build it as a new variant"
     )

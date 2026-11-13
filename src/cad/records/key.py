@@ -11,7 +11,10 @@ from typing import Final
 from cad.sandbox.outcome import SandboxUnavailable
 
 KEY_BYTES: Final = 32
-UNUSABLE: Final = "the variant store's key is unusable; the operator must fix it"
+UNUSABLE: Final = (
+    "the server cannot use its signing key for variant builds, so it cannot read or store them; "
+    "this is a fault on the server, not in the project"
+)
 LOG = logging.getLogger(__name__)
 
 
@@ -25,13 +28,29 @@ def sign(root: Path, vid: str, record: bytes) -> bytes:
     try:
         key = _load_or_create(path)
     except OSError as error:
-        LOG.error("cannot use %s: %s", path, error)
-        raise SandboxUnavailable(UNUSABLE) from error
-    return hmac.new(key, vid.encode() + b"\0" + record, hashlib.sha256).hexdigest().encode()
+        raise _unusable(path, error) from error
+    return _mac(key, vid, record)
 
 
 def verify(root: Path, vid: str, record: bytes, mac: bytes) -> bool:
-    return hmac.compare_digest(sign(root, vid, record), mac)
+    """False when the store has no key, so a reader never creates one."""
+    path = key_path(root)
+    try:
+        key = _load(path)
+    except FileNotFoundError:
+        return False
+    except OSError as error:
+        raise _unusable(path, error) from error
+    return hmac.compare_digest(_mac(key, vid, record), mac)
+
+
+def _mac(key: bytes, vid: str, record: bytes) -> bytes:
+    return hmac.new(key, vid.encode() + b"\0" + record, hashlib.sha256).hexdigest().encode()
+
+
+def _unusable(path: Path, error: OSError) -> SandboxUnavailable:
+    LOG.error("cannot use %s: %s", path, error)
+    return SandboxUnavailable(UNUSABLE)
 
 
 def _load_or_create(path: Path) -> bytes:

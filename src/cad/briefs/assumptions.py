@@ -109,6 +109,6 @@ def _slot(brief_id: BriefId) -> Callable[[int], str]:
 
 def _report(brief_id: BriefId) -> str:
     return (
-        f"brief {brief_id} has an assumption record this store did not sign or cannot read; "
-        "the operator must delete the brief from the brief store"
+        f"brief {brief_id}'s assumptions failed the server's integrity check, so the brief cannot "
+        "be used; create a new brief to carry on"
     )

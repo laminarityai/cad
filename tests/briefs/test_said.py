@@ -90,5 +90,7 @@ def test_a_tampered_said_record_refuses_the_brief(roots: Roots) -> None:
     store.propose(roots, brief.id, [HOLDS_20_N], HEARD)
     path = roots.briefs / brief.id / said.SAID / "0001.signed"
     path.write_bytes(path.read_bytes().replace(b"20 N", b"90 N"))
-    with pytest.raises(store.TamperedBrief, match=f"brief {brief.id} .* operator must delete"):
+    with pytest.raises(
+        store.TamperedBrief, match=f"brief {brief.id} failed the server's integrity check"
+    ):
         store.read_state(roots, brief.id)

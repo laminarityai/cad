@@ -1,5 +1,4 @@
 import logging
-import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
@@ -16,7 +15,6 @@ from cad.records.roots import project_store
 from cad.tables.fields import Field
 
 RESEARCH: Final = "research"
-_OPERATOR: Final = "the operator must delete the project's research directory"
 LOG = logging.getLogger(__name__)
 
 
@@ -62,14 +60,11 @@ type Admit = Callable[[tuple[ResearchedRecord, ...]], AlreadyStored | Turned | N
 
 def read_ledger(projects: Path, project: ProjectId) -> Ledger:
     directory = projects / project / RESEARCH
-    if not os.path.lexists(directory):
-        return Ledger(())
-    store = project_store(projects)
-    raw = signed.read_numbered(store, directory, _slot_of(project)) if store.key_exists() else None
+    raw = signed.read_numbered(project_store(projects), directory, _slot_of(project))
     records = None if raw is None else _parse_all(raw, project)
     if records is None:
         LOG.error("%s holds a record this store did not sign or cannot read", directory)
-        return Ledger((), f"project {project}'s research records cannot be read; {_OPERATOR}")
+        return Ledger((), _unreadable(project))
     return Ledger(records)
 
 
@@ -80,14 +75,13 @@ def append_record(
         raise ValueError(f"a record for project {record.project} cannot go in {project}")
     directory = projects / project / RESEARCH
     store = project_store(projects)
-    directory.mkdir(parents=True, exist_ok=True)
     decided: list[AlreadyStored | Turned] = []
 
     def record_for(existing: tuple[bytes, ...]) -> bytes | None:
         decided.clear()
         records = _parse_all(existing, project)
         if records is None:
-            raise signed.Tampered(str(directory))
+            raise signed.Tampered
         verdict = admit(records)
         if verdict is not None:
             decided.append(verdict)
@@ -97,10 +91,7 @@ def append_record(
     try:
         stored = signed.append(store, directory, _slot_of(project), record_for)
     except signed.Tampered:
-        return Turned(
-            f"project {project}'s research records cannot be read; {_OPERATOR}",
-            other_source_could_answer=False,
-        )
+        return Turned(_unreadable(project), other_source_could_answer=False)
     except signed.Contended as error:
         raise ProjectBusy(
             f"project {project} is being researched concurrently; try again"
@@ -116,6 +107,13 @@ def _parse_all(raw: tuple[bytes, ...], project: ProjectId) -> tuple[ResearchedRe
     except ValidationError:
         return None
     return None if any(one.project != project for one in records) else records
+
+
+def _unreadable(project: ProjectId) -> str:
+    return (
+        f"project {project}'s research records failed the server's integrity check, so the server "
+        "uses none of them and stores no more; start a new project to research these values"
+    )
 
 
 def _slot_of(project: ProjectId) -> Callable[[int], str]:

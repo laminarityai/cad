@@ -68,7 +68,7 @@ def test_a_store_without_a_key_is_unbound_and_no_key_is_made(tmp_path: Path) -> 
     root = tmp_path / "keyless"
     root.mkdir()
     unbound = bind(root, genuine_card())
-    assert unbound is not None and "no key" in unbound.reason
+    assert unbound is not None and "no build record" in unbound.reason
     assert not (tmp_path / "keyless.key").exists()
 
 

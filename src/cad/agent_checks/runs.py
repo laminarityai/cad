@@ -6,7 +6,6 @@ scoring the same shape twice gives the same card. A new version runs the code ag
 """
 
 import logging
-import os
 from collections.abc import Callable
 from pathlib import Path
 from typing import Final
@@ -48,14 +47,13 @@ def read(projects: Path, project: ProjectId, version: str, brep_sha256: str) -> 
 def keep(projects: Path, project: ProjectId, run: GeometryRun) -> GeometryRun:
     """The run stored for its version and shape: the first one, when two scores raced."""
     directory = projects / project / RUNS
-    directory.mkdir(parents=True, exist_ok=True)
     held: list[GeometryRun] = []
 
     def record_for(existing: tuple[bytes, ...]) -> bytes | None:
         held.clear()
         held.extend(
             one
-            for one in _parsed(existing, directory)
+            for one in _parsed(existing)
             if one.version == run.version and one.brep_sha256 == run.brep_sha256
         )
         return None if held else run.model_dump_json().encode()
@@ -71,27 +69,24 @@ def keep(projects: Path, project: ProjectId, run: GeometryRun) -> GeometryRun:
 
 def _all(projects: Path, project: ProjectId) -> tuple[GeometryRun, ...]:
     directory = projects / project / RUNS
-    if not os.path.lexists(directory):
-        return ()
-    store = project_store(projects)
-    raw = signed.read_numbered(store, directory, _slot_of(project)) if store.key_exists() else None
+    raw = signed.read_numbered(project_store(projects), directory, _slot_of(project))
     if raw is None:
         LOG.error("%s holds a record this store did not sign or cannot read", directory)
         raise CheckRefused(_unreadable(project))
-    return _parsed(raw, directory)
+    return _parsed(raw)
 
 
-def _parsed(raw: tuple[bytes, ...], directory: Path) -> tuple[GeometryRun, ...]:
+def _parsed(raw: tuple[bytes, ...]) -> tuple[GeometryRun, ...]:
     try:
         return tuple(GeometryRun.model_validate_json(one) for one in raw)
     except ValidationError as error:
-        raise signed.Tampered(str(directory)) from error
+        raise signed.Tampered from error
 
 
 def _unreadable(project: ProjectId) -> str:
     return (
-        f"project {project}'s agent-written check runs cannot be read; the operator must delete "
-        "the project's agent_check_runs directory"
+        f"project {project}'s agent-written check runs failed the server's integrity check, so "
+        "their results cannot be used; start a new project to run these checks again"
     )
 
 
