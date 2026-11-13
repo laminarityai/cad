@@ -6,39 +6,60 @@ import { ServicesProvider } from "@/app/context";
 import type { Api } from "@/api/client";
 import { FakeChat, FakeViewer, fakeApi } from "@/test/fakes";
 import { Files } from "./Files";
-import type { Part } from "./model";
+import type { Doc, Part } from "./model";
 
 const motor: Part = { id: "part-0123456789abcdef", name: "motor", size: "42 × 42 × 40 mm · 4 holes", state: "confirmed", uploaded: true, leftOut: "1 of 3 bodies could not be read" };
 
 function calls() {
   const addFile = vi.fn((_projectId: string, file: File) =>
-    Promise.resolve({ kind: "document" as const, part: null, document: { file_id: "file-0123456789abcdef", name: file.name, media_type: "application/pdf" as const, size: file.size } }),
+    Promise.resolve({ kind: "document" as const, part: null, document: { file_id: "file-0123456789abcdef", name: file.name, media_type: "application/pdf" as const, size: file.size, withheld: false } }),
   );
   const declinePart = vi.fn((_projectId: string, partId: string) => Promise.resolve({ part_id: partId, declined: true }));
   return { api: fakeApi([], { addFile, declinePart }), addFile, declinePart };
 }
 
-function shown(api: Api, parts: Part[] = []) {
+function shown(api: Api, parts: Part[] = [], documents: Doc[] = []) {
   const onChanged = vi.fn();
   const wrapper = ({ children }: { children: ReactNode }) => (
     <ServicesProvider services={{ api, viewer: new FakeViewer(), chat: new FakeChat() }}>
       <ul>{children}</ul>
     </ServicesProvider>
   );
-  const view = render(<Files projectId="p1" parts={parts} documents={[]} sources={[]} open toggle={vi.fn()} onChanged={onChanged} />, { wrapper });
+  const view = render(<Files projectId="p1" parts={parts} documents={documents} sources={[]} open toggle={vi.fn()} onChanged={onChanged} />, { wrapper });
   return { ...view, onChanged };
 }
 
 describe("adding files", () => {
-  it("sends a picked PDF as it is and reloads the page", async () => {
+  it("asks whether a PDF is a licensed standard, sends nothing until the person answers, and reads it by default", async () => {
     const { api, addFile } = calls();
     const { onChanged } = shown(api);
     const pdf = new File(["%PDF-1.7"], "spec.pdf", { type: "application/pdf" });
     await userEvent.upload(screen.getByLabelText("Choose files"), pdf);
+    expect(screen.getByRole("group", { name: "Is spec.pdf a licensed standard?" })).toBeInTheDocument();
+    expect(addFile).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "No, the agent may read it" }));
     await waitFor(() => {
       expect(onChanged).toHaveBeenCalledTimes(1);
     });
-    expect(addFile).toHaveBeenCalledWith("p1", pdf, null);
+    expect(addFile).toHaveBeenCalledWith("p1", pdf, null, false);
+  });
+
+  it("keeps a PDF the person calls a standard from the agent", async () => {
+    const { api, addFile } = calls();
+    shown(api);
+    const pdf = new File(["%PDF-1.7"], "din.pdf", { type: "application/pdf" });
+    await userEvent.upload(screen.getByLabelText("Choose files"), pdf);
+    await userEvent.click(screen.getByRole("button", { name: "Yes, keep it from the agent" }));
+    await waitFor(() => {
+      expect(addFile).toHaveBeenCalledWith("p1", pdf, null, true);
+    });
+  });
+
+  it("marks a withheld file in the list", () => {
+    const { api } = calls();
+    shown(api, [], [{ id: "file-0123456789abcdef", name: "din.pdf", withheld: true }, { id: "file-fedcba9876543210", name: "spec.md", withheld: false }]);
+    expect(screen.getByText("Standard, kept from the agent")).toBeInTheDocument();
+    expect(screen.getAllByText(/kept from the agent/)).toHaveLength(1);
   });
 
   it("asks for the units of an STL, with no default, and sends nothing until the person picks", async () => {
@@ -50,7 +71,7 @@ describe("adding files", () => {
     expect(addFile).not.toHaveBeenCalled();
     await userEvent.click(screen.getByRole("button", { name: "Inches" }));
     await waitFor(() => {
-      expect(addFile).toHaveBeenCalledWith("p1", stl, "in");
+      expect(addFile).toHaveBeenCalledWith("p1", stl, "in", false);
     });
     expect(screen.queryByRole("group", { name: "Units of bracket.stl" })).toBeNull();
   });
@@ -61,7 +82,7 @@ describe("adding files", () => {
     const step = new File(["ISO-10303-21;"], "motor.step");
     fireEvent.drop(container.querySelector("[data-files-drop]") as HTMLElement, { dataTransfer: { files: [step] } });
     await waitFor(() => {
-      expect(addFile).toHaveBeenCalledWith("p1", step, null);
+      expect(addFile).toHaveBeenCalledWith("p1", step, null, false);
     });
   });
 

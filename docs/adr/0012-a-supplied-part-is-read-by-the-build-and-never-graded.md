@@ -62,6 +62,18 @@ Two checks of the assembly, `result` plus each placed component, are wanted and 
 
 A person also adds PDF, Markdown, plain text, PNG and JPEG files through the same route. Each is stored by its SHA-256 as a project source, the person's own attachment. The chat agent reads one with `read_file`, which takes the project and the file's id, never a path. A requirement may quote a file instead of the brief. For Markdown and plain text the server checks that the quote is in the file. For a PDF it checks the quote against the text the reader image takes from the PDF, the same reader and the same match that a researched value's quote gets (ADR-0009). For an image, or a PDF with no text layer such as a scan, the server cannot read the words, so the card shows the agent's quote with the file's name, labelled as read by the agent, and the person confirms it like any requirement. A number from a file reaches a check only as a requirement the person confirms (SPEC, Knowledge).
 
+### A licensed standard is stored and kept from the agent
+
+The operator decided on 2026-11-11 that a DIN or ISO document is stored and kept from the agent, and that a requirement can still cite it. The operator did not settle the details below. The main session picked them on 2026-11-12, and they wait for the operator's word.
+
+- **The person marks it.** A PDF is withheld only when the person says so when adding it: the upload route takes a `withheld` flag that is off by default, and the web app asks once for each PDF. There is no detector, because a text heuristic can miss a standard or wrongly hide a datasheet. Only a PDF can be marked. Adding the same file again with the other choice records the new choice, so the person can change their mind through the same route. No tool sets, clears or reads around the flag.
+- **The agent sees the name and the fact.** `list_files` and the project read give a withheld file's name and `withheld: true`. `read_file` refuses it, the chat attaches no withheld file to the model whatever a result names, and the chat's list of the person's files marks it.
+- **A quote from it is the person's own words.** `propose_requirements` accepts a quote from a withheld file only when the quote is in the brief or in a message the person typed in the conversation, the rule every quote of the brief already follows, and the server adds that message to the brief as it does for any quote. The server then checks the quote against the file's stored text. It checks the typed words first, so a refusal never says whether a guessed phrase is in the file. A withheld PDF whose text the reader cannot take, such as a scan, cannot be quoted, because the agent has not read it and the server cannot check it.
+
+### PDF text is taken once
+
+The reader image takes a PDF's text when the person adds it, and the server stores it beside the file as `sources/<sha256>.text`. A quote check reads the stored text and never starts the reader again. A file added before the text was stored has none, so the reader takes it on the first quote check that needs it. If the reader cannot run at upload, the upload still succeeds and the text is taken on first need. A PDF with no text layer stores nothing, so each quote check on it still starts the reader.
+
 ## Consequences
 
 - **ADR-0003** is amended. The variant id and `build.json` cover the SHA-256 of each part a build read and each placement. The rebuild fetches parts by SHA-256. "Build containers have no mounts" stands.

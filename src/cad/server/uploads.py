@@ -7,7 +7,9 @@ which this server never answers, so another site cannot upload or decline for th
 """
 
 import json
+import logging
 from collections.abc import Callable
+from pathlib import Path
 
 import anyio
 from pydantic import BaseModel, ValidationError
@@ -24,11 +26,14 @@ from cad.operations.routes import CHALLENGE, PersonOf, TenantOf, refusal, refuse
 from cad.projects.membership import project_briefs
 from cad.projects.model import ProjectId, ProjectRefused, parse_project_id
 from cad.sandbox.meter import metered
-from cad.uploads import store
-from cad.uploads.model import kind_of
+from cad.sandbox.outcome import SandboxUnavailable
+from cad.uploads import store, text
+from cad.uploads.model import Document, kind_of
 from cad.uploads.views import document_view, part_view
 from cad.uploads.web import PATHS, Added, AddFileInput, Declined, DeclineInput
 from cad.variants.entry import MAX_FILE_BYTES
+
+LOG = logging.getLogger(__name__)
 
 
 def upload_routes(person_of: PersonOf, tenant_of: TenantOf) -> list[Route]:
@@ -65,7 +70,12 @@ def upload_routes(person_of: PersonOf, tenant_of: TenantOf) -> list[Route]:
             kind = kind_of(name)
             projects = tenant.roots.projects
             if kind.cad is None:
-                document = store.add_document(projects, project, name, kind, data, person)
+                document = store.add_document(
+                    projects, project, name, kind, data, person, sent.withheld
+                )
+                if document.media_type == "application/pdf":
+                    with metered(tenant.meter):
+                        _read_text(projects, project, document, data)
                 return Added(kind="document", document=document_view(document))
             with metered(tenant.meter):
                 part = store.add_part(
@@ -103,6 +113,14 @@ def upload_routes(person_of: PersonOf, tenant_of: TenantOf) -> list[Route]:
         Route(PATHS["add_file"], add, methods=["POST"], name="add_file"),
         Route(PATHS["decline_part"], decline, methods=["POST"], name="decline_part"),
     ]
+
+
+def _read_text(projects: Path, project: ProjectId, document: Document, data: bytes) -> None:
+    """Stores the PDF's text now. When the reader cannot run, the text is taken on first need."""
+    try:
+        text.pdf_text(projects, project, document, data)
+    except SandboxUnavailable as error:
+        LOG.warning("the text of %s is not stored yet: %s", document.id, error)
 
 
 async def _answered(run: Callable[[], BaseModel]) -> Response:

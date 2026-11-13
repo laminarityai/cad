@@ -15,7 +15,10 @@ from cad.context_parts.model import FromUpload, StlRead
 from cad.context_parts.store import confirmed_parts, newest_parts
 from cad.operations.tenants import Tenants
 from cad.projects.model import ProjectId, new_project_id
+from cad.research.fetch import FetchFailed, PdfFile, PdfText
+from cad.sandbox.outcome import SandboxUnavailable
 from cad.server.hosted import build_app
+from cad.uploads import text
 from tests.support.browser import Person, local_pages
 from tests.support.chat import ALICE, BOB, JSON, Chat, script, step
 from tests.support.hosted import BASE
@@ -146,3 +149,51 @@ async def test_only_the_projects_own_person_adds_to_it(chat: Chat) -> None:
         other = await add(bob, project, "motor.step", RAIL)
     assert signed_out.status_code == 401
     assert other.status_code == 404
+
+
+STANDARD = b"%PDF-1.7 a licensed standard"
+
+
+async def test_a_pdf_marked_as_a_standard_is_withheld_and_its_text_is_stored_at_upload(
+    chat: Chat, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    asked: list[str] = []
+
+    def reader(pdf: PdfFile) -> PdfText | FetchFailed:
+        asked.append(pdf.url)
+        return PdfText(pdf.url, "Standard", ("Walls are 3 mm",), pdf.sha256)
+
+    monkeypatch.setattr(text, "read_pdf", reader)
+    project = project_of(chat)
+    async with chat.client() as client:
+        added = await add(client, project, "din.pdf", STANDARD, withheld="true")
+        plain = await add(client, project, "sheet.pdf", b"%PDF-1.7 other")
+        shown = await client.get(f"/v1/projects/{project}")
+    assert added.json()["document"]["withheld"] is True
+    assert plain.json()["document"]["withheld"] is False
+    assert [(one["name"], one["withheld"]) for one in shown.json()["documents"]] == [
+        ("din.pdf", True),
+        ("sheet.pdf", False),
+    ]
+    assert asked == ["din.pdf", "sheet.pdf"]
+
+
+async def test_an_upload_still_works_when_the_reader_cannot_run(
+    chat: Chat, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def down(pdf: PdfFile) -> PdfText | FetchFailed:
+        raise SandboxUnavailable("Docker is not running")
+
+    monkeypatch.setattr(text, "read_pdf", down)
+    project = project_of(chat)
+    async with chat.client() as client:
+        added = await add(client, project, "din.pdf", STANDARD, withheld="true")
+    assert added.status_code == 200, added.text
+
+
+async def test_only_a_pdf_is_marked_as_a_standard(chat: Chat) -> None:
+    project = project_of(chat)
+    async with chat.client() as client:
+        refused = await add(client, project, "spec.md", b"# Motor\n", withheld="true")
+    assert refused.status_code == 400
+    assert "only a PDF" in refused.json()["error"]

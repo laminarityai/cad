@@ -61,7 +61,9 @@ CONTEXT_PARTS = (
     "already confirmed: list_files shows it with its facts, and needs no propose_context_part. "
     "When the new part must fit with it, propose fits_with, min_clearance or max_clearance on "
     "its part_id, quoting the brief, and build in its frame. A document the person added is a "
-    "source: read it with read_file, and a requirement may quote it by file_id."
+    "source: read it with read_file, and a requirement may quote it by file_id. A document the "
+    "person kept from you as a standard is listed as withheld: you cannot read it, and you quote "
+    "it only with words the person typed."
 )
 
 HOLES = (
@@ -226,10 +228,16 @@ CHAT_OPEN_PROJECT: Final = (
     "ask the person for code, a brief, a material or an id that these tools return."
 )
 
+WITHHELD_REFUSAL: Final = (
+    "{name} is a licensed standard the person kept from you, so you cannot read it. Ask the "
+    "person for the figure you need, in their own words. A requirement may quote {name} only "
+    "with words the person typed, and the server checks them against the file."
+)
+WITHHELD_NOTE: Final = ", withheld: a standard the person kept from you"
 CHAT_ADDED: Final = (
     "The person added these files to the project:\n{files}\nA part they added is confirmed by "
     "the upload. Call list_files for its facts before you design with it, and read_file for a "
-    "document."
+    "document you may read."
 )
 
 CHAT_ON_THE_PAGE: Final = (

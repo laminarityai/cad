@@ -49,6 +49,7 @@ export interface Part {
 export interface Doc {
   id: string;
   name: string;
+  withheld: boolean;
 }
 
 export type Confirmation = ConfirmationCard | null;
@@ -136,7 +137,7 @@ export async function loadWorkspace(api: Api, projectId: string): Promise<Worksp
     briefs: read,
     confirmation,
     parts: project.context_parts.map(partOf),
-    documents: project.documents.map((one: DocumentView) => ({ id: one.file_id, name: one.name })),
+    documents: project.documents.map((one: DocumentView) => ({ id: one.file_id, name: one.name, withheld: one.withheld })),
     conversationId: conversation.conversation_id,
   };
 }

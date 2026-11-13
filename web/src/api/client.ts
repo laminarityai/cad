@@ -56,7 +56,7 @@ export interface Api {
   mesh(meshUrl: string): Promise<Tessellated>;
   geometry(variantId: string): Promise<GeometryRead>;
   exportOf(variantId: string, briefId: string, format: ExportFormat): Promise<ExportView>;
-  addFile(projectId: string, file: File, unit: Unit | null): Promise<Added>;
+  addFile(projectId: string, file: File, unit: Unit | null, withheld: boolean): Promise<Added>;
   declinePart(projectId: string, partId: string): Promise<Declined>;
 }
 
@@ -114,9 +114,9 @@ async function refusal(response: Response, url: string): Promise<Error> {
   return new Refused(response.status, said?.error ?? `HTTP ${String(response.status)}`);
 }
 
-/** A file goes as the raw body, which `request` does not send, with its name and unit in the query. */
-async function addFile(project_id: string, file: File, unit: Unit | null): Promise<Added> {
-  const url = urlOf("/v1/projects/{project_id}/files", { path: { project_id }, query: { name: file.name, unit } });
+/** A file goes as the raw body, which `request` does not send, with its name, unit and whether it is a withheld standard in the query. */
+async function addFile(project_id: string, file: File, unit: Unit | null, withheld: boolean): Promise<Added> {
+  const url = urlOf("/v1/projects/{project_id}/files", { path: { project_id }, query: { name: file.name, unit, withheld } });
   const response = await fetch(url, {
     method: "POST",
     credentials: "same-origin",

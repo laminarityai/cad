@@ -10,7 +10,8 @@ import pytest
 from cad.accounts.principal import AccountId, PersonSession
 from cad.briefs.store import create_brief
 from cad.chat.anthropic_model import _param  # pyright: ignore[reportPrivateUsage]
-from cad.chat.model import Media, Message, Model, ToolResult, ToolSpec
+from cad.chat.model import Attached, Media, Message, Model, ToolResult, ToolSpec
+from cad.chat.turn import _media_of  # pyright: ignore[reportPrivateUsage]
 from cad.projects.model import new_project_id
 from cad.uploads import store
 from cad.uploads.model import kind_of
@@ -73,6 +74,46 @@ async def test_a_pdf_reaches_the_model_on_this_turn_and_the_next(chat: Chat, mod
     [returned] = [one for one in events if one["kind"] == "tool_result"]
     assert returned["attached"] == [{"project_id": project, "file_id": pdf.id}]
     assert base64.b64encode(PDF).decode() not in str(events)
+
+
+async def test_a_withheld_pdf_is_refused_by_read_file_and_never_reaches_the_model(
+    chat: Chat, model: Seen
+) -> None:
+    tenant = chat.tenants.of(AccountId(ALICE))
+    project = create_brief(tenant.roots, "A clip for the motor", new_project_id()).project
+    pdf = store.add_document(
+        tenant.roots.projects, project, "din.pdf", kind_of("din.pdf"), PDF, PERSON, True
+    )
+    model.inner = script(
+        step("Reading.", call("read_file", project_id=project, file_id=pdf.id)),
+        step("It is withheld."),
+    )
+    async with chat.client() as client:
+        cid = await chat.conversation(client)
+        await chat.say(client, cid, "read the standard")
+        await chat.finish()
+        events = await chat.events(client, cid)
+    assert media_of(model.messages[1]) == []
+    [returned] = [one for one in events if one["kind"] == "tool_result"]
+    assert returned["is_error"] is True
+    assert "kept from you" in returned["text"]
+    assert base64.b64encode(PDF).decode() not in str(events)
+
+
+async def test_the_chat_leaves_a_withheld_pdf_out_even_when_a_result_names_it(
+    chat: Chat,
+) -> None:
+    tenant = chat.tenants.of(AccountId(ALICE))
+    project = create_brief(tenant.roots, "A clip for the motor", new_project_id()).project
+    pdf = store.add_document(
+        tenant.roots.projects, project, "din.pdf", kind_of("din.pdf"), PDF, PERSON, True
+    )
+    named = ToolResult(
+        call_id="c1", text="{}", attached=(Attached(project_id=project, file_id=pdf.id),)
+    )
+    sent = _media_of(tenant, named)  # pyright: ignore[reportPrivateUsage]
+    assert sent.media == ()
+    assert sent.text == "{}\ndin.pdf is withheld from you"
 
 
 def test_the_anthropic_request_carries_a_pdf_as_a_document_and_an_image_as_an_image() -> None:

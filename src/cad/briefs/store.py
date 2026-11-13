@@ -70,11 +70,13 @@ HOLDS_THE_SET: Final = (Status.PROPOSED, Status.CONFIRMED)
 
 @dataclass(frozen=True, slots=True)
 class Draft:
-    """A requirement before the store gives it an id. `cited` is a quote from a document."""
+    """A requirement before the store gives it an id. `cited` is a quote from a document. `typed`
+    says the quote must also be words the person typed, as every quote of the brief is."""
 
     target: Target
     quote: str
     cited: FileQuote | None = None
+    typed: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -222,7 +224,7 @@ def propose(
 
 
 def _add_quoted(roots: Roots, brief: Brief, drafts: Sequence[Draft], words: said.Words) -> Brief:
-    quotes = [d.quote for d in drafts if d.cited is None]
+    quotes = [d.quote for d in drafts if d.cited is None or d.typed]
     added = said.words_to_add(brief.text, quotes, words)
     grown = len(brief.text) + sum(len(SAID_SEPARATOR) + len(one.text) for one in added)
     if grown > MAX_BRIEF_CHARS:
@@ -328,7 +330,7 @@ def _resolve(brief: Brief, drafts: Sequence[Draft], words: said.Words) -> tuple[
     requirements: list[Requirement] = []
     for index, draft in enumerate(drafts):
         start = brief.text.find(draft.quote) if draft.quote else -1
-        if draft.cited is None and start < 0:
+        if (draft.cited is None or draft.typed) and start < 0:
             raise BadProposal(
                 f"requirements[{index}]: the quote does not appear in brief {brief.id}; "
                 + words.refusal_hint

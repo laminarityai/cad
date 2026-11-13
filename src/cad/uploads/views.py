@@ -31,6 +31,7 @@ class DocumentView(BaseModel):
     name: str
     media_type: MediaType
     size: int
+    withheld: bool
 
 
 def part_view(part: Stored) -> ContextPartView:
@@ -62,5 +63,9 @@ def left_out(facts: Facts) -> str | None:
 
 def document_view(document: Document) -> DocumentView:
     return DocumentView(
-        file_id=document.id, name=document.name, media_type=document.media_type, size=document.size
+        file_id=document.id,
+        name=document.name,
+        media_type=document.media_type,
+        size=document.size,
+        withheld=document.withheld,
     )

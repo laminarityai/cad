@@ -5,6 +5,7 @@ from pydantic import BaseModel, Field
 from cad.briefs.origins import FILE_ID_PATTERN
 from cad.context_parts.ingest import Facts
 from cad.context_parts.store import newest_parts
+from cad.operations.guidance import WITHHELD_REFUSAL
 from cad.operations.model import Audience, Input, Tenant, operation
 from cad.projects.membership import project_briefs
 from cad.projects.model import (
@@ -15,7 +16,7 @@ from cad.projects.model import (
     parse_project_id,
 )
 from cad.uploads import store
-from cad.uploads.model import TEXT
+from cad.uploads.model import TEXT, Withheld
 from cad.uploads.views import ContextPartView, DocumentView, document_view, part_view
 
 MAX_TEXT_CHARS: Final = 100_000
@@ -28,14 +29,17 @@ LIST_FILES: Final = (
     "help you design with the part, and no check reads them. A part the new part must fit with "
     "stays where it is: model the new part in that part's frame, and propose fits_with, "
     "min_clearance or max_clearance on its part_id so the fit check measures against it. A "
-    "document is a source: read it with read_file."
+    "document is a source: read it with read_file, unless it is withheld. A document with "
+    "withheld true is a licensed standard the person kept from you: you see its name, read_file "
+    "refuses it, and you may quote it only with words the person typed."
 )
 READ_FILE: Final = (
     "Read a document the person added to the project, by its file_id from list_files. A "
     "Markdown or text file comes back as text. A PDF or an image is attached for you to read in "
-    "the web app's chat; another client gets only its name. A requirement may quote a document: "
-    "pass the file_id and the words. What you read is a source, never a measurement: a number "
-    "from it reaches a check only as a requirement the person confirms."
+    "the web app's chat; another client gets only its name. A withheld document is refused. A "
+    "requirement may quote a document: pass the file_id and the words. What you read is a "
+    "source, never a measurement: a number from it reaches a check only as a requirement the "
+    "person confirms."
 )
 
 
@@ -82,6 +86,8 @@ def list_files(tenant: Tenant, arguments: ProjectFilesInput) -> ProjectFiles:
 def read_file(tenant: Tenant, arguments: ReadFileInput) -> FileRead:
     project = _known(tenant, arguments.project_id)
     found, data = store.document(tenant.roots.projects, project, arguments.file_id)
+    if found.withheld:
+        raise Withheld(WITHHELD_REFUSAL.format(name=found.name))
     view = document_view(found)
     if found.media_type not in TEXT:
         return FileRead(document=view, text=None, attachments=(found.id,))

@@ -78,6 +78,7 @@ EXPECTED: Final[dict[str, Answer]] = {
     "cad.tables.tolerances.UnknownClass": (None, None),
     "cad.uploads.model.BadUpload": ("400 named", "named"),
     "cad.uploads.model.UnknownFile": ("404 named", "named"),
+    "cad.uploads.model.Withheld": ("400 named", "named"),
     "cad.variant_sets.model.MaterialMissing": ("400 named", "named"),
     "cad.variant_sets.model.SetBusy": ("400 named", "named"),
     "cad.variant_sets.model.SetFull": ("400 named", "named"),

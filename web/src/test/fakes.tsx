@@ -72,7 +72,7 @@ export function fakeApi(variants: string[], overrides: Partial<Api> = {}): Api {
       Promise.resolve({ kind: "ready" as const, url: `/v1/exports/0123456789ab/${"b".repeat(64)}.${format}?name=${variantId}`, filename: `${variantId}.${format}` }),
     ),
     addFile: vi.fn((_projectId: string, file: File) =>
-      Promise.resolve({ kind: "document" as const, part: null, document: { file_id: "file-0123456789abcdef", name: file.name, media_type: "application/pdf" as const, size: file.size } }),
+      Promise.resolve({ kind: "document" as const, part: null, document: { file_id: "file-0123456789abcdef", name: file.name, media_type: "application/pdf" as const, size: file.size, withheld: false } }),
     ),
     declinePart: vi.fn((_projectId: string, partId: string) => Promise.resolve({ part_id: partId, declined: true })),
     ...overrides,

@@ -1,4 +1,4 @@
-import { Box, ChevronRight, FileText, Folder, FolderOpen, Link2, Plus } from "lucide-react";
+import { Box, ChevronRight, FileText, Folder, FolderOpen, Link2, Lock, Plus } from "lucide-react";
 import { useRef, useState, type DragEvent, type ReactNode } from "react";
 import { useServices } from "@/app/context";
 import type { Unit } from "@/api/client";
@@ -75,20 +75,22 @@ function SourceFolder({ name, pages }: { name: string; pages: Source[] }) {
 }
 
 const isStl = (file: File) => file.name.toLowerCase().endsWith(".stl");
+const isPdf = (file: File) => file.name.toLowerCase().endsWith(".pdf");
+const asksFirst = (file: File) => isStl(file) || isPdf(file);
 
 const said = (error: unknown) => (error instanceof Error ? error.message : String(error));
 
-/** Sends each file in turn. An STL holds no units, so it waits until the person picks mm or inches. */
+/** Sends each file in turn. An STL holds no units, so it waits until the person picks mm or inches. A PDF waits until the person says whether it is a licensed standard to keep from the agent. */
 function useAdding(projectId: string, onChanged: () => void) {
   const { api } = useServices();
   const [queue, setQueue] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
-  const send = async (file: File, unit: Unit | null, rest: File[]) => {
+  const send = async (file: File, unit: Unit | null, withheld: boolean, rest: File[]) => {
     setBusy(true);
     setProblem(null);
     try {
-      await api.addFile(projectId, file, unit);
+      await api.addFile(projectId, file, unit, withheld);
       onChanged();
     } catch (error) {
       setProblem(`${file.name}: ${said(error)}`);
@@ -99,8 +101,8 @@ function useAdding(projectId: string, onChanged: () => void) {
   };
   const next = async (files: File[]) => {
     const [first, ...rest] = files;
-    setQueue(first && isStl(first) ? files : []);
-    if (first && !isStl(first)) await send(first, null, rest);
+    setQueue(first && asksFirst(first) ? files : []);
+    if (first && !asksFirst(first)) await send(first, null, false, rest);
   };
   return {
     asking: queue[0] ?? null,
@@ -109,7 +111,11 @@ function useAdding(projectId: string, onChanged: () => void) {
     add: (files: File[]) => void next([...queue, ...files]),
     unit: (unit: Unit) => {
       const [first, ...rest] = queue;
-      if (first) void send(first, unit, rest);
+      if (first) void send(first, unit, false, rest);
+    },
+    standard: (withheld: boolean) => {
+      const [first, ...rest] = queue;
+      if (first) void send(first, null, withheld, rest);
     },
   };
 }
@@ -130,6 +136,34 @@ function UnitPrompt({ file, onUnit }: { file: File; onUnit: (unit: Unit) => void
             type="button"
             onClick={() => {
               onUnit(unit);
+            }}
+            className="rounded border border-rule bg-panel px-2 py-0.5 hover:bg-panel-2"
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+    </li>
+  );
+}
+
+function StandardPrompt({ file, onChoice }: { file: File; onChoice: (withheld: boolean) => void }) {
+  return (
+    <li role="group" aria-label={`Is ${file.name} a licensed standard?`} className="space-y-1 rounded-md bg-wait-bg px-2 py-1.5 text-[13px]">
+      <p>Is {file.name} a licensed standard, such as a DIN or ISO document?</p>
+      <p className="text-ink-3">If it is, the agent never reads it. It stays in the project, and a requirement can cite it when you type the words from it yourself.</p>
+      <div className="flex gap-2">
+        {(
+          [
+            [false, "No, the agent may read it"],
+            [true, "Yes, keep it from the agent"],
+          ] as const
+        ).map(([withheld, label]) => (
+          <button
+            key={label}
+            type="button"
+            onClick={() => {
+              onChoice(withheld);
             }}
             className="rounded border border-rule bg-panel px-2 py-0.5 hover:bg-panel-2"
           >
@@ -227,7 +261,8 @@ export function Files(props: { projectId: string; parts: Part[]; documents: Doc[
       </div>
       <CollapsiblePanel>
         <Children>
-          {adding.asking ? <UnitPrompt file={adding.asking} onUnit={adding.unit} /> : null}
+          {adding.asking && isStl(adding.asking) ? <UnitPrompt file={adding.asking} onUnit={adding.unit} /> : null}
+          {adding.asking && isPdf(adding.asking) ? <StandardPrompt file={adding.asking} onChoice={adding.standard} /> : null}
           {adding.busy ? <li className="px-2 py-1 text-[13px] text-ink-3">Reading the file…</li> : null}
           {adding.problem ? (
             <li role="alert" className="px-2 py-1 text-[13px] text-fail">
@@ -239,8 +274,11 @@ export function Files(props: { projectId: string; parts: Part[]; documents: Doc[
           ))}
           {documents.map((one) => (
             <li key={one.id} data-file="document" className={cn(ROW, "text-[14px]")}>
-              <FileText className="size-4 shrink-0 text-ink-2" />
-              <span className="truncate">{one.name}</span>
+              {one.withheld ? <Lock className="size-4 shrink-0 text-ink-2" /> : <FileText className="size-4 shrink-0 text-ink-2" />}
+              <span className="min-w-0 flex-1">
+                <span className="block truncate">{one.name}</span>
+                {one.withheld ? <span className="block text-[12px] text-ink-3">Standard, kept from the agent</span> : null}
+              </span>
             </li>
           ))}
           {byDocument(sources).map(([name, pages]) => (

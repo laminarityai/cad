@@ -96,7 +96,11 @@ def _octets(one: Json) -> bool:
 def test_an_upload_sends_the_file_as_octets_and_names_it_in_the_query() -> None:
     one = described()[("POST", "/v1/projects/{project_id}/files")]
     assert _octets(one)
-    assert {item["name"] for item in parameters(one) if item["in"] == "query"} == {"name", "unit"}
+    assert {item["name"] for item in parameters(one) if item["in"] == "query"} == {
+        "name",
+        "unit",
+        "withheld",
+    }
 
 
 def test_a_post_carries_its_remaining_arguments_in_a_json_body() -> None:
