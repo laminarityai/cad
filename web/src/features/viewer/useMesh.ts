@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useServices } from "@/app/context";
 import type { Api } from "@/api/client";
 import { sleep } from "@/lib/sleep";
-import { said, useResource } from "@/state/resource";
+import { said, useResources } from "@/state/resource";
 import type { Shapes } from "./engine";
 import type { Topology } from "./readout";
 
@@ -37,13 +37,18 @@ async function readMesh(api: Api, variantId: string, signal: AbortSignal): Promi
   }
 }
 
-/** Read one variant's mesh, keeping the last one drawn on screen while the next is made. */
-export function useMesh(variantId: string): MeshState {
+/** Read one variant's mesh, keeping the last one drawn on screen while the next is made. With no
+ * variant, read nothing and answer null. */
+export function useMesh(variantId: string): MeshState;
+export function useMesh(variantId: string | null): MeshState | null;
+export function useMesh(variantId: string | null): MeshState | null {
   const { api } = useServices();
-  const { resource } = useResource((signal) => readMesh(api, variantId, signal), `mesh:${variantId}`);
+  const { resources } = useResources(variantId === null ? [] : [variantId], (id, signal) => readMesh(api, id, signal));
   const [drawn, setDrawn] = useState<Shapes | null>(null);
-  const onScreen = resource.status === "ok" ? resource.data.shapes : resource.status === "loading" ? drawn : null;
+  const resource = variantId === null ? null : (resources[variantId] ?? { status: "loading" });
+  const onScreen = resource?.status === "ok" ? resource.data.shapes : resource?.status === "loading" ? drawn : null;
   if (onScreen !== drawn) setDrawn(onScreen);
+  if (resource === null) return null;
   if (resource.status === "ok") return { status: "ready", shapes: resource.data.shapes, topology: resource.data.topology };
   if (resource.status === "loading") return { status: "loading", lastDrawn: drawn };
   return { status: "failed", reason: resource.status === "error" ? resource.message : "The mesh did not load." };
