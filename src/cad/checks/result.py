@@ -81,14 +81,23 @@ class ReadMissing(Frozen):
 type Read = Annotated[ReadCited | ReadResearched | ReadMissing, Field(discriminator="kind")]
 
 
-class Where(Frozen):
-    """The faces of the variant that the `fea` check's deciding candidate fixed (`support`) and
-    pressed on (`load`), as indices in the kernel's explorer order of the BREP the check read. The
-    3D view numbers the faces of the same BREP the same way. The check finds them and the agent
-    never names one (ADR-0007)."""
+class Faces(Frozen):
+    """Faces of the variant that the `fea` check fixed (`support`) and pressed on (`load`), as
+    indices in the kernel's explorer order of the BREP the check read. The 3D view numbers the
+    faces of the same BREP the same way. The check finds them and the agent never names one
+    (ADR-0007)."""
 
     support: tuple[NonNegativeInt, ...]
     load: tuple[NonNegativeInt, ...]
+
+
+class Where(Faces):
+    """`support` and `load` are the faces of the candidates that decided the stress. `displacement`
+    holds the faces of the candidates that decided the displacement, when they are others. A
+    candidate within the check's stated error of the worst is shown with it, since the check cannot
+    tell them apart."""
+
+    displacement: Faces | None = Field(default=None, exclude_if=lambda faces: faces is None)
 
 
 class CheckResult(Frozen):

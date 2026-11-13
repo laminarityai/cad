@@ -12,6 +12,7 @@ from cad.checks.container.inputs import WIRE_UNITS, Input
 from cad.checks.container.suite import CHECKS, with_requirements
 from cad.checks.container.wire import (
     CheckedReport,
+    FacesWire,
     LoadCaseWire,
     RequestWire,
     ResultWire,
@@ -20,6 +21,7 @@ from cad.checks.container.wire import (
 )
 from cad.checks.result import (
     CheckResult,
+    Faces,
     Measure,
     Read,
     ReadCited,
@@ -299,7 +301,10 @@ def _problem(spec: CheckSpec, wire: ResultWire, request: Request) -> str | None:
                     f"but the host sent {sent.magnitude:g}"
                 )
     found = wire.get("where")
-    if found is not None and min((*found["support"], *found["load"]), default=0) < 0:
+    if found is None:
+        return None
+    named = (found, *([found["displacement"]] if "displacement" in found else []))
+    if min((i for one in named for i in (*one["support"], *one["load"])), default=0) < 0:
         return "named a face with a negative index"
     return None
 
@@ -330,7 +335,16 @@ def _where(wire: ResultWire) -> Where | None:
     found = wire.get("where")
     if found is None:
         return None
-    return Where(support=tuple(found["support"]), load=tuple(found["load"]))
+    bending = found.get("displacement")
+    return Where(
+        support=tuple(found["support"]),
+        load=tuple(found["load"]),
+        displacement=None if bending is None else _faces(bending),
+    )
+
+
+def _faces(wire: FacesWire) -> Faces:
+    return Faces(support=tuple(wire["support"]), load=tuple(wire["load"]))
 
 
 def _one_line(text: str) -> str:

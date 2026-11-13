@@ -52,6 +52,35 @@ def test_every_verdict_of_a_solved_load_case_carries_the_faces_of_the_fine_mesh(
     assert found.get("where") == where
 
 
+def candidate(displacement: float, von_mises: float, support: int, load: int) -> fea.Pair:
+    return fea.Pair(fea.Peaks(displacement, von_mises, 0.0), {"support": [support], "load": [load]})
+
+
+def test_the_displacement_has_its_own_faces_when_another_candidate_bends_most() -> None:
+    stiff_but_stressed = candidate(1.0, 20.0, support=0, load=1)
+    bends_most = candidate(2.0, 10.0, support=0, load=2)
+    assert fea.where_of([stiff_but_stressed, bends_most]) == {
+        "support": [0],
+        "load": [1],
+        "displacement": {"support": [0], "load": [2]},
+    }
+
+
+def test_one_candidate_worst_in_both_measures_sends_one_set_of_faces() -> None:
+    worst = candidate(2.0, 20.0, support=0, load=1)
+    assert fea.where_of([worst, candidate(1.0, 10.0, support=3, load=4)]) == {
+        "support": [0],
+        "load": [1],
+    }
+
+
+def test_candidates_within_the_stated_error_of_the_worst_are_all_shown() -> None:
+    top = candidate(2.0, 20.0, support=0, load=5)
+    bottom = candidate(2.0 * (1 - fea.DISPLACEMENT_ERROR), 20.0, support=0, load=4)
+    beyond = candidate(1.0, 20.0 * (1 - fea.STRESS_ERROR) * 0.99, support=0, load=3)
+    assert fea.where_of([top, bottom, beyond]) == {"support": [0], "load": [4, 5]}
+
+
 @pytest.mark.parametrize("clamped_face", [True, False])
 def test_the_clamped_face_note_is_on_the_result_only_when_a_face_is_clamped(
     clamped_face: bool,

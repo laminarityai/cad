@@ -1053,6 +1053,17 @@ export interface components {
             edges: number[];
         };
         /**
+         * Faces
+         * @description Faces of the variant that the `fea` check fixed (`support`) and pressed on (`load`), as
+         *     indices in the kernel's explorer order of the BREP the check read. The 3D view numbers the
+         *     faces of the same BREP the same way. The check finds them and the agent never names one
+         *     (ADR-0007).
+         */
+        Faces: {
+            support: number[];
+            load: number[];
+        };
+        /**
          * Facing
          * @description Fixed at one of two flat faces that face each other across a gap.
          */
@@ -2150,14 +2161,16 @@ export interface components {
         };
         /**
          * Where
-         * @description The faces of the variant that the `fea` check's deciding candidate fixed (`support`) and
-         *     pressed on (`load`), as indices in the kernel's explorer order of the BREP the check read. The
-         *     3D view numbers the faces of the same BREP the same way. The check finds them and the agent
-         *     never names one (ADR-0007).
+         * @description `support` and `load` are the faces of the candidates that decided the stress. `displacement`
+         *     holds the faces of the candidates that decided the displacement, when they are others. A
+         *     candidate within the check's stated error of the worst is shown with it, since the check cannot
+         *     tell them apart.
          */
         Where: {
             support: number[];
             load: number[];
+            /** @default null */
+            displacement?: components["schemas"]["Faces"] | null;
         };
         /** Read */
         cad__auto__model__Read: {
@@ -2313,6 +2326,7 @@ export type ExportPreparing = components['schemas']['ExportPreparing'];
 export type ExportReady = components['schemas']['ExportReady'];
 export type ExportView = components['schemas']['ExportView'];
 export type FaceFacts = components['schemas']['FaceFacts'];
+export type Faces = components['schemas']['Faces'];
 export type Facing = components['schemas']['Facing'];
 export type FarEnd = components['schemas']['FarEnd'];
 export type FastenerHoles = components['schemas']['FastenerHoles'];

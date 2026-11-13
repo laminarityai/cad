@@ -1,5 +1,5 @@
 import math
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import date
 from typing import Final
@@ -40,7 +40,13 @@ from cad.checks.container.mesher import (
 )
 from cad.checks.container.regions import FAR_FRACTION, Bore, Candidate, Plane, Resolved, Unresolved
 from cad.checks.container.vectors import Point, cross, dot, norm, sub
-from cad.checks.container.wire import FindingWire, MeasuredWire, SourceLiteral, WhereWire
+from cad.checks.container.wire import (
+    FacesWire,
+    FindingWire,
+    MeasuredWire,
+    SourceLiteral,
+    WhereWire,
+)
 
 ID = "fea"
 _END_DEG: Final = math.degrees(features.END_CONE_RAD)
@@ -135,7 +141,7 @@ class Pair:
     pressed on."""
 
     peaks: Peaks
-    where: WhereWire
+    where: FacesWire
 
 
 @dataclass(frozen=True, slots=True)
@@ -143,8 +149,6 @@ class Solved:
     size_mm: float
     peaks: Peaks
     where: WhereWire
-    """The faces of the candidate with the largest von Mises stress, which is the one whose stress
-    the result reports."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -290,7 +294,6 @@ def solve_at(
             return found
         pairs.append(found)
     peaks = [one.peaks for one in pairs]
-    deciding = max(pairs, key=lambda one: one.peaks.von_mises)
     return Solved(
         size_mm,
         Peaks(
@@ -298,8 +301,27 @@ def solve_at(
             force_n * max(one.von_mises for one in peaks),
             force_n * max(one.support_von_mises for one in peaks),
         ),
-        deciding.where,
+        where_of(pairs),
     )
+
+
+def where_of(pairs: Sequence[Pair]) -> WhereWire:
+    """The faces that decided the stress, and those that decided the displacement when they are
+    others."""
+    stress = _deciding(pairs, lambda one: one.von_mises, STRESS_ERROR)
+    bending = _deciding(pairs, lambda one: one.displacement, DISPLACEMENT_ERROR)
+    return {**stress} if bending == stress else {**stress, "displacement": bending}
+
+
+def _deciding(pairs: Sequence[Pair], peak: Callable[[Peaks], float], error: float) -> FacesWire:
+    """The faces of every candidate whose peak is within the check's stated error of the worst,
+    since the check cannot tell those apart."""
+    worst = max(peak(one.peaks) for one in pairs)
+    near = [one.where for one in pairs if peak(one.peaks) >= (1 - error) * worst]
+    return {
+        "support": sorted({face for one in near for face in one["support"]}),
+        "load": sorted({face for one in near for face in one["load"]}),
+    }
 
 
 def _unit_solve(
@@ -323,7 +345,7 @@ def _unit_solve(
         _worst_stress(fields, [i for i, inside in enumerate(near) if not inside]),
         _worst_stress(fields, [i for i, inside in enumerate(near) if inside]),
     )
-    where: WhereWire = {
+    where: FacesWire = {
         "support": list(surfaces_of(mesh, fixed)),
         "load": list(surfaces_of(mesh, loaded)),
     }

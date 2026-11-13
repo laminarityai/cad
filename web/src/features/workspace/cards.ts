@@ -125,11 +125,13 @@ function statusOf(verdict: string, researched: boolean): Status {
   return verdict === "fail" ? "fail" : "unknown";
 }
 
-/** The faces of the load case's own result: a requirement names the case, and each case has a result. */
-function whereOf(result: DoneCheck | undefined): Where | undefined {
-  if (result?.check_id !== "fea") return undefined;
-  const where = result.where;
-  return where && where.support.length + where.load.length > 0 ? where : undefined;
+/** The faces of the load case's own result: a requirement names the case, and each case has a result.
+ * A row that compares the displacement shows the faces that decided it, when those are others. */
+function whereOf(result: DoneCheck | undefined, measures: readonly string[]): Where | undefined {
+  if (result?.check_id !== "fea" || !result.where) return undefined;
+  const { displacement, support, load } = result.where;
+  const faces = displacement && measures.includes("max_displacement") ? displacement : { support, load };
+  return faces.support.length + faces.load.length > 0 ? faces : undefined;
 }
 
 const DESCRIBED_TAG = "load case the agent described, not reviewed by our team";
@@ -196,7 +198,7 @@ export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
       const researched = "basis" in one && one.basis === "researched";
       const described = "load_case" in one && one.load_case === "described";
       const reason = whyOf("reason" in one ? one.reason : "", result);
-      const where = whereOf(result);
+      const where = whereOf(result, "comparisons" in one ? one.comparisons.map((comparison) => comparison.measure) : []);
       asked.push({
         key,
         label: short(one.statement),
