@@ -58,4 +58,9 @@ describe("httpApi answers", () => {
     reply(503, "down");
     await expect(httpApi.projects()).rejects.toEqual(new Refused(503, "HTTP 503"));
   });
+
+  it("carries the kind of refusal the server names", async () => {
+    reply(400, { error: "NotScored: variant v1 has no stored check result", kind: "NotScored" });
+    await expect(httpApi.scorecard("v1", "b1", null)).rejects.toMatchObject({ status: 400, kind: "NotScored" });
+  });
 });

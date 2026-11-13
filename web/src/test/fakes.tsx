@@ -214,6 +214,10 @@ export class FakeChat implements ChatApi {
     this.say({ kind: "stop_report", run_id: runId, reason, report });
   }
 
+  drop(): void {
+    for (const one of this.open) one.onLink("reconnecting");
+  }
+
   say(event: Event): void {
     const seq = this.transcript.length + 1;
     this.transcript.push({ seq, event });

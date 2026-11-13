@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { ServicesProvider } from "@/app/context";
 import { Gate } from "@/components/Gate";
+import { Refused, type Api } from "@/api/client";
 import { FakeChat, FakeViewer, fakeApi, runningRun, setOf } from "@/test/fakes";
 import { brief } from "@/test/fixtures";
 import { ChatPane } from "./Chat";
@@ -11,9 +12,10 @@ import { Workspace } from "./Workspace";
 
 const briefOn = (id: string) => ({ brief_id: id, created_at: "2026-11-10T00:00:00Z", proposals: 1, confirmed_proposal: 1 });
 
-function mount(chat: FakeChat, members: string[], emptyBrief: string | null = null) {
+function mount(chat: FakeChat, members: string[], emptyBrief: string | null = null, scorecard?: Api["scorecard"]) {
   const briefs = emptyBrief === null ? [briefOn("b1")] : [briefOn(emptyBrief), briefOn("b1")];
   const api = fakeApi(members, {
+    ...(scorecard ? { scorecard } : {}),
     project: vi.fn(() => Promise.resolve({ project_id: "p1", briefs, context_parts: [], documents: [] })),
     brief: vi.fn((briefId: string) => Promise.resolve({ ...brief(true), brief_id: briefId })),
     variantSet: vi.fn((_project: string, briefId: string) => Promise.resolve(setOf(briefId === emptyBrief ? [] : members))),
@@ -48,7 +50,7 @@ describe("a brief with no options", () => {
     const chat = new FakeChat();
     mount(chat, []);
     await screen.findAllByText(/No options yet/);
-    say(chat, { kind: "user", text: "a hook", selection: null }, { kind: "tool_call", call_id: "a", name: "build_variant", input: { label: "Wide base", slot: 1 } });
+    say(chat, { kind: "user", text: "a hook", selection: null }, { kind: "tool_call", call_id: "a", name: "build_variant", input: { brief_id: "b1", label: "Wide base", slot: 1 } });
     const centre = (await screen.findAllByRole("status")).filter((one) => /^Building an option/.test(one.textContent));
     expect(centre.length).toBeGreaterThanOrEqual(2);
     expect(screen.queryByText(/No options yet/)).toBeNull();
@@ -159,9 +161,9 @@ describe("an empty brief while another brief is worked on", () => {
     expect(within(explorer).getByText("No options yet")).toBeInTheDocument();
   });
 
-  it("says it has no options while a turn only answers a question", async () => {
+  it("says it has no options while a turn only answers a question, though the conversation is bound to it", async () => {
     const chat = new FakeChat();
-    chat.briefId = null;
+    chat.briefId = "b0";
     mount(chat, ["v1"], "b0");
     const explorer = await screen.findByRole("region", { name: "Explorer" });
     await within(explorer).findByText("No options yet");
@@ -171,6 +173,115 @@ describe("an empty brief while another brief is worked on", () => {
     });
     expect(within(explorer).queryByRole("status")).toBeNull();
     expect(within(explorer).getByText("No options yet")).toBeInTheDocument();
+  });
+
+  it("puts no work on an earlier brief of the turn while a new part is started", async () => {
+    const chat = new FakeChat();
+    mount(chat, ["v1"], "b0");
+    const explorer = await screen.findByRole("region", { name: "Explorer" });
+    await within(explorer).findByText("No options yet");
+    say(
+      chat,
+      { kind: "user", text: "a lid too", selection: null },
+      { kind: "tool_call", call_id: "a", name: "propose_requirements", input: { brief_id: "b0" } },
+      { kind: "tool_result", call_id: "a", text: "{}", is_error: false },
+      { kind: "tool_call", call_id: "b", name: "create_brief", input: {} },
+    );
+    await screen.findAllByText(/Starting the part/);
+    expect(within(explorer).queryByRole("status")).toBeNull();
+    expect(within(explorer).getByText("No options yet")).toBeInTheDocument();
+  });
+});
+
+describe("the chat while the server does not answer", () => {
+  it("shows no work, and says the server is not answering and the page is reconnecting", async () => {
+    const chat = new FakeChat();
+    mount(chat, ["v1"]);
+    await userEvent.type(await screen.findByRole("textbox", { name: "Message" }), "build{Enter}");
+    say(chat, { kind: "tool_call", call_id: "a", name: "build_variant", input: { label: "Wide base", slot: 1 } });
+    const pane = screen.getByRole("region", { name: "Chat" });
+    await waitFor(() => {
+      expect(pane).toHaveAttribute("aria-busy", "true");
+    });
+    act(() => {
+      chat.drop();
+    });
+    expect(await within(pane).findByText(/The server is not answering\. The page is reconnecting\./)).toBeInTheDocument();
+    expect(pane).toHaveAttribute("aria-busy", "false");
+    expect(document.querySelector("[data-loading]")).toBeNull();
+    expect(pane.querySelector("[data-spinner]")).toBeNull();
+    expect(within(pane).queryByText(/Building an option/)).toBeNull();
+    expect(within(pane).queryByText(/\ds$/)).toBeNull();
+  });
+});
+
+describe("the checks of an option", () => {
+  const checks = () => screen.findByRole("region", { name: "Checks" });
+
+  it("says an option nobody scored is not checked yet, with nothing moving", async () => {
+    const notScored = vi.fn(() => Promise.reject(new Refused(400, "NotScored: variant v1 has no stored check result", "NotScored")));
+    mount(new FakeChat(), ["v1"], null, notScored);
+    const pane = await checks();
+    expect(await within(pane).findByText("Not checked yet.")).toBeInTheDocument();
+    expect(pane.querySelector("[data-spinner], [data-shimmer]")).toBeNull();
+    expect(within(pane).queryByText(/Checking/)).toBeNull();
+  });
+
+  it("says the checks could not be read when the read fails another way, with nothing moving", async () => {
+    mount(new FakeChat(), ["v1"], null, vi.fn(() => Promise.reject(new Error("down"))));
+    const pane = await checks();
+    expect(await within(pane).findByText("The checks could not be read.")).toBeInTheDocument();
+    expect(pane.querySelector("[data-spinner], [data-shimmer]")).toBeNull();
+  });
+
+  it("says it is reading them while the first read has not answered", async () => {
+    mount(new FakeChat(), ["v1"], null, vi.fn(() => new Promise<never>(() => undefined)));
+    const pane = await checks();
+    expect(await within(pane).findByText("Reading the checks")).toBeInTheDocument();
+    expect(pane.querySelector("[data-spinner]")).toBeNull();
+    expect(within(pane).queryByText(/once an option is built/)).toBeNull();
+  });
+});
+
+const failedBuild = JSON.stringify({ outcome: { kind: "build_failed", error: "NameError", traceback: "" }, output: "", variant_id: "v2" });
+
+describe("a build that failed", () => {
+  it("says the build failed in its row and in the count, and never says it was built", async () => {
+    const chat = new FakeChat();
+    mount(chat, ["v1"]);
+    await screen.findByPlaceholderText(/Ask for a change, such as/);
+    say(
+      chat,
+      { kind: "user", text: "build", selection: null },
+      { kind: "tool_call", call_id: "a", name: "build_variant", input: { label: "Wide base", slot: 1 } },
+      { kind: "tool_result", call_id: "a", text: failedBuild, is_error: false },
+      { kind: "tool_call", call_id: "b", name: "auto_revise", input: { slot: 1 } },
+      { kind: "tool_result", call_id: "b", text: JSON.stringify({ ...runningRun(0), state: { ...runningRun(0).state, history: [{ revision: 1, variant_id: "v3", code_sha256: "e".repeat(64), built: false, marks: [] }] } }), is_error: false },
+      { kind: "turn_ended" },
+    );
+    const log = screen.getByRole("log");
+    await userEvent.click(await within(log).findByRole("button", { name: "2 builds failed" }));
+    const rows = within(log).getAllByRole("listitem");
+    expect(rows.map((one) => one.getAttribute("data-tool"))).toEqual(["failed", "failed"]);
+    expect(rows[0]).toHaveTextContent("Build failed");
+    expect(within(log).queryByText(/Built/)).toBeNull();
+  });
+
+  it("never says built when the result was cut too long to read", async () => {
+    const chat = new FakeChat();
+    mount(chat, ["v1"]);
+    await screen.findByPlaceholderText(/Ask for a change, such as/);
+    say(
+      chat,
+      { kind: "user", text: "build", selection: null },
+      { kind: "tool_call", call_id: "a", name: "build_variant", input: { label: "Wide base", slot: 1 } },
+      { kind: "tool_result", call_id: "a", text: `${failedBuild.slice(0, 40)}\n[cut: 9 more characters]`, is_error: false },
+      { kind: "turn_ended" },
+    );
+    const log = screen.getByRole("log");
+    await userEvent.click(await within(log).findByRole("button", { name: "Build finished" }));
+    expect(within(log).getByRole("listitem")).toHaveTextContent("Build finished");
+    expect(within(log).queryByText(/Built/)).toBeNull();
   });
 });
 
