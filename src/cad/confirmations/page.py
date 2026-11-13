@@ -254,8 +254,8 @@ def _warning(index: int, conflict: Conflict) -> str:
     heading, advice = (
         (
             "Not checked yet: the mass and the size",
-            "This is not a conflict and not a pass. The agent researches the density, and the "
-            "check runs once it is known.",
+            "This is not a conflict and not a pass. The pair is checked once the material's "
+            "density is researched.",
         )
         if conflict.unchecked
         else (
