@@ -122,7 +122,9 @@ def test_a_pla_cantilever_that_bends_past_the_linear_gate_is_unknown_and_told_to
     print(f"fea max_displacement {measured:.4f} mm, hand {hand:.4f} mm")
     assert measured == pytest.approx(hand, rel=0.03)
     assert isinstance(card.basis, AgainstBrief)
-    assert [one.verdict for one in card.basis.requirements] == [Verdict.UNKNOWN]
+    (row,) = card.basis.requirements
+    assert isinstance(row, Checked)
+    assert row.verdict == Verdict.UNKNOWN
 
 
 def scored(variant: str, root: Path, assess: score.Assess) -> Scorecard:
