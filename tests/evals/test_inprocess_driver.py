@@ -144,3 +144,32 @@ def test_the_driver_runs_the_set_through_run_main(
     assert "1 of 1 briefs passed" in capsys.readouterr().out
     rows = json.loads((tmp_path / "out" / "auto-summary.json").read_text())
     assert [(one["id"], one["stop"]) for one in rows] == [("cube", "conflict")]
+
+
+@pytest.mark.parametrize("driver", ["session", "inprocess"])
+def test_an_unknown_expect_key_is_refused_before_any_session_starts(
+    driver: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    def no_session(*_: object, **__: object) -> None:
+        raise AssertionError("a session started")
+
+    monkeypatch.setattr(run, "run_session", no_session)
+    monkeypatch.setattr(run, "run_set", no_session)
+    briefs = tmp_path / "briefs"
+    briefs.mkdir()
+    old = {**CUBE_GRADER, "expect": {"stop": "conflict", "within_revisions": 6}}
+    for name, graded in (("cube", CUBE_GRADER), ("old-cube", old)):
+        (briefs / f"{name}.yaml").write_text(
+            json.dumps({"id": name, "domain": "tests", "brief": HEAVY_CUBE, "grader": graded})
+        )
+    out = tmp_path / "out"
+    with pytest.raises(SystemExit):
+        run.main(["--driver", driver, "--briefs", str(briefs), "--out", str(out)])
+    err = capsys.readouterr().err
+    assert "brief old-cube" in err, err
+    assert "within_revisions" in err, err
+    assert "brief cube" not in err, err
+    assert not out.exists()
