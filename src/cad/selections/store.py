@@ -15,9 +15,7 @@ DIRECTORY: Final = "selections"
 
 def save(projects: Path, record: SelectionRecord) -> None:
     """Sign and publish the record. A record is written once and never changed."""
-    directory = projects / record.project_id / DIRECTORY
-    directory.mkdir(parents=True, exist_ok=True)
-    path = directory / _file(record.selection_id)
+    path = projects / record.project_id / DIRECTORY / _file(record.selection_id)
     data = record.model_dump_json().encode()
     slot = _slot(record.project_id, record.selection_id)
     if not signed.publish(project_store(projects), slot, path, data):

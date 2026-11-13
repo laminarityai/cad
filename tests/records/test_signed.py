@@ -80,16 +80,8 @@ def test_the_first_writer_of_a_slot_wins(things: Store) -> None:
 def test_an_unusable_key_names_the_store(tmp_path: Path, things: Store) -> None:
     signed.publish(things, "thing/1", things.root / "a" / "0001.signed", b"record")
     (tmp_path / "things.key").chmod(0o644)
-    with pytest.raises(signed.StoreUnusable, match="the thing store's key is unusable"):
+    with pytest.raises(signed.StoreUnusable, match="cannot sign or check thing records"):
         signed.read(things, "thing/1", things.root / "a" / "0001.signed")
-
-
-def test_key_exists_does_not_create_the_key(tmp_path: Path) -> None:
-    things = Store(tmp_path / "things", "thing")
-    assert not things.key_exists()
-    assert not (tmp_path / "things.key").exists()
-    signed.signed(things, "thing/1", b"record")
-    assert things.key_exists()
 
 
 def test_reading_a_store_whose_key_is_gone_trusts_nothing_and_creates_no_key(

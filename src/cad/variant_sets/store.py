@@ -145,7 +145,6 @@ def join(
         return None if placed.unchanged else _record(code, placed.slot, built_as, key, design)
 
     with _without_host_paths(key, directory):
-        directory.mkdir(parents=True, exist_ok=True)
         signed.append(project_store(root), directory, _revision_slot(key), next_revision)
     [result] = outcome
     if isinstance(result, SetRefused):

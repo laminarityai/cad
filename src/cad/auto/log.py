@@ -35,8 +35,7 @@ def read_events(roots: Roots, run_id: str) -> tuple[Event, ...]:
     directory = run_dir(roots, run_id)
     if not os.path.lexists(directory):
         raise UnknownRun(f"no auto run {run_id} is stored")
-    store = project_store(roots.projects)
-    raw = signed.read_numbered(store, directory, _slot_of(run_id)) if store.key_exists() else None
+    raw = signed.read_numbered(project_store(roots.projects), directory, _slot_of(run_id))
     events = None if raw is None else _parse(raw)
     if events is None:
         raise TamperedRun(f"auto run {run_id}'s records cannot be read; {_OPERATOR}")
@@ -67,7 +66,7 @@ def append_event(roots: Roots, run_id: str, make: Make) -> AutoRun:
     def record_for(existing: tuple[bytes, ...]) -> bytes | None:
         events = _parse(existing)
         if events is None:
-            raise signed.Tampered(str(run_dir(roots, run_id)))
+            raise signed.Tampered
         state = fold(events)
         if isinstance(state, Stopped):
             return None

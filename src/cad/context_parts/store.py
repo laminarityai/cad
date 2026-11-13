@@ -1,6 +1,5 @@
 import hashlib
 import logging
-import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -153,7 +152,6 @@ def add_upload(
 def _append(projects: Path, record: ContextPartRecord) -> Stored:
     project = record.project
     directory = projects / project / CONTEXT_PARTS
-    directory.mkdir(parents=True, exist_ok=True)
     found: list[Stored] = []
 
     def record_for(existing: tuple[bytes, ...]) -> bytes | None:
@@ -179,11 +177,7 @@ def _append(projects: Path, record: ContextPartRecord) -> Stored:
 
 def stored_parts(projects: Path, project: ProjectId) -> tuple[Stored, ...]:
     directory = projects / project / CONTEXT_PARTS
-    if not os.path.lexists(directory):
-        return ()
-    store = project_store(projects)
-    readable = store.key_exists() or _left_by_crashed_first_proposal(directory)
-    raw = signed.read_numbered(store, directory, _slot_of(project)) if readable else None
+    raw = signed.read_numbered(project_store(projects), directory, _slot_of(project))
     if raw is None:
         raise TamperedProject(_report(projects, project))
     return _stored(projects, project, raw)
@@ -343,12 +337,6 @@ def write_content(path: Path, data: bytes, sha256: str) -> None:
         return
     path.parent.mkdir(parents=True, exist_ok=True)
     files.replace(path, data)
-
-
-def _left_by_crashed_first_proposal(directory: Path) -> bool:
-    return files.is_directory(directory) and all(
-        path.name.startswith(".") for path in directory.iterdir()
-    )
 
 
 def _ref(project: ProjectId, number: int, sha256: str) -> ItemRef:

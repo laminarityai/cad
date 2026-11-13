@@ -22,20 +22,19 @@ class Store:
     root: Path
     name: str
 
-    def key_exists(self) -> bool:
-        return key.key_path(self.root).is_file()
-
 
 class StoreUnusable(Unavailable):
     pass
 
 
 class Tampered(Exception):
-    pass
+    def __init__(self) -> None:
+        super().__init__("a stored record failed its signature check or cannot be read")
 
 
 class Contended(Exception):
-    pass
+    def __init__(self) -> None:
+        super().__init__("other writers took every slot this append tried")
 
 
 @dataclass(frozen=True, slots=True)
@@ -56,8 +55,10 @@ def signed(store: Store, slot: str, record: bytes) -> bytes:
 
 
 def publish(store: Store, slot: str, path: Path, record: bytes) -> bool:
-    """Link the signed record into place. False when another writer already holds the slot."""
+    """Link the signed record into place. False when another writer already holds the slot.
+    The directory is made after signing, so it never exists without the key that reads it."""
     data = signed(store, slot, record)
+    path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.parent / f".pending-{secrets.token_hex(8)}"
     try:
         temporary.write_bytes(data)
@@ -85,6 +86,8 @@ def create_entry(
 ) -> bool:
     """False when the entry already exists."""
     slot, name, record = first
+    if os.path.lexists(store.root / entry_id):
+        return False
     incoming = store.root / f".incoming-{secrets.token_hex(8)}"
     try:
         incoming.mkdir(parents=True)
@@ -119,7 +122,7 @@ def append(
     for _ in range(ATTEMPTS):
         existing = read_numbered(store, directory, slot_of)
         if existing is None:
-            raise Tampered(str(directory))
+            raise Tampered
         if cap is not None and len(existing) >= cap:
             return Full(cap)
         record = record_for(existing)
@@ -128,14 +131,16 @@ def append(
         number = len(existing) + 1
         if publish(store, slot_of(number), directory / slot_file(number), record):
             return Appended(number)
-    raise Contended(str(directory))
+    raise Contended
 
 
 def read_numbered(
     store: Store, directory: Path, slot_of: Callable[[int], str]
 ) -> tuple[bytes, ...] | None:
-    """Every record in order. None when a slot fails its MAC, a name is not a slot or a number
-    is missing."""
+    """Every record in order: none when the directory is missing. None when it is not a
+    directory, a slot fails its MAC, a name is not a slot or a number is missing."""
+    if not os.path.lexists(directory):
+        return ()
     if not files.is_directory(directory):
         return None
     numbers: list[int] = []
@@ -157,4 +162,6 @@ def slot_file(number: int) -> str:
 
 
 def _unusable(store: Store) -> StoreUnusable:
-    return StoreUnusable(f"the {store.name} store's key is unusable; the operator must fix it")
+    return StoreUnusable(
+        f"the server cannot sign or check {store.name} records right now; try again later"
+    )

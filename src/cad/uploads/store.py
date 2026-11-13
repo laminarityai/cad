@@ -4,7 +4,6 @@ file is a `Document` the chat agent reads."""
 
 import hashlib
 import logging
-import os
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -124,7 +123,6 @@ def add_document(
         withheld=withheld,
     )
     directory = projects / project / DOCUMENTS
-    directory.mkdir(parents=True, exist_ok=True)
     found: list[Document] = []
 
     def record_for(existing: tuple[bytes, ...]) -> bytes | None:
@@ -145,8 +143,6 @@ def add_document(
 
 def documents(projects: Path, project: ProjectId) -> tuple[Document, ...]:
     directory = projects / project / DOCUMENTS
-    if not os.path.lexists(directory):
-        return ()
     raw = signed.read_numbered(project_store(projects), directory, _slot_of(project))
     if raw is None:
         raise TamperedProject(_report(project))

@@ -6,7 +6,6 @@ research ledger, so a record the agent forged or changed is refused when it is r
 
 import hashlib
 import logging
-import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -39,10 +38,7 @@ class StoredCheck:
 def checks_of(projects: Path, project: ProjectId) -> tuple[StoredCheck, ...]:
     """Every frozen check of the project, in the order they were written."""
     directory = projects / project / AGENT_CHECKS
-    if not os.path.lexists(directory):
-        return ()
-    store = project_store(projects)
-    raw = signed.read_numbered(store, directory, _slot_of(project)) if store.key_exists() else None
+    raw = signed.read_numbered(project_store(projects), directory, _slot_of(project))
     found = None if raw is None else _parse_all(raw, project)
     if found is None:
         LOG.error("%s holds a record this store did not sign or cannot read", directory)
@@ -59,7 +55,6 @@ def freeze(projects: Path, check: AgentCheck, still_blind: Callable[[], str | No
     is taken, or the brief already holds its limit of checks."""
     project = ProjectId(check.project)
     directory = projects / project / AGENT_CHECKS
-    directory.mkdir(parents=True, exist_ok=True)
     record = check.model_dump_json().encode()
     refused: list[str] = []
 
@@ -67,7 +62,7 @@ def freeze(projects: Path, check: AgentCheck, still_blind: Callable[[], str | No
         refused.clear()
         held = _parse_all(existing, project)
         if held is None:
-            raise signed.Tampered(str(directory))
+            raise signed.Tampered
         reason = still_blind() or over_the_limit(held, check.brief_id)
         if reason is not None:
             refused.append(reason)

@@ -59,7 +59,7 @@ def test_a_store_without_a_key_is_unlinked_and_no_key_is_made(tmp_path: Path) ->
     root = tmp_path / "keyless"
     root.mkdir()
     unlinked = link(root, genuine_card(rebuilt_from=OLD_ID))
-    assert unlinked is not None and "no key" in unlinked.reason
+    assert unlinked is not None and "pins no code" in unlinked.reason
     assert not (tmp_path / "keyless.key").exists()
 
 

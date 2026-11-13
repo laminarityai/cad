@@ -1,5 +1,4 @@
 import logging
-import os
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
@@ -62,10 +61,7 @@ type Admit = Callable[[tuple[ResearchedRecord, ...]], AlreadyStored | Turned | N
 
 def read_ledger(projects: Path, project: ProjectId) -> Ledger:
     directory = projects / project / RESEARCH
-    if not os.path.lexists(directory):
-        return Ledger(())
-    store = project_store(projects)
-    raw = signed.read_numbered(store, directory, _slot_of(project)) if store.key_exists() else None
+    raw = signed.read_numbered(project_store(projects), directory, _slot_of(project))
     records = None if raw is None else _parse_all(raw, project)
     if records is None:
         LOG.error("%s holds a record this store did not sign or cannot read", directory)
@@ -80,14 +76,13 @@ def append_record(
         raise ValueError(f"a record for project {record.project} cannot go in {project}")
     directory = projects / project / RESEARCH
     store = project_store(projects)
-    directory.mkdir(parents=True, exist_ok=True)
     decided: list[AlreadyStored | Turned] = []
 
     def record_for(existing: tuple[bytes, ...]) -> bytes | None:
         decided.clear()
         records = _parse_all(existing, project)
         if records is None:
-            raise signed.Tampered(str(directory))
+            raise signed.Tampered
         verdict = admit(records)
         if verdict is not None:
             decided.append(verdict)
