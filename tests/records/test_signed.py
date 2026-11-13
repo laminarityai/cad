@@ -80,7 +80,7 @@ def test_the_first_writer_of_a_slot_wins(things: Store) -> None:
 def test_an_unusable_key_names_the_store(tmp_path: Path, things: Store) -> None:
     signed.publish(things, "thing/1", things.root / "a" / "0001.signed", b"record")
     (tmp_path / "things.key").chmod(0o644)
-    with pytest.raises(signed.StoreUnusable, match="cannot sign or check thing records"):
+    with pytest.raises(signed.StoreUnusable, match="cannot use its signing key for thing records"):
         signed.read(things, "thing/1", things.root / "a" / "0001.signed")
 
 

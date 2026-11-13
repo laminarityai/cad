@@ -302,5 +302,5 @@ def test_an_unknown_brief_is_refused(roots: Roots) -> None:
 def test_an_unusable_key_is_reported_as_the_brief_store_key(tmp_path: Path, roots: Roots) -> None:
     brief_id = proposed(roots, UNDER_150)
     (tmp_path / "briefs.key").chmod(0o644)
-    with pytest.raises(StoreUnusable, match="cannot sign or check brief records"):
+    with pytest.raises(StoreUnusable, match="cannot use its signing key for brief records"):
         store.read_state(roots, brief_id)

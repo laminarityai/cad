@@ -11,7 +11,10 @@ from typing import Final
 from cad.sandbox.outcome import SandboxUnavailable
 
 KEY_BYTES: Final = 32
-UNUSABLE: Final = "the server cannot sign or check variant builds right now; try again later"
+UNUSABLE: Final = (
+    "the server cannot use its signing key for variant builds, so it cannot read or store them; "
+    "this is a fault on the server, not in the project"
+)
 LOG = logging.getLogger(__name__)
 
 

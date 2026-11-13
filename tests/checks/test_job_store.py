@@ -75,9 +75,9 @@ def test_an_unusable_key_refuses_the_write_and_the_read(tmp_path: Path) -> None:
     (tmp_path / "variants").mkdir()
     spec, _ = stored(tmp_path / "variants")
     (tmp_path / "variants.key").chmod(0o644)
-    with pytest.raises(SandboxUnavailable, match="cannot sign or check variant builds"):
+    with pytest.raises(SandboxUnavailable, match="cannot use its signing key for variant builds"):
         job_store.read(spec)
-    with pytest.raises(SandboxUnavailable, match="cannot sign or check variant builds"):
+    with pytest.raises(SandboxUnavailable, match="cannot use its signing key for variant builds"):
         job_store.write(spec, RESULT)
 
 

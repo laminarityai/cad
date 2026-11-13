@@ -163,5 +163,6 @@ def slot_file(number: int) -> str:
 
 def _unusable(store: Store) -> StoreUnusable:
     return StoreUnusable(
-        f"the server cannot sign or check {store.name} records right now; try again later"
+        f"the server cannot use its signing key for {store.name} records, so it cannot read or "
+        "store them; this is a fault on the server, not in the project"
     )
