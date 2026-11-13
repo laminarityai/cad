@@ -195,12 +195,15 @@ def _no_mesh(brep: bytes, brep_sha256: str) -> mesh_job.Ran:
     raise SandboxUnavailable("the tests tessellate no BREP in the background")
 
 
-@pytest.fixture(autouse=True)
-def builds_start_no_mesh_container(monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.fixture(autouse=True, scope="session")
+def builds_start_no_mesh_container() -> Iterator[None]:
     """A build and a view start the variant's mesh on a background thread, which would outlive
-    the test and charge its container to the next one. A test that wants a mesh made replaces
-    this runner or tessellates with a lane of its own."""
-    monkeypatch.setattr(TESSELLATIONS, "_run", _no_mesh)
+    the test and charge its container to the next one. The runner is replaced for the whole
+    session, because that thread can reach it after a test's own patch is undone. A test that
+    wants a mesh made replaces this runner or tessellates with a lane of its own."""
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(TESSELLATIONS, "_run", _no_mesh)
+        yield
 
 
 @pytest.fixture(autouse=True)

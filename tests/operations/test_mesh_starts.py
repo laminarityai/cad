@@ -1,5 +1,6 @@
 import hashlib
 import threading
+from collections.abc import Iterator
 
 import pytest
 
@@ -55,10 +56,11 @@ def alice(tenants: Tenants) -> Tenant:
 
 
 @pytest.fixture
-def run(monkeypatch: pytest.MonkeyPatch) -> Gated:
+def run(monkeypatch: pytest.MonkeyPatch) -> Iterator[Gated]:
     gated = Gated()
     monkeypatch.setattr(TESSELLATIONS, "_run", gated)
-    return gated
+    yield gated
+    gated.gate.set()
 
 
 def stored_build(tenant: Tenant, code: str, outcome: Built | NoResult) -> str:
