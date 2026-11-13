@@ -1,6 +1,8 @@
+from collections.abc import Sequence
 from typing import Final
 
 from cad.briefs.bindable import BINDABLE
+from cad.briefs.keys import LOAD_CASE, PER
 
 BUILD_FIRST = (
     "A brief builds at once, so nothing waits on the person before you build. Work in this "
@@ -18,6 +20,31 @@ BUILD_FIRST = (
     "their note and keep every option you built. A declined proposal does not carry, so for "
     "each of its targets, propose it again, file its value as an assumption, or drop it."
 )
+
+
+def _listed(words: Sequence[str]) -> str:
+    return words[0] if len(words) == 1 else f"{', '.join(words[:-1])} and {words[-1]}"
+
+
+def _one_per() -> str:
+    """The rule `keys.PER` refuses by, in the words the agent is told."""
+    kinds: dict[str, list[str]] = {}
+    for kind, per in PER.items():
+        kinds.setdefault(per, []).append(kind)
+    rules = [
+        f"one requirement of each of {_listed(named)}"
+        if not per
+        else _listed([f"one {kind}" for kind in named])
+        + f" per {per}"
+        + (
+            ", where the same support and load with a new force is the same case"
+            if per == LOAD_CASE
+            else ""
+        )
+        for per, named in kinds.items()
+    ]
+    return f"A brief holds {'; '.join(rules[:-1])}; and {rules[-1]}."
+
 
 PROPOSE_REQUIREMENTS = (
     "If the brief names a material, call list_materials before you propose. Propose the "
@@ -59,12 +86,9 @@ PROPOSE_REQUIREMENTS = (
     "proposed until the user confirms the set. The server builds each new proposal from the "
     "one still waiting for the user, or from the confirmed set when none waits, so pass only "
     "new or changed requirements. A declined proposal does not carry: after a decline, pass "
-    "again each of its requirements that should stay. A brief holds one requirement of each of "
-    "envelope, made_of, max_mass and min_mass; one min_safety_factor and one max_deflection per "
-    "load case, where the same support and load with a new force is the same case; one "
-    "min_clearance, one max_clearance and one fits_with per part; one measure_limit per measure "
-    "and comparator; and one agent_limit per check_sha256 and comparator. To drop or change a "
-    "requirement in the set being carried, pass its id from "
+    "again each of its requirements that should stay. "
+    + _one_per()
+    + " To drop or change a requirement in the set being carried, pass its id from "
     "list_requirements in remove, with any replacement in requirements. The user sees the "
     "removal of a requirement they confirmed as its own row, and it stays in force until they "
     "confirm. Proposing the same set again, undecided or confirmed, changes nothing, so it never "

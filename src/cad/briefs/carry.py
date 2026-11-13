@@ -2,9 +2,16 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from cad.briefs.keys import TargetKey, target_key
+from cad.briefs.keys import LOAD_CASE, TargetKey, target_key
 from cad.briefs.model import Brief, Requirement, RequirementId, requirement_id
 from cad.briefs.origins import BriefSpan
+
+KEEP_THE_STRICTER = (
+    "keep the stricter limit and file the other as an unchecked requirement quoting its words. "
+    "The stress check is linear, so its stress and its deflection scale with the force, and the "
+    "stricter limit holds the other: for min_safety_factor the larger factor times force, for "
+    "max_deflection the smaller deflection over force"
+)
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -47,12 +54,14 @@ def kept_after(state: BriefState, remove: Sequence[str]) -> tuple[Requirement, .
     return tuple(r for r in state.carried if r.id not in remove)
 
 
-def edited(state: BriefState) -> dict[RequirementId, Requirement]:
-    """Each row a person changed on the page, by the id the change gave it, with the row as the
-    agent proposed it. A carried row keeps that id, so it keeps the label."""
+def edited(state: BriefState, through: int) -> dict[RequirementId, Requirement]:
+    """Each row a person changed on the page in proposals up to number `through`, by the id the
+    change gave it, with the row as the agent proposed it. A carried row keeps that id, so it keeps
+    the label, and a later edit that lands on the same id leaves an earlier proposal's row alone."""
     return {
         after.id: before
         for one in state.proposals
+        if one.proposal.number <= through
         for before, after in zip(one.proposal.requirements, one.requirements, strict=True)
         if before.id != after.id
     }
@@ -77,6 +86,8 @@ def _second_of_a_key(kept: Sequence[Requirement], added: Sequence[Requirement]) 
                 f"the set being carried holds a {key.kind}, requirement {earlier.id}, and "
                 f"{key.rule}: to change it, pass its id in remove"
             )
+        if key.per == LOAD_CASE:
+            return f"{key.rule}, and this call holds two: {KEEP_THE_STRICTER}"
         return f"{key.rule}: keep the one the brief states"
     return None
 

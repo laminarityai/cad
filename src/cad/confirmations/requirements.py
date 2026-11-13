@@ -114,7 +114,7 @@ def _confirmed_before(state: BriefState, shown: ProposalState) -> dict[Requireme
     confirmed = state.confirmed
     if confirmed is None or confirmed.proposal.number >= shown.proposal.number:
         return {}
-    changed = carry.edited(state)
+    changed = carry.edited(state, confirmed.proposal.number)
     notes: dict[RequirementId, str] = {}
     for one in confirmed.requirements:
         was = changed.get(one.id)
