@@ -2,6 +2,7 @@ import { ChevronDown, Download as DownloadIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useServices } from "@/app/context";
 import type { ExportFormat } from "@/api/types";
+import { Shimmer } from "@/components/ui/busy";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { toast } from "@/components/ui/toaster";
 import { sleep } from "@/lib/sleep";
@@ -71,11 +72,12 @@ export function Download(props: { variantId: string; briefId: string }) {
     <DropdownMenu>
       <DropdownMenuTrigger
         disabled={preparing}
+        aria-busy={preparing}
         data-download
         className="flex items-center gap-1.5 rounded-full border border-rule bg-panel-2 px-3 py-1.5 text-[14px] text-ink shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
       >
         <DownloadIcon aria-hidden className="size-4" />
-        {preparing ? "Preparing…" : "Download"}
+        {preparing ? <Shimmer>Preparing…</Shimmer> : "Download"}
         <ChevronDown aria-hidden className="size-3.5" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">

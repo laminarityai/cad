@@ -12,6 +12,7 @@ import { ViewerCanvas } from "@/features/viewer/ViewerCanvas";
 import { useDrawn } from "@/features/viewer/useDrawn";
 import { useMesh } from "@/features/viewer/useMesh";
 import { ROLE_COLOUR, type Where } from "@/features/viewer/where";
+import { Loading } from "@/components/ui/busy";
 import { TabsList, TabsTab } from "@/components/ui/tabs";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -89,7 +90,7 @@ function Mesh(props: {
   if (mesh.status === "failed") {
     body = <p className="p-4 text-fail">{mesh.reason}</p>;
   } else if (drawn === null) {
-    body = <p className="p-4 text-ink-3">Drawing…</p>;
+    body = <Loading label="Drawing" size="small" className="p-4" />;
   } else {
     body = (
       <ViewerCanvas

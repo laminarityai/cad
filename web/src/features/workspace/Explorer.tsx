@@ -2,21 +2,22 @@ import { Box, Folder, FolderOpen, Plus } from "lucide-react";
 import { useState, type Dispatch } from "react";
 import type { Source } from "@/api/types";
 import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "@/components/ui/collapsible";
+import { Shimmer } from "@/components/ui/busy";
 import { Tooltip } from "@/components/ui/tooltip";
+import { workingLabel, type Working } from "@/features/chat/working";
 import { cn } from "@/lib/utils";
 import { summaryOf, type Card } from "./cards";
 import type { Brief, Doc, Part, ViewAction } from "./model";
 import { Dot } from "./bits";
 import { Children, Chevron, Files, ROW } from "./Files";
 
-const STATE_TEXT = {
-  waiting: "Needs your OK",
-  building: "Building",
-  ready: "",
-} as const;
+function NoSlots({ state, working }: { state: Brief["state"]; working: Working | null }) {
+  const text = state === "waiting" ? "Needs your OK" : working !== null ? null : state === "empty" ? "No options yet" : "";
+  return <li className="px-2 py-1 text-[13px] text-ink-3">{text ?? <Shimmer>{workingLabel(working ?? { kind: "turn" })}</Shimmer>}</li>;
+}
 
-function BriefNode(props: { brief: Brief; current: boolean; slot: number | undefined; open: boolean; cards: Record<string, Card>; dispatch: Dispatch<ViewAction>; toggle: () => void }) {
-  const { brief, current, slot, open, cards, dispatch, toggle } = props;
+function BriefNode(props: { working: Working | null; brief: Brief; current: boolean; slot: number | undefined; open: boolean; cards: Record<string, Card>; dispatch: Dispatch<ViewAction>; toggle: () => void }) {
+  const { brief, current, slot, open, cards, dispatch, toggle, working } = props;
   const FolderIcon = open ? FolderOpen : Folder;
   return (
     <Collapsible render={<li />} open={open} onOpenChange={toggle}>
@@ -46,7 +47,7 @@ function BriefNode(props: { brief: Brief; current: boolean; slot: number | undef
       </div>
       <CollapsiblePanel>
         <Children>
-          {brief.slots.length === 0 ? <li className="px-2 py-1 text-[13px] text-ink-3">{STATE_TEXT[brief.state]}</li> : null}
+          {brief.slots.length === 0 ? <NoSlots state={brief.state} working={working} /> : null}
           {brief.slots.map((one) => {
             const latest = one.revisions.at(-1);
             const on = current && one.slot === slot;
@@ -87,8 +88,9 @@ export function Explorer(props: {
   dispatch: Dispatch<ViewAction>;
   onNew: () => void;
   onChanged: () => void;
+  working: Working | null;
 }) {
-  const { projectId, briefs, current, slot, cards, parts, documents, sources, dispatch, onNew, onChanged } = props;
+  const { projectId, briefs, current, slot, cards, parts, documents, sources, dispatch, onNew, onChanged, working } = props;
   const [closed, setClosed] = useState<ReadonlySet<string>>(new Set());
   const toggle = (key: string) => () => {
     setClosed((was) => {
@@ -109,7 +111,7 @@ export function Explorer(props: {
       </header>
       <ul data-tree className="space-y-0.5 px-2 pb-2">
         {briefs.map((one) => (
-          <BriefNode key={one.id} brief={one} current={one.id === current} slot={slot} open={!closed.has(one.id)} cards={cards} dispatch={dispatch} toggle={toggle(one.id)} />
+          <BriefNode key={one.id} working={working} brief={one} current={one.id === current} slot={slot} open={!closed.has(one.id)} cards={cards} dispatch={dispatch} toggle={toggle(one.id)} />
         ))}
         <Files projectId={projectId} parts={parts} documents={documents} sources={sources} open={!closed.has("files")} toggle={toggle("files")} onChanged={onChanged} />
       </ul>

@@ -1,12 +1,14 @@
-import { Check, ChevronDown, Crosshair, Paperclip, SendHorizontal, X } from "lucide-react";
+import { Check, Crosshair, Paperclip, SendHorizontal, X } from "lucide-react";
 import { useEffect, useReducer, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useServices } from "@/app/context";
 import { Refused } from "@/api/client";
 import { chatReducer, chatStart, type Line } from "@/features/chat/state";
-import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "@/components/ui/collapsible";
+import { Loading } from "@/components/ui/busy";
+import { ToolChips, type ToolRow } from "@/components/ui/tool-chips";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { isStopKind, reasonText } from "@/features/auto/run";
+import { workingLabel, type Working } from "@/features/chat/working";
 import { Markdown } from "./Markdown";
 
 export const DOING: Record<string, string> = {
@@ -84,27 +86,33 @@ export function activityText(names: readonly string[]): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-function Activity({ lines }: { lines: Extract<Line, { kind: "tool" }>[] }) {
-  const running = lines.some((one) => one.result === null);
-  return (
-    <Collapsible data-activity className="text-[13px] text-ink-3">
-      <CollapsibleTrigger className="flex items-center gap-1.5">
-        <span className={cn("size-1.5 rounded-full", running ? "bg-wait motion-safe:animate-pulse" : "bg-ink-3")} />
-        {activityText(lines.map((one) => one.name))}
-        <ChevronDown className="size-3.5 transition-transform group-data-[panel-open]:rotate-180" />
-      </CollapsibleTrigger>
-      <CollapsiblePanel>
-        <ul className="mt-1 space-y-0.5 pl-3">
-          {lines.map((one) => (
-            <li key={one.seq}>
-              {activityText([one.name])}
-              {one.result?.isError ? " · refused" : ""}
-            </li>
-          ))}
-        </ul>
-      </CollapsiblePanel>
-    </Collapsible>
-  );
+const CHIP: Record<string, (input: Record<string, unknown>) => string | null> = {
+  build_variant: (input) => (typeof input.label === "string" ? input.label : typeof input.slot === "number" ? `Option ${String(input.slot)}` : null),
+  auto_revise: (input) => (typeof input.slot === "number" ? `Option ${String(input.slot)}` : null),
+};
+
+const SHORT = 80;
+
+function detailOf(input: Record<string, unknown>): string[] {
+  return Object.entries(input).flatMap(([key, value]) => {
+    if (key.endsWith("_id") || key === "code") return [];
+    if (typeof value === "number" || (typeof value === "string" && value.length <= SHORT)) return [`${key}: ${String(value)}`];
+    return [];
+  });
+}
+
+function rowOf(line: Extract<Line, { kind: "tool" }>): ToolRow {
+  return {
+    key: line.seq,
+    label: activityText([line.name]),
+    chip: CHIP[line.name]?.(line.input) ?? null,
+    status: line.result === null ? "running" : line.result.isError ? "refused" : "done",
+    detail: detailOf(line.input),
+  };
+}
+
+function Activity({ lines, live }: { lines: Extract<Line, { kind: "tool" }>[]; live: boolean }) {
+  return <ToolChips summary={activityText(lines.map((one) => one.name))} rows={lines.map(rowOf)} live={live} />;
 }
 
 export function driverText(text: string): string | null {
@@ -240,17 +248,17 @@ export function Composer(props: { placeholder: string; onSend: (text: string) =>
   );
 }
 
-export function ChatPane(props: { lines: readonly Line[]; running: boolean; card: ReactNode; composer: ReactNode; status?: ReactNode }) {
-  const { lines, running, card, composer, status } = props;
+export function ChatPane(props: { lines: readonly Line[]; working: Working | null; card: ReactNode; composer: ReactNode; status?: ReactNode }) {
+  const { lines, working, card, composer, status } = props;
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
     end.current?.scrollIntoView({ block: "end" });
   }, [lines, card]);
   return (
-    <section aria-label="Chat" aria-busy={running} className="flex h-full min-h-0 flex-col">
+    <section aria-label="Chat" aria-busy={working !== null} className="flex h-full min-h-0 flex-col">
       <div role="log" className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
-        {grouped(lines).map((one) => (one.kind === "activity" ? <Activity key={`a${String(one.key)}`} lines={one.lines} /> : <Said key={one.line.seq} line={one.line} />))}
-        {running ? <p className="text-[14px] text-ink-3">Working…</p> : null}
+        {grouped(lines).map((one, at, all) => (one.kind === "activity" ? <Activity key={`a${String(one.key)}`} lines={one.lines} live={working !== null && at === all.length - 1} /> : <Said key={one.line.seq} line={one.line} />))}
+        {working === null ? null : <Loading label={workingLabel(working)} elapsed />}
         {card}
         <div ref={end} />
       </div>

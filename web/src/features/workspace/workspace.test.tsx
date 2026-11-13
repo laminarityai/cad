@@ -89,7 +89,7 @@ describe("loadWorkspace", () => {
     expect(model.conversationId).toBe("c1");
   });
 
-  it("names a brief with no options yet as building, and reads its options before anything is confirmed", async () => {
+  it("names a brief with no options yet as empty, and reads its options before anything is confirmed", async () => {
     const variantSet = vi.fn(() => Promise.resolve(setOf([])));
     const api = fakeApi([], {
       project: vi.fn(() =>
@@ -99,7 +99,7 @@ describe("loadWorkspace", () => {
       variantSet,
     });
     const model = await loadWorkspace(api, "p1");
-    expect(model.briefs[0]?.state).toBe("building");
+    expect(model.briefs[0]?.state).toBe("empty");
     expect(model.briefs[0]?.title).toBe("Part 1");
     expect(model.confirmation).toBeNull();
     expect(variantSet).toHaveBeenCalledWith("p1", "b1");
@@ -185,15 +185,15 @@ describe("the chat's driver line", () => {
     expect(driverText(prompt)).toBe("You confirmed 1");
     expect(driverText(prompt.replace("1 and declined 0", "2 and declined 1"))).toBe("You confirmed 2, declined 1");
     expect(driverText("Call ask_to_confirm with the project.")).toBeNull();
-    render(<ChatPane lines={[{ kind: "driver", seq: 1, text: prompt }]} running={false} card={null} composer={null} />);
+    render(<ChatPane lines={[{ kind: "driver", seq: 1, text: prompt }]} working={null} card={null} composer={null} />);
     expect(screen.getByText("You confirmed 1")).toBeInTheDocument();
     expect(screen.queryByText(/ask_to_confirm/)).toBeNull();
   });
 
   it("tells a driver when the agent's turn is running", () => {
-    const { rerender } = render(<ChatPane lines={[]} running card={null} composer={null} />);
+    const { rerender } = render(<ChatPane lines={[]} working={{ kind: "turn" }} card={null} composer={null} />);
     expect(screen.getByRole("region", { name: "Chat" })).toHaveAttribute("aria-busy", "true");
-    rerender(<ChatPane lines={[]} running={false} card={null} composer={null} />);
+    rerender(<ChatPane lines={[]} working={null} card={null} composer={null} />);
     expect(screen.getByRole("region", { name: "Chat" })).toHaveAttribute("aria-busy", "false");
   });
 });
@@ -226,6 +226,7 @@ describe("the explorer", () => {
     dispatch,
     onNew,
     onChanged: vi.fn(),
+    working: null,
   });
 
   it("selects a part and an option the way the stage tabs do", async () => {

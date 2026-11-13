@@ -1,3 +1,4 @@
+import { Loading } from "@/components/ui/busy";
 import { cn } from "@/lib/utils";
 import { reasonText, type RunView } from "./run";
 
@@ -20,10 +21,10 @@ export function RunStatus(props: { run: RunView | null; problem: string | null; 
           <div className="min-w-0 flex-1 basis-44">
             <h3 className="text-[13px] text-ink-3">Auto run</h3>
             {run.status === "running" ? (
-              <p role="status" className="text-[15px]">
-                Running · {run.revisions === 0 ? "no revision settled yet" : `${String(run.revisions)} ${run.revisions === 1 ? "revision" : "revisions"} tried`}
-                {run.settling ? " · waiting on checks" : ""}
-              </p>
+              <Loading
+                elapsed
+                label={`Running · ${run.revisions === 0 ? "no revision settled yet" : `${String(run.revisions)} ${run.revisions === 1 ? "revision" : "revisions"} tried`}${run.settling ? " · waiting on checks" : ""}`}
+              />
             ) : (
               <>
                 <p role="status" className="text-[15px]">
