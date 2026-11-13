@@ -6,6 +6,7 @@ import pint
 from pydantic import Field, NonNegativeInt, PlainSerializer, PlainValidator
 
 from cad.frozen import Frozen
+from cad.tables.fields import Specimen
 from cad.tables.materials import UNITS, Source
 
 
@@ -53,10 +54,12 @@ class Measure(Frozen):
 
 
 class ReadCited(Frozen):
-    """The check read a value that a reviewed row in git cites; `sources` names the row's source."""
+    """The check read a value that a reviewed row in git cites; `sources` names the row's source.
+    `specimen`, on a strength, says how the specimens behind it were made, as that source does."""
 
     kind: Literal["cited"] = "cited"
     field: str
+    specimen: Specimen | None = Field(default=None, exclude_if=lambda one: one is None)
 
 
 class ReadResearched(Frozen):

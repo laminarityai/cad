@@ -15,6 +15,7 @@ from cad.sandbox import container
 from cad.sandbox.container import Job, Ran
 from cad.scorecard import score
 from cad.scorecard.model import Basis, NoBrief, PendingCheck, Scorecard
+from cad.tables.fields import Printed
 from cad.tables.materials import load_materials
 from cad.variants.entry import Entry, VariantId
 
@@ -126,7 +127,7 @@ def test_a_pending_background_check_holds_its_place_and_no_verdict(tmp_path: Pat
         reads=(
             ReadCited(field="elastic_modulus"),
             ReadMissing(field="poisson_ratio", reason=POISSON_UNKNOWN),
-            ReadCited(field="yield_strength"),
+            ReadCited(field="yield_strength", specimen=Printed("X-Y")),
         ),
     )
     assert card.pending == ("fea",)

@@ -10,7 +10,7 @@ from typing import cast
 import pint
 import yaml
 
-from cad.tables.fields import FIELDS, Field
+from cad.tables.fields import FIELDS, STRENGTHS, Field, Printed, Sheet, Specimen, Wrought
 
 UNITS = pint.UnitRegistry()
 TABLE_PATH = Path(__file__).resolve().parents[3] / "tables" / "materials.yaml"
@@ -48,9 +48,13 @@ type Basis = FromTable | FromResearch
 
 @dataclass(frozen=True, slots=True)
 class Known:
+    """`specimen` is set on every strength value a row in git holds, and on no other value. A
+    researched value has none: the server reads only its number from the page."""
+
     quantity: pint.Quantity
     source: Source
     basis: Basis = FromTable()
+    specimen: Specimen | None = None
 
     def magnitude_in(self, unit: str) -> float:
         return magnitude(self.quantity, unit)
@@ -210,7 +214,39 @@ def _parse_value(key: str, field: Field, raw: object, problems: list[str]) -> Va
         problems.append(f"{key}: {field} {text!r}: {error}")
         return Unknown()
     source = _parse_source(key, field, mapping.get("source"), problems)
-    return Unknown() if source is None else Known(quantity, source)
+    specimen = _parse_specimen(key, field, mapping, problems)
+    return Unknown() if source is None else Known(quantity, source, specimen=specimen)
+
+
+def _parse_specimen(key: str, field: Field, mapping: Raw, problems: list[str]) -> Specimen | None:
+    if field not in STRENGTHS:
+        if "specimen" in mapping:
+            problems.append(f"{key}: {field} is not a strength, so it takes no specimen")
+        return None
+    named = _mapping(mapping.get("specimen"))
+    if named is None or len(named) != 1:
+        problems.append(
+            f"{key}: {field} specimen must name one of printed, wrought or sheet, as its page does"
+        )
+        return None
+    [(form, detail)] = named.items()
+    match form, detail:
+        case "printed", "X-Y":
+            return Printed("X-Y")
+        case "printed", "Z":
+            return Printed("Z")
+        case "printed", None:
+            return Printed(None)
+        case "wrought", (str() | None) as condition:
+            return Wrought(condition)
+        case "sheet", None:
+            return Sheet()
+        case _:
+            problems.append(
+                f"{key}: {field} specimen {form!r}: {detail!r} is not printed X-Y, Z or null,"
+                " wrought with its condition or null, or sheet with null"
+            )
+            return None
 
 
 def _parse_source(key: str, field: str, raw: object, problems: list[str]) -> Source | None:

@@ -1645,6 +1645,19 @@ export interface components {
             kind: "plus_minus";
             within: components["schemas"]["Length"];
         };
+        /**
+         * Printed
+         * @description Printed specimens pulled in `direction`: X-Y in the build plane, Z across the layers, and
+         *     None when the page does not say. A printed part is weaker across its layers.
+         */
+        Printed: {
+            direction: ("X-Y" | "Z") | null;
+            /**
+             * @default printed
+             * @constant
+             */
+            form: "printed";
+        };
         /** ProjectConversation */
         ProjectConversation: {
             conversation_id: string;
@@ -1682,6 +1695,7 @@ export interface components {
         /**
          * ReadCited
          * @description The check read a value that a reviewed row in git cites; `sources` names the row's source.
+         *     `specimen`, on a strength, says how the specimens behind it were made, as that source does.
          */
         ReadCited: {
             /**
@@ -1690,6 +1704,8 @@ export interface components {
              */
             kind: "cited";
             field: string;
+            /** @default null */
+            specimen?: components["schemas"]["Specimen"] | null;
         };
         /**
          * ReadMissing
@@ -1879,6 +1895,17 @@ export interface components {
             normal_len: number;
             bb: components["schemas"]["BoundingBoxWire"];
         };
+        /**
+         * Sheet
+         * @description Specimens of plastic sheet, not printed.
+         */
+        Sheet: {
+            /**
+             * @default sheet
+             * @constant
+             */
+            form: "sheet";
+        };
         /** Source */
         Source: {
             url: string;
@@ -1889,6 +1916,7 @@ export interface components {
             standard: string | null;
             quote: string;
         };
+        Specimen: components["schemas"]["Printed"] | components["schemas"]["Wrought"] | components["schemas"]["Sheet"];
         /** Standing */
         Standing: {
             revision: number;
@@ -2172,6 +2200,19 @@ export interface components {
             /** @default null */
             displacement?: components["schemas"]["Faces"] | null;
         };
+        /**
+         * Wrought
+         * @description Wrought metal in `condition`, the temper or condition the page prints, such as T6, T651
+         *     or hot-rolled, and None when the page prints none.
+         */
+        Wrought: {
+            condition: string | null;
+            /**
+             * @default wrought
+             * @constant
+             */
+            form: "wrought";
+        };
         /** Read */
         cad__auto__model__Read: {
             material_key: string;
@@ -2389,6 +2430,7 @@ export type PersonStop = components['schemas']['PersonStop'];
 export type Picked = components['schemas']['Picked'];
 export type PlainHoles = components['schemas']['PlainHoles'];
 export type PlusMinus = components['schemas']['PlusMinus'];
+export type Printed = components['schemas']['Printed'];
 export type ProjectConversation = components['schemas']['ProjectConversation'];
 export type ProjectList = components['schemas']['ProjectList'];
 export type ProjectSummary = components['schemas']['ProjectSummary'];
@@ -2414,7 +2456,9 @@ export type SetByAgent = components['schemas']['SetByAgent'];
 export type SetByRequirement = components['schemas']['SetByRequirement'];
 export type ShapeWire = components['schemas']['ShapeWire'];
 export type ShapesWire = components['schemas']['ShapesWire'];
+export type Sheet = components['schemas']['Sheet'];
 export type Source = components['schemas']['Source'];
+export type Specimen = components['schemas']['Specimen'];
 export type Standing = components['schemas']['Standing'];
 export type Started = components['schemas']['Started'];
 export type Status = components['schemas']['Status'];
@@ -2445,6 +2489,7 @@ export type Vec = components['schemas']['Vec'];
 export type Verdict = components['schemas']['Verdict'];
 export type Waiting = components['schemas']['Waiting'];
 export type Where = components['schemas']['Where'];
+export type Wrought = components['schemas']['Wrought'];
 export type CadAutoModelRead = components['schemas']['cad__auto__model__Read'];
 export type CadChecksResultRead = components['schemas']['cad__checks__result__Read'];
 export type ResponseRefused = components['responses']['Refused'];

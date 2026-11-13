@@ -58,6 +58,11 @@ function Row({ line, where }: { line: Line; where: WhereControl }) {
               {line.tag}
             </span>
           ) : null}
+          {line.specimen ? (
+            <span data-specimen className="block max-w-48 text-[12px] leading-tight text-ink-3">
+              {line.specimen}
+            </span>
+          ) : null}
         </span>
       </CollapsibleTrigger>
       <CollapsiblePanel className="space-y-1.5 px-4 pb-3 pl-11 text-[14px] text-ink-2">

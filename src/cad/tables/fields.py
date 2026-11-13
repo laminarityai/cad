@@ -12,6 +12,37 @@ type Field = Literal[
 ]
 
 
+STRENGTHS: Final[frozenset[Field]] = frozenset({"yield_strength", "tensile_strength"})
+
+
+@dataclass(frozen=True, slots=True)
+class Printed:
+    """Printed specimens pulled in `direction`: X-Y in the build plane, Z across the layers, and
+    None when the page does not say. A printed part is weaker across its layers."""
+
+    direction: Literal["X-Y", "Z"] | None
+    form: Literal["printed"] = "printed"
+
+
+@dataclass(frozen=True, slots=True)
+class Wrought:
+    """Wrought metal in `condition`, the temper or condition the page prints, such as T6, T651
+    or hot-rolled, and None when the page prints none."""
+
+    condition: str | None
+    form: Literal["wrought"] = "wrought"
+
+
+@dataclass(frozen=True, slots=True)
+class Sheet:
+    """Specimens of plastic sheet, not printed."""
+
+    form: Literal["sheet"] = "sheet"
+
+
+type Specimen = Printed | Wrought | Sheet
+
+
 @dataclass(frozen=True, slots=True)
 class FieldSpec:
     """`units` maps each accepted spelling to its factor into `canonical_unit`."""
