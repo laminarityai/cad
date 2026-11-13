@@ -2,11 +2,10 @@ import pytest
 
 from cad.checks.container import mass
 from cad.checks.container.inputs import WIRE_UNITS, Input, Inputs, Undeclared
-from cad.checks.container.runner import run
 from cad.checks.report import DEPENDENCIES, IMAGE_TAG, QUICK, build_request, specs
 from cad.tables.fields import FIELDS
 from cad.tables.materials import UNITS, load_materials
-from tests.support.check_fakes import REPORT_CAP, FakeKernel, request
+from tests.support.check_fakes import FakeKernel, request, run_report
 
 
 def test_every_input_names_a_table_field_and_converts_to_its_wire_unit() -> None:
@@ -37,7 +36,7 @@ def test_a_check_that_reads_an_input_it_does_not_take_is_unknown(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(mass, "TAKES", frozenset[Input]())
-    results = run(request(), b"brep", FakeKernel(), REPORT_CAP)["results"]
+    results = run_report(request(), b"brep", FakeKernel())[0]["results"]
     found = next(result for result in results if result["id"] == "mass")
     assert (found["verdict"], found["reason"]) == (
         "unknown",
@@ -46,7 +45,7 @@ def test_a_check_that_reads_an_input_it_does_not_take_is_unknown(
 
 
 def test_the_runner_runs_the_named_checks_and_what_they_require() -> None:
-    report = run(request(checks=("mass",)), b"brep", FakeKernel(), REPORT_CAP)
+    report, _ = run_report(request(checks=("mass",)), b"brep", FakeKernel())
     assert [result["id"] for result in report["results"]] == [
         "closed_solid",
         "interference",

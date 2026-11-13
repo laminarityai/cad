@@ -1,6 +1,6 @@
 import base64
 import json
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from typing import cast
 
@@ -55,7 +55,8 @@ class BrepFem:
 
 def run(
     request: RequestWire, stdin: bytes, kernel: Kernel, report_cap: int, fem: Fem | None = None
-) -> CheckedReport:
+) -> Iterator[CheckedReport | StepWire]:
+    """Yields the results, then the STEP, so the results are sent before the STEP is written."""
     brep, context = _split(stdin, request["context_bytes"], kernel)
     shape = kernel.read_brep(brep)
     engines = BrepFem(brep) if fem is None else fem
@@ -65,8 +66,9 @@ def run(
         inputs = Inputs(check.TAKES, request["values"], tuple(request["load_cases"]))
         subject = Subject(kernel, engines, shape, inputs, reported, context)
         results.append(_run_check(check.ID, check.run, subject))
-    room = _step_room(results, report_cap)
-    return {"kind": "checked", "results": results, "step": _step(kernel, shape, room)}
+    report: CheckedReport = {"kind": "checked", "results": results}
+    yield report
+    yield _step(kernel, shape, _step_room(report, report_cap))
 
 
 def _split(
@@ -92,13 +94,11 @@ def _run_check(
     return {"id": check_id, **found}
 
 
-def _step_room(results: list[ResultWire], report_cap: int) -> int:
-    empty: CheckedReport = {
-        "kind": "checked",
-        "results": results,
-        "step": {"kind": "written", "base64": ""},
-    }
-    return _raw_bytes_that_fit_in_base64(report_cap - len(json.dumps(empty).encode()))
+def _step_room(report: CheckedReport, report_cap: int) -> int:
+    """Each message is a line of JSON, so each costs its newline too."""
+    empty: StepWire = {"kind": "written", "base64": ""}
+    sent = len(json.dumps(report).encode()) + len(json.dumps(empty).encode()) + 2
+    return _raw_bytes_that_fit_in_base64(report_cap - sent)
 
 
 def _raw_bytes_that_fit_in_base64(chars: int) -> int:

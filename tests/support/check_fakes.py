@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
+from cad.checks.container import runner
 from cad.checks.container.calculix import Material, NodalField, NodalLoads, SolveFailed
 from cad.checks.container.check import Quick
 from cad.checks.container.inputs import Input
@@ -10,6 +11,7 @@ from cad.checks.container.kernel import (
     FaceInfo,
     Inertia,
     Kept,
+    Kernel,
     Opening,
     Patch,
     Point,
@@ -22,7 +24,7 @@ from cad.checks.container.kernel import (
 )
 from cad.checks.container.mesher import MeshFailed, TetMesh
 from cad.checks.container.suite import CHECKS
-from cad.checks.container.wire import RequestWire, ValueKnown, ValueWire
+from cad.checks.container.wire import CheckedReport, RequestWire, StepWire, ValueKnown, ValueWire
 
 KNOWN: ValueKnown = {"kind": "known", "magnitude": 1.24e-6}
 UNREADABLE_BREP = b"unreadable"
@@ -172,3 +174,13 @@ def request(density: ValueWire = KNOWN, checks: tuple[str, ...] | None = None) -
         "load_cases": [],
         "context_bytes": 0,
     }
+
+
+def run_report(
+    wire: RequestWire, stdin: bytes, kernel: Kernel, report_cap: int = REPORT_CAP
+) -> tuple[CheckedReport, StepWire]:
+    """The two messages the runner sends, in the order it sends them."""
+    report, step = runner.run(wire, stdin, kernel, report_cap)
+    assert report["kind"] == "checked", report
+    assert step["kind"] != "checked", step
+    return report, step

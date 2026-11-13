@@ -22,7 +22,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, assert_never
 
-import pint
 from binding import Unbound, Unlinked
 from confirmation import Misjudged, Superseded, Unconfirmed
 from fitted import Unfitted
@@ -235,7 +234,7 @@ def _read(
 ) -> tuple[CardTrace, tuple[RequirementOutcome, ...]]:
     try:
         card = material.STORED.validate_json(text)
-    except (ValidationError, pint.UndefinedUnitError, ZeroDivisionError) as error:
+    except ValidationError as error:
         return CardTrace(f"card {order + 1}", (Unreadable(str(error).splitlines()[0]),), ()), ()
     trace = trace_card(card, root, roots, _table_scored_against(card, roots, table), SPEC_BY_ID)
     return trace, outcomes_of(card)

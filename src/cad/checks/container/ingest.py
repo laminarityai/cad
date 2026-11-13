@@ -77,7 +77,7 @@ type IngestWire = PartWire | RefusedWire
 
 
 def main() -> None:
-    serve(lambda _, stdin: answer(ocp_kernel(), stdin))
+    serve(lambda _, stdin: iter([answer(ocp_kernel(), stdin)]))
 
 
 def answer(kernel: Kernel, stdin: bytes) -> IngestWire:

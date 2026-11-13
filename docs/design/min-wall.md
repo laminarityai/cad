@@ -34,6 +34,8 @@ The check reads only the stored shape. It needs `closed_solid` to pass. Each fac
 
 The truth for each case follows from the shape by hand, under the same 60-degree rule. Each case was read twice through the real kernel: once as made, and once turned 0.7 rad about (1, 2, 3), moved, and with the faces listed back to front. The table gives the reading and the error of the worse run. `tests/checks/test_min_wall_walls.py` asserts the built cases are within the bound. The reference parts under `tests/sandbox/parts` were built with `build_variant`. Their plain runs were read in the analysis image `cad-analysis:5c4ce3c9a3cd`, and their turned runs on the host with the same OCP. `tests/checks/test_reference_parts.py` asserts `min_wall` passes on each.
 
+Every case was measured again on 2026-11-13, when the ray cap went from 100,000 to 250,000. The reference parts were built from the same files in the build image `cad-sandbox:8a7e4a0613e8`. Every reading and error matched the earlier run, and the two large parts were added.
+
 | Case | Truth (mm) | Read (mm) | Relative error |
 | --- | --- | --- | --- |
 | Box shell, 2 mm walls | 2 | 2.0000000 | 1.4e-14 |
@@ -45,6 +47,8 @@ The truth for each case follows from the shape by hand, under the same 60-degree
 | Crossed holes, 0.4 mm apart (short, easy to miss) | 0.4 | 0.4000000 | 3.5e-12 |
 | Bore 0.05 mm under the top | 0.05 | 0.0500000 | 1.8e-11 |
 | 2 mm plate with a 1 mm round | 1.5 | 1.5000242 | 1.6e-5 |
+| Plate 300 × 200 × 1 mm (large for its wall) | 1 | 1.0000000 | 4.3e-14 |
+| Open box 250 × 200 × 100 mm, 1.5 mm walls (large for its wall) | 1.5 | 1.5000000 | 5.7e-14 |
 | arm | 6 | 6.0000000 | 1.7e-13 |
 | bearing_block | 5 − 2.55 = 2.45 | 2.4500000 | 4.8e-13 |
 | gusset | 50 / (3√2) − 10 = 1.7851130 | 1.7851130 | 2.5e-13 |
@@ -58,24 +62,29 @@ The truth for each case follows from the shape by hand, under the same 60-degree
 
 The worst error is 1.6e-5, on the round, where the search stops a little short of the 60-degree point. The bound is 60 times that. The cases include short walls that a grid misses: the crossed holes read 14 mm on a 4 × 4 grid per face (measured) and 0.4 mm with the spacing rule.
 
-The bound covers how well the search finds a minimum it samples near. It does not cover a wall narrower than the sample spacing, which the check can miss. The spacing is in the result's reason, and on these parts it is 0.25 to 1.24 mm.
+The bound covers how well the search finds a minimum it samples near. It does not cover a wall narrower than the sample spacing, which the check can miss. The spacing is in the result's reason, and on these parts it is 0.25 to 1.5 mm.
 
 ## Time
 
-Measured in `cad-analysis:5c4ce3c9a3cd` on this laptop, with another agent's stress solves running.
+Measured on 2026-11-13 in `cad-analysis:5c4ce3c9a3cd` on this laptop (Apple M2, load average about 3.8 from other agents). The turned gear was read on the host.
 
 | Part | Rays | Seconds |
 | --- | --- | --- |
-| arm | 31,266 | 1.50 |
-| bearing_block | 35,152 | 1.02 |
-| gusset | 21,398 | 0.62 |
-| hex_spacer | 31,238 | 0.80 |
-| l_bracket | 26,174 | 0.71 |
-| motor_plate | 36,235 | 1.15 |
-| plate | 39,855 | 1.10 |
-| shaft_collar | 31,169 | 0.88 |
-| spur_gear | 49,336 | 6.74 to 7.07 |
-| spur_gear, turned | 49,948 | 13.05 |
-| u_bracket | 33,534 | 1.65 |
+| arm | 31,266 | 1.46 |
+| bearing_block | 35,152 | 1.00 |
+| gusset | 21,398 | 0.59 |
+| hex_spacer | 31,238 | 0.79 |
+| l_bracket | 26,174 | 0.70 |
+| motor_plate | 36,235 | 1.04 |
+| plate | 39,855 | 0.99 |
+| shaft_collar | 31,169 | 0.84 |
+| spur_gear | 49,336 | 4.64 |
+| spur_gear, turned | 49,948 | 12.39 |
+| u_bracket | 33,534 | 0.99 |
+| Plate 300 × 200 × 1 mm | 122,120 | 2.39 |
+| Open box 250 × 200 × 100 mm, 1.5 mm walls | 124,866 | 3.90 |
+| Plate 400 × 300 × 1 mm | 242,912 | 4.60 |
 
-`min_wall` runs in the Quick lane, which gives all quick checks 60 s together. The grid is capped at 40,000 points and the check at 100,000 rays. A part with more than 10,000 faces, a search that needs more rays, or one that runs past 30 s is unknown, never a pass. The turned gear is slower because its faces' axis-aligned boxes are looser, so each ray asks more faces.
+`min_wall` runs in the Quick lane, which gives all quick checks 60 s together. The grid has about 40,000 points or more, and the check is capped at 250,000 rays. A part with more than 10,000 faces, a search that needs more rays, or one that runs past 30 s is unknown, never a pass. The turned gear is slower because its faces' axis-aligned boxes are looser, so each ray asks more faces.
+
+The ray count grows with the part's surface over the square of its thinnest wall, because the samples are no farther apart than that wall. A ray costs 19 to 49 µs on a part with few faces (measured in this run and the one before), so 250,000 rays take at most about 12 s, under half the 30 s cap. On such parts the ray cap, not the machine's speed, decides when the check stops. A ray costs more on a part with many faces: 94 to 250 µs on the gear. A large part with many faces can reach the 30 s cap first, and is then unknown.

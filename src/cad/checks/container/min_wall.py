@@ -28,7 +28,7 @@ FORMULA = (
     "the at most 32 thinnest faces within 1.5 times the thinnest reading, a compass search walks "
     "to a local minimum; min_wall is the thinnest reading of all; unknown when a ray never "
     "comes out of the material or the kernel cannot follow it, when no ray crosses a wall, when "
-    "the part has more than 10000 faces or needs more than 100000 rays or 30 seconds, and with "
+    "the part has more than 10000 faces or needs more than 250000 rays or 30 seconds, and with "
     "no measured value unless closed_solid passes"
 )
 SOURCES: tuple[SourceLiteral, ...] = (
@@ -53,7 +53,7 @@ GRID_POINTS = 40_000
 REFINE_WITHIN = 1.5
 REFINE_FACES = 32
 STOP_FRACTION = 1e-6
-MAX_RAYS = 100_000
+MAX_RAYS = 250_000
 MAX_SECONDS = 30.0
 
 

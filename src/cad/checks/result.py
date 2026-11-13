@@ -32,7 +32,12 @@ def _to_quantity(raw: object) -> pint.Quantity:
     if isinstance(raw, dict):
         fields = cast(Mapping[str, object], raw)
         if set(fields) == {"magnitude", "unit"}:
-            return UNITS.Quantity(float(cast(float, fields["magnitude"])), str(fields["unit"]))
+            # Pint raises AttributeError, ZeroDivisionError or TokenError for some units, and
+            # pydantic makes a ValidationError only of a ValueError.
+            try:
+                return UNITS.Quantity(float(cast(float, fields["magnitude"])), str(fields["unit"]))
+            except Exception as error:
+                raise ValueError(f"not a quantity: {error}") from error
     raise ValueError("a measured value is a quantity or {'magnitude', 'unit'}")
 
 

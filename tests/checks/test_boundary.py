@@ -1,107 +1,22 @@
 import json
-from base64 import b64encode
-from typing import Any
 
 import pytest
 
 from cad.checks.report import QUICK, SPECS, Request, build_request, parse
 from cad.checks.result import CheckRun, Faces, StepMissing, StepStored, Verdict, Where
-from cad.sandbox.container import Attended, ContainerState, Job, Ran, TooMuchOutput
+from cad.sandbox.container import Ran, TooMuchOutput
 from cad.tables.materials import Known, Material, MaterialsTable, Unknown, load_materials
-
-STEP = b"ISO-10303-21; fake STEP"
-OWN_LIMITS = Job("check", "sha256:analysis", (), b"", wall_seconds=60, memory_mb=1536)
-DIMENSIONLESS = "dimensionless"
-
-
-def measured(name: str, magnitude: float, unit: str) -> dict[str, Any]:
-    return {"name": name, "magnitude": magnitude, "unit": unit}
-
-
-def good_report() -> dict[str, Any]:
-    return {
-        "kind": "checked",
-        "results": [
-            {
-                "id": "closed_solid",
-                "verdict": "pass",
-                "measured": [
-                    measured("solids", 1, DIMENSIONLESS),
-                    measured("free_edges", 0, DIMENSIONLESS),
-                    measured("over_used_edges", 0, DIMENSIONLESS),
-                    measured("valid", 1, DIMENSIONLESS),
-                ],
-                "reason": "one valid solid",
-            },
-            {
-                "id": "interference",
-                "verdict": "pass",
-                "measured": [
-                    measured("bodies", 1, DIMENSIONLESS),
-                    measured("interfering_pairs", 0, DIMENSIONLESS),
-                    measured("max_common_volume", 0, "mm^3"),
-                ],
-                "reason": "one solid",
-            },
-            {
-                "id": "mass",
-                "verdict": "pass",
-                "measured": [
-                    measured("volume", 1000.0, "mm^3"),
-                    measured("center_of_mass:x", 1.0, "mm"),
-                    measured("density", 1.24e-6, "kg/mm^3"),
-                    measured("mass", 1.24e-3, "kg"),
-                ],
-                "reason": "1000 mm^3",
-            },
-            {
-                "id": "extents",
-                "verdict": "pass",
-                "measured": [
-                    measured("extent:x", 10.0, "mm"),
-                    measured("sorted_extent:smallest", 10.0, "mm"),
-                ],
-                "reason": "10 mm",
-            },
-            {
-                "id": "holes",
-                "verdict": "pass",
-                "measured": [
-                    measured("hole_count", 0, DIMENSIONLESS),
-                    measured("unclassified_openings", 0, DIMENSIONLESS),
-                ],
-                "reason": "0 round holes",
-            },
-            {
-                "id": "min_wall",
-                "verdict": "pass",
-                "measured": [measured("min_wall", 2.0, "mm")],
-                "reason": "thinnest wall 2 mm",
-            },
-        ],
-        "step": {"kind": "written", "base64": b64encode(STEP).decode()},
-    }
-
-
-def ran(
-    report: bytes | TooMuchOutput,
-    *,
-    killed: bool = False,
-    oom: bool = False,
-    exit_code: int = 0,
-) -> Ran:
-    state = ContainerState(Status="exited", ExitCode=exit_code, OOMKilled=oom, Error="")
-    return Ran(Attended(killed_at_deadline=killed, report=report, output=""), state)
-
-
-def sent(report: dict[str, Any]) -> Ran:
-    return ran(json.dumps(report).encode())
-
-
-def with_result(index: int, **changes: Any) -> dict[str, Any]:
-    report = good_report()
-    report["results"][index].update(changes)
-    return report
+from tests.support.check_reports import (
+    DIMENSIONLESS,
+    OWN_LIMITS,
+    STEP,
+    good_report,
+    lines,
+    measured,
+    ran,
+    sent,
+    with_result,
+)
 
 
 @pytest.fixture(scope="module")
@@ -229,7 +144,7 @@ MISBEHAVIORS = {
     "not-json": ran(b"not json"),
     "not-an-object": ran(b"[]"),
     "wrong-kind": sent({**good_report(), "kind": "won"}),
-    "nonzero-exit-with-a-good-report": ran(json.dumps(good_report()).encode(), exit_code=1),
+    "nonzero-exit-before-the-results-line-ends": ran(lines(good_report())[:-200], exit_code=1),
     "ids-out-of-order": sent({**good_report(), "results": good_report()["results"][::-1]}),
     "a-missing-id": sent({**good_report(), "results": good_report()["results"][:2]}),
     "a-duplicated-id": sent(
@@ -306,6 +221,47 @@ def test_only_a_run_past_the_wall_time_is_marked_timed_out(request_for_pla: Requ
         ]
     }
     assert timed_out == {"timeout": True, "oom": False, "exit": False, "good": False}
+
+
+RESULTS_LINE = lines(good_report()).partition(b"\n")[0] + b"\n"
+
+
+@pytest.mark.parametrize(
+    ("seen", "reason", "timed_out"),
+    [
+        pytest.param(
+            ran(RESULTS_LINE + b'{"kind": "wri', oom=True, exit_code=137),
+            "the check container ran out of memory (1536 MB) while it wrote the STEP",
+            False,
+            id="oom",
+        ),
+        pytest.param(
+            ran(RESULTS_LINE, exit_code=139),
+            "the check container exited with code 139 while it wrote the STEP",
+            False,
+            id="exit",
+        ),
+        pytest.param(
+            ran(RESULTS_LINE, killed=True),
+            "the check container ran past 60 s and was killed while it wrote the STEP",
+            True,
+            id="timeout",
+        ),
+        pytest.param(
+            ran(lines(good_report()), exit_code=1),
+            "the check container exited with code 1 while it wrote the STEP",
+            False,
+            id="exit-after-the-step",
+        ),
+    ],
+)
+def test_results_sent_before_the_container_stopped_stand_without_the_step(
+    seen: Ran, reason: str, timed_out: bool, request_for_pla: Request
+) -> None:
+    parsed = parse(seen, request_for_pla, OWN_LIMITS)
+    assert [result.verdict for result in parsed.results] == [Verdict.PASS] * len(QUICK)
+    assert parsed.step == StepMissing(reason=reason)
+    assert parsed.timed_out is timed_out
 
 
 def test_a_step_the_container_left_out_keeps_the_verdicts_and_says_why(
