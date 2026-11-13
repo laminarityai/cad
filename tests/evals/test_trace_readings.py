@@ -10,30 +10,18 @@ from tracefacts import trace_session
 
 from cad.briefs import store as briefs
 from cad.checks.job_store import JOBS
-from cad.projects.model import new_project_id
-from cad.records.roots import Roots
 from cad.scorecard.model import AwaitingConfirmation
 from tests.support.cards import (
-    BRIEF_TEXT,
     confirm_on_page,
     drafts,
     genuine_card,
     transcript_of,
     write_transcript,
 )
-from tests.support.readings import scored_variant
+from tests.support.readings import a_session, scored_variant
 
 LIGHT = ({"kind": "max_mass", "mass": {"magnitude": 150, "unit": "g"}}, "under 150 g")
 FRIENDLY = ({"kind": "unchecked", "statement": "looks friendly"}, "looks friendly")
-
-
-def a_session(tmp_path: Path) -> tuple[Path, Path, Roots, str]:
-    home = tmp_path / "home"
-    variants = home / ".cad" / "variants"
-    variants.mkdir(parents=True)
-    roots = Roots(home / ".cad" / "briefs", home / ".cad" / "projects")
-    brief_id = briefs.create_brief(roots, BRIEF_TEXT, new_project_id()).id
-    return home, variants, roots, brief_id
 
 
 def test_a_card_scored_before_confirm_is_judged_by_the_reading_after_the_session(
