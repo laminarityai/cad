@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Final
 
 from chain import NotVerified, Stale, Unresolved
 from outcome import Share, Trace
@@ -10,6 +11,7 @@ from transcript_cards import read_cards
 from cad.records.roots import Roots
 
 NO_CARD = "no scorecard was returned"
+NOTHING: Final = Share(numerator=0, denominator=0)
 
 
 def _share(found: TrackedShare) -> Share:
@@ -62,4 +64,22 @@ def trace_session(home: Path, transcript: Path) -> Trace:
         described_coverage=_share(tracking.described_coverage),
         by=dict(tracking.by),
         uncovered=dict(tracking.uncovered),
+    )
+
+
+def failed_trace(error: Exception) -> Trace:
+    """The trace of a brief the tracer could not finish. It counts nothing and is not traced."""
+    last = (str(error).splitlines() or [""])[-1]
+    return Trace(
+        traced=False,
+        cards=0,
+        judged=0,
+        awaiting=0,
+        no_brief=0,
+        numbers=0,
+        resolved=0,
+        untraced=(f"the tracer failed: {type(error).__name__}: {last}",),
+        agent_measurements=(),
+        strict_pass=NOTHING,
+        coverage=NOTHING,
     )
