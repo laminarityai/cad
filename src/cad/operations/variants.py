@@ -35,6 +35,7 @@ from cad.variant_sets.model import (
     Revision,
     SetBuildResult,
     SetRefused,
+    Slot,
     SlotRefused,
     code_sha256,
 )
@@ -130,7 +131,7 @@ type BodyMaterials = Annotated[tuple[BodyMaterialInput, ...], Field(max_length=M
 class BuildVariantInput(Input):
     code: Annotated[str, Field(max_length=MAX_CODE_CHARS)]
     brief_id: str | None = None
-    slot: Annotated[int | None, Field(strict=True)] = None
+    slot: Slot | None = None
     material_key: MaterialKey | None = None
     material_reason: Reason | None = None
     materials: BodyMaterials | None = None

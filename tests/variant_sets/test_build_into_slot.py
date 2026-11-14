@@ -176,7 +176,7 @@ async def test_a_slot_outside_the_set_is_refused_before_any_container(
     brief_id = await s.confirmed_brief()
     monkeypatch.setenv("DOCKER_HOST", NO_DOCKER)
     text = await s.refusal("build_variant", code=PLATE, brief_id=brief_id, slot=6)
-    assert "SlotRefused: slot 6 is not a slot" in text
+    assert "slot\n  Input should be less than or equal to 5" in text
     assert held(s, brief_id) == []
 
 
