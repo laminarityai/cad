@@ -12,6 +12,7 @@ const pendingView = (variantId: string): VariantView => ({
   mesh: "pending",
   mesh_url: null,
   areas: [],
+  bodies: [],
 });
 
 function mount(api: ReturnType<typeof fakeApi>) {

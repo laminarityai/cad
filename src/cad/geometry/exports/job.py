@@ -10,6 +10,7 @@ from cad.checks.report import IMAGE_TAG
 from cad.geometry.container.export_wire import ExportReport
 from cad.geometry.exports.model import Exported, ExportFailed
 from cad.sandbox import container, image, stage
+from cad.sandbox.bodies import BODIES, Bodies
 from cad.sandbox.container import Job, TooMuchOutput
 from cad.sandbox.outcome import AREAS, Areas, SandboxUnavailable
 
@@ -39,17 +40,19 @@ class Ran:
     made: Made | None = None
 
 
-def key_of(brep_sha256: str, areas: Areas) -> str:
-    """The BREP's sha256 when the build code coloured nothing, so an uncoloured BREP keeps one
-    export however many variants built it. The STEP carries no area names, so a rename keeps
-    the export."""
-    if not areas:
+def key_of(brep_sha256: str, areas: Areas, bodies: Bodies = ()) -> str:
+    """The BREP's sha256 when the build code coloured and named nothing, so a plain BREP keeps
+    one export however many variants built it. The STEP carries no area names, so a rename keeps
+    the export. It does carry each body's name and its solids."""
+    if not areas and not bodies:
         return brep_sha256
     painted = [[area.colour, list(area.faces)] for area in areas]
-    return hashlib.sha256(json.dumps([brep_sha256, painted]).encode()).hexdigest()
+    named = [body.model_dump(mode="json") for body in bodies]
+    wire = [brep_sha256, painted, named] if bodies else [brep_sha256, painted]
+    return hashlib.sha256(json.dumps(wire).encode()).hexdigest()
 
 
-def export(brep: bytes, key: str, areas: Areas) -> Ran:
+def export(brep: bytes, key: str, areas: Areas, bodies: Bodies = ()) -> Ran:
     image_id = image.current_image(IMAGE_TAG)
     try:
         mount = stage.check_mount(SOURCES)
@@ -58,8 +61,8 @@ def export(brep: bytes, key: str, areas: Areas) -> Ran:
             "cannot stage the export sources", error, stage.STAGE_ROOT
         ) from error
     cpu_seconds = str(WALL_SECONDS * container.CPUS)
-    painted = AREAS.dump_json(areas).decode()
-    command = ("python", "-I", "-c", BOOT, cpu_seconds, str(container.REPORT_CAP), painted)
+    painted, named = AREAS.dump_json(areas).decode(), BODIES.dump_json(bodies).decode()
+    command = ("python", "-I", "-c", BOOT, cpu_seconds, str(container.REPORT_CAP), painted, named)
     ran = container.run(Job("check", image_id, command, brep, (mount,), WALL_SECONDS))
 
     def failed(reason: str, lasting: bool = False) -> Ran:

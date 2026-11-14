@@ -7,6 +7,11 @@ class AreaReport(TypedDict):
     faces: list[int]
 
 
+class BodyReport(TypedDict):
+    name: str
+    solids: list[int]
+
+
 class BuiltReport(TypedDict):
     """`areas` is what the runner read off the shape, or the error that stopped it; the host
     parses it apart from the rest, so a bad list never fails the build. `bodies` is the name of

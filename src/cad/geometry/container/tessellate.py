@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Final, Protocol, cast
 
 from cad.checks.container.channel import serve
+from cad.geometry.container.solids import Solids, solid_faces
 from cad.geometry.container.topology import Shape, topology
 from cad.geometry.container.wire import (
     BoundingBoxWire,
@@ -123,6 +124,7 @@ def tessellate(brep: bytes) -> TessellationReport:
             "kind": "tessellated",
             "shapes": _shapes(shape),
             "topology": topology(cast(Shape, shape)),
+            "solid_faces": solid_faces(cast(Solids, shape)),
         }
     except Exception as error:
         return {"kind": "unreadable", "reason": f"{type(error).__name__}: {error}"}

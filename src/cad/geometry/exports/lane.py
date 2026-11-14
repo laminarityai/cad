@@ -6,15 +6,16 @@ from typing import Final
 from cad.geometry.exports import job, store
 from cad.geometry.exports.model import Exported, ExportFailed, ExportPending, ExportRead
 from cad.geometry.flights import Flights
+from cad.sandbox.bodies import Bodies
 from cad.sandbox.outcome import Areas
 from cad.variants.entry import Entry
 
-type Run = Callable[[bytes, str, Areas], job.Ran]
+type Run = Callable[[bytes, str, Areas, Bodies], job.Ran]
 
 
 class Exports:
-    """Each BREP, with the areas its build code coloured, is exported at most once at a time, in
-    the background, and once stored it is read from the store with no job."""
+    """Each BREP, with the areas its build code coloured and the bodies it named, is exported at
+    most once at a time, in the background, and once stored it is read with no job."""
 
     def __init__(self, run: Run = job.export) -> None:
         self._run = run
@@ -42,14 +43,14 @@ class Exports:
         stored = store.read(root, key_of(held))
         if stored is not None:
             return stored
-        outcome = self._run(held.brep, key_of(held), held.areas)
+        outcome = self._run(held.brep, key_of(held), held.areas, held.bodies)
         if outcome.lasting:
             store.write(root, outcome)
         return outcome.read
 
 
 def key_of(held: Entry) -> str:
-    return job.key_of(held.brep_sha256, held.areas)
+    return job.key_of(held.brep_sha256, held.areas, held.bodies)
 
 
 EXPORTS: Final = Exports()

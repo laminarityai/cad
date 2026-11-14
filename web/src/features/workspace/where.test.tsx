@@ -118,7 +118,7 @@ async function open(withWhere: boolean, areas: Area[] = []) {
     ),
     scorecard,
     view: vi.fn((variantId: string) =>
-      Promise.resolve({ variant_id: variantId, brep_sha256: "b".repeat(64), mesh: "tessellated" as const, mesh_url: `/v1/geometry/0123456789ab/${variantId}.json`, areas }),
+      Promise.resolve({ variant_id: variantId, brep_sha256: "b".repeat(64), mesh: "tessellated" as const, mesh_url: `/v1/geometry/0123456789ab/${variantId}.json`, areas, bodies: [] }),
     ),
     mesh: vi.fn(() => Promise.resolve({ ...meshOf("v1"), shapes: SHAPES } as Tessellated)),
   });

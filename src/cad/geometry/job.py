@@ -71,6 +71,7 @@ def tessellate(brep: bytes, brep_sha256: str) -> Ran:
             version=VERSION,
             shapes=report["shapes"],
             topology=report["topology"],
+            solid_faces=tuple(report["solid_faces"]),
         ),
         True,
     )

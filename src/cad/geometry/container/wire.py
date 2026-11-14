@@ -90,6 +90,7 @@ class TessellatedReport(TypedDict):
     kind: Literal["tessellated"]
     shapes: ShapesWire
     topology: TopologyWire
+    solid_faces: list[int]
 
 
 class UnreadableReport(TypedDict):

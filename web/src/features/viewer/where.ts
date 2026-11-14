@@ -28,7 +28,7 @@ interface Piece {
   faces: ReadonlySet<number>;
 }
 
-function trianglesOf(shape: ShapeWire, faces: ReadonlySet<number>, keep: boolean): Pick<ShapeWire, "triangles" | "triangles_per_face"> {
+export function trianglesOf(shape: ShapeWire, faces: ReadonlySet<number>, keep: boolean): Pick<ShapeWire, "triangles" | "triangles_per_face"> {
   const triangles: number[] = [];
   const perFace: number[] = [];
   let at = 0;

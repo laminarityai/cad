@@ -8,6 +8,7 @@ from cad.briefs.store import BriefState, ConfirmedSet
 from cad.context_parts.store import newest_parts
 from cad.geometry import job
 from cad.geometry import store as meshes
+from cad.geometry.bodies import BodyFaces, body_faces
 from cad.geometry.lane import TESSELLATIONS
 from cad.geometry.model import Tessellated, UnknownMesh
 from cad.operations.model import BOTH, Audience, Input, Tenant, operation
@@ -137,6 +138,7 @@ class VariantView(BaseModel):
     mesh: Literal["tessellated", "failed", "pending"]
     mesh_url: str | None
     areas: Areas
+    bodies: tuple[BodyFaces, ...] = ()
 
 
 def list_projects(tenant: Tenant, arguments: NoArguments) -> ProjectList:
@@ -258,6 +260,7 @@ def view(tenant: Tenant, arguments: VariantInput) -> VariantView:
         if tessellated
         else None,
         areas=on_faces(held.areas, len(stored.topology["faces"])) if tessellated else (),
+        bodies=body_faces(held.bodies, stored.solid_faces) if tessellated else (),
     )
 
 

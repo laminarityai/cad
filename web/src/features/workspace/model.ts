@@ -10,11 +10,19 @@ export interface Revision {
   at: string;
 }
 
+export interface SlotBody {
+  name: string;
+  material: string;
+  chosenBy: "you" | "agent";
+}
+
 export interface Slot {
   slot: number;
   label: string;
   differs: string;
   revisions: Revision[];
+  /** The latest revision's bodies, empty for one body with no name. */
+  bodies: SlotBody[];
 }
 
 export interface Material {
@@ -84,6 +92,7 @@ function slotsOf(set: VariantSetView | null): Slot[] {
       variantId: one.variant_id,
       at: one.joined_at,
     })),
+    bodies: member.body_materials.map((one) => ({ name: one.body, material: one.key, chosenBy: one.set_by.kind === "agent_argument" ? "agent" : "you" })),
   }));
 }
 
@@ -149,6 +158,8 @@ export interface View {
   revisionOf: Record<string, number | null>;
   /** The section on each option's stage, by `stageKey`, so the Checks pane knows when it hides the faces. */
   cutOf: Record<string, Cut | null>;
+  /** The body each option's stage shows alone, by `stageKey`, or null for the whole model. */
+  bodyOf: Record<string, string | null>;
 }
 
 export const stageKey = (briefId: string, slot: number) => `${briefId}:${String(slot)}`;
@@ -157,9 +168,10 @@ export type ViewAction =
   | { type: "brief"; briefId: string }
   | { type: "slot"; briefId: string; slot: number }
   | { type: "revision"; key: string; n: number | null }
-  | { type: "cut"; key: string; cut: Cut | null };
+  | { type: "cut"; key: string; cut: Cut | null }
+  | { type: "body"; key: string; body: string | null };
 
-export const viewStart: View = { briefId: null, slotOf: {}, revisionOf: {}, cutOf: {} };
+export const viewStart: View = { briefId: null, slotOf: {}, revisionOf: {}, cutOf: {}, bodyOf: {} };
 
 export function viewReducer(view: View, action: ViewAction): View {
   switch (action.type) {
@@ -177,5 +189,7 @@ export function viewReducer(view: View, action: ViewAction): View {
       };
     case "cut":
       return { ...view, cutOf: { ...view.cutOf, [action.key]: action.cut } };
+    case "body":
+      return { ...view, bodyOf: { ...view.bodyOf, [action.key]: action.body } };
   }
 }

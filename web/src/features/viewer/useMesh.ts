@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useServices } from "@/app/context";
 import type { Api } from "@/api/client";
-import type { Area } from "@/api/types";
+import type { Area, BodyFaces } from "@/api/types";
 import { sleep } from "@/lib/sleep";
 import { said, useResources } from "@/state/resource";
 import type { Shapes } from "./engine";
@@ -9,7 +9,7 @@ import type { Topology } from "./readout";
 
 export type MeshState =
   | { status: "loading"; lastDrawn: Shapes | null }
-  | { status: "ready"; shapes: Shapes; topology: Topology; areas: readonly Area[] }
+  | { status: "ready"; shapes: Shapes; topology: Topology; areas: readonly Area[]; bodies: readonly BodyFaces[] }
   | { status: "failed"; reason: string };
 
 const POLL_MS = 250;
@@ -18,24 +18,28 @@ interface Read {
   shapes: Shapes;
   topology: Topology;
   areas: readonly Area[];
+  bodies: readonly BodyFaces[];
 }
 
 /** The view says whether the mesh is stored: a stored mesh is fetched once from its immutable URL.
  * Otherwise the geometry route starts the tessellation and answers pending until it is done, so it is
  * asked again every POLL_MS until `signal` aborts, and the view is read again for the areas, which it
- * names only once it can check them against the mesh. A refusal is rethrown as a plain error so the page
+ * names only once it can check them against the mesh, as it does the faces of each body. A refusal is rethrown as a plain error so the page
  * shows the server's words, whatever kind it was. */
 async function readMesh(api: Api, variantId: string, signal: AbortSignal): Promise<Read> {
   try {
     const view = await api.view(variantId);
     if (view.mesh_url !== null) {
       const { shapes, topology } = await api.mesh(view.mesh_url);
-      return { shapes, topology, areas: view.areas };
+      return { shapes, topology, areas: view.areas, bodies: view.bodies };
     }
     if (view.mesh === "failed") throw new Error("The mesh could not be made.");
     for (;;) {
       const read = await api.geometry(variantId);
-      if (read.kind === "tessellated") return { shapes: read.shapes, topology: read.topology, areas: (await api.view(variantId)).areas };
+      if (read.kind === "tessellated") {
+        const named = await api.view(variantId);
+        return { shapes: read.shapes, topology: read.topology, areas: named.areas, bodies: named.bodies };
+      }
       if (read.kind === "failed") throw new Error(read.reason);
       await sleep(POLL_MS, signal);
       signal.throwIfAborted();
