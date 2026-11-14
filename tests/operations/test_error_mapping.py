@@ -60,6 +60,7 @@ EXPECTED: Final[dict[str, Answer]] = {
     "cad.projects.model.ProjectRefused": ("400 named", "named"),
     "cad.projects.model.TamperedProject": ("400 named", "named"),
     "cad.projects.model.UnknownProject": ("404 named", "named"),
+    "cad.records.files.ReadFailed": ("503 plain", "plain"),
     "cad.records.signed.Contended": (None, None),
     "cad.records.signed.StoreUnusable": ("503 plain", "plain"),
     "cad.records.signed.Tampered": (None, None),
