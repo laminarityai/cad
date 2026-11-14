@@ -318,18 +318,18 @@ AGENT_CHECKS = (
 )
 
 COLOUR_EVERY_BUILD: Final = (
-    "Colour every build the way CAD does, a part of one material included. Give the model its "
-    "material's colour, as it would look in your hand, by setting result.color after the last "
-    "shape operation, and give its own label and colour to each area a person would point at, "
-    "such as the mounting faces, the holes or a grip, listed in areas. Choose the colours "
-    "yourself. Colour is how the model looks: no check reads it and it decides nothing, so set "
-    "it in the same build as the shape, never in a build of its own."
+    "Colour every build the way CAD does, a part of one material included. After the last shape "
+    "operation, set color on result, or on each body when there are several, to its material's "
+    "colour as it would look in your hand. Then give each area a person would point at, such as "
+    "the holes, a mounting face or a grip, its own label and colour in a module-level list named "
+    'areas, such as areas = [Compound(result.faces().filter_by(GeomType.CYLINDER), label="holes", '
+    "color=Color(0.2, 0.2, 0.2))]. Choose the colours yourself. Colour is how the model looks, "
+    "and no check reads it. Set it in the same build as the shape. A person who asks only for "
+    "other colours gets the slot's next revision."
 )
 
 COLOURS: Final = (
-    "Colour each body with its material's colour, such as black for carbon fibre and grey for "
-    "steel, and each area a person would point at with its own label and colour. A color set "
-    "on result colours every face it holds. When the brief has parts of "
+    "When the brief has parts of "
     "different materials, such as steel gears on a carbon fibre plate, build each part as its "
     "own body: the solids that share a label, all of one material. Fuse only what is one piece. "
     "result = plate + gears fuses the gears into the plate, and the build gives one solid of one "
@@ -339,9 +339,9 @@ COLOURS: Final = (
     '[...], label="gear"). A body name is lowercase letters, digits and hyphens, such as '
     "base-plate. A build of more than one solid in which a solid has no label is refused. The "
     "build's outcome lists bodies, each with its name and solid indexes, and a result of one "
-    "solid has none. For some faces of a body, list "
-    'Compound(faces, label="grip", color=Color(0.1, 0.1, 0.1)) in a module-level list named '
-    "areas. A label in areas names an area and never a body. To see what was kept, read areas "
+    "solid has none. Pick an area's faces from the finished result, such as "
+    "[result.faces().sort_by(Axis.Z)[0]] for the bottom face. A label in areas names "
+    "an area and never a body. To see what was kept, read areas "
     "in the build's outcome, which gives each area's name, colour and face_count. A colour lost "
     "to a fuse, a fillet or a Pos(...) * move is simply missing from areas. areas_dropped is "
     "set only when the colours could not be read or broke a limit, such as too many faces."

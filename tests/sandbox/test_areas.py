@@ -1,9 +1,11 @@
+import re
 from pathlib import Path
 
 import pytest
 
 from cad.geometry import job
 from cad.geometry.model import Tessellated
+from cad.operations.guidance import COLOUR_EVERY_BUILD
 from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.outcome import Area, Built
 from cad.variants.entry import open_entry
@@ -59,6 +61,16 @@ def test_faces_listed_in_areas_are_numbered_as_the_mesh_numbers_them(tmp_path: P
     ]
     assert list(pad.faces) == facing_up
     assert sorted(body.faces + pad.faces) == list(range(len(mesh.topology["faces"])))
+
+
+def test_the_areas_example_every_client_is_told_keeps_the_area(tmp_path: Path) -> None:
+    example = re.search(r"areas = \[.*?\)\)\]", COLOUR_EVERY_BUILD)
+    assert example is not None
+    outcome = built(BLOCK + 'result.color = Color("gray")\n' + example.group(0) + "\n", tmp_path)
+    kept = {area.name: area for area in outcome.areas}
+    assert set(kept) == {"unnamed", "holes"}
+    assert kept["holes"].colour == "#333333"
+    assert kept["holes"].faces
 
 
 def test_each_child_of_a_compound_keeps_its_own_colour(tmp_path: Path) -> None:

@@ -311,6 +311,24 @@ describe("the download menu", () => {
     expect(saved).toEqual([]);
   });
 
+  it("says when the STEP it saved lost its colours, and says nothing when it kept them", async () => {
+    savesLinks();
+    const why = "the coloured STEP writer raised ValueError: no faces";
+    const exportOf = vi
+      .fn<Api["exportOf"]>()
+      .mockResolvedValueOnce({ kind: "ready", url: "/v1/exports/a", filename: "a.step", colours_left_out: why })
+      .mockResolvedValueOnce({ kind: "ready", url: "/v1/exports/b", filename: "b.step" });
+    render(<Download variantId="v1" briefId="b1" />, { wrapper: wrap(fakeApi(["v1"], { exportOf })) });
+    await pick("STEP");
+    expect(await screen.findByText(`Saved without its colours: ${why}.`)).toBeVisible();
+    expect(saved).toEqual([{ href: "/v1/exports/a", download: "a.step" }]);
+    await pick("STEP");
+    await waitFor(() => {
+      expect(saved).toHaveLength(2);
+    });
+    expect(screen.queryByText(/Saved without its colours/)).toBeNull();
+  });
+
   it("says what the server refused with when the ask itself fails", async () => {
     savesLinks();
     const exportOf = vi.fn<Api["exportOf"]>().mockRejectedValue(new Refused(400, "variant v1 was not built"));
