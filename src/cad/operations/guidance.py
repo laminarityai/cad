@@ -284,11 +284,12 @@ AGENT_CHECKS = (
 
 COLOURS: Final = (
     "Colour the model the way CAD does, by material and by area, such as a grey aluminium body "
-    "and a black rubber grip. Set color and label on the final shape after its booleans and "
-    "fillets, or on each child of a Compound. For some faces of one solid, list "
+    "and a black rubber grip. The model is still one solid: fuse it first, then set color and "
+    "label on the final shape after its booleans and fillets, and for some of its faces list "
     'Compound(faces, label="grip", color=Color(0.1, 0.1, 0.1)) in a module-level list named '
-    "areas. Colour is how the model looks and never a result: no check reads it, it decides "
-    "nothing, and the outcome's areas_dropped says why a colour was not kept."
+    "areas. Colour needs no rebuild of its own: set it with the next change. Colour is how the "
+    "model looks and never a result: no check reads it, it decides nothing, and the outcome's "
+    "areas_dropped says why a colour was not kept."
 )
 
 MATERIAL = (
