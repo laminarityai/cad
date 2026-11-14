@@ -39,6 +39,6 @@ uv run python evals/briefs/run.py --briefs ~/cad-evals/briefs --out ~/cad-evals/
 ## Gotchas
 
 - A session that fails is `session_failed` in the summary, not untraced, and the exit code is 1. `--require-traced` makes the exit code 1 for any untraced brief too.
-- Each session is a real model run. See `cost_usd` in `result.json`. The cost in `summary.md` adds the earlier tries kept under `try-<n>`, and says how much of it they cost.
+- Each session is a real model run. See `cost_usd` in `result.json`. The cost in `summary.md` adds the earlier tries kept under `try-<n>`, and says how much of it they cost, in all and on each brief's row.
 - A session ends when every process it started has exited. The harness waits up to 30 s for the cad server to exit after Claude Code does, then stops what is left, so a check record cannot land after the tracer reads the stores.
 - `trace_store.trace_cards` is what the tracer and the driver share, and `transcript_cards.read_cards` takes the cards from a transcript. Run `evals/briefs/trace_store.py <out>/<id>/transcript.json --root <home>/.cad/variants --briefs-root <home>/.cad/briefs --projects-root <home>/.cad/projects --require-judged` to see the trace of the cards the session was shown. It reads nothing from the server, so a card scored before Confirm counts as awaiting unless a later card in the transcript judges its variant.

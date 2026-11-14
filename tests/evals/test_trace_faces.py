@@ -30,8 +30,13 @@ def test_the_faces_of_a_signed_stress_result_trace(
 
 @pytest.mark.parametrize(
     ("keys", "index", "forged"),
-    [(("support",), 1, 12), (("load",), 0, 5), (("displacement", "load"), 0, 7)],
-    ids=["support", "load", "displacement"],
+    [
+        (("support",), 1, 12),
+        (("load",), 0, 5),
+        (("displacement", "load"), 0, 7),
+        (("support",), 0, 4),
+    ],
+    ids=["support", "load", "displacement", "held-at-another-path"],
 )
 def test_a_face_the_signed_job_result_does_not_hold_is_untraced(
     tmp_path: Path,

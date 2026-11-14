@@ -61,7 +61,9 @@ def test_the_summary_costs_every_try(tmp_path: Path, monkeypatch: pytest.MonkeyP
         run.main(["--briefs", str(briefs_dir), "--out", str(out)])
     overall = json.loads((out / "summary.json").read_text())["overall"]
     assert (overall["cost_usd"], overall["earlier_cost_usd"]) == (0.75, 0.5)
-    assert "cost: $0.75, of which $0.50 on 2 earlier tries" in (out / "summary.md").read_text()
+    text = (out / "summary.md").read_text()
+    assert "cost: $0.75, of which $0.50 on 2 earlier tries" in text
+    assert "| $0.25, +$0.50 on 2 earlier tries |" in text
 
 
 def test_the_session_counts_the_calls_outside_cad(tmp_path: Path) -> None:
