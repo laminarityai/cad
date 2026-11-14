@@ -164,15 +164,15 @@ describe("the chat's driver line", () => {
     expect(driverText(prompt)).toBe("You confirmed 1");
     expect(driverText(prompt.replace("1 and declined 0", "2 and declined 1"))).toBe("You confirmed 2, declined 1");
     expect(driverText("Call ask_to_confirm with the project.")).toBeNull();
-    render(<ChatPane lines={[{ kind: "driver", seq: 1, text: prompt }]} working={null} card={null} composer={null} />);
+    render(<ChatPane lines={[{ kind: "driver", seq: 1, text: prompt }]} ended={0} working={null} card={null} composer={null} />);
     expect(screen.getByText("You confirmed 1")).toBeInTheDocument();
     expect(screen.queryByText(/ask_to_confirm/)).toBeNull();
   });
 
   it("tells a driver when the agent's turn is running", () => {
-    const { rerender } = render(<ChatPane lines={[]} working={{ kind: "turn", briefId: null }} card={null} composer={null} />);
+    const { rerender } = render(<ChatPane lines={[]} ended={0} working={{ kind: "turn", briefId: null }} card={null} composer={null} />);
     expect(screen.getByRole("region", { name: "Chat" })).toHaveAttribute("aria-busy", "true");
-    rerender(<ChatPane lines={[]} working={null} card={null} composer={null} />);
+    rerender(<ChatPane lines={[]} ended={0} working={null} card={null} composer={null} />);
     expect(screen.getByRole("region", { name: "Chat" })).toHaveAttribute("aria-busy", "false");
   });
 });
