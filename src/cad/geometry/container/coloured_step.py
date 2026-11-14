@@ -9,18 +9,13 @@ import tempfile
 from collections.abc import Sequence
 from pathlib import Path
 from types import ModuleType
-from typing import Final, Protocol, TypedDict, cast
+from typing import Final, Protocol, cast
 
 from cad.checks.container.kernel import StepTooLarge
 from cad.checks.container.kernel.ocp_kernel import STEP_SCHEMA, STEP_TIME_STAMP
+from cad.sandbox.wire import AreaReport
 
 DOCUMENT_FORMAT: Final = "XmlOcaf"
-
-
-class AreaWire(TypedDict):
-    name: str
-    colour: str
-    faces: list[int]
 
 
 class _Face(Protocol):
@@ -33,12 +28,12 @@ class _Faced(Protocol):
     def faces(self) -> Sequence[_Face]: ...
 
 
-def parse(text: str) -> list[AreaWire]:
+def parse(text: str) -> list[AreaReport]:
     """The host validated the areas before it sent them, so this only reads them back."""
-    return cast(list[AreaWire], json.loads(text))
+    return cast(list[AreaReport], json.loads(text))
 
 
-def step_bytes(brep: bytes, areas: list[AreaWire], cap: int) -> bytes | StepTooLarge | None:
+def step_bytes(brep: bytes, areas: list[AreaReport], cap: int) -> bytes | StepTooLarge | None:
     """Every face an area names is coloured in sRGB. Faces are numbered as the mesh numbers
     them. None when an area names a face the shape does not have, so the plain STEP is written
     instead."""

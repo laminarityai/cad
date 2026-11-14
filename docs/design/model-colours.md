@@ -12,8 +12,8 @@ Each fact carries one of three labels:
 
 An area is how the model looks. No check, table read, requirement verdict or Auto step reads it. The colours come from code the agent wrote, so a check that read them would let the agent's paint decide something. `tests/test_areas_fence.py` holds two guards:
 
-- It scans `src/cad` and fails when any module outside a short list of carriers reads `.areas` or `.areas_dropped`, or imports the area types. The carriers are the sandbox, the variant entry and store, the view, and the export.
-- It checks that `jobs.plan` gives a variant the same checks whether its faces are coloured or grey.
+- It scans `src/cad` and fails when any module outside a short list of carriers reads `.areas` or `.areas_dropped`, looks them up with `getattr`, matches them in a `case`, dumps a whole outcome or manifest, or imports or reaches the area types. The carriers are the sandbox, the variant entry and store, the view, and the export. The scan reads names, so it is a tripwire.
+- It checks that `jobs.plan` gives a variant the same checks whether its faces are coloured or grey. This is the behavioural guard: a check's job key hashes `brep_sha256`, and colour is not in the BREP.
 - It fails on `outcome == Built()` outside the carriers. A coloured build is not equal to `Built()`, so that test would treat a coloured build as one that failed. The live walk found two of them: one kept every coloured build out of its set, and one would have ended an Auto run. Both now test the outcome's type.
 
 ## What the prototype answered
@@ -47,7 +47,7 @@ The runner runs inside the sandbox and reports the areas beside the BREP. The ho
 class Area(Frozen):
     name: AreaName  # 1 to 60 characters, no control characters
     colour: Colour  # "#rrggbb", lower case
-    faces: tuple[FaceNumber, ...]  # at least one; each 0 <= n < 2**24
+    faces: tuple[FaceNumber, ...]  # at least one; each n >= 0
 
 
 type Areas = tuple[Area, ...]  # at most 16 areas, 10,000 faces in all, no face in two
@@ -64,7 +64,8 @@ These rules apply:
 - A list that fails the check drops the colours and keeps the build. `areas_dropped` says why, in at most 200 characters, and the build tool returns it in its outcome. A runner that could not read the list at all leaves a reason too.
 - `build.json` stores `Built`, so a variant's areas sit in its manifest beside the BREP hash.
 - `VariantView.areas` is the copy the page reads. The view returns the areas only after the mesh is tessellated, and only when every face number they name is one of the mesh's faces. Otherwise it returns none.
-- An export is keyed by the BREP hash alone when there are no areas. When there are areas, the key is a hash of the BREP hash and the areas. The route is `/v1/exports/{version}/{key}.{format}`.
+- `build_variant` tells the agent each area's name, colour and `face_count`, not its face numbers, so a coloured build fits the chat's result limit. A colour lost to a fuse, a fillet or a move is missing from `areas`, and `areas_dropped` stays empty.
+- An export is keyed by the BREP hash alone when there are no areas. When there are areas, the key is a hash of the BREP hash and each area's colour and faces. The STEP carries no names, so renaming an area keeps its export. If the coloured writer fails, the export writes the plain STEP. The route is `/v1/exports/{version}/{key}.{format}`.
 
 ## What a person sees
 
