@@ -31,6 +31,7 @@ export function Download(props: { variantId: string; briefId: string }) {
   const { variantId, briefId } = props;
   const { api } = useServices();
   const [preparing, setPreparing] = useState(false);
+  const [leftOut, setLeftOut] = useState<string | null>(null);
   const running = useRef<AbortController | null>(null);
   useEffect(
     () => () => {
@@ -44,12 +45,14 @@ export function Download(props: { variantId: string; briefId: string }) {
     running.current = own;
     const stale = () => own.signal.aborted;
     setPreparing(true);
+    setLeftOut(null);
     try {
       for (;;) {
         const read = await api.exportOf(variantId, briefId, format);
         if (stale()) return;
         if (read.kind === "ready") {
           save(read.url, read.filename);
+          setLeftOut(read.colours_left_out ?? null);
           setPreparing(false);
           return;
         }
@@ -69,30 +72,37 @@ export function Download(props: { variantId: string; briefId: string }) {
     }
   };
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        disabled={preparing}
-        aria-busy={preparing}
-        data-download
-        className="flex items-center gap-1.5 rounded-full border border-rule bg-panel-2 px-3 py-1.5 text-[14px] text-ink shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
-      >
-        <DownloadIcon aria-hidden className="size-4" />
-        {preparing ? <Shimmer>Preparing…</Shimmer> : "Download"}
-        <ChevronDown aria-hidden className="size-3.5" />
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        {FORMATS.map((one) => (
-          <DropdownMenuItem
-            key={one.format}
-            onClick={() => {
-              void start(one.format);
-            }}
-          >
-            <b className="text-[14px] font-semibold">{one.label}</b>
-            <span className="text-[13px] leading-snug text-ink-2">{one.hint}</span>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      {leftOut === null ? null : (
+        <p role="status" data-colours-left-out className="max-w-64 text-[12px] leading-snug text-ink-2">
+          Saved without its colours: {leftOut}.
+        </p>
+      )}
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          disabled={preparing}
+          aria-busy={preparing}
+          data-download
+          className="flex items-center gap-1.5 rounded-full border border-rule bg-panel-2 px-3 py-1.5 text-[14px] text-ink shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60"
+        >
+          <DownloadIcon aria-hidden className="size-4" />
+          {preparing ? <Shimmer>Preparing…</Shimmer> : "Download"}
+          <ChevronDown aria-hidden className="size-3.5" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-56">
+          {FORMATS.map((one) => (
+            <DropdownMenuItem
+              key={one.format}
+              onClick={() => {
+                void start(one.format);
+              }}
+            >
+              <b className="text-[14px] font-semibold">{one.label}</b>
+              <span className="text-[13px] leading-snug text-ink-2">{one.hint}</span>
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
   );
 }

@@ -64,7 +64,38 @@ const CUT_NORMAL: readonly Vector3Tuple[] = [
 ];
 const AXIS_AT: Record<Axis, 0 | 1 | 2> = { x: 0, y: 1, z: 2 };
 
-export const EDGE = 0x2a3236;
+const EDGE = 0x2a3236;
+const EDGE_ON_DARK = 0xc8cfd4;
+
+/** WCAG relative luminance of a 0xrrggbb colour. */
+export function luminance(rgb: number): number {
+  return [
+    [16, 0.2126],
+    [8, 0.7152],
+    [0, 0.0722],
+  ].reduce((sum, [shift = 0, weight = 0]) => {
+    const c = ((rgb >> shift) & 0xff) / 255;
+    return sum + weight * (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  }, 0);
+}
+
+/** Where the light edge and the dark edge stand out from a face equally. */
+const EDGE_CROSSOVER = 0.18;
+
+/** The edge colour that stands out on most of the drawn part: the light one when most of its triangles are
+ * dark, such as black carbon fibre, and the dark one otherwise. The library takes one edge colour for the
+ * whole model. */
+export function edgeFor(shapes: Shapes): number {
+  let weighted = 0;
+  let total = 0;
+  for (const part of shapes.parts) {
+    if (part.id.startsWith("/fit")) continue;
+    const count = part.shape.triangles.length;
+    weighted += count * luminance(Number.parseInt(part.color.replace("#", ""), 16) || 0);
+    total += count;
+  }
+  return total > 0 && weighted / total < EDGE_CROSSOVER ? EDGE_ON_DARK : EDGE;
+}
 
 export const threeCadViewer: ViewerEngine = {
   async mount(element, shapes, theme, onPick) {
@@ -96,7 +127,7 @@ export const threeCadViewer: ViewerEngine = {
     const draw = (next: Shapes) => {
       viewer.render(
         next as unknown as Parameters<typeof viewer.render>[0],
-        { edgeColor: EDGE, defaultOpacity: 1, normalLen: 0 },
+        { edgeColor: edgeFor(next), defaultOpacity: 1, normalLen: 0 },
         { up: "Z", axes: false, grid: [false, false, false], ortho: true },
       );
       display.showTools(false);
