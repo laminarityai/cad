@@ -12,7 +12,8 @@ from cad.context_parts.model import UPDATE_PART
 from cad.context_parts.store import out_of_date_in
 from cad.conversations.store import record_event
 from cad.geometry.lane import TESSELLATIONS
-from cad.operations.guidance import AUTO_BUILDS, BODY_MATERIALS, COLOURS
+from cad.operations.guidance import BODY_MATERIALS, COLOURS
+from cad.operations.guidance_auto import AUTO_BUILDS
 from cad.operations.model import Audience, Input, Tenant, operation
 from cad.operations.research import brief_table
 from cad.operations.scorecards import MaterialKey, ScoredBody

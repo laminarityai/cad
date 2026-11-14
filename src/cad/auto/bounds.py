@@ -51,6 +51,7 @@ class _Bound:
     requirements: tuple[str, ...]
     reads: tuple[Read, ...] = ()
     space: str = ""
+    body: str | None = None
 
 
 @dataclass
@@ -70,6 +71,7 @@ def bounds_conflicts(
     requirements: Sequence[Requirement], table: MaterialsTable
 ) -> tuple[Bounds, ...]:
     gathered = _gather(requirements)
+    _sum_the_bodies(gathered)
     through = _through_density(gathered, table)
     if through is not None:
         gathered.highs[MASS].append(through)
@@ -82,6 +84,7 @@ def unweighed(requirements: Sequence[Requirement], table: MaterialsTable) -> Not
     """The note for a minimum mass inside a volume when the material has no density yet. It
     says the pair is not checked, never that it can or cannot be met."""
     gathered = _gather(requirements)
+    _sum_the_bodies(gathered)
     lowest = max(gathered.lows[MASS], key=lambda bound: bound.value, default=None)
     room = min(gathered.highs[VOLUME], key=lambda bound: bound.value, default=None)
     made_of = gathered.pin
@@ -91,8 +94,9 @@ def unweighed(requirements: Sequence[Requirement], table: MaterialsTable) -> Not
     key = table.row_key(made_of.target.material)
     if isinstance(table.get_material(key).density, Known):
         return None
+    mass = "the mass" if lowest.body is None else f"the mass of the {lowest.body}"
     return NotChecked(
-        statement=f"{table.name_of(key)} has no density yet, so whether the mass can be at "
+        statement=f"{table.name_of(key)} has no density yet, so whether {mass} can be at "
         f"least {lowest.value:g} g within {room.space} is not checked until its density is "
         "researched",
         requirements=tuple(dict.fromkeys((*lowest.requirements, made_of.id, *room.requirements))),
@@ -119,7 +123,9 @@ def _gather(requirements: Sequence[Requirement]) -> _Gathered:
                 )
             case MinMass(mass=mass, body=body):
                 grams = magnitude(mass, "g")
-                low = _Bound(grams, _on(body, f"the mass must be at least {grams:g} g"), rid)
+                low = _Bound(
+                    grams, _on(body, f"the mass must be at least {grams:g} g"), rid, body=body
+                )
                 _add_low(gathered, MASS, body, low)
             case MadeOf(body=None):
                 gathered.made_of = one
@@ -156,15 +162,36 @@ def _gather_limit(gathered: _Gathered, limit: MeasureLimit, rid: tuple[str, ...]
     else:
         words = _on(limit.body, f"{bindable.words} must be at least {amount(limit.limit)}")
         if whole == VOLUME:
-            _add_low(gathered, VOLUME, limit.body, _Bound(value, words, rid))
+            _add_low(gathered, VOLUME, limit.body, _Bound(value, words, rid, body=limit.body))
         else:
-            gathered.lows[quantity].append(_Bound(value, words, rid))
+            gathered.lows[quantity].append(_Bound(value, words, rid, body=limit.body))
 
 
 def _add_low(gathered: _Gathered, whole: str, body: str | None, low: _Bound) -> None:
     gathered.lows[per_body(whole, body)].append(low)
     if body is not None:
         gathered.lows[whole].append(low)
+
+
+def _sum_the_bodies(gathered: _Gathered) -> None:
+    """The variant is the sum of its bodies, so the minimums of two or more bodies add up to a
+    minimum of the whole."""
+    for whole, unit in ((MASS, "g"), (VOLUME, BINDABLE[_VOLUME_MEASURE].unit)):
+        biggest: dict[str, _Bound] = {}
+        for low in gathered.lows[whole]:
+            if low.body is not None and low.value >= biggest.get(low.body, low).value:
+                biggest[low.body] = low
+        if len(biggest) < 2:
+            continue
+        total = sum(one.value for one in biggest.values())
+        parts = ", ".join(f"the {body}'s {one.value:g}" for body, one in biggest.items())
+        gathered.lows[whole].append(
+            _Bound(
+                total,
+                f"the {whole} minimums of the bodies add up to {total:g} {unit} ({parts})",
+                tuple(dict.fromkeys(rid for one in biggest.values() for rid in one.requirements)),
+            )
+        )
 
 
 def _through_density(gathered: _Gathered, table: MaterialsTable) -> _Bound | None:

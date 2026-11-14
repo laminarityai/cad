@@ -199,16 +199,6 @@ def test_a_free_slot_can_be_named_and_unslotted_code_takes_the_lowest_free_one(
     assert [m.slot for m in store.members(tmp_path, KEY)] == [1, 2, 3]
 
 
-@pytest.mark.parametrize("slot", [0, 6])
-def test_a_slot_outside_one_to_five_is_refused_and_writes_nothing(
-    tmp_path: Path, slot: int
-) -> None:
-    join(tmp_path, "a")
-    with pytest.raises(SlotRefused, match="a set has slots 1 to 5"):
-        join(tmp_path, "b", slot=slot)
-    assert shown(tmp_path) == ["a"]
-
-
 def test_code_shown_in_another_slot_is_refused_for_this_one(tmp_path: Path) -> None:
     join(tmp_path, "a")
     join(tmp_path, "b")

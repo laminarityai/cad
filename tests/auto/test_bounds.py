@@ -179,3 +179,30 @@ def test_a_body_heavier_than_the_whole_part_may_weigh_conflicts() -> None:
         "For the plate, the mass must be at least 20 g, but the mass must be at most 10 g"
     )
     assert found.requirements == ("r2", "r1")
+
+
+def test_the_minimums_of_several_bodies_add_up_against_the_whole_part() -> None:
+    each_fits = brief(
+        grams("max_mass", 40), on("plate", grams("min_mass", 20)), on("gear", grams("min_mass", 30))
+    )
+    [found] = bounds_conflicts(each_fits, TABLE)
+    assert found.quantity == "mass"
+    assert found.statement == (
+        "The mass minimums of the bodies add up to 50 g (the plate's 20, the gear's 30), but "
+        "the mass must be at most 40 g"
+    )
+    assert found.requirements == ("r2", "r3", "r1")
+    roomy = brief(
+        grams("max_mass", 60), on("plate", grams("min_mass", 20)), on("gear", grams("min_mass", 30))
+    )
+    assert bounds_conflicts(roomy, TABLE) == ()
+
+
+def test_the_note_for_a_body_minimum_mass_names_the_body() -> None:
+    asa = {"kind": "made_of", "material": "asa"}
+    found = unweighed(brief(CUBE, asa, on("plate", grams("min_mass", 50))), TABLE)
+    assert found is not None
+    assert found.statement == (
+        "asa has no density yet, so whether the mass of the plate can be at least 50 g within "
+        "the whole 20 x 20 x 20 mm box (8 cm³) is not checked until its density is researched"
+    )

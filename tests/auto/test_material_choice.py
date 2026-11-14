@@ -7,7 +7,9 @@ import pytest
 
 from cad.auto.log import run_dir
 from cad.briefs.store import read_brief
+from cad.operations import auto
 from cad.scorecard.material import AGENT_CHOSE
+from cad.variant_sets.model import MaterialMissing
 
 if TYPE_CHECKING:
     from tests.support.auto_session import Session
@@ -78,3 +80,28 @@ async def test_a_start_whose_only_made_of_names_a_body_needs_no_choice(s: Sessio
     brief_id = await s.confirmed("A PLA plate under 150 g", plate, UNDER_150)
     run = await s.start(brief_id=brief_id)
     assert (run.state.start.material_key, run.state.start.materials) == (None, ())
+
+
+async def test_a_new_slot_with_a_body_no_made_of_names_gets_advice_a_run_can_follow(
+    s: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plate = {
+        "target": {"kind": "made_of", "material": "prusament-pla", "body": "plate"},
+        "quote": "PLA",
+    }
+    brief_id = await s.confirmed("A PLA plate under 150 g", plate, UNDER_150)
+    run = await s.start(brief_id=brief_id)
+
+    def refused(*args: object, **kwargs: object) -> None:
+        raise MaterialMissing(
+            "no material is chosen for the bodies pin, and no confirmed requirement names one: "
+            "pass materials with an entry for each body. Never ask the person to choose. "
+            "It was built as variant v1 and is stored."
+        )
+
+    monkeypatch.setattr(auto.variant_sets, "build_into_set", refused)
+    text = await s.refusal("auto_revise", run_id=run.run_id, code=PLATE)
+    assert "MaterialMissing" in text
+    assert "Inside this run, revise a slot that already holds these bodies" in text
+    assert "pass materials" not in text
+    assert text.endswith("It was built as variant v1 and is stored.")

@@ -28,11 +28,11 @@ def trace_session(home: Path, transcript: Path) -> Trace:
     variant, material and table version key, and the server's reading of each variant the session
     scored with a brief, and count the two apart. The rates come from the best reading, the
     judged state the person sees after Confirm on the option they would pick, or from the best
-    card when nothing was scored with a brief. Best is the most strict passes, then the most
-    coverage, so the order the agent scored its options in does not move the rates. A check job
-    a reading shows running has no stored result after the session: the session's end cut it
-    off, it was refused and not retried, or it timed out. It is named apart, and its requirement
-    still counts against both rates, so a session that ends early never raises one."""
+    card when nothing was scored with a brief. Best is the highest strict pass rate, then the
+    highest coverage, so the order the agent scored its options in does not move the rates. A
+    check job a reading shows running has no stored result after the session: the session's end
+    cut it off, it was refused and not retried, or it timed out. It is named apart, and its
+    requirement still counts against both rates, so a session that ends early never raises one."""
     stores = home / ".cad"
     variants = stores / "variants"
     roots = Roots(briefs=stores / "briefs", projects=stores / "projects")

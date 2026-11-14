@@ -20,6 +20,7 @@ HUMAN: Final = ROOT / ".claude/skills/verify/scripts/human.py"
 CAD: Final = "mcp__cad__"
 ASK: Final = f"{CAD}ask_to_confirm"
 EXIT_WAIT_S: Final = 30.0
+KILL_WAIT_S: Final = 5.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,7 +80,7 @@ def run_session(
         os.killpg(process.pid, signal.SIGKILL)
         output, raised = process.communicate()
         timed_out = True
-    _wait_for_group(process.pid)
+    wait_for_group(process.pid)
     return SessionRun(
         None if timed_out else process.returncode,
         timed_out,
@@ -88,18 +89,26 @@ def run_session(
     )
 
 
-def _wait_for_group(group: int) -> None:
+def wait_for_group(group: int, exit_s: float = EXIT_WAIT_S, kill_s: float = KILL_WAIT_S) -> None:
     """The cad server can still store a check record after claude exits. Wait for it to exit,
-    then stop what is left, so no record lands after the harness reads the stores."""
-    deadline = time.monotonic() + EXIT_WAIT_S
-    while _alive(group):
-        if time.monotonic() > deadline:
+    then stop what is left, so no record lands after the harness reads the stores. A group that
+    outlives `kill_s` of SIGKILL is an error, since its stores are not safe to read."""
+    killing = time.monotonic() + exit_s
+    giving_up = killing + kill_s
+    while alive(group):
+        now = time.monotonic()
+        if now > giving_up:
+            raise RuntimeError(
+                f"process group {group} was still alive {kill_s:g} s after SIGKILL, "
+                f"which followed {exit_s:g} s of waiting for it to exit"
+            )
+        if now > killing:
             with suppress(ProcessLookupError):
                 os.killpg(group, signal.SIGKILL)
-        time.sleep(0.1)
+        time.sleep(0.05)
 
 
-def _alive(group: int) -> bool:
+def alive(group: int) -> bool:
     try:
         os.killpg(group, 0)
     except ProcessLookupError:

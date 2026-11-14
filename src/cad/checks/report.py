@@ -40,6 +40,10 @@ from cad.sandbox.stage import CONTAINER_ENTRY, PACKAGE_PATH, Sources, read_sourc
 from cad.tables.materials import UNITS, MaterialsTable, Source
 
 REASON_CAP = 1024
+NAME_THE_BODY: Final = (
+    "A variant of named bodies has a material for each body and none for the whole, so name "
+    "the body in the load case and the check solves that body alone"
+)
 SCORER: Final = "cad.scorecard.score"
 
 # NaN passes `strict=True`, so `parse` checks `math.isfinite` itself.
@@ -337,12 +341,22 @@ def _result(spec: CheckSpec, wire: ResultWire, request: Request) -> CheckResult:
             for one in wire["measured"]
         ),
         formula=spec.formula,
-        reason=_one_line(wire["reason"]),
+        reason=_reason(spec, wire, request),
         sources=(*spec.sources, *rows),
         version=spec.version,
         reads=reads_of(spec, request),
         where=_where(wire),
     )
+
+
+def _reason(spec: CheckSpec, wire: ResultWire, request: Request) -> str:
+    """The check's reason, plus what to do when a load case names no body of a variant of named
+    bodies. The verdict and the measures are the check's own."""
+    reason = _one_line(wire["reason"])
+    lacking = reason.startswith("the host sent no ") and wire["verdict"] == "unknown"
+    if lacking and spec.id == "fea" and request.bodies:
+        return _one_line(f"{reason}. {NAME_THE_BODY}")
+    return reason
 
 
 def _where(wire: ResultWire) -> Where | None:

@@ -29,11 +29,12 @@ from cad.conversations import store as conversations
 from cad.operations import scorecards
 from cad.operations.agent_checks import approved_checks
 from cad.operations.conversations import ConversationState
-from cad.operations.guidance import (
+from cad.operations.guidance import BODY_MATERIALS
+from cad.operations.guidance_auto import (
     AUTO_AGENT_CHECKS,
     AUTO_BUILDS,
     AUTO_DESCRIBED,
-    BODY_MATERIALS,
+    AUTO_NEW_BODY_MATERIAL,
 )
 from cad.operations.model import Audience, Input, Tenant, operation
 from cad.operations.variants import (
@@ -47,7 +48,7 @@ from cad.sandbox import image
 from cad.sandbox.outcome import Built
 from cad.scorecard import material
 from cad.variant_sets import store as variant_sets
-from cad.variant_sets.model import BodyChoice, Reason, Slot, code_sha256
+from cad.variant_sets.model import BodyChoice, MaterialMissing, Reason, Slot, code_sha256
 from cad.variant_sets.placement import CHOOSE, refuse_unpinned
 from cad.variants import entry
 
@@ -263,15 +264,20 @@ def _revise(tenant: Tenant, arguments: ReviseInput) -> RevisedRun:
         resolve = chooser(
             tenant, brief_id, start.material_key, start.material_reason, start.materials
         )
-        built = variant_sets.build_into_set(
-            roots,
-            tenant.variants,
-            brief_id,
-            arguments.code,
-            arguments.slot,
-            resolve,
-            on_built=counter(tenant, sha),
-        )
+        try:
+            built = variant_sets.build_into_set(
+                roots,
+                tenant.variants,
+                brief_id,
+                arguments.code,
+                arguments.slot,
+                resolve,
+                on_built=counter(tenant, sha),
+            )
+        except MaterialMissing as error:
+            stored = str(error).rpartition(". ")[2]
+            kept = stored if stored.startswith("It was built as") else ""
+            raise MaterialMissing(f"{AUTO_NEW_BODY_MATERIAL} {kept}".strip()) from error
         if isinstance(built.outcome, Built):
             scored = scorecards.ScoreVariantInput(
                 variant_id=built.variant_id,
