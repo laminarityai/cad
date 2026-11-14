@@ -76,9 +76,6 @@ class OcpKernel:
         ocp = self._ocp
         return tuple(map(ocp.topods.Solid_s, self._explore(shape, ocp.solid, ocp.any_shape)))
 
-    def compound(self, shapes: tuple[Shape, ...]) -> Shape:
-        return ocp_files.compound(list(shapes))
-
     def outside_solids(self, shape: Shape) -> int:
         ocp = self._ocp
         nesting = (

@@ -70,7 +70,7 @@ def _read_step_file(path: str) -> StepRead | Unreadable:
         return Unreadable("the STEP file holds no shape")
     everything = _ocp("TDF").TDF_LabelSequence()
     tool.GetShapes(everything)
-    return StepRead(compound(shapes), _names(free, everything))
+    return StepRead(_compound(shapes), _names(free, everything))
 
 
 def _names(*sequences: _Labels) -> tuple[str, ...]:
@@ -125,7 +125,7 @@ def _solids_from_triangles(kernel: Kernel, triangles: Shape) -> Shape:
         else:
             made.append(shell)
     made.extend(_explore(sewn, "FACE", "SHELL"))
-    return compound(made)
+    return _compound(made)
 
 
 def keep_solids(kernel: Kernel, shape: Shape) -> Kept:
@@ -138,7 +138,7 @@ def keep_solids(kernel: Kernel, shape: Shape) -> Kept:
     readable = (_readable(kernel, solid) for solid in solids)
     kept = [solid for solid in readable if solid is not None]
     bodies = len(solids) + free_shells
-    return Kept(compound(kept) if kept else None, bodies, bodies - len(kept), loose)
+    return Kept(_compound(kept) if kept else None, bodies, bodies - len(kept), loose)
 
 
 def _readable(kernel: Kernel, solid: Shape) -> Shape | None:
@@ -162,7 +162,7 @@ def brep_bytes(shape: Shape) -> bytes:
         return path.read_bytes()
 
 
-def compound(shapes: list[Shape]) -> Shape:
+def _compound(shapes: list[Shape]) -> Shape:
     builder = _ocp("BRep").BRep_Builder()
     made = _ocp("TopoDS").TopoDS_Compound()
     builder.MakeCompound(made)

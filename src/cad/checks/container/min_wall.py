@@ -22,16 +22,17 @@ FORMULA = (
     "a wall's thickness at a point on a face is how far a ray goes from that point straight into "
     "the material, along the face's inward normal, until it first comes out through a face that "
     "looks back within 60 degrees; a ray that comes out through a face turned further, as near "
-    "a corner, gives no reading; a variant of named bodies is measured one body at a time, "
-    "each body's solids as one shape on a grid of its own; every face is sampled on a grid of "
-    "2 by 2 points, then again "
-    "with points no farther apart than the thinnest of those readings and than the closest "
-    "spacing whose grid over all faces fits in 40000 points; from the thinnest point of each of "
-    "the at most 32 thinnest faces within 1.5 times the thinnest reading, a compass search walks "
-    "to a local minimum; min_wall is the thinnest reading of all; unknown when a ray never "
-    "comes out of the material or the kernel cannot follow it, when no ray crosses a wall, when "
-    "the part has more than 10000 faces or needs more than 250000 rays, or all its bodies "
-    "together need more than 30 seconds, and with no measured value unless closed_solid passes"
+    "a corner, gives no reading; a variant of named bodies is measured one solid at a time, "
+    "each solid on a grid of its own as if it were alone, and a body's wall is the thinnest "
+    "of its solids'; every face of a solid is sampled on a grid of 2 by 2 points, then again with "
+    "points no farther apart than the thinnest of those readings and than the closest spacing "
+    "whose grid over all the solid's faces fits in 40000 points; from the thinnest point of each "
+    "of the at most 32 thinnest faces within 1.5 times the thinnest reading, a compass search "
+    "walks to a local minimum; min_wall is the thinnest reading of all; unknown when a ray never "
+    "comes out of the material or the kernel cannot follow it, when no ray from a solid crosses "
+    "a wall, when a solid has more than 10000 faces or needs more than 250000 rays, or all the "
+    "solids together need more than 30 seconds, and with no measured value unless closed_solid "
+    "passes"
 )
 SOURCES: tuple[SourceLiteral, ...] = (
     {
@@ -145,20 +146,27 @@ def run(subject: Subject) -> FindingWire:
 
 
 def _each_body(subject: Subject, shape: Shape) -> FindingWire:
+    """Each solid on a grid of its own, as it would be read alone, so a body of many solids is
+    never sampled more coarsely. One deadline covers every solid."""
     kernel = subject.kernel
     solids = kernel.solids(shape)
     deadline = time.monotonic() + MAX_SECONDS
     walls: list[tuple[str, float, float]] = []
     for body in subject.bodies:
-        part = kernel.compound(tuple(solids[index] for index in body.solids))
-        search = Search(kernel.walls(part), deadline)
-        try:
-            found = thinnest(search)
-        except Halted as halted:
-            return finding("unknown", f"the walls of {body.name} are not measured: {halted.reason}")
-        if found is None:
-            return finding("unknown", f"no ray from any face of {body.name} crossed a wall")
-        walls.append((body.name, *found))
+        found: list[tuple[float, float]] = []
+        for solid in (solids[index] for index in body.solids):
+            try:
+                one = thinnest(Search(kernel.walls(solid), deadline))
+            except Halted as halted:
+                return finding(
+                    "unknown", f"the walls of {body.name} are not measured: {halted.reason}"
+                )
+            if one is None:
+                return finding(
+                    "unknown", f"no ray from any face of a solid of {body.name} crossed a wall"
+                )
+            found.append(one)
+        walls.append((body.name, *min(found)))
     name, wall, spacing = min(walls, key=lambda one: one[1])
     return finding(
         "pass",

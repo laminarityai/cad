@@ -47,14 +47,6 @@ class FakeShape:
         return False
 
 
-@dataclass(frozen=True, slots=True)
-class FakeCompound:
-    solids: tuple[int, ...]
-
-    def IsNull(self) -> bool:
-        return False
-
-
 class NoFem:
     def mesh(self, size_mm: float, floor_mm: float) -> TetMesh | MeshFailed:
         raise NotImplementedError("this test meshes nothing")
@@ -102,9 +94,7 @@ class FakeKernel:
     mouths: tuple[Opening, ...] = ()
     wall: FakeWalls = field(default_factory=FakeWalls)
     solid_props: dict[int, VolumeProps] = field(default_factory=dict[int, VolumeProps])
-    body_walls: dict[tuple[int, ...], FakeWalls] = field(
-        default_factory=dict[tuple[int, ...], FakeWalls]
-    )
+    solid_walls: dict[int, FakeWalls] = field(default_factory=dict[int, FakeWalls])
 
     def read_brep(self, data: bytes) -> Shape | Unreadable:
         return Unreadable("not a BREP") if data == UNREADABLE_BREP else FakeShape()
@@ -123,13 +113,6 @@ class FakeKernel:
 
     def solids(self, shape: Shape) -> tuple[Shape, ...]:
         return tuple(FakeShape(index) for index in range(self.solid_count))
-
-    def compound(self, shapes: tuple[Shape, ...]) -> Shape:
-        held: list[int] = []
-        for one in shapes:
-            assert isinstance(one, FakeShape)
-            held.append(one.index)
-        return FakeCompound(tuple(held))
 
     def is_valid(self, shape: Shape) -> bool:
         if self.invalid_raises:
@@ -185,8 +168,8 @@ class FakeKernel:
         raise NotImplementedError("no quick check measures a distance")
 
     def walls(self, shape: Shape) -> FakeWalls:
-        if isinstance(shape, FakeCompound):
-            return self.body_walls.get(shape.solids, self.wall)
+        if isinstance(shape, FakeShape) and shape.index in self.solid_walls:
+            return self.solid_walls[shape.index]
         return self.wall
 
     def step_bytes(self, shape: Shape, cap: int) -> bytes | StepTooLarge:

@@ -111,13 +111,21 @@ def test_a_knife_edge_reads_as_a_wall_that_thins_to_nothing() -> None:
     assert thinnest(turned(KNIFE, turn_and_move()), Reordered()) < 1e-4
 
 
+def crossed(wall: float) -> Solid:
+    """Two 1 mm holes that cross at right angles, `wall` apart."""
+    across = (10.5 + wall + 0.5, -1, 5)
+    return cut(box(20, 20, 10), rod(0.5, 12, (10, 10, -1)), rod(0.5, 22, across, (0, 1, 0)))
+
+
+def body_wall(kernel: OcpKernel, *solids: Solid) -> float:
+    body = BodyPart("part", tuple(range(len(solids))), INPUTS)
+    shape = compound(*solids)
+    found = min_wall.run(Subject(kernel, NoFem(), shape, INPUTS, PASSED, bodies=(body,)))
+    assert found["verdict"] == "pass", found["reason"]
+    return {one["name"]: one["magnitude"] for one in found["measured"]}["min_wall:part"]
+
+
 def test_a_solid_in_a_body_of_several_is_sampled_as_finely_as_it_is_alone() -> None:
-    crossed = cut(
-        box(20, 20, 10), rod(0.5, 12, (10, 10, -1)), rod(0.5, 22, (11.3, -1, 5), (0, 1, 0))
-    )
-    for shape, count in ((crossed, 1), (compound(crossed, box(300, 300, 5, (40, 0, 0))), 2)):
-        body = BodyPart("part", tuple(range(count)), INPUTS)
-        found = min_wall.run(Subject(OcpKernel(), NoFem(), shape, INPUTS, PASSED, bodies=(body,)))
-        assert found["verdict"] == "pass", found["reason"]
-        wall = {one["name"]: one["magnitude"] for one in found["measured"]}["min_wall:part"]
-        assert abs(wall - 0.3) <= BOUND * 0.3, (count, found["reason"])
+    assert abs(thinnest(crossed(0.3), OcpKernel()) - 0.3) <= BOUND * 0.3
+    wall = body_wall(OcpKernel(), crossed(0.3), box(300, 300, 5, (40, 0, 0)))
+    assert abs(wall - 0.3) <= BOUND * 0.3, wall

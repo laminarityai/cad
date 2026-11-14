@@ -94,9 +94,9 @@ def test_no_mass_is_measured_while_one_body_s_density_is_unknown() -> None:
     assert {"mass:plate", "volume:gear", "volume"} <= names
 
 
-def test_min_wall_reads_each_body_as_one_shape_and_names_the_thinnest() -> None:
-    walls = {(0,): FakeWalls(Across(3.0)), (1, 2): FakeWalls(Across(1.2))}
-    found = checked(FakeKernel(solid_count=3, body_walls=walls), PLATE_AND_GEARS)["min_wall"]
+def test_min_wall_reads_each_solid_alone_and_names_the_thinnest_body() -> None:
+    walls = {0: FakeWalls(Across(3.0)), 1: FakeWalls(Across(1.5)), 2: FakeWalls(Across(1.2))}
+    found = checked(FakeKernel(solid_count=3, solid_walls=walls), PLATE_AND_GEARS)["min_wall"]
     assert found["verdict"] == "pass"
     assert measured(found) == pytest.approx(
         {"min_wall": 1.2, "min_wall:plate": 3.0, "min_wall:gear": 1.2}
@@ -104,11 +104,11 @@ def test_min_wall_reads_each_body_as_one_shape_and_names_the_thinnest() -> None:
     assert ", in gear," in found["reason"]
 
 
-def test_min_wall_is_unknown_when_one_body_crosses_no_wall() -> None:
-    walls = {(0,): FakeWalls(Across(3.0)), (1, 2): FakeWalls(None)}
-    found = checked(FakeKernel(solid_count=3, body_walls=walls), PLATE_AND_GEARS)["min_wall"]
+def test_min_wall_is_unknown_when_one_solid_of_a_body_crosses_no_wall() -> None:
+    walls = {0: FakeWalls(Across(3.0)), 1: FakeWalls(Across(1.2)), 2: FakeWalls(None)}
+    found = checked(FakeKernel(solid_count=3, solid_walls=walls), PLATE_AND_GEARS)["min_wall"]
     assert (found["verdict"], found["measured"]) == ("unknown", [])
-    assert found["reason"] == "no ray from any face of gear crossed a wall"
+    assert found["reason"] == "no ray from any face of a solid of gear crossed a wall"
 
 
 def test_stress_on_more_than_one_solid_is_unknown_until_one_body_can_be_solved_alone() -> None:
