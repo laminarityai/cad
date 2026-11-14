@@ -12,83 +12,23 @@ import pytest
 from outcome import Trace
 from tracefacts import trace_session
 
-from cad.accounts.principal import AccountId
-from cad.briefs import assumptions
-from cad.briefs.assumptions import Assumption
-from cad.checks import lanes
-from cad.checks.container.check import Quick
-from cad.checks.jobs import JobResult, JobSpec
-from cad.checks.report import QUICK, SPECS, unknown_for_all
-from cad.checks.result import StepMissing, StepStored, Verdict
-from cad.confirmations.waiting import Door
-from cad.context_parts.ingest import ingest
-from cad.operations.scorecards import ScoreVariantInput, score_variant
-from cad.operations.tenants import open_tenant
-from cad.sandbox.outcome import SandboxUnavailable
-from tests.support.cards import (
-    KEY,
-    STEP_SHA,
-    TARGET,
-    confirm_on_page,
-    drafts,
-    genuine_result,
-    transcript_of,
-    write_transcript,
+from cad.checks.report import unknown_for_all
+from cad.checks.result import Verdict
+from cad.scorecard.unjudged import MeasureOnly
+from tests.support.background import (
+    FEA,
+    GONE,
+    KILLED,
+    Background,
+    a_scoring,
+    confirm_assumed,
+    fea_of,
+    killed,
+    ran,
+    refused,
+    sandbox,
 )
-from tests.support.load_cases import hole_hook
-from tests.support.readings import a_session, built
-
-FEA = next(spec for spec in SPECS if spec.id == "fea")
-IMAGE = "sha256:" + "i" * 64
-GONE = "the sandbox went away"
-KILLED = "the check container ran past 600 s and was killed before it sent a report"
-LIGHT = ({"kind": "max_mass", "mass": {"magnitude": 150, "unit": "g"}}, "under 150 g")
-STRONG = ({"kind": "min_safety_factor", "load": hole_hook(), "factor": 2}, "looks friendly")
-
-type Background = Callable[[JobSpec], JobResult]
-
-
-def refused(job: JobSpec) -> JobResult:
-    del job
-    raise SandboxUnavailable(GONE)
-
-
-def ran(verdict: Verdict, timed_out: bool = False) -> Background:
-    def run(job: JobSpec) -> JobResult:
-        result = genuine_result(FEA).model_copy(
-            update={"instance": job.instance, "verdict": verdict}
-        )
-        return JobResult(
-            check_image_digest=IMAGE,
-            step=StepMissing(reason="no STEP"),
-            results=(result,),
-            timed_out=timed_out,
-        )
-
-    return run
-
-
-def killed(job: JobSpec) -> JobResult:
-    (result,) = unknown_for_all(KILLED, (FEA,))
-    return JobResult(
-        check_image_digest=IMAGE,
-        step=StepMissing(reason=KILLED),
-        results=(result.model_copy(update={"instance": job.instance}),),
-        timed_out=True,
-    )
-
-
-def sandbox(monkeypatch: pytest.MonkeyPatch, background: Background) -> None:
-    def run(job: JobSpec) -> JobResult:
-        if isinstance(job.budget, Quick):
-            return JobResult(
-                check_image_digest=IMAGE,
-                step=StepStored(sha256=STEP_SHA),
-                results=tuple(genuine_result(spec) for spec in QUICK),
-            )
-        return background(job)
-
-    monkeypatch.setattr(lanes.LANES, "_run", run)
+from tests.support.cards import genuine_result, transcript_of, write_transcript
 
 
 def session(
@@ -97,27 +37,16 @@ def session(
     """Score one variant through `score_variant` under a load the person stated and confirmed
     first, or one the agent assumed, show the session the card with `change` made to its fea
     result, confirm, and trace. Returns the trace and the fea result as the server showed it."""
-    home, variants, roots, brief_id = a_session(tmp_path)
-    tenant = open_tenant(
-        AccountId("local"), roots, variants, home / ".cad" / "geometry", None, Door(), ingest
-    )
-    rows = drafts(LIGHT, STRONG) if stated else drafts(LIGHT)
-    if stated:
-        confirm_on_page(roots, brief_id, rows)
-    else:
-        target = TARGET.validate_python(STRONG[0])
-        assumptions.assume(roots, brief_id, [Assumption(target=target, why="49 N assumed")], ())
-    held = built(variants)
-    arguments = ScoreVariantInput(variant_id=held.id, material_key=KEY, brief_id=brief_id)
-    card = json.loads(score_variant(tenant, arguments).model_dump_json(by_alias=True))
-    (fea,) = (one for one in card["results"] if one["check_id"] == "fea")
+    scoring = a_scoring(tmp_path, stated)
+    card = scoring.score()
+    fea = fea_of(card)
     shown = dict(fea)
     if change is not None:
         change(fea)
-    write_transcript(variants, json.dumps(card))
+    write_transcript(scoring.variants, json.dumps(card))
     if not stated:
-        confirm_on_page(roots, brief_id, rows)
-    return trace_session(home, transcript_of(variants)), shown
+        confirm_assumed(scoring)
+    return trace_session(scoring.home, transcript_of(scoring.variants)), shown
 
 
 @pytest.mark.parametrize("background", [refused, killed], ids=["refused", "killed"])
@@ -191,3 +120,23 @@ def test_a_timed_out_result_with_its_measures_is_untraced(
     assert shown["measured"]
     assert not traced.traced
     assert any("Unsigned no signed job result holds fea for" in line for line in traced.untraced)
+
+
+def test_a_refusal_on_a_confirmed_load_shown_measure_only_is_untraced(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The server shows a result on a confirmed load with its verdict, so a card that drops it
+    fails as misjudged instead of stopping the tracer."""
+    sandbox(monkeypatch, refused)
+
+    def measure_only(fea: dict[str, Any]) -> None:
+        del fea["verdict"]
+        fea.update(kind="measure_only", label=MeasureOnly.model_fields["label"].default)
+
+    traced, _ = session(tmp_path, stated=True, change=measure_only)
+    assert not traced.traced
+    assert not traced.failed
+    assert any(
+        "Misjudged requirement" in line and "shows its fea result with no verdict" in line
+        for line in traced.untraced
+    ), traced.untraced

@@ -21,7 +21,7 @@ hand-edited card is not detected. The brief-set run binds each card the session 
 import argparse
 import sys
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Final, assert_never
 
@@ -45,7 +45,7 @@ from confirmation import Misjudged, Superseded, Unconfirmed
 from fitted import Unfitted
 from provenance import CardFailure, CardTrace, Incomplete, Traced, Unreadable, trace_card
 from pydantic import TypeAdapter, ValidationError
-from signedjobs import Unsigned
+from signedjobs import Unsigned, unretried
 from tracking import RequirementOutcome, describe, describe_apart, outcomes_of, track
 from transcript_cards import read_cards
 
@@ -175,12 +175,18 @@ def trace_cards(
 ) -> TracedStore:
     """`cards` is the JSON text of each scorecard in the order the session got them, or the
     trace of one that could not be read. With `bind_jobs`, each result on a card must equal the
-    signed job result its own variant, material, table version and instance key."""
+    signed job result its own variant, material, table version and instance key, and a refusal
+    shown over a signed record fails unless the cards around it show an honest retry."""
     table = load_materials()
+    traced = [
+        TracedCard(order, *_read(order, text, root, roots, table, bind_jobs=bind_jobs))
+        for order, text in enumerate(cards)
+    ]
+    late = unretried([one.trace.binding for one in traced])
     return TracedStore(
         tuple(
-            TracedCard(order, *_read(order, text, root, roots, table, bind_jobs=bind_jobs))
-            for order, text in enumerate(cards)
+            replace(one, trace=replace(one.trace, failures=(*one.trace.failures, *failed)))
+            for one, failed in zip(traced, late, strict=True)
         )
     )
 

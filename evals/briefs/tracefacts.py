@@ -26,7 +26,10 @@ def trace_session(home: Path, transcript: Path) -> Trace:
     variant, material and table version key, and the server's reading of each variant the session
     scored with a brief, and count the two apart. The rates come from
     the reading of the last variant scored, the judged state the person sees after Confirm, or
-    from the last card when nothing was scored with a brief."""
+    from the last card when nothing was scored with a brief. A check job a reading shows running
+    has no stored result after the session: the session's end cut it off, it was refused and not
+    retried, or it timed out. It is named apart, and its requirement still counts against both
+    rates, so a session that ends early never raises one."""
     stores = home / ".cad"
     variants = stores / "variants"
     roots = Roots(briefs=stores / "briefs", projects=stores / "projects")
@@ -70,6 +73,11 @@ def trace_session(home: Path, transcript: Path) -> Trace:
         described_coverage=_share(tracking.described_coverage),
         by=dict(tracking.by),
         uncovered=dict(tracking.uncovered),
+        cut_off=tuple(
+            f"{variant}: {check_id} for {instance}"
+            for card in read.cards
+            for variant, _, _, check_id, instance in sorted(card.trace.binding.running)
+        ),
     )
 
 

@@ -16,12 +16,18 @@ A shown result must equal its signed result in every field. It carries no verdic
 no target of the card's confirmed set reads its load, as `cad.scorecard.unjudged` reports it.
 
 The server stores no result for a background job it refused (`cad.checks.lanes`) or one that ran
-past its time limit (`job_store.write`), yet shows one (`cad.scorecard.score.scorecard_of`). A
-shown result no signed record holds is accepted only when the card's plan keys its job, no signed
-record holds that job, and it equals what the server shows for a refused job of its check and
-instance: `unknown_for_all` under its own reason, with no verdict when no confirmed target reads
-its load. It is unknown, measures nothing and carries no number. Its reason is text, which the
-tracer does not count.
+past its time limit (`job_store.write`), yet shows one (`cad.scorecard.score.scorecard_of`). The
+refusal shape is what the server shows for a refused job of its check and instance:
+`unknown_for_all` under its own reason, with no verdict when no confirmed target reads its load. It
+is unknown, measures nothing and carries no number. Its reason is text, which the tracer does not
+count. A shown result no signed record holds is accepted only when the card's plan keys its job
+and it equals the refusal shape.
+
+A refused job can be stored later, when the agent scores the same variant and material again, and
+only `score_variant` runs a job, so the retry returns a card. Once a job is stored the server
+always shows its stored result. So a refusal shown over a signed record is a `Retry`, which the
+session decides (`unretried`): it is accepted only when no earlier card bound that job to its
+record, and a later card shows the job running or bound to its record.
 """
 
 from collections.abc import Iterator, Mapping, Sequence
@@ -35,7 +41,6 @@ from cad.briefs import assumptions
 from cad.briefs import store as briefs
 from cad.briefs.model import Target, load_of
 from cad.checks import job_store, jobs
-from cad.checks.container.check import Background
 from cad.checks.container.wire import LoadCaseWire
 from cad.checks.report import CheckSpec, build_request, unknown_for_all
 from cad.checks.result import CheckResult
@@ -61,15 +66,38 @@ class Unsigned:
     reason: str
 
 
+type Job = tuple[str, str, str, str, str]
+"""A card's variant, material and table version, and a result's check and instance."""
+
+
+@dataclass(frozen=True, slots=True)
+class Retry:
+    """A refusal a card shows over a signed record, and why it fails when no retry explains it."""
+
+    job: Job
+    failures: tuple[Unsigned, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class Binding:
+    """What binding one card's results gave: its failures, the jobs it showed bound to their
+    signed record or still running, and its refusals shown over a signed record."""
+
+    failures: tuple[Unsigned, ...] = ()
+    bound: frozenset[Job] = frozenset()
+    running: frozenset[Job] = frozenset()
+    retries: tuple[Retry, ...] = ()
+
+
 @dataclass(frozen=True, slots=True)
 class SignedJobs:
     """The signed results of the jobs a card's own variant, material and table version key, by
     check and instance, the results the card reports with no verdict, and the check of each keyed
-    background job no signed record holds. `problem` says why no job could be keyed."""
+    background job. `problem` says why no job could be keyed."""
 
     results: Mapping[tuple[str, str], CheckResult]
     unjudged: frozenset[tuple[str, str]] = field(default_factory=frozenset[tuple[str, str]])
-    unstored: Mapping[tuple[str, str], CheckSpec] = field(
+    background: Mapping[tuple[str, str], CheckSpec] = field(
         default_factory=dict[tuple[str, str], CheckSpec]
     )
     problem: str | None = None
@@ -86,9 +114,9 @@ class SignedJobs:
         return held
 
     def refusal(self, check_id: str, instance: str, reason: str) -> Reported | None:
-        """What the server shows for a refused job of this check and instance, or None when a
-        signed record holds that job or the card's plan keys none."""
-        spec = self.unstored.get((check_id, instance))
+        """What the server shows for a refused job of this check and instance, or None when the
+        card's plan keys no background job for it."""
+        spec = self.background.get((check_id, instance))
         if spec is None:
             return None
         (result,) = unknown_for_all(reason, (spec,))
@@ -114,51 +142,100 @@ def signed_jobs(
     }
     request = build_request(card.material_key, table)
     plan = jobs.plan(root, held, request, table, jobs.Demand(loads=loads, parts=parts))
-    read = [(job, job_store.read(job)) for job in (plan.quick, *plan.background)]
+    read = [job_store.read(job) for job in (plan.quick, *plan.background)]
     results = {
         (one.check_id, one.instance): one
-        for _, stored in read
+        for stored in read
         if stored is not None
         for one in stored.results
     }
-    unstored = {
-        (spec.id, job.instance): spec
-        for job, stored in read
-        if stored is None and isinstance(job.budget, Background)
-        for spec in job.checks
-    }
+    background = {(spec.id, job.instance): spec for job in plan.background for spec in job.checks}
     judged = () if confirmed is None else [one.target for one in confirmed.requirements]
-    return SignedJobs(results, unconfirmed_loads(targets, judged), unstored)
+    return SignedJobs(results, unconfirmed_loads(targets, judged), background)
 
 
-def unsigned(card: Scorecard, signed: SignedJobs) -> Iterator[Unsigned]:
+def _job(card: Scorecard, result: Reported) -> Job:
+    return (
+        card.variant_id,
+        card.material_key,
+        card.table_version,
+        result.check_id,
+        result.instance,
+    )
+
+
+def running(card: Scorecard) -> Binding:
+    """The jobs a card shows still running, for a card that is not bound to its jobs."""
     results: Sequence[Reported] = card.results
+    return Binding(
+        running=frozenset(_job(card, one) for one in results if isinstance(one, PendingCheck))
+    )
+
+
+def bind_results(card: Scorecard, signed: SignedJobs) -> Binding:
+    results: Sequence[Reported] = card.results
+    failures: list[Unsigned] = []
+    bound: set[Job] = set()
+    retries: list[Retry] = []
     for shown in results:
         if isinstance(shown, PendingCheck):
             continue
+        job = _job(card, shown)
         held = signed.result(shown.check_id, shown.instance)
-        named = _named(shown.check_id, shown.instance)
+        refusal = signed.refusal(shown.check_id, shown.instance, shown.reason)
         if isinstance(held, Unresolved):
-            if shown != signed.refusal(shown.check_id, shown.instance, shown.reason):
-                yield Unsigned(held.reason)
+            if shown != refusal:
+                failures.append(Unsigned(held.reason))
             continue
-        verdict = _misjudged(shown, held, (shown.check_id, shown.instance) in signed.unjudged)
-        if verdict is not None:
-            yield Unsigned(f"the card shows {named} {verdict}")
-        names = [one.name for one in shown.measured]
-        held_names = [one.name for one in held.measured]
-        if names != held_names:
-            yield Unsigned(
-                f"the card's {named} measures {_list(names)}, but the signed job result "
-                f"measures {_list(held_names)}"
+        differs = tuple(_differs(shown, held, (shown.check_id, shown.instance) in signed.unjudged))
+        if not differs:
+            bound.add(job)
+        elif shown == refusal:
+            retries.append(Retry(job, differs))
+        else:
+            failures += differs
+    return Binding(tuple(failures), frozenset(bound), running(card).running, tuple(retries))
+
+
+def unretried(bindings: Sequence[Binding]) -> list[tuple[Unsigned, ...]]:
+    """For each card in session order, the failures of each refusal it showed over a signed
+    record that no honest retry explains."""
+    failed: list[tuple[Unsigned, ...]] = []
+    for at, one in enumerate(bindings):
+        before = {job for earlier in bindings[:at] for job in earlier.bound}
+        after = {job for later in bindings[at + 1 :] for job in (*later.bound, *later.running)}
+        failed.append(
+            tuple(
+                failure
+                for retry in one.retries
+                if retry.job in before or retry.job not in after
+                for failure in retry.failures
             )
-        ours = shown.model_dump(mode="json", include=set(COMPARED))
-        theirs = held.model_dump(mode="json", include=set(COMPARED))
-        differs = sorted(name for name in COMPARED if ours.get(name) != theirs.get(name))
-        if differs:
-            yield Unsigned(
-                f"the card's {named} differs from the signed job result in {', '.join(differs)}"
-            )
+        )
+    return failed
+
+
+def _differs(
+    shown: CheckResult | MeasureOnly, held: CheckResult, unjudged: bool
+) -> Iterator[Unsigned]:
+    named = _named(shown.check_id, shown.instance)
+    verdict = _misjudged(shown, held, unjudged)
+    if verdict is not None:
+        yield Unsigned(f"the card shows {named} {verdict}")
+    names = [one.name for one in shown.measured]
+    held_names = [one.name for one in held.measured]
+    if names != held_names:
+        yield Unsigned(
+            f"the card's {named} measures {_list(names)}, but the signed job result "
+            f"measures {_list(held_names)}"
+        )
+    ours = shown.model_dump(mode="json", include=set(COMPARED))
+    theirs = held.model_dump(mode="json", include=set(COMPARED))
+    differs = sorted(name for name in COMPARED if ours.get(name) != theirs.get(name))
+    if differs:
+        yield Unsigned(
+            f"the card's {named} differs from the signed job result in {', '.join(differs)}"
+        )
 
 
 def _history(

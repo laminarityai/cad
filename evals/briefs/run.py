@@ -9,8 +9,9 @@ Per brief it starts a fresh session, with its own server HOME under `<out>/<id>/
 scripted person (`human.py`) answering the confirmation page, then runs the tracer with
 --require-judged over that HOME's stores. `<out>/<id>/result.json` is written last, so a rerun
 with the same `--out` skips the briefs that finished and runs the rest from a fresh HOME. A brief
-whose session failed is run again. `summary.md` and `summary.json` are rewritten from the result
-files on every run. Briefs run in parallel, at most `--jobs` at once.
+whose session failed is run again, and its earlier try is kept whole under `<out>/<id>/try-<n>`.
+`summary.md` and `summary.json` are rewritten from the result files on every run, so they count
+the last try of each brief, its cost included. Briefs run in parallel, at most `--jobs` at once.
 
 The `inprocess` driver runs the chat agent in this process and stops at the Auto stop. See
 `inprocess.py`.
@@ -22,11 +23,9 @@ session failed or a brief did not run; with `--require-traced`, also a brief tha
 import argparse
 import json
 import os
-import shutil
-import stat
 import sys
 import time
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 from functools import partial
 from pathlib import Path
@@ -48,16 +47,22 @@ JOBS: Final = 3
 TIMEOUT_S: Final = 1800.0
 
 
-def _remove_read_only(remove: Callable[[str], object], path: str, _error: BaseException) -> None:
-    os.chmod(Path(path).parent, stat.S_IRWXU)
-    os.chmod(path, stat.S_IRWXU)
-    remove(path)
+TRY: Final = "try-"
+
+
+def _keep_earlier_try(directory: Path) -> None:
+    tries = sum(one.name.startswith(TRY) for one in directory.iterdir())
+    kept = directory / f"{TRY}{tries + 1}"
+    kept.mkdir()
+    for one in directory.iterdir():
+        if not one.name.startswith(TRY):
+            one.rename(kept / one.name)
 
 
 def run_one(brief: BriefInput, out: Path, model: str, timeout_s: float) -> BriefResult:
     directory = out / brief.id
     if directory.exists():
-        shutil.rmtree(directory, onexc=_remove_read_only)
+        _keep_earlier_try(directory)
     home = directory / "home"
     home.mkdir(parents=True)
     human_log = directory / "human.jsonl"
@@ -74,6 +79,7 @@ def run_one(brief: BriefInput, out: Path, model: str, timeout_s: float) -> Brief
         minutes_to_first_result=minutes_to_first_result(
             stores / "briefs", stores / "variants", seconds
         ),
+        refused_tool_calls=session.facts.refused_calls,
     )
     failed = session.timed_out or session.exit_code != 0 or session.facts.is_error
     trace: Trace | None = None
