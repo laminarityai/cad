@@ -23,6 +23,7 @@ import { passedExtents, summaryOf, type Card } from "./cards";
 import { stageKey, type Brief, type Fit, type Slot, type ViewAction } from "./model";
 import { Dot } from "./bits";
 import { Download } from "./Download";
+import { isOutdated, Rebuild } from "./Rebuild";
 
 function TabOf({ differs, children }: { differs: string; children: ReactElement }) {
   return differs ? <Tooltip label={differs}>{children}</Tooltip> : children;
@@ -102,8 +103,10 @@ function Mesh(props: {
   cut: Cut | null;
   onCut: (next: Cut) => void;
   onPick: OnPick;
+  briefId: string;
+  onRebuilt: () => void;
 }) {
-  const { variantId, label, fit, only, where, selection, extents, cut, onCut, onPick } = props;
+  const { variantId, label, fit, only, where, selection, extents, cut, onCut, onPick, briefId, onRebuilt } = props;
   const mesh = useMesh(variantId);
   const fitMesh = useMesh(fit?.variantId ?? null);
   const [measure, setMeasure] = useState<Measure | null>(null);
@@ -124,7 +127,9 @@ function Mesh(props: {
   const position = cut?.at;
   const plane = useMemo(() => (bb && axis ? sectionOf({ axis, at: position ?? null }, bb) : null), [bb, axis, position]);
   let body: ReactElement;
-  if (mesh.status === "failed") {
+  if (mesh.status === "failed" && mesh.outdated) {
+    body = <Rebuild variantId={variantId} briefId={briefId} onRebuilt={onRebuilt} />;
+  } else if (mesh.status === "failed") {
     body = <p className="p-4 text-fail">{mesh.reason}</p>;
   } else if (drawn === null) {
     body = <Loading label="Drawing" size="small" className="p-4" />;
@@ -174,8 +179,9 @@ export function Stage(props: {
   selection: Selection | null;
   cards: Record<string, Card>;
   onPick: OnPick;
+  onRebuilt: () => void;
 }) {
-  const { slot, revision, cut, body, dispatch, briefId, fit, where, selection, cards, onPick } = props;
+  const { slot, revision, cut, body, dispatch, briefId, fit, where, selection, cards, onPick, onRebuilt } = props;
   const [showFit, setShowFit] = useState(true);
   const [showSize, setShowSize] = useState(false);
   const newest = slot.revisions.length;
@@ -197,7 +203,7 @@ export function Stage(props: {
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div className="relative min-h-0 flex-1" data-stage>
-        <Mesh variantId={shown.variantId} label={`${slot.label}, revision ${String(showing)}`} fit={showFit ? fit : null} only={body} where={marked} selection={selection} extents={showSize ? size : null} cut={cut} onCut={setCut} onPick={onPick} />
+        <Mesh variantId={shown.variantId} label={`${slot.label}, revision ${String(showing)}`} fit={showFit ? fit : null} only={body} where={marked} selection={selection} extents={showSize ? size : null} cut={cut} onCut={setCut} onPick={onPick} briefId={briefId} onRebuilt={onRebuilt} />
         <div className="absolute right-3 top-3 z-30 flex max-w-[calc(100%-1.5rem)] items-start gap-2">
           {fit ? (
             <button
@@ -251,7 +257,7 @@ export function Stage(props: {
               </button>
             </Tooltip>
           ) : null}
-          <Download key={shown.variantId} variantId={shown.variantId} briefId={briefId} />
+          {isOutdated(cards[shown.variantId]) ? null : <Download key={shown.variantId} variantId={shown.variantId} briefId={briefId} />}
         </div>
       </div>
       <div className="flex items-center gap-3 border-t border-rule-2 px-4 py-2.5 text-[14px]" data-revisions>

@@ -10,11 +10,11 @@ import type { Topology } from "./readout";
 export type MeshState =
   | { status: "loading"; lastDrawn: Shapes | null }
   | { status: "ready"; shapes: Shapes; topology: Topology; areas: readonly Area[]; bodies: readonly BodyFaces[] }
-  | { status: "failed"; reason: string };
+  | { status: "failed"; reason: string; outdated: boolean };
 
+export const OUTDATED = "OutdatedVariant";
 const POLL_MS = 250;
 const REFUSED_IN_WORDS: Readonly<Record<string, string>> = {
-  OutdatedVariant: "This option was built by an earlier version of the app. Ask in the chat to rebuild it.",
   NotBuilt: "This option did not build. Ask in the chat to fix it.",
   StaleVariant: "This option's stored files do not match its build. Ask in the chat to build it again.",
 };
@@ -51,6 +51,7 @@ async function readMesh(api: Api, variantId: string, signal: AbortSignal): Promi
     }
   } catch (error) {
     const words = error instanceof Refused && error.kind !== null ? REFUSED_IN_WORDS[error.kind] : undefined;
+    if (error instanceof Refused && error.kind === OUTDATED) throw error;
     throw new Error(words ?? said(error), { cause: error });
   }
 }
@@ -67,5 +68,6 @@ export function useMesh(variantId: string | null): MeshState | null {
   if (resource === null) return null;
   if (resource.status === "ok") return { status: "ready", ...resource.data };
   if (resource.status === "loading") return { status: "loading", lastDrawn: drawn };
-  return { status: "failed", reason: resource.status === "error" ? resource.message : "The mesh did not load." };
+  if (resource.status === "error") return { status: "failed", reason: resource.message, outdated: resource.kind === OUTDATED };
+  return { status: "failed", reason: "The mesh did not load.", outdated: false };
 }

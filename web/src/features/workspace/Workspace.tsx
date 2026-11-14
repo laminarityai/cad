@@ -57,8 +57,9 @@ function Center(props: {
   selection: Selection | null;
   onPick: OnPick;
   working: Working | null;
+  onRebuilt: () => void;
 }) {
-  const { brief, view, cards, dispatch, where, selection, onPick, working } = props;
+  const { brief, view, cards, dispatch, where, selection, onPick, working, onRebuilt } = props;
   const slot = slotOf(brief, view);
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -97,6 +98,7 @@ function Center(props: {
               selection={selection}
               cards={cards}
               onPick={onPick}
+              onRebuilt={onRebuilt}
             />
           </TabsPanel>
         </Tabs>
@@ -225,7 +227,7 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
   const stalled = stalledOf(chat);
   const status = <RunStatus run={auto.run} working={working} stalled={stalled} problem={auto.problem} onStop={() => void auto.stop()} />;
   const chatPane = <ChatPane lines={chat.lines} working={working} stalled={stalled} since={sinceOf(chat, sent)} card={card} composer={composer} status={status} />;
-  const center = <Center brief={brief} view={view} cards={cards} dispatch={dispatch} where={where} selection={selection} onPick={onPick} working={working} />;
+  const center = <Center brief={brief} view={view} cards={cards} dispatch={dispatch} where={where} selection={selection} onPick={onPick} working={working} onRebuilt={reload} />;
 
   const explorer = (
     <Explorer

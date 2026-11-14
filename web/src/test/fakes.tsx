@@ -79,6 +79,7 @@ export function fakeApi(variants: string[], overrides: Partial<Api> = {}): Api {
       Promise.resolve({ kind: "document" as const, part: null, document: { file_id: "file-0123456789abcdef", name: file.name, media_type: "application/pdf" as const, size: file.size, withheld: false } }),
     ),
     declinePart: vi.fn((_projectId: string, partId: string) => Promise.resolve({ part_id: partId, declined: true })),
+    rebuild: vi.fn((variantId: string) => Promise.resolve({ variant_id: variantId, rebuilt_from: null })),
     ...overrides,
   };
 }

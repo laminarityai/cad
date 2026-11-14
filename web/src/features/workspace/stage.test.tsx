@@ -1,7 +1,9 @@
-import { render, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { ServicesProvider } from "@/app/context";
+import { Refused } from "@/api/client";
 import { FakeChat, FakeViewer, fakeApi, meshOf } from "@/test/fakes";
 import { Workspace } from "./Workspace";
 
@@ -26,5 +28,26 @@ describe("the stage", () => {
     });
     expect(view).toHaveBeenCalledTimes(1);
     expect(mesh).toHaveBeenCalledTimes(1);
+  });
+
+  it("offers one Rebuild button for an option an earlier version built, and asks the server to rebuild it", async () => {
+    const outdated = () => Promise.reject(new Refused(409, "variant v1 was stored by an earlier version of the sandbox", "OutdatedVariant"));
+    const rebuild = vi.fn(() => Promise.resolve({ variant_id: "v2", rebuilt_from: "v1" }));
+    const project = () =>
+      Promise.resolve({ project_id: "p1", briefs: [{ brief_id: "b1", created_at: "2026-11-10T00:00:00Z", proposals: 1, confirmed_proposal: 1 }], context_parts: [], documents: [] });
+    render(
+      <ServicesProvider services={{ api: fakeApi(["v1"], { project, view: outdated, scorecard: outdated, rebuild }), viewer: new FakeViewer(), chat: new FakeChat() }}>
+        <MemoryRouter initialEntries={["/projects/p1"]}>
+          <Routes>
+            <Route path="projects/:projectId" element={<Workspace />} />
+          </Routes>
+        </MemoryRouter>
+      </ServicesProvider>,
+    );
+    const button = await screen.findByRole("button", { name: "Rebuild" });
+    expect(screen.getAllByText(/built before an app update/i).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: /download/i })).toBeNull();
+    await userEvent.click(button);
+    expect(rebuild).toHaveBeenCalledWith("v1", "b1");
   });
 });

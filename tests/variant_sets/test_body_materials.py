@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Any, Final
 
 import pytest
 
+from cad.tables.materials import load_materials
 from tests.support.named_bodies import GEAR, PLATE
 from tests.support.rows import UNDER_150
 
@@ -45,6 +46,11 @@ async def test_each_body_s_material_is_recorded_on_the_slot_and_scored(s: Sessio
     card = await s.call("score_variant", variant_id=built["variant_id"], brief_id=brief_id)
     assert "material_key" not in card
     assert by_body(card["body_materials"]) == {"plate": PLATE, "gear": GEAR}
+    table = load_materials()
+    assert [(one["body"], one["name"]) for one in card["body_materials"]] == [
+        ("plate", table.name_of(PLATE)),
+        ("gear", table.name_of(GEAR)),
+    ]
     assert [one["name"] for one in card["bodies"]] == ["plate", "gear"]
     assert card["untested"] == ["How the bodies are joined is not checked."]
 
