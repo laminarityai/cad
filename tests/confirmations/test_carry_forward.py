@@ -238,3 +238,14 @@ async def test_a_second_material_needs_the_confirmed_one_removed(s: Session) -> 
         "propose_requirements", brief_id=created["brief_id"], requirements=[petg], remove=[pla]
     )
     assert "Made of Prusament PETG" in [row["plain"] for row in proposed["requirements"]]
+
+
+async def test_one_target_under_two_quotes_is_refused(s: Session) -> None:
+    created = await s.call("create_brief", text=CUBE_TEXT)
+    solid = {"kind": "closed_solid"}
+    said = await s.text(
+        "propose_requirements",
+        brief_id=created["brief_id"],
+        requirements=[{"target": solid, "quote": "A block"}, {"target": solid, "quote": "PLA"}],
+    )
+    assert "requirements[1] repeats the target of an earlier requirement" in said

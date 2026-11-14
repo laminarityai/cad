@@ -3,8 +3,9 @@ refuses an unknown one; all but `Quantity` also require a finite magnitude above
 dimension."""
 
 import math
-from collections.abc import Callable
-from typing import Annotated, Any, Final
+import re
+from collections.abc import Callable, Mapping
+from typing import Annotated, Any, Final, cast
 
 import pint
 from pydantic import ValidatorFunctionWrapHandler, WithJsonSchema, WrapValidator
@@ -24,11 +25,36 @@ def number(quantity: pint.Quantity) -> float:
     return float(quantity.magnitude)  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
 
 
+_MAX_UNIT_CHARS: Final = 64
+_NAME: Final = r"(?:[^\W\d_]|[°%])+\d{0,2}"
+_POWER: Final = r"(?:(?:\^|\*\*)(?:-?\d{1,2}|\(-?\d{1,2}\))|⁻?[⁰¹²³⁴⁵⁶⁷⁸⁹]{1,2})"
+_FACTOR: Final = rf"{_NAME}{_POWER}?"
+_BETWEEN: Final = r"(?:\s*[*/·⋅]\s*|\s+)"
+# Pint evaluates a unit string as arithmetic, so `10**10**10` runs for minutes.
+_PLAIN_UNIT: Final = re.compile(rf"\s*(?:1|(?:1\s*/\s*)?{_FACTOR}(?:{_BETWEEN}{_FACTOR})*)?\s*")
+
+
+def _plain_unit(raw: object) -> None:
+    if not isinstance(raw, Mapping):
+        return
+    unit = cast(Mapping[str, object], raw).get("unit")
+    if not isinstance(unit, str):
+        return
+    if len(unit) > _MAX_UNIT_CHARS or not _PLAIN_UNIT.fullmatch(unit):
+        raise ValueError(
+            "not a unit: write unit names joined by * or / with small powers, such as mm, "
+            f"cm^3 or g/cm^3, in at most {_MAX_UNIT_CHARS} characters"
+        )
+
+
 def _parsed(raw: object, handler: ValidatorFunctionWrapHandler) -> pint.Quantity:
+    _plain_unit(raw)
     try:
         return handler(raw)
     except pint.PintError as error:
         raise ValueError(f"not a unit: {error}") from error
+    except OverflowError as error:
+        raise ValueError("the magnitude is too large to be a number") from error
 
 
 def _positive(dimension: str) -> Callable[[object, ValidatorFunctionWrapHandler], pint.Quantity]:

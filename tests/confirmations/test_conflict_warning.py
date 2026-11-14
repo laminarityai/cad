@@ -5,6 +5,9 @@ from typing import TYPE_CHECKING, Any, Final
 
 import pytest
 
+from cad.research.fetch import Page
+from cad.research.submit import Question, ResearchAccepted, submit
+from cad.tables.materials import load_materials
 from tests.support.cube import CUBE, CUBE_TEXT, PLA, min_mass
 
 if TYPE_CHECKING:
@@ -93,6 +96,24 @@ async def test_a_material_with_no_density_yet_says_the_mass_is_not_checked(s: Se
     assert "is not checked until its density is researched" in body
     for quote in ("fits in a 20 mm cube", "PLA", "at least 50 g"):
         assert f'<q class="origin">{html.escape(quote)}</q>' in body
+
+
+async def test_a_researched_density_turns_the_note_into_a_warning(s: Session) -> None:
+    unknown = {"target": {"kind": "made_of", "material": "no-such-material"}, "quote": "PLA"}
+    created = await s.call("create_brief", text=CUBE_TEXT)
+    brief_id, project_id = created["brief_id"], created["project_id"]
+    await propose(s, brief_id, CUBE, unknown, min_mass(50))
+    url, quote = "https://example.org/no-such-material", "Density 1.10 g/cm3"
+    question = Question(
+        brief_id, project_id, "project-no-such-material", "density", 1.1, "g/cm3", url, quote
+    )
+    page_read = Page(url, "Data", f"Physical properties {quote}", "ab" * 32)
+    fetched = submit(load_materials(), s.roots.projects, question, fetcher=lambda _: page_read)
+    assert isinstance(fetched, ResearchAccepted)
+    body = await page(s, project_id)
+    assert NOT_CHECKED not in body
+    assert body.count(WARNING) == 1
+    assert "weighs 8.8 g filling the whole 20 x 20 x 20 mm box" in body
 
 
 async def test_a_known_density_shows_no_not_checked_note(s: Session) -> None:
