@@ -125,3 +125,26 @@ async def test_a_restart_between_the_stop_and_the_builds_return_leaves_one_repor
         events = await restarted.events(client, cid)
     assert len(reports(events)) == 1
     assert kinds(events)[-2:] == ["agent", "turn_ended"]
+
+
+async def test_a_report_that_cannot_be_posted_does_not_fail_the_stop_and_the_next_turn_posts_it(
+    chat: Chat, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    chat.app.state.chat.model = script(*confirmed(), step("Waiting."), step("It stopped."))
+
+    def unreadable(*_: object) -> Any:
+        raise OSError("the transcript could not be written")
+
+    async with chat.client() as client:
+        cid = await chat.conversation(client)
+        await chat.say(client, cid, TEXT)
+        await chat.finish()
+        with monkeypatch.context() as patched:
+            patched.setattr("cad.chat.routes.stop_report", unreadable)
+            await press_stop(chat, client, cid)
+        at_stop = await chat.events(client, cid)
+        await chat.say(client, cid, "what happened?")
+        await chat.finish()
+        events = await chat.events(client, cid)
+    assert reports(at_stop) == []
+    assert len(reports(events)) == 1
