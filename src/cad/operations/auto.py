@@ -48,7 +48,7 @@ from cad.sandbox.outcome import Built
 from cad.scorecard import material
 from cad.variant_sets import store as variant_sets
 from cad.variant_sets.model import BodyChoice, Reason, code_sha256
-from cad.variant_sets.placement import CHOOSE
+from cad.variant_sets.placement import CHOOSE, refuse_unpinned
 from cad.variants import entry
 
 SETTLE_SECONDS: Final = 600
@@ -197,6 +197,9 @@ def auto_start(tenant: Tenant, arguments: StartInput) -> AutoRun:
         raise RunRefused(CHOOSE)
     basis = scorecards.judged(tenant, arguments.brief_id, arguments.material_key, None, each)
     table = basis.table.table
+    pin = material.pinned_key(confirmed, table)
+    if pin is not None:
+        refuse_unpinned(pin, [one.key for one in arguments.materials or ()], table, "Start")
     started = Started(
         conversation=cid,
         brief_id=confirmed.brief_id,

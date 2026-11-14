@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Literal
 
 from cad.sandbox.bodies import Bodies
 from cad.scorecard.material import MaterialPinned
@@ -75,7 +76,7 @@ def choose_each(
     name. `single` is the material_key and material_reason, for a variant of one body."""
     key, reason = single
     if pinned is not None:
-        _refuse_unpinned(pinned, [one.key for one in asked], table)
+        refuse_unpinned(pinned, [one.key for one in asked], table, "Build")
         return Chosen(material=choose(pinned, None, key, reason, table))
     if asked and (key is not None or reason is not None):
         raise BodyMaterialsRefused(
@@ -134,12 +135,15 @@ def _each(
     return tuple(held[name] for name in names)
 
 
-def _refuse_unpinned(pinned: str, keys: Sequence[str], table: MaterialsTable) -> None:
+def refuse_unpinned(
+    pinned: str, keys: Sequence[str], table: MaterialsTable, again: Literal["Build", "Start"]
+) -> None:
     other = sorted({key for key in keys if table.row_key(key) != pinned})
     if other:
+        nothing = "Nothing was built." if again == "Build" else "No run was started."
         raise MaterialPinned(
             f"materials names {', '.join(other)}, but the user confirmed that the part is made of "
-            f"{pinned!r}, which pins every body. Build again without materials. Nothing was built."
+            f"{pinned!r}, which pins every body. {again} again without materials. {nothing}"
         )
 
 
