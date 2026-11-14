@@ -34,6 +34,7 @@ from cad.chat.log import (
     TurnEnded,
     TurnFailed,
     messages_of,
+    web_event,
 )
 from cad.chat.model import (
     Attached,
@@ -41,6 +42,7 @@ from cad.chat.model import (
     Message,
     Model,
     ModelUnavailable,
+    ServerBlock,
     Text,
     ToolResult,
     ToolSpec,
@@ -192,6 +194,8 @@ def _say(channel: Channel, reply: Message) -> None:
             channel.append(AgentSaid(text=block.text))
         elif isinstance(block, ToolUse):
             channel.append(ToolCalled(call_id=block.id, name=block.name, input=block.input))
+        elif isinstance(block, ServerBlock) and (searched := web_event(block)) is not None:
+            channel.append(searched)
 
 
 async def _call(client: Client, call: ToolUse) -> ToolResult:

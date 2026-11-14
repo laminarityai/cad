@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, cast
 
+from asking import Call
+
 ROOT: Final = Path(__file__).resolve().parents[2]
 SESSION: Final = ROOT / ".claude/skills/verify/scripts/claude_session.py"
 HUMAN: Final = ROOT / ".claude/skills/verify/scripts/human.py"
@@ -33,6 +35,7 @@ class SessionFacts:
     tool_calls: int
     is_error: bool
     refused_calls: int = 0
+    calls: tuple[Call, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,7 +98,7 @@ def read_transcript(path: Path) -> SessionFacts:
     except (OSError, ValueError):
         return SessionFacts(None, None, None, 0, 0, True)
     model: str | None = None
-    names: list[str] = []
+    calls: list[Call] = []
     result: dict[str, Any] = {}
     for event in events:
         if event.get("type") == "system" and event.get("subtype") == "init":
@@ -104,7 +107,12 @@ def read_transcript(path: Path) -> SessionFacts:
             result = event
         elif event.get("type") == "assistant":
             content = cast(list[dict[str, Any]], event["message"]["content"])
-            names += [cast(str, b["name"]) for b in content if b.get("type") == "tool_use"]
+            calls += [
+                (cast(str, b["name"]), cast(dict[str, Any], b.get("input") or {}))
+                for b in content
+                if b.get("type") == "tool_use"
+            ]
+    names = [name for name, _ in calls]
     return SessionFacts(
         model=model,
         cost_usd=cast(float | None, result.get("total_cost_usd")),
@@ -113,4 +121,5 @@ def read_transcript(path: Path) -> SessionFacts:
         tool_calls=len(names),
         is_error=bool(result.get("is_error", True)),
         refused_calls=sum(not name.startswith(CAD) for name in names),
+        calls=tuple(calls),
     )

@@ -9,6 +9,7 @@ import { Tabs, TabsList, TabsPanel, TabsTab } from "@/components/ui/tabs";
 import { Loading } from "@/components/ui/busy";
 import { Tooltip } from "@/components/ui/tooltip";
 import { sinceOf, stalledOf, workingLabel, workingOf, type Working } from "@/features/chat/working";
+import { Questions } from "@/features/chat/QuestionsCard";
 import { RunStatus } from "@/features/auto/RunStatus";
 import { AUTO_TOOLS } from "@/features/auto/run";
 import { useAuto } from "@/features/auto/useAuto";
@@ -190,7 +191,7 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
     />
   );
   const confirmation = model.confirmation;
-  const card =
+  const confirmCard =
     waiting && confirmation?.snapshot ? (
       <ConfirmCard
         key={confirmation.snapshot}
@@ -202,6 +203,12 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
         }}
       />
     ) : null;
+  const answer = async (text: string) => {
+    const at = Date.now();
+    const { seq } = await chatApi.send(model.conversationId, text);
+    setSent({ seq, at });
+  };
+  const card = confirmCard ?? <Questions lines={chat.lines} onSend={answer} />;
   const composer = (
     <Composer
       placeholder={placeholder}
@@ -312,7 +319,7 @@ export function Start() {
       <div className="flex h-dvh flex-col bg-background text-ink">
         <TopBar title="New project" />
         <main className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col">
-          <ChatPane lines={state.lines} working={workingOf(state, null)} stalled={stalledOf(state)} since={sinceOf(state, sent)} card={null} composer={<Composer placeholder="Ask anything" onSend={send} />} />
+          <ChatPane lines={state.lines} working={workingOf(state, null)} stalled={stalledOf(state)} since={sinceOf(state, sent)} card={<Questions lines={state.lines} onSend={send} />} composer={<Composer placeholder="Ask anything" onSend={send} />} />
         </main>
       </div>
     );

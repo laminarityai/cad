@@ -244,6 +244,11 @@ def _add_quoted(roots: Roots, brief: Brief, drafts: Sequence[Draft], words: said
         raise BadProposal(
             f"brief {brief.id} would pass {MAX_BRIEF_CHARS} characters: create a new brief"
         )
+    return add_said(roots, brief, added)
+
+
+def add_said(roots: Roots, brief: Brief, added: Sequence[said.Spoken]) -> Brief:
+    """Store each of the person's messages after the brief as said, and return the brief with it."""
     directory = roots.briefs / brief.id / said.SAID
     try:
         for spoken in added:

@@ -18,6 +18,7 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, Final, Literal
 
+from asking import Asking
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from cad.auto.model import Bounds
@@ -69,6 +70,7 @@ class AutoResult(Frozen):
     tool_errors: int
     seconds: float
     problems: tuple[str, ...]
+    asking: Asking | None = None
 
     @property
     def passed(self) -> bool:
@@ -110,5 +112,14 @@ def summary_line(result: AutoResult) -> str:
     extra = f"; {'; '.join(result.problems)}" if result.problems else ""
     return (
         f"{result.id}: {verdict}, {stop}, {result.builds} builds, "
-        f"{result.variants} variants, {result.seconds:.1f}s{extra}"
+        f"{result.variants} variants, {result.seconds:.1f}s{_asked(result.asking)}{extra}"
     )
+
+
+def _asked(asking: Asking | None) -> str:
+    if asking is None:
+        return ""
+    asked = f"asked {asking.questions}" if asking.asked_before_build else "asked nothing"
+    searched = "searched" if asking.searched_before_build else "no search"
+    stated = {None: "", True: ", stated brief unasked", False: ", stated brief asked"}
+    return f", {asked}, {searched} before the first build{stated[asking.stated_unasked]}"

@@ -23,6 +23,8 @@ export const DOING: Record<string, string> = {
   submit_research: "researched",
   write_check: "wrote a check",
   search_knowledge: "looked it up",
+  web_search: "searched the web",
+  ask_questions: "asked you a few questions",
 };
 
 const WORKED = "worked";
@@ -92,6 +94,7 @@ export function activityText(words: readonly string[]): string {
 }
 
 const CHIP: Record<string, (input: Record<string, unknown>) => string | null> = {
+  web_search: (input) => (typeof input.query === "string" ? input.query : null),
   build_variant: (input) => (typeof input.label === "string" ? input.label : typeof input.slot === "number" ? `Option ${String(input.slot)}` : null),
   auto_revise: (input) => (typeof input.slot === "number" ? `Option ${String(input.slot)}` : null),
 };
@@ -158,7 +161,7 @@ function Activity({ lines, phase }: { lines: Call[]; phase: Phase }) {
       label: labelOf(line, status),
       chip: CHIP[line.name]?.(line.input) ?? null,
       status,
-      detail: detailOf(line.input),
+      detail: line.name === "web_search" ? (line.result?.text.split("\n").filter(Boolean) ?? []) : detailOf(line.input),
     };
   });
   return <ToolChips summary={summaryText(lines, phase)} rows={rows} live={phase === "live"} />;

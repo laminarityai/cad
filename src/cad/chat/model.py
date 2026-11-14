@@ -53,7 +53,15 @@ class ToolResult(Frozen):
     media: tuple[Media, ...] = ()
 
 
-type Block = Annotated[Text | ToolUse | ToolResult, Field(discriminator="kind")]
+class ServerBlock(Frozen):
+    """A block the API ran itself, a web search or its result. It goes back to the API exactly as
+    it came, on every later step, because the API refuses one that was changed."""
+
+    kind: Literal["server"] = "server"
+    raw: dict[str, Any]
+
+
+type Block = Annotated[Text | ToolUse | ToolResult | ServerBlock, Field(discriminator="kind")]
 
 
 class Message(Frozen):

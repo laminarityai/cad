@@ -57,7 +57,7 @@ One or more solids of a variant that share a name and one material, such as the 
 _Avoid_: Part, component, assembly
 
 **Material choice**:
-The material the agent picked for a slot, or for one body of it, when no confirmed requirement names one, with a one-line reason. It is a design choice, like the code: not a requirement and not a verdict. The server records it on the slot's revision, and the scorecard uses it and is labelled agent-chosen. A material the user names stays a confirmed requirement. The agent never asks the user to choose one.
+The material the agent picked for a slot, or for one body of it, when no confirmed requirement names one, with a one-line reason. It is a design choice, like the code: not a requirement and not a verdict. The server records it on the slot's revision, and the scorecard uses it and is labelled agent-chosen. A material the user names stays a confirmed requirement. The user never has to choose one: before a first build the agent may ask once whether they have one in mind, with its own pick as the default, and it chooses when they skip.
 _Avoid_: Default material, assumed material
 
 **Revision**:

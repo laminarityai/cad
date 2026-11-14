@@ -16,6 +16,7 @@ from cad.operations.guidance import (
     MATERIAL,
     NOT_VERIFIED,
     OPTIONS,
+    READ_FIRST,
     RESEARCH,
     RULE,
     WALLS,
@@ -249,6 +250,7 @@ async def test_the_server_tells_every_client_that_only_check_results_are_measure
     assert instructions == " ".join(
         (
             RULE,
+            READ_FIRST,
             BUILD_FIRST,
             CHANGES,
             OPTIONS,

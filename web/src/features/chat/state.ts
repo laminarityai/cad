@@ -41,6 +41,12 @@ function withEvent(lines: readonly Line[], seq: number, event: Event): readonly 
       return lines.map((line) =>
         line.kind === "tool" && line.callId === event.call_id ? { ...line, result: { text: event.text, isError: event.is_error } } : line,
       );
+    case "web_search":
+      return [...lines, { seq, kind: "tool", callId: event.call_id, name: "web_search", input: { query: event.query }, result: null }];
+    case "web_search_result": {
+      const text = event.error ?? event.pages.map((page) => `${page.title} · ${page.url}`).join("\n");
+      return lines.map((line) => (line.kind === "tool" && line.callId === event.call_id ? { ...line, result: { text, isError: event.error !== null } } : line));
+    }
     case "stop_report":
       return [...lines, { seq, kind: "stop_report", runId: event.run_id, reason: event.reason, report: event.report }];
     case "turn_failed":
