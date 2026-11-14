@@ -226,7 +226,7 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
   const working = workingOf(chat, auto.run);
   const stalled = stalledOf(chat);
   const status = <RunStatus run={auto.run} working={working} stalled={stalled} problem={auto.problem} onStop={() => void auto.stop()} />;
-  const chatPane = <ChatPane lines={chat.lines} working={working} stalled={stalled} since={sinceOf(chat, sent)} card={card} composer={composer} status={status} />;
+  const chatPane = <ChatPane lines={chat.lines} ended={chat.ended} working={working} stalled={stalled} since={sinceOf(chat, sent)} card={card} composer={composer} status={status} />;
   const center = <Center brief={brief} view={view} cards={cards} dispatch={dispatch} where={where} selection={selection} onPick={onPick} working={working} onRebuilt={reload} />;
 
   const explorer = (
@@ -323,7 +323,7 @@ export function Start() {
       <div className="flex h-dvh flex-col bg-background text-ink">
         <TopBar title="New project" />
         <main className="mx-auto flex min-h-0 w-full max-w-2xl flex-1 flex-col">
-          <ChatPane lines={state.lines} working={workingOf(state, null)} stalled={stalledOf(state)} since={sinceOf(state, sent)} card={<Questions lines={state.lines} onSend={send} />} composer={<Composer placeholder="Ask anything" onSend={send} />} />
+          <ChatPane lines={state.lines} ended={state.ended} working={workingOf(state, null)} stalled={stalledOf(state)} since={sinceOf(state, sent)} card={<Questions lines={state.lines} onSend={send} />} composer={<Composer placeholder="Ask anything" onSend={send} />} />
         </main>
       </div>
     );

@@ -28,6 +28,8 @@ FILE_TYPE: Final = "application/octet-stream"
 
 type PersonOf = Callable[[str], PersonSession | None]
 type TenantOf = Callable[[AccountId], Tenant]
+type After = Callable[[PersonSession, object], None]
+"""Runs on the event loop after an operation answered the person, with what it returned."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,6 +46,7 @@ def person_routes(
     served: Mapping[str, Served],
     person_of: PersonOf,
     tenant_of: TenantOf,
+    after: Mapping[str, After],
 ) -> list[Route]:
     reachable = [one for one in operations if Audience.PERSON in one.audience]
     names = {one.name for one in reachable}
@@ -51,10 +54,21 @@ def person_routes(
         raise ValueError(
             f"routes and person operations differ: {sorted(names ^ set(served))} lack a partner"
         )
-    return [person_route(served[one.name], one, person_of, tenant_of) for one in reachable]
+    if not set(after) <= names:
+        raise ValueError(f"{sorted(set(after) - names)} are not person operations")
+    return [
+        person_route(served[one.name], one, person_of, tenant_of, after.get(one.name))
+        for one in reachable
+    ]
 
 
-def person_route(served: Served, one: Operation, person_of: PersonOf, tenant_of: TenantOf) -> Route:
+def person_route(
+    served: Served,
+    one: Operation,
+    person_of: PersonOf,
+    tenant_of: TenantOf,
+    after: After | None = None,
+) -> Route:
     if Audience.PERSON not in one.audience:
         raise ValueError(f"{one.name} is not for the person, so it has no web route")
     if served.download != (one.output is Download):
@@ -87,6 +101,8 @@ def person_route(served: Served, one: Operation, person_of: PersonOf, tenant_of:
                 result = await anyio.to_thread.run_sync(run)
         except (Refused, Unavailable) as error:
             return refusal(error)
+        if after is not None:
+            after(person, result)
         if isinstance(result, Download):
             body, media_type = result.data, FILE_TYPE
             attached = {"Content-Disposition": f'attachment; filename="{result.filename}"'}

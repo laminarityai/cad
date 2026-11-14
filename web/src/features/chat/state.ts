@@ -15,6 +15,8 @@ export interface ChatState {
   seen: number;
   turn: "idle" | "running";
   turnStartSeq: number | null;
+  /** The seq of the last `turn_ended`: a call before it with no result never finished. */
+  ended: number;
   link: Link;
   problem: string | null;
   /** The reply text heard so far, which the next stored event replaces. */
@@ -29,7 +31,7 @@ export type ChatAction =
   | { type: "problem"; message: string | null };
 
 export function chatStart(conversationId: string | null): ChatState {
-  return { conversationId, lines: [], seen: 0, turn: "idle", turnStartSeq: null, link: "connecting", problem: null, partial: null };
+  return { conversationId, lines: [], seen: 0, turn: "idle", turnStartSeq: null, ended: 0, link: "connecting", problem: null, partial: null };
 }
 
 function withEvent(lines: readonly Line[], seq: number, event: Event): readonly Line[] {
@@ -72,7 +74,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       if (action.seq <= state.seen) return state;
       const lines = withEvent(state.lines, action.seq, action.event);
       const next = { ...state, lines, seen: action.seq, partial: null };
-      if (action.event.kind === "turn_ended") return { ...next, turn: "idle", turnStartSeq: null };
+      if (action.event.kind === "turn_ended") return { ...next, turn: "idle", turnStartSeq: null, ended: action.seq };
       if (state.turn === "idle" && STARTS_TURN.has(action.event.kind)) return { ...next, turn: "running", turnStartSeq: action.seq };
       return next;
     }

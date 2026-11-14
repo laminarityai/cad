@@ -133,7 +133,9 @@ def build_app(
         )
     )
     app.router.routes.insert(0, _resource_metadata(issuer))
-    app.router.routes.extend(person_routes(OPERATIONS, ROUTES, verifier.person, tenants.of))
+    app.router.routes.extend(
+        person_routes(OPERATIONS, ROUTES, verifier.person, tenants.of, {"auto_stop": chat.stopped})
+    )
     app.router.routes.extend(
         confirm_routes(verifier, tenants.of, origin(issuer), sign_in, chat.answered)
     )

@@ -3,8 +3,10 @@
 The server decides when a run stops and refuses every call after it (ADR-0010), so the driver
 holds no rule of its own. It does two things the server cannot. It reads the run's signed log
 and posts the stop's report once, whoever stopped it: the agent, a passing scorecard, the usage
-cap, or the person's Stop, during a turn or between two. And it reminds an agent that ended its
-message with the run still running to call `auto_revise` or `auto_ask`, a few times at most.
+cap, or the person's Stop, during a turn or between two. The person's Stop posts its report as
+soon as the stop is recorded, so a build still running under the run does not hold it back. And
+it reminds an agent that ended its message with the run still running to call `auto_revise` or
+`auto_ask`, a few times at most.
 
 The driver follows only this conversation's runs: the one the conversation holds, or one an auto
 tool returned to this conversation's agent. The server refuses a call on any other run, so a run
@@ -25,7 +27,7 @@ from cad.briefs import store as briefs
 from cad.briefs.store import BriefRefused
 from cad.briefs.words import describe
 from cad.chat.guidance import CHAT_AUTO_NUDGE
-from cad.chat.log import Event, StopReport, ToolCalled, ToolReturned, TurnFailed
+from cad.chat.log import Channel, Event, StopReport, ToolCalled, ToolReturned, TurnFailed
 from cad.chat.model import ToolResult, ToolUse
 from cad.confirmations.requirements import plain_names
 from cad.conversations import store
@@ -80,20 +82,7 @@ class AutoDriver:
         if run is None:
             return None
         self.reported = True
-        assert isinstance(run.state, Stopped)
-        state = run.state
-        brief_id = state.start.brief_id
-        option = self._option(brief_id, state.history[-1].code_sha256) if state.history else None
-        said = report(
-            state.history,
-            len(state.builds),
-            state.reason,
-            project_statements(self.tenant.roots, ProjectId(state.start.project)),
-            option,
-            for_person=True,
-            not_checked=state.start.not_checked,
-        )
-        return StopReport(run_id=run.run_id, reason=state.reason.kind, report=said)
+        return stop_report(self.tenant.roots, run)
 
     def nudge(self) -> str | None:
         if self.reported or self.run_id is None or self.nudges >= MAX_NUDGES:
@@ -103,15 +92,6 @@ class AutoDriver:
         self.nudges += 1
         return CHAT_AUTO_NUDGE.format(run_id=self.run_id)
 
-    def _option(self, brief_id: str, code_sha256: str) -> str | None:
-        """The name the person sees for the slot that holds this code, and its revision."""
-        roots = self.tenant.roots
-        try:
-            held = variant_sets.members(roots.projects, variant_sets.set_key(roots, brief_id))
-        except (BriefRefused, ProjectRefused, SetRefused):
-            return None
-        return next((name for member in held if (name := _named(member, code_sha256))), None)
-
     def _stopped(self) -> AutoRun | None:
         if self.run_id is None:
             return None
@@ -120,6 +100,46 @@ class AutoDriver:
         except UnknownRun:
             return None
         return run if isinstance(run.state, Stopped) else None
+
+
+def stop_report(roots: Roots, run: AutoRun) -> StopReport:
+    state = run.state
+    assert isinstance(state, Stopped)
+    option = (
+        _option(roots, state.start.brief_id, state.history[-1].code_sha256)
+        if state.history
+        else None
+    )
+    said = report(
+        state.history,
+        len(state.builds),
+        state.reason,
+        project_statements(roots, ProjectId(state.start.project)),
+        option,
+        for_person=True,
+        not_checked=state.start.not_checked,
+    )
+    return StopReport(run_id=run.run_id, reason=state.reason.kind, report=said)
+
+
+def post(channel: Channel, said: StopReport | TurnFailed) -> None:
+    """The transcript is the one record of whether a run's report was posted. The person's Stop
+    and the turn that later sees the stop both post here, on the event loop, so the transcript
+    holds one report for each run."""
+    if isinstance(said, StopReport) and any(
+        isinstance(one, StopReport) and one.run_id == said.run_id for one in channel.events()
+    ):
+        return
+    channel.append(said)
+
+
+def _option(roots: Roots, brief_id: str, code_sha256: str) -> str | None:
+    """The name the person sees for the slot that holds this code, and its revision."""
+    try:
+        held = variant_sets.members(roots.projects, variant_sets.set_key(roots, brief_id))
+    except (BriefRefused, ProjectRefused, SetRefused):
+        return None
+    return next((name for member in held if (name := _named(member, code_sha256))), None)
 
 
 def project_statements(roots: Roots, project: ProjectId) -> dict[str, str]:

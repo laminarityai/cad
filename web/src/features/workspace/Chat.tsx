@@ -310,9 +310,10 @@ export function Composer(props: { placeholder: string; onSend: (text: string) =>
 }
 
 
-export function ChatPane(props: { lines: readonly Line[]; working: Working | null; stalled?: boolean; since?: number | null; card: ReactNode; composer: ReactNode; status?: ReactNode }) {
-  const { lines, working, stalled = false, since = null, card, composer, status } = props;
+export function ChatPane(props: { lines: readonly Line[]; ended: number; working: Working | null; stalled?: boolean; since?: number | null; card: ReactNode; composer: ReactNode; status?: ReactNode }) {
+  const { lines, ended, working, stalled = false, since = null, card, composer, status } = props;
   const phase: Phase = working !== null ? "live" : stalled ? "stalled" : "over";
+  const phaseOf = (calls: readonly Call[], last: boolean): Phase => (last || calls.some((one) => one.result === null && one.seq > ended) ? phase : "over");
   const end = useRef<HTMLDivElement>(null);
   useEffect(() => {
     end.current?.scrollIntoView({ block: "end" });
@@ -320,7 +321,7 @@ export function ChatPane(props: { lines: readonly Line[]; working: Working | nul
   return (
     <section aria-label="Chat" aria-busy={working !== null} className="flex h-full min-h-0 flex-col">
       <div role="log" className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
-        {grouped(lines).map((one, at, all) => (one.kind === "activity" ? <Activity key={`a${String(one.key)}`} lines={one.lines} phase={at === all.length - 1 ? phase : "over"} /> : <Said key={one.line.seq} line={one.line} />))}
+        {grouped(lines).map((one, at, all) => (one.kind === "activity" ? <Activity key={`a${String(one.key)}`} lines={one.lines} phase={phaseOf(one.lines, at === all.length - 1)} /> : <Said key={one.line.seq} line={one.line} />))}
         {working === null ? null : <Loading label={workingLabel(working)} since={since} />}
         {stalled ? (
           <p role="status" data-stalled className="text-[14px] text-ink-2">

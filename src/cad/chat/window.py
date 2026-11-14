@@ -9,10 +9,13 @@ Moving the cut rewrites the API's prompt cache from the first stub on, at the ca
 so the cut moves rarely: each move takes the whole results down to half the cap. Between moves
 the sent prefix is identical and the cache keeps reading it.
 
-The default cap keeps a trimmed conversation of about 80 steps under the 100K-token prompt above
-which Claude Haiku 5.5 bills five times the rate. The system prompt and tools are about 37K
+The default cap aims to keep a trimmed conversation of about 80 steps under the 100K-token prompt
+above which Claude Haiku 5.5 bills five times the rate. The system prompt and tools are about 37K
 tokens, and tool results run about 2 characters a token, so 60000 characters of results stay
-near 30K tokens and leave the rest for the agent's words and calls.
+near 30K tokens and leave the rest for the agent's words and calls. That holds for results that
+average about 4000 characters. The agent's words and calls are never capped, so a session with
+larger results or long calls can pass 100K: a simulation with real result sizes put about 6 of
+80 steps over, the highest near 107K.
 """
 
 from collections.abc import Mapping, Sequence

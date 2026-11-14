@@ -131,7 +131,8 @@ export function Markdown({ text, streaming = false }: { text: string; streaming?
       inText = true;
       continue;
     }
-    const para: string[] = [];
+    const para: string[] = [line];
+    i++;
     while (i < lines.length && (lines[i] ?? "").trim() !== "" && !/^\s*([-*]|\d+\.)\s+|^\s*\||^```|^#{1,4}\s/.test(lines[i] ?? "")) para.push(lines[i++] ?? "");
     blocks.push(
       <p key={key}>

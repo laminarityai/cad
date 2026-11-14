@@ -65,6 +65,7 @@ describe("the tool rows in the chat", () => {
     render(
       <ChatPane
         lines={[{ seq: 1, kind: "tool", callId: "a", name: "build_variant", input: { label: "Wide base", slot: 2, code: "secret_code()" }, result: { text: built, isError: false } }]}
+        ended={0}
         working={null}
         card={null}
         composer={null}
@@ -328,5 +329,45 @@ describe("a request that is open", () => {
     rerender(<Gate resource={{ status: "ok", data: 1 }}>{() => <p>ready</p>}</Gate>);
     expect(screen.queryByRole("status")).toBeNull();
     expect(screen.getByText("ready")).toBeInTheDocument();
+  });
+});
+
+describe("a build still running when the stop report comes", () => {
+  it("stays running under the report, and says done when its result comes", async () => {
+    const chat = new FakeChat();
+    mount(chat, ["v1"]);
+    await screen.findByPlaceholderText(/Ask for a change, such as/);
+    say(
+      chat,
+      { kind: "driver", text: "Carry on with the run.", answered: null },
+      { kind: "tool_call", call_id: "a", name: "build_variant", input: { label: "Slim", slot: 1 } },
+      { kind: "stop_report", run_id: "r1", reason: "stopped", report: "You stopped the run." },
+    );
+    const log = screen.getByRole("log");
+    await within(log).findByText(/You stopped the run/);
+    expect(within(log).queryByText(/did not finish/)).toBeNull();
+    say(chat, { kind: "tool_result", call_id: "a", text: built, is_error: false }, { kind: "turn_ended" });
+    await waitFor(() => {
+      expect(within(log).getByRole("button", { name: /^Built/ })).toBeInTheDocument();
+    });
+    expect(within(log).queryByText(/did not finish/)).toBeNull();
+  });
+
+  it("says a call did not finish once its turn ended without a result, while the next turn runs", async () => {
+    const chat = new FakeChat();
+    mount(chat, ["v1"]);
+    await screen.findByPlaceholderText(/Ask for a change, such as/);
+    say(
+      chat,
+      { kind: "driver", text: "Carry on with the run.", answered: null },
+      { kind: "tool_call", call_id: "a", name: "build_variant", input: { label: "Slim", slot: 1 } },
+      { kind: "stop_report", run_id: "r1", reason: "stopped", report: "You stopped the run." },
+      { kind: "turn_ended" },
+      { kind: "user", text: "make it wider", selection: null },
+      { kind: "tool_call", call_id: "b", name: "build_variant", input: { label: "Wide", slot: 1 } },
+    );
+    const log = screen.getByRole("log");
+    expect(await within(log).findByRole("button", { name: /did not finish/ })).toBeInTheDocument();
+    expect(within(log).getAllByRole("listitem").at(-1)).toHaveAttribute("data-tool", "running");
   });
 });
