@@ -208,6 +208,7 @@ def test_a_peek_calls_a_background_job_pending_while_it_runs_here(
     lanes = Lanes(runner)
     plan = with_fea(tmp_path)
     quick = lanes.settle(plan, 0).quick
+    wait_until(lambda: len(runner.runs) == 2, "the background job never started")
     runs = list(runner.runs)
     peeked = lanes.peek(plan)
     assert peeked is not None
@@ -222,6 +223,7 @@ def test_a_peek_after_a_restart_calls_a_job_no_process_runs_not_running_and_star
 ) -> None:
     runner.background.gate.clear()
     Lanes(runner).settle(with_fea(tmp_path), 0)
+    wait_until(lambda: len(runner.runs) == 2, "the background job never started")
     restarted = Lanes(runner)
     runs = list(runner.runs)
     peeked = restarted.peek(with_fea(tmp_path))
