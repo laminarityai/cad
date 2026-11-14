@@ -1552,6 +1552,15 @@ export interface components {
             kind: "no_brief";
         };
         /**
+         * NotChecked
+         * @description A pair of confirmed requirements no check can weigh until research fills a value, such as
+         *     a minimum mass inside the envelope when the material has no density yet.
+         */
+        NotChecked: {
+            statement: string;
+            requirements: string[];
+        };
+        /**
          * OnFarthest
          * @description On the hole or inner curved face farthest from the supports, of this diameter when
          *     given.
@@ -2078,6 +2087,8 @@ export interface components {
             conflicts: components["schemas"]["Bounds"][];
             /** @default [] */
             materials?: components["schemas"]["BodyChoice"][];
+            /** @default null */
+            not_checked?: components["schemas"]["NotChecked"] | null;
         };
         /**
          * Status
@@ -2600,6 +2611,7 @@ export type MinMass = components['schemas']['MinMass'];
 export type MinSafetyFactor = components['schemas']['MinSafetyFactor'];
 export type NeedsPerson = components['schemas']['NeedsPerson'];
 export type NoBrief = components['schemas']['NoBrief'];
+export type NotChecked = components['schemas']['NotChecked'];
 export type OnFarthest = components['schemas']['OnFarthest'];
 export type OnHoles = components['schemas']['OnHoles'];
 export type OnLargestFlat = components['schemas']['OnLargestFlat'];

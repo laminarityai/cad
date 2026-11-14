@@ -15,6 +15,8 @@ from cad.variants.entry import VariantId, variant_id
 from cad.variants.store import BuildResult
 
 MAX_MEMBERS: Final = 5
+# Not a `type` statement, so a client sees the bounds inline instead of in $defs.
+Slot = Annotated[int, Field(strict=True, ge=1, le=MAX_MEMBERS)]
 
 
 class SetRefused(Refused):

@@ -320,9 +320,10 @@ AGENT_CHECKS = (
 COLOUR_EVERY_BUILD: Final = (
     "Colour every build the way CAD does, a part of one material included. After the last shape "
     "operation, set color on result, or on each body when there are several, to its material's "
-    "colour as it would look in your hand. Then give each area a person would point at, such as "
-    "the holes, a mounting face or a grip, its own label and colour in a module-level list named "
-    'areas, such as areas = [Compound(result.faces().filter_by(GeomType.CYLINDER), label="holes", '
+    "colour as it would look in your hand. Then give each area a person would point at, in each "
+    "body too, such as the holes, a mounting face or a grip, its own label and colour in a "
+    "module-level list named areas, with only the faces that are that area, such as "
+    'areas = [Compound(result.faces().filter_by(GeomType.CYLINDER), label="holes", '
     "color=Color(0.2, 0.2, 0.2))]. Choose the colours yourself. Colour is how the model looks, "
     "and no check reads it. Set it in the same build as the shape. A person who asks only for "
     "other colours gets the slot's next revision."
