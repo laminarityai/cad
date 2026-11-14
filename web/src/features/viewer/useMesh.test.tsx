@@ -2,6 +2,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ServicesProvider } from "@/app/context";
+import { Refused } from "@/api/client";
 import type { VariantView } from "@/api/types";
 import { FakeChat, FakeViewer, fakeApi, meshOf } from "@/test/fakes";
 import { useMesh } from "./useMesh";
@@ -93,6 +94,17 @@ describe("useMesh", () => {
     const asked = geometry.mock.calls.filter(([id]) => id === "v1").length;
     await new Promise((done) => setTimeout(done, 700));
     expect(geometry.mock.calls.filter(([id]) => id === "v1")).toHaveLength(asked);
+  });
+
+  it("says in words, with no id, that an option an earlier version built needs a rebuild", async () => {
+    const outdated = new Refused(409, "OutdatedVariant: variant 4f2b440edaf2134a was stored by an earlier version of the sandbox", "OutdatedVariant");
+    const { result } = mount(fakeApi(["v1"], { view: () => Promise.reject(outdated) }));
+    await waitFor(() => {
+      expect(result.current.status).toBe("failed");
+    });
+    const reason = result.current.status === "failed" ? result.current.reason : "";
+    expect(reason).toMatch(/earlier version of the app/);
+    expect(reason).not.toMatch(/4f2b440edaf2134a|OutdatedVariant|sandbox/);
   });
 
   it("says why a mesh failed", async () => {

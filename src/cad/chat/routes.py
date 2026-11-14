@@ -12,7 +12,7 @@ person's cookie.
 import asyncio
 import logging
 import secrets
-from collections.abc import AsyncIterator, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from typing import Final
 
@@ -35,7 +35,7 @@ from cad.chat.log import (
     UserSaid,
 )
 from cad.chat.model import Model
-from cad.chat.turn import agent_token, run_turn
+from cad.chat.turn import CUT_OFF, agent_token, run_turn
 from cad.confirmations.answers import read_ledger
 from cad.conversations import store
 from cad.conversations.model import (
@@ -55,7 +55,6 @@ from cad.selections.model import Picked, SelectionNote, SelectionRefused
 from cad.variants.entry import VariantRefused
 
 MAX_MESSAGE_CHARS: Final = 20_000
-KEEPALIVE_SECONDS: Final = 15.0
 CHAT_ROUTES: Final = frozenset(
     {
         ("create_conversation", "/v1/conversations"),
@@ -65,7 +64,6 @@ CHAT_ROUTES: Final = frozenset(
     }
 )
 STREAM_HEADERS: Final = {"Cache-Control": "no-store", "X-Accel-Buffering": "no"}
-CUT_OFF: Final = "The server stopped before this turn finished. Send a message to carry on."
 _LOG = logging.getLogger(__name__)
 
 
@@ -278,7 +276,7 @@ def chat_routes(person_of: PersonOf, chat: Chat) -> list[Route]:
         except (ValidationError, ValueError):
             return refuse(422, "after and Last-Event-ID are event numbers, follow is a boolean")
         return StreamingResponse(
-            _events(channel, max(seen, 0), asked.follow),
+            log.frames(channel, max(seen, 0), asked.follow),
             media_type="text/event-stream",
             headers=STREAM_HEADERS,
         )
@@ -314,24 +312,6 @@ def chat_routes(person_of: PersonOf, chat: Chat) -> list[Route]:
         ),
         Route("/v1/conversations/{conversation_id}/stream", stream, methods=["GET"], name="stream"),
     ]
-
-
-async def _events(channel: Channel, seen: int, follow: bool) -> AsyncIterator[str]:
-    """Everything after `seen`, then each event as it is appended. `follow=false` ends after what
-    is held, for a reload or a `curl`."""
-    while True:
-        held = channel.after(seen)
-        for stamped in held:
-            yield log.line(stamped)
-            seen = stamped.seq
-        if held:
-            continue
-        if not follow:
-            return
-        try:
-            await asyncio.wait_for(channel.wait_after(seen), KEEPALIVE_SECONDS)
-        except TimeoutError:
-            yield ": keepalive\n\n"
 
 
 async def _mint(tenant: Tenant, cid: ConversationId, picked: Picked) -> SelectionNote | Response:

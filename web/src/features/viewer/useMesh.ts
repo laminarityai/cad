@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useServices } from "@/app/context";
-import type { Api } from "@/api/client";
+import { Refused, type Api } from "@/api/client";
 import type { Area, BodyFaces } from "@/api/types";
 import { sleep } from "@/lib/sleep";
 import { said, useResources } from "@/state/resource";
@@ -13,6 +13,11 @@ export type MeshState =
   | { status: "failed"; reason: string };
 
 const POLL_MS = 250;
+const REFUSED_IN_WORDS: Readonly<Record<string, string>> = {
+  OutdatedVariant: "This option was built by an earlier version of the app. Ask in the chat to rebuild it.",
+  NotBuilt: "This option did not build. Ask in the chat to fix it.",
+  StaleVariant: "This option's stored files do not match its build. Ask in the chat to build it again.",
+};
 
 interface Read {
   shapes: Shapes;
@@ -45,7 +50,8 @@ async function readMesh(api: Api, variantId: string, signal: AbortSignal): Promi
       signal.throwIfAborted();
     }
   } catch (error) {
-    throw new Error(said(error), { cause: error });
+    const words = error instanceof Refused && error.kind !== null ? REFUSED_IN_WORDS[error.kind] : undefined;
+    throw new Error(words ?? said(error), { cause: error });
   }
 }
 

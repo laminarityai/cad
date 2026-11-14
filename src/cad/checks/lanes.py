@@ -26,6 +26,10 @@ SUPERSEDED: Final = (
     "a newer revision replaced this variant in its slot before this analysis started, so it was "
     "dropped; score the variant again to run it"
 )
+NOT_RUNNING: Final = (
+    "the analysis is not running for this variant and has no stored result, as after a restart "
+    "or a failed run; score the variant again to run it"
+)
 STOPPED: Final = (
     "the server is stopping, so this analysis was not started; score the variant again once the "
     "server is back"
@@ -82,9 +86,9 @@ class Lanes:
 
     def peek(self, plan: Plan) -> Settled | None:
         """What the store holds for `plan`, with no wait and no job started. A background job is
-        done when its result is stored, pending while it runs here, refused when it was
-        interrupted too often, and pending otherwise. None when the quick result is not stored:
-        the variant was never scored."""
+        done when its result is stored and pending only while it is queued or runs here.
+        Otherwise it is refused: interrupted too often, or not running. None when the quick
+        result is not stored: the variant was never scored."""
         quick = job_store.read(plan.quick)
         if quick is None:
             return None
@@ -141,9 +145,9 @@ class Lanes:
             stored = job_store.read(job)
             if stored is not None:
                 return Done(stored)
-            if job_store.result_path(job) in self._flying or not _interrupted_too_often(job):
+            if job_store.result_path(job) in self._flying:
                 return Pending()
-            return Refused(INTERRUPTED)
+            return Refused(INTERRUPTED if _interrupted_too_often(job) else NOT_RUNNING)
 
     def _take_off(self, job: JobSpec) -> Done | Refused | Future[JobResult]:
         path = job_store.result_path(job)

@@ -15,7 +15,7 @@ import { ConfirmCard, formOf } from "./Confirm";
 import { Download } from "./Download";
 import { Explorer } from "./Explorer";
 import { loadWorkspace, type Brief } from "./model";
-import { Start, Workspace } from "./Workspace";
+import { Workspace } from "./Workspace";
 
 const card = (items: number): ConfirmationCard & { snapshot: string } => ({
   snapshot: "s1",
@@ -155,27 +155,6 @@ describe("the chat", () => {
     await userEvent.type(screen.getByRole("textbox", { name: "Message" }), "make it longer{Enter}");
     expect(await screen.findByRole("alert")).toHaveTextContent("still answering");
     expect(screen.getByRole("textbox", { name: "Message" })).toHaveValue("make it longer");
-  });
-
-  it("starts a chat with no project and opens the project its first brief makes", async () => {
-    const chat = new FakeChat();
-    chat.onSend = () => {
-      chat.say({ kind: "tool_call", call_id: "t1", name: "create_brief", input: {} });
-      chat.say({ kind: "tool_result", call_id: "t1", text: "", is_error: false });
-    };
-    render(
-      <MemoryRouter initialEntries={["/new"]}>
-        <Routes>
-          <Route path="/new" element={<Start />} />
-          <Route path="/projects/:projectId" element={<p>project page</p>} />
-        </Routes>
-      </MemoryRouter>,
-      { wrapper: wrap(fakeApi([]), chat) },
-    );
-    await userEvent.type(screen.getByRole("textbox", { name: "Message" }), "a hook{Enter}");
-    expect(await screen.findByText("project page")).toBeInTheDocument();
-    expect(chat.create).toHaveBeenCalledWith();
-    expect(chat.sent).toEqual(["a hook"]);
   });
 });
 

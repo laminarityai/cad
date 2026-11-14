@@ -129,11 +129,24 @@ MUTANTS: Final = (
         JOB_LANES_CAP,
         (
             (
-                'ELSE IF flying[p]["fea"] = "none" /\\ attempt["fea"] >= Cap',
-                'ELSE IF attempt["fea"] >= Cap',
+                'ELSE IF flying[p]["fea"] # "none" THEN [kind |-> "pending"]',
+                'ELSE IF FALSE THEN [kind |-> "pending"]',
             ),
         ),
         "PeekMeansInterrupted",
+    ),
+    Mutant(
+        "peek-pending-when-idle",
+        "_look calls a job pending when nothing runs it, so after a restart the page shows the"
+        " check running forever (#290)",
+        JOB_LANES_CAP,
+        (
+            (
+                'ELSE [kind |-> "refused", why |-> "notrunning"]]',
+                'ELSE [kind |-> "pending"]]',
+            ),
+        ),
+        "PeekPendingMeansRunning",
     ),
     Mutant(
         "stop-counts",

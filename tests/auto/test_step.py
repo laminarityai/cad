@@ -328,3 +328,11 @@ def test_an_assumption_on_the_card_changes_no_standing() -> None:
     )
     assert held.assumptions
     assert standing_of(held, 1, "c" * 64) == standing_of(plain, 1, "c" * 64)
+
+
+def test_the_persons_report_names_no_id_for_an_option_it_cannot_name() -> None:
+    standing = settle(card(checked("r1", FAIL, "160 g")))
+    text = report((standing,), 1, NeedsPerson(why="agent_asked", note="x"), {}, for_person=True)
+    assert "The latest the run checked built." in text
+    assert standing.variant_id not in text
+    assert "r1" not in text

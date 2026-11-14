@@ -72,6 +72,19 @@ describe("httpChat.follow", () => {
     expect(links.slice(0, 2)).toEqual(["connecting", "live"]);
   });
 
+  it("hands over the reply heard so far apart from the events, and resumes after the last event", async () => {
+    const body = 'id: 4\nevent: user\ndata: {"kind":"user","text":"a hook","selection":null}\n\nevent: agent_partial\ndata: {"text":"Built "}\n\n';
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(body, { status: 200 }))));
+    const heard: string[] = [];
+    const seqs: number[] = [];
+    const unfollow = httpChat.follow("c1", 3, { onEvent: (seq) => seqs.push(seq), onLink: () => undefined, onPartial: (text) => heard.push(text) });
+    await vi.waitFor(() => {
+      expect(heard).toEqual(["Built "]);
+    });
+    unfollow();
+    expect(seqs).toEqual([4]);
+  });
+
   it("says signed out for a 401 and not found for a 404, and stops", async () => {
     for (const [status, link] of [
       [401, "signed_out"],
