@@ -35,7 +35,7 @@ from cad.chat.log import (
     UserSaid,
 )
 from cad.chat.model import Model
-from cad.chat.turn import agent_token, run_turn
+from cad.chat.turn import CUT_OFF, agent_token, run_turn
 from cad.confirmations.answers import read_ledger
 from cad.conversations import store
 from cad.conversations.model import (
@@ -65,7 +65,6 @@ CHAT_ROUTES: Final = frozenset(
     }
 )
 STREAM_HEADERS: Final = {"Cache-Control": "no-store", "X-Accel-Buffering": "no"}
-CUT_OFF: Final = "The server stopped before this turn finished. Send a message to carry on."
 _LOG = logging.getLogger(__name__)
 
 

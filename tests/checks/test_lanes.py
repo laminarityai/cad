@@ -7,7 +7,7 @@ import pytest
 
 from cad.checks import job_store
 from cad.checks.jobs import JobResult, JobSpec, Plan, Refused
-from cad.checks.lanes import INTERRUPTED, Done, Lanes, Pending
+from cad.checks.lanes import INTERRUPTED, NOT_RUNNING, Done, Lanes, Pending
 from cad.sandbox.meter import Kind, Reservation, charged, metered
 from cad.sandbox.outcome import SandboxUnavailable
 from tests.support.lanes import (
@@ -201,19 +201,35 @@ def test_a_peek_at_a_job_never_run_is_none_and_starts_nothing(
     assert runner.runs == []
 
 
-def test_a_peek_reads_the_stored_quick_result_and_calls_a_background_job_pending(
+def test_a_peek_calls_a_background_job_pending_while_it_runs_here(
     tmp_path: Path, runner: GatedRunner
 ) -> None:
     runner.background.gate.clear()
     lanes = Lanes(runner)
     plan = with_fea(tmp_path)
-    quick = lanes.settle(quick_only(tmp_path), 0).quick
+    quick = lanes.settle(plan, 0).quick
     runs = list(runner.runs)
     peeked = lanes.peek(plan)
     assert peeked is not None
     assert peeked.quick == quick
     assert peeked.background == (Pending(),)
     assert runner.runs == runs
+    runner.background.gate.set()
+
+
+def test_a_peek_after_a_restart_calls_a_job_no_process_runs_not_running_and_starts_nothing(
+    tmp_path: Path, runner: GatedRunner
+) -> None:
+    runner.background.gate.clear()
+    Lanes(runner).settle(with_fea(tmp_path), 0)
+    restarted = Lanes(runner)
+    runs = list(runner.runs)
+    peeked = restarted.peek(with_fea(tmp_path))
+    assert peeked is not None
+    assert peeked.background == (Refused(NOT_RUNNING),)
+    assert "score the variant again" in NOT_RUNNING
+    assert runner.runs == runs
+    runner.background.gate.set()
 
 
 def test_a_peek_reports_a_stored_background_result_as_done_and_runs_nothing(

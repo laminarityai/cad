@@ -6,6 +6,7 @@ AGENT list and nothing else. The server gets an `AgentToken` built from the pers
 session, naming only the conversation. The token never leaves this process.
 """
 
+import asyncio
 import base64
 import json
 import logging
@@ -66,6 +67,7 @@ MAX_STEPS: Final = 100
 MAX_RESULT_CHARS: Final = 40_000
 FIRST_WORDS: Final = 120
 MAX_ATTACHED_BYTES: Final = 20 * 1024 * 1024
+CUT_OFF: Final = "The server stopped before this turn finished. Send a message to carry on."
 _LOG = logging.getLogger(__name__)
 
 
@@ -79,13 +81,17 @@ def agent_token(person: PersonSession, cid: ConversationId) -> AgentToken:
 
 
 async def run_turn(model: Model, tenants: Tenants, token: AgentToken, channel: Channel) -> None:
-    """Run until the model has nothing more to call or the run stops. Never raises: whatever goes
-    wrong becomes a `TurnFailed` the person reads, and the turn always ends with `TurnEnded`."""
+    """Run until the model has nothing more to call or the run stops. Raises only a cancel, from a
+    server that is stopping: whatever goes wrong, a cancel too, becomes a `TurnFailed` the person
+    reads, and the turn always ends with `TurnEnded`."""
     try:
         await _converse(model, tenants, token, channel)
     except Exception:
         _LOG.exception("chat turn %s failed", token.token_id)
         channel.append(TurnFailed(message="the agent failed; the server log holds the cause"))
+    except asyncio.CancelledError:
+        channel.append(TurnFailed(message=CUT_OFF))
+        raise
     finally:
         channel.append(TurnEnded())
         channel.running = False
