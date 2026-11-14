@@ -1,7 +1,7 @@
 import data from "./facts.json";
 
 export type Source =
-  | { kind: "survey"; label: string; url: string }
+  | { kind: "survey" | "study"; label: string; url: string }
   | { kind: "repo"; label: string; measure: "checks" | "options" | "materials" };
 
 export interface Fact {

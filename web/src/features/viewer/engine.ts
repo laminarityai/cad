@@ -64,7 +64,7 @@ const CUT_NORMAL: readonly Vector3Tuple[] = [
 ];
 const AXIS_AT: Record<Axis, 0 | 1 | 2> = { x: 0, y: 1, z: 2 };
 
-const EDGE: Record<Theme, number> = { light: 0x2a3236, dark: 0xb9c1be };
+export const EDGE = 0x2a3236;
 
 export const threeCadViewer: ViewerEngine = {
   async mount(element, shapes, theme, onPick) {
@@ -96,7 +96,7 @@ export const threeCadViewer: ViewerEngine = {
     const draw = (next: Shapes) => {
       viewer.render(
         next as unknown as Parameters<typeof viewer.render>[0],
-        { edgeColor: EDGE[theme], defaultOpacity: 1, normalLen: 0 },
+        { edgeColor: EDGE, defaultOpacity: 1, normalLen: 0 },
         { up: "Z", axes: false, grid: [false, false, false], ortho: true },
       );
       display.showTools(false);

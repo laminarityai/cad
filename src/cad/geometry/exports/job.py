@@ -1,6 +1,7 @@
 import base64
 import hashlib
 import json
+import logging
 from dataclasses import dataclass
 from typing import Annotated, Final
 
@@ -20,6 +21,7 @@ SOURCES: Final = stage.read_sources(ENTRY)
 BOOT: Final = f"import sys; sys.path.insert(0, {stage.TARGET!r}); from {ENTRY} import main; main()"
 VERSION: Final = hashlib.sha256(json.dumps([IMAGE_TAG, SOURCES.digest]).encode()).hexdigest()[:12]
 REPORT: Final = TypeAdapter[ExportReport](Annotated[ExportReport, Field(discriminator="kind")])
+_LOG = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -81,9 +83,12 @@ def export(brep: bytes, key: str, areas: Areas, bodies: Bodies = ()) -> Ran:
         return failed(f"the export container sent a malformed report: {error.errors()[0]}")
     if report["kind"] != "exported":
         return failed(report["reason"], lasting=True)
+    left_out = report["colours_left_out"]
+    if left_out is not None:
+        _LOG.warning("export %s: the STEP was written without its colours: %s", key, left_out)
     made = Made(
         step=base64.b64decode(report["step"]),
         stl=base64.b64decode(report["stl"]),
         threemf=base64.b64decode(report["threemf"]),
     )
-    return Ran(Exported(key=key, version=VERSION), True, made)
+    return Ran(Exported(key=key, version=VERSION, colours_left_out=left_out), True, made)

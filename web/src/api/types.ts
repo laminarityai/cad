@@ -1099,6 +1099,8 @@ export interface components {
             kind: "ready";
             url: string;
             filename: string;
+            /** @default null */
+            colours_left_out?: string | null;
         };
         ExportView: components["schemas"]["ExportReady"] | components["schemas"]["ExportPreparing"] | components["schemas"]["ExportFailure"];
         /**
