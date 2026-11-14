@@ -5,6 +5,7 @@ import { reasonText, type RunView } from "./run";
 
 const tried = (builds: number) => (builds === 0 ? "nothing built yet" : `${String(builds)} ${builds === 1 ? "build" : "builds"} tried`);
 
+const SETTLING = "Its checks are still running. They show on the cards when they finish.";
 const IDLE = "Nothing is working on it now. Send a message to carry it on, or stop it.";
 
 export function RunStatus(props: { run: RunView | null; working: Working | null; stalled: boolean; problem: string | null; onStop: () => void }) {
@@ -32,7 +33,7 @@ export function RunStatus(props: { run: RunView | null; working: Working | null;
                 <p role="status" className="text-[15px]">
                   Running · {tried(run.builds)}
                 </p>
-                <p className="pt-0.5 text-[14px] text-ink-2">{stalled ? STALLED : IDLE}</p>
+                <p className="pt-0.5 text-[14px] text-ink-2">{stalled ? STALLED : run.checksSettling ? SETTLING : IDLE}</p>
               </>
             ) : (
               <>

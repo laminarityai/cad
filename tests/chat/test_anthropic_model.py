@@ -3,12 +3,15 @@ from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from typing import Any
 
+import anthropic
+import httpx2
 import pytest
 from anthropic.types import ServerToolUseBlock, TextBlock, ToolUseBlock, WebSearchToolResultBlock
 
 from cad.chat.anthropic_model import SEARCHES, AnthropicModel
+from cad.chat.guidance import CHAT_TOO_LONG
 from cad.chat.log import Page, WebFound, WebSearched, messages_of, web_event
-from cad.chat.model import HEARD, Message, ServerBlock, Text, ToolSpec, ToolUse
+from cad.chat.model import HEARD, Message, ModelUnavailable, ServerBlock, Text, ToolSpec, ToolUse
 
 pytestmark = pytest.mark.anyio
 
@@ -193,3 +196,21 @@ def test_the_transcript_keeps_a_search_and_drops_one_that_never_returned() -> No
         )
     )
     assert isinstance(failed, WebFound) and failed.error == "max_uses_exceeded"
+
+
+async def test_a_request_that_is_too_long_ends_the_turn_with_a_plain_message() -> None:
+    messages = Messages()
+
+    @asynccontextmanager
+    async def refuse(**request: Any) -> AsyncGenerator[object]:
+        del request
+        response = httpx2.Response(400, request=httpx2.Request("POST", "https://api.test"))
+        raise anthropic.BadRequestError(
+            "prompt is too long: 1100000 tokens > 1000000 maximum", response=response, body=None
+        )
+        yield
+
+    messages.stream = refuse  # pyright: ignore[reportAttributeAccessIssue]
+    with pytest.raises(ModelUnavailable) as raised:
+        await a_model(messages).reply("system", ASKED, SPECS, 0)
+    assert str(raised.value) == CHAT_TOO_LONG

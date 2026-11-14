@@ -84,3 +84,21 @@ CHAT_WEB_SEARCH: Final = (
     "research request with submit_research, giving the page's url and the quote on it, and the "
     "server fetches the page and checks the quote."
 )
+
+CHAT_LONG: Final = (
+    "In a long conversation the server leaves out the full text of your earliest tool results and "
+    "shows a short note in their place. Never recall a number, an id or a verdict from such a "
+    "result. Read it again: list_requirements for what the person confirmed, scorecard for the "
+    "checks, variant_set for the variants and their ids, variant_code for the code. What the "
+    "person wrote is always whole."
+)
+
+CHAT_TRIMMED_NOTICE: Final = (
+    "This conversation is long. The agent no longer sees the full results of its earliest steps, "
+    "and reads them again when it needs them."
+)
+
+CHAT_TOO_LONG: Final = (
+    "This conversation is too long for the model to read. Start a new conversation. This one "
+    "stays as it is."
+)

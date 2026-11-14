@@ -10,6 +10,7 @@ import asyncio
 import base64
 import json
 import logging
+import os
 import secrets
 from typing import Any, Final, cast
 
@@ -22,13 +23,16 @@ from cad.chat.auto_driver import AutoDriver
 from cad.chat.guidance import (
     CHAT_ADDED,
     CHAT_AUTO,
+    CHAT_LONG,
     CHAT_ON_THE_PAGE,
     CHAT_OPEN_PROJECT,
+    CHAT_TRIMMED_NOTICE,
     WITHHELD_NOTE,
 )
 from cad.chat.log import (
     AgentSaid,
     Channel,
+    ContextTrimmed,
     DriverSaid,
     ToolCalled,
     ToolReturned,
@@ -50,6 +54,7 @@ from cad.chat.model import (
     ToolSpec,
     ToolUse,
 )
+from cad.chat.window import cap_of, trim
 from cad.context_parts.model import FromUpload
 from cad.context_parts.store import newest_parts
 from cad.conversations import store
@@ -120,9 +125,15 @@ async def _converse(model: Model, tenants: Tenants, token: AgentToken, channel: 
                 return
         HEARD.set(channel.hear)
         searches_spent = 0
+        cap = cap_of(os.environ)
+        told = any(isinstance(one, ContextTrimmed) for one in events)
         for _ in range(MAX_STEPS):
+            sent, shortened = trim(messages, cap)
+            if shortened and not told:
+                channel.append(ContextTrimmed(text=CHAT_TRIMMED_NOTICE))
+                told = True
             try:
-                reply = await model.reply(_system(tenant_of()), messages, specs, searches_spent)
+                reply = await model.reply(_system(tenant_of()), sent, specs, searches_spent)
             except ModelUnavailable as unavailable:
                 channel.append(TurnFailed(message=str(unavailable)))
                 return
@@ -161,7 +172,7 @@ async def _converse(model: Model, tenants: Tenants, token: AgentToken, channel: 
 
 
 def _system(tenant: Tenant) -> str:
-    parts = [INSTRUCTIONS, CHAT_AUTO, CHAT_ON_THE_PAGE]
+    parts = [INSTRUCTIONS, CHAT_AUTO, CHAT_ON_THE_PAGE, CHAT_LONG]
     if tenant.conversation is not None:
         held = store.read(tenant.conversations, tenant.conversation)
         if held.project_id is not None:
