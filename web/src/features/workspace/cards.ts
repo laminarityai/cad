@@ -119,7 +119,8 @@ function valueOf(result: DoneCheck | undefined, measures: readonly string[] = []
     return `${String(sizes.length)} ${sizes.length === 1 ? "hole" : "holes"}: ${sizes.map((one) => num(one.magnitude)).join(", ")} ${unit}`;
   }
   if (result.check_id === "min_wall") {
-    const wall = by("min_wall");
+    const body = bodyOf(measures, "min_wall");
+    const wall = by(body === undefined ? "min_wall" : `min_wall:${body}`);
     if (wall) return `${num(wall.magnitude)} ${wall.unit}`;
   }
   if (result.check_id === "closed_solid") {
