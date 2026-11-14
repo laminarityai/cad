@@ -19,7 +19,7 @@ from mcp.server import MCPServer
 
 from cad.accounts.principal import AgentToken, PersonSession
 from cad.briefs import store as briefs
-from cad.chat.auto_driver import AutoDriver
+from cad.chat.auto_driver import AutoDriver, post
 from cad.chat.guidance import (
     CHAT_ADDED,
     CHAT_AUTO,
@@ -120,7 +120,7 @@ async def _converse(model: Model, tenants: Tenants, token: AgentToken, channel: 
         driver = AutoDriver.resume(tenant_of(), events)
         missed = driver.ending()
         if missed is not None:
-            channel.append(missed)
+            post(channel, missed)
             if isinstance(missed, TurnFailed):
                 return
         HEARD.set(channel.hear)
@@ -158,7 +158,7 @@ async def _converse(model: Model, tenants: Tenants, token: AgentToken, channel: 
                 messages.append(Message(role="user", blocks=tuple(results)))
             ending = driver.ending()
             if ending is not None:
-                channel.append(ending)
+                post(channel, ending)
                 return
             if not calls:
                 nudge = driver.nudge()

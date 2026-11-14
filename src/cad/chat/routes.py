@@ -25,6 +25,7 @@ from cad.accounts.principal import PersonSession
 from cad.briefs import store as briefs
 from cad.briefs.store import BriefRefused
 from cad.chat import answer_driver, log
+from cad.chat.auto_driver import post, stop_report
 from cad.chat.log import (
     Channel,
     Channels,
@@ -44,6 +45,7 @@ from cad.conversations.model import (
     UnknownConversation,
     conversation_id,
 )
+from cad.operations.auto import PersonStop
 from cad.operations.model import Tenant
 from cad.operations.routes import PersonOf, refuse, session_person
 from cad.operations.tenants import Tenants
@@ -151,6 +153,21 @@ class Chat:
             channel.append(TurnFailed(message=CUT_OFF))
             channel.append(TurnEnded())
         self._deliver(person, cid, channel, None)
+
+    def stopped(self, person: PersonSession, done: object) -> None:
+        """The person stopped an Auto run: its conversation shows the report now, even while a
+        build under the run still runs. The turn that later sees the stop posts nothing more."""
+        if not isinstance(done, PersonStop):
+            return
+        tenant = self.tenants.of(person.account)
+        cid = done.run.state.start.conversation
+        try:
+            channel = self.channels.of(person.account, tenant.conversations, cid)
+            post(channel, stop_report(tenant.roots, done.run))
+        except Exception:
+            # The stop is recorded already, so a report that cannot be posted must not fail it.
+            # The next turn posts it.
+            _LOG.exception("could not post the stop report of run %s", done.run.run_id)
 
     def _deliver(
         self, person: PersonSession, cid: ConversationId, channel: Channel, only: ProjectId | None

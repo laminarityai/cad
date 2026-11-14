@@ -99,10 +99,12 @@ def no_tenant(account: AccountId) -> Tenant:
 def test_an_operation_with_no_route_and_a_route_with_no_operation_are_both_refused() -> None:
     person = [one for one in OPERATIONS if Audience.PERSON in one.audience]
     with pytest.raises(ValueError, match="lack a partner"):
-        person_routes(person, {}, lambda _: None, no_tenant)
+        person_routes(person, {}, lambda _: None, no_tenant, {})
     stray: dict[str, Served] = {**ROUTES, "stray": Served("/v1/stray")}
     with pytest.raises(ValueError, match="stray"):
-        person_routes(person, stray, lambda _: None, no_tenant)
+        person_routes(person, stray, lambda _: None, no_tenant, {})
+    with pytest.raises(ValueError, match="auto_stopp"):
+        person_routes(person, ROUTES, lambda _: None, no_tenant, {"auto_stopp": print})
 
 
 def test_no_person_only_operation_is_an_agent_tool() -> None:

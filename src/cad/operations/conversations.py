@@ -1,3 +1,4 @@
+from functools import cache
 from typing import Final
 
 from pydantic import BaseModel
@@ -73,7 +74,7 @@ def _settling(tenant: Tenant, run: AutoRun | None) -> bool:
     if run is None or not isinstance(run.state, Running):
         return False
     try:
-        tag = image.image_tag(image.BUILD)
+        tag = _build_tag()
         key = set_key(tenant.roots, run.state.start.brief_id)
         ids = {
             one
@@ -83,6 +84,13 @@ def _settling(tenant: Tenant, run: AutoRun | None) -> bool:
     except (BriefRefused, SetRefused, Unavailable, OSError):
         return False
     return LANES.busy(tenant.variants, ids)
+
+
+@cache
+def _build_tag() -> str:
+    """The page polls every few seconds while a run is running, and the tag hashes the build
+    image's files, which do not change while the server runs."""
+    return image.image_tag(image.BUILD)
 
 
 OPERATIONS: Final = (
