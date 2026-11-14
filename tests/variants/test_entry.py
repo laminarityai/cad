@@ -188,26 +188,6 @@ def test_losing_a_save_race_returns_the_winners_manifest(tmp_path: Path) -> None
     assert sorted(path.name for path in tmp_path.iterdir()) == sorted([entry.BY_CODE, vid])
 
 
-def test_editing_any_trusted_file_re_keys_every_variant(tmp_path: Path) -> None:
-    copies = tuple(tmp_path / directory.name for directory in entry.TRUSTED_DIRECTORIES)
-    for source, copy in zip(entry.TRUSTED_DIRECTORIES, copies, strict=True):
-        shutil.copytree(source, copy, ignore=shutil.ignore_patterns("__pycache__"))
-    before = entry.trust_digest(copies)
-    assert before == entry.TRUST_DIGEST
-    (tmp_path / "sandbox" / "host.py").write_text("# a security fix\n")
-    assert entry.trust_digest(copies) != before
-
-
-def test_other_files_in_a_trusted_directory_do_not_re_key_variants(tmp_path: Path) -> None:
-    (tmp_path / "trusted").mkdir()
-    (tmp_path / "trusted" / "a.py").write_text("x = 1\n")
-    before = entry.trust_digest((tmp_path / "trusted",))
-    (tmp_path / "trusted" / "__pycache__").mkdir()
-    (tmp_path / "trusted" / "__pycache__" / "a.cpython-312.pyc").write_bytes(b"\0")
-    (tmp_path / "trusted" / "notes.txt").write_text("x\n")
-    assert entry.trust_digest((tmp_path / "trusted",)) == before
-
-
 OLD_TAG = "cad-sandbox:before-a-deploy"
 
 

@@ -14,6 +14,7 @@ from cad.data_root import DATA_ROOT
 from cad.errors import NotFound, Refused
 from cad.records import files, key
 from cad.sandbox.bodies import Bodies, bodies_sha256
+from cad.sandbox.builder import encode_code
 from cad.sandbox.outcome import Areas, Build, BuildOutcome, Built, SandboxUnavailable
 
 VARIANTS_ROOT: Final = DATA_ROOT / "variants"
@@ -25,10 +26,23 @@ STEP: Final = "result.step"
 BY_CODE: Final = "by-code"
 ID_PATTERN: Final = re.compile(r"[0-9a-f]{16}")
 MAX_FILE_BYTES: Final = 64 * 1024 * 1024
-TRUSTED_DIRECTORIES: Final = (
-    Path(__file__).resolve().parents[1] / "sandbox",
-    Path(__file__).parent,
+SOURCE: Final = Path(__file__).resolve().parents[1]
+TRUSTED_FILES: Final = (
+    "sandbox/__init__.py",  # runs on every import of the sandbox package
+    "sandbox/bodies.py",  # turns the solid names the runner reports into the stored bodies
+    "sandbox/builder.py",  # sends the runner and code, and turns the report into the outcome
+    "sandbox/container.py",  # the limits and argv a build runs under, and how its report is read
+    "sandbox/image.py",  # how the build image is built from the context its tag hashes
+    "sandbox/outcome.py",  # the stored outcome, and how the reported areas are parsed into it
+    "sandbox/runner.py",  # runs in the container, sent as text, not baked into the image
+    "sandbox/wire.py",  # the report shape the host validates the runner's report against
+    "variants/__init__.py",  # runs on every import of the variants package
+    "variants/entry.py",  # the id, the manifest, and how a record is signed, checked and opened
+    "variants/store.py",  # what a build stores, and which outcomes it does not store
 )
+"""The files whose edit can change what a build stores for the same code and image. Every other
+file of `sandbox/` and `variants/` is named, with why it is left out, in
+tests/variants/test_trust_digest.py."""
 
 VariantId = NewType("VariantId", str)
 LOG = logging.getLogger(__name__)
@@ -60,12 +74,11 @@ class NotBuilt(VariantRefused):
     pass
 
 
-def trust_digest(directories: tuple[Path, ...] = TRUSTED_DIRECTORIES) -> str:
+def trust_digest(root: Path = SOURCE, names: tuple[str, ...] = TRUSTED_FILES) -> str:
     digest = hashlib.sha256()
-    for directory in directories:
-        for path in sorted(directory.glob("*.py")):
-            digest.update(f"{directory.name}/{path.name}\0".encode())
-            digest.update(hashlib.sha256(path.read_bytes()).digest())
+    for name in sorted(names):
+        digest.update(f"{name}\0".encode())
+        digest.update(hashlib.sha256((root / name).read_bytes()).digest())
     return digest.hexdigest()
 
 
@@ -81,10 +94,6 @@ def parse_variant_id(raw: str) -> VariantId:
     if ID_PATTERN.fullmatch(raw) is None:
         raise UnknownVariant(f"a variant id is 16 lowercase hex digits, not {raw!r}")
     return VariantId(raw)
-
-
-def encode_code(code: str) -> bytes:
-    return code.encode("utf-8", "surrogatepass")
 
 
 class Manifest(Build):

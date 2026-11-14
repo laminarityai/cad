@@ -4,8 +4,8 @@ from base64 import b64encode
 import pytest
 
 from cad.sandbox.bodies import MAX_BODIES, MAX_SOLIDS, Body
+from cad.sandbox.builder import Artifacts, classify
 from cad.sandbox.container import Attended, ContainerState, Job
-from cad.sandbox.host import Artifacts, classify
 from cad.sandbox.outcome import Built, NoResult
 
 JOB = Job("build", "sha256:sandbox", (), b"", wall_seconds=60)

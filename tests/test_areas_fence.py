@@ -28,7 +28,7 @@ SOURCE = Path(__file__).parents[1] / "src" / "cad"
 CARRIERS = frozenset(
     {
         "sandbox/outcome.py",
-        "sandbox/host.py",
+        "sandbox/builder.py",
         "sandbox/runner.py",
         "sandbox/wire.py",
         "variants/entry.py",

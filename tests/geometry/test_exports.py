@@ -191,12 +191,8 @@ def test_no_export_file_feeds_a_check_version_the_mesh_version_or_a_variant_id()
     hashes, so every one of them keeps its value."""
     hashed = set(report.DEPENDENCIES.files) | set(mesh_job.SOURCES.files)
     hashed |= set(mesh_job.SERVED.files)
-    hashed |= {f"{one.parent.name}/{one.name}" for one in trusted_files()}
+    hashed |= set(entry.TRUSTED_FILES)
     assert not [path for path in hashed if path.startswith(NEW_CODE)]
-
-
-def trusted_files() -> list[Path]:
-    return [path for directory in entry.TRUSTED_DIRECTORIES for path in directory.glob("*.py")]
 
 
 GRIP = Area(name="grip", colour="#1a1a1a", faces=(0,))

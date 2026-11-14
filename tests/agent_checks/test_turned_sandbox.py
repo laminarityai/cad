@@ -10,7 +10,7 @@ from cad.agent_checks import harness, turned
 from cad.agent_checks.store import CheckRefused, StoredCheck
 from cad.agent_checks.write import write_check
 from cad.records.roots import Roots
-from cad.sandbox import host, image
+from cad.sandbox import builder, image
 from tests.support.agent_checks import BOUNDING_BOX, fetching, snap_fit, unchecked_brief
 
 pytestmark = pytest.mark.docker
@@ -44,8 +44,8 @@ def arm() -> bytes:
     """A snap arm 20 mm long, 5 mm wide and 2 mm thick, built by team code."""
     tag = image.image_tag(image.BUILD)
     code = "from build123d import *\nresult = Box(20, 5, 2)\n"
-    ran = host.build(code, image.current_image(tag), wall_seconds=60)
-    assert isinstance(ran.verdict, host.Artifacts)
+    ran = builder.build(code, image.current_image(tag), wall_seconds=60)
+    assert isinstance(ran.verdict, builder.Artifacts)
     return ran.verdict.brep
 
 

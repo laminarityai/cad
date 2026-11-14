@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pytest
 
+from cad.sandbox.builder import TEXT_CAP, Artifacts, build_job, classify
 from cad.sandbox.container import (
     Attended,
     ContainerState,
@@ -12,7 +13,6 @@ from cad.sandbox.container import (
     TooMuchOutput,
     run_argv,
 )
-from cad.sandbox.host import TEXT_CAP, Artifacts, build_job, classify
 from cad.sandbox.outcome import (
     MAX_AREAS,
     MAX_FACE_NUMBER,

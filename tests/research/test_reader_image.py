@@ -17,7 +17,7 @@ def test_no_reader_file_feeds_a_check_version_the_mesh_version_or_a_variant_id()
     hashed = set(report.DEPENDENCIES.files) | set(mesh_job.SOURCES.files)
     hashed |= set(mesh_job.SERVED.files)
     assert not hashed & set(READER_CODE)
-    trusted = {path for directory in entry.TRUSTED_DIRECTORIES for path in directory.glob("*.py")}
+    trusted = {entry.SOURCE / name for name in entry.TRUSTED_FILES}
     assert not trusted & {src / path for path in READER_CODE}
 
 
