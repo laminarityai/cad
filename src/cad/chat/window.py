@@ -5,8 +5,14 @@ every step without bound. Past a cap, the oldest results are replaced by a short
 newest stay whole. The person's words, the agent's words and every call stay. The stored
 transcript is never touched: only what one request carries changes.
 
-The cut moves in strides of whole results, so between two moves the sent prefix is identical and
-the API's prompt cache keeps reading it.
+Moving the cut rewrites the API's prompt cache from the first stub on, at the cache-write price,
+so the cut moves rarely: each move takes the whole results down to half the cap. Between moves
+the sent prefix is identical and the cache keeps reading it.
+
+The default cap keeps a trimmed conversation of about 80 steps under the 100K-token prompt above
+which Claude Haiku 5.5 bills five times the rate. The system prompt and tools are about 37K
+tokens, and tool results run about 2 characters a token, so 60000 characters of results stay
+near 30K tokens and leave the rest for the agent's words and calls.
 """
 
 from collections.abc import Mapping, Sequence
@@ -15,9 +21,10 @@ from typing import Final
 from cad.chat.model import Message, ToolResult
 
 CAP_VARIABLE: Final = "CAD_CHAT_CONTEXT_CHARS"
-DEFAULT_CAP: Final = 300_000
-STRIDE: Final = 4
-ALWAYS_WHOLE: Final = 2
+DEFAULT_CAP: Final = 60_000
+MEDIA_CHARS: Final = 10_000
+"""The weight of one attached image or PDF. A high-resolution image costs up to about 4,800
+tokens, about 10000 characters of text, whatever the size of its base64."""
 HEAD_CHARS: Final = 300
 
 
@@ -27,13 +34,9 @@ def cap_of(environ: Mapping[str, str]) -> int:
 
 
 def trim(messages: Sequence[Message], cap: int) -> tuple[list[Message], int]:
-    """The messages to send, and how many results were shortened. Results kept whole add up to at
-    most `cap` characters, except that the newest `ALWAYS_WHOLE` are always whole."""
-    weights = [
-        _weight(block) for one in messages for block in one.blocks if isinstance(block, ToolResult)
-    ]
-    kept = _first_whole(weights, cap)
-    if kept == 0:
+    """The messages to send, and how many of the oldest results were shortened."""
+    cut = _cut(messages, cap)
+    if cut == 0:
         return list(messages), 0
     seen = 0
     trimmed: list[Message] = []
@@ -41,26 +44,36 @@ def trim(messages: Sequence[Message], cap: int) -> tuple[list[Message], int]:
         blocks = list(one.blocks)
         for at, block in enumerate(blocks):
             if isinstance(block, ToolResult):
-                if seen < kept:
+                if seen < cut:
                     blocks[at] = _stub(block)
                 seen += 1
         trimmed.append(Message(role=one.role, blocks=tuple(blocks)))
-    return trimmed, kept
+    return trimmed, cut
+
+
+def _cut(messages: Sequence[Message], cap: int) -> int:
+    """How many of the oldest results to shorten. The conversation is replayed one message at a
+    time. When the whole results pass `cap`, the cut moves forward until they are at most half of
+    it, never into the message just added, which the model has not read yet. A conversation that
+    grows by a message keeps every earlier cut, so the cut depends on the stored transcript
+    alone."""
+    weights: list[int] = []
+    cut = 0
+    whole = 0
+    for one in messages:
+        newest = len(weights)
+        added = [_weight(block) for block in one.blocks if isinstance(block, ToolResult)]
+        weights.extend(added)
+        whole += sum(added)
+        if whole > cap:
+            while cut < newest and whole > cap // 2:
+                whole -= weights[cut]
+                cut += 1
+    return cut
 
 
 def _weight(block: ToolResult) -> int:
-    return len(block.text) + sum(len(one.data) for one in block.media)
-
-
-def _first_whole(weights: list[int], cap: int) -> int:
-    """The index, a multiple of `STRIDE`, of the first result kept whole."""
-    if sum(weights) <= cap:
-        return 0
-    newest = max(len(weights) - ALWAYS_WHOLE, 0)
-    for start in range(0, len(weights), STRIDE):
-        if start >= newest or sum(weights[start:]) <= cap:
-            return min(start, newest)
-    return newest
+    return len(block.text) + MEDIA_CHARS * len(block.media)
 
 
 def _stub(block: ToolResult) -> ToolResult:
