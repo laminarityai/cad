@@ -23,6 +23,7 @@ import struct
 import sys
 import urllib.request
 import zipfile
+from io import BytesIO
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from xml.etree import ElementTree
@@ -98,6 +99,14 @@ def threemf_facts(data: bytes, path: Path) -> tuple[str | None, list[float]]:
     return unit, [max(c) - min(c) for c in columns]
 
 
+def names_in(step: bytes, threemf: bytes) -> tuple[list[str], list[str]]:
+    products = re.findall(r"PRODUCT\('([^']*)'", step.decode("latin-1"))
+    with zipfile.ZipFile(BytesIO(threemf)) as archive:
+        model = ElementTree.fromstring(archive.read("3D/3dmodel.model"))
+    objects = [one.get("name") for one in model.iter() if one.tag.endswith("}object")]
+    return products, [name for name in objects if name]
+
+
 def extents_of(card: dict[str, Any]) -> list[float]:
     result = next(one for one in card["results"] if one.get("check_id") == "extents")
     found = {m["name"]: m["value"] for m in result["measured"]}
@@ -156,6 +165,7 @@ def facts(
     stl = stl_box(saved["STL"].read_bytes())
     unit, threemf = threemf_facts(saved["3MF"].read_bytes(), out / "check.3mf")
     (out / "check.3mf").unlink()
+    products, objects = names_in(saved["STEP"].read_bytes(), saved["3MF"].read_bytes())
     report = {
         "variant": shown["variant"],
         "files": {label: [path.name, path.stat().st_size] for label, path in saved.items()},
@@ -165,8 +175,15 @@ def facts(
         "threemf_unit": unit,
         "step_sha256": step_sha,
         "card_step_sha256": card["step"].get("sha256"),
+        "step_products": products,
+        "threemf_objects": objects,
     }
-    if step_sha != report["card_step_sha256"]:
+    # A variant of named bodies is written through the document writer, with one product per body,
+    # so its STEP is not the one the checks measured. Its names are the proof instead.
+    names = [one["name"] for one in card.get("bodies", [])]
+    if names and not all(name in products and name in objects for name in names):
+        raise Missed(f"a body's name is missing from the STEP or the 3MF: {json.dumps(report)}")
+    if not names and step_sha != report["card_step_sha256"]:
         raise Missed(f"the STEP is not the card's STEP: {json.dumps(report)}")
     for name, box in (("STL", stl), ("3MF", threemf)):
         if any(abs(a - b) > TOLERANCE_MM for a, b in zip(box, measured, strict=True)):

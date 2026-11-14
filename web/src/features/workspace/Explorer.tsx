@@ -7,7 +7,7 @@ import { Tooltip } from "@/components/ui/tooltip";
 import { workingLabel, type Working } from "@/features/chat/working";
 import { cn } from "@/lib/utils";
 import { summaryOf, type Card } from "./cards";
-import type { Brief, Doc, Part, ViewAction } from "./model";
+import { stageKey, type Brief, type Doc, type Part, type Slot, type ViewAction } from "./model";
 import { Dot } from "./bits";
 import { Children, Chevron, Files, ROW } from "./Files";
 
@@ -16,8 +16,36 @@ function NoSlots({ brief, working }: { brief: Brief; working: Working | null }) 
   return <li className="px-2 py-1 text-[13px] text-ink-3">{busy !== null ? <Shimmer>{workingLabel(busy)}</Shimmer> : brief.state === "waiting" ? "Needs your OK" : "No options yet"}</li>;
 }
 
-function BriefNode(props: { working: Working | null; brief: Brief; current: boolean; slot: number | undefined; open: boolean; cards: Record<string, Card>; dispatch: Dispatch<ViewAction>; toggle: () => void }) {
-  const { brief, current, slot, open, cards, dispatch, toggle, working } = props;
+function BodyNodes(props: { brief: Brief; slot: Slot; shown: string | null; dispatch: Dispatch<ViewAction> }) {
+  const { brief, slot, shown, dispatch } = props;
+  if (slot.bodies.length === 0) return null;
+  const key = stageKey(brief.id, slot.slot);
+  return (
+    <Children>
+      {slot.bodies.map((one) => (
+        <li key={one.name}>
+          <button
+            type="button"
+            data-body-node={one.name}
+            aria-pressed={shown === one.name}
+            onClick={() => {
+              dispatch({ type: "brief", briefId: brief.id });
+              dispatch({ type: "slot", briefId: brief.id, slot: slot.slot });
+              dispatch({ type: "body", key, body: shown === one.name ? null : one.name });
+            }}
+            className={cn(ROW, "w-full text-[13px]", shown === one.name ? "bg-panel-2 text-ink" : "text-ink-2 hover:bg-panel-2/60")}
+          >
+            <span className="truncate">{one.name}</span>
+            <span className="ml-auto truncate text-ink-3">{one.material}</span>
+          </button>
+        </li>
+      ))}
+    </Children>
+  );
+}
+
+function BriefNode(props: { working: Working | null; brief: Brief; current: boolean; slot: number | undefined; bodyOf: Record<string, string | null>; open: boolean; cards: Record<string, Card>; dispatch: Dispatch<ViewAction>; toggle: () => void }) {
+  const { brief, current, slot, bodyOf, open, cards, dispatch, toggle, working } = props;
   const FolderIcon = open ? FolderOpen : Folder;
   return (
     <Collapsible render={<li />} open={open} onOpenChange={toggle}>
@@ -67,6 +95,7 @@ function BriefNode(props: { working: Working | null; brief: Brief; current: bool
                   <span className="truncate">{one.label}</span>
                   <Dot status={summaryOf(latest ? cards[latest.variantId] : undefined).status} className="ml-auto" />
                 </button>
+                <BodyNodes brief={brief} slot={one} shown={on ? (bodyOf[stageKey(brief.id, one.slot)] ?? null) : null} dispatch={dispatch} />
               </li>
             );
           })}
@@ -81,6 +110,7 @@ export function Explorer(props: {
   briefs: Brief[];
   current: string;
   slot: number | undefined;
+  bodyOf: Record<string, string | null>;
   cards: Record<string, Card>;
   parts: Part[];
   documents: Doc[];
@@ -90,7 +120,7 @@ export function Explorer(props: {
   onChanged: () => void;
   working: Working | null;
 }) {
-  const { projectId, briefs, current, slot, cards, parts, documents, sources, dispatch, onNew, onChanged, working } = props;
+  const { projectId, briefs, current, slot, bodyOf, cards, parts, documents, sources, dispatch, onNew, onChanged, working } = props;
   const [closed, setClosed] = useState<ReadonlySet<string>>(new Set());
   const toggle = (key: string) => () => {
     setClosed((was) => {
@@ -111,7 +141,7 @@ export function Explorer(props: {
       </header>
       <ul data-tree className="space-y-0.5 px-2 pb-2">
         {briefs.map((one) => (
-          <BriefNode key={one.id} working={working} brief={one} current={one.id === current} slot={slot} open={!closed.has(one.id)} cards={cards} dispatch={dispatch} toggle={toggle(one.id)} />
+          <BriefNode key={one.id} working={working} brief={one} current={one.id === current} slot={slot} bodyOf={bodyOf} open={!closed.has(one.id)} cards={cards} dispatch={dispatch} toggle={toggle(one.id)} />
         ))}
         <Files projectId={projectId} parts={parts} documents={documents} sources={sources} open={!closed.has("files")} toggle={toggle("files")} onChanged={onChanged} />
       </ul>

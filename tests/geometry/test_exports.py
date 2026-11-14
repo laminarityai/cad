@@ -11,6 +11,7 @@ from cad.geometry.exports import job, store
 from cad.geometry.exports.lane import Exports
 from cad.geometry.exports.model import Exported, ExportFailed, ExportPending
 from cad.records import files
+from cad.sandbox.bodies import Bodies, Body
 from cad.sandbox.meter import Kind, Reservation, charged, metered
 from cad.sandbox.outcome import Area, Areas, SandboxUnavailable
 from cad.variants import entry
@@ -44,8 +45,8 @@ class Gated:
         self.calls = 0
         self.gate = threading.Event()
 
-    def __call__(self, brep: bytes, key: str, areas: Areas) -> job.Ran:
-        assert (brep, key, areas) == (BREP, SHA, ())
+    def __call__(self, brep: bytes, key: str, areas: Areas, bodies: Bodies) -> job.Ran:
+        assert (brep, key, areas, bodies) == (BREP, SHA, (), ())
         self.calls += 1
         self.gate.wait(5)
         return self.ran
@@ -133,7 +134,7 @@ def test_a_job_that_raises_raises_for_its_reader_and_the_next_read_retries(
 ) -> None:
     calls: list[int] = []
 
-    def down(brep: bytes, key: str, areas: Areas) -> job.Ran:
+    def down(brep: bytes, key: str, areas: Areas, bodies: Bodies) -> job.Ran:
         calls.append(1)
         raise SandboxUnavailable("docker is not reachable")
 
@@ -167,7 +168,7 @@ class Charges:
 def test_a_first_export_is_charged_as_one_check_to_the_account_that_asked_and_a_stored_one_is_free(
     tmp_path: Path,
 ) -> None:
-    def charging(brep: bytes, key: str, areas: Areas) -> job.Ran:
+    def charging(brep: bytes, key: str, areas: Areas, bodies: Bodies) -> job.Ran:
         with charged("check", 1):
             return made()
 
@@ -207,7 +208,7 @@ def test_a_coloured_variant_exports_apart_from_the_same_brep_with_no_colour(
     painted = Entry(HELD.id, HELD.directory, BREP, SHA, (GRIP,))
     asked: list[tuple[str, Areas]] = []
 
-    def run(brep: bytes, key: str, areas: Areas) -> job.Ran:
+    def run(brep: bytes, key: str, areas: Areas, bodies: Bodies) -> job.Ran:
         asked.append((key, areas))
         return job.Ran(Exported(key=key, version=job.VERSION), True, MADE)
 
@@ -223,3 +224,10 @@ def test_a_coloured_variant_exports_apart_from_the_same_brep_with_no_colour(
 def test_renaming_an_area_keeps_its_export_because_the_step_carries_no_names() -> None:
     renamed = GRIP.model_copy(update={"name": "rubber grip"})
     assert job.key_of(SHA, (renamed,)) == job.key_of(SHA, (GRIP,))
+
+
+def test_the_export_key_follows_the_bodies_names_and_leaves_an_unnamed_variant_alone() -> None:
+    two = (Body(name="plate", solids=(0,)), Body(name="gear", solids=(1, 2)))
+    renamed = (Body(name="base", solids=(0,)), two[1])
+    assert job.key_of(SHA, ()) == job.key_of(SHA, (), ()) == SHA
+    assert job.key_of(SHA, (), two) not in {SHA, job.key_of(SHA, (), renamed)}

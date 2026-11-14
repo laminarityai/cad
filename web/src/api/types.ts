@@ -712,6 +712,14 @@ export interface components {
             key: string;
             reason: components["schemas"]["Reason"];
         };
+        /**
+         * BodyFaces
+         * @description The faces of one body of a variant, numbered as its mesh numbers them.
+         */
+        BodyFaces: {
+            name: components["schemas"]["BodyName"];
+            faces: number[];
+        };
         /** BodyMaterial */
         BodyMaterial: {
             body: components["schemas"]["BodyName"];
@@ -2107,6 +2115,9 @@ export interface components {
         /**
          * Tessellated
          * @description The mesh of one BREP, made in the analysis image, as three-cad-viewer renders it.
+         *     `solid_faces` counts the faces of each solid in the order the kernel's explorer finds the
+         *     solids, so face k of solid i is face `sum(solid_faces[:i]) + k`. It is empty when the solids'
+         *     faces do not add up to the mesh's, as for a copy left in place.
          */
         Tessellated: {
             /**
@@ -2118,6 +2129,8 @@ export interface components {
             version: string;
             shapes: components["schemas"]["ShapesWire"];
             topology: components["schemas"]["TopologyWire"];
+            /** @default [] */
+            solid_faces: number[];
         };
         /** TessellationFailed */
         TessellationFailed: {
@@ -2248,6 +2261,8 @@ export interface components {
             mesh: "tessellated" | "failed" | "pending";
             mesh_url: string | null;
             areas: components["schemas"]["Areas"];
+            /** @default [] */
+            bodies: components["schemas"]["BodyFaces"][];
         };
         Vec: [
             number,
@@ -2425,6 +2440,7 @@ export type Basis = components['schemas']['Basis'];
 export type Bodies = components['schemas']['Bodies'];
 export type Body = components['schemas']['Body'];
 export type BodyChoice = components['schemas']['BodyChoice'];
+export type BodyFaces = components['schemas']['BodyFaces'];
 export type BodyMaterial = components['schemas']['BodyMaterial'];
 export type BodyMaterialUse = components['schemas']['BodyMaterialUse'];
 export type BodyName = components['schemas']['BodyName'];

@@ -12,13 +12,17 @@ class UnknownMesh(NotFound):
 
 
 class Tessellated(Frozen):
-    """The mesh of one BREP, made in the analysis image, as three-cad-viewer renders it."""
+    """The mesh of one BREP, made in the analysis image, as three-cad-viewer renders it.
+    `solid_faces` counts the faces of each solid in the order the kernel's explorer finds the
+    solids, so face k of solid i is face `sum(solid_faces[:i]) + k`. It is empty when the solids'
+    faces do not add up to the mesh's, as for a copy left in place."""
 
     kind: Literal["tessellated"] = "tessellated"
     brep_sha256: str
     version: str
     shapes: ShapesWire
     topology: TopologyWire
+    solid_faces: tuple[int, ...] = ()
 
 
 class TessellationFailed(Frozen):

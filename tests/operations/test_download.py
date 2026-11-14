@@ -21,6 +21,7 @@ from cad.operations.briefs import (
 from cad.operations.confirmation import AskToConfirmInput, ask_to_confirm
 from cad.operations.model import Download, Tenant
 from cad.operations.tenants import Tenants
+from cad.sandbox.bodies import Bodies
 from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.outcome import Areas, Build, Built
 from cad.variant_sets import store as variant_sets
@@ -63,8 +64,8 @@ class Gated:
         self.calls = 0
         self.gate = threading.Event()
 
-    def __call__(self, brep: bytes, key: str, areas: Areas) -> job.Ran:
-        assert (brep, key, areas) == (BREP, SHA, ())
+    def __call__(self, brep: bytes, key: str, areas: Areas, bodies: Bodies) -> job.Ran:
+        assert (brep, key, areas, bodies) == (BREP, SHA, (), ())
         self.calls += 1
         self.gate.wait(5)
         return self.ran

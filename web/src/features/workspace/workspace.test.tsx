@@ -198,7 +198,7 @@ describe("the chat's driver line", () => {
   });
 });
 
-const slot = (n: number) => ({ slot: n, label: `Option ${String(n)}`, differs: "", revisions: [{ n: 1, variantId: `v${String(n)}`, at: "2026-11-10T00:00:00Z" }] });
+const slot = (n: number) => ({ slot: n, label: `Option ${String(n)}`, differs: "", revisions: [{ n: 1, variantId: `v${String(n)}`, at: "2026-11-10T00:00:00Z" }], bodies: [] });
 const part = (id: string, title: string, state: Brief["state"], slots: number[]): Brief => ({
   id,
   words: `words of ${title}`,
@@ -215,6 +215,7 @@ describe("the explorer", () => {
     briefs: [part("b1", "Hook", "ready", [1, 2]), part("b2", "Lid", "waiting", [])],
     current: "b1",
     slot: 1,
+    bodyOf: {},
     cards: {},
     parts: [{ id: "k1", name: "rail", size: "30 × 20 × 10 mm", state: "confirmed" as const, uploaded: false, leftOut: null }],
     documents: [],

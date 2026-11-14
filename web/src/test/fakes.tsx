@@ -42,6 +42,7 @@ export const meshOf = (name: string): Tessellated => ({
   version: "0123456789ab",
   shapes: { name } as unknown as Tessellated["shapes"],
   topology: { faces: [], edges: [] },
+  solid_faces: [],
 });
 
 export function fakeApi(variants: string[], overrides: Partial<Api> = {}): Api {
@@ -66,6 +67,7 @@ export function fakeApi(variants: string[], overrides: Partial<Api> = {}): Api {
         mesh: "tessellated" as const,
         mesh_url: `/v1/geometry/0123456789ab/${variantId}.json`,
         areas: [],
+        bodies: [],
       }),
     ),
     mesh: vi.fn((url: string) => Promise.resolve(meshOf(url))),

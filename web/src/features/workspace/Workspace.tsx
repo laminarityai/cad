@@ -88,6 +88,7 @@ function Center(props: {
               slot={slot}
               revision={view.revisionOf[stageKey(brief.id, slot.slot)] ?? null}
               cut={view.cutOf[stageKey(brief.id, slot.slot)] ?? null}
+              body={view.bodyOf[stageKey(brief.id, slot.slot)] ?? null}
               dispatch={dispatch}
               briefId={brief.id}
               fit={brief.fits[0] ?? null}
@@ -225,6 +226,7 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
       briefs={model.briefs}
       current={brief.id}
       slot={slotOf(brief, view)?.slot}
+      bodyOf={view.bodyOf}
       cards={cards}
       parts={model.parts}
       documents={model.documents}

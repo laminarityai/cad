@@ -11,6 +11,7 @@ import { SectionPanel } from "@/features/viewer/SectionPanel";
 import type { Pick, Selection } from "@/features/viewer/selection";
 import { SelectionNote } from "@/features/viewer/SelectionNote";
 import { ViewerCanvas } from "@/features/viewer/ViewerCanvas";
+import { aloneOf } from "@/features/viewer/alone";
 import { useDrawn } from "@/features/viewer/useDrawn";
 import { useMesh } from "@/features/viewer/useMesh";
 import { ROLE_COLOUR, type Where } from "@/features/viewer/where";
@@ -94,6 +95,7 @@ function Mesh(props: {
   variantId: string;
   label: string;
   fit: Fit | null;
+  only: string | null;
   where: Where | null;
   selection: Selection | null;
   extents: Extents | null;
@@ -101,7 +103,7 @@ function Mesh(props: {
   onCut: (next: Cut) => void;
   onPick: OnPick;
 }) {
-  const { variantId, label, fit, where, selection, extents, cut, onCut, onPick } = props;
+  const { variantId, label, fit, only, where, selection, extents, cut, onCut, onPick } = props;
   const mesh = useMesh(variantId);
   const fitMesh = useMesh(fit?.variantId ?? null);
   const [measure, setMeasure] = useState<Measure | null>(null);
@@ -109,7 +111,9 @@ function Mesh(props: {
   const topology = mesh.status === "ready" ? mesh.topology : null;
   const picks = selection?.picks ?? NO_PICKS;
   const readout = useMemo(() => (topology ? readoutOf(picks, topology, measure ?? unmeasured) : null), [picks, topology, measure]);
-  const part = mesh.status === "ready" ? mesh.shapes : mesh.status === "loading" ? mesh.lastDrawn : null;
+  const whole = mesh.status === "ready" ? mesh.shapes : mesh.status === "loading" ? mesh.lastDrawn : null;
+  const faces = mesh.status === "ready" ? mesh.bodies.find((one) => one.name === only)?.faces : undefined;
+  const part = useMemo(() => (whole && topology && faces ? aloneOf(whole, topology, faces) : whole), [whole, topology, faces]);
   const ghost = fitMesh?.status === "ready" ? fitMesh.shapes : null;
   const areas = mesh.status === "ready" ? mesh.areas : NO_AREAS;
   const greyed = greyedBy(where, cut);
@@ -162,6 +166,7 @@ export function Stage(props: {
   slot: Slot;
   revision: number | null;
   cut: Cut | null;
+  body: string | null;
   dispatch: Dispatch<ViewAction>;
   briefId: string;
   fit: Fit | null;
@@ -170,7 +175,7 @@ export function Stage(props: {
   cards: Record<string, Card>;
   onPick: OnPick;
 }) {
-  const { slot, revision, cut, dispatch, briefId, fit, where, selection, cards, onPick } = props;
+  const { slot, revision, cut, body, dispatch, briefId, fit, where, selection, cards, onPick } = props;
   const [showFit, setShowFit] = useState(true);
   const [showSize, setShowSize] = useState(false);
   const newest = slot.revisions.length;
@@ -192,7 +197,7 @@ export function Stage(props: {
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div className="relative min-h-0 flex-1" data-stage>
-        <Mesh variantId={shown.variantId} label={`${slot.label}, revision ${String(showing)}`} fit={showFit ? fit : null} where={marked} selection={selection} extents={showSize ? size : null} cut={cut} onCut={setCut} onPick={onPick} />
+        <Mesh variantId={shown.variantId} label={`${slot.label}, revision ${String(showing)}`} fit={showFit ? fit : null} only={body} where={marked} selection={selection} extents={showSize ? size : null} cut={cut} onCut={setCut} onPick={onPick} />
         <div className="absolute right-3 top-3 z-30 flex max-w-[calc(100%-1.5rem)] items-start gap-2">
           {fit ? (
             <button

@@ -13,9 +13,9 @@ from typing import Final, Protocol, cast
 
 from cad.checks.container.channel import serve
 from cad.checks.container.kernel import StepTooLarge, Unreadable, first_line, ocp_kernel
-from cad.geometry.container import coloured_step
+from cad.geometry.container import coloured_step, named_bodies
 from cad.geometry.container.export_wire import ExportReport
-from cad.sandbox.wire import AreaReport
+from cad.sandbox.wire import AreaReport, BodyReport
 
 CHORDS_MM: Final = (0.01, 0.05)
 ANGULAR_TOLERANCE: Final = 0.1
@@ -45,21 +45,24 @@ class _Build123d(Protocol):
 
 
 def main() -> None:
-    serve(lambda args, brep: iter([export(brep, int(args[0]), coloured_step.parse(args[1]))]))
+    serve(lambda args, brep: iter([export(brep, int(args[0]), *coloured_step.parse(*args[1:3]))]))
 
 
-def export(brep: bytes, report_cap: int, areas: list[AreaReport]) -> ExportReport:
+def export(
+    brep: bytes, report_cap: int, areas: list[AreaReport], bodies: list[BodyReport]
+) -> ExportReport:
     """STEP from the same writer the checks use, so it is the file they measured, or, when the
-    build code coloured areas, the same shape with their colours. Then the binary STL and the
-    3MF of one tessellation, in millimetres, with no colour. The mesh gets coarser once if the
-    three files would not fit the report."""
+    build code coloured areas or named bodies, the same shape with their colours and one product
+    per body. Then the binary STL, which has neither, and the 3MF of one tessellation, in
+    millimetres, with one named object per body. The mesh gets coarser once if the three files
+    would not fit the report."""
     kernel = ocp_kernel()
     shape = kernel.read_brep(brep)
     if isinstance(shape, Unreadable):
         return {"kind": "unreadable", "reason": shape.reason}
     room = max(report_cap - BASE64_ENVELOPE_BYTES, 0) // 4 * 3
     try:
-        coloured = _coloured(brep, areas, room)
+        coloured = _coloured(brep, areas, bodies, room)
         step = kernel.step_bytes(shape, room) if coloured is None else coloured
     except Exception as error:
         return {
@@ -71,7 +74,7 @@ def export(brep: bytes, report_cap: int, areas: list[AreaReport]) -> ExportRepor
     try:
         with tempfile.TemporaryDirectory() as directory:
             for chord in CHORDS_MM:
-                stl, threemf = _meshes(brep, Path(directory), chord)
+                stl, threemf = _meshes(brep, Path(directory), chord, areas, bodies)
                 if len(step) + len(stl) + len(threemf) <= room:
                     return {
                         "kind": "exported",
@@ -84,24 +87,28 @@ def export(brep: bytes, report_cap: int, areas: list[AreaReport]) -> ExportRepor
     return _too_large(f"the mesh at {CHORDS_MM[-1]} mm is over the room the export report has")
 
 
-def _coloured(brep: bytes, areas: list[AreaReport], room: int) -> bytes | StepTooLarge | None:
-    """None when there are no areas or the coloured writer fails, so the plain STEP is written:
-    colour is how the model looks, and losing it must not lose the file."""
-    if not areas:
+def _coloured(
+    brep: bytes, areas: list[AreaReport], bodies: list[BodyReport], room: int
+) -> bytes | StepTooLarge | None:
+    """None when there are no areas or bodies, or the coloured writer fails, so the plain STEP
+    is written: colour and names are how the model looks, and losing them must not lose the
+    file."""
+    if not areas and not bodies:
         return None
     try:
-        return coloured_step.step_bytes(brep, areas, room)
+        return coloured_step.step_bytes(brep, areas, bodies, room)
     except Exception:
         return None
 
 
-def _meshes(brep: bytes, directory: Path, chord_mm: float) -> tuple[bytes, bytes]:
+def _meshes(
+    brep: bytes, directory: Path, chord_mm: float, areas: list[AreaReport], bodies: list[BodyReport]
+) -> tuple[bytes, bytes]:
     build123d = cast(_Build123d, importlib.import_module("build123d"))
     (directory / "part.brep").write_bytes(brep)
     mesher = build123d.Mesher(build123d.Unit.MM)
-    mesher.add_shape(
-        build123d.import_brep(str(directory / "part.brep")), chord_mm, ANGULAR_TOLERANCE
-    )
+    shape = build123d.import_brep(str(directory / "part.brep"))
+    mesher.add_shape(named_bodies.of(shape, areas, bodies) or shape, chord_mm, ANGULAR_TOLERANCE)
     mesher.write(str(directory / "part.stl"))
     mesher.write(str(directory / "part.3mf"))
     sha256 = hashlib.sha256(brep).hexdigest()

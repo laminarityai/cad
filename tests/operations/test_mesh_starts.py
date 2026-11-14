@@ -8,6 +8,7 @@ import pytest
 from cad.accounts.principal import AccountId
 from cad.chat.turn import MAX_RESULT_CHARS
 from cad.geometry import job
+from cad.geometry.bodies import BodyFaces
 from cad.geometry.container.wire import FaceFacts
 from cad.geometry.lane import TESSELLATIONS
 from cad.geometry.model import Tessellated
@@ -15,6 +16,7 @@ from cad.operations import reads
 from cad.operations.model import Tenant
 from cad.operations.tenants import Tenants
 from cad.operations.variants import BuildVariantInput, build_variant
+from cad.sandbox.bodies import Body
 from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.outcome import Area, Build, Built, NoResult
 from cad.variants import entry
@@ -142,6 +144,21 @@ def test_view_shows_the_areas_only_when_the_mesh_has_every_face_they_name(
     run.gate.set()
     assert TESSELLATIONS.read(alice.geometry, held, 5) == TWO_FACES
     assert reads.view(alice, reads.VariantInput(variant_id=vid)).areas == shown
+
+
+def test_view_gives_each_body_the_faces_of_its_solids(alice: Tenant, run: Gated) -> None:
+    run.mesh = MESH.model_copy(update={"solid_faces": (6, 3, 3)})
+    bodies = (Body(name="plate", solids=(0,)), Body(name="gear", solids=(1, 2)))
+    vid = stored_build(alice, "result = 4", Built(bodies=bodies))
+    held = entry.open_entry(alice.variants, vid, image_tag(BUILD))
+    asked = reads.VariantInput(variant_id=vid)
+    assert reads.view(alice, asked).bodies == ()
+    run.gate.set()
+    assert TESSELLATIONS.read(alice.geometry, held, 5) == run.mesh
+    assert reads.view(alice, asked).bodies == (
+        BodyFaces(name="plate", faces=(0, 1, 2, 3, 4, 5)),
+        BodyFaces(name="gear", faces=(6, 7, 8, 9, 10, 11)),
+    )
 
 
 def test_a_build_tells_the_agent_each_area_by_its_face_count_within_the_chat_limit(
