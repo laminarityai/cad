@@ -85,6 +85,14 @@ class Bounds(Frozen):
     reads: tuple[Read, ...] = ()
 
 
+class NotChecked(Frozen):
+    """A pair of confirmed requirements no check can weigh until research fills a value, such as
+    a minimum mass inside the envelope when the material has no density yet."""
+
+    statement: str
+    requirements: tuple[str, ...]
+
+
 class AllPass(Frozen):
     kind: Literal["all_pass"] = "all_pass"
     researched: tuple[str, ...]
@@ -137,6 +145,7 @@ class Started(Frozen):
     watermark: tuple[tuple[str, int], ...]
     conflicts: tuple[Bounds, ...]
     materials: tuple[BodyChoice, ...] = Field(default=(), exclude_if=lambda each: not each)
+    not_checked: NotChecked | None = Field(default=None, exclude_if=lambda one: one is None)
 
 
 class Revised(Frozen):

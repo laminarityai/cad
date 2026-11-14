@@ -4,7 +4,7 @@ from typing import Annotated, Final
 from pydantic import BaseModel, Field
 
 from cad.auto import building, log
-from cad.auto.bounds import bounds_conflicts
+from cad.auto.bounds import bounds_conflicts, unweighed
 from cad.auto.gate import gate, record_proposals, stops_at_the_limit, watermark
 from cad.auto.model import (
     Asked,
@@ -47,7 +47,7 @@ from cad.sandbox import image
 from cad.sandbox.outcome import Built
 from cad.scorecard import material
 from cad.variant_sets import store as variant_sets
-from cad.variant_sets.model import BodyChoice, Reason, code_sha256
+from cad.variant_sets.model import BodyChoice, Reason, Slot, code_sha256
 from cad.variant_sets.placement import CHOOSE, refuse_unpinned
 from cad.variants import entry
 
@@ -69,7 +69,9 @@ AUTO_START = (
     "material_reason, one line saying why it suits the part. Without both the start is "
     "refused. The run builds every revision with that material, records it with the slot as "
     "chosen by the agent, and scores it. When the confirmed targets conflict, the run stops at "
-    "once with the proof and builds nothing. When this conversation's run on the brief has not "
+    "once with the proof and builds nothing. not_checked names a pair no check can weigh yet, "
+    "such as a mass in a material with no density: tell the person, and research the value. "
+    "When this conversation's run on the brief has not "
     "stopped, auto_start returns that run. A run belongs to the conversation that started it: "
     "while it has not stopped, auto_start on its brief from another conversation is refused, "
     "and auto_revise and auto_ask on it are refused from any other conversation and from a "
@@ -91,10 +93,10 @@ STOPS = (
 )
 AUTO_REVISE = (
     "Build and score one revision of the design under this conversation's Auto run. Pass "
-    "run_id and the build123d code, with slot as in build_variant: a slot the run's brief's "
-    "variant set holds, to revise that variant, or its next free slot. Any other slot is "
-    "refused before anything is built, so to revise a variant the person names, start the run "
-    "on the brief whose variant set holds it. The server builds the code "
+    "run_id and the build123d code, colours and areas included, with slot as in build_variant: "
+    "a slot the run's brief's variant set holds, to revise that variant, or its next free slot. "
+    "Any other slot is refused before anything is built, so to revise a variant the person "
+    "names, start the run on the brief whose variant set holds it. The server builds the code "
     "into the run's brief's variant set, scores it with the run's material and returns the run. "
     "A running state holds history, one standing per revision with each confirmed "
     "requirement's mark and reasons, why each requirement that fails or is unknown got its mark, "
@@ -146,7 +148,7 @@ class StartInput(Input):
 class ReviseInput(Input):
     run_id: str
     code: Annotated[str, Field(max_length=MAX_CODE_CHARS)]
-    slot: Annotated[int | None, Field(strict=True)] = None
+    slot: Slot | None = None
 
 
 class AskInput(Input):
@@ -210,6 +212,7 @@ def auto_start(tenant: Tenant, arguments: StartInput) -> AutoRun:
         material_reason=None if pinned or each else arguments.material_reason,
         watermark=seen,
         conflicts=bounds_conflicts(confirmed.requirements, table),
+        not_checked=unweighed(confirmed.requirements, table),
         materials=tuple(
             BodyChoice(body=one.body, key=table.row_key(one.key), reason=one.reason) for one in each
         ),

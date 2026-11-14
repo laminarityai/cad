@@ -91,6 +91,7 @@ class AutoDriver:
             project_statements(self.tenant.roots, ProjectId(state.start.project)),
             option,
             for_person=True,
+            not_checked=state.start.not_checked,
         )
         return StopReport(run_id=run.run_id, reason=state.reason.kind, report=said)
 

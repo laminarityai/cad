@@ -11,7 +11,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Final, Literal, assert_never
 
-from cad.auto.model import Bounds, Read
+from cad.auto.model import Bounds, NotChecked, Read
 from cad.briefs.bindable import BINDABLE
 from cad.briefs.holes import FastenerHoles, PlainHoles
 from cad.briefs.model import (
@@ -53,14 +53,6 @@ class _Bound:
     space: str = ""
 
 
-@dataclass(frozen=True, slots=True)
-class Unweighed:
-    """A material whose density is unknown, so a mass bound inside a volume is not checked."""
-
-    statement: str
-    requirements: tuple[str, ...]
-
-
 @dataclass
 class _Gathered:
     lows: defaultdict[str, list[_Bound]]
@@ -86,7 +78,7 @@ def bounds_conflicts(
     return tuple(one for one in found if one is not None)
 
 
-def unweighed(requirements: Sequence[Requirement], table: MaterialsTable) -> Unweighed | None:
+def unweighed(requirements: Sequence[Requirement], table: MaterialsTable) -> NotChecked | None:
     """The note for a minimum mass inside a volume when the material has no density yet. It
     says the pair is not checked, never that it can or cannot be met."""
     gathered = _gather(requirements)
@@ -99,10 +91,11 @@ def unweighed(requirements: Sequence[Requirement], table: MaterialsTable) -> Unw
     key = table.row_key(made_of.target.material)
     if isinstance(table.get_material(key).density, Known):
         return None
-    return Unweighed(
-        f"{table.name_of(key)} has no density yet, so whether the mass can be at least "
-        f"{lowest.value:g} g within {room.space} is not checked until its density is researched",
-        tuple(dict.fromkeys((*lowest.requirements, made_of.id, *room.requirements))),
+    return NotChecked(
+        statement=f"{table.name_of(key)} has no density yet, so whether the mass can be at "
+        f"least {lowest.value:g} g within {room.space} is not checked until its density is "
+        "researched",
+        requirements=tuple(dict.fromkeys((*lowest.requirements, made_of.id, *room.requirements))),
     )
 
 

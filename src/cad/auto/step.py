@@ -11,6 +11,7 @@ from cad.auto.model import (
     Event,
     Mark,
     NeedsPerson,
+    NotChecked,
     PersonStopped,
     Proposed,
     Revised,
@@ -190,7 +191,9 @@ def _stop(state: Running, reason: StopReason) -> Stopped:
         history=state.history,
         builds=state.builds,
         reason=reason,
-        report=report(state.history, len(state.builds), reason),
+        report=report(
+            state.history, len(state.builds), reason, not_checked=state.start.not_checked
+        ),
     )
 
 
@@ -202,6 +205,7 @@ def report(
     option: str | None = None,
     *,
     for_person: bool = False,
+    not_checked: NotChecked | None = None,
 ) -> str:
     """The stop report. `builds` counts every build under the run. The agent's copy names ids.
     The person's sets `for_person` and passes `said`, each requirement's statement, and `option`,
@@ -215,6 +219,8 @@ def report(
         return ", ".join(said.get(rid, unnamed or rid) for rid in rids)
 
     lines = [_reason(reason, named), _builds(builds, reason)]
+    if not_checked is not None:
+        lines.append(f"Not checked: {not_checked.statement}.")
     if history:
         latest = history[-1]
         if not latest.built:
