@@ -47,7 +47,7 @@ from outcome import (
     read_results,
     write_result,
 )
-from session import run_session
+from session import SessionRun, read_transcript, run_session
 from summary import markdown, summarize
 from tracefacts import failed_trace, trace_session
 
@@ -75,9 +75,11 @@ def run_one(brief: BriefInput, out: Path, model: str, timeout_s: float) -> Brief
     home.mkdir(parents=True)
     human_log = directory / "human.jsonl"
     started = time.monotonic()
-    session = run_session(
-        prompt_for(brief), home, directory / "transcript.json", human_log, model, timeout_s
-    )
+    transcript = directory / "transcript.json"
+    try:
+        session = run_session(prompt_for(brief), home, transcript, human_log, model, timeout_s)
+    except RuntimeError as error:
+        session = SessionRun(None, False, str(error), read_transcript(transcript))
     seconds = time.monotonic() - started
     pages = read_pages(human_log)
     stores = home / ".cad"
@@ -98,7 +100,7 @@ def run_one(brief: BriefInput, out: Path, model: str, timeout_s: float) -> Brief
     elif failed:
         note = session.note
     else:
-        trace = _trace(home, directory / "transcript.json")
+        trace = _trace(home, transcript)
     if pages.errors:
         note = "; ".join(filter(None, [note, *pages.errors]))
     return BriefResult(

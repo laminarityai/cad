@@ -61,3 +61,19 @@ def test_a_face_the_signed_job_result_does_not_hold_is_untraced(
         and "differs from the signed job result in where" in line
         for line in traced.untraced
     ), traced.untraced
+
+
+def test_a_face_index_is_compared_as_an_exact_integer(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    sandbox(monkeypatch, ran(Verdict.PASS, where=Where(support=(1234567,), load=(4,))))
+    scoring = a_scoring(tmp_path, stated=True)
+    card = scoring.score()
+    fea_of(card)["where"]["support"][0] = 1234568
+    write_transcript(scoring.variants, json.dumps(card))
+    traced = trace_session(scoring.home, transcript_of(scoring.variants))
+    assert any(
+        "Unresolved face support[0] is 1234568 on the card, but the signed job result holds "
+        "1234567" in line
+        for line in traced.untraced
+    ), traced.untraced

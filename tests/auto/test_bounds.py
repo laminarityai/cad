@@ -206,3 +206,27 @@ def test_the_note_for_a_body_minimum_mass_names_the_body() -> None:
         "asa has no density yet, so whether the mass of the plate can be at least 50 g within "
         "the whole 20 x 20 x 20 mm box (8 cm³) is not checked until its density is researched"
     )
+
+
+@pytest.mark.parametrize(
+    ("targets", "statement"),
+    [
+        (
+            (CUBE, on("plate", volume("at_least", 4)), on("gear", volume("at_least", 5))),
+            "The volume minimums of the bodies add up to 9 cm³ (the plate's 4, the gear's 5), "
+            "but the whole 20 x 20 x 20 mm box holds 8 cm³",
+        ),
+        (
+            (CUBE, limit("mass", "volume", "at_least", 9000, "mm^3")),
+            "The volume of material in the part must be at least 9 cm³, but the whole "
+            "20 x 20 x 20 mm box holds 8 cm³",
+        ),
+    ],
+    ids=["summed bodies", "stated in mm³"],
+)
+def test_a_volume_conflict_states_every_volume_in_cm3(
+    targets: tuple[dict[str, Any], ...], statement: str
+) -> None:
+    [found] = bounds_conflicts(brief(*targets), TABLE)
+    assert found.quantity == "volume"
+    assert found.statement == statement

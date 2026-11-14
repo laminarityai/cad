@@ -6,7 +6,9 @@ CARD_TOOLS: Final = ("mcp__cad__score_variant", "mcp__cad__scorecard")
 
 
 def cards_in(events: list[dict[str, Any]]) -> list[str]:
+    """A call answered twice makes which answer the session read unknowable, so it fails."""
     asked: set[str] = set()
+    answered: set[object] = set()
     cards: list[str] = []
     for event in events:
         message = cast(dict[str, Any], event.get("message", {}))
@@ -14,6 +16,11 @@ def cards_in(events: list[dict[str, Any]]) -> list[str]:
         if not isinstance(content, list):
             continue
         for block in cast(list[dict[str, Any]], content):
+            if block.get("type") == "tool_result":
+                call = block.get("tool_use_id")
+                if call in answered:
+                    raise ValueError(f"more than one tool_result for tool_use_id {call!r}")
+                answered.add(call)
             if block.get("type") == "tool_use" and block.get("name") in CARD_TOOLS:
                 asked.add(cast(str, block["id"]))
             elif (
