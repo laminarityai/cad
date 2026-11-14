@@ -95,6 +95,7 @@ EXPECTED: Final[dict[str, Answer]] = {
     "cad.variants.entry.StaleVariant": ("400 named", "named"),
     "cad.variants.entry.UnknownVariant": ("404 named", "named"),
     "cad.variants.entry.VariantRefused": ("400 named", "named"),
+    "cad.variants.repair.ShapeNotRebuilt": ("400 named", "named"),
     "cad.variants.store.RebuildFailed": ("400 named", "named"),
 }
 

@@ -19,6 +19,8 @@ LEFT_OUT: Final = {
     "sandbox/meter.py": "it reserves and settles a run's seconds, and never sees the job or result",
     "sandbox/on_body.py": "it names the body a requirement is about, and no build reads it",
     "sandbox/stage.py": "it stages what a check container mounts, and a build mounts nothing",
+    "variants/repair.py": "it writes back only the shape a signed record names, and drops shapes "
+    "of outdated entries, so it never changes what a build stores",
 }
 CALLED_AROUND_A_BUILD: Final = {"sandbox/meter.py"}
 
