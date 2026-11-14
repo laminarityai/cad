@@ -33,3 +33,7 @@ def test_a_coloured_step_writer_that_raises_leaves_the_plain_step(
     step = base64.b64decode(report["step"])
     assert step.startswith(b"ISO-10303-21;") and b"MANIFOLD_SOLID_BREP" in step
     assert b"COLOUR_RGB" not in step
+    assert report["colours_left_out"] == (
+        "the coloured STEP writer raised RuntimeError: "
+        "STEPCAFControl_Writer could not transfer the coloured shape"
+    )

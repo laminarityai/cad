@@ -317,10 +317,19 @@ AGENT_CHECKS = (
     "that label, never as a reviewed verdict and never as a plain pass. " + AUTO_AGENT_CHECKS
 )
 
+COLOUR_EVERY_BUILD: Final = (
+    "Colour every build the way CAD does, a part of one material included. Give the model its "
+    "material's colour, as it would look in your hand, by setting result.color after the last "
+    "shape operation, and give its own label and colour to each area a person would point at, "
+    "such as the mounting faces, the holes or a grip, listed in areas. Choose the colours "
+    "yourself. Colour is how the model looks: no check reads it and it decides nothing, so set "
+    "it in the same build as the shape, never in a build of its own."
+)
+
 COLOURS: Final = (
-    "Colour every model the way CAD does: give each body its material's colour, such as black "
-    "for carbon fibre and grey for steel, and give its own colour and label to each area a "
-    "person would point at, such as a grip or a mounting face. When the brief has parts of "
+    "Colour each body with its material's colour, such as black for carbon fibre and grey for "
+    "steel, and each area a person would point at with its own label and colour. A color set "
+    "on result colours every face it holds. When the brief has parts of "
     "different materials, such as steel gears on a carbon fibre plate, build each part as its "
     "own body: the solids that share a label, all of one material. Fuse only what is one piece. "
     "result = plate + gears fuses the gears into the plate, and the build gives one solid of one "
@@ -332,12 +341,10 @@ COLOURS: Final = (
     "build's outcome lists bodies, each with its name and solid indexes, and a result of one "
     "solid has none. For some faces of a body, list "
     'Compound(faces, label="grip", color=Color(0.1, 0.1, 0.1)) in a module-level list named '
-    "areas. A label in areas names an area and never a body. Colour needs no rebuild of its "
-    "own: set it with the next change. Colour is how the model looks and never a result: no "
-    "check reads it and it decides nothing. To see what was kept, read areas in the build's "
-    "outcome, which gives each area's name, colour and face_count. A colour lost to a fuse, a "
-    "fillet or a Pos(...) * move is simply missing from areas. areas_dropped is set only when "
-    "the colours could not be read or broke a limit, such as too many faces."
+    "areas. A label in areas names an area and never a body. To see what was kept, read areas "
+    "in the build's outcome, which gives each area's name, colour and face_count. A colour lost "
+    "to a fuse, a fillet or a Pos(...) * move is simply missing from areas. areas_dropped is "
+    "set only when the colours could not be read or broke a limit, such as too many faces."
 )
 
 BODY_MATERIALS: Final = (
@@ -369,6 +376,7 @@ INSTRUCTIONS: Final = " ".join(
         BUILD_FIRST,
         CHANGES,
         OPTIONS,
+        COLOUR_EVERY_BUILD,
         CONTEXT_PARTS,
         HOLES,
         WALLS,

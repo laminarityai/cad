@@ -2,8 +2,12 @@ import hashlib
 import json
 import threading
 from collections.abc import Iterator
+from typing import Any, cast
 
 import pytest
+from mcp import Client
+from mcp.server import MCPServer
+from mcp_types import TextContent
 
 from cad.accounts.principal import AccountId
 from cad.chat.turn import MAX_RESULT_CHARS
@@ -14,7 +18,9 @@ from cad.geometry.lane import TESSELLATIONS
 from cad.geometry.model import Tessellated
 from cad.operations import reads
 from cad.operations.model import Tenant
+from cad.operations.registry import OPERATIONS
 from cad.operations.tenants import Tenants
+from cad.operations.tools import tools
 from cad.operations.variants import BuildVariantInput, build_variant
 from cad.sandbox.bodies import Body
 from cad.sandbox.image import BUILD, image_tag
@@ -161,11 +167,17 @@ def test_view_gives_each_body_the_faces_of_its_solids(alice: Tenant, run: Gated)
     )
 
 
-def test_a_build_tells_the_agent_each_area_by_its_face_count_within_the_chat_limit(
+@pytest.mark.anyio
+async def test_a_build_tells_the_agent_each_area_by_its_face_count_within_the_chat_limit(
     alice: Tenant, run: Gated
 ) -> None:
     many = Area(name="body", colour="#a6abb2", faces=tuple(range(10_000)))
     stored_build(alice, "result = 3", Built(areas=(many,)))
-    told = build_variant(alice, BuildVariantInput(code="result = 3")).model_dump(mode="json")
+    server = MCPServer("cad", tools=tools(lambda: alice, OPERATIONS))
+    async with Client(server) as client:
+        result = await client.call_tool("build_variant", {"code": "result = 3"})
+    told = cast(dict[str, Any], result.structured_content)
     assert told["outcome"]["areas"] == [{"name": "body", "colour": "#a6abb2", "face_count": 10_000}]
+    text = "\n".join(one.text for one in result.content if isinstance(one, TextContent))
     assert len(json.dumps(told, separators=(",", ":"))) < MAX_RESULT_CHARS
+    assert 0 < len(text) < MAX_RESULT_CHARS

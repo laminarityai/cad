@@ -20,7 +20,7 @@ export function claim(cited: Cited, id: string): Raw {
 }
 
 export function sourceItem(one: Fact): Raw {
-  const label = one.source.kind === "survey" ? html`<a href="${one.source.url}" rel="noreferrer">${one.source.label}</a>` : html`${one.source.label}`;
+  const label = one.source.kind === "repo" ? html`${one.source.label}` : html`<a href="${one.source.url}" rel="noreferrer">${one.source.label}</a>`;
   return html`<li id="source-${one.id}"><span class="stat">${one.value}</span> ${label}</li>`;
 }
 

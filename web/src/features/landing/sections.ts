@@ -91,7 +91,7 @@ export function trust(cited: Cited): Raw {
 
 const LIMITS = [
   ["Freeform shapes", "Sweeps, lofts and sculpted surfaces are not reliable yet. The agent says so, offers the closest prismatic version, and marks the shape requirement unverified."],
-  ["Strength across print layers", "The stress check reads a printed material's strength as measured in the build plane, and the scorecard says so beside the safety factor. A printed part is usually weaker across its layers. The check does not read that weaker value."],
+  ["Strength across print layers", "For a filament, the stress check reads its strength as measured in the build plane, and the scorecard says so beside the safety factor. A part printed in filament is usually weaker across its layers. The check does not read that weaker value. The resin in the table names no print direction."],
   ["Print time and cost", "No slicer runs, so an option has no print time, filament weight or cost."],
   ["Sending to Onshape", "Not available. Download STEP, STL or 3MF and import it."],
 ] as const;

@@ -14,11 +14,13 @@ class UnknownExport(NotFound):
 
 class Exported(Frozen):
     """The STEP, STL and 3MF of one BREP are stored beside this record. `key` names what was
-    exported: the BREP's sha256, or with the areas the build code coloured, a sha256 of both."""
+    exported: the BREP's sha256, or with the areas the build code coloured, a sha256 of both.
+    `colours_left_out` says why the STEP was written without them, when it was."""
 
     kind: Literal["exported"] = "exported"
     key: str
     version: str
+    colours_left_out: str | None = None
 
 
 class ExportFailed(Frozen):

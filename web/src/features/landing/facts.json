@@ -35,7 +35,7 @@
       "value": "59%",
       "claim": "of runs reached the target safety factor when the agent got finite element results back (49 of 83).",
       "source": {
-        "kind": "survey",
+        "kind": "study",
         "label": "Physics-in-the-Loop, arXiv 2605.19717, section 8.1. Agents designed a part for a given load case. A research system, not this product.",
         "url": "https://arxiv.org/html/2605.19717"
       }
@@ -43,9 +43,9 @@
     {
       "id": "fea-without",
       "value": "22%",
-      "claim": "of runs reached the target safety factor when the agent got only pictures of the part (6 of 27).",
+      "claim": "of runs reached the target safety factor when the agent got feedback only on how the part looked (6 of 27).",
       "source": {
-        "kind": "survey",
+        "kind": "study",
         "label": "Physics-in-the-Loop, arXiv 2605.19717, section 8.1. The same study, with the physics tools switched off.",
         "url": "https://arxiv.org/html/2605.19717"
       }

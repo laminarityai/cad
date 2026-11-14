@@ -8,22 +8,26 @@ import { APP_HREF, DEMO_HREF, DEMO_LABEL, REPO_HREF } from "./site";
 import { shouldPlay } from "./loop";
 
 const page = body().text;
-const text = page.replace(/<[^>]*>/g, " ").replace(/&[a-z]+;/g, " ");
+const words = (html: string) => html.replace(/<[^>]*>/g, " ").replace(/&[a-z]+;/g, " ");
+const text = words(page);
 
 describe("the landing page numbers", () => {
-  it("writes only numbers that a fact or the brief owns", () => {
-    const allowed = new Set([...FACTS.flatMap((one) => numbersIn(one.value)), ...numbersIn(capture.brief)]);
-    // The sources list repeats each fact's own label, whose numbers come from the survey it cites.
-    const labels = new Set(FACTS.flatMap((one) => numbersIn(one.source.label)));
-    const claims = new Set(FACTS.flatMap((one) => numbersIn(one.claim)));
-    const found = numbersIn(text).filter((one) => !allowed.has(one) && !labels.has(one) && !claims.has(one));
+  it("writes a number only in the section that cites the fact or shows the brief it comes from", () => {
+    const sections = page.split(/(?=<section|<footer)/);
+    const found = sections.flatMap((section) => {
+      const ids = [...section.matchAll(/(?:href="#|id=")source-([\w-]+)"/g)].map((one) => String(one[1]));
+      const owned = ids.flatMap((id) => [fact(id).value, fact(id).claim, fact(id).source.label]);
+      if (section.includes(capture.brief)) owned.push(capture.brief);
+      const allowed = new Set(owned.flatMap(numbersIn));
+      return numbersIn(words(section)).filter((one) => !allowed.has(one));
+    });
     expect(found).toEqual([]);
   });
 
   it("gives every fact a source", () => {
     for (const one of FACTS) {
       expect(one.source.label.length).toBeGreaterThan(10);
-      if (one.source.kind === "survey") expect(one.source.url).toMatch(/^https:\/\//);
+      if (one.source.kind !== "repo") expect(one.source.url).toMatch(/^https:\/\//);
     }
   });
 

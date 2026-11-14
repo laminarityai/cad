@@ -8,6 +8,7 @@ class ExportedWire(TypedDict):
     step: str
     stl: str
     threemf: str
+    colours_left_out: str | None
 
 
 class ExportUnreadableWire(TypedDict):
