@@ -117,6 +117,8 @@ class AccountLimit(Frozen):
 
 class StoppedByPerson(Frozen):
     kind: Literal["stopped_by_person"] = "stopped_by_person"
+    unfinished: bool = Field(default=False, exclude_if=lambda one: not one)
+    """A build under the run was still running at the stop, so the count leaves it out."""
 
 
 type StopReason = Annotated[
@@ -143,9 +145,9 @@ class Revised(Frozen):
 
 
 class Tried(Frozen):
-    """A build under the run that no `Revised` holds yet, such as one `build_variant` made into a
-    new slot, or an `auto_revise` whose checks still run. It counts among the run's builds and
-    never stops the run."""
+    """A build under the run, recorded when its container returns and before its set join and
+    its checks, so a refused join or a stop while the checks run leaves it counted. It counts
+    among the run's builds and never stops the run."""
 
     kind: Literal["tried"] = "tried"
     code_sha256: str
@@ -170,6 +172,7 @@ class Capped(Frozen):
 
 class PersonStopped(Frozen):
     kind: Literal["person_stopped"] = "person_stopped"
+    unfinished: bool = Field(default=False, exclude_if=lambda one: not one)
 
 
 type Event = Annotated[

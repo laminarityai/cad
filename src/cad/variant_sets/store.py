@@ -53,7 +53,10 @@ def build_into_set(
     resolve: Resolve,
     option: Option | None = None,
     lanes: Lanes = LANES,
+    on_built: Callable[[VariantId], None] = lambda _: None,
 ) -> SetBuildResult:
+    """`on_built` runs once the build returns, before the join, so a join the set refuses
+    still leaves the build counted."""
     root = roots.projects
     key = set_key(roots, brief_id)
     held = members(root, key)
@@ -65,6 +68,7 @@ def build_into_set(
         raise _full(key) from None
     _record(code, 1, VariantId("0" * 16), key, design)
     built = variants.build_variant(code, variants_root)
+    on_built(built.variant_id)
     joined = (
         join(root, key, code, built.variant_id, slot, resolve, option, built.outcome.bodies)
         if isinstance(built.outcome, Built)

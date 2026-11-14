@@ -41,6 +41,7 @@ PASSING: Final = frozenset(
     {Mark.PASS, Mark.PASS_RESEARCHED, Mark.PASS_AGENT_CHECK, Mark.UNVERIFIED}
 )
 DESCRIBED: Final = "a load case the agent described and the person confirmed"
+STILL_RUNNING: Final = "A build was still running when the run stopped, and it is not counted."
 WORDS: Final = {
     Mark.PASS: "passes",
     Mark.PASS_RESEARCHED: "passes on researched data",
@@ -147,7 +148,7 @@ def step(state: AutoState, event: Event) -> AutoState:
         case Capped():
             return _stop(state, AccountLimit(refused=event.refused, reason=event.reason))
         case PersonStopped():
-            return _stop(state, StoppedByPerson())
+            return _stop(state, StoppedByPerson(unfinished=event.unfinished))
         case Started():
             raise TamperedRun("an auto run's log holds a second start record")
         case _:
@@ -206,10 +207,7 @@ def report(
     def named(rids: Sequence[str]) -> str:
         return ", ".join(said.get(rid, rid) for rid in rids)
 
-    lines = [
-        _reason(reason, named),
-        f"Builds tried: {builds}." if builds else "Nothing was built under the run.",
-    ]
+    lines = [_reason(reason, named), _builds(builds, reason)]
     if history:
         latest = history[-1]
         name = option or f"variant {latest.variant_id}"
@@ -225,6 +223,17 @@ def report(
             for rid, mark in latest.marks
         )
     return "\n".join(lines)
+
+
+def _builds(builds: int, reason: StopReason) -> str:
+    unfinished = isinstance(reason, StoppedByPerson) and reason.unfinished
+    if builds:
+        counted = f"Builds tried: {builds}."
+    elif unfinished:
+        counted = "No build under the run had finished."
+    else:
+        counted = "Nothing was built under the run."
+    return f"{counted} {STILL_RUNNING}" if unfinished else counted
 
 
 def _because(reason: str | None) -> str:
