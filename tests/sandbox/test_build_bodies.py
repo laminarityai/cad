@@ -31,6 +31,15 @@ def test_each_solid_takes_the_label_of_its_nearest_labelled_node(tmp_path: Path)
     assert outcome.bodies == (Body(name="plate", solids=(0,)), Body(name="gear", solids=(1, 2)))
 
 
+def test_a_colour_on_a_labelled_node_names_its_area_as_its_body_is_named(tmp_path: Path) -> None:
+    outcome = outcome_of(GEARS_ON_A_PLATE, tmp_path)
+    assert isinstance(outcome, Built)
+    assert {area.name: area.colour for area in outcome.areas} == {
+        "plate": "#000000",
+        "gear": "#808080",
+    }
+
+
 def test_a_moved_result_keeps_its_body_names(tmp_path: Path) -> None:
     outcome = outcome_of(GEARS_ON_A_PLATE + "result = Pos(0, 0, 10) * result\n", tmp_path)
     assert isinstance(outcome, Built)

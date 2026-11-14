@@ -101,18 +101,13 @@ def bodies(shape: object) -> list[str | None] | str:
         if len(every) <= 1:
             return []
         named: list[str | None] = []
-        pending: list[tuple[object, str | None]] = [(shape, None)]
-        while pending:
-            node, inherited = pending.pop()
-            label = utf8(str(getattr(node, "label", "") or "")) or inherited
-            children = list(cast(Iterable[object], getattr(node, "children", ())))
-            if children:
-                pending.extend((child, label) for child in reversed(children))
+        for node, label in tree(shape):
+            if getattr(node, "children", ()):
                 continue
             for solid in solids_of(node):
                 if len(named) == len(every) or not alike(every[len(named)], solid):
                     raise ValueError("the solids of the children tree are not those of `result`")
-                named.append(label)
+                named.append(label or None)
         if len(named) != len(every):
             raise ValueError("the children tree holds fewer solids than `result`")
         return named
@@ -156,18 +151,21 @@ def areas(shape: Coloured, namespace: dict[str, object]) -> list[AreaReport] | s
     colour: a face object from `faces()` is new on every call, so a colour set on one is gone.
     A later, nearer one wins, and faces are numbered as `faces()` numbers them, which is the
     order the BREP keeps. `Compound([a, b])` keeps the faces of `a` and `b` but not their
-    colours, so the module's own `a` and `b` give them back."""
+    colours, so the module's own `a` and `b` give them back. A node of the tree is named as its
+    body is, since a child takes its parent's colour but not its label."""
     try:
         listed = namespace.get(AREAS, ())
         named = cast(Iterable[object], listed) if isinstance(listed, list | tuple) else ()
         kept = [one for one in namespace.values() if not isinstance(one, type) and one is not shape]
         number = {face: index for index, face in enumerate(shape.faces())}
         painted: dict[int, tuple[str, str]] = {}
-        for one in [*kept, *tree(shape), *named]:
+        before = [(one, label_of(one)) for one in kept]
+        after = [(one, label_of(one)) for one in named]
+        for one, label in [*before, *tree(shape), *after]:
             colour: object = getattr(one, "color", None)
             if colour is None or not callable(getattr(one, "faces", None)):
                 continue
-            look = (utf8(str(getattr(one, "label", "") or UNNAMED)), hex_of(colour))
+            look = (label or UNNAMED, hex_of(colour))
             for face in cast(Coloured, one).faces():
                 if face in number:
                     painted[number[face]] = look
@@ -179,9 +177,22 @@ def areas(shape: Coloured, namespace: dict[str, object]) -> list[AreaReport] | s
         return utf8(f"{type(error).__name__}: {error}")
 
 
-def tree(shape: object) -> list[object]:
-    children = cast(Iterable[object], getattr(shape, "children", ()))
-    return [shape, *(one for child in children for one in tree(child))]
+def tree(shape: object) -> list[tuple[object, str]]:
+    """`shape` and each node of its `children` tree, in order, with the label of its nearest
+    labelled node, itself included, or "" when none is."""
+    found: list[tuple[object, str]] = []
+    pending: list[tuple[object, str]] = [(shape, "")]
+    while pending:
+        node, inherited = pending.pop()
+        label = label_of(node) or inherited
+        found.append((node, label))
+        children = list(cast(Iterable[object], getattr(node, "children", ())))
+        pending.extend((child, label) for child in reversed(children))
+    return found
+
+
+def label_of(node: object) -> str:
+    return utf8(str(getattr(node, "label", "") or ""))
 
 
 def hex_of(colour: object) -> str:
