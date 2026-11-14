@@ -30,8 +30,8 @@ from cad.briefs.model import (
     Unchecked,
     amount,
 )
-from cad.briefs.on_body import per_body
 from cad.checks.result import Comparator
+from cad.sandbox.on_body import per_body
 from cad.scorecard.requirements import UNIT_CONVERSION_NOISE
 from cad.tables.materials import FromResearch, Known, MaterialsTable, magnitude
 

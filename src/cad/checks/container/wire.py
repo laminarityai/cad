@@ -213,3 +213,5 @@ type LoadWire = FarEndWire | OnHolesWire | OnLargestFlatWire | OnOppositeWire | 
 class LoadCaseWire(TypedDict):
     support: SupportWire
     load: LoadWire
+    body: NotRequired[str]
+    """The one body the check solves alone. Absent on a case that names none."""

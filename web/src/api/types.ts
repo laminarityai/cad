@@ -1297,10 +1297,16 @@ export interface components {
             unit: string;
         };
         Load: components["schemas"]["FarEnd"] | components["schemas"]["OnHoles"] | components["schemas"]["OnLargestFlat"] | components["schemas"]["OnOpposite"] | components["schemas"]["OnFarthest"];
-        /** LoadCase */
+        /**
+         * LoadCase
+         * @description `body` names the one body of one solid the check solves alone, in that body's material. A
+         *     variant of more than one solid needs it, and with none the check reads unknown.
+         */
         LoadCase: {
             support: components["schemas"]["Support"];
             load: components["schemas"]["Load"];
+            /** @default null */
+            body?: components["schemas"]["BodyName"] | null;
         };
         Location: [
             [

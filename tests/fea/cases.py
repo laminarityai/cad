@@ -29,6 +29,8 @@ class Case:
     expected: float
     tolerance: float
     reference: str
+    solid: int | None = None
+    """The solid the check takes out and solves alone, on a case of more than one body."""
 
 
 def box(length: float, width: float, height: float) -> str:
@@ -126,6 +128,21 @@ PLATE_BACK = Region(
     (-PLATE_X, BEAM_B / 2, PLATE_Z / 2 - PLATE_BELOW),
 )
 ARM_TIP = Region((Plane((BEAM_L, 0.0, 0.0), (1.0, 0.0, 0.0)),), (BEAM_L, BEAM_B / 2, BEAM_H / 2))
+
+MOUNTED_BEAM_CODE = f"""\
+from build123d import Align, Box, Compound, Pos
+
+low = (Align.MIN, Align.MIN, Align.MIN)
+block = Pos(-{PLATE_X}, -{(PLATE_Y - BEAM_B) / 2}, -{PLATE_BELOW}) * Box(
+    {PLATE_X}, {PLATE_Y}, {PLATE_Z}, align=low
+)
+block.label = "block"
+beam = Box({BEAM_L}, {BEAM_B}, {BEAM_H}, align=low)
+beam.label = "beam"
+result = Compound(children=[block, beam])
+"""
+"""The cantilever tip's beam beside a block it touches, as two bodies. The beam is solid 1, so its
+faces follow the block's six."""
 
 SHELF_X, SHELF_Y, SHELF_T, SHELF_P = 160.0, 40.0, 2.5, 5.0
 """A plate held at its end x = 0 and pressed into the middle of its top."""
@@ -260,6 +277,19 @@ CASES: tuple[Case, ...] = (
         expected=BEAM_P * BEAM_L * (BEAM_H / 2) / BEAM_I,
         tolerance=0.05,
         reference="sigma = PLc/I",
+    ),
+    Case(
+        name="cantilever tip, one body of two",
+        code=MOUNTED_BEAM_CODE,
+        material=STEEL,
+        fixed=end(0.0, BEAM_B, BEAM_H, -1),
+        loaded=far_along_x(end(0.0, BEAM_B, BEAM_H, -1)),
+        force=(0.0, 0.0, -BEAM_P),
+        measure="max_displacement",
+        expected=timoshenko_tip(STEEL),
+        tolerance=0.03,
+        reference="the cantilever tip's beam taken out of two bodies and solved alone",
+        solid=1,
     ),
     Case(
         name="cantilever on a mounting plate",

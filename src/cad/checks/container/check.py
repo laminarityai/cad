@@ -44,6 +44,10 @@ class Fem(Protocol):
         unit_loads: Sequence[NodalLoads],
     ) -> tuple[NodalField, ...] | SolveFailed: ...
 
+    def alone(self, brep: bytes) -> "Fem":
+        """The same engines on another BREP: one solid taken out of the variant."""
+        ...
+
 
 @dataclass(frozen=True, slots=True)
 class BodyPart:

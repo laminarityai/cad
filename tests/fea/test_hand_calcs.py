@@ -26,6 +26,7 @@ PROGRAM: Final = (
     f"import sys; sys.path[:0] = [{TARGET!r}, {HARNESS!r}]; from driver import main; main()"
 )
 DETERMINISM_CASE: Final = "cantilever tip"
+ONE_OF_TWO_CASE: Final = "cantilever tip, one body of two"
 OVER_CAP_CASE: Final = "filleted cantilever tip"
 CACHE: Final = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "cad" / "fea"
 
@@ -143,3 +144,10 @@ def test_solving_the_same_case_twice_gives_the_same_bytes(
 ) -> None:
     case = BY_NAME[DETERMINISM_CASE]
     assert solve(case, breps[case.name]) == reports[case.name]
+
+
+def test_one_body_of_two_solved_alone_gives_the_answer_of_that_solid_by_itself(
+    reports: Mapping[str, bytes],
+) -> None:
+    alone, whole = (mesh(reports[name], "fine") for name in (DETERMINISM_CASE, ONE_OF_TWO_CASE))
+    assert whole["field_sha256"] == alone["field_sha256"]

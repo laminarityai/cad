@@ -52,6 +52,9 @@ class BrepFem:
     ) -> tuple[NodalField, ...] | SolveFailed:
         return solve(mesh, material, fixed, unit_loads)
 
+    def alone(self, brep: bytes) -> Fem:
+        return BrepFem(brep)
+
 
 def run(
     request: RequestWire, stdin: bytes, kernel: Kernel, report_cap: int, fem: Fem | None = None
