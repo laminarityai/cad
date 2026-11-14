@@ -4,7 +4,11 @@ import json
 
 import pytest
 
+from cad.sandbox.outcome import Build, Built
+from cad.variant_sets import store
+from cad.variants import entry
 from tests.support.load_cases import DIRECTIONS, LOADS, SUPPORTS, Part, case, hole_hook, shelf
+from tests.support.rows import RAIL
 from tests.support.session import Session
 from tests.support.stress import (
     brief_of,
@@ -162,6 +166,16 @@ async def test_a_declined_description_cannot_be_replaced_by_a_new_one_after_a_re
     await s.call("ask_to_confirm", project_id=listed["project_id"])
     assert REFUSAL in await refused(s, brief_id, row(CLAMPED))
     assert (await propose(s, brief_id, row(heavier())))["proposal"] == 2
+
+
+async def test_a_result_stored_on_a_rebuilt_option_closes_the_rule(s: Session) -> None:
+    brief_id = await brief_of(s, row(shelf()))
+    code = "# a bracket an older sandbox built\n"
+    old = entry.variant_id(code, "cad-sandbox:before-a-deploy")
+    entry.save(s.variants, old, code, Build(outcome=Built(), output=""), RAIL)
+    store.join(s.roots.projects, store.set_key(s.roots, brief_id), code, old)
+    store_a_fea_result(s, s.variant(code))
+    assert REFUSAL in await refused(s, brief_id, row(CLAMPED))
 
 
 async def test_a_variant_of_another_brief_does_not_close_this_one(s: Session) -> None:
