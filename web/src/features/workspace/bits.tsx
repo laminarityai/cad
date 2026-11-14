@@ -4,6 +4,7 @@ import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "@/components/
 import { Spinner } from "@/components/ui/busy";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { BodyRows } from "./bodies";
 import type { Line, Status } from "./cards";
 import { assumedOf, awaitingOf, linesOf, MISSING, type Card } from "./cards";
 import type { Material } from "./model";
@@ -173,6 +174,7 @@ export function Checks({ card, material, where = NO_WHERE }: { card: Card | unde
         </p>
       ) : (
         <div className="min-h-0 overflow-y-auto">
+          {card.snapshot.bodies.length > 0 ? <BodyRows snapshot={card.snapshot} /> : null}
           {asked.length > 0 ? (
             <>
               <h3 className="px-4 pb-1 pt-2 text-[13px] font-medium text-ink-3">What you asked</h3>
