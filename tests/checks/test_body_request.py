@@ -7,7 +7,15 @@ import pytest
 from cad.checks.container.check import Quick
 from cad.checks.container.wire import LoadCaseWire
 from cad.checks.jobs import FEA, JobSpec
-from cad.checks.report import QUICK, SPECS, Request, build_request, parse, reads_of
+from cad.checks.report import (
+    NAME_THE_BODY,
+    QUICK,
+    SPECS,
+    Request,
+    build_request,
+    parse,
+    reads_of,
+)
 from cad.checks.result import BodyMaterial, ReadCited, ReadMissing, Verdict
 from cad.sandbox.bodies import BODIES, MAX_BODIES, MAX_SOLIDS
 from cad.tables.materials import load_materials
@@ -142,3 +150,24 @@ def test_a_stress_result_cites_only_the_body_its_load_case_solved(
     assert sorted({one.body for one in stress.reads}) == cited
     rows = {request.reads[key].source for key in request.reads if key[1] in cited}
     assert set(stress.sources) == {*FEA.sources, *rows}
+
+
+def test_a_stress_reason_that_lacks_the_whole_part_s_value_says_to_name_the_body() -> None:
+    case: LoadCaseWire = {
+        "support": {"kind": "flat_end"},
+        "load": {"kind": "far_end", "force_n": 10.0, "direction": {"kind": "any"}},
+    }
+    request = build_request(MADE_OF, TABLE, (FEA,), (case,), bodies=PLATE_AND_GEARS)
+    report = good_report()
+    report["results"] = [
+        *report["results"][:2],
+        {
+            "id": "fea",
+            "verdict": "unknown",
+            "measured": [],
+            "reason": "the host sent no elastic_modulus",
+        },
+    ]
+    stress = parse(sent(report), request, OWN_LIMITS).results[-1]
+    assert stress.verdict == Verdict.UNKNOWN
+    assert stress.reason == f"the host sent no elastic_modulus. {NAME_THE_BODY}"

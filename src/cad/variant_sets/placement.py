@@ -197,8 +197,6 @@ def place(held: tuple[Member, ...], sha256: str, design: Design, slot: int | Non
     """Where code goes in a set. Raises SetFull when new code has no slot to take."""
     if slot is None:
         return _unslotted(held, sha256, design)
-    if not 1 <= slot <= MAX_MEMBERS:
-        raise SlotRefused(f"slot {slot} is not a slot: a set has slots 1 to {MAX_MEMBERS}")
     twin = next((m for m in held if m.slot != slot and m.latest.code_sha256 == sha256), None)
     if twin is not None:
         raise SlotRefused(
