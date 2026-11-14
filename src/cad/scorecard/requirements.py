@@ -34,6 +34,7 @@ from cad.briefs.model import (
 )
 from cad.briefs.store import ConfirmedSet
 from cad.briefs.words import NO_NAMES, describe
+from cad.checks.container import fea
 from cad.checks.jobs import Demand, PartBrep
 from cad.checks.report import SPECS
 from cad.checks.result import CheckResult, Comparator, Measured, ReadResearched, Verdict
@@ -265,7 +266,10 @@ def _unmeasured(target: Target) -> tuple[Comparison, ...]:
 
 def _measures_body(result: CheckResult, body: str) -> bool:
     """Whether the check reported any measure of the body: `mass:plate` or `hole_count:plate`. A
-    body name starts with a letter, so the whole variant's `hole_diameter:0` is never one."""
+    body name starts with a letter, so the whole variant's `hole_diameter:0` is never one. A stress
+    result is its load case's own, and the check passes it only on that case's body."""
+    if result.check_id == fea.ID:
+        return True
     return any(one.name.split(":")[1:2] == [body] for one in result.measured)
 
 

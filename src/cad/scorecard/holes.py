@@ -21,8 +21,8 @@ from typing import Final
 
 from cad.briefs.holes import ByClass, FastenerHoles, HoleFit, PlainHoles, PlusMinus
 from cad.briefs.model import Requirement
-from cad.briefs.on_body import per_body
 from cad.checks.result import CheckResult, Comparator, Measure, Measured, Verdict
+from cad.sandbox.on_body import per_body
 from cad.scorecard.model import Checked, Comparison
 from cad.tables.fasteners import load_fasteners
 from cad.tables.materials import UNITS, magnitude

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import date
 from typing import Final
 
-from cad.checks.container import anchors, closed_solid, features, interference, terms
+from cad.checks.container import anchors, closed_solid, features, interference, lone, terms
 from cad.checks.container.calculix import Material, NodalField, SolveFailed
 from cad.checks.container.check import (
     DIMENSIONLESS,
@@ -70,8 +70,10 @@ FORMULA = (
     "case over unit solves; max_displacement and max_von_mises are the fine mesh's largest, "
     "von Mises stress within 0.5 * bore diameter of a support hole is reported as "
     "support_max_von_mises and not judged; safety_factor = yield_strength / max_von_mises; "
+    "on a variant of more than one solid the load case names one body of one solid, which is "
+    "taken out and solved alone in its own material, its faces numbered as the variant's; "
     "unknown when closed_solid or interference does not pass, the variant has more than one "
-    "solid, the load case does not resolve, "
+    "solid and the load case names no body of one solid, the load case does not resolve, "
     "E or Poisson's ratio is unknown, the mesh or solve fails, the two meshes' max_displacement "
     "differ by more than 3%, or max_displacement exceeds 5% of the part's extent"
 )
@@ -106,10 +108,6 @@ READS = {
     "yield_strength": Input.YIELD_STRENGTH,
 }
 REQUIRES: tuple[CheckModule, ...] = (closed_solid, interference)
-ONE_BODY = (
-    "the variant has more than one solid, and stress on a named body alone is not built yet, "
-    "so no stress or displacement is measured"
-)
 BUDGET = Background(wall_seconds=600, memory_mb=2048, tmpfs_mb=768)
 
 DISPLACEMENT_ERROR: Final = 0.05
@@ -168,10 +166,12 @@ def run(subject: Subject) -> FindingWire:
     unmet = required_pass(subject, REQUIRES, "load")
     if unmet is not None:
         return unmet
-    if len(subject.kernel.solids(shape)) > 1:
-        return finding("unknown", ONE_BODY)
     case = subject.inputs.load_case()
-    return assessed(subject, shape, terms.of_wire(case), case["load"]["force_n"])
+    picked = lone.alone(subject, shape, case.get("body"))
+    if isinstance(picked, str):
+        return finding("unknown", picked)
+    found = assessed(picked.subject, picked.shape, terms.of_wire(case), case["load"]["force_n"])
+    return lone.placed(found, picked, READS)
 
 
 def assessed(subject: Subject, shape: Shape, case: terms.LoadCase, force: float) -> FindingWire:

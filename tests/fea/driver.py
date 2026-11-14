@@ -1,12 +1,14 @@
 import hashlib
 import json
 import sys
-from dataclasses import replace
+from collections.abc import Sequence
+from dataclasses import dataclass, replace
 
 from cases import BY_NAME, Case
 
-from cad.checks.container import fea
-from cad.checks.container.calculix import SolveFailed, solve
+from cad.checks.container import fea, lone
+from cad.checks.container.calculix import Material, NodalField, NodalLoads, SolveFailed, solve
+from cad.checks.container.check import BodyPart, Subject
 from cad.checks.container.elastic import (
     Face,
     contains,
@@ -17,12 +19,46 @@ from cad.checks.container.elastic import (
     worst_displacement,
     worst_von_mises,
 )
-from cad.checks.container.kernel import Unreadable, ocp_kernel
+from cad.checks.container.inputs import Inputs
+from cad.checks.container.kernel import Kernel, Shape, Unreadable, ocp_kernel
 from cad.checks.container.mesher import MeshFailed, TetMesh, mesh_pair, tet_mesh
 from cad.checks.container.regions import Disc, FarFrom, Plane, Region, Unresolved
 from cad.checks.container.vectors import norm, unit
 
 REGION_TOLERANCE = 1e-4
+NO_INPUTS = Inputs(frozenset(), {})
+
+
+@dataclass(frozen=True, slots=True)
+class Tet:
+    brep: bytes
+
+    def mesh(self, size_mm: float, floor_mm: float) -> TetMesh | MeshFailed:
+        return tet_mesh(self.brep, size_mm, floor_mm)
+
+    def solve(
+        self,
+        mesh: TetMesh,
+        material: Material,
+        fixed: frozenset[int],
+        unit_loads: Sequence[NodalLoads],
+    ) -> tuple[NodalField, ...] | SolveFailed:
+        return solve(mesh, material, fixed, unit_loads)
+
+    def alone(self, brep: bytes) -> "Tet":
+        return Tet(brep)
+
+
+def taken_out(case: Case, kernel: Kernel, shape: Shape, brep: bytes) -> tuple[Shape, Tet]:
+    """The solid the case names, taken out of the whole by the check's own code."""
+    if case.solid is None:
+        return shape, Tet(brep)
+    body = BodyPart("named", (case.solid,), NO_INPUTS)
+    subject = Subject(kernel, Tet(brep), shape, NO_INPUTS, {}, bodies=(body,))
+    picked = lone.alone(subject, shape, body.name)
+    assert isinstance(picked, lone.Lone), picked
+    assert isinstance(picked.subject.fem, Tet)
+    return picked.shape, picked.subject.fem
 
 
 def solved(case: Case, mesh: TetMesh, size_mm: float) -> dict[str, object]:
@@ -69,8 +105,9 @@ def main() -> None:
     kernel = ocp_kernel()
     shape = kernel.read_brep(brep)
     assert not isinstance(shape, Unreadable), shape.reason
+    shape, mesher = taken_out(case, kernel, shape, brep)
     sizes = fea.mesh_sizes_of(kernel.faces(shape), kernel.inertia(shape))
-    meshes = mesh_pair(lambda size, floor: tet_mesh(brep, size, floor), sizes)
+    meshes = mesh_pair(mesher.mesh, sizes)
     if isinstance(meshes, MeshFailed):
         sys.stdout.write(json.dumps({"failed": meshes.reason}))
         return

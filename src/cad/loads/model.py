@@ -14,6 +14,8 @@ from cad.checks.container.wire import (
 )
 from cad.checks.units import Force, Length
 from cad.frozen import Frozen
+from cad.sandbox.bodies import BodyName
+from cad.sandbox.on_body import on_body
 from cad.tables.materials import magnitude
 
 LoadCaseId = NewType("LoadCaseId", str)
@@ -188,8 +190,12 @@ REVIEWED: Final = frozenset(
 
 
 class LoadCase(Frozen):
+    """`body` names the one body of one solid the check solves alone, in that body's material. A
+    variant of more than one solid needs it, and with none the check reads unknown."""
+
     support: Support
     load: Load
+    body: BodyName | None = on_body()
 
     @property
     def described(self) -> bool:
@@ -223,12 +229,14 @@ class LoadCase(Frozen):
         """The case without its force magnitude. Cases that differ only in magnitude share one
         set of unit solves."""
         wire = self.wire()
-        return UnitCaseKey(
-            _digest({"support": wire["support"], "load": {**wire["load"], "force_n": 1.0}})
-        )
+        return UnitCaseKey(_digest({**wire, "load": {**wire["load"], "force_n": 1.0}}))
 
     def wire(self) -> LoadCaseWire:
-        return {"support": _support_wire(self.support), "load": _load_wire(self.load)}
+        """A case on no body has no `body` key, so its id is the one it had before bodies."""
+        wire: LoadCaseWire = {"support": _support_wire(self.support), "load": _load_wire(self.load)}
+        if self.body is not None:
+            wire["body"] = self.body
+        return wire
 
 
 def _digest(value: object) -> str:

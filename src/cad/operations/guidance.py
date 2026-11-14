@@ -259,7 +259,12 @@ LOAD_CASES: Final = (
     "new described load case and tells you so: use a reviewed phrase, or say it is not "
     "checked. The same load case with a new force is accepted in place of the old one: pass "
     "the old requirement's id in remove. A support that rests, slides "
-    "or pivots is not checked. A pass on a described load case is labelled load_case "
+    "or pivots is not checked. On a variant of more than one solid, give the load case a body: "
+    "the exact name of the one body of one solid the force acts on, such as the bracket the "
+    "person says carries it. The check solves that body alone, in its own material, and no "
+    "check models how bodies are joined. With no body, or a body of several solids, it reads "
+    "unknown. The person confirms the body with the load case. "
+    "A pass on a described load case is labelled load_case "
     "described. Report it as a pass on a load case you described and the person confirmed, "
     "never as a reviewed verdict or a plain pass."
 )

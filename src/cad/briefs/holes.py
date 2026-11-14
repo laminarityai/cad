@@ -12,10 +12,10 @@ from typing import Annotated, Literal
 from pydantic import Field, field_validator, model_validator
 
 from cad.briefs.kind import Kind
-from cad.briefs.on_body import on_body
 from cad.checks.units import Length, number
 from cad.frozen import Frozen
 from cad.sandbox.bodies import BodyName
+from cad.sandbox.on_body import on_body
 from cad.tables.fasteners import (
     MAX_SIZE_CHARS,
     SIZE_PATTERN,

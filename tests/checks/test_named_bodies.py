@@ -2,22 +2,16 @@ from collections.abc import Sequence
 
 import pytest
 
-from cad.checks.container import fea
-from cad.checks.container.check import Subject
-from cad.checks.container.inputs import Input, Inputs
 from cad.checks.container.kernel import Across, VolumeProps
 from cad.checks.container.wire import (
     BodyWire,
     FindingWire,
-    LoadCaseWire,
     ResultWire,
     ValueWire,
 )
 from tests.support.check_fakes import (
     FakeKernel,
-    FakeShape,
     FakeWalls,
-    NoFem,
     body,
     request,
     run_report,
@@ -109,18 +103,3 @@ def test_min_wall_is_unknown_when_one_solid_of_a_body_crosses_no_wall() -> None:
     found = checked(FakeKernel(solid_count=3, solid_walls=walls), PLATE_AND_GEARS)["min_wall"]
     assert (found["verdict"], found["measured"]) == ("unknown", [])
     assert found["reason"] == "no ray from any face of a solid of gear crossed a wall"
-
-
-def test_stress_on_more_than_one_solid_is_unknown_until_one_body_can_be_solved_alone() -> None:
-    case: LoadCaseWire = {
-        "support": {"kind": "flat_end"},
-        "load": {"kind": "far_end", "force_n": 10.0, "direction": {"kind": "any"}},
-    }
-    passed: dict[str, ResultWire] = {
-        one: {"id": one, "verdict": "pass", "measured": [], "reason": "ok"}
-        for one in ("closed_solid", "interference")
-    }
-    inputs = Inputs(fea.TAKES, {Input.DENSITY: STEEL}, (case,))
-    found = fea.run(Subject(FakeKernel(solid_count=2), NoFem(), FakeShape(), inputs, passed))
-    assert (found["verdict"], found["measured"]) == ("unknown", [])
-    assert found["reason"] == fea.ONE_BODY

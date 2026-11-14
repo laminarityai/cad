@@ -12,17 +12,11 @@ from datetime import datetime
 from typing import Annotated, Final, Literal, NewType, assert_never
 
 import pint
-from pydantic import (
-    Field,
-    StringConstraints,
-    field_validator,
-    model_validator,
-)
+from pydantic import Field, StringConstraints, field_validator, model_validator
 
 from cad.briefs.bindable import BINDABLE
 from cad.briefs.holes import FastenerHoles, PlainHoles
 from cad.briefs.kind import Kind
-from cad.briefs.on_body import on_body, per_body
 from cad.briefs.origins import Origin
 from cad.checks.container import closed_solid, extents, fea, fit, holes, mass
 from cad.checks.result import Comparator
@@ -32,6 +26,7 @@ from cad.frozen import Frozen
 from cad.loads.model import LoadCase
 from cad.projects.model import NEW_PROJECT_ID, NewProjectId, ProjectId, legacy_project
 from cad.sandbox.bodies import BodyName
+from cad.sandbox.on_body import on_body, per_body
 from cad.tables.materials import KEY_PATTERN, UNITS, magnitude
 
 BriefId = NewType("BriefId", str)
@@ -277,8 +272,11 @@ def load_of(target: Target) -> LoadCase | None:
 
 
 def body_of(target: Target) -> BodyName | None:
-    """The body the target names, or None for the whole variant."""
-    return target.body if isinstance(target, ON_BODY) else None
+    """The body the target or its load case names, or None for the whole variant."""
+    if isinstance(target, ON_BODY):
+        return target.body
+    case = load_of(target)
+    return None if case is None else case.body
 
 
 @dataclass(frozen=True, slots=True)

@@ -60,6 +60,9 @@ class NoFem:
     ) -> tuple[NodalField, ...] | SolveFailed:
         raise NotImplementedError("this test solves nothing")
 
+    def alone(self, brep: bytes) -> "NoFem":
+        return self
+
 
 @dataclass(frozen=True, slots=True)
 class FakeWalls:
