@@ -69,24 +69,24 @@ def run_session(
     process = subprocess.Popen(
         command,
         stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
+        stderr=subprocess.PIPE,
         text=True,
         cwd=ROOT,
         env={**os.environ, "CAD_HUMAN_LOG": str(human_log)},
         start_new_session=True,
     )
     try:
-        output, _ = process.communicate(timeout=timeout_s)
+        output, raised = process.communicate(timeout=timeout_s)
         timed_out = False
     except subprocess.TimeoutExpired:
         os.killpg(process.pid, signal.SIGKILL)
-        output, _ = process.communicate()
+        output, raised = process.communicate()
         timed_out = True
     _wait_for_group(process.pid)
     return SessionRun(
         None if timed_out else process.returncode,
         timed_out,
-        failure_note(output),
+        failure_note(output, raised),
         read_transcript(transcript),
     )
 
@@ -110,10 +110,13 @@ def _alive(group: int) -> bool:
     return True
 
 
-def failure_note(output: str) -> str:
-    lines = output.strip().splitlines()
-    said = [line for line in lines if line.startswith(GUARD_LINES)]
-    return "; ".join(said) or (lines[-1] if lines else "no output")
+def failure_note(output: str, raised: str) -> str:
+    """Why the session failed: the driver's own failure lines, else the last line of the traceback
+    it raised. Its last stdout line is often the model's reply, so it is never the reason. The
+    bake-off's `agree.session_failure` reads the same driver the same way."""
+    said = [line for line in output.splitlines() if line.startswith(GUARD_LINES)]
+    lines = raised.strip().splitlines()
+    return "; ".join(said) or (lines[-1] if lines else "the session reported an error")
 
 
 def read_transcript(path: Path) -> SessionFacts:

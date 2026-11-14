@@ -1,29 +1,41 @@
-from cad.accounts.principal import AccountId
-from cad.chat.auto_driver import project_statements
-from cad.operations.briefs import (
-    CreateBriefInput,
-    ProposeRequirementsInput,
-    RequirementDraft,
-    create_brief,
-    propose_requirements,
-)
-from cad.operations.tenants import Tenants
-from cad.projects.model import ProjectId
-from tests.support.chat import ALICE
+import pytest
 
-UNDER = RequirementDraft.model_validate(
-    {"target": {"kind": "max_mass", "mass": {"magnitude": 40, "unit": "g"}}, "quote": "40 g"}
-)
+from cad.chat.model import Model
+from tests.support.auto_chat import RUN, confirmed, kinds
+from tests.support.chat import TEXT, Chat, call, script, step
+from tests.support.rows import UNDER_150
+
+pytestmark = pytest.mark.anyio
 
 
-def test_a_stop_report_names_a_row_proposed_on_another_brief_of_the_project(
-    tenants: Tenants,
+@pytest.fixture
+def model() -> Model:
+    return script(
+        *confirmed(),
+        step("A lid.", call("create_brief", project_id="${create_brief.project_id}")),
+        step(
+            "Its mass.",
+            call(
+                "propose_requirements",
+                brief_id="${create_brief.brief_id}",
+                requirements=[UNDER_150],
+            ),
+        ),
+        step("Revising.", call("auto_revise", run_id=RUN, code="# a plate\n")),
+        step("Unreachable."),
+    )
+
+
+async def test_the_persons_stop_report_names_a_row_proposed_on_another_brief_of_the_project(
+    chat: Chat,
 ) -> None:
-    alice = tenants.of(AccountId(ALICE))
-    box = create_brief(alice, CreateBriefInput(text="A box"))
-    lid = create_brief(alice, CreateBriefInput(text="A lid under 40 g", project_id=box.project_id))
-    rows = propose_requirements(
-        alice, ProposeRequirementsInput(brief_id=lid.brief_id, requirements=[UNDER])
-    ).requirements
-    said = project_statements(alice.roots, ProjectId(box.project_id))
-    assert [said[one.requirement.id] for one in rows] == ["Mass at most 40 g"]
+    async with chat.client() as client:
+        cid = await chat.conversation(client)
+        await chat.say(client, cid, TEXT)
+        await chat.finish()
+        events = await chat.events(client, cid)
+    assert kinds(events)[-2:] == ["stop_report", "turn_ended"]
+    assert events[-2]["report"] == (
+        "New requirements were proposed, and only the person can confirm them: "
+        "Mass at most 150 g.\nNothing was built under the run."
+    )

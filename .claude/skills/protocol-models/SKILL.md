@@ -70,7 +70,7 @@ How the model maps to the code:
 | --- | --- |
 | `FeaTakeOff`, `QuickTakeOff` | `Lanes._take_off`: `job_store.read`, flying lookup, the `_closed` refusal of a background job, `_interrupted_too_often`, new `Future`, all under `_lock` |
 | `FeaTakeOff` (queue branch) | `Lanes._enqueue_locked`, called inside the take-off lock: `_queue.append`, `_wake.notify`, and `_start_worker` when `_worker is None`. The model has no separate enqueue step, because the code has none: a drop cannot fall between take-off and append |
-| `Replace(p)` | `variant_sets.store._drop_replaced`, which `build_into_set` calls when a newer revision takes a variant's slot. It calls `Lanes.drop_unstarted`, which under `_lock` reads every set of the account with `account_slots`. When no set still shows the replaced variant, every queued job of the variant leaves `_queue` and `_flying`, and its `Future` gets `Superseded`. The read runs under the lock that queues jobs, so it is one step with the drop. A job a worker already took is not in the queue and runs on. `shown` counts the sets that show the variant. `drops[p]` is ghost: each queued job carries the count at take-off, which `QueuedIsCurrent` compares. It is per process because a drop reaches only its own process's queue |
+| `Replace(p)` | `variant_sets.store._drop_replaced`, which `build_into_set` calls when a newer revision takes a variant's slot. It calls `Lanes.drop_unstarted`, which under `_lock` reads every set of the account with `account_slots`. A variant is each revision's `built_as` id and its rebuild id under the current sandbox. When no set still shows the replaced variant, every queued job of the variant leaves `_queue` and `_flying`, and its `Future` gets `Superseded`. The read runs under the lock that queues jobs, so it is one step with the drop. A job a worker already took is not in the queue and runs on. `shown` counts the sets that show the variant. `drops[p]` is ghost: each queued job carries the count at take-off, which `QueuedIsCurrent` compares. It is per process because a drop reaches only its own process's queue |
 | `RefuseQueued` | `Lanes._refuse_locked`, which `drop_unstarted` and `close` share: each refused job leaves `_flying`, and its `Future` gets the error |
 | `NotifyQuick`, `WorkerNotify` | `Lanes._fly` after `set_result`: the listeners run on the thread that ran the job, outside `_lock`. A listener that raises is logged and swallowed, so the model has no step for it. `told` is ghost: what the listener saw of the store |
 | `RunQuick`, `WriteQuick`, `SettleQuick` | `Lanes._fly` on the caller thread for the quick job |
@@ -152,7 +152,7 @@ How the model maps to the code:
 | `DoneCallback(c)` | the turn task's done callback, which the loop runs some time after `run_turn`'s `finally` cleared `running` |
 | `CatchUp(c)` | `Chat.catch_up` on stream open: the restart heal (not running and a `DriverSaid` tail, so start the turn and append nothing), else `_deliver`. Before `_deliver`, a turn a restart cut off after it started gets `TurnFailed` and `TurnEnded`. Neither is a delivery, and the tail was not one, so `tail`, `told` and `wait` stay as they were and the model has no step for it |
 | `Start(c)` | `Chat.start`: refused while running, else `UserSaid` and a turn |
-| `TurnActs(c)` | the turn's first append (`AgentSaid`, `ToolCalled` or `TurnFailed`) |
+| `TurnActs(c)` | the turn's first append (`AgentSaid`, `ToolCalled`, a web search event or `TurnFailed`). The reply text a turn streams before its first append lives only in `Channel.partial` and is no append |
 | `AskRead`, `AskItems`, `AskAfter` | `operations/confirmation.ask_to_confirm` after its wait: `answers_recorded` read before the items, the items, and for a result that is not pending the ledger's length read again (see the `answered-count-before-items` mutant) |
 | `AskReturn(c)` | the `ToolReturned` append: the told cursor moves to `answers_recorded`, and a pending result starts the wait |
 | `Answer` | `web.py` `record`: one answer to everything pending in the project. Answers.tla shows one recorded POST per answer. `ExtraHook` calls `on_recorded` a second time anyway |
@@ -222,11 +222,11 @@ When a check fails, read the trace as a story in code terms: which thread or pro
 `check_models.py` reads the block below. It warns when a covered file changed after the sync commit, and it prints a note instead when the commit is not in the clone (CI checks out shallow). The warning does not fail the run. When you see it, read the diff, update the model if the protocol changed, run the checks and the mutants, and only then move the sync commit. `sync:` is the commit for every model line that names none. A line written `Model@<commit>:` has its own, so you can move one model after you audit only that one. Use `/maintain-formal-verification-skill` for that work.
 
 ```coverage
-sync: 21a7efb
+sync: d456a2f
 JobLanes: src/cad/checks/lanes.py src/cad/checks/job_store.py src/cad/checks/jobs.py src/cad/sandbox/container.py src/cad/server/stopping.py src/cad/variant_sets/store.py
 Answers: src/cad/confirmations/web.py src/cad/confirmations/snapshot.py src/cad/operations/confirmation.py src/cad/confirmations/page.py src/cad/confirmations/answers.py src/cad/confirmations/items.py src/cad/records/signed.py
 CarryOn: src/cad/chat/routes.py src/cad/chat/answer_driver.py src/cad/chat/turn.py src/cad/chat/log.py src/cad/conversations/store.py src/cad/operations/confirmation.py src/cad/confirmations/web.py
-AutoHold@72b073d: src/cad/auto/gate.py src/cad/auto/log.py src/cad/operations/auto.py src/cad/conversations/store.py src/cad/chat/routes.py src/cad/operations/tenants.py src/cad/operations/variants.py src/cad/auto/building.py
+AutoHold: src/cad/auto/gate.py src/cad/auto/log.py src/cad/operations/auto.py src/cad/conversations/store.py src/cad/chat/routes.py src/cad/operations/tenants.py src/cad/operations/variants.py src/cad/auto/building.py
 ```
 
 ## Planned targets, not built yet

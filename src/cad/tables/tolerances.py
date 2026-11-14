@@ -27,7 +27,7 @@ import yaml
 from pydantic import Field, ValidationError
 
 from cad.frozen import Frozen
-from cad.tables.materials import InvalidTable
+from cad.tables.materials import InvalidTable, Source
 
 TABLE_PATH = Path(__file__).resolve().parents[3] / "tables" / "tolerances.yaml"
 CLASS_PATTERN = re.compile(r"[A-Za-z0-9][A-Za-z0-9 .-]*")
@@ -98,10 +98,12 @@ class ToleranceClass(Frozen):
 
 @dataclass(frozen=True, slots=True)
 class Limits:
-    """The diameters a hole of this class may have, inclusive, in mm."""
+    """The diameters a hole of this class may have, inclusive, in mm, and the cited row they
+    come from."""
 
     low_mm: float
     high_mm: float
+    source: Source
 
 
 class UnknownClass(LookupError):
@@ -134,9 +136,18 @@ class TolerancesTable:
                 f"{key} covers sizes {found.covers}, and {diameter_mm:g} mm is outside that"
             )
         limit = found.limit_mm(row)
+        origin = found.origin
+        source = Source(
+            url=origin.url,
+            title=origin.title,
+            page=origin.page,
+            retrieved=origin.retrieved,
+            standard=origin.standard,
+            quote=row.quote,
+        )
         if found.shape is Shape.ABOVE:
-            return Limits(diameter_mm, diameter_mm + limit)
-        return Limits(diameter_mm - limit, diameter_mm + limit)
+            return Limits(diameter_mm, diameter_mm + limit, source)
+        return Limits(diameter_mm - limit, diameter_mm + limit, source)
 
 
 def load_tolerances(path: Path = TABLE_PATH) -> TolerancesTable:

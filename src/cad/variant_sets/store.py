@@ -14,6 +14,7 @@ from cad.errors import Unavailable
 from cad.projects.model import PROJECT_ID, ProjectId
 from cad.records import files, signed
 from cad.records.roots import Roots, project_store
+from cad.sandbox import image
 from cad.sandbox.bodies import Bodies
 from cad.sandbox.outcome import Built
 from cad.variant_sets.model import (
@@ -89,10 +90,16 @@ def _drop_replaced(
     member = next((m for m in members(root, key) if m.slot == joined.slot), None)
     if member is None or len(member.revisions) < 2:
         return
-    earlier = {revision.built_as for revision in member.revisions[:-1]}
+    tag = image.image_tag(image.BUILD)
+    earlier = {
+        one
+        for revision in member.revisions[:-1]
+        for one in (revision.built_as, revision.live_id(tag))
+    }
 
     def unshown() -> set[VariantId]:
-        return earlier - {held.latest.built_as for _, held in account_slots(root)}
+        latest = (held.latest for _, held in account_slots(root))
+        return earlier - {one for shown in latest for one in (shown.built_as, shown.live_id(tag))}
 
     try:
         lanes.drop_unstarted(variants_root, unshown)

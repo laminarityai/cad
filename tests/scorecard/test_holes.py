@@ -152,6 +152,28 @@ def test_the_card_carries_the_table_band_as_the_limits_it_compared() -> None:
     assert not judged.researched
 
 
+@pytest.mark.parametrize(
+    ("target", "url"),
+    [
+        (M5_CLEARANCE, "https://de.wikipedia.org/wiki/Durchgangsloch"),
+        (M5_TAPPED, "https://amesweb.info/Screws/metric-tap-drill-chart.aspx"),
+        (SHAFT_H7, "https://en.wikipedia.org/wiki/IT_Grade"),
+    ],
+)
+def test_the_card_cites_the_table_row_its_band_was_read_from(
+    target: dict[str, Any], url: str
+) -> None:
+    card = checked(requirements.judge(requirement(target), counted(5.5))).model_dump(mode="json")
+    [source] = card["sources"]
+    assert source["url"] == url
+    assert source["quote"]
+
+
+def test_a_band_the_person_stated_cites_no_table() -> None:
+    card = checked(requirements.judge(requirement(SHAFT_WIDE), counted(8.0)))
+    assert "sources" not in card.model_dump(mode="json")
+
+
 def test_a_tapped_hole_is_held_to_the_minor_diameter_of_its_thread() -> None:
     judged = checked(requirements.judge(requirement(M5_TAPPED), counted(4.2)))
     row = load_fasteners().get("M5").tapped

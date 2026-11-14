@@ -47,7 +47,11 @@ class Checked(Frozen):
 
     `load_case` is `described` when the requirement's load case uses a term beyond the reviewed
     phrases, which the agent combined and the person confirmed (ADR-0007). Report a pass on one
-    as "passes on a load case I described", never as a plain pass."""
+    as "passes on a load case I described", never as a plain pass.
+
+    `sources` cites the table rows the requirement's limits were read from by exact key, as a
+    holes requirement reads the fasteners or tolerances table. The check's own sources are on its
+    result."""
 
     kind: Literal["checked"] = "checked"
     requirement_id: str
@@ -59,6 +63,7 @@ class Checked(Frozen):
     instance: str = Field(default="", exclude_if=lambda instance: not instance)
     basis: Literal["checks", "researched"] = "checks"
     researched: tuple[ReadResearched, ...] = Field(default=(), exclude_if=lambda one: not one)
+    sources: tuple[Source, ...] = Field(default=(), exclude_if=lambda one: not one)
     load_case: Literal["described"] | None = Field(default=None, exclude_if=lambda one: one is None)
     waits_on: Literal["context_part"] | None = Field(
         default=None, exclude_if=lambda one: one is None

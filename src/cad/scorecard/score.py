@@ -65,8 +65,9 @@ def peek_variant(
     table: MaterialsTable | None = None,
 ) -> Scorecard:
     """The card of `score_variant` as the signed results hold it now. Nothing is built, run or
-    waited for: a background job with no stored result is pending, or refused once interrupted
-    too often."""
+    waited for: a background job with no stored result is pending while it runs or waits, and
+    refused once interrupted too often or when nothing runs it, as after a restart or a failed
+    run."""
     held = entry.open_entry(root, variant_id, image.image_tag(image.BUILD))
     request, plan = planned(root, held, material, table, demand)
     settled = lanes.peek(plan)

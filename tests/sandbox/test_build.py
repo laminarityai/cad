@@ -10,7 +10,7 @@ from mcp import Client
 from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.outcome import Built, TimedOut
 from cad.server.app import build_server
-from cad.variants.entry import variant_id
+from cad.variants.entry import BY_CODE, variant_id
 from cad.variants.store import BuildResult, build_variant
 
 PARTS = {path.stem: path.read_text() for path in (Path(__file__).parent / "parts").glob("*.py")}
@@ -93,7 +93,8 @@ async def test_the_same_code_twice_is_one_variant_built_once(tmp_path: Path) -> 
     first = await call(tmp_path, code)
     second = await call(tmp_path, code)
     assert second.structured_content == first.structured_content
-    assert [path.name for path in tmp_path.iterdir()] == [first.structured_content["variant_id"]]
+    stored = sorted(path.name for path in tmp_path.iterdir())
+    assert stored == sorted([BY_CODE, first.structured_content["variant_id"]])
 
 
 @pytest.mark.anyio
