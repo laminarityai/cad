@@ -105,8 +105,11 @@ def _resolve(
             )
         origin = draft.cited or BriefSpan(start=start, end=start + len(draft.quote))
         rid = requirement_id(brief.id, draft.target, origin)
-        if any(r.id == rid for r in requirements):
-            return f"requirements[{index}] repeats an earlier requirement"
+        if any(r.target == draft.target for r in requirements):
+            return (
+                f"requirements[{index}] repeats the target of an earlier requirement: propose "
+                "each target once, quoting the words that state it"
+            )
         requirements.append(
             Requirement(id=rid, brief_id=brief.id, target=draft.target, origin=origin)
         )
