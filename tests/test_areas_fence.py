@@ -15,11 +15,14 @@ from typing import cast
 import pytest
 
 from cad.checks import jobs
-from cad.checks.container.wire import LoadCaseWire
+from cad.checks.container.wire import LoadCaseWire, RequestWire, ValueWire
 from cad.checks.report import build_request
+from cad.checks.result import BodyMaterial
+from cad.sandbox.bodies import BODIES
 from cad.sandbox.outcome import Area
 from cad.tables.materials import load_materials
 from cad.variants.entry import Entry, VariantId
+from tests.support.named_bodies import GEAR, PLATE, PLATE_AND_GEARS
 
 SOURCE = Path(__file__).parents[1] / "src" / "cad"
 CARRIERS = frozenset(
@@ -141,6 +144,50 @@ def test_the_checks_a_variant_gets_do_not_depend_on_its_colours(tmp_path: Path) 
     grey = Entry(VariantId("0123456789abcdef"), tmp_path, b"brep", "b" * 64)
     painted = Entry(
         grey.id, tmp_path, b"brep", "b" * 64, (Area(name="grip", colour="#1a1a1a", faces=(0,)),)
+    )
+    assert jobs.plan(tmp_path, painted, request, table, demand) == jobs.plan(
+        tmp_path, grey, request, table, demand
+    )
+
+
+def test_a_body_name_selects_solids_and_carries_no_number() -> None:
+    table = load_materials()
+    renamed = BODIES.validate_python(
+        [{"name": "base", "solids": (0,)}, {"name": "teeth", "solids": (1, 2)}]
+    )
+    named = build_request(
+        (BodyMaterial(body="plate", key=PLATE), BodyMaterial(body="gear", key=GEAR)),
+        table,
+        bodies=PLATE_AND_GEARS,
+    )
+    other = build_request(
+        (BodyMaterial(body="base", key=PLATE), BodyMaterial(body="teeth", key=GEAR)),
+        table,
+        bodies=renamed,
+    )
+
+    def each_solid(wire: RequestWire) -> dict[int, dict[str, ValueWire]]:
+        return {i: one["values"] for one in wire["bodies"] for i in one["solids"]}
+
+    assert each_solid(named.wire) == each_solid(other.wire)
+
+
+def test_the_checks_of_named_bodies_do_not_depend_on_their_colours(tmp_path: Path) -> None:
+    table = load_materials()
+    made = (BodyMaterial(body="plate", key=PLATE), BodyMaterial(body="gear", key=GEAR))
+    request = build_request(made, table, bodies=PLATE_AND_GEARS)
+    demand = jobs.Demand(loads={"c1": CASE})
+    grey = Entry(VariantId("0123456789abcdef"), tmp_path, b"brep", "b" * 64, (), PLATE_AND_GEARS)
+    painted = Entry(
+        grey.id,
+        tmp_path,
+        b"brep",
+        "b" * 64,
+        (
+            Area(name="plate", colour="#1a1a1a", faces=(0,)),
+            Area(name="gear", colour="#808080", faces=(6,)),
+        ),
+        PLATE_AND_GEARS,
     )
     assert jobs.plan(tmp_path, painted, request, table, demand) == jobs.plan(
         tmp_path, grey, request, table, demand

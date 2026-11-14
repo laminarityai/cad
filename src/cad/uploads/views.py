@@ -58,7 +58,7 @@ def left_out(facts: Facts) -> str | None:
     dropped = facts.left_out
     if dropped is None or dropped.unreadable == 0:
         return None
-    return f"{dropped.unreadable} of {dropped.bodies} bodies could not be read"
+    return f"{dropped.unreadable} of {dropped.bodies} solids or shells could not be read"
 
 
 def document_view(document: Document) -> DocumentView:

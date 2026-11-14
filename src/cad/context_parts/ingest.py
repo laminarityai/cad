@@ -52,7 +52,7 @@ class FlatFact(_Finite):
 class LeftOut(_Finite):
     """What the reader dropped from the file. `bodies` counts the solids and shells it held;
     `unreadable` counts those it dropped, an open shell or a solid that stayed invalid after
-    the tolerance cap; `loose` counts faces, edges and vertices that were in no body."""
+    the tolerance cap; `loose` counts faces, edges and vertices that were in no solid or shell."""
 
     bodies: int
     unreadable: int

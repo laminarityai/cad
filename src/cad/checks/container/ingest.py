@@ -117,7 +117,8 @@ def facts(kernel: Kernel, read_as: ReadAs, data: bytes) -> IngestWire:
     if kept is not None:
         if kept.solids is None:
             return _refused(
-                f"the file has no solid that can be read: {kept.bodies} bodies, none readable"
+                f"the file has no solid that can be read: {kept.bodies} solids or shells, "
+                "none readable"
             )
         shape = kept.solids
         left_out = {"bodies": kept.bodies, "unreadable": kept.unreadable, "loose": kept.loose}

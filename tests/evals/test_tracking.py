@@ -14,6 +14,7 @@ from tracking import (
 
 from cad.checks.result import ReadResearched, Verdict
 from cad.scorecard.model import (
+    JOINTS,
     AgainstBrief,
     AgentChecked,
     Checked,
@@ -141,3 +142,17 @@ def test_a_pass_by_an_agent_written_check_counts_apart_and_not_as_reviewed() -> 
     assert tracking.reviewed_coverage == Ratio(1, 2)
     assert tracking.strict_pass_rate == Ratio(1, 2)
     assert tracking.by[By.AGENT_CHECK] == Decided(1, 1)
+
+
+def test_a_card_of_named_bodies_counts_its_joints_as_a_requirement_no_check_decides() -> None:
+    basis = AgainstBrief(
+        brief_id="b",
+        decision_sha256="d" * 64,
+        requirements=(checked("light", Verdict.PASS),),
+        unverified_requirements=(),
+    )
+    card = genuine_card(basis=basis, untested=(JOINTS,))
+    tracking = track(outcomes_of(card))
+    assert tracking.reviewed_coverage == Ratio(1, 2)
+    assert tracking.by[By.NONE] == Decided(1, 0)
+    assert outcomes_of(genuine_card(untested=(JOINTS,))) == ()

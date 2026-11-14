@@ -80,7 +80,7 @@ def test_a_step_that_is_only_an_open_shell_has_no_solid_to_read(kernel: Kernel) 
     found = facts(kernel, STEP, step_bytes(box_shell(10, 10, 10)))
     assert found == {
         "kind": "refused",
-        "reason": "the file has no solid that can be read: 1 bodies, none readable",
+        "reason": "the file has no solid that can be read: 1 solids or shells, none readable",
     }
 
 
@@ -137,7 +137,7 @@ def test_an_stl_that_is_not_closed_has_no_solid(kernel: Kernel) -> None:
     )
     assert facts(kernel, MM, stl_bytes(five_sides)) == {
         "kind": "refused",
-        "reason": "the file has no solid that can be read: 1 bodies, none readable",
+        "reason": "the file has no solid that can be read: 1 solids or shells, none readable",
     }
 
 

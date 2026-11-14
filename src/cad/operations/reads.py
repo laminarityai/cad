@@ -19,7 +19,7 @@ from cad.projects.model import UnknownProject, parse_project_id
 from cad.sandbox import image
 from cad.sandbox.outcome import Areas, on_faces
 from cad.scorecard import material, score
-from cad.scorecard.material import MaterialUse
+from cad.scorecard.material import BodyMaterialUse, MaterialUse
 from cad.tables.materials import MaterialsTable
 from cad.uploads.store import documents
 from cad.uploads.views import ContextPartView, DocumentView, document_view, part_view
@@ -119,6 +119,7 @@ class MemberView(BaseModel):
     option: Option | None
     material_name: str | None
     card_etag: str | None
+    body_materials: tuple[BodyMaterialUse, ...] = ()
 
 
 class VariantSetView(BaseModel):
@@ -221,12 +222,18 @@ def _member(
         material=None if key is None else material.used(key, confirmed, choice),
         option=latest.option,
         material_name=None if key is None else table.name_of(key),
-        card_etag=_etag(tenant, brief_id, asked or key, latest.built_as),
+        card_etag=_etag(tenant, brief_id, asked or key, latest.built_as, bool(latest.materials)),
+        body_materials=tuple(
+            BodyMaterialUse(body=one.body, **dict(material.used(one.key, confirmed, one)))
+            for one in latest.materials
+        ),
     )
 
 
-def _etag(tenant: Tenant, brief_id: str, material_key: str | None, variant_id: str) -> str | None:
-    if material_key is None:
+def _etag(
+    tenant: Tenant, brief_id: str, material_key: str | None, variant_id: str, each_body: bool
+) -> str | None:
+    if material_key is None and not each_body:
         return None
     asked = ScorecardInput(variant_id=variant_id, material_key=material_key, brief_id=brief_id)
     try:

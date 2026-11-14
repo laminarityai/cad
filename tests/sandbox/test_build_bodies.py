@@ -52,7 +52,6 @@ def test_two_solids_apart_with_no_label_refuse_the_build(tmp_path: Path) -> None
 
 
 def test_a_fuse_gives_every_solid_the_left_shape_s_label(tmp_path: Path) -> None:
-    """The silent case the guidance names: `plate + gears` makes the gears part of the plate."""
     code = (
         "from build123d import *\n"
         "plate = Box(80, 40, 4)\n"

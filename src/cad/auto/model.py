@@ -10,6 +10,7 @@ from cad.conversations.model import ConversationId
 from cad.errors import NotFound, Refused
 from cad.frozen import Frozen
 from cad.projects.model import ProjectId
+from cad.variant_sets.model import BodyChoice
 
 RUN_ID: Final = re.compile(r"^((?:p|pb)-[0-9a-f]{16})-r[0-9a-f]{16}$")
 
@@ -129,10 +130,11 @@ class Started(Frozen):
     brief_id: str
     project: str
     decision_sha256: str
-    material_key: str
+    material_key: str | None = Field(default=None, exclude_if=lambda key: key is None)
     material_reason: str | None = None
     watermark: tuple[tuple[str, int], ...]
     conflicts: tuple[Bounds, ...]
+    materials: tuple[BodyChoice, ...] = Field(default=(), exclude_if=lambda each: not each)
 
 
 class Revised(Frozen):

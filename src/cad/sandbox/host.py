@@ -8,9 +8,9 @@ import yaml
 from pydantic import Field, TypeAdapter, ValidationError
 
 from cad.checks.report import IMAGE_TAG, Request, build_request, parse
-from cad.checks.result import CheckRun, StepMissing, StepStored
+from cad.checks.result import CheckRun, Materials, StepMissing, StepStored, per_body, single_key
 from cad.sandbox import container, image, stage
-from cad.sandbox.bodies import read_bodies
+from cad.sandbox.bodies import bodies_sha256, read_bodies
 from cad.sandbox.container import Attended, ContainerState, Job, TooMuchOutput
 from cad.sandbox.outcome import (
     BuildFailed,
@@ -64,7 +64,7 @@ def check_job(brep: bytes, image_id: str, request: Request, wall_seconds: int) -
 
 def run_checks(
     variant_id: str,
-    material_key: str,
+    material: Materials,
     root: Path = entry.VARIANTS_ROOT,
     *,
     wall_seconds: int = container.WALL_SECONDS,
@@ -79,9 +79,11 @@ def run_checks(
     Returns a `CheckRun` with one result per check, always. A container that times out, runs out of
     memory, dies, or sends a malformed report yields `unknown` results, never an exception and
     never `pass`. A STEP too large for the report is left out, and the results stand. A material
-    key that is not in the table makes `mass` `unknown`.
+    key that is not in the table makes `mass` `unknown`. A variant of named bodies takes a key
+    for each body, in the order its body list names them, and ValueError says when it is not.
     """
-    request = build_request(material_key, materials_table())
+    held = entry.open_entry(root, variant_id, image.image_tag(image.BUILD))
+    request = build_request(material, materials_table(), bodies=held.bodies)
     return run_request(variant_id, request, root, wall_seconds=wall_seconds)
 
 
@@ -114,7 +116,9 @@ def run_request(
         ) from error
     return CheckRun(
         variant_id=held.id,
-        material_key=request.material_key,
+        material_key=single_key(request.material),
+        materials=per_body(request.material),
+        bodies_sha256=bodies_sha256(request.bodies),
         table_version=request.table_version,
         check_image_tag=IMAGE_TAG,
         check_image_digest=image_id,

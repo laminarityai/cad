@@ -5,10 +5,10 @@ from dataclasses import dataclass, field
 import pytest
 
 from cad.accounts.principal import AccountId, PersonSession
+from cad.chat.guidance import CHAT_AUTO
 from cad.chat.model import Message, Model, ModelUnavailable, ToolSpec
 from cad.chat.turn import CLIENT_ID, agent_token
 from cad.conversations.model import ConversationId
-from cad.operations.guidance import CHAT_AUTO
 from cad.operations.registry import OPERATIONS
 from cad.operations.tools import agent_operations
 from tests.support.chat import ALICE, JSON, Chat, call, script, step

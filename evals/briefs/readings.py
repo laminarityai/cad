@@ -19,7 +19,7 @@ from cad.accounts.principal import AccountId
 from cad.confirmations.waiting import Door
 from cad.context_parts.ingest import ingest
 from cad.errors import Refused, Unavailable
-from cad.operations.scorecards import ScorecardInput, scorecard
+from cad.operations.scorecards import ScorecardInput, ScoredBody, scorecard
 from cad.operations.tenants import open_tenant
 from cad.records.roots import Roots
 from cad.scorecard.model import AgainstBrief, AwaitingConfirmation, Scorecard
@@ -48,7 +48,7 @@ def read_after(stores: Path, shown: Sequence[str | CardTrace]) -> tuple[str | Ca
 
 
 def _scored(shown: Sequence[str | CardTrace]) -> Iterator[ScorecardInput]:
-    last: dict[tuple[str, str, str], None] = {}
+    last: dict[ReadingKey, None] = {}
     for text in shown:
         if isinstance(text, CardTrace):
             continue
@@ -60,13 +60,22 @@ def _scored(shown: Sequence[str | CardTrace]) -> Iterator[ScorecardInput]:
             continue
         last.pop(key, None)
         last[key] = None
-    for variant_id, material_key, brief_id in last:
-        yield ScorecardInput(variant_id=variant_id, material_key=material_key, brief_id=brief_id)
+    for variant_id, material_key, materials, brief_id in last:
+        yield ScorecardInput(
+            variant_id=variant_id,
+            material_key=material_key,
+            materials=tuple(ScoredBody(body=body, key=key) for body, key in materials) or None,
+            brief_id=brief_id,
+        )
 
 
-def reading_key(card: Scorecard) -> tuple[str, str, str] | None:
+type ReadingKey = tuple[str, str | None, tuple[tuple[str, str], ...], str]
+
+
+def reading_key(card: Scorecard) -> ReadingKey | None:
     """The variant, material and brief the server reads a card's variant for, or None for a card
     scored with no brief."""
     if not isinstance(card.basis, AgainstBrief | AwaitingConfirmation):
         return None
-    return (card.variant_id, card.material_key, card.basis.brief_id)
+    each = tuple((one.body, one.key) for one in card.materials)
+    return (card.variant_id, card.material_key, each, card.basis.brief_id)

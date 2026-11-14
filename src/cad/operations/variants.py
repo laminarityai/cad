@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import Annotated, Final
 
 from pydantic import BaseModel, Field
@@ -9,30 +10,33 @@ from cad.context_parts.model import UPDATE_PART
 from cad.context_parts.store import out_of_date_in
 from cad.conversations.store import record_event
 from cad.geometry.lane import TESSELLATIONS
-from cad.operations.guidance import AUTO_BUILDS, COLOURS
+from cad.operations.guidance import AUTO_BUILDS, BODY_MATERIALS, COLOURS
 from cad.operations.model import Audience, Input, Tenant, operation
 from cad.operations.research import brief_table
-from cad.operations.scorecards import MaterialKey
+from cad.operations.scorecards import MaterialKey, ScoredBody
 from cad.sandbox import container, host, image
+from cad.sandbox.bodies import MAX_BODIES, Bodies
 from cad.sandbox.outcome import Built, ToldOutcome, told
 from cad.scorecard import material
 from cad.variant_sets import store as variant_sets
 from cad.variant_sets.model import (
     MAX_MEMBERS,
+    BodyChoice,
+    Chosen,
     Differs,
     Joined,
     Label,
-    MaterialChoice,
     NotJoined,
     Option,
     Reason,
     Resolve,
+    Revision,
     SetBuildResult,
     SetRefused,
     SlotRefused,
     code_sha256,
 )
-from cad.variant_sets.placement import choose
+from cad.variant_sets.placement import choose_each
 from cad.variants import entry, store
 from cad.variants.entry import VariantId
 
@@ -82,7 +86,12 @@ BUILD_VARIANT = (
     "answers. A build of code the store does not hold is charged to the account's usage "
     "limit, whose refusal stops the run. "
     "context_parts_out_of_date names the confirmed context parts that came from an "
-    "earlier revision of the slot this build joined: " + UPDATE_PART + " " + COLOURS
+    "earlier revision of the slot this build joined: "
+    + UPDATE_PART
+    + " "
+    + COLOURS
+    + " "
+    + BODY_MATERIALS
 )
 
 
@@ -109,12 +118,20 @@ def variant_code(tenant: Tenant, arguments: VariantCodeInput) -> VariantCode:
     return VariantCode(variant_id=held.id, code=code)
 
 
+class BodyMaterialInput(ScoredBody):
+    reason: Reason
+
+
+type BodyMaterials = Annotated[tuple[BodyMaterialInput, ...], Field(max_length=MAX_BODIES)]
+
+
 class BuildVariantInput(Input):
     code: Annotated[str, Field(max_length=MAX_CODE_CHARS)]
     brief_id: str | None = None
     slot: Annotated[int | None, Field(strict=True)] = None
     material_key: MaterialKey | None = None
     material_reason: Reason | None = None
+    materials: BodyMaterials | None = None
     label: Label | None = None
     differs: Differs | None = None
 
@@ -130,13 +147,21 @@ def _option(label: str | None, differs: str | None) -> Option | None:
     return Option(label=label, differs=differs)
 
 
-def chooser(tenant: Tenant, brief_id: str, key: str | None, reason: str | None) -> Resolve:
-    """The material a build in the brief's set records: the person's made_of, else the agent's."""
+def chooser(
+    tenant: Tenant,
+    brief_id: str,
+    key: str | None,
+    reason: str | None,
+    materials: Sequence[BodyChoice] = (),
+) -> Resolve:
+    """The material a build in the brief's set records: the person's made_of, else the agent's,
+    for each named body when the code built several."""
 
-    def resolve(previous: MaterialChoice | None) -> MaterialChoice | None:
+    def resolve(previous: Revision | None, bodies: Bodies | None) -> Chosen:
         table = brief_table(tenant.roots, brief_id).table
         pinned = material.pinned_key(briefs.confirmed_requirements(tenant.roots, brief_id), table)
-        return choose(pinned, previous, key, reason, table)
+        asked = [one.model_copy(update={"key": table.row_key(one.key)}) for one in materials]
+        return choose_each(pinned, previous, bodies, (key, reason), asked, table)
 
     return resolve
 
@@ -176,7 +201,14 @@ def _build(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResult:
     with stops_at_the_limit(tenant.roots, tenant.conversations, tenant.bound_run, vid):
         if arguments.brief_id is not None:
             resolve = chooser(
-                tenant, arguments.brief_id, arguments.material_key, arguments.material_reason
+                tenant,
+                arguments.brief_id,
+                arguments.material_key,
+                arguments.material_reason,
+                tuple(
+                    BodyChoice(body=one.body, key=one.key, reason=one.reason)
+                    for one in arguments.materials or ()
+                ),
             )
             built = variant_sets.build_into_set(
                 tenant.roots,
@@ -192,10 +224,14 @@ def _build(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResult:
             return with_out_of_date(tenant, arguments.brief_id, built)
         if arguments.slot is not None:
             raise SlotRefused("slot names a place in a brief's variant set, so pass brief_id too")
-        if arguments.material_key is not None or arguments.material_reason is not None:
+        if (arguments.material_key, arguments.material_reason, arguments.materials) != (
+            None,
+            None,
+            None,
+        ):
             raise SetRefused(
-                "material_key and material_reason record a choice in a brief's variant set, "
-                "so pass brief_id too"
+                "material_key, material_reason and materials record a choice in a brief's "
+                "variant set, so pass brief_id too"
             )
         if option is not None:
             raise SetRefused(

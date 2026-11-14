@@ -156,23 +156,32 @@ def _table_step(
             f"scored against materials table {_short(card.table_version)}, "
             f"not the current {_short(table.version)}"
         )
+    key = _key_of(card, measure.name)
+    if key is None:
+        return Unresolved(f"{measure.name} reads the material of each body, not one row")
     try:
-        material = table.get_material(card.material_key)
+        material = table.get_material(key)
     except UnknownMaterial:
-        return Unresolved(f"the materials table has no row {card.material_key!r}")
+        return Unresolved(f"the materials table has no row {key!r}")
     cited = material.value(field)
     if not isinstance(cited, Known):
-        return Unresolved(f"{card.material_key} has no cited {field}: the table says unknown")
+        return Unresolved(f"{key} has no cited {field}: the table says unknown")
     if not math.isclose(measure.value.m_as(unit), cited.magnitude_in(unit), rel_tol=REL_TOL):  # pyright: ignore[reportUnknownMemberType, reportUnknownArgumentType]
         return Unresolved(
-            f"{measure.name} is {measure.value:g~P}, but {card.material_key} {field} "
-            f"is {cited.quantity:g~P}"
+            f"{measure.name} is {measure.value:g~P}, but {key} {field} is {cited.quantity:g~P}"
         )
     if cited.source not in result.sources:
         return Unresolved(f"the {result.check_id} result does not carry the {field} source")
     if isinstance(cited.basis, FromResearch):
-        return ResearchedStep(card.material_key, field, cited.source, cited.basis.record)
-    return TableStep(card.material_key, field, cited.source)
+        return ResearchedStep(key, field, cited.source, cited.basis.record)
+    return TableStep(key, field, cited.source)
+
+
+def _key_of(card: Scorecard, measure: str) -> str | None:
+    if card.material_key is not None:
+        return card.material_key
+    body = measure.partition(":")[2]
+    return next((one.key for one in card.materials if one.body == body), None)
 
 
 def _short(version: str) -> str:

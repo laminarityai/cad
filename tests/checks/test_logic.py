@@ -102,7 +102,7 @@ def test_interference_reports_every_interfering_pair_not_the_first() -> None:
     found = interference.run(subject(kernel))
     assert found["verdict"] == "fail"
     assert measured(found) == {
-        "bodies": 3,
+        "solids": 3,
         "interfering_pairs": 2,
         "max_common_volume": 7.0,
         "common_volume:0-1": 5.0,
@@ -121,9 +121,9 @@ def test_interference_threshold_is_inclusive_at_a_thousandth_of_a_cubic_millimet
     assert found["verdict"] == verdict
 
 
-def test_interference_of_one_solid_passes_with_one_body() -> None:
+def test_interference_of_one_solid_passes_with_one_solid() -> None:
     found = interference.run(subject(FakeKernel(solid_count=1)))
-    assert (found["verdict"], measured(found)["bodies"]) == ("pass", 1)
+    assert (found["verdict"], measured(found)["solids"]) == ("pass", 1)
 
 
 def test_interference_cannot_pass_a_shape_with_no_solid_or_an_undone_boolean() -> None:

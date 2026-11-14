@@ -14,7 +14,7 @@ from cad.checks.container.check import (
     required_pass,
 )
 from cad.checks.container.inputs import Input
-from cad.checks.container.kernel import Across, Lost, Patch, Unreadable, Walls
+from cad.checks.container.kernel import Across, Lost, Patch, Shape, Unreadable, Walls
 from cad.checks.container.wire import FindingWire, SourceLiteral
 
 ID = "min_wall"
@@ -22,14 +22,16 @@ FORMULA = (
     "a wall's thickness at a point on a face is how far a ray goes from that point straight into "
     "the material, along the face's inward normal, until it first comes out through a face that "
     "looks back within 60 degrees; a ray that comes out through a face turned further, as near "
-    "a corner, gives no reading; every face is sampled on a grid of 2 by 2 points, then again "
+    "a corner, gives no reading; a variant of named bodies is measured one body at a time, "
+    "each body's solids as one shape on a grid of its own; every face is sampled on a grid of "
+    "2 by 2 points, then again "
     "with points no farther apart than the thinnest of those readings and than the closest "
     "spacing whose grid over all faces fits in 40000 points; from the thinnest point of each of "
     "the at most 32 thinnest faces within 1.5 times the thinnest reading, a compass search walks "
     "to a local minimum; min_wall is the thinnest reading of all; unknown when a ray never "
     "comes out of the material or the kernel cannot follow it, when no ray crosses a wall, when "
-    "the part has more than 10000 faces or needs more than 250000 rays or 30 seconds, and with "
-    "no measured value unless closed_solid passes"
+    "the part has more than 10000 faces or needs more than 250000 rays, or all its bodies "
+    "together need more than 30 seconds, and with no measured value unless closed_solid passes"
 )
 SOURCES: tuple[SourceLiteral, ...] = (
     {
@@ -73,10 +75,10 @@ class Halted(Exception):
 class Search:
     """Counts every ray against the caps, so a large part stops early as unknown."""
 
-    def __init__(self, walls: Walls) -> None:
+    def __init__(self, walls: Walls, deadline: float | None = None) -> None:
         self.walls = walls
         self.rays = 0
-        self._deadline = time.monotonic() + MAX_SECONDS
+        self._deadline = time.monotonic() + MAX_SECONDS if deadline is None else deadline
 
     def length(self, face: int, u: float, v: float) -> float | None:
         if self.rays >= MAX_RAYS:
@@ -124,6 +126,8 @@ def run(subject: Subject) -> FindingWire:
     unmet = required_pass(subject, REQUIRES, "measure the walls of")
     if unmet is not None:
         return unmet
+    if subject.bodies:
+        return _each_body(subject, shape)
     search = Search(subject.kernel.walls(shape))
     try:
         found = thinnest(search)
@@ -137,6 +141,31 @@ def run(subject: Subject) -> FindingWire:
         f"thinnest wall {wall:.4g} mm, from {search.rays} rays with samples no farther apart "
         f"than {spacing:.3g} mm",
         measure("min_wall", wall, "mm"),
+    )
+
+
+def _each_body(subject: Subject, shape: Shape) -> FindingWire:
+    kernel = subject.kernel
+    solids = kernel.solids(shape)
+    deadline = time.monotonic() + MAX_SECONDS
+    walls: list[tuple[str, float, float]] = []
+    for body in subject.bodies:
+        part = kernel.compound(tuple(solids[index] for index in body.solids))
+        search = Search(kernel.walls(part), deadline)
+        try:
+            found = thinnest(search)
+        except Halted as halted:
+            return finding("unknown", f"the walls of {body.name} are not measured: {halted.reason}")
+        if found is None:
+            return finding("unknown", f"no ray from any face of {body.name} crossed a wall")
+        walls.append((body.name, *found))
+    name, wall, spacing = min(walls, key=lambda one: one[1])
+    return finding(
+        "pass",
+        f"thinnest wall {wall:.4g} mm, in {name}, with samples no farther apart than "
+        f"{spacing:.3g} mm there",
+        measure("min_wall", wall, "mm"),
+        *(measure(f"min_wall:{body}", thick, "mm") for body, thick, _ in walls),
     )
 
 

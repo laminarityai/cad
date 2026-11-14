@@ -1,7 +1,3 @@
-"""The bodies of a variant: which solids of its result share a name. A check measures the solids
-itself from the BREP and uses a body only to learn which solid has which name. No colour, no
-number and no geometry is held here."""
-
 import hashlib
 import json
 import re
@@ -12,7 +8,6 @@ from pydantic import AfterValidator, Field, Strict, StringConstraints, TypeAdapt
 from cad.frozen import Frozen
 
 MAX_BODIES: Final = 12
-# min_wall reads each body as one shape, and a quick job fits 24 solids that way, not more.
 MAX_SOLIDS: Final = 24
 BODY_NAME: Final = r"^[a-z][a-z0-9-]{0,31}$"
 NAMED = (

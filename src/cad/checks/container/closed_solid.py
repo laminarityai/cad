@@ -13,8 +13,10 @@ from cad.checks.container.wire import FindingWire, SourceLiteral
 
 ID = "closed_solid"
 FORMULA = (
-    "pass iff solids = 1 and shapes_outside_solids = 0 and free_edges = 0 and "
-    "over_used_edges = 0 and valid = 1 and inside_out_solids = 0, where shapes_outside_solids "
+    "pass iff solids = named and shapes_outside_solids = 0 and free_edges = 0 and "
+    "over_used_edges = 0 and valid = 1 and inside_out_solids = 0, where named is the number of "
+    "solids the variant's bodies name, or 1 for a variant of one unnamed body, "
+    "shapes_outside_solids "
     "counts the shells, faces, edges and vertices that no solid contains, free_edges and "
     "over_used_edges count edges used by exactly one and by more than two faces of the whole "
     "shape, skipping degenerated edges, and inside_out_solids counts the solids whose own "
@@ -71,6 +73,7 @@ def run(subject: Subject) -> FindingWire:
     kernel = subject.kernel
     each = kernel.solids(shape)
     solids = len(each)
+    named = sum(len(body.solids) for body in subject.bodies) or 1
     inside_out = sum(not kernel.volume_props(solid).volume > 0 for solid in each)
     outside = kernel.outside_solids(shape)
     valid = kernel.is_valid(shape)
@@ -84,7 +87,7 @@ def run(subject: Subject) -> FindingWire:
         measure("inside_out_solids", inside_out, DIMENSIONLESS),
     )
     problems = [
-        *([f"found {solids} solids; exactly 1 is required"] if solids != 1 else []),
+        *([_counted(solids, named, len(subject.bodies))] if solids != named else []),
         *([f"{outside} shells, faces, edges or vertices lie outside any solid"] if outside else []),
         *(["BRepCheck_Analyzer calls the shape invalid"] if not valid else []),
         *([f"{uses.free} edges are used by one face"] if uses.free else []),
@@ -97,4 +100,17 @@ def run(subject: Subject) -> FindingWire:
     ]
     if problems:
         return finding("fail", "; ".join(problems), *measured)
-    return finding("pass", "one valid solid, every edge shared by two faces", *measured)
+    if not subject.bodies:
+        return finding("pass", "one valid solid, every edge shared by two faces", *measured)
+    held = f"{solids} valid solids in {_bodies(len(subject.bodies))}"
+    return finding("pass", f"{held}, every edge shared by two faces", *measured)
+
+
+def _counted(solids: int, named: int, bodies: int) -> str:
+    if not bodies:
+        return f"found {solids} solids; exactly 1 is required"
+    return f"found {solids} solids; the {_bodies(bodies)} name {named}"
+
+
+def _bodies(count: int) -> str:
+    return "1 body" if count == 1 else f"{count} bodies"

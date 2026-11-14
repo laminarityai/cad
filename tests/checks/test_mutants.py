@@ -12,7 +12,11 @@ NONE = "dimensionless"
 STAR_IMPORT = "from build123d import *\n"
 
 PLATE_SHELL = PLATE + "from build123d import Shell\nresult = Shell(result.faces()[:-1])\n"
-PLATE_TWO = PLATE + "from build123d import Pos\nresult = Pos(200, 0, 0) * result + result\n"
+PLATE_TWO = (
+    PLATE
+    + "from build123d import Compound, Pos\n"
+    + 'result = Compound(children=[result, Pos(200, 0, 0) * result], label="plate")\n'
+)
 LOOSE_FACE = (
     STAR_IMPORT
     + "box = Box(10, 10, 10)\n"
@@ -25,14 +29,15 @@ SOLID_AND_CLOSED_SHELL = (
     + "result = Compound([Box(10, 10, 10), shell])\n"
 )
 OVERLAPPING_BOXES = (
-    STAR_IMPORT + "result = Compound([Box(10, 10, 10), Pos(5, 5, 5) * Box(10, 10, 10)])\n"
+    STAR_IMPORT
+    + 'result = Compound(children=[Box(10, 10, 10), Pos(5, 5, 5) * Box(10, 10, 10)], label="box")\n'
 )
 OPEN_SHELL = STAR_IMPORT + "result = Shell(Box(10, 10, 10).faces()[:-1])\n"
 INSIDE_OUT_BOX = STAR_IMPORT + "result = Solid(Box(10, 10, 10).wrapped.Reversed())\n"
 INSIDE_OUT_IN_GOOD_BOX = (
     STAR_IMPORT
     + "inner = Solid(Box(10, 10, 10).wrapped.Reversed())\n"
-    + "result = Compound([Box(20, 20, 20), inner])\n"
+    + 'result = Compound(children=[Box(20, 20, 20), inner], label="box")\n'
 )
 
 type Check = Callable[..., CheckRun]
@@ -50,13 +55,15 @@ def test_plate_shell_fails_closed_solid_with_zero_solids(check: Check) -> None:
     assert "found 0 solids" in closed.reason
 
 
-def test_plate_two_fails_closed_solid_and_passes_interference(check: Check) -> None:
+def test_two_plates_of_one_body_pass_closed_solid_and_interference(check: Check) -> None:
     run = check(PLATE_TWO)
-    assert run.result("closed_solid").verdict == Verdict.FAIL
+    closed = run.result("closed_solid")
+    assert closed.verdict == Verdict.PASS, closed.reason
     assert count(run, "solids") == 2
+    assert closed.reason.startswith("2 valid solids in 1 body")
     interference = run.result("interference")
     assert interference.verdict == Verdict.PASS, interference.reason
-    assert interference.number("bodies", NONE) == 2
+    assert interference.number("solids", NONE) == 2
     assert interference.number("max_common_volume", "mm^3") == pytest.approx(0, abs=1e-9)
 
 
@@ -77,14 +84,18 @@ def test_a_solid_beside_a_closed_shell_fails_closed_solid(check: Check) -> None:
     assert count(run, "shapes_outside_solids") == 1
 
 
-def test_two_overlapping_boxes_fail_both_checks_with_the_overlap_volume(check: Check) -> None:
+def test_two_overlapping_boxes_of_one_body_fail_interference_and_are_not_weighed(
+    check: Check,
+) -> None:
     run = check(OVERLAPPING_BOXES)
-    assert run.result("closed_solid").verdict == Verdict.FAIL
-    interference = run.result("interference")
+    interference, mass = run.result("interference"), run.result("mass")
     assert interference.verdict == Verdict.FAIL
     assert interference.number("common_volume:0-1", "mm^3") == pytest.approx(125, rel=1e-6)
     assert interference.number("interfering_pairs", NONE) == 1
-    assert "solids 0 and 1 share 125 mm^3" in interference.reason
+    assert "solids 0 (box) and 1 (box) share 125 mm^3" in interference.reason
+    assert mass.verdict == Verdict.UNKNOWN, mass.reason
+    assert mass.measured == ()
+    assert interference.reason in mass.reason
 
 
 def test_an_inside_out_box_fails_closed_solid(check: Check) -> None:
@@ -115,18 +126,14 @@ def test_a_seam_or_a_degenerated_edge_is_not_a_free_edge(shape: str, check: Chec
     "code",
     [
         PLATE_SHELL,
-        PLATE_TWO,
         OPEN_SHELL,
-        OVERLAPPING_BOXES,
         LOOSE_FACE,
         SOLID_AND_CLOSED_SHELL,
         INSIDE_OUT_BOX,
     ],
     ids=[
         "plate_shell",
-        "plate_two",
         "open_shell",
-        "overlapping_boxes",
         "loose_face",
         "and_shell",
         "inside_out",

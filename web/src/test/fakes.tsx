@@ -31,6 +31,7 @@ export function setOf(variants: string[]): VariantSetView {
       option: null,
       material_name: null,
       card_etag: null,
+      body_materials: [],
     })),
   };
 }

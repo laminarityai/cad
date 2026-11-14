@@ -46,13 +46,26 @@ class Fem(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
+class BodyPart:
+    """A body the host named: which solids of the shape share a name, and the values its own
+    material gives. A check measures the solids itself; the name only says which are which."""
+
+    name: str
+    solids: tuple[int, ...]
+    inputs: Inputs
+
+
+@dataclass(frozen=True, slots=True)
 class Subject:
+    """`bodies` is empty for a variant of one unnamed body, whose material is in `inputs`."""
+
     kernel: Kernel
     fem: Fem
     shape: Shape | Unreadable
     inputs: Inputs
     reported: Mapping[str, ResultWire]
     context: Shape | Unreadable | None = None
+    bodies: tuple[BodyPart, ...] = ()
 
 
 class CheckModule(Protocol):
@@ -126,7 +139,7 @@ def required_pass(
         if found["verdict"] != "pass":
             return finding(
                 "unknown",
-                f"{required.ID} is {found['verdict']}, so there is no one solid to {to}: "
+                f"{required.ID} is {found['verdict']}, so there is no sound solid to {to}: "
                 f"{found['reason']}",
             )
     return None

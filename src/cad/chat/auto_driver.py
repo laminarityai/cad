@@ -23,11 +23,11 @@ from cad.auto.step import report
 from cad.briefs import store as briefs
 from cad.briefs.store import BriefRefused
 from cad.briefs.words import describe
+from cad.chat.guidance import CHAT_AUTO_NUDGE
 from cad.chat.log import Event, StopReport, ToolCalled, ToolReturned, TurnFailed
 from cad.chat.model import ToolResult, ToolUse
 from cad.confirmations.requirements import plain_names
 from cad.conversations import store
-from cad.operations.guidance import CHAT_AUTO_NUDGE
 from cad.operations.model import Tenant
 from cad.projects.model import ProjectRefused
 from cad.variant_sets import store as variant_sets

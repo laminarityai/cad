@@ -195,6 +195,10 @@ class Kernel(Protocol):
 
     def solids(self, shape: Shape) -> tuple[Shape, ...]: ...
 
+    def compound(self, shapes: tuple[Shape, ...]) -> Shape:
+        """One shape that holds `shapes`, so a check can read a body of several solids at once."""
+        ...
+
     def outside_solids(self, shape: Shape) -> int:
         """Shells, faces, edges and vertices that no solid of the shape contains."""
         ...

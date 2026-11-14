@@ -29,14 +29,25 @@ from cad.conversations import store as conversations
 from cad.operations import scorecards
 from cad.operations.agent_checks import approved_checks
 from cad.operations.conversations import ConversationState
-from cad.operations.guidance import AUTO_AGENT_CHECKS, AUTO_BUILDS, AUTO_DESCRIBED
+from cad.operations.guidance import (
+    AUTO_AGENT_CHECKS,
+    AUTO_BUILDS,
+    AUTO_DESCRIBED,
+    BODY_MATERIALS,
+)
 from cad.operations.model import Audience, Input, Tenant, operation
-from cad.operations.variants import MAX_CODE_CHARS, chooser, count_build, with_out_of_date
+from cad.operations.variants import (
+    MAX_CODE_CHARS,
+    BodyMaterials,
+    chooser,
+    count_build,
+    with_out_of_date,
+)
 from cad.sandbox import image
 from cad.sandbox.outcome import Built
 from cad.scorecard import material
 from cad.variant_sets import store as variant_sets
-from cad.variant_sets.model import Reason, code_sha256
+from cad.variant_sets.model import BodyChoice, Reason, code_sha256
 from cad.variant_sets.placement import CHOOSE
 from cad.variants import entry
 
@@ -64,7 +75,8 @@ AUTO_START = (
     "and auto_revise and auto_ask on it are refused from any other conversation and from a "
     "client with no conversation. A conversation holds one run at a time: while its run has "
     "not stopped, starting another brief's run is refused until you stop that run with "
-    "auto_ask, and build_variant and score_variant build and score only for the run's brief."
+    "auto_ask, and build_variant and score_variant build and score only for the run's brief. "
+    + BODY_MATERIALS
 )
 STOPS = (
     "The run stops when every checked requirement of the latest revision passes, when a "
@@ -128,6 +140,7 @@ class StartInput(Input):
     brief_id: str
     material_key: scorecards.MaterialKey | None = None
     material_reason: Reason | None = None
+    materials: BodyMaterials | None = None
 
 
 class ReviseInput(Input):
@@ -178,18 +191,24 @@ def auto_start(tenant: Tenant, arguments: StartInput) -> AutoRun:
             "to revise against"
         )
     pinned = material.pinned_by(confirmed) is not None
-    if not pinned and (arguments.material_key is None or arguments.material_reason is None):
+    each = () if pinned else arguments.materials or ()
+    single = (arguments.material_key, arguments.material_reason)
+    if not pinned and not each and None in single:
         raise RunRefused(CHOOSE)
-    basis = scorecards.judged(tenant, arguments.brief_id, arguments.material_key, None)
+    basis = scorecards.judged(tenant, arguments.brief_id, arguments.material_key, None, each)
+    table = basis.table.table
     started = Started(
         conversation=cid,
         brief_id=confirmed.brief_id,
         project=project,
         decision_sha256=confirmed.decision_sha256,
-        material_key=basis.material_key,
-        material_reason=None if pinned else arguments.material_reason,
+        material_key=None if each else str(basis.materials_of(())),
+        material_reason=None if pinned or each else arguments.material_reason,
         watermark=seen,
-        conflicts=bounds_conflicts(confirmed.requirements, basis.table.table),
+        conflicts=bounds_conflicts(confirmed.requirements, table),
+        materials=tuple(
+            BodyChoice(body=one.body, key=table.row_key(one.key), reason=one.reason) for one in each
+        ),
     )
 
     def open_under_lock() -> AutoRun:
@@ -229,14 +248,16 @@ def auto_revise(tenant: Tenant, arguments: ReviseInput) -> RevisedRun:
     vid = entry.variant_id(arguments.code, image.image_tag(image.BUILD))
     with stops_at_the_limit(tenant.roots, tenant.conversations, tenant.bound_run, vid):
         start = running.start
-        resolve = chooser(tenant, brief_id, start.material_key, start.material_reason)
+        resolve = chooser(
+            tenant, brief_id, start.material_key, start.material_reason, start.materials
+        )
         built = variant_sets.build_into_set(
             roots, tenant.variants, brief_id, arguments.code, arguments.slot, resolve
         )
         if isinstance(built.outcome, Built):
             scored = scorecards.ScoreVariantInput(
                 variant_id=built.variant_id,
-                material_key=running.start.material_key,
+                material_key=None if start.materials else start.material_key,
                 brief_id=brief_id,
             )
             standing = standing_of(score_until_settled(tenant, scored), revision, sha)

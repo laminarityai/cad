@@ -8,12 +8,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, NewType, Self
 
-from pydantic import model_validator
+from pydantic import Field, model_validator
 
 from cad.data_root import DATA_ROOT
 from cad.errors import NotFound, Refused
 from cad.records import files, key
-from cad.sandbox.outcome import Areas, Build, Built, SandboxUnavailable
+from cad.sandbox.bodies import Bodies, bodies_sha256
+from cad.sandbox.outcome import Areas, Build, BuildOutcome, Built, SandboxUnavailable
 
 VARIANTS_ROOT: Final = DATA_ROOT / "variants"
 CODE: Final = "code.py"
@@ -88,12 +89,19 @@ def encode_code(code: str) -> bytes:
 class Manifest(Build):
     brep_sha256: str | None
     code_sha256: str | None = None
+    bodies_sha256: str | None = Field(default=None, exclude_if=lambda sha256: sha256 is None)
 
     @model_validator(mode="after")
     def _hash_iff_built(self) -> Self:
         if isinstance(self.outcome, Built) != (self.brep_sha256 is not None):
             raise ValueError("brep_sha256 is set exactly when the outcome is built")
+        if self.bodies_sha256 != _bodies_sha256(self.outcome):
+            raise ValueError("bodies_sha256 must hash the outcome's body list")
         return self
+
+
+def _bodies_sha256(outcome: BuildOutcome) -> str | None:
+    return bodies_sha256(outcome.bodies) if isinstance(outcome, Built) else None
 
 
 @dataclass(frozen=True, slots=True)
@@ -103,6 +111,7 @@ class Entry:
     brep: bytes
     brep_sha256: str
     areas: Areas = ()
+    bodies: Bodies = ()
 
     def attach_step(self, step: bytes) -> str:
         files.replace(self.directory / STEP, step)
@@ -122,6 +131,7 @@ def save(root: Path, vid: VariantId, code: str, build: Build, brep: bytes | None
             output=build.output,
             brep_sha256=None if brep is None else hashlib.sha256(brep).hexdigest(),
             code_sha256=hashlib.sha256(code_bytes).hexdigest(),
+            bodies_sha256=_bodies_sha256(build.outcome),
         )
         record = manifest.model_dump_json().encode()
         (incoming / MANIFEST).write_bytes(record)
@@ -167,7 +177,8 @@ def open_entry(root: Path, raw_id: str, image_tag: str) -> Entry:
     brep_sha256 = hashlib.sha256(brep or b"").hexdigest()
     if brep is None or brep_sha256 != manifest.brep_sha256:
         raise StaleVariant(f"variant {vid} has a result.brep that its build did not store")
-    return Entry(vid, directory, brep, brep_sha256, manifest.outcome.areas)
+    outcome = manifest.outcome
+    return Entry(vid, directory, brep, brep_sha256, outcome.areas, outcome.bodies)
 
 
 def _stored_id(code: bytes | None, image_tag: str) -> VariantId | None:

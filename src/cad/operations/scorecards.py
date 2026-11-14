@@ -2,7 +2,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Annotated, Final
 
-from pydantic import Field
+from pydantic import BaseModel, Field
 
 from cad.agent_checks import harness, own
 from cad.agent_checks.model import MAX_CODE_CHARS, UNITS
@@ -13,20 +13,22 @@ from cad.briefs.assumptions import Assumption
 from cad.briefs.model import ON_PART, Requirement, Target
 from cad.briefs.store import ConfirmedSet
 from cad.checks import jobs
+from cad.checks.result import Materials
 from cad.confirmations.requirements import plain_names
 from cad.context_parts.ids import ContextPartId
 from cad.context_parts.store import fit_targets, part_brep
 from cad.operations.agent_checks import with_agent_checks
-from cad.operations.guidance import NOT_VERIFIED, RULE
+from cad.operations.guidance import BODY_MATERIALS, NOT_VERIFIED, RULE
 from cad.operations.model import BOTH, Audience, Input, Tenant, operation
 from cad.operations.research import brief_table, with_research
 from cad.records.roots import Roots
 from cad.research.overlay import ProjectTable
 from cad.sandbox import image
+from cad.sandbox.bodies import MAX_BODIES, Bodies, BodyName
 from cad.scorecard import assumed, awaiting, material, requirements, score, unjudged
 from cad.tables.materials import KEY_PATTERN
 from cad.variant_sets import store as variant_sets
-from cad.variant_sets.model import MaterialChoice, MaterialMissing
+from cad.variant_sets.model import BodyMaterialsRefused, MaterialMissing, Revision
 
 MAX_KEY_CHARS: Final = 64
 type MaterialKey = Annotated[
@@ -106,7 +108,8 @@ SCORE_VARIANT = (
     "The card's material says which key was used and what set it: the confirmed requirement, or "
     "the agent, with the reason you recorded. When the agent set it, say so, and give the "
     "reason, wherever a result rests on the material. "
-    "You cannot change a check or the materials table. "
+    + BODY_MATERIALS
+    + " You cannot change a check or the materials table. "
     "Only score_variant runs a check. "
     "Scoring the same variant and key again gives the same scorecard while the materials table, "
     "the sandbox image and the confirmed requirements are unchanged. Scoring a rebuilt "
@@ -135,9 +138,18 @@ SCORECARD = (
 )
 
 
+class ScoredBody(BaseModel):
+    body: BodyName
+    key: MaterialKey
+
+
+type ScoredBodies = Annotated[tuple[ScoredBody, ...], Field(max_length=MAX_BODIES)]
+
+
 class ScoreVariantInput(Input):
     variant_id: str
     material_key: MaterialKey | None = None
+    materials: ScoredBodies | None = None
     brief_id: str | None = None
     own_measurements: own.OwnMeasurements | None = None
 
@@ -145,6 +157,7 @@ class ScoreVariantInput(Input):
 class ScorecardInput(Input):
     variant_id: str
     material_key: MaterialKey | None = None
+    materials: ScoredBodies | None = None
     brief_id: str | None = None
 
 
@@ -154,8 +167,8 @@ class Judged:
     assess: score.Assess
     demand: jobs.Demand
     table: ProjectTable
-    material_key: str
-    choice: MaterialChoice | None
+    materials_of: material.MaterialsOf
+    revision: Revision | None
     assumptions: tuple[Assumption, ...]
     waiting: tuple[Requirement, ...]
 
@@ -171,9 +184,9 @@ def _context(
     }
 
 
-def _slot_choice(tenant: Tenant, brief_id: str, variant_id: str) -> MaterialChoice | None:
+def _slot_choice(tenant: Tenant, brief_id: str, variant_id: str) -> Revision | None:
     key = variant_sets.set_key(tenant.roots, brief_id)
-    return variant_sets.choice_of(
+    return variant_sets.showing(
         tenant.roots.projects, key, variant_id, image.image_tag(image.BUILD)
     )
 
@@ -229,10 +242,14 @@ def with_assumptions(
 
 
 def judged(
-    tenant: Tenant, brief_id: str | None, material_key: str | None, variant_id: str | None
+    tenant: Tenant,
+    brief_id: str | None,
+    material_key: str | None,
+    variant_id: str | None,
+    materials: Sequence[ScoredBody] | None = None,
 ) -> Judged:
-    """The key a card is scored with: the one passed, else the person's made_of, else the one the
-    agent chose for the variant's slot."""
+    """The material a card is scored with: the one passed, else the person's made_of, else the one
+    the agent chose for the variant's slot, for each named body of a variant that has them."""
     confirmed = None
     assess, demand = score.no_brief, score.NO_DEMAND
     held = ()
@@ -250,24 +267,35 @@ def judged(
         demand = requirements.demand(targets, _context(tenant.roots, brief_id, targets))
     table = brief_table(tenant.roots, brief_id)
     pinned = material.pinned_key(confirmed, table.table)
-    choice = None
+    revision = None
     if brief_id is not None and pinned is None and variant_id:
-        choice = _slot_choice(tenant, brief_id, variant_id)
-    named = None if material_key is None else table.table.row_key(material_key)
-    key = named or pinned or (None if choice is None else choice.key)
-    if key is None:
-        raise MaterialMissing(
-            "no material is known for this variant: pass material_key, or pass the brief_id "
-            "of a brief whose confirmed made_of names it, or whose variant set records the "
-            "material the agent chose for this variant's slot"
-        )
-    material.refuse_other_material(confirmed, key, table.table)
-    return Judged(confirmed, assess, demand, table, key, choice, held, waiting)
+        revision = _slot_choice(tenant, brief_id, variant_id)
+    single = None if material_key is None else table.table.row_key(material_key)
+    asked = {one.body: table.table.row_key(one.key) for one in materials or ()}
+    if single is not None and asked:
+        raise BodyMaterialsRefused("pass material_key or materials, not both. Nothing was scored.")
+    for key in (single, *asked.values()):
+        if key is not None:
+            material.refuse_other_material(confirmed, key, table.table)
+    chose = revision is not None and (revision.material is not None or bool(revision.materials))
+    if single is None and not asked and pinned is None and not chose:
+        raise MaterialMissing(material.NO_MATERIAL)
+
+    def materials_of(bodies: Bodies) -> Materials:
+        return material.made_of(bodies, single, asked, pinned, revision)
+
+    return Judged(confirmed, assess, demand, table, materials_of, revision, held, waiting)
 
 
 def score_variant(tenant: Tenant, arguments: ScoreVariantInput) -> material.ReportedScorecard:
     gate(tenant.roots, tenant.conversations, tenant.bound_run, arguments.brief_id)
-    basis = judged(tenant, arguments.brief_id, arguments.material_key, arguments.variant_id)
+    basis = judged(
+        tenant,
+        arguments.brief_id,
+        arguments.material_key,
+        arguments.variant_id,
+        arguments.materials,
+    )
     if arguments.own_measurements:
         own.refuse_unless_unchecked(basis.confirmed, arguments.own_measurements)
     with stops_at_the_limit(
@@ -275,14 +303,14 @@ def score_variant(tenant: Tenant, arguments: ScoreVariantInput) -> material.Repo
     ):
         scored = score.score_variant(
             arguments.variant_id,
-            basis.material_key,
+            basis.materials_of,
             tenant.variants,
             basis.assess,
             demand=basis.demand,
             table=basis.table.table,
         )
     card = with_research(
-        material.reported(scored, basis.confirmed, basis.choice), basis.table, arguments.brief_id
+        material.reported(scored, basis.confirmed, basis.revision), basis.table, arguments.brief_id
     )
     card = with_assumptions(card, tenant, basis, arguments.brief_id)
     card = with_agent_checks(
@@ -295,33 +323,28 @@ def score_variant(tenant: Tenant, arguments: ScoreVariantInput) -> material.Repo
 
 
 def scorecard(tenant: Tenant, arguments: ScorecardInput) -> material.ScorecardSnapshot:
-    basis = judged(tenant, arguments.brief_id, arguments.material_key, arguments.variant_id)
+    basis = judged(
+        tenant,
+        arguments.brief_id,
+        arguments.material_key,
+        arguments.variant_id,
+        arguments.materials,
+    )
     peeked = score.peek_variant(
         arguments.variant_id,
-        basis.material_key,
+        basis.materials_of,
         tenant.variants,
         basis.assess,
         demand=basis.demand,
         table=basis.table.table,
     )
-    reported = material.reported(peeked, basis.confirmed, basis.choice)
+    reported = material.reported(peeked, basis.confirmed, basis.revision)
     card = with_research(reported, basis.table, arguments.brief_id)
     card = with_assumptions(card, tenant, basis, arguments.brief_id)
     card = with_agent_checks(
         card, tenant.roots, tenant.variants, basis.confirmed, basis.table.table, run=False
     )
     return material.snapshot(card)
-
-
-def names_a_material(tenant: Tenant, arguments: ScorecardInput) -> bool:
-    """Whether the card's material is a row of the brief's table, the one the user confirmed, or
-    the one the agent chose for the slot, so a card nobody scored yet may still come."""
-    basis = judged(tenant, arguments.brief_id, arguments.material_key, arguments.variant_id)
-    return (
-        basis.material_key in basis.table.table.materials
-        or material.pinned_by(basis.confirmed) is not None
-        or (basis.choice is not None and basis.choice.key == basis.material_key)
-    )
 
 
 OPERATIONS: Final = (

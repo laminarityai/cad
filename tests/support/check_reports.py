@@ -34,7 +34,7 @@ def good_report() -> dict[str, Any]:
                 "id": "interference",
                 "verdict": "pass",
                 "measured": [
-                    measured("bodies", 1, DIMENSIONLESS),
+                    measured("solids", 1, DIMENSIONLESS),
                     measured("interfering_pairs", 0, DIMENSIONLESS),
                     measured("max_common_volume", 0, "mm^3"),
                 ],

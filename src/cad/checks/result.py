@@ -1,11 +1,12 @@
 from collections.abc import Mapping
 from enum import StrEnum
-from typing import Annotated, Literal, TypedDict, cast
+from typing import Annotated, Literal, Self, TypedDict, cast
 
 import pint
-from pydantic import Field, NonNegativeInt, PlainSerializer, PlainValidator
+from pydantic import Field, NonNegativeInt, PlainSerializer, PlainValidator, model_validator
 
 from cad.frozen import Frozen
+from cad.sandbox.bodies import BodyName
 from cad.tables.fields import Specimen
 from cad.tables.materials import UNITS, Source
 
@@ -65,6 +66,7 @@ class ReadCited(Frozen):
     kind: Literal["cited"] = "cited"
     field: str
     specimen: Specimen | None = Field(default=None, exclude_if=lambda one: one is None)
+    body: str = Field(default="", exclude_if=lambda body: not body)
 
 
 class ReadResearched(Frozen):
@@ -76,6 +78,7 @@ class ReadResearched(Frozen):
     url: str
     quote: str
     sha256: str
+    body: str = Field(default="", exclude_if=lambda body: not body)
 
 
 class ReadMissing(Frozen):
@@ -84,9 +87,40 @@ class ReadMissing(Frozen):
     kind: Literal["missing"] = "missing"
     field: str
     reason: str
+    body: str = Field(default="", exclude_if=lambda body: not body)
 
 
 type Read = Annotated[ReadCited | ReadResearched | ReadMissing, Field(discriminator="kind")]
+
+
+class BodyMaterial(Frozen):
+    body: BodyName
+    key: str
+
+
+type Materials = str | tuple[BodyMaterial, ...]
+"""One material key for a variant of one unnamed body, or one per named body in the body list's
+order."""
+
+
+def single_key(material: Materials) -> str | None:
+    return material if isinstance(material, str) else None
+
+
+def per_body(material: Materials) -> tuple[BodyMaterial, ...]:
+    return () if isinstance(material, str) else material
+
+
+def made_of_problem(
+    key: str | None, materials: tuple[BodyMaterial, ...], bodies_sha256: str | None
+) -> str | None:
+    """Why a record's material fields cannot be: a variant has one material key, or one per body
+    and the hash of its body list."""
+    if (key is None) == (not materials):
+        return "a record holds one material_key or a material for each body, not both"
+    if bool(materials) != (bodies_sha256 is not None):
+        return "bodies_sha256 is set exactly when each body has its own material"
+    return None
 
 
 class Faces(Frozen):
@@ -151,7 +185,7 @@ class CheckRun(Frozen):
     `check_image_tag` points to later."""
 
     variant_id: str
-    material_key: str
+    material_key: str | None = Field(default=None, exclude_if=lambda key: key is None)
     table_version: str
     check_image_tag: str
     check_image_digest: str
@@ -159,6 +193,15 @@ class CheckRun(Frozen):
     step: Step
     results: tuple[CheckResult, ...]
     timed_out: bool
+    materials: tuple[BodyMaterial, ...] = Field(default=(), exclude_if=lambda each: not each)
+    bodies_sha256: str | None = Field(default=None, exclude_if=lambda sha256: sha256 is None)
+
+    @model_validator(mode="after")
+    def _made_of(self) -> Self:
+        problem = made_of_problem(self.material_key, self.materials, self.bodies_sha256)
+        if problem is not None:
+            raise ValueError(problem)
+        return self
 
     def result(self, check_id: str) -> CheckResult:
         for result in self.results:
