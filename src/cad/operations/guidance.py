@@ -310,7 +310,8 @@ BODY_MATERIALS: Final = (
     "body, with its name as its label sets it and its key, and on build_variant and auto_start "
     "a one-line reason. Omit an entry to keep the material the slot recorded for that body, or "
     "omit materials to keep them all. A confirmed made_of names the material of every body, so "
-    "pass none. One material_key for a variant of more than one body is refused."
+    "pass none. One material_key for a variant of more than one body is refused, unless it is "
+    "the confirmed material."
 )
 
 MATERIAL = (
