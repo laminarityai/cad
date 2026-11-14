@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { httpApi, NotFound, Refused, SignedOut } from "./client";
+import { httpApi, NotFound, READ_TIMEOUT_MS, Refused, SignedOut } from "./client";
 
 const JSON_GET = { method: "GET", credentials: "same-origin", headers: { accept: "application/json" } };
 
@@ -62,5 +62,28 @@ describe("httpApi answers", () => {
   it("carries the kind of refusal the server names", async () => {
     reply(400, { error: "NotScored: variant v1 has no stored check result", kind: "NotScored" });
     await expect(httpApi.scorecard("v1", "b1", null)).rejects.toMatchObject({ status: 400, kind: "NotScored" });
+  });
+});
+
+describe("a read the server never answers", () => {
+  it("fails once the read timeout passes, and not before, so the page stops saying it is reading", async () => {
+    vi.useFakeTimers();
+    const hung = (_url: string, init: RequestInit) =>
+      new Promise<Response>((_resolve, reject) => {
+        init.signal?.addEventListener("abort", () => {
+          reject(init.signal?.reason as Error);
+        });
+      });
+    vi.stubGlobal("fetch", vi.fn(hung));
+    let said: unknown = null;
+    void httpApi.scorecard("v1", "b1", null).catch((error: unknown) => {
+      said = error;
+    });
+    await vi.advanceTimersByTimeAsync(READ_TIMEOUT_MS - 1);
+    expect(said).toBeNull();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(said).toBeInstanceOf(Error);
+    expect(String((said as Error).message)).toMatch(/did not answer/);
+    vi.useRealTimers();
   });
 });
