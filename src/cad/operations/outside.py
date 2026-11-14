@@ -66,7 +66,8 @@ HAND_DESCRIBED: Final = (
         input=Follow,
         output=Event,
         events="server-sent events: id is the sequence number, event is the kind, data is one "
-        "transcript event",
+        "transcript event. An agent_partial event has no id, and its data's text is the reply "
+        "heard so far, which the next transcript event replaces",
         failures=(401, 404, 422),
     ),
     Described(

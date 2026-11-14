@@ -6,7 +6,8 @@ part of a turn that can be swapped: the Anthropic adapter in production, a scrip
 tests and evals. `CAD_CHAT_MODEL` selects it.
 """
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
+from contextvars import ContextVar
 from typing import Annotated, Any, Final, Literal, Protocol
 
 from pydantic import Field
@@ -84,6 +85,14 @@ class ToolSpec(Frozen):
     name: str
     description: str
     input_schema: dict[str, Any]
+
+
+type Heard = Callable[[str], None]
+
+HEARD: Final = ContextVar[Heard | None]("heard", default=None)
+"""Where a model that streams sends each piece of reply text as it arrives. A turn sets it for
+its own task, so the open page shows the reply before it is whole. The text it hears is not
+stored: the reply is, once it is whole."""
 
 
 class ModelUnavailable(Exception):

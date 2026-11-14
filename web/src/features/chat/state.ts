@@ -16,16 +16,19 @@ export interface ChatState {
   turnStartSeq: number | null;
   link: Link;
   problem: string | null;
+  /** The reply text heard so far, which the next stored event replaces. */
+  partial: string | null;
 }
 
 export type ChatAction =
   | { type: "open"; conversationId: string | null }
   | { type: "event"; seq: number; event: Event }
+  | { type: "partial"; text: string }
   | { type: "link"; link: Link }
   | { type: "problem"; message: string | null };
 
 export function chatStart(conversationId: string | null): ChatState {
-  return { conversationId, lines: [], seen: 0, turn: "idle", turnStartSeq: null, link: "connecting", problem: null };
+  return { conversationId, lines: [], seen: 0, turn: "idle", turnStartSeq: null, link: "connecting", problem: null, partial: null };
 }
 
 function withEvent(lines: readonly Line[], seq: number, event: Event): readonly Line[] {
@@ -65,13 +68,21 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case "event": {
       if (action.seq <= state.seen) return state;
       const lines = withEvent(state.lines, action.seq, action.event);
-      if (action.event.kind === "turn_ended") return { ...state, lines, seen: action.seq, turn: "idle", turnStartSeq: null };
-      if (state.turn === "idle" && STARTS_TURN.has(action.event.kind)) return { ...state, lines, seen: action.seq, turn: "running", turnStartSeq: action.seq };
-      return { ...state, lines, seen: action.seq };
+      const next = { ...state, lines, seen: action.seq, partial: null };
+      if (action.event.kind === "turn_ended") return { ...next, turn: "idle", turnStartSeq: null };
+      if (state.turn === "idle" && STARTS_TURN.has(action.event.kind)) return { ...next, turn: "running", turnStartSeq: action.seq };
+      return next;
     }
+    case "partial":
+      return { ...state, partial: action.text };
     case "link":
-      return { ...state, link: action.link };
+      return { ...state, link: action.link, partial: action.link === "live" ? state.partial : null };
     case "problem":
       return { ...state, problem: action.message };
   }
+}
+
+/** The lines to draw: the stored ones, then the reply heard so far as the agent's newest line. */
+export function shownLines(state: ChatState): readonly Line[] {
+  return state.partial === null ? state.lines : [...state.lines, { seq: state.seen + 0.5, kind: "agent", text: state.partial }];
 }

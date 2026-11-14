@@ -1,4 +1,5 @@
-from collections.abc import Sequence
+from collections.abc import AsyncGenerator, AsyncIterator, Sequence
+from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from typing import Any
 
@@ -7,7 +8,7 @@ from anthropic.types import ServerToolUseBlock, TextBlock, ToolUseBlock, WebSear
 
 from cad.chat.anthropic_model import SEARCHES, AnthropicModel
 from cad.chat.log import Page, WebFound, WebSearched, messages_of, web_event
-from cad.chat.model import Message, ServerBlock, Text, ToolSpec, ToolUse
+from cad.chat.model import HEARD, Message, ServerBlock, Text, ToolSpec, ToolUse
 
 pytestmark = pytest.mark.anyio
 
@@ -53,10 +54,21 @@ class Messages:
     def sent(self) -> dict[str, Any]:
         return self.requests[-1]
 
-    async def create(self, **request: Any) -> object:
+    @asynccontextmanager
+    async def stream(self, **request: Any) -> AsyncGenerator[object]:
         self.requests.append(request)
         stop_reason, content = self.replies.pop(0)
-        return SimpleNamespace(stop_reason=stop_reason, content=list(content), usage=USAGE)
+        texts = [one.text for one in content if isinstance(one, TextBlock)]
+        final = SimpleNamespace(stop_reason=stop_reason, content=list(content), usage=USAGE)
+
+        async def text_stream() -> AsyncIterator[str]:
+            for text in texts:
+                yield text
+
+        async def get_final_message() -> object:
+            return final
+
+        yield SimpleNamespace(text_stream=text_stream(), get_final_message=get_final_message)
 
 
 def a_model(messages: Messages, environ: dict[str, str] | None = None) -> AnthropicModel:
@@ -108,6 +120,20 @@ async def test_a_search_comes_back_as_the_apis_own_blocks_and_goes_back_unchange
     assert raw_found["content"][0]["encrypted_content"] == "Eq0secret"
     await model.reply("system", [*ASKED, said], SPECS, 0)
     assert messages.sent["messages"][1]["content"][:2] == [raw_search, raw_found]
+
+
+async def test_each_piece_of_reply_text_is_heard_as_it_arrives_across_a_paused_search() -> None:
+    first, second = TextBlock(type="text", text="Looking "), TextBlock(type="text", text="it up.")
+    messages = Messages(("pause_turn", [first, SEARCH]), ("end_turn", [FOUND, second]))
+    heard: list[str] = []
+    token = HEARD.set(heard.append)
+    try:
+        said = await a_model(messages).reply("system", ASKED, SPECS, 0)
+    finally:
+        HEARD.reset(token)
+    assert heard == ["Looking ", "it up."]
+    assert said.blocks[0] == Text(text="Looking ")
+    assert said.blocks[-1] == Text(text="it up.")
 
 
 async def test_a_paused_search_is_sent_back_and_its_continuation_joins_the_same_reply() -> None:

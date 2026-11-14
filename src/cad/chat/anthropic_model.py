@@ -25,6 +25,7 @@ from anthropic.types.tool_result_block_param import (
 
 from cad.chat.guidance import CHAT_WEB_SEARCH
 from cad.chat.model import (
+    HEARD,
     Block,
     Message,
     ModelUnavailable,
@@ -95,15 +96,20 @@ class AnthropicModel:
         self, system: str, messages: list[MessageParam], tools: list[ToolUnionParam]
     ) -> anthropic.types.Message:
         client = self._open()
+        heard = HEARD.get()
         try:
-            response = await client.messages.create(
+            async with client.messages.stream(
                 model=self.model,
                 max_tokens=MAX_TOKENS,
                 system=system,
                 messages=messages,
                 tools=tools,
                 cache_control=CACHED,
-            )
+            ) as stream:
+                async for text in stream.text_stream:
+                    if heard is not None:
+                        heard(text)
+                response = await stream.get_final_message()
         except anthropic.APIStatusError as error:
             raise ModelUnavailable(
                 f"the model answered with HTTP {error.status_code}, so this turn stopped"

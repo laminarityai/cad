@@ -1,8 +1,8 @@
 import { Check, Crosshair, Paperclip, SendHorizontal, X } from "lucide-react";
-import { useEffect, useReducer, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { useServices } from "@/app/context";
 import { Refused } from "@/api/client";
-import { chatReducer, chatStart, type Line } from "@/features/chat/state";
+import { chatReducer, chatStart, shownLines, type Line } from "@/features/chat/state";
 import { Loading } from "@/components/ui/busy";
 import { ToolChips, type ToolRow } from "@/components/ui/tool-chips";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -60,9 +60,12 @@ export function useProjectChat(conversationId: string | null, onChange?: (change
       onLink: (link) => {
         dispatch({ type: "link", link });
       },
+      onPartial: (text) => {
+        dispatch({ type: "partial", text });
+      },
     });
   }, [chat, conversationId]);
-  return state;
+  return useMemo(() => ({ ...state, lines: shownLines(state) }), [state]);
 }
 
 type Shown = { kind: "line"; line: Line } | { kind: "activity"; key: number; lines: Call[] };

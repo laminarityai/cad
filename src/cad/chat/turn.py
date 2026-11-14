@@ -38,6 +38,7 @@ from cad.chat.log import (
     web_event,
 )
 from cad.chat.model import (
+    HEARD,
     Attached,
     Media,
     Message,
@@ -117,6 +118,7 @@ async def _converse(model: Model, tenants: Tenants, token: AgentToken, channel: 
             channel.append(missed)
             if isinstance(missed, TurnFailed):
                 return
+        HEARD.set(channel.hear)
         searches_spent = 0
         for _ in range(MAX_STEPS):
             try:

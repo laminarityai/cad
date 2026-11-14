@@ -64,11 +64,11 @@ def test_a_disk_that_fills_while_the_cut_line_is_dropped_keeps_the_transcript(
 
 async def test_a_waiter_wakes_for_the_next_append(tmp_path: Path) -> None:
     channel = Channel(tmp_path / "c1.jsonl")
-    waiting = asyncio.create_task(channel.wait_after(0))
+    waiting = asyncio.create_task(channel.wait_change(0, ""))
     await asyncio.sleep(0)
     channel.append(UserSaid(text="hi"))
-    held = await asyncio.wait_for(waiting, 1)
-    assert [one.seq for one in held] == [1]
+    await asyncio.wait_for(waiting, 1)
+    assert [one.seq for one in channel.after(0)] == [1]
 
 
 def test_a_server_sent_event_carries_the_seq_as_its_id(tmp_path: Path) -> None:
