@@ -200,9 +200,10 @@ def test_rates_count_the_requirements_of_one_variant_once(tmp_path: Path) -> Non
 
 def test_a_session_failure_names_the_line_that_says_why() -> None:
     output = "init: cad connected\nresult: a reply\ntools outside cad: build_variant\n"
-    assert failure_note(output) == "tools outside cad: build_variant"
-    assert failure_note("claude blew up") == "claude blew up"
-    assert failure_note("") == "no output"
+    assert failure_note(output, "") == "tools outside cad: build_variant"
+    raised = "Traceback (most recent call last):\nStopIteration\n"
+    assert failure_note("result: a reply the model wrote\n", raised) == "StopIteration"
+    assert failure_note("result: a reply the model wrote\n", "") == "the session reported an error"
 
 
 def test_a_card_with_no_brief_is_not_traced(tmp_path: Path) -> None:
@@ -267,6 +268,13 @@ def test_the_summary_prints_the_tracers_lines_counted_apart() -> None:
         text
     )
     assert "agent measurements: 1, not verified" in text
+    assert "older run" not in text
+
+
+def test_the_summary_notes_a_traced_brief_from_an_older_run_with_no_by_counts() -> None:
+    newer = a_trace(by={By.TEAM: Decided(2, 1)})
+    text = markdown(summarize([a_result("a", newer), a_result("b", a_trace())], [], "m"), [])
+    assert "1 traced brief(s) come from an older run that kept no `by` counts" in text
 
 
 def stub_session(monkeypatch: pytest.MonkeyPatch, *, failing: set[str]) -> list[str]:

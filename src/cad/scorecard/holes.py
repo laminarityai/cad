@@ -25,7 +25,7 @@ from cad.checks.result import CheckResult, Comparator, Measure, Measured, Verdic
 from cad.sandbox.on_body import per_body
 from cad.scorecard.model import Checked, Comparison
 from cad.tables.fasteners import load_fasteners
-from cad.tables.materials import UNITS, magnitude
+from cad.tables.materials import UNITS, Source, magnitude
 from cad.tables.tolerances import load_tolerances
 
 MEASURE: Final = "hole_diameter"
@@ -46,10 +46,11 @@ EXACT: Final = "As many round holes lie in the confirmed range as the person con
 
 @dataclass(frozen=True, slots=True)
 class Band:
-    """The diameters a hole may have, inclusive, in mm."""
+    """The diameters a hole may have, inclusive, in mm, and the table rows they were read from."""
 
     low: float
     high: float
+    sources: tuple[Source, ...] = ()
 
 
 def band(target: FastenerHoles | PlainHoles) -> Band:
@@ -64,14 +65,15 @@ def band(target: FastenerHoles | PlainHoles) -> Band:
                 return Band(wanted - around, wanted + around)
             case ByClass(key=key):
                 limits = load_tolerances().limits(key, wanted)
-                return Band(limits.low_mm, limits.high_mm)
+                return Band(limits.low_mm, limits.high_mm, (limits.source,))
     row = load_fasteners().get(target.size)
     if target.fit is HoleFit.TAPPED:
-        return Band(row.tapped.minor_min_mm, row.tapped.minor_max_mm)
+        return Band(row.tapped.minor_min_mm, row.tapped.minor_max_mm, (row.tapped.source,))
+    cited = (row.clearance.source,)
     if target.series is not None:
         one = row.clearance.diameter_mm(target.series)
-        return Band(one, one)
-    return Band(row.clearance.close_mm, row.clearance.coarse_mm)
+        return Band(one, one, cited)
+    return Band(row.clearance.close_mm, row.clearance.coarse_mm, cited)
 
 
 def judged(requirement: Requirement, statement: str, result: CheckResult) -> Checked:
@@ -103,6 +105,7 @@ def judged(requirement: Requirement, statement: str, result: CheckResult) -> Che
             )
             for comparator, limit, meeting in limits
         ),
+        sources=wanted.sources,
     )
 
 

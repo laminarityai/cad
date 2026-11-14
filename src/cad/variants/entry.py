@@ -22,6 +22,7 @@ MANIFEST: Final = "build.json"
 MAC: Final = "build.mac"
 BREP: Final = "result.brep"
 STEP: Final = "result.step"
+BY_CODE: Final = "by-code"
 ID_PATTERN: Final = re.compile(r"[0-9a-f]{16}")
 MAX_FILE_BYTES: Final = 64 * 1024 * 1024
 TRUSTED_DIRECTORIES: Final = (
@@ -123,6 +124,7 @@ def save(root: Path, vid: VariantId, code: str, build: Build, brep: bytes | None
     try:
         incoming.mkdir(parents=True)
         code_bytes = encode_code(code)
+        code_sha256 = hashlib.sha256(code_bytes).hexdigest()
         (incoming / CODE).write_bytes(code_bytes)
         if brep is not None:
             (incoming / BREP).write_bytes(brep)
@@ -130,12 +132,13 @@ def save(root: Path, vid: VariantId, code: str, build: Build, brep: bytes | None
             outcome=build.outcome,
             output=build.output,
             brep_sha256=None if brep is None else hashlib.sha256(brep).hexdigest(),
-            code_sha256=hashlib.sha256(code_bytes).hexdigest(),
+            code_sha256=code_sha256,
             bodies_sha256=_bodies_sha256(build.outcome),
         )
         record = manifest.model_dump_json().encode()
         (incoming / MANIFEST).write_bytes(record)
         (incoming / MAC).write_bytes(key.sign(root, vid, record))
+        _index(root, code_sha256, vid)
         try:
             incoming.rename(root / vid)
         except OSError:
@@ -146,6 +149,25 @@ def save(root: Path, vid: VariantId, code: str, build: Build, brep: bytes | None
         return manifest
     finally:
         shutil.rmtree(incoming, ignore_errors=True)
+
+
+def _index(root: Path, code_sha256: str, vid: VariantId) -> None:
+    """Note `vid` under its code before the entry lands, so no stored entry is missing from
+    `built_from`. A note whose entry never landed names nothing and is harmless."""
+    directory = root / BY_CODE / code_sha256
+    directory.mkdir(parents=True, exist_ok=True)
+    files.replace(directory / vid, b"")
+
+
+def built_from(root: Path, code: str) -> tuple[VariantId, ...]:
+    """Every id stored with this code, whichever sandbox built it. Only `save` writes the index,
+    so it grows with the sandboxes that built the code, not with the store."""
+    directory = root / BY_CODE / hashlib.sha256(encode_code(code)).hexdigest()
+    try:
+        names = sorted(path.name for path in directory.iterdir())
+    except OSError:
+        return ()
+    return tuple(VariantId(name) for name in names if ID_PATTERN.fullmatch(name))
 
 
 def read_manifest(root: Path, vid: VariantId) -> Manifest | None:

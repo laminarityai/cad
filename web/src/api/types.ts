@@ -856,6 +856,10 @@ export interface components {
          *     `load_case` is `described` when the requirement's load case uses a term beyond the reviewed
          *     phrases, which the agent combined and the person confirmed (ADR-0007). Report a pass on one
          *     as "passes on a load case I described", never as a plain pass.
+         *
+         *     `sources` cites the table rows the requirement's limits were read from by exact key, as a
+         *     holes requirement reads the fasteners or tolerances table. The check's own sources are on its
+         *     result.
          */
         Checked: {
             /**
@@ -878,6 +882,8 @@ export interface components {
             basis: "checks" | "researched";
             /** @default [] */
             researched?: components["schemas"]["ReadResearched"][];
+            /** @default [] */
+            sources?: components["schemas"]["Source"][];
             /** @default null */
             load_case?: "described" | null;
             /** @default null */

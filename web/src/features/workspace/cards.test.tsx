@@ -203,6 +203,15 @@ describe("linesOf holes", () => {
     expect(asked[0]?.value).toBe("2 holes: 5, 6 mm");
   });
 
+  it("cites the table row a holes requirement's band was read from, before the check's own sources", () => {
+    const base = deflectionDone();
+    const row = { url: "https://de.wikipedia.org/wiki/Durchgangsloch", title: "Durchgangsloch", page: "M5", retrieved: "2026-11-11", standard: "ISO 273", quote: "M5 5,3 5,5 5,8" };
+    const judged: Checked = { ...base, check_id: "holes", requirement_id: "r1", sources: [row], comparisons: base.comparisons.map((one) => ({ ...one, measure: "hole_diameter" })) };
+    const result = holes([5.5]);
+    const { asked } = linesOf(restore(snapshot("v1", [judged], [result])));
+    expect(asked[0]?.sources.map((one) => one.url)).toEqual([row.url, ...result.sources.map((one) => one.url)]);
+  });
+
   it("keeps the diameters of a part the check could not fully read, with status unknown", () => {
     const line = lineOf(holes([5.5], "unknown"));
     expect(line?.value).toBe("1 hole: 5.5 mm");

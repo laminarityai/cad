@@ -185,7 +185,7 @@ def test_losing_a_save_race_returns_the_winners_manifest(tmp_path: Path) -> None
     vid = stored(tmp_path)
     again = save(tmp_path, vid, CODE, Build(outcome=NoResult(reason="r"), output=""), None)
     assert again.outcome == Built()
-    assert [path.name for path in tmp_path.iterdir()] == [vid]
+    assert sorted(path.name for path in tmp_path.iterdir()) == sorted([entry.BY_CODE, vid])
 
 
 def test_editing_any_trusted_file_re_keys_every_variant(tmp_path: Path) -> None:
