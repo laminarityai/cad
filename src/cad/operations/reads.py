@@ -216,7 +216,7 @@ def _member(
     names = _body_names(tenant, shown)
     card = _card(tenant, brief_id, asked or key, shown, bool(names))
     each = (
-        _unscored_body_materials(names, latest.materials, confirmed, pinned)
+        _unscored_body_materials(names, latest.materials, confirmed, pinned, table)
         if card is None
         else card.body_materials
     )
@@ -261,6 +261,7 @@ def _unscored_body_materials(
     chosen: Sequence[BodyChoice],
     confirmed: ConfirmedSet | None,
     pinned: material.Pins,
+    table: MaterialsTable,
 ) -> tuple[BodyMaterialUse, ...]:
     kept = {one.body: one for one in chosen}
     each: list[BodyMaterialUse] = []
@@ -269,7 +270,11 @@ def _unscored_body_materials(
         key = material.pin_for(pinned, name) or (None if choice is None else choice.key)
         if key is not None:
             each.append(
-                BodyMaterialUse(body=name, **dict(material.used(key, confirmed, choice, name)))
+                BodyMaterialUse(
+                    body=name,
+                    name=table.name_of(key),
+                    **dict(material.used(key, confirmed, choice, name)),
+                )
             )
     return tuple(each)
 

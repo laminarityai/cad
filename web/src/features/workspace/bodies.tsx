@@ -31,7 +31,7 @@ export function bodiesOf(snapshot: Scorecard, colours: ReadonlyMap<string, strin
     return {
       name: body.name,
       colour: colours.get(body.name) ?? null,
-      material: made?.key ?? "no material",
+      material: made?.name ?? "no material",
       chosenBy: made?.set_by.kind === "agent_argument" ? "agent" : "you",
       solids,
       measured: `${amount(read(`volume:${body.name}`), "volume")} · ${amount(read(`mass:${body.name}`), "mass")}`,

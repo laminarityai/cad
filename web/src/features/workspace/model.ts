@@ -92,7 +92,7 @@ function slotsOf(set: VariantSetView | null): Slot[] {
       variantId: one.variant_id,
       at: one.joined_at,
     })),
-    bodies: member.body_materials.map((one) => ({ name: one.body, material: one.key, chosenBy: one.set_by.kind === "agent_argument" ? "agent" : "you" })),
+    bodies: member.body_materials.map((one) => ({ name: one.body, material: one.name, chosenBy: one.set_by.kind === "agent_argument" ? "agent" : "you" })),
   }));
 }
 

@@ -19,7 +19,7 @@ from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.outcome import Build, Built
 from cad.scorecard import material
 from cad.scorecard.model import AGENT_CHECK, JOINTS, AgainstBrief, AgentChecked, Unverified
-from cad.tables.materials import UNITS
+from cad.tables.materials import UNITS, load_materials
 from cad.variants import entry
 from tests.support.agent_checks import answer, write
 from tests.support.cards import BREP, genuine_card, judged_card, table
@@ -63,7 +63,7 @@ def scored(
     vid = entry.variant_id(CODE, image_tag(BUILD))
     entry.save(variants, vid, CODE, Build(outcome=Built(), output=""), BREP)
     card = judged_card(confirmed).model_copy(update={"variant_id": vid, **(NAMED if named else {})})
-    reported = material.reported(card, confirmed)
+    reported = material.reported(card, confirmed, load_materials())
     found = with_agent_checks(reported, roots, variants, confirmed, table(), run=run).basis
     assert isinstance(found, AgainstBrief)
     return found
@@ -181,5 +181,5 @@ def test_a_sandbox_that_is_down_keeps_nothing_so_the_next_score_runs_it(
 
 
 def test_a_card_scored_with_no_brief_is_left_alone(roots: Roots, tmp_path: Path) -> None:
-    card = material.reported(genuine_card(), None)
+    card = material.reported(genuine_card(), None, load_materials())
     assert with_agent_checks(card, roots, tmp_path, None, table(), run=True) == card
