@@ -10,7 +10,7 @@ Each fact carries one of three labels:
 
 ## What trunk does today
 
-- **A variant is one solid of one material.** `closed_solid` passes only when `solids = 1` (read, `src/cad/checks/container/closed_solid.py`). `mass`, `extents`, `min_wall` and `fea` require it, so a result of two solids gets no mass, no size and no stress result.
+- **A variant is one solid of one material.** `closed_solid` passes only when `solids = 1` (read, `src/cad/checks/container/closed_solid.py`). `mass`, `extents`, `holes`, `min_wall` and `fea` each list it in `REQUIRES` (read), so a result of two solids gets no mass, no size, no hole reading, no wall reading and no stress result.
 - **One material key per scored variant.** A slot's revision records one `MaterialChoice` (read, `src/cad/variant_sets/model.py:55`). A check result and a scorecard carry one `material_key` (read, `src/cad/checks/result.py:154`, `src/cad/scorecard/model.py:220`). `mass` reads one density, and `fea` reads one modulus and one strength.
 - **A confirmed material pins the whole variant.** `MadeOf` holds one material key and no place for a body (read, `src/cad/briefs/model.py:122`).
 - **`interference` already reads pairs of solids.** It passes when no two solids share more than 0.001 mm^3 (read, `src/cad/checks/container/interference.py`). Today it only ever sees one.
@@ -81,7 +81,7 @@ A solve that treats touching bodies as bonded is possible and is left for later.
 
 ### A requirement can name a body
 
-A requirement applies to the whole variant unless it names a body. `made_of`, the mass limits, `holes`, a wall limit and a load case gain an optional `body`.
+A requirement applies to the whole variant unless it names a body. `made_of`, the mass limits, the two hole requirements, a limit on a per-body measure such as the thinnest wall, and a load case gain an optional `body`.
 
 The names are bound by exact key, never by matching words. When a person's brief tells bodies apart ("gray steel gears on a black carbon plate"), the proposal lists the body names, each quoting the words that state it. The person confirms the names on the card with the rest of the brief. A build for that brief must produce a body for each confirmed name, and it may add others of its own, such as a spacer. A build that lacks a confirmed name is refused, and nothing is built.
 
@@ -120,7 +120,7 @@ Stage 2 starts after stage 1 merges, because it extends the list stage 1 stores 
 
 0. **Prototype in the sandbox, no product code.** Confirm that solid order survives the BREP, time `interference` at the caps, cut one solid from a compound for the mesher, and read names and colours back from a STEP and a 3MF.
 1. **Bodies through the pipeline.** The stored list, `materials` on `build_variant`, the geometry checks and `mass`, the scorecard's bodies list, the explorer, and the exports.
-2. **Requirements that name a body.** Body names on the proposal and the card, and `body` on `made_of`, the mass limits, `holes` and the wall limit.
+2. **Requirements that name a body.** Body names on the proposal and the card, and `body` on `made_of`, the mass limits, the hole requirements and a limit on a per-body measure.
 3. **Stress on one named body.**
 
 Each step is one PR with one live walk. The walk for step 1 is the operator's own example: gray steel gears on a black carbon fibre plate, with a mass on the scorecard that is the sum of both.
