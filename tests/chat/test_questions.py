@@ -91,17 +91,25 @@ def propose(quote: str, grams: int) -> Call:
     )
 
 
-LEADING_SCRIPT = script(
-    step("A question.", call("ask_questions", questions=[{**QUESTIONS[1], "question": LEADING}])),
-    step("Answer on the card."),
-    step("Storing it.", call("create_brief")),
-    step("Proposing.", propose("weigh at most 30 g", 30)),
-    step("Proposing again.", propose("at most 25 g", 25)),
-    step("Done."),
+LEADING_QUESTIONS = [{**QUESTIONS[1], "question": LEADING}]
+
+
+def leading(questions: object) -> Model:
+    return script(
+        step("A question.", call("ask_questions", questions=questions)),
+        step("Answer on the card."),
+        step("Storing it.", call("create_brief")),
+        step("Proposing.", propose("weigh at most 30 g", 30)),
+        step("Proposing again.", propose("at most 25 g", 25)),
+        step("Done."),
+    )
+
+
+@pytest.mark.parametrize(
+    "model",
+    [leading(LEADING_QUESTIONS), leading(json.dumps(LEADING_QUESTIONS))],
+    ids=["as a list", "as a JSON string"],
 )
-
-
-@pytest.mark.parametrize("model", [LEADING_SCRIPT])
 async def test_a_quote_from_the_question_is_refused_and_one_from_the_typed_answer_is_kept(
     chat: Chat,
 ) -> None:

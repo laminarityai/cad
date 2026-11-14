@@ -196,8 +196,8 @@ def _say(channel: Channel, reply: Message) -> None:
             channel.append(AgentSaid(text=block.text))
         elif isinstance(block, ToolUse):
             channel.append(ToolCalled(call_id=block.id, name=block.name, input=block.input))
-        elif isinstance(block, ServerBlock) and (searches_spent := web_event(block)) is not None:
-            channel.append(searches_spent)
+        elif isinstance(block, ServerBlock) and (web := web_event(block)) is not None:
+            channel.append(web)
 
 
 async def _call(client: Client, call: ToolUse) -> ToolResult:

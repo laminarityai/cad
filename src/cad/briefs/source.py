@@ -1,6 +1,8 @@
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Final, NamedTuple
+from typing import Final, NamedTuple
+
+from pydantic import BaseModel, ValidationError
 
 from cad.briefs.model import MAX_BRIEF_CHARS, SAID_SEPARATOR
 from cad.briefs.said import Spoken, Words
@@ -95,16 +97,32 @@ def later_words(directory: Path, cid: ConversationId | None, given: str | None) 
     return Words(newest_first=tuple(Spoken(*one) for one in reversed(said)), refusal_hint=CHAT_HINT)
 
 
+class _Question(BaseModel):
+    question: str
+
+
+class _Asked(BaseModel):
+    questions: list[_Question]
+
+
+def _questions_in(result: str) -> list[str]:
+    try:
+        return [one.question for one in _Asked.model_validate_json(result).questions]
+    except ValidationError:
+        return []
+
+
 def _person_words(stamped: Sequence[Stamped]) -> list[tuple[int, str]]:
-    calls: dict[str, dict[str, Any]] = {}
+    calls: set[str] = set()
     asked: set[str] = set()
     said: list[tuple[int, str]] = []
     for one in stamped:
         event = one.event
         if isinstance(event, ToolCalled) and event.name == ASK_QUESTIONS:
-            calls[event.call_id] = event.input
+            calls.add(event.call_id)
         elif isinstance(event, ToolReturned) and not event.is_error and event.call_id in calls:
-            asked.update(str(q["question"]) for q in calls.pop(event.call_id)["questions"])
+            calls.discard(event.call_id)
+            asked.update(_questions_in(event.text))
         elif isinstance(event, UserSaid):
             said.append((one.seq, _answers_only(event.text, asked)))
     return said

@@ -18,7 +18,8 @@ ASK = (
     "answer, one line of why it changes the design, and up to 3 suggested answers. Never ask "
     "the person to pick among options you can build, and never ask about a change to a built "
     "option. A default is your assumption: it is never a target until the person states it. "
-    + READ_FIRST
+    "Put a number you would propose in a suggested answer or the default, never only in the "
+    "question, because only what the person picks or types is theirs. " + READ_FIRST
 )
 
 ASKED_IN_CHAT: Final = (

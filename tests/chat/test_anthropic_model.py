@@ -142,19 +142,17 @@ def test_the_transcript_keeps_a_search_and_drops_one_that_never_returned() -> No
         SEARCH.model_dump(exclude_none=True),
         FOUND.model_dump(exclude_none=True),
     )
-    searches_spent = web_event(ServerBlock(raw=raw_search))
+    searched = web_event(ServerBlock(raw=raw_search))
     found = web_event(ServerBlock(raw=raw_found))
-    assert searches_spent is not None and found is not None
-    assert searches_spent == WebSearched(
-        call_id="srvtoolu_1", query="pump impeller", raw=raw_search
-    )
+    assert searched is not None and found is not None
+    assert searched == WebSearched(call_id="srvtoolu_1", query="pump impeller", raw=raw_search)
     assert found == WebFound(
         call_id="srvtoolu_1",
         pages=(Page(title="Impellers", url="https://example.com/impellers"),),
         raw=raw_found,
     )
     dead = WebSearched(call_id="srvtoolu_2", query="lost", raw={**raw_search, "id": "srvtoolu_2"})
-    [message] = messages_of([searches_spent, found, dead])
+    [message] = messages_of([searched, found, dead])
     assert message.blocks == (ServerBlock(raw=raw_search), ServerBlock(raw=raw_found))
     failed = web_event(
         ServerBlock(
