@@ -3,12 +3,13 @@ import pytest
 from cad.scorecard.material import MaterialPinned, Pins
 from cad.tables.materials import load_materials
 from cad.variant_sets.model import (
+    BodiesMissing,
     BodyChoice,
     BodyMaterialsRefused,
     Chosen,
     MaterialMissing,
 )
-from cad.variant_sets.placement import choose_each
+from cad.variant_sets.placement import choose_each, refuse_lacking
 from tests.support.named_bodies import GEAR, ONE_NAMED, PLATE, revision
 from tests.support.named_bodies import PLATE_AND_GEARS as TWO
 
@@ -76,3 +77,26 @@ def test_a_made_of_that_names_one_body_pins_that_body_and_leaves_the_other_to_th
     assert choose_each(pins, None, TWO, NONE, [gear], TABLE) == Chosen(materials=(gear,))
     with pytest.raises(MaterialPinned, match="the plate is made of"):
         choose_each(pins, None, TWO, NONE, [chose("plate", GEAR), gear], TABLE)
+
+
+def test_leaving_out_materials_keeps_each_body_s_earlier_choice_and_drops_a_pinned_one() -> None:
+    before = revision((chose("plate", GEAR), chose("gear", GEAR)))
+    assert choose_each({}, before, TWO, NONE, [], TABLE).materials == before.materials
+    pins: Pins = {"plate": PLATE}
+    assert choose_each(pins, before, TWO, NONE, [], TABLE) == Chosen(
+        materials=(chose("gear", GEAR),)
+    )
+
+
+def test_an_entry_for_a_pinned_body_with_the_confirmed_key_is_accepted_and_not_recorded() -> None:
+    pins: Pins = {"plate": PLATE}
+    asked = [chose("plate", PLATE), chose("gear", GEAR)]
+    assert choose_each(pins, None, TWO, NONE, asked, TABLE) == Chosen(materials=(asked[1],))
+
+
+def test_a_build_missing_one_confirmed_body_is_refused_naming_only_that_body() -> None:
+    with pytest.raises(BodiesMissing) as refused:
+        refuse_lacking(["plate", "gear", "spacer"], TWO)
+    assert "spacer" in str(refused.value)
+    assert "plate" not in str(refused.value)
+    assert "gear" not in str(refused.value)
