@@ -1,9 +1,10 @@
-import { Box, ChevronRight, FileText, Folder, FolderOpen, Link2, Lock, Plus } from "lucide-react";
+import { Box, ChevronRight, FileText, Folder, FolderOpen, Lock, Plus } from "lucide-react";
 import { useRef, useState, type DragEvent, type ReactNode } from "react";
 import { useServices } from "@/app/context";
 import type { Unit } from "@/api/client";
 import type { Source } from "@/api/types";
 import { Shimmer } from "@/components/ui/busy";
+import { ContextCard } from "@/components/ui/context-card";
 import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "@/components/ui/collapsible";
 import { toast } from "@/components/ui/toaster";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -61,12 +62,7 @@ function SourceFolder({ name, pages }: { name: string; pages: Source[] }) {
         <Children>
           {pages.map((one) => (
             <li key={one.url} data-file="source">
-              <Tooltip label={one.url}>
-                <a href={one.url} target="_blank" rel="noreferrer" className={cn(ROW, "text-[14px] text-accent hover:bg-panel-2/60")}>
-                  <Link2 className="size-4 shrink-0" />
-                  <span className="truncate underline">{pageOf(one)}</span>
-                </a>
-              </Tooltip>
+              <ContextCard title={pageOf(one)} quote={one.quote} address={siteOf(one.url)} href={one.url} />
             </li>
           ))}
         </Children>
