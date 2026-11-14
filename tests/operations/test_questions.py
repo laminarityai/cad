@@ -36,3 +36,11 @@ async def test_a_fourth_suggestion_is_refused() -> None:
     async with Client(build_server()) as client:
         result = await client.call_tool("ask_questions", {"questions": [asked]})
     assert result.is_error
+
+
+async def test_a_question_on_two_lines_is_refused() -> None:
+    [one] = questions(1)
+    asked = {**one, "question": "How big?\nAt most 30 g?"}
+    async with Client(build_server()) as client:
+        result = await client.call_tool("ask_questions", {"questions": [asked]})
+    assert result.is_error

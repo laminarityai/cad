@@ -45,16 +45,16 @@ def scripted(tmp_path: Path) -> Scripted:
 
 
 async def test_each_step_answers_the_next_assistant_message(scripted: Scripted) -> None:
-    first = await scripted.reply("", [user("hi")], [])
+    first = await scripted.reply("", [user("hi")], [], 0)
     assert first.blocks[0] == Text(text="Storing it.")
     (use,) = first.calls
     assert (use.name, use.input, use.id) == ("create_brief", {"text": "a hook"}, "script_0_0")
     result = answered(first, json.dumps({"brief_id": "b1", "project_id": "p1"}))
-    second = await scripted.reply("", [user("hi"), first, result], [])
+    second = await scripted.reply("", [user("hi"), first, result], [], 0)
     (use,) = second.calls
     assert use.input == {"brief_id": "b1", "note": "for p1!", "code": "result = 1\n"}
     third = await scripted.reply(
-        "", [user("hi"), first, result, second, answered(second, "{}")], []
+        "", [user("hi"), first, result, second, answered(second, "{}")], [], 0
     )
     assert third.blocks == (Text(text="Done."),)
     assert third.calls == ()
@@ -62,22 +62,22 @@ async def test_each_step_answers_the_next_assistant_message(scripted: Scripted) 
 
 async def test_a_script_that_ran_out_says_so(scripted: Scripted) -> None:
     done = [Message(role="assistant", blocks=(Text(text="x"),))] * 3
-    ended = await scripted.reply("", done, [])
+    ended = await scripted.reply("", done, [], 0)
     assert ended.blocks == (Text(text=EXHAUSTED),)
 
 
 async def test_a_reference_no_result_holds_stops_the_turn(scripted: Scripted) -> None:
-    first = await scripted.reply("", [user("hi")], [])
+    first = await scripted.reply("", [user("hi")], [], 0)
     (use,) = first.calls
     broken = Message(
         role="user", blocks=(ToolResult(call_id=use.id, text='{"other": 1}', is_error=False),)
     )
     with pytest.raises(ModelUnavailable, match=r"create_brief\.brief_id"):
-        await scripted.reply("", [user("hi"), first, broken], [])
+        await scripted.reply("", [user("hi"), first, broken], [], 0)
 
 
 async def test_the_double_keeps_no_state_between_replies(scripted: Scripted) -> None:
-    once = await scripted.reply("", [user("hi")], [])
-    again = await scripted.reply("", [user("hi")], [])
+    once = await scripted.reply("", [user("hi")], [], 0)
+    again = await scripted.reply("", [user("hi")], [], 0)
     assert once == again
     assert isinstance(once.blocks[1], ToolUse)

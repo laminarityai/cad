@@ -225,14 +225,6 @@ def transcript(conversations: Path, cid: ConversationId) -> tuple[Stamped, ...]:
     return tuple(stamped)
 
 
-def person_said(conversations: Path, cid: ConversationId) -> tuple[tuple[int, str], ...]:
-    return tuple(
-        (one.seq, one.event.text)
-        for one in transcript(conversations, cid)
-        if isinstance(one.event, UserSaid)
-    )
-
-
 @dataclass
 class Channels:
     _open: dict[tuple[AccountId, ConversationId], Channel] = field(

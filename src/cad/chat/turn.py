@@ -111,12 +111,14 @@ async def _converse(model: Model, tenants: Tenants, token: AgentToken, channel: 
             channel.append(missed)
             if isinstance(missed, TurnFailed):
                 return
+        searches_spent = 0
         for _ in range(MAX_STEPS):
             try:
-                reply = await model.reply(_system(tenant_of()), messages, specs)
+                reply = await model.reply(_system(tenant_of()), messages, specs, searches_spent)
             except ModelUnavailable as unavailable:
                 channel.append(TurnFailed(message=str(unavailable)))
                 return
+            searches_spent += reply.searches
             messages.append(reply)
             _say(channel, reply)
             calls = reply.calls
@@ -194,8 +196,8 @@ def _say(channel: Channel, reply: Message) -> None:
             channel.append(AgentSaid(text=block.text))
         elif isinstance(block, ToolUse):
             channel.append(ToolCalled(call_id=block.id, name=block.name, input=block.input))
-        elif isinstance(block, ServerBlock) and (searched := web_event(block)) is not None:
-            channel.append(searched)
+        elif isinstance(block, ServerBlock) and (searches_spent := web_event(block)) is not None:
+            channel.append(searches_spent)
 
 
 async def _call(client: Client, call: ToolUse) -> ToolResult:

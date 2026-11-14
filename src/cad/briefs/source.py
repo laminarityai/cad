@@ -1,15 +1,16 @@
 from collections.abc import Sequence
 from pathlib import Path
-from typing import Final, NamedTuple
+from typing import Any, Final, NamedTuple
 
 from cad.briefs.model import MAX_BRIEF_CHARS, SAID_SEPARATOR
 from cad.briefs.said import Spoken, Words
 from cad.briefs.store import BriefRefused
-from cad.chat.log import Stamped, ToolCalled, ToolReturned, UserSaid, person_said, transcript
+from cad.chat.log import Stamped, ToolCalled, ToolReturned, UserSaid, transcript
 from cad.conversations.model import ConversationId
 
 ASK_QUESTIONS: Final = "ask_questions"
 CREATE_BRIEF: Final = "create_brief"
+ANSWERS_TO: Final = ": "
 
 CHAT_HINT = (
     "copy the words exactly from the brief or from one of the person's messages in this "
@@ -37,7 +38,7 @@ def first_words(directory: Path, cid: ConversationId | None, given: str | None) 
             "in chat pass no text: the server copies the person's newest message into the brief"
         )
     stamped = transcript(directory, cid)
-    said = [(one.seq, one.event.text) for one in stamped if isinstance(one.event, UserSaid)]
+    said = _person_words(stamped)
     if not said:
         raise WordsRefused("the person has said nothing in this conversation yet")
     asked = _first_ask_since_brief(stamped)
@@ -90,5 +91,29 @@ def later_words(directory: Path, cid: ConversationId | None, given: str | None) 
             "in chat pass no said: the server finds the words a quote comes from in the "
             "person's messages"
         )
-    said = person_said(directory, cid)
+    said = _person_words(transcript(directory, cid))
     return Words(newest_first=tuple(Spoken(*one) for one in reversed(said)), refusal_hint=CHAT_HINT)
+
+
+def _person_words(stamped: Sequence[Stamped]) -> list[tuple[int, str]]:
+    calls: dict[str, dict[str, Any]] = {}
+    asked: set[str] = set()
+    said: list[tuple[int, str]] = []
+    for one in stamped:
+        event = one.event
+        if isinstance(event, ToolCalled) and event.name == ASK_QUESTIONS:
+            calls[event.call_id] = event.input
+        elif isinstance(event, ToolReturned) and not event.is_error and event.call_id in calls:
+            asked.update(str(q["question"]) for q in calls.pop(event.call_id)["questions"])
+        elif isinstance(event, UserSaid):
+            said.append((one.seq, _answers_only(event.text, asked)))
+    return said
+
+
+def _answers_only(text: str, asked: set[str]) -> str:
+    prefixes = sorted((f"{one}{ANSWERS_TO}" for one in asked), key=len, reverse=True)
+    lines = text.split("\n")
+    for at, line in enumerate(lines):
+        prefix = next((one for one in prefixes if line.startswith(one)), "")
+        lines[at] = line.removeprefix(prefix)
+    return "\n".join(lines)

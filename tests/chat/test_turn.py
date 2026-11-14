@@ -6,7 +6,7 @@ import pytest
 
 from cad.accounts.principal import AccountId, PersonSession
 from cad.chat.guidance import CHAT_AUTO
-from cad.chat.model import Message, Model, ModelUnavailable, ToolSpec
+from cad.chat.model import Message, Model, ModelUnavailable, ServerBlock, Text, ToolSpec, ToolUse
 from cad.chat.turn import CLIENT_ID, agent_token
 from cad.conversations.model import ConversationId
 from cad.operations.registry import OPERATIONS
@@ -23,11 +23,15 @@ class Recording:
     offered: list[list[str]] = field(default_factory=list[list[str]])
 
     async def reply(
-        self, system: str, messages: Sequence[Message], tools: Sequence[ToolSpec]
+        self,
+        system: str,
+        messages: Sequence[Message],
+        tools: Sequence[ToolSpec],
+        searches_spent: int,
     ) -> Message:
         self.systems.append(system)
         self.offered.append([one.name for one in tools])
-        return await self.inner.reply(system, messages, tools)
+        return await self.inner.reply(system, messages, tools, searches_spent)
 
 
 @dataclass
@@ -35,9 +39,13 @@ class Failing:
     error: Exception
 
     async def reply(
-        self, system: str, messages: Sequence[Message], tools: Sequence[ToolSpec]
+        self,
+        system: str,
+        messages: Sequence[Message],
+        tools: Sequence[ToolSpec],
+        searches_spent: int,
     ) -> Message:
-        del system, messages, tools
+        del system, messages, tools, searches_spent
         raise self.error
 
 
@@ -120,3 +128,35 @@ async def test_a_model_that_fails_ends_the_turn_with_a_message_and_frees_the_con
     assert shown in events[1]["message"]
     assert "sk-ant" not in events[1]["message"]
     assert sent.status_code == 202
+
+
+@dataclass
+class Searching:
+    searches_spent: list[int] = field(default_factory=list[int])
+
+    async def reply(
+        self,
+        system: str,
+        messages: Sequence[Message],
+        tools: Sequence[ToolSpec],
+        searches_spent: int,
+    ) -> Message:
+        del system, messages, tools
+        self.searches_spent.append(searches_spent)
+        if len(self.searches_spent) == 3:
+            return Message(role="assistant", blocks=(Text(text="Done."),))
+        step = len(self.searches_spent)
+        search = {"type": "server_tool_use", "id": f"srvtoolu_{step}", "name": "web_search"}
+        call = ToolUse(id=f"toolu_{step}", name="list_materials", input={})
+        return Message(role="assistant", blocks=(ServerBlock(raw=search), call))
+
+
+@pytest.mark.parametrize("model", [Searching()])
+async def test_each_step_is_told_how_many_searches_the_turn_has_run(
+    chat: Chat, model: Searching
+) -> None:
+    async with chat.client() as client:
+        cid = await chat.conversation(client)
+        await chat.say(client, cid, "make a hook")
+        await chat.finish()
+    assert model.searches_spent == [0, 1, 2]

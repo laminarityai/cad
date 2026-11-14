@@ -140,7 +140,11 @@ class PressesStop:
     pressed: bool = False
 
     async def reply(
-        self, system: str, messages: Sequence[Message], tools: Sequence[ToolSpec]
+        self,
+        system: str,
+        messages: Sequence[Message],
+        tools: Sequence[ToolSpec],
+        searches_spent: int,
     ) -> Message:
         if not self.pressed and sum(one.role == "assistant" for one in messages) == self.after:
             self.pressed = True
@@ -148,7 +152,7 @@ class PressesStop:
             held = store.read(tenant.conversations, ConversationId(self.cid))
             assert held.auto_run is not None
             store.stop_by_person(tenant.roots, tenant.conversations, held.auto_run)
-        return await self.inner.reply(system, messages, tools)
+        return await self.inner.reply(system, messages, tools, searches_spent)
 
 
 async def test_the_persons_stop_during_a_turn_refuses_the_next_call_and_is_reported(

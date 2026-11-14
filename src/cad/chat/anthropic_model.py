@@ -61,7 +61,11 @@ class AnthropicModel:
     _client: "AsyncAnthropic | None" = field(default=None, init=False, repr=False)
 
     async def reply(
-        self, system: str, messages: Sequence[Message], tools: Sequence[ToolSpec]
+        self,
+        system: str,
+        messages: Sequence[Message],
+        tools: Sequence[ToolSpec],
+        searches_spent: int,
     ) -> Message:
         searches = _searches(self.environ)
         if searches:
@@ -69,9 +73,16 @@ class AnthropicModel:
         sent = [_param(one) for one in messages]
         content: list[ContentBlock] = []
         for _ in range(MAX_PAUSES + 1):
+            left = (
+                searches
+                - searches_spent
+                - sum(block.type == "server_tool_use" for block in content)
+            )
+            if content and left <= 0:
+                break
             paused: list[MessageParam] = [{"role": "assistant", "content": _sent_back(content)}]
             response = await self._create(
-                system, [*sent, *(paused if content else [])], _tools(tools, searches)
+                system, [*sent, *(paused if content else [])], _tools(tools, left)
             )
             content.extend(response.content)
             if response.stop_reason != "pause_turn":
@@ -146,7 +157,7 @@ def _tools(specs: Sequence[ToolSpec], searches: int) -> list[ToolUnionParam]:
         ours[-1]["cache_control"] = CACHED
     search: list[WebSearchTool20250305Param] = (
         [{"type": "web_search_20250305", "name": "web_search", "max_uses": searches}]
-        if searches
+        if searches > 0
         else []
     )
     return [*search, *ours]

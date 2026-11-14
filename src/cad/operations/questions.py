@@ -10,6 +10,7 @@ MAX_QUESTIONS: Final = 5
 MAX_SUGGESTIONS: Final = 3
 MAX_QUESTION_CHARS: Final = 300
 MAX_ANSWER_CHARS: Final = 200
+ONE_LINE: Final = r"^[^\r\n]*$"
 
 ASK = (
     "Ask the person a few questions about a fresh brief, once, before its first build. Pass 1 "
@@ -39,7 +40,7 @@ type Answer = Annotated[str, Field(min_length=1, max_length=MAX_ANSWER_CHARS)]
 class Question(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    question: Annotated[str, Field(min_length=1, max_length=MAX_QUESTION_CHARS)]
+    question: Annotated[str, Field(min_length=1, max_length=MAX_QUESTION_CHARS, pattern=ONE_LINE)]
     default: Answer
     why: Annotated[str, Field(min_length=1, max_length=MAX_QUESTION_CHARS)]
     suggestions: Annotated[list[Answer], Field(max_length=MAX_SUGGESTIONS)] = []

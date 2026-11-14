@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 import pytest
 
 from cad.accounts.principal import AccountId
-from cad.chat.log import person_said
+from cad.chat.log import UserSaid, transcript
 from cad.chat.model import Message, Model, Text, ToolSpec
 from cad.conversations.model import ConversationId
 from cad.operations.model import Tenant
@@ -21,10 +21,14 @@ class Recording:
     seen: list[Sequence[Message]] = field(default_factory=list[Sequence[Message]])
 
     async def reply(
-        self, system: str, messages: Sequence[Message], tools: Sequence[ToolSpec]
+        self,
+        system: str,
+        messages: Sequence[Message],
+        tools: Sequence[ToolSpec],
+        searches_spent: int,
     ) -> Message:
         self.seen.append(tuple(messages))
-        return await self.inner.reply(system, messages, tools)
+        return await self.inner.reply(system, messages, tools, searches_spent)
 
 
 @pytest.fixture
@@ -88,7 +92,8 @@ async def test_a_message_with_a_pick_carries_a_signed_selection_to_the_agent(
     assert block.startswith("make this thicker\n\n[server: the person selected 1 face of slot 1")
     assert f"read_selection with {note['selection_id']}" in block
     tenant = chat.tenants.of(AccountId(ALICE))
-    assert [text for _, text in person_said(tenant.conversations, ConversationId(cid))] == [
+    said = transcript(tenant.conversations, ConversationId(cid))
+    assert [one.event.text for one in said if isinstance(one.event, UserSaid)] == [
         "make this thicker"
     ]
 

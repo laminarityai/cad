@@ -17,7 +17,7 @@ def told(tmp_path: Path, *events: Event) -> FirstWords:
 
 def called(call_id: str, name: str, *, failed: bool = False) -> tuple[Event, Event]:
     return (
-        ToolCalled(call_id=call_id, name=name, input={}),
+        ToolCalled(call_id=call_id, name=name, input={"questions": []}),
         ToolReturned(call_id=call_id, text="{}", is_error=failed),
     )
 

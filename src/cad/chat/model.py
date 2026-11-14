@@ -72,6 +72,13 @@ class Message(Frozen):
     def calls(self) -> tuple[ToolUse, ...]:
         return tuple(one for one in self.blocks if isinstance(one, ToolUse))
 
+    @property
+    def searches(self) -> int:
+        return sum(
+            isinstance(one, ServerBlock) and one.raw.get("type") == "server_tool_use"
+            for one in self.blocks
+        )
+
 
 class ToolSpec(Frozen):
     name: str
@@ -86,7 +93,11 @@ class ModelUnavailable(Exception):
 
 class Model(Protocol):
     async def reply(
-        self, system: str, messages: Sequence[Message], tools: Sequence[ToolSpec]
+        self,
+        system: str,
+        messages: Sequence[Message],
+        tools: Sequence[ToolSpec],
+        searches_spent: int,
     ) -> Message: ...
 
 
