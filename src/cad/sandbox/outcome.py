@@ -10,6 +10,7 @@ from cad.frozen import Frozen
 LOG = logging.getLogger(__name__)
 MAX_AREAS: Final = 16
 MAX_AREA_FACES: Final = 10_000
+# The export container takes the areas as one argument, and Linux caps one at 128 KiB.
 MAX_FACE_NUMBER: Final = 2**24
 MAX_DROPPED_CHARS: Final = 200
 
@@ -46,6 +47,21 @@ class Built(Frozen):
 
     kind: Literal["built"] = "built"
     areas: Areas = ()
+    areas_dropped: str | None = None
+
+
+class AreaCount(Frozen):
+    """An area as the build tool tells the agent: its faces counted, not listed, so a
+    coloured build stays short. The viewer reads the faces themselves."""
+
+    name: AreaName
+    colour: Colour
+    face_count: int
+
+
+class BuiltTold(Frozen):
+    kind: Literal["built"] = "built"
+    areas: tuple[AreaCount, ...] = ()
     areas_dropped: str | None = None
 
 
@@ -100,6 +116,16 @@ class NoResult(Frozen):
 
 type Failure = BuildFailed | TimedOut | OutOfMemory | NoResult
 type BuildOutcome = Annotated[Built | Failure, Field(discriminator="kind")]
+type ToldOutcome = Annotated[BuiltTold | Failure, Field(discriminator="kind")]
+
+
+def told(outcome: Built | Failure) -> BuiltTold | Failure:
+    if not isinstance(outcome, Built):
+        return outcome
+    counted = (
+        AreaCount(name=a.name, colour=a.colour, face_count=len(a.faces)) for a in outcome.areas
+    )
+    return BuiltTold(areas=tuple(counted), areas_dropped=outcome.areas_dropped)
 
 
 class Build(Frozen):

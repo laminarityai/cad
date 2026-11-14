@@ -1,10 +1,18 @@
 """Colour is how a model looks, never a result. Only the modules that carry the areas from the
 runner to the viewer and the STEP may touch them: a check, a table read, a verdict or Auto that
 reads one would let the agent's paint decide something. So would `outcome == Built()`, which a
-coloured build fails: it once kept every coloured build out of its set."""
+coloured build fails: it once kept every coloured build out of its set.
+
+The scan is a tripwire, not a proof: it reads names, so a determined path around it exists. The
+behavioural guard is the `jobs.plan` equality test below. A check's job key hashes the
+variant's `brep_sha256`, and colour is not in the BREP, so a coloured variant and a grey one
+get the same checks."""
 
 import ast
 from pathlib import Path
+from typing import cast
+
+import pytest
 
 from cad.checks import jobs
 from cad.checks.container.wire import LoadCaseWire
@@ -32,6 +40,8 @@ CARRIERS = frozenset(
 )
 COLOUR_NAMES = frozenset({"Area", "Areas", "AREAS", "read_areas", "on_faces", "MAX_AREAS"})
 COLOUR_FIELDS = frozenset({"areas", "areas_dropped"})
+LOOKUPS = frozenset({"getattr", "hasattr", "setattr", "delattr"})
+HOLDERS = frozenset({"outcome", "manifest"})
 CASE: LoadCaseWire = {
     "support": {"kind": "flat_end"},
     "load": {"kind": "far_end", "force_n": 10.0, "direction": {"kind": "any"}},
@@ -49,7 +59,37 @@ def touches_colour(tree: ast.AST) -> list[str]:
             found.append(f"line {node.lineno}: == Built()")
         if isinstance(node, ast.ImportFrom) and node.module == "cad.sandbox.outcome":
             found += [f"line {node.lineno}: {a.name}" for a in node.names if a.name in COLOUR_NAMES]
+        if isinstance(node, ast.Attribute) and node.attr in COLOUR_NAMES:
+            found.append(f"line {node.lineno}: .{node.attr}")
+        if isinstance(node, ast.Call) and is_named_lookup(node):
+            found.append(f"line {node.lineno}: getattr {cast(ast.Constant, node.args[1]).value}")
+        if isinstance(node, ast.Call) and dumps_an_outcome(node):
+            found.append(f"line {node.lineno}: dump of outcome")
+        if isinstance(node, ast.MatchClass) and COLOUR_FIELDS & set(node.kwd_attrs):
+            found += [
+                f"line {node.lineno}: case {k}=" for k in node.kwd_attrs if k in COLOUR_FIELDS
+            ]
     return found
+
+
+def is_named_lookup(node: ast.Call) -> bool:
+    return (
+        isinstance(node.func, ast.Name)
+        and node.func.id in LOOKUPS
+        and len(node.args) > 1
+        and isinstance(node.args[1], ast.Constant)
+        and node.args[1].value in COLOUR_FIELDS
+    )
+
+
+def dumps_an_outcome(node: ast.Call) -> bool:
+    """A whole build outcome dumped, such as to a hash, carries its areas with it."""
+    func = node.func
+    if not (isinstance(func, ast.Attribute) and func.attr.startswith("model_dump")):
+        return False
+    held = func.value
+    name = held.attr if isinstance(held, ast.Attribute) else getattr(held, "id", None)
+    return name in HOLDERS
 
 
 def is_built_call(node: ast.expr) -> bool:
@@ -71,6 +111,27 @@ def test_the_fence_sees_a_check_that_reads_the_areas() -> None:
     sneaky = "from cad.sandbox.outcome import Areas\n\ndef run(held):\n    return held.areas\n"
     assert touches_colour(ast.parse(sneaky)) == ["line 1: Areas", "line 4: .areas"]
     assert touches_colour(ast.parse("ok = built.outcome == Built()\n")) == ["line 1: == Built()"]
+
+
+@pytest.mark.parametrize(
+    ("sneaky", "found"),
+    [
+        pytest.param('getattr(held, "areas")', "line 1: getattr areas", id="getattr"),
+        pytest.param(
+            "sha256(manifest.outcome.model_dump_json().encode())",
+            "line 1: dump of outcome",
+            id="dump",
+        ),
+        pytest.param("outcome.read_areas(raw)", "line 1: .read_areas", id="through-the-module"),
+        pytest.param(
+            "match built:\n    case Built(areas=painted):\n        pass",
+            "line 2: case areas=",
+            id="match",
+        ),
+    ],
+)
+def test_the_fence_sees_the_areas_read_another_way(sneaky: str, found: str) -> None:
+    assert touches_colour(ast.parse(sneaky)) == [found]
 
 
 def test_the_checks_a_variant_gets_do_not_depend_on_its_colours(tmp_path: Path) -> None:

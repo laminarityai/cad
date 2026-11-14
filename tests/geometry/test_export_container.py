@@ -128,6 +128,37 @@ result = plate
 """
 
 
+def faces_coloured(step: str, rgb: tuple[float, float, float]) -> list[tuple[Point, Point]]:
+    """The plane, as its point and normal, of each face whose STYLED_ITEM leads to `rgb`. The
+    plate is a box, so every face it has is a PLANE."""
+    entities = dict(re.findall(r"^#(\d+)\s*=\s*(.*?);\s*$", step, re.MULTILINE | re.DOTALL))
+
+    def refs(number: str) -> list[str]:
+        return re.findall(r"#(\d+)", entities[number])
+
+    def colour_under(number: str) -> tuple[float, ...] | None:
+        if rgb_of := re.match(r"COLOUR_RGB\('[^']*',([^)]*)\)", entities[number]):
+            return tuple(round(float(v), 3) for v in rgb_of.group(1).split(","))
+        return next((found for one in refs(number) if (found := colour_under(one))), None)
+
+    def numbers(number: str) -> Point:
+        x, y, z = re.findall(r"-?\d+\.?\d*(?:E[-+]?\d+)?", entities[number].split("(", 2)[2])
+        return (float(x), float(y), float(z))
+
+    found: list[tuple[Point, Point]] = []
+    for number, text in entities.items():
+        if not text.startswith("STYLED_ITEM"):
+            continue
+        *styles, item = refs(number)
+        if not any(colour_under(style) == rgb for style in styles):
+            continue
+        plane = refs(item)[-1]
+        assert entities[plane].startswith("PLANE"), entities[plane]
+        point, normal, *_ = refs(refs(plane)[0])
+        found.append((numbers(point), numbers(normal)))
+    return found
+
+
 def test_the_step_of_a_coloured_variant_carries_each_area_and_the_stl_does_not(
     tmp_path: Path,
 ) -> None:
@@ -145,6 +176,8 @@ def test_the_step_of_a_coloured_variant_carries_each_area_and_the_stl_does_not(
         for found in re.findall(r"COLOUR_RGB\('[^']*',([^)]*)\)", step)
     }
     assert written == {(0.502, 0.502, 0.502), (0.102, 0.102, 0.102)}
+    [(point, normal)] = faces_coloured(step, (0.102, 0.102, 0.102))
+    assert (point[2], normal) == (2.0, (0.0, 0.0, 1.0)), "the pad is not the +Z face"
     assert coloured.made.stl == plain.made.stl
     assert coloured.made == job.export(held.brep, "c" * 64, held.areas).made
 

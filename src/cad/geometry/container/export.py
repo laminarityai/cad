@@ -14,8 +14,8 @@ from typing import Final, Protocol, cast
 from cad.checks.container.channel import serve
 from cad.checks.container.kernel import StepTooLarge, Unreadable, first_line, ocp_kernel
 from cad.geometry.container import coloured_step
-from cad.geometry.container.coloured_step import AreaWire
 from cad.geometry.container.export_wire import ExportReport
+from cad.sandbox.wire import AreaReport
 
 CHORDS_MM: Final = (0.01, 0.05)
 ANGULAR_TOLERANCE: Final = 0.1
@@ -48,7 +48,7 @@ def main() -> None:
     serve(lambda args, brep: iter([export(brep, int(args[0]), coloured_step.parse(args[1]))]))
 
 
-def export(brep: bytes, report_cap: int, areas: list[AreaWire]) -> ExportReport:
+def export(brep: bytes, report_cap: int, areas: list[AreaReport]) -> ExportReport:
     """STEP from the same writer the checks use, so it is the file they measured, or, when the
     build code coloured areas, the same shape with their colours. Then the binary STL and the
     3MF of one tessellation, in millimetres, with no colour. The mesh gets coarser once if the
@@ -59,7 +59,7 @@ def export(brep: bytes, report_cap: int, areas: list[AreaWire]) -> ExportReport:
         return {"kind": "unreadable", "reason": shape.reason}
     room = max(report_cap - BASE64_ENVELOPE_BYTES, 0) // 4 * 3
     try:
-        coloured = coloured_step.step_bytes(brep, areas, room) if areas else None
+        coloured = _coloured(brep, areas, room)
         step = kernel.step_bytes(shape, room) if coloured is None else coloured
     except Exception as error:
         return {
@@ -82,6 +82,17 @@ def export(brep: bytes, report_cap: int, areas: list[AreaWire]) -> ExportReport:
     except Exception as error:
         return {"kind": "unreadable", "reason": f"{type(error).__name__}: {first_line(str(error))}"}
     return _too_large(f"the mesh at {CHORDS_MM[-1]} mm is over the room the export report has")
+
+
+def _coloured(brep: bytes, areas: list[AreaReport], room: int) -> bytes | StepTooLarge | None:
+    """None when there are no areas or the coloured writer fails, so the plain STEP is written:
+    colour is how the model looks, and losing it must not lose the file."""
+    if not areas:
+        return None
+    try:
+        return coloured_step.step_bytes(brep, areas, room)
+    except Exception:
+        return None
 
 
 def _meshes(brep: bytes, directory: Path, chord_mm: float) -> tuple[bytes, bytes]:

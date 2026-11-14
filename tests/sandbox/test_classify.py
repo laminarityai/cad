@@ -15,6 +15,7 @@ from cad.sandbox.container import (
 from cad.sandbox.host import TEXT_CAP, Artifacts, build_job, classify
 from cad.sandbox.outcome import (
     MAX_AREAS,
+    MAX_FACE_NUMBER,
     Area,
     BuildFailed,
     Built,
@@ -128,6 +129,7 @@ GRIP = {"name": "grip", "colour": "#1a1a1a", "faces": [3, 4]}
         pytest.param([{**GRIP, "colour": "black"}], "0.colour", id="not-a-hex-colour"),
         pytest.param([{**GRIP, "name": "a\nb"}], "0.name", id="control-character"),
         pytest.param([{**GRIP, "faces": [-1]}], "0.faces.0", id="negative-face"),
+        pytest.param([{**GRIP, "faces": [MAX_FACE_NUMBER]}], "0.faces.0", id="face-too-large"),
         pytest.param([{**GRIP, "faces": ["3"]}], "0.faces.0", id="face-as-text"),
         pytest.param([{**GRIP, "faces": []}], "0.faces", id="no-faces"),
         pytest.param(
