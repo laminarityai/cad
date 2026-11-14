@@ -187,7 +187,7 @@ def _context(
 def _slot_choice(tenant: Tenant, brief_id: str, variant_id: str) -> Revision | None:
     key = variant_sets.set_key(tenant.roots, brief_id)
     return variant_sets.showing(
-        tenant.roots.projects, key, variant_id, image.image_tag(image.BUILD)
+        tenant.roots.projects, tenant.variants, key, variant_id, image.image_tag(image.BUILD)
     )
 
 

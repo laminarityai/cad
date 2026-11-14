@@ -81,7 +81,7 @@ def stem_of(tenant: Tenant, brief_id: str, variant_id: str) -> str:
     tag = image.image_tag(image.BUILD)
     for member in variant_sets.members(tenant.roots.projects, key):
         for number, revision in enumerate(member.revisions, start=1):
-            if variant_id in (revision.built_as, revision.live_id(tag)):
+            if variant_id in variant_sets.builds(tenant.variants, revision, tag).ids:
                 option = member.latest.option
                 label = f"option {member.slot}" if option is None else option.label
                 return slug(f"{brief.name or UNNAMED} {label} rev{number}")

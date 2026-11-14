@@ -26,7 +26,7 @@ from cad.records import files, key, signed
 from cad.records.roots import Roots, project_store
 from cad.sandbox import image
 from cad.variant_sets import store as sets
-from cad.variant_sets.model import Member, Revision
+from cad.variant_sets.model import Member
 from cad.variants import entry
 
 CONTEXT_PARTS: Final = "context_parts"
@@ -121,7 +121,7 @@ def propose_from_variant(
         brep_sha256=held.brep_sha256,
         facts=read.facts,
         proposed_at=datetime.now(UTC),
-        replaces=_replaced(projects, project, parts, held.id),
+        replaces=_replaced(projects, variants_root, project, parts, held.id),
     )
     return _append(projects, record)
 
@@ -211,7 +211,9 @@ def fit_targets(
     )
 
 
-def newer_revisions(projects: Path, project: ProjectId) -> dict[ContextPartId, NewerRevision]:
+def newer_revisions(
+    projects: Path, variants: Path, project: ProjectId
+) -> dict[ContextPartId, NewerRevision]:
     """Each confirmed part whose slot now shows a newer revision than the one it came from."""
     tag = image.image_tag(image.BUILD)
     slots = sets.project_slots(projects, project)
@@ -221,27 +223,32 @@ def newer_revisions(projects: Path, project: ProjectId) -> dict[ContextPartId, N
             continue
         source = part.record.source.variant_id
         for where, member in slots:
-            if _holds(member, source, tag) and source not in _ids(member.latest, tag):
+            latest = sets.builds(variants, member.latest, tag)
+            if _holds(variants, member, source, tag) and source not in latest.ids:
                 newer[part.record.id] = NewerRevision(
-                    brief_id=where.brief_id, slot=member.slot, variant_id=member.latest.live_id(tag)
+                    brief_id=where.brief_id, slot=member.slot, variant_id=latest.shown
                 )
                 break
     return newer
 
 
 def out_of_date_in(
-    projects: Path, project: ProjectId, brief_id: str, slot: int
+    projects: Path, variants: Path, project: ProjectId, brief_id: str, slot: int
 ) -> tuple[ContextPartId, ...]:
     """The confirmed parts that came from an earlier revision of this slot."""
     return tuple(
         part
-        for part, newer in newer_revisions(projects, project).items()
+        for part, newer in newer_revisions(projects, variants, project).items()
         if (newer.brief_id, newer.slot) == (brief_id, slot)
     )
 
 
 def _replaced(
-    projects: Path, project: ProjectId, parts: tuple[Stored, ...], variant_id: str
+    projects: Path,
+    variants: Path,
+    project: ProjectId,
+    parts: tuple[Stored, ...],
+    variant_id: str,
 ) -> ContextPartId | None:
     """The confirmed part whose geometry the user confirmed last came from an earlier revision of
     the slot `variant_id` is in, counting from that variant's latest revision there."""
@@ -252,12 +259,11 @@ def _replaced(
         if part.outcome == "confirmed" and _current_confirmed(parts, part.record.id) is part
     ]
     for _, member in sets.project_slots(projects, project):
-        at = [n for n, one in enumerate(member.revisions) if variant_id in _ids(one, tag)]
+        ids = [sets.builds(variants, one, tag).ids for one in member.revisions]
+        at = [n for n, held in enumerate(ids) if variant_id in held]
         if not at:
             continue
-        earlier = {vid for one in member.revisions[: at[-1]] for vid in _ids(one, tag)} - {
-            variant_id
-        }
+        earlier = {vid for held in ids[: at[-1]] for vid in held} - {variant_id}
         replaced = [part for part in confirmed if variant_of(part.record) in earlier]
         if replaced:
             return replaced[-1].record.id
@@ -273,12 +279,8 @@ def _current_confirmed(parts: tuple[Stored, ...], part: ContextPartId) -> Stored
     return confirmed[-1] if confirmed else None
 
 
-def _holds(member: Member, variant_id: str, tag: str) -> bool:
-    return any(variant_id in _ids(one, tag) for one in member.revisions)
-
-
-def _ids(revision: Revision, tag: str) -> set[str]:
-    return {revision.built_as, revision.live_id(tag)}
+def _holds(variants: Path, member: Member, variant_id: str, tag: str) -> bool:
+    return any(variant_id in sets.builds(variants, one, tag).ids for one in member.revisions)
 
 
 def part_brep(projects: Path, part: ConfirmedPart) -> bytes:

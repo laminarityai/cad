@@ -451,7 +451,7 @@ The server now reads results back from disk, which today's `scorecard.json` neve
 
 **Attempt cap.** Before a background job starts its container, it writes `<key>.attempt`, which holds a count. A finished job removes that file. If a job finds a count of 2 already there, its last two runs were interrupted, for example because the server died. It then stores `unknown: the analysis was interrupted twice` instead of running a third time. This stops one input from looping a server forever. There are no leases: in-flight state lives only in this process's futures, and two processes racing write identical bytes.
 
-**Lanes** (`checks/lanes.py`, the one owner of in-flight state, one instance per server process). This file must not live in `sandbox/`, because `TRUST_DIGEST` hashes `sandbox/*.py` and every variant id would change on each edit to it:
+**Lanes** (`checks/lanes.py`, the one owner of in-flight state, one instance per server process). This file must not be a build file, because `TRUST_DIGEST` hashes the build files `variants/entry.py` `TRUSTED_FILES` names, and every variant id would change on each edit to it:
 
 ```python
 class Lanes:

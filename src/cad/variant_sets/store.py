@@ -21,6 +21,7 @@ from cad.variant_sets.model import (
     MAX_MEMBERS,
     BodiesMissing,
     BodyMaterialsRefused,
+    Builds,
     Chosen,
     Joined,
     MaterialMissing,
@@ -40,6 +41,7 @@ from cad.variant_sets.model import (
     group,
 )
 from cad.variant_sets.placement import Design, Placement, place, shown
+from cad.variants import entry
 from cad.variants import store as variants
 from cad.variants.entry import VariantId
 
@@ -94,12 +96,12 @@ def _drop_replaced(
     earlier = {
         one
         for revision in member.revisions[:-1]
-        for one in (revision.built_as, revision.live_id(tag))
+        for one in builds(variants_root, revision, tag).ids
     }
 
     def unshown() -> set[VariantId]:
         latest = (held.latest for _, held in account_slots(root))
-        return earlier - {one for shown in latest for one in (shown.built_as, shown.live_id(tag))}
+        return earlier - {one for shown in latest for one in builds(variants_root, shown, tag).ids}
 
     try:
         lanes.drop_unstarted(variants_root, unshown)
@@ -195,20 +197,24 @@ def _record(code: str, slot: int, built_as: VariantId, key: SetKey, design: Desi
     return record
 
 
-def showing(root: Path, key: SetKey, variant_id: str, image_tag: str) -> Revision | None:
+def showing(
+    root: Path, variants_root: Path, key: SetKey, variant_id: str, image_tag: str
+) -> Revision | None:
     """The latest revision of the slot that shows `variant_id`, with the material the agent chose
     for it."""
     for member in members(root, key):
-        if variant_id in (member.latest.built_as, member.latest.live_id(image_tag)):
+        if variant_id in builds(variants_root, member.latest, image_tag).ids:
             return member.latest
     return None
 
 
-def current_id(variants: Path, revision: Revision, image_tag: str) -> VariantId:
-    """The id the page opens for `revision`: its rebuild by this sandbox once one is stored, else
-    the id it was built as."""
+def builds(variants_root: Path, revision: Revision, image_tag: str) -> Builds:
+    """The one answer to which stored build a revision is now, for reads, exports, selections,
+    context parts and dropped checks. The code index finds a rebuild by any sandbox."""
     live = revision.live_id(image_tag)
-    return live if files.is_directory(variants / live) else revision.built_as
+    shown = live if files.is_directory(variants_root / live) else revision.built_as
+    stored = entry.built_from(variants_root, revision.code)
+    return Builds(shown, frozenset((revision.built_as, shown, *stored)))
 
 
 def project_slots(root: Path, project: ProjectId) -> tuple[tuple[SetKey, Member], ...]:

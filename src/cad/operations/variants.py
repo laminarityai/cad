@@ -268,7 +268,7 @@ def with_out_of_date(tenant: Tenant, brief_id: str, built: SetBuildResult) -> Se
     if not isinstance(joined, Joined):
         return built
     project = briefs.read_brief(tenant.roots, brief_id).project
-    stale = out_of_date_in(tenant.roots.projects, project, brief_id, joined.slot)
+    stale = out_of_date_in(tenant.roots.projects, tenant.variants, project, brief_id, joined.slot)
     return built.model_copy(update={"context_parts_out_of_date": stale})
 
 

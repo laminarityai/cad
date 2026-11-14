@@ -38,7 +38,7 @@ def mint(
     and store the record. Raises SelectionRefused with a message the person can read when the
     variant is not in the project, its mesh is not ready, or a number is out of range."""
     tag = image.image_tag(image.BUILD)
-    key, slot, revision = _revision_of(roots, project, picked.variant_id, tag)
+    key, slot, revision = _revision_of(roots, variants, project, picked.variant_id, tag)
     held = entry.open_entry(variants, picked.variant_id, tag)
     read = TESSELLATIONS.read(geometry, held, wait_seconds=MESH_WAIT_SECONDS)
     if isinstance(read, TessellationFailed):
@@ -95,12 +95,12 @@ def _summary(faces: int, edges: int) -> str:
 
 
 def _revision_of(
-    roots: Roots, project: ProjectId, variant_id: str, tag: str
+    roots: Roots, variants: Path, project: ProjectId, variant_id: str, tag: str
 ) -> tuple[SetKey, int, int]:
     found: list[tuple[SetKey, int, int, bool]] = []
     for key, member in variant_sets.project_slots(roots.projects, project):
         for number, revision in enumerate(member.revisions, start=1):
-            if variant_id in (revision.built_as, revision.live_id(tag)):
+            if variant_id in variant_sets.builds(variants, revision, tag).ids:
                 found.append((key, member.slot, number, revision is member.latest))
     if not found:
         raise SelectionRefused(

@@ -127,6 +127,16 @@ class Revision(Frozen):
         return variant_id(self.code, image_tag)
 
 
+@dataclass(frozen=True, slots=True)
+class Builds:
+    """Every stored build of one revision's code. `shown` is the one the page opens: its build by
+    this sandbox once one is stored, else the id it was built as. `ids` holds every id a request
+    may name the revision by, whichever sandbox stored it, so a rebuilt option is one option."""
+
+    shown: VariantId
+    ids: frozenset[VariantId]
+
+
 class Member(Frozen):
     """A slot and every revision it has had, oldest first. The last one is what the set shows."""
 

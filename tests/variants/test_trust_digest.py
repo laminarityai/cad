@@ -4,7 +4,6 @@ out, so a new file fails until someone puts it in one list or the other."""
 
 import ast
 import inspect
-import shutil
 from pathlib import Path
 from typing import Final
 
@@ -12,8 +11,8 @@ import pytest
 
 from cad.sandbox import builder, meter
 from cad.variants import entry
+from tests.support.deploys import FOLDERS, copied, digest_after_editing
 
-FOLDERS: Final = ("sandbox", "variants")
 LEFT_OUT: Final = {
     "sandbox/__main__.py": "the cad-sandbox command: it builds images and prints a check run",
     "sandbox/host.py": "it runs checks on a stored build, and check versions hash it",
@@ -79,30 +78,15 @@ def test_a_build_job_mounts_nothing_so_staged_sources_never_reach_a_build() -> N
     assert builder.build_job("result = 1", "image", 60).mounts == ()
 
 
-def copied(tmp_path: Path) -> Path:
-    root = tmp_path / "cad"
-    for folder in FOLDERS:
-        shutil.copytree(
-            entry.SOURCE / folder, root / folder, ignore=shutil.ignore_patterns("__pycache__")
-        )
-    return root
-
-
 def test_the_digest_hashes_the_kept_files_as_they_are_on_disk(tmp_path: Path) -> None:
     assert entry.trust_digest(copied(tmp_path)) == entry.TRUST_DIGEST
 
 
 @pytest.mark.parametrize("name", sorted(LEFT_OUT))
 def test_editing_a_left_out_file_keeps_every_variant_id(tmp_path: Path, name: str) -> None:
-    root = copied(tmp_path)
-    with (root / name).open("a") as file:
-        file.write("\n# a later deploy\n")
-    assert entry.trust_digest(root) == entry.TRUST_DIGEST
+    assert digest_after_editing(tmp_path, name) == entry.TRUST_DIGEST
 
 
 @pytest.mark.parametrize("name", entry.TRUSTED_FILES)
 def test_editing_a_kept_file_re_keys_every_variant(tmp_path: Path, name: str) -> None:
-    root = copied(tmp_path)
-    with (root / name).open("a") as file:
-        file.write("\n# a later deploy\n")
-    assert entry.trust_digest(root) != entry.TRUST_DIGEST
+    assert digest_after_editing(tmp_path, name) != entry.TRUST_DIGEST
