@@ -22,7 +22,8 @@ ASK = (
 
 ASKED_IN_CHAT: Final = (
     "The person sees these questions on a card in this chat, each with its default and "
-    "suggested answers. End your message now with one short sentence that points at the card. "
+    "suggested answers, below your message. End your message now with one short sentence that "
+    "points at the card below, without listing the questions again. "
     "Build nothing and call nothing more: their answer comes as their next message."
 )
 
