@@ -13,6 +13,8 @@ from typing import Final, Protocol, cast
 
 from cad.checks.container.channel import serve
 from cad.checks.container.kernel import StepTooLarge, Unreadable, first_line, ocp_kernel
+from cad.geometry.container import coloured_step
+from cad.geometry.container.coloured_step import AreaWire
 from cad.geometry.container.export_wire import ExportReport
 
 CHORDS_MM: Final = (0.01, 0.05)
@@ -43,20 +45,22 @@ class _Build123d(Protocol):
 
 
 def main() -> None:
-    serve(lambda args, brep: iter([export(brep, int(args[0]))]))
+    serve(lambda args, brep: iter([export(brep, int(args[0]), coloured_step.parse(args[1]))]))
 
 
-def export(brep: bytes, report_cap: int) -> ExportReport:
-    """STEP from the same writer the checks use, so it is the file they measured, then the binary
-    STL and the 3MF of one tessellation, in millimetres. The mesh gets coarser once if the three
-    files would not fit the report."""
+def export(brep: bytes, report_cap: int, areas: list[AreaWire]) -> ExportReport:
+    """STEP from the same writer the checks use, so it is the file they measured, or, when the
+    build code coloured areas, the same shape with their colours. Then the binary STL and the
+    3MF of one tessellation, in millimetres, with no colour. The mesh gets coarser once if the
+    three files would not fit the report."""
     kernel = ocp_kernel()
     shape = kernel.read_brep(brep)
     if isinstance(shape, Unreadable):
         return {"kind": "unreadable", "reason": shape.reason}
     room = max(report_cap - BASE64_ENVELOPE_BYTES, 0) // 4 * 3
     try:
-        step = kernel.step_bytes(shape, room)
+        coloured = coloured_step.step_bytes(brep, areas, room) if areas else None
+        step = kernel.step_bytes(shape, room) if coloured is None else coloured
     except Exception as error:
         return {
             "kind": "unreadable",

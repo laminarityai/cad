@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { PartWire, ShapeWire } from "@/api/types";
 import type { Shapes } from "./engine";
-import { ROLE_COLOUR, splitFaces } from "./where";
+import { FACE_PARTS, ROLE_COLOUR, paintAreas, splitFaces } from "./where";
 
 /** Four faces of 1, 2, 0 and 1 triangles, whose triangle k is the vertices (k, k, k). */
 const shape: ShapeWire = {
@@ -24,7 +24,7 @@ const part: PartWire = {
   subtype: "solid",
   shape,
   state: [1, 1],
-  color: "#e8b024",
+  color: "#a6abb0",
   alpha: 1,
   texture: null,
   loc: [[0, 0, 0], [0, 0, 0, 1]],
@@ -70,7 +70,7 @@ describe("splitFaces", () => {
 
   it("gives the two roles their own colours and leaves the part's", () => {
     const split = splitFaces(shapes, { support: [0], load: [3] });
-    expect(byId(split, "/variant/part")?.color).toBe("#e8b024");
+    expect(byId(split, "/variant/part")?.color).toBe("#a6abb0");
     expect(byId(split, "/variant/support")?.color).toBe(ROLE_COLOUR.support);
     expect(byId(split, "/variant/load")?.color).toBe(ROLE_COLOUR.load);
     expect(ROLE_COLOUR.support).not.toBe(ROLE_COLOUR.load);
@@ -85,5 +85,31 @@ describe("splitFaces", () => {
     const before = JSON.stringify(shapes);
     splitFaces(shapes, { support: [1], load: [3] });
     expect(JSON.stringify(shapes)).toBe(before);
+  });
+});
+
+describe("paintAreas", () => {
+  it("draws each area as a part of its own in its colour and leaves the faces in none grey", () => {
+    const painted = paintAreas(shapes, [
+      { name: "steel gear", colour: "#808080", faces: [0, 1] },
+      { name: "carbon plate", colour: "#000000", faces: [3] },
+    ]);
+    expect(painted.parts.map((one) => [one.id, one.name, one.color])).toEqual([
+      ["/variant/part", "part", "#a6abb0"],
+      ["/variant/area/0", "steel gear", "#808080"],
+      ["/variant/area/1", "carbon plate", "#000000"],
+    ]);
+    expect(byId(painted, "/variant/area/0")?.shape.triangles_per_face).toEqual([1, 2, 0, 0]);
+    expect(byId(painted, "/variant/part")?.shape.triangles_per_face).toEqual([0, 0, 0, 0]);
+    expect(byId(painted, "/variant/part")?.shape.edges).toEqual(shape.edges);
+  });
+
+  it("counts a click on an area as a click on the part", () => {
+    const painted = paintAreas(shapes, [{ name: "grip", colour: "#1a1a1a", faces: [1] }]);
+    for (const one of painted.parts) expect(FACE_PARTS).toContain(one.id);
+  });
+
+  it("leaves the shapes as they were when the build code coloured nothing", () => {
+    expect(paintAreas(shapes, [])).toBe(shapes);
   });
 });

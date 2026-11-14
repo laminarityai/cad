@@ -68,6 +68,10 @@ _Avoid_: Version, edit, draft
 The faces, edges or whole part of one revision that the user pointed at in the 3D view when they sent a message. Only the user makes one, and the server signs it. The agent reads it by its sel- id with read_selection and never makes one. It is where a change goes, never a load or a check input.
 _Avoid_: Highlight, pick, annotation
 
+**Area**:
+A named, coloured set of a variant's faces, which the build code sets with the kernel's `color` and `label`, such as a grey aluminium body and a black rubber grip. A body that is all one colour is one area. It is how the model looks and never a result: no check, table, verdict or Auto run reads it. The 3D view draws each area in its colour and lists it with a swatch, and the STEP carries the colours. A variant whose code set no colour, and every variant built before areas, is drawn grey.
+_Avoid_: Region, appearance, layer, colour group
+
 **Check**:
 A fixed, deterministic test of a variant against a requirement or an engineering standard, which the agent cannot change.
 _Avoid_: Validator, test, verification

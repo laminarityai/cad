@@ -64,6 +64,7 @@ export function fakeApi(variants: string[], overrides: Partial<Api> = {}): Api {
         brep_sha256: "b".repeat(64),
         mesh: "tessellated" as const,
         mesh_url: `/v1/geometry/0123456789ab/${variantId}.json`,
+        areas: [],
       }),
     ),
     mesh: vi.fn((url: string) => Promise.resolve(meshOf(url))),

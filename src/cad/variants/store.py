@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Final
 
 from cad.sandbox import container, host, image
-from cad.sandbox.outcome import Build, Built, SandboxUnavailable, TimedOut
+from cad.sandbox.outcome import Build, SandboxUnavailable, TimedOut
 from cad.variants import entry
 
 CAP_BYTES: Final = 2 * 2**30
@@ -47,7 +47,7 @@ def build_and_store(
 ) -> Build:
     run = host.build(code, image_id, wall_seconds=wall_seconds)
     if isinstance(run.verdict, host.Artifacts):
-        build, brep = Build(outcome=Built(), output=run.output), run.verdict.brep
+        build, brep = Build(outcome=run.verdict.built, output=run.output), run.verdict.brep
     else:
         build, brep = Build(outcome=run.verdict, output=run.output), None
     if isinstance(build.outcome, TimedOut):

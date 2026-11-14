@@ -64,7 +64,7 @@ def build_into_set(
     built = variants.build_variant(code, variants_root)
     joined = (
         join(root, key, code, built.variant_id, slot, resolve, option)
-        if built.outcome == Built()
+        if isinstance(built.outcome, Built)
         else NotJoined()
     )
     if isinstance(joined, Joined) and not joined.already_member:

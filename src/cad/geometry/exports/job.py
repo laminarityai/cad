@@ -11,7 +11,7 @@ from cad.geometry.container.export_wire import ExportReport
 from cad.geometry.exports.model import Exported, ExportFailed
 from cad.sandbox import container, image, stage
 from cad.sandbox.container import Job, TooMuchOutput
-from cad.sandbox.outcome import SandboxUnavailable
+from cad.sandbox.outcome import AREAS, Areas, SandboxUnavailable
 
 ENTRY: Final = "cad.geometry.container.export"
 WALL_SECONDS: Final = 120
@@ -39,7 +39,16 @@ class Ran:
     made: Made | None = None
 
 
-def export(brep: bytes, brep_sha256: str) -> Ran:
+def key_of(brep_sha256: str, areas: Areas) -> str:
+    """The BREP's sha256 when the build code coloured nothing, so an uncoloured BREP keeps one
+    export however many variants built it."""
+    if not areas:
+        return brep_sha256
+    named = json.dumps([brep_sha256, AREAS.dump_python(areas, mode="json")], sort_keys=True)
+    return hashlib.sha256(named.encode()).hexdigest()
+
+
+def export(brep: bytes, key: str, areas: Areas) -> Ran:
     image_id = image.current_image(IMAGE_TAG)
     try:
         mount = stage.check_mount(SOURCES)
@@ -48,11 +57,12 @@ def export(brep: bytes, brep_sha256: str) -> Ran:
             "cannot stage the export sources", error, stage.STAGE_ROOT
         ) from error
     cpu_seconds = str(WALL_SECONDS * container.CPUS)
-    command = ("python", "-I", "-c", BOOT, cpu_seconds, str(container.REPORT_CAP))
+    painted = AREAS.dump_json(areas).decode()
+    command = ("python", "-I", "-c", BOOT, cpu_seconds, str(container.REPORT_CAP), painted)
     ran = container.run(Job("check", image_id, command, brep, (mount,), WALL_SECONDS))
 
     def failed(reason: str, lasting: bool = False) -> Ran:
-        return Ran(ExportFailed(brep_sha256=brep_sha256, version=VERSION, reason=reason), lasting)
+        return Ran(ExportFailed(key=key, version=VERSION, reason=reason), lasting)
 
     seen, state = ran.attended, ran.state
     if seen.killed_at_deadline:
@@ -72,4 +82,4 @@ def export(brep: bytes, brep_sha256: str) -> Ran:
         stl=base64.b64decode(report["stl"]),
         threemf=base64.b64decode(report["threemf"]),
     )
-    return Ran(Exported(brep_sha256=brep_sha256, version=VERSION), True, made)
+    return Ran(Exported(key=key, version=VERSION), True, made)

@@ -282,6 +282,16 @@ AGENT_CHECKS = (
     "that label, never as a reviewed verdict and never as a plain pass. " + AUTO_AGENT_CHECKS
 )
 
+COLOURS: Final = (
+    "Colour the model the way CAD does, by material and by area, such as a grey aluminium body "
+    "and a black rubber grip. The model is still one solid: fuse it first, then set color and "
+    "label on the final shape after its booleans and fillets, and for some of its faces list "
+    'Compound(faces, label="grip", color=Color(0.1, 0.1, 0.1)) in a module-level list named '
+    "areas. Colour needs no rebuild of its own: set it with the next change. Colour is how the "
+    "model looks and never a result: no check reads it, it decides nothing, and the outcome's "
+    "areas_dropped says why a colour was not kept."
+)
+
 MATERIAL = (
     "The person never chooses a material. When a confirmed made_of requirement names one, use "
     "it. Otherwise choose one for each variant yourself, from list_materials or a material the "

@@ -233,7 +233,7 @@ def auto_revise(tenant: Tenant, arguments: ReviseInput) -> RevisedRun:
         built = variant_sets.build_into_set(
             roots, tenant.variants, brief_id, arguments.code, arguments.slot, resolve
         )
-        if built.outcome == Built():
+        if isinstance(built.outcome, Built):
             scored = scorecards.ScoreVariantInput(
                 variant_id=built.variant_id,
                 material_key=running.start.material_key,

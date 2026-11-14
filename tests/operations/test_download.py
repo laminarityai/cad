@@ -22,7 +22,7 @@ from cad.operations.confirmation import AskToConfirmInput, ask_to_confirm
 from cad.operations.model import Download, Tenant
 from cad.operations.tenants import Tenants
 from cad.sandbox.image import BUILD, image_tag
-from cad.sandbox.outcome import Build, Built
+from cad.sandbox.outcome import Areas, Build, Built
 from cad.variant_sets import store as variant_sets
 from cad.variant_sets.model import Option
 from cad.variants import entry
@@ -34,7 +34,7 @@ ALICE, BOB = AccountId("user_alice"), AccountId("user_bob")
 BREP = b"CASCADE Topology V3, a rail\n"
 SHA = hashlib.sha256(BREP).hexdigest()
 MADE = job.Made(step=b"ISO-10303-21;\n", stl=b"binary stl", threemf=b"PK zip")
-EXPORTED = job.Ran(Exported(brep_sha256=SHA, version=job.VERSION), True, MADE)
+EXPORTED = job.Ran(Exported(key=SHA, version=job.VERSION), True, MADE)
 FORMATS = ("step", "stl", "3mf")
 UNDER_150 = RequirementDraft.model_validate(
     {
@@ -63,8 +63,8 @@ class Gated:
         self.calls = 0
         self.gate = threading.Event()
 
-    def __call__(self, brep: bytes, brep_sha256: str) -> job.Ran:
-        assert (brep, brep_sha256) == (BREP, SHA)
+    def __call__(self, brep: bytes, key: str, areas: Areas) -> job.Ran:
+        assert (brep, key, areas) == (BREP, SHA, ())
         self.calls += 1
         self.gate.wait(5)
         return self.ran
@@ -124,7 +124,7 @@ async def test_a_file_not_exported_failed_stale_or_another_accounts_is_404_and_n
         missing = await mine.get(url("step"))
         store.write(
             tenants.of(ALICE).geometry,
-            job.Ran(ExportFailed(brep_sha256=SHA, version=job.VERSION, reason="x"), True),
+            job.Ran(ExportFailed(key=SHA, version=job.VERSION, reason="x"), True),
         )
         failed = await mine.get(url("step"))
         store.write(tenants.of(ALICE).geometry, EXPORTED)
@@ -184,7 +184,7 @@ async def test_a_failed_export_says_why_and_a_variant_outside_the_brief_is_refus
 ) -> None:
     alice = confirming_tenants.of(ALICE)
     brief, _, second = await a_confirmed_set(alice, None)
-    run = Gated(job.Ran(ExportFailed(brep_sha256=SHA, version=job.VERSION, reason="too big"), True))
+    run = Gated(job.Ran(ExportFailed(key=SHA, version=job.VERSION, reason="too big"), True))
     run.gate.set()
     lane = Exports(run)
     monkeypatch.setattr(exports, "EXPORTS", lane)

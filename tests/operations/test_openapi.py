@@ -122,7 +122,7 @@ def test_a_mesh_names_its_etag_and_a_304_and_a_scorecard_does_not() -> None:
 
 
 def test_a_download_is_an_octet_stream_that_names_its_attachment_header_and_no_schema() -> None:
-    file = described()[("GET", "/v1/exports/{version}/{brep_sha256}.{format}")]
+    file = described()[("GET", "/v1/exports/{version}/{key}.{format}")]
     ok = cast(Json, cast(Json, file["responses"])["200"])
     content = cast(Json, ok["content"])
     assert content == {

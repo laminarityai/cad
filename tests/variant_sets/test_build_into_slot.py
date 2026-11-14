@@ -27,7 +27,7 @@ async def test_a_change_to_slot_2_becomes_its_next_revision_and_the_old_one_stay
     bracket = await s.call("build_variant", code=BRACKET, brief_id=brief_id)
     assert bracket["variant_set"]["slot"] == 2
     changed = await s.call("build_variant", code=THICKER, brief_id=brief_id, slot=2)
-    assert changed["outcome"] == {"kind": "built"}
+    assert changed["outcome"] == {"kind": "built", "areas": [], "areas_dropped": None}
     assert changed["variant_id"] != bracket["variant_id"]
     assert changed["variant_set"] == {
         "kind": "joined",
@@ -45,6 +45,18 @@ async def test_a_change_to_slot_2_becomes_its_next_revision_and_the_old_one_stay
     assert again["variant_id"] == changed["variant_id"]
     assert (again["variant_set"]["revision"], again["variant_set"]["already_member"]) == (2, True)
     assert len(held(s, brief_id)[1].revisions) == 2
+
+
+async def test_a_coloured_revision_joins_its_slot(s: Session) -> None:
+    brief_id = await s.confirmed_brief()
+    await s.call("build_variant", code=PLATE, brief_id=brief_id)
+    painted = THICKER + (
+        'from build123d import Color\nresult.color = Color("gray")\nresult.label = "steel plate"\n'
+    )
+    changed = await s.call("build_variant", code=painted, brief_id=brief_id, slot=1)
+    assert changed["outcome"]["areas"][0]["name"] == "steel plate"
+    assert changed["variant_set"]["kind"] == "joined"
+    assert held(s, brief_id)[0].latest.code == painted
 
 
 async def test_a_revision_drops_the_unstarted_checks_of_the_one_it_replaced_and_nothing_else(

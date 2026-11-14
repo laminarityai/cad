@@ -13,7 +13,7 @@ from pydantic import model_validator
 from cad.data_root import DATA_ROOT
 from cad.errors import NotFound, Refused
 from cad.records import files, key
-from cad.sandbox.outcome import Build, Built, SandboxUnavailable
+from cad.sandbox.outcome import Areas, Build, Built, SandboxUnavailable
 
 VARIANTS_ROOT: Final = DATA_ROOT / "variants"
 CODE: Final = "code.py"
@@ -102,6 +102,7 @@ class Entry:
     directory: Path
     brep: bytes
     brep_sha256: str
+    areas: Areas = ()
 
     def attach_step(self, step: bytes) -> str:
         files.replace(self.directory / STEP, step)
@@ -166,7 +167,7 @@ def open_entry(root: Path, raw_id: str, image_tag: str) -> Entry:
     brep_sha256 = hashlib.sha256(brep or b"").hexdigest()
     if brep is None or brep_sha256 != manifest.brep_sha256:
         raise StaleVariant(f"variant {vid} has a result.brep that its build did not store")
-    return Entry(vid, directory, brep, brep_sha256)
+    return Entry(vid, directory, brep, brep_sha256, manifest.outcome.areas)
 
 
 def _stored_id(code: bytes | None, image_tag: str) -> VariantId | None:

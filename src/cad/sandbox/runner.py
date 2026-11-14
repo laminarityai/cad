@@ -9,22 +9,29 @@ import runpy
 import sys
 import traceback
 from base64 import b64encode
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, cast
 
 if TYPE_CHECKING:
     from types import TracebackType
 
-    from cad.sandbox.wire import FailedReport, Report
+    from cad.sandbox.wire import AreaReport, FailedReport, Report
 
 VARIANT = Path("/tmp/variant.py")
 CPU_KILL_AFTER_SECONDS = 5
+AREAS = "areas"
+UNNAMED = "unnamed"
 
 
 class Build123d(Protocol):
     Shape: type[object]
 
     def export_brep(self, to_export: object, file_path: io.BytesIO) -> bool: ...
+
+
+class Coloured(Protocol):
+    def faces(self) -> Sequence[object]: ...
 
 
 def main() -> None:
@@ -70,7 +77,49 @@ def result_report(namespace: dict[str, object]) -> Report:
     brep = io.BytesIO()
     if not build123d.export_brep(shape, brep):
         raise RuntimeError("build123d could not export `result` as BREP")
-    return {"kind": "built", "brep": b64encode(brep.getvalue()).decode()}
+    painted = areas(cast(Coloured, shape), namespace)
+    return {"kind": "built", "brep": b64encode(brep.getvalue()).decode(), "areas": painted}
+
+
+def areas(shape: Coloured, namespace: dict[str, object]) -> list[AreaReport] | str:
+    """The faces of `shape` that the code coloured, by the kernel's `color` and `label` on a
+    shape the module keeps whose faces are still the result's, on the shape, on each child of a
+    Compound, and on each shape in a list named `areas`, which is how a set of faces gets a
+    colour: a face object from `faces()` is new on every call, so a colour set on one is gone.
+    A later, nearer one wins, and faces are numbered as `faces()` numbers them, which is the
+    order the BREP keeps. `Compound([a, b])` keeps the faces of `a` and `b` but not their
+    colours, so the module's own `a` and `b` give them back."""
+    try:
+        listed = namespace.get(AREAS, ())
+        named = cast(Iterable[object], listed) if isinstance(listed, list | tuple) else ()
+        kept = [one for one in namespace.values() if not isinstance(one, type) and one is not shape]
+        number = {face: index for index, face in enumerate(shape.faces())}
+        painted: dict[int, tuple[str, str]] = {}
+        for one in [*kept, *tree(shape), *named]:
+            colour: object = getattr(one, "color", None)
+            if colour is None or not callable(getattr(one, "faces", None)):
+                continue
+            look = (utf8(str(getattr(one, "label", "") or UNNAMED)), hex_of(colour))
+            for face in cast(Coloured, one).faces():
+                if face in number:
+                    painted[number[face]] = look
+        grouped: dict[tuple[str, str], list[int]] = {}
+        for index in sorted(painted):
+            grouped.setdefault(painted[index], []).append(index)
+        return [{"name": n, "colour": c, "faces": f} for (n, c), f in grouped.items()]
+    except Exception as error:
+        return utf8(f"{type(error).__name__}: {error}")
+
+
+def tree(shape: object) -> list[object]:
+    children = cast(Iterable[object], getattr(shape, "children", ()))
+    return [shape, *(one for child in children for one in tree(child))]
+
+
+def hex_of(colour: object) -> str:
+    parts = tuple(cast(Iterable[float], colour))[:3]
+    red, green, blue = (min(max(round(float(part) * 255), 0), 255) for part in parts)
+    return f"#{red:02x}{green:02x}{blue:02x}"
 
 
 def failed(error: BaseException) -> FailedReport:

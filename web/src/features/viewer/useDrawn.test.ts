@@ -7,7 +7,7 @@ import type { Where } from "./where";
 const piece = (id: string) => ({
   id,
   name: id,
-  color: "#e8b024",
+  color: "#a6abb0",
   alpha: 1,
   shape: { triangles: [0, 1, 2, 0, 1, 2], triangles_per_face: [1, 1], vertices: [], normals: [], edges: [], segments_per_edge: [], edge_types: [], obj_vertices: [], face_types: [0, 0] },
 });
@@ -50,6 +50,17 @@ describe("useDrawn", () => {
     expect(view.result.current).not.toBe(marked);
     view.rerender({ part: shapesOf("/variant/part"), ghost, where: { support: [0], load: [1] } });
     expect(view.result.current).not.toBe(marked);
+  });
+
+  it("draws the areas in their colours, and only the stress faces on grey while those are marked", () => {
+    const areas = [{ name: "grip", colour: "#1a1a1a", faces: [1] }];
+    const view = renderHook((props: { where: Where | null }) => useDrawn(part, null, props.where, areas), { initialProps: { where: null as Where | null } });
+    expect(view.result.current?.parts.map((one) => [one.id, one.color])).toEqual([
+      ["/variant/part", "#a6abb0"],
+      ["/variant/area/0", "#1a1a1a"],
+    ]);
+    view.rerender({ where: { support: [0], load: [] } });
+    expect(view.result.current?.parts.map((one) => one.id)).toEqual(["/variant/part", "/variant/support"]);
   });
 
   it("draws nothing before there is a part", () => {

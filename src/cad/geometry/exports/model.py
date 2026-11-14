@@ -13,23 +13,24 @@ class UnknownExport(NotFound):
 
 
 class Exported(Frozen):
-    """The STEP, STL and 3MF of one BREP are stored beside this record."""
+    """The STEP, STL and 3MF of one BREP are stored beside this record. `key` names what was
+    exported: the BREP's sha256, or with the areas the build code coloured, a sha256 of both."""
 
     kind: Literal["exported"] = "exported"
-    brep_sha256: str
+    key: str
     version: str
 
 
 class ExportFailed(Frozen):
     kind: Literal["failed"] = "failed"
-    brep_sha256: str
+    key: str
     version: str
     reason: str
 
 
 class ExportPending(Frozen):
     kind: Literal["pending"] = "pending"
-    brep_sha256: str
+    key: str
 
 
 type Stored = Annotated[Exported | ExportFailed, Field(discriminator="kind")]

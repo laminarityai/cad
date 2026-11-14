@@ -4,7 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { ServicesProvider } from "@/app/context";
 import { restore } from "@/api/snapshot";
-import type { Checked, Tessellated } from "@/api/types";
+import type { Area, Checked, Tessellated } from "@/api/types";
 import type { Shapes } from "@/features/viewer/engine";
 import { FakeChat, FakeViewer, fakeApi, meshOf } from "@/test/fakes";
 import { deflectionDone, feaPending, massResult, snapshot } from "@/test/fixtures";
@@ -35,7 +35,7 @@ const SHAPES = {
         obj_vertices: [],
       },
       state: [1, 1],
-      color: "#e8b024",
+      color: "#a6abb0",
       alpha: 1,
       texture: null,
       loc: [[0, 0, 0], [0, 0, 0, 1]],
@@ -108,7 +108,7 @@ describe("the faces on a stress requirement's row", () => {
   });
 });
 
-async function open(withWhere: boolean) {
+async function open(withWhere: boolean, areas: Area[] = []) {
   const viewer = new FakeViewer();
   const wire = snapshot("v1", [stress("case-a")], [feaResult("case-a", withWhere ? { support: [0], load: [1] } : undefined)]);
   const scorecard = vi.fn(() => Promise.resolve(wire));
@@ -117,6 +117,9 @@ async function open(withWhere: boolean) {
       Promise.resolve({ project_id: "p1", briefs: [{ brief_id: "b1", created_at: "2026-11-10T00:00:00Z", proposals: 1, confirmed_proposal: 1 }], context_parts: [], documents: [] }),
     ),
     scorecard,
+    view: vi.fn((variantId: string) =>
+      Promise.resolve({ variant_id: variantId, brep_sha256: "b".repeat(64), mesh: "tessellated" as const, mesh_url: `/v1/geometry/0123456789ab/${variantId}.json`, areas }),
+    ),
     mesh: vi.fn(() => Promise.resolve({ ...meshOf("v1"), shapes: SHAPES } as Tessellated)),
   });
   const { container } = render(
@@ -209,5 +212,45 @@ describe("showing where the check held and pushed", () => {
       expect(container.querySelector("[data-line]")).not.toBeNull();
     });
     expect(screen.queryByRole("button", { name: /where it held/ })).toBeNull();
+  });
+});
+
+const GRIP: Area = { name: "rubber grip", colour: "#1a1a1a", faces: [1] };
+const colours = (shapes: Shapes | undefined) => shapes?.parts.map((one) => [one.id, one.color]);
+
+describe("the colours the build code gave the model", () => {
+  it("are drawn with a list of each area's swatch and name", async () => {
+    const { viewer, container } = await open(false, [GRIP]);
+    expect(colours(viewer.mounted[0])).toEqual([
+      ["/variant/part", "#a6abb0"],
+      ["/variant/area/0", "#1a1a1a"],
+    ]);
+    const list = container.querySelector("[data-areas]");
+    expect(list).toHaveTextContent("rubber grip");
+    expect(list?.querySelector("[data-area] span")).toHaveStyle({ backgroundColor: "#1a1a1a" });
+  });
+
+  it("go grey while the stress check's faces show, and come back when they are hidden", async () => {
+    const { viewer, container } = await open(true, [GRIP]);
+    await userEvent.click(await screen.findByRole("button", { name: "Show where it held and pushed" }));
+    await waitFor(() => {
+      expect(colours(viewer.shown[viewer.shown.length - 1])).toEqual([
+        ["/variant/part", "#a6abb0"],
+        ["/variant/support", "#0072b2"],
+        ["/variant/load", "#cc79a7"],
+      ]);
+    });
+    expect(container.querySelector("[data-areas]")).toHaveTextContent("Grey while the stress check's faces show");
+    await userEvent.click(screen.getByRole("button", { name: "Showing where it held and pushed" }));
+    await waitFor(() => {
+      expect(ids(viewer.shown[viewer.shown.length - 1])).toEqual(["/variant/part", "/variant/area/0"]);
+    });
+    expect(container.querySelector("[data-areas]")).not.toHaveTextContent("Grey while");
+  });
+
+  it("are not there for a variant whose code coloured nothing, which is drawn grey with no list", async () => {
+    const { viewer, container } = await open(false);
+    expect(colours(viewer.mounted[0])).toEqual([["/variant/part", "#a6abb0"]]);
+    expect(container.querySelector("[data-areas]")).toBeNull();
   });
 });

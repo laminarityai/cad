@@ -76,7 +76,11 @@ def error_text(result: Any) -> str:
 async def test_plate_over_mcp_is_built_with_a_brep_and_no_step_file(tmp_path: Path) -> None:
     result = await call(tmp_path, PARTS["plate"])
     assert not result.is_error
-    assert result.structured_content["outcome"] == {"kind": "built"}
+    assert result.structured_content["outcome"] == {
+        "kind": "built",
+        "areas": [],
+        "areas_dropped": None,
+    }
     stored = tmp_path / result.structured_content["variant_id"]
     assert (stored / "result.brep").is_file()
     assert not (stored / "result.step").exists()
