@@ -47,7 +47,7 @@ The runner runs inside the sandbox and reports the areas beside the BREP. The ho
 class Area(Frozen):
     name: AreaName  # 1 to 60 characters, no control characters
     colour: Colour  # "#rrggbb", lower case
-    faces: tuple[FaceNumber, ...]  # at least one; each n >= 0
+    faces: tuple[FaceNumber, ...]  # at least one; each 0 <= n < 2**24
 
 
 type Areas = tuple[Area, ...]  # at most 16 areas, 10,000 faces in all, no face in two

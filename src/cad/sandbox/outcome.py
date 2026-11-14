@@ -10,11 +10,13 @@ from cad.frozen import Frozen
 LOG = logging.getLogger(__name__)
 MAX_AREAS: Final = 16
 MAX_AREA_FACES: Final = 10_000
+# The export container takes the areas as one argument, and Linux caps one at 128 KiB.
+MAX_FACE_NUMBER: Final = 2**24
 MAX_DROPPED_CHARS: Final = 200
 
 type AreaName = Annotated[str, Strict(), StringConstraints(pattern=r"^[^\x00-\x1f\x7f]{1,60}$")]
 type Colour = Annotated[str, Strict(), StringConstraints(pattern=r"^#[0-9a-f]{6}$")]
-type FaceNumber = Annotated[int, Strict(), Field(ge=0)]
+type FaceNumber = Annotated[int, Strict(), Field(ge=0, lt=MAX_FACE_NUMBER)]
 
 
 class Area(Frozen):
