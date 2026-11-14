@@ -103,7 +103,7 @@ function valueOf(result: DoneCheck | undefined): string {
     if (edges.length === 3) return `${edges.map((one) => num(one.magnitude)).join(" × ")} mm`;
   }
   if (result.check_id === "holes") {
-    const sizes = result.measured.filter((one) => one.name.startsWith("hole_diameter:")).map((one) => one.value);
+    const sizes = result.measured.filter((one) => /^hole_diameter:\d+$/.test(one.name)).map((one) => one.value);
     if (sizes.length === 0) return "no round holes";
     const unit = sizes[0]?.unit ?? "mm";
     return `${String(sizes.length)} ${sizes.length === 1 ? "hole" : "holes"}: ${sizes.map((one) => num(one.magnitude)).join(", ")} ${unit}`;

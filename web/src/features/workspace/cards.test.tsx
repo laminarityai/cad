@@ -173,6 +173,12 @@ describe("linesOf holes", () => {
     expect(lineOf(holes([]))?.value).toBe("no round holes");
   });
 
+  it("counts the whole part's holes once on a variant of named bodies", () => {
+    const whole = holes([5, 6]);
+    const plate = { name: "hole_diameter:plate:0", value: { magnitude: 5, unit: "mm" } };
+    expect(lineOf({ ...whole, measured: [...whole.measured, plate] })?.value).toBe("2 holes: 5, 6 mm");
+  });
+
   it("keeps the diameters of a part the check could not fully read, with status unknown", () => {
     const line = lineOf(holes([5.5], "unknown"));
     expect(line?.value).toBe("1 hole: 5.5 mm");
