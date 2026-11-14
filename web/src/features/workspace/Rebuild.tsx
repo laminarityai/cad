@@ -29,7 +29,7 @@ export function Rebuild(props: { variantId: string; briefId: string; onRebuilt: 
     );
   };
   return (
-    <div data-outdated className="flex flex-col items-start gap-3 p-4 text-[15px] text-ink-2">
+    <div data-outdated className="flex flex-col items-start gap-3 px-4 pb-4 pt-14 text-[15px] text-ink-2">
       <p>{OUTDATED_WORDS} Rebuild it to see it and its checks.</p>
       <Button type="button" variant="accent" disabled={working} onClick={rebuild}>
         {working ? <Spinner /> : null}
