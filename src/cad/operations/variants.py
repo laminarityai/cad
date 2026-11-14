@@ -14,7 +14,7 @@ from cad.operations.model import Audience, Input, Tenant, operation
 from cad.operations.research import brief_table
 from cad.operations.scorecards import MaterialKey
 from cad.sandbox import container, host, image
-from cad.sandbox.outcome import Built
+from cad.sandbox.outcome import Built, ToldOutcome, told
 from cad.scorecard import material
 from cad.variant_sets import store as variant_sets
 from cad.variant_sets.model import (
@@ -23,6 +23,7 @@ from cad.variant_sets.model import (
     Joined,
     Label,
     MaterialChoice,
+    NotJoined,
     Option,
     Reason,
     Resolve,
@@ -33,6 +34,7 @@ from cad.variant_sets.model import (
 )
 from cad.variant_sets.placement import choose
 from cad.variants import entry, store
+from cad.variants.entry import VariantId
 
 MAX_CODE_CHARS: Final = 256 * 1024
 BUILD_VARIANT = (
@@ -139,13 +141,30 @@ def chooser(tenant: Tenant, brief_id: str, key: str | None, reason: str | None) 
     return resolve
 
 
-def build_variant(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResult:
+class BuildReply(BaseModel):
+    """What the agent reads after a build. Its outcome counts each area's faces, so a coloured
+    build fits the chat's result limit."""
+
+    variant_id: VariantId
+    outcome: ToldOutcome
+    output: str
+    variant_set: Annotated[Joined | NotJoined, Field(discriminator="kind")] | None = None
+    context_parts_out_of_date: tuple[str, ...] = ()
+
+
+def build_variant(tenant: Tenant, arguments: BuildVariantInput) -> BuildReply:
     """A built variant's mesh starts at once, beside its checks, so the viewer has it sooner."""
     built = _build(tenant, arguments)
     if isinstance(built.outcome, Built):
         held = entry.open_entry(tenant.variants, built.variant_id, image.image_tag(image.BUILD))
         TESSELLATIONS.start(tenant.geometry, held)
-    return built
+    return BuildReply(
+        variant_id=built.variant_id,
+        outcome=told(built.outcome),
+        output=built.output,
+        variant_set=built.variant_set,
+        context_parts_out_of_date=built.context_parts_out_of_date,
+    )
 
 
 def _build(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResult:
@@ -211,7 +230,7 @@ OPERATIONS: Final = (
         audience=Audience.AGENT,
         description=BUILD_VARIANT,
         input=BuildVariantInput,
-        output=SetBuildResult,
+        output=BuildReply,
         run=build_variant,
     ),
     operation(

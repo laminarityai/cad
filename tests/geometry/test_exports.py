@@ -218,3 +218,8 @@ def test_a_coloured_variant_exports_apart_from_the_same_brep_with_no_colour(
     assert asked == [(SHA, ()), (key, (GRIP,))]
     assert key not in (SHA, job.key_of(SHA, (GRIP.model_copy(update={"colour": "#1a1a1b"}),)))
     assert store.read(tmp_path, key) == Exported(key=key, version=job.VERSION)
+
+
+def test_renaming_an_area_keeps_its_export_because_the_step_carries_no_names() -> None:
+    renamed = GRIP.model_copy(update={"name": "rubber grip"})
+    assert job.key_of(SHA, (renamed,)) == job.key_of(SHA, (GRIP,))

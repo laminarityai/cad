@@ -1,10 +1,12 @@
 import hashlib
+import json
 import threading
 from collections.abc import Iterator
 
 import pytest
 
 from cad.accounts.principal import AccountId
+from cad.chat.turn import MAX_RESULT_CHARS
 from cad.geometry import job
 from cad.geometry.container.wire import FaceFacts
 from cad.geometry.lane import TESSELLATIONS
@@ -140,3 +142,13 @@ def test_view_shows_the_areas_only_when_the_mesh_has_every_face_they_name(
     run.gate.set()
     assert TESSELLATIONS.read(alice.geometry, held, 5) == TWO_FACES
     assert reads.view(alice, reads.VariantInput(variant_id=vid)).areas == shown
+
+
+def test_a_build_tells_the_agent_each_area_by_its_face_count_within_the_chat_limit(
+    alice: Tenant, run: Gated
+) -> None:
+    many = Area(name="body", colour="#a6abb2", faces=tuple(range(10_000)))
+    stored_build(alice, "result = 3", Built(areas=(many,)))
+    told = build_variant(alice, BuildVariantInput(code="result = 3")).model_dump(mode="json")
+    assert told["outcome"]["areas"] == [{"name": "body", "colour": "#a6abb2", "face_count": 10_000}]
+    assert len(json.dumps(told, separators=(",", ":"))) < MAX_RESULT_CHARS

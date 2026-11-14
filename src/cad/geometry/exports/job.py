@@ -41,11 +41,12 @@ class Ran:
 
 def key_of(brep_sha256: str, areas: Areas) -> str:
     """The BREP's sha256 when the build code coloured nothing, so an uncoloured BREP keeps one
-    export however many variants built it."""
+    export however many variants built it. The STEP carries no area names, so a rename keeps
+    the export."""
     if not areas:
         return brep_sha256
-    named = json.dumps([brep_sha256, AREAS.dump_python(areas, mode="json")], sort_keys=True)
-    return hashlib.sha256(named.encode()).hexdigest()
+    painted = [[area.colour, list(area.faces)] for area in areas]
+    return hashlib.sha256(json.dumps([brep_sha256, painted]).encode()).hexdigest()
 
 
 def export(brep: bytes, key: str, areas: Areas) -> Ran:

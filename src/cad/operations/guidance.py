@@ -288,8 +288,11 @@ COLOURS: Final = (
     "label on the final shape after its booleans and fillets, and for some of its faces list "
     'Compound(faces, label="grip", color=Color(0.1, 0.1, 0.1)) in a module-level list named '
     "areas. Colour needs no rebuild of its own: set it with the next change. Colour is how the "
-    "model looks and never a result: no check reads it, it decides nothing, and the outcome's "
-    "areas_dropped says why a colour was not kept."
+    "model looks and never a result: no check reads it and it decides nothing. To see what was "
+    "kept, read areas in the build's outcome, which gives each area's name, colour and "
+    "face_count. A colour lost to a fuse, a fillet or a Pos(...) * move is simply missing from "
+    "areas. areas_dropped is set only when the colours could not be read or broke a limit, such as "
+    "too many faces."
 )
 
 MATERIAL = (
