@@ -209,10 +209,12 @@ def _member(
     member: Member,
 ) -> MemberView:
     latest = member.latest
+    tag = image.image_tag(image.BUILD)
+    shown = variant_sets.current_id(tenant.variants, latest, tag)
     choice = latest.material
     key = _whole_variant_pin(pinned) or (None if choice is None else choice.key)
-    names = _body_names(tenant, latest.built_as)
-    card = _card(tenant, brief_id, asked or key, latest.built_as, bool(names))
+    names = _body_names(tenant, shown)
+    card = _card(tenant, brief_id, asked or key, shown, bool(names))
     each = (
         _unscored_body_materials(names, latest.materials, confirmed, pinned)
         if card is None
@@ -220,12 +222,12 @@ def _member(
     )
     return MemberView(
         slot=member.slot,
-        variant_id=latest.built_as,
+        variant_id=shown,
         revision=len(member.revisions),
         revisions=tuple(
             RevisionView(
                 revision=number,
-                variant_id=one.built_as,
+                variant_id=variant_sets.current_id(tenant.variants, one, tag),
                 code_sha256=one.code_sha256,
                 joined_at=one.joined_at,
             )
