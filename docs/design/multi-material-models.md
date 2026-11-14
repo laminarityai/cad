@@ -4,9 +4,9 @@ This note says how a variant comes to hold several bodies, each made of its own 
 
 Each fact carries one of three labels:
 
-- **Measured** means the stage 1 prototype of 2026-11-13 produced it, in `cad-sandbox` with build123d 0.12.0.
-- **Read** means it comes from the code on trunk at `ab64b29`.
-- **Inferred** means neither, and the prototype in step 0 must confirm it.
+- **Measured** means the stage 1 prototype or the step 0 trial of 2026-11-13 produced it, in the sandbox images with build123d 0.12.0 and OCP 7.9.3.1.1.
+- **Read** means it comes from the code on trunk at `ab64b29`, or at `493ce9a` for the step 0 trial.
+- **Inferred** means none of these.
 
 ## What trunk does today
 
@@ -23,19 +23,36 @@ Each fact carries one of three labels:
 - Face numbers on the built shape equal the face numbers in the BREP read back, for a two-child compound too.
 - The 3MF writer holds one colour per object. STEP holds a colour per face through XCAF.
 
-Not measured yet: whether the order of solids survives the BREP, how long `interference` takes on many solids, and whether the mesher can take one solid out of a compound.
+## What the step 0 trial measured
+
+The trial ran on trunk `493ce9a` in `cad-analysis:5c4ce3c9a3cd`, which is built from `cad-sandbox:8a7e4a0613e8` with no Python package changed. Each script called the product's own code: the build runner's `result_report` wrote the BREP, `ocp_kernel()` read it, and the real check modules and the real exporter ran on it. Each container had 2 CPUs and 2048 MB, the limits of a quick check job. The scripts are throwaway and are not in the repository.
+
+1. **Solid order survives the BREP (measured).** For 2, 5, 12 and 24 solids, the i-th solid the check kernel reads back is the i-th solid of `result` on the build side. This held in 20 of 20 cases: distinct shapes, moved copies, mirrored shapes, a nested compound and the list form. Order follows `children`, depth first. So a solid's index is a stable key. A key of volume and centre of mass is not. It cannot tell apart a copy left in place, or a box turned 90 degrees about its own centre. Two numberings also differ on a copy left in place. build123d's `solids()` counts 1 solid there, and the kernel's explorer counts 2. The runner must number solids with the kernel's explorer, as every check does.
+2. **A label lives on the Python object only (measured).** No label or colour text is in the BREP bytes. These keep a shape's `label` and `color`: `moved`, `move`, `Pos(...) *`, `translate`, `rotate`, `Rot(...) *`, the `mirror` method, `copy.copy`, `copy.deepcopy`, a `PolarLocations` pattern of copies, a cut `a - b` and an intersection `a & b`. These drop both: the `mirror`, `scale`, `fillet`, `chamfer` and `split` functions, a fuse `a + b`, and the part a `BuildPart` block makes, even with a label set inside the block. `Compound(children=[...])` keeps each child and its label. `Compound([...])` keeps the solids and drops every child, so no solid has a name. So a label must be set after the last shape operation. The simplest idiom that named every solid is to build each body, set its `label` last, and return `result = Compound(children=[plate, gears])`, where `gears` is a solid or `Compound(children=[...], label="gear")`. Each solid then takes the label of its nearest labelled node in the `children` tree. Two `BuildPart` blocks work the same way, with the label set on each block's `part` after the block. Stage 1's colour path, on branch `feat/model-colours` at `bbea554`, reads `label` and `color` from the objects the module keeps, from each node of the `children` tree and from a list named `areas`, and maps them to faces by identity (read).
+3. **`interference` is not what limits the caps (measured).** The real check took 0.16 s at 24 touching boxes, 0.6 ms per pair. It took 5.0 s at 24 realistic solids, a filleted plate with 8 holes and 23 filleted gears of 20 teeth, 18 ms per pair. At 12 realistic solids it took 1.1 s. Each figure is the median of 5 warm runs. On every run over 0.1 s the spread was within 9 percent, except one 2.4 s outlier at 12 touching solids. Solids that touch cost 15 to 50 percent more per pair than solids apart. The quick job has 60 s of wall time for every quick check and the STEP (read, `WALL_SECONDS` in `src/cad/sandbox/container.py`). What limits the caps is `min_wall` once per solid. Run on each solid alone, it took 17 to 18 s for 24 boxes, 20 to 25 s for 12 realistic solids and 39 to 49 s for 24 realistic solids. Those are single runs, and the two 24-solid runs on the same shapes differ by 24 percent. closed_solid, mass and holes on each solid added at most 2.7 s. `min_wall` also has its own limit of 30 s per search (read, `MAX_SECONDS` in `min_wall.py`). Another agent shared Docker and the laptop during the runs, with a load average of 3.6 to 5.2 on 8 cores, so each figure is noisy. A hosted machine will differ.
+4. **One solid taken out of the result meshes, and its faces are an offset block (measured).** Each of 4 solids (a holed plate, two filleted gears, one of them mirrored, and a spacer) was taken out with the kernel's explorer, written with `brep_bytes` and meshed by `mesh_pair` through `BrepFem.mesh`, as `fea` meshes. All 4 meshed, and on each the mesh's surfaces equal the kernel's faces, which is the rule `fea` applies before it places a load. The two gears took 13 s each for both meshes, against the stress job's 600 s. Face k of solid i is face `offset_i + k` of the whole result, where `offset_i` is the number of faces of the solids before it. This held by identity in place and by area and centroid after the BREP round trip. So a load case's faces and the stress view's highlighted faces need no map, only that offset.
+5. **The exports drop every name and colour today (measured).** The product's `export` writes the STEP with `STEPControl_Writer`. It keeps the compound's tree, but each product is named "Open CASCADE STEP translator 7.9" and no colour is written. Its 3MF has one mesh object per top-level child of the BREP, here 3, with no names and no colours. Run on the labelled result before the BREP, build123d's `export_step` writes products named `plate`, `gear` and `spacer`, with the colours. The two solids of `gear` sit under a product named `gear` and read back as `COMPOUND` each, carrying the group's colour. `Mesher.add_shape` writes one named, coloured object per child of the result, here 3, and the gear body of 2 solids is one object. The export container gets only the BREP, so it has no names to write. It has to take the body list, group the solids it reads by body, set each group's label and colour, and write the STEP with XCAF. Then the STEP no longer comes from the same writer as the checks' STEP, which `export.py` names as its reason today.
+6. **A hole through two stacked bodies reads as one hole on the whole result, and as two when each body is read (measured).** A 40 mm plate and a spacer, stacked on one 5.5 mm through-hole, were read by the real `holes` check. On trunk the whole result is unknown, because closed_solid fails on 2 solids. With closed_solid passing, the whole result reads 1 hole of 5.5 mm, the same as the two fused into one solid. Each solid alone reads 1 hole, so a sum over bodies counts 2, and an exact count of 1 fails. With a 6.5 mm hole in the spacer, the whole result still reads 1 hole of 5.5 mm, because the check takes coaxial faces as one hole, as it does for a counterbore. This settles the hole gap in [issue 311](https://github.com/laminarityai/cad/issues/311).
+
+Four sentences of this design were false, and are corrected below. A solid does not carry its own label when it is built in a `BuildPart` block or a group, so the runner reads the nearest labelled node. A whole-variant hole count is not the sum of each body's holes. The exporter cannot write names from the BREP alone. The solids cap of 24 does not fit the quick job when `min_wall` reads each solid alone.
+
+Three facts also bear on ADR-0014. The first may conflict with it, and the operator decides. The ADR says `holes` reads each body. A hole requirement on the whole variant has to read the whole result instead, or a stacked hole counts twice. The other two do not contradict it. The ADR says build code labels each solid. A label on a group of solids is the idiom that worked, and the ADR's words can be read to allow it. The ADR caps bodies at 12 and names no solids cap, so the solids cap is this design's to set.
 
 ## The design
 
 ### A body
 
-A **body** is one or more solids of a variant's result that share a name and one material. Four gears cut from the same steel are one body named `gear` with four solids. A variant has 1 to 12 bodies and at most 24 solids. The caps are this design's pick, and step 0 sets them from a timing run.
+A **body** is one or more solids of a variant's result that share a name and one material. Four gears cut from the same steel are one body named `gear` with four solids. A variant has 1 to 12 bodies and at most 12 solids. The step 0 trial set the solids cap (measured, entry 3 above). Twelve realistic solids cost about 1 s of `interference` and 20 to 25 s of `min_wall` on each solid alone, inside the quick job's 60 s. Twenty-four cost 5 s and 39 to 49 s, which leaves no room. A cap of 24 solids fits only if `min_wall` measures a moved copy once, since a moved copy shares its geometry with the original (measured), and four gears of one body are then one measurement. That is a change to `min_wall`, and step 1 may make it and raise the cap.
 
 A variant with one unnamed solid has one body. Everything about it stays as it is today, and no stored variant changes meaning. Nothing is migrated.
 
 ### The build names its bodies
 
-Build code returns `result` as a compound. Each child solid carries the kernel's `label`, and solids with the same label are one body. The runner reads the labels where it already reads stage 1's areas, and stores the list beside the BREP: each body's name and the solids it covers.
+Build code returns `result` as `Compound(children=[...])`. Each solid takes the `label` of its nearest labelled node in the `children` tree: its own label, or the label of a group such as `Compound(children=gears, label="gear")` or a `BuildPart` block's `part`. Solids with the same name are one body. The runner numbers the solids with the kernel's explorer, as the checks do, and not with build123d's `solids()`, which counts a copy left in place once (measured). It reads the labels where it already reads stage 1's areas, and stores the list beside the BREP: each body's name and the indexes of the solids it covers. The solid index is the key, because the order survives the BREP and a key of volume and centre of mass does not tell every two solids apart (measured).
+
+The agent must set a label after the last shape operation, because a fillet, a chamfer, a fuse, the `mirror` and `scale` functions and a `BuildPart` block drop it, and `Compound([...])` drops every child (measured). The tool guidance has to say so, with the idiom.
+
+Stage 1 also reads `label`, as the name of an area of faces (read, `feat/model-colours`). So one label on a solid would name both a body and an area. Step 1 has to say which labels name bodies, for example only those on solids and groups in the `children` tree, and never those in the `areas` list (inferred).
 
 The list is agent output crossing a boundary, so the server parses it into a typed, frozen, bounded record. A name starts with a lowercase letter and holds lowercase letters, digits and hyphens, up to 32 characters, so it never reads as a solid index. This differs from stage 1 in one way. A bad colour list drops the colours and the build goes on. A bad body list refuses the build, because checks read it. The refusal names the fix, such as "two solids have no label".
 
@@ -64,8 +81,8 @@ The jobs stay as today: one quick job for the quick checks, one `fea` job per lo
 | `interference` | Same rule, over every pair of solids, two solids of one body included. Its message names each solid's body. Pair measures stay keyed by solid index, as `common_volume:0-1`. Its `bodies` measure counts solids, so it is renamed `solids`. Two bodies that touch on a face pass. A press fit drawn as an overlap fails, as it would today. |
 | `mass` | `mass = sum over bodies of volume × density`, each density read by that body's exact key. It also reports `mass:<body>`. If one body's density is unknown, the total is unknown and the card asks for research on that material. A partial sum is never shown as the mass. |
 | `extents` | The whole result. No change. |
-| `holes` | Reads each body's holes and reports them under the body's name. |
-| `min_wall` | Reads each body. The variant's thinnest wall is the thinnest of them, reported with its body. |
+| `holes` | A requirement on the whole variant reads the whole result, so a hole through two stacked bodies counts once, as it does when they are fused (measured). A requirement that names a body reads that body's solids. A sum over bodies would count the stacked hole twice and fail an exact count (measured). |
+| `min_wall` | Reads each body. The variant's thinnest wall is the thinnest of them, reported with its body. It is the costliest quick check on many solids: 20 to 25 s for 12 realistic solids, one at a time (measured). |
 | `fea` | One solid at a time. See below. |
 | `fit` | The whole result against each fit target. No change. |
 
@@ -77,7 +94,7 @@ An approved agent-written check (ADR-0011) reads one material today (read, `src/
 
 A stress result across two bodies depends on how they are joined: bolted, glued, pressed or only touching. Nothing in the model says which. So this stage does not solve across a joint.
 
-- A load case on a variant of more than one solid names one body. The check takes that body's solid out of the result and solves it alone, in that body's material. It finds the supports and the load on that body with the same geometry rules as today (ADR-0007). The person confirms the load case's words, which now name the body.
+- A load case on a variant of more than one solid names one body. The check takes that body's solid out of the result and solves it alone, in that body's material. The lone solid meshes on the same path, and its face k is face `offset + k` of the whole result, where the offset counts the faces of the solids before it (measured). So the load's faces and the stress view's faces convert by that offset alone. It finds the supports and the load on that body with the same geometry rules as today (ADR-0007). The person confirms the load case's words, which now name the body.
 - A load case that names no body, or a body of several solids, is unknown, and the reason says to name one body of one solid.
 - Every scorecard of a variant of more than one solid lists one more requirement under "No test yet", which reads "How the bodies are joined is not checked." It counts in coverage, so an option of several bodies never looks more checked than it is.
 
@@ -96,7 +113,7 @@ A brief that names no body works as it does today. The agent may still build sev
 - **Scorecard.** A bodies list: each body's name, colour, material, who picked the material, its number of solids, volume and mass. A check row that reads one body names it.
 - **Viewer.** Each body draws in the colour its build code set, through stage 1's path. The explorer lists the bodies under the option, and a click shows one alone.
 - **Confirm card.** A row per body name the brief states, and a row per requirement as today.
-- **Exports.** STEP holds one named product per body, with its colour. 3MF holds one object per body, with its colour. STL has no names and no colour, and stays one mesh.
+- **Exports.** STEP holds one named product per body, with its colour. 3MF holds one object per body, with its colour. STL has no names and no colour, and stays one mesh. Today's exporter writes no names and no colours, because it reads only the BREP (measured). It must take the body list, group the solids by body, and write the STEP through XCAF, as build123d's `export_step` does, and the 3MF with one `Mesher` object per body, which keeps both (measured).
 
 ## What the agent gains, and why checks still decide
 
@@ -123,7 +140,7 @@ The agent gains two choices. It chooses which solid carries which name. It choos
 
 Stage 2 starts after stage 1 merges, because it extends the list stage 1 stores beside the BREP.
 
-0. **Prototype in the sandbox, no product code.** Confirm that solid order survives the BREP, time `interference` at the caps, cut one solid from a compound for the mesher, and read names and colours back from a STEP and a 3MF.
+0. **Prototype in the sandbox, no product code.** Done on 2026-11-13. See "What the step 0 trial measured".
 1. **Bodies through the pipeline.** The stored list, `materials` on `build_variant`, the geometry checks and `mass`, the scorecard's bodies list, the explorer, and the exports.
 2. **Requirements that name a body.** Body names on the proposal and the card, and `body` on `made_of`, the mass limits, the hole requirements and a limit on a per-body measure.
 3. **Stress on one named body.**
@@ -142,6 +159,8 @@ The operator made all three on 2026-11-13.
 
 ## Not verified
 
-- Everything marked inferred above, until step 0 runs.
+- Everything marked inferred above.
+- The cost of `min_wall` on a body of several solids read as one shape, and on a hosted machine. The trial timed it on each solid alone, on this laptop, with another agent using Docker.
+- Whether the whole-result hole reading joins two coaxial holes of different bodies that are far apart along their axis.
 - How the agent performs on a brief with several bodies. The brief set has none. Three such briefs would let the baseline measure it.
 - The cost of the confirm row per body name in clicks. The design adds one row per stated name and no new page.
