@@ -22,6 +22,21 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[4]
 CAD_TOOL_PREFIX = "mcp__cad__"
+FAILURE_LINES = (
+    "claude exited",
+    "cad is not connected",
+    "tools available outside cad:",
+    "tools outside cad:",
+)
+
+
+def failure_of(stdout: str, stderr: str) -> str:
+    """Why a drive exited 1: the lines in FAILURE_LINES this script printed, else the last line of
+    the traceback it raised. Its last stdout line is often the model's reply, so it is never the
+    reason. The eval harnesses read a failed drive through this one function."""
+    said = [line for line in stdout.splitlines() if line.startswith(FAILURE_LINES)]
+    raised = stderr.strip().splitlines()
+    return "; ".join(said) or (raised[-1] if raised else "the session reported an error")
 
 
 def refusal(name: str) -> str:

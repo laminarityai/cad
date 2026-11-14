@@ -1,3 +1,4 @@
+import importlib.util
 import json
 import os
 import signal
@@ -7,7 +8,7 @@ import time
 from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, cast
+from typing import Any, Final, Protocol, cast
 
 from asking import Call
 
@@ -16,12 +17,6 @@ SESSION: Final = ROOT / ".claude/skills/verify/scripts/claude_session.py"
 HUMAN: Final = ROOT / ".claude/skills/verify/scripts/human.py"
 CAD: Final = "mcp__cad__"
 ASK: Final = f"{CAD}ask_to_confirm"
-GUARD_LINES: Final = (
-    "tools outside cad",
-    "tools available outside cad",
-    "cad is not connected",
-    "claude exited",
-)
 EXIT_WAIT_S: Final = 30.0
 
 
@@ -111,12 +106,24 @@ def _alive(group: int) -> bool:
 
 
 def failure_note(output: str, raised: str) -> str:
-    """Why the session failed: the driver's own failure lines, else the last line of the traceback
-    it raised. Its last stdout line is often the model's reply, so it is never the reason. The
-    bake-off's `agree.session_failure` reads the same driver the same way."""
-    said = [line for line in output.splitlines() if line.startswith(GUARD_LINES)]
-    lines = raised.strip().splitlines()
-    return "; ".join(said) or (lines[-1] if lines else "the session reported an error")
+    """Why the session failed, read by the driver's own rule."""
+    return _driver().failure_of(output, raised)
+
+
+class Driver(Protocol):
+    def failure_of(self, stdout: str, stderr: str) -> str: ...
+
+
+def _driver() -> Driver:
+    """The session driver, loaded once by path and shared, as it is a script and not a package."""
+    if "claude_session" not in sys.modules:
+        spec = importlib.util.spec_from_file_location("claude_session", SESSION)
+        assert spec is not None
+        assert spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        sys.modules["claude_session"] = module
+    return cast(Driver, cast(object, sys.modules["claude_session"]))
 
 
 def read_transcript(path: Path) -> SessionFacts:

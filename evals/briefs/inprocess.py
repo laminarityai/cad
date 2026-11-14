@@ -42,6 +42,7 @@ from cad.conversations.model import ConversationId
 from cad.operations.tenants import ACCOUNTS, Tenants
 from cad.server.app import LocalPage
 from cad.server.hosted import DAILY_CAP_SECONDS, build_app
+from cad.variants.entry import ID_PATTERN
 
 SCRIPTED: Final = "scripted"
 ACCOUNT: Final = "user_eval"
@@ -109,8 +110,13 @@ def container_runs(base: Path) -> int:
 
 
 def variant_count(base: Path) -> int:
+    """The variants the store holds, by its id pattern, so its index folders are not counted."""
     variants = base / "variants"
-    return sum(one.is_dir() for one in variants.iterdir()) if variants.is_dir() else 0
+    if not variants.is_dir():
+        return 0
+    return sum(
+        one.is_dir() and ID_PATTERN.fullmatch(one.name) is not None for one in variants.iterdir()
+    )
 
 
 async def converse(

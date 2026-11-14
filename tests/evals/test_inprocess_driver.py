@@ -7,7 +7,7 @@ import pytest
 import run
 from autoresult import Expect, judge
 from brief_set import BriefInput, load_set
-from inprocess import SCRIPTED, MissingKey, require_key, run_brief
+from inprocess import SCRIPTED, MissingKey, require_key, run_brief, variant_count
 
 from cad.auto.model import Bounds
 from cad.chat.key_file import load_key
@@ -173,3 +173,9 @@ def test_an_unknown_expect_key_is_refused_before_any_session_starts(
     assert "within_revisions" in err, err
     assert "brief cube" not in err, err
     assert not out.exists()
+
+
+def test_the_variant_count_leaves_out_the_stores_index_folder(tmp_path: Path) -> None:
+    for name in ("0123456789abcdef", "fedcba9876543210", "by-code"):
+        (tmp_path / "variants" / name).mkdir(parents=True)
+    assert variant_count(tmp_path) == 2
