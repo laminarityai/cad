@@ -14,6 +14,8 @@ from asking import Call
 
 ROOT: Final = Path(__file__).resolve().parents[2]
 SESSION: Final = ROOT / ".claude/skills/verify/scripts/claude_session.py"
+# The driver whose rule reads a failed drive. A test may run a fake SESSION, never a fake rule.
+DRIVER: Final = SESSION
 HUMAN: Final = ROOT / ".claude/skills/verify/scripts/human.py"
 CAD: Final = "mcp__cad__"
 ASK: Final = f"{CAD}ask_to_confirm"
@@ -117,7 +119,7 @@ class Driver(Protocol):
 def _driver() -> Driver:
     """The session driver, loaded once by path and shared, as it is a script and not a package."""
     if "claude_session" not in sys.modules:
-        spec = importlib.util.spec_from_file_location("claude_session", SESSION)
+        spec = importlib.util.spec_from_file_location("claude_session", DRIVER)
         assert spec is not None
         assert spec.loader is not None
         module = importlib.util.module_from_spec(spec)

@@ -36,6 +36,8 @@ from cad.variants import entry, store
 HERE: Final = Path(__file__).resolve().parent
 ROOT: Final = HERE.parents[1]
 SESSION: Final = ROOT / ".claude/skills/verify/scripts/claude_session.py"
+# The driver whose rule reads a failed drive. A test may run a fake SESSION, never a fake rule.
+DRIVER: Final = SESSION
 MATERIAL_KEY: Final = "prusament-pla"
 MODEL: Final = "sonnet"
 VOLUME_TOL_MM3: Final = 0.01
@@ -149,7 +151,7 @@ class Driver(Protocol):
 def _driver() -> Driver:
     """The session driver, loaded once by path and shared, as it is a script and not a package."""
     if "claude_session" not in sys.modules:
-        spec = importlib.util.spec_from_file_location("claude_session", SESSION)
+        spec = importlib.util.spec_from_file_location("claude_session", DRIVER)
         assert spec is not None
         assert spec.loader is not None
         module = importlib.util.module_from_spec(spec)
