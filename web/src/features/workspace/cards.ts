@@ -91,11 +91,18 @@ function num(magnitude: number): string {
   return String(Number(magnitude.toPrecision(3)));
 }
 
-function valueOf(result: DoneCheck | undefined): string {
+/** A requirement on a body compares a measure named `<measure>:<body>`, so its row shows that body's number, and
+ * nothing when the variant has no such body. */
+function bodyOf(measures: readonly string[], measure: string): string | undefined {
+  return measures.find((one) => one.startsWith(`${measure}:`))?.slice(measure.length + 1);
+}
+
+function valueOf(result: DoneCheck | undefined, measures: readonly string[] = []): string {
   if (!result) return "";
   const by = (name: string) => result.measured.find((one) => one.name === name)?.value;
   if (result.check_id === "mass") {
-    const mass = by("mass");
+    const body = bodyOf(measures, "mass");
+    const mass = by(body === undefined ? "mass" : `mass:${body}`);
     if (mass) return mass.unit === "kg" ? `${num(mass.magnitude * 1000)} g` : `${num(mass.magnitude)} ${mass.unit}`;
   }
   if (result.check_id === "extents") {
@@ -103,7 +110,10 @@ function valueOf(result: DoneCheck | undefined): string {
     if (edges.length === 3) return `${edges.map((one) => num(one.magnitude)).join(" × ")} mm`;
   }
   if (result.check_id === "holes") {
-    const sizes = result.measured.filter((one) => /^hole_diameter:\d+$/.test(one.name)).map((one) => one.value);
+    const body = bodyOf(measures, "hole_diameter");
+    const prefix = body === undefined ? "hole_diameter:" : `hole_diameter:${body}:`;
+    const named = (name: string) => name.startsWith(prefix) && /^\d+$/.test(name.slice(prefix.length));
+    const sizes = result.measured.filter((one) => named(one.name)).map((one) => one.value);
     if (sizes.length === 0) return "no round holes";
     const unit = sizes[0]?.unit ?? "mm";
     return `${String(sizes.length)} ${sizes.length === 1 ? "hole" : "holes"}: ${sizes.map((one) => num(one.magnitude)).join(", ")} ${unit}`;
@@ -234,7 +244,7 @@ export function linesOf(snapshot: Scorecard, busy: "running" | "not_answering" =
         key,
         label: short(one.statement),
         status: statusOf("verdict" in one ? one.verdict : "unknown", researched),
-        value: valueOf(result),
+        value: valueOf(result, measures),
         // The person confirmed these words, so the row keeps them whole beside its reason.
         why: described ? `${one.statement}. ${reason}` : reason,
         formula: result?.formula ?? "",
