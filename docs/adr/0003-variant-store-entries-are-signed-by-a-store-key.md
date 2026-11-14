@@ -32,6 +32,8 @@ The trust model does not change. The rebuild runs only code whose hash the store
 
 [ADR-0012](0012-a-supplied-part-is-read-by-the-build-and-never-graded.md) lets build code read a part the person supplied, and place and copy a component. A variant is then more than its code, so the id and the signed record cover the parts too. The variant id hashes the image tag, `TRUST_DIGEST`, the code, and for each part the build read its id, the SHA-256 of its BREP and its placements. `build.json` records the same list, and the MAC covers it with the rest of the record.
 
+Not built as of 2026-11-14. No build reads a supplied part yet. Until one does, the variant id hashes only the image tag, `TRUST_DIGEST` and the code, and `build.json` records no parts.
+
 A rebuild of a stale entry reads that list and fetches each part's BREP from the project store by its SHA-256, not by the part's id. A part that kept its id under newer geometry therefore rebuilds the old variant with the old geometry. A BREP whose bytes no longer match the recorded SHA-256 refuses the rebuild as `RebuildFailed`.
 
 The parts reach the build on stdin, after the code. "Build containers have no mounts" stands.
