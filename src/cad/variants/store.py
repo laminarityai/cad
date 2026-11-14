@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from typing import Final
 
-from cad.sandbox import container, host, image
+from cad.sandbox import builder, container, image
 from cad.sandbox.outcome import Build, SandboxUnavailable, TimedOut
 from cad.variants import entry
 
@@ -45,8 +45,8 @@ def build_variant(
 def build_and_store(
     code: str, vid: entry.VariantId, image_id: str, root: Path, wall_seconds: int
 ) -> Build:
-    run = host.build(code, image_id, wall_seconds=wall_seconds)
-    if isinstance(run.verdict, host.Artifacts):
+    run = builder.build(code, image_id, wall_seconds=wall_seconds)
+    if isinstance(run.verdict, builder.Artifacts):
         build, brep = Build(outcome=run.verdict.built, output=run.output), run.verdict.brep
     else:
         build, brep = Build(outcome=run.verdict, output=run.output), None

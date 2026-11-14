@@ -24,7 +24,7 @@ from table import tables
 from cad.agent_checks import turned
 from cad.agent_checks.harness import Motion
 from cad.checks.report import IMAGE_TAG
-from cad.sandbox import container, host, image
+from cad.sandbox import builder, container, image
 from cad.sandbox.container import Job, ReadOnlyMount
 from cad.sandbox.stage import TARGET, check_mount, read_sources
 
@@ -48,8 +48,8 @@ SOLVE_TMPFS_MB: Final = 768
 
 
 def built(code: str) -> bytes:
-    ran = host.build(code, image.current_image(image.image_tag(image.BUILD)), wall_seconds=120)
-    if not isinstance(ran.verdict, host.Artifacts):
+    ran = builder.build(code, image.current_image(image.image_tag(image.BUILD)), wall_seconds=120)
+    if not isinstance(ran.verdict, builder.Artifacts):
         raise RuntimeError(f"the part did not build: {ran.verdict}")
     return ran.verdict.brep
 

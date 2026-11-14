@@ -210,7 +210,7 @@ def _member(
 ) -> MemberView:
     latest = member.latest
     tag = image.image_tag(image.BUILD)
-    shown = variant_sets.current_id(tenant.variants, latest, tag)
+    shown = variant_sets.builds(tenant.variants, latest, tag).shown
     choice = latest.material
     key = _whole_variant_pin(pinned) or (None if choice is None else choice.key)
     names = _body_names(tenant, shown)
@@ -227,7 +227,7 @@ def _member(
         revisions=tuple(
             RevisionView(
                 revision=number,
-                variant_id=variant_sets.current_id(tenant.variants, one, tag),
+                variant_id=variant_sets.builds(tenant.variants, one, tag).shown,
                 code_sha256=one.code_sha256,
                 joined_at=one.joined_at,
             )

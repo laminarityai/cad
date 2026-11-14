@@ -14,8 +14,8 @@ from cases import BY_NAME, CASES, Case
 from cad.checks.container.mesher import MESH_CHANGE_LIMIT
 from cad.checks.report import IMAGE_TAG
 from cad.sandbox import container
+from cad.sandbox.builder import Artifacts, build
 from cad.sandbox.container import Job, ReadOnlyMount
-from cad.sandbox.host import Artifacts, build
 from cad.sandbox.image import BUILD, current_image, image_tag
 from cad.sandbox.stage import TARGET, check_mount
 

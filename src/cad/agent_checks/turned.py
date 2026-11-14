@@ -18,7 +18,7 @@ from cad.agent_checks import harness
 from cad.agent_checks.formula import Dimension, dimension_of
 from cad.agent_checks.harness import Brep, Failed, Motion, Outcome, Slot
 from cad.agent_checks.model import UNITS, AgentCheck, GeometryInput
-from cad.sandbox import host, image
+from cad.sandbox import builder, image
 from cad.sandbox.outcome import BuildFailed, NoResult, OutOfMemory, TimedOut
 from cad.tables.materials import UNITS as PINT
 
@@ -83,9 +83,9 @@ def turn(brep: bytes, motion: Motion) -> bytes | str:
         offset=motion.offset,
     )
     tag = image.image_tag(image.BUILD)
-    ran = host.build(code, image.current_image(tag), wall_seconds=TURN_SECONDS)
+    ran = builder.build(code, image.current_image(tag), wall_seconds=TURN_SECONDS)
     match ran.verdict:
-        case host.Artifacts(brep=turned):
+        case builder.Artifacts(brep=turned):
             return turned
         case TimedOut(limit_seconds=seconds):
             return f"timed out after {seconds} s"

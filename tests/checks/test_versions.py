@@ -16,8 +16,9 @@ from cad.checks.container.suite import CHECKS
 from cad.checks.container.wire import FindingWire, SourceLiteral
 from cad.checks.report import DEPENDENCIES, IMAGE_TAG, SPECS, build_request, specs
 from cad.sandbox import container, stage
+from cad.sandbox.builder import build_job
 from cad.sandbox.container import run_argv
-from cad.sandbox.host import build_job, check_job
+from cad.sandbox.host import check_job
 from cad.sandbox.stage import (
     CONTAINER_ENTRY,
     PACKAGE_PATH,

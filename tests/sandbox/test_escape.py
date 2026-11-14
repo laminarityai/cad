@@ -5,7 +5,7 @@ from unittest.mock import ANY
 
 import pytest
 
-from cad.sandbox import container, host
+from cad.sandbox import builder, container
 from cad.sandbox.image import BUILD, current_image, image_tag
 from cad.sandbox.outcome import BuildFailed, BuildOutcome, Built, Failure, OutOfMemory, TimedOut
 
@@ -22,8 +22,8 @@ def image_id() -> str:
 def outcome(
     code: str, image_id: str, wall_seconds: int = container.WALL_SECONDS
 ) -> Built | Failure:
-    verdict = host.build(code, image_id, wall_seconds=wall_seconds).verdict
-    return Built() if isinstance(verdict, host.Artifacts) else verdict
+    verdict = builder.build(code, image_id, wall_seconds=wall_seconds).verdict
+    return Built() if isinstance(verdict, builder.Artifacts) else verdict
 
 
 def failed(error: str) -> BuildFailed:
@@ -133,7 +133,7 @@ def test_the_traceback_starts_in_the_variant_code(image_id: str) -> None:
 
 def test_the_cpu_time_limit_allows_every_cpu_for_the_whole_wall_clock(image_id: str) -> None:
     code = "import resource\nprint(resource.getrlimit(resource.RLIMIT_CPU))\n"
-    assert host.build(code, image_id).output == "(120, 125)\n"
+    assert builder.build(code, image_id).output == "(120, 125)\n"
 
 
 def test_an_infinite_loop_is_killed_and_its_container_removed(image_id: str) -> None:

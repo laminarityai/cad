@@ -16,7 +16,7 @@ from cad.operations.guidance import AUTO_BUILDS, BODY_MATERIALS, COLOURS
 from cad.operations.model import Audience, Input, Tenant, operation
 from cad.operations.research import brief_table
 from cad.operations.scorecards import MaterialKey, ScoredBody
-from cad.sandbox import container, host, image
+from cad.sandbox import builder, container, image
 from cad.sandbox.bodies import MAX_BODIES, Bodies
 from cad.sandbox.outcome import Built, ToldOutcome, told
 from cad.scorecard import material
@@ -47,7 +47,7 @@ MAX_CODE_CHARS: Final = 256 * 1024
 BUILD_VARIANT = (
     "Build one variant from build123d Python code in a sandbox with no network, "
     f"{container.MEMORY_MB // 1024} GB of memory and a {container.WALL_SECONDS} second limit. "
-    f"The code runs as a script; {host.CONTRACT}. "
+    f"The code runs as a script; {builder.CONTRACT}. "
     "Returns the variant id, the outcome (built, build_failed with the error and traceback, "
     "timed_out, out_of_memory or no_result) and the tail of what the code printed. "
     "Building the same code again returns its stored outcome without rebuilding, "
@@ -269,7 +269,7 @@ def with_out_of_date(tenant: Tenant, brief_id: str, built: SetBuildResult) -> Se
     if not isinstance(joined, Joined):
         return built
     project = briefs.read_brief(tenant.roots, brief_id).project
-    stale = out_of_date_in(tenant.roots.projects, project, brief_id, joined.slot)
+    stale = out_of_date_in(tenant.roots.projects, tenant.variants, project, brief_id, joined.slot)
     return built.model_copy(update={"context_parts_out_of_date": stale})
 
 

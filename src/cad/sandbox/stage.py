@@ -15,7 +15,6 @@ from packaging.utils import canonicalize_name
 from cad.data_root import DATA_ROOT
 from cad.sandbox.container import ReadOnlyMount
 
-SANDBOX_DIR: Final = Path(__file__).parent
 SRC_ROOT: Final = Path(__file__).parents[2]
 CONTAINER_ENTRY: Final = "cad.checks.container.runner"
 PACKAGE_PATH: Final = "cad/checks/container"
@@ -167,5 +166,4 @@ def _discard(path: Path) -> None:
     shutil.rmtree(path, ignore_errors=True)
 
 
-RUNNER: Final = (SANDBOX_DIR / "runner.py").read_text()
 SOURCES: Final = read_sources(CONTAINER_ENTRY)

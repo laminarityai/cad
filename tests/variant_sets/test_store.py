@@ -245,5 +245,5 @@ def test_a_revision_cannot_be_moved_to_another_slot_by_editing_its_record(
 
 def test_no_variant_set_code_feeds_a_variant_id_or_a_check_version() -> None:
     directory = Path(store.__file__).parent
-    assert directory not in entry.TRUSTED_DIRECTORIES
+    assert directory.name not in {name.split("/")[0] for name in entry.TRUSTED_FILES}
     assert [f for f in report.DEPENDENCIES.files if f.startswith("cad/variant_sets/")] == []

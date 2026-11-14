@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from typing import Final, cast
 
 from cad.agent_checks.model import NAME, UNITS
-from cad.sandbox import host, image
+from cad.sandbox import builder, image
 from cad.sandbox.outcome import BuildFailed, Failure, NoResult, OutOfMemory, TimedOut
 
 MARK: Final = "@@cad-measure "
@@ -154,7 +154,7 @@ def run(
     if sum(len(one.data) for one in shapes if isinstance(one, Brep)) > MAX_BREP_BYTES:
         return tuple(Failed(TOO_LARGE) for _ in slots)
     tag = image.image_tag(image.BUILD)
-    ran = host.build(
+    ran = builder.build(
         compose(shapes, slots, motion), image.current_image(tag), wall_seconds=WALL_SECONDS
     )
     held = _slots(ran.output)
@@ -225,7 +225,7 @@ def _count(fields: Mapping[str, object], key: str) -> int:
     return count if isinstance(count, int) and not isinstance(count, bool) else -1
 
 
-def _unfinished(verdict: host.Artifacts | Failure) -> str:
+def _unfinished(verdict: builder.Artifacts | Failure) -> str:
     match verdict:
         case TimedOut(limit_seconds=seconds):
             return f"timed out after {seconds} s"
@@ -233,7 +233,7 @@ def _unfinished(verdict: host.Artifacts | Failure) -> str:
             return "ran out of memory"
         case BuildFailed(error=error):
             return f"not reported: the measuring run failed: {error[:300]}"
-        case NoResult() | host.Artifacts():
+        case NoResult() | builder.Artifacts():
             return CUT
 
 

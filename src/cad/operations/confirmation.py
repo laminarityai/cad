@@ -189,7 +189,7 @@ async def ask_to_confirm(tenant: Tenant, arguments: AskToConfirmInput) -> AskRes
     recorded = len(read_ledger(tenant.roots.projects, project).answers)
     found = [_item(store.read_state(tenant.roots, brief_id)) for brief_id in briefs]
     items: list[Item] = [item for item in found if item is not None]
-    newer = newer_revisions(tenant.roots.projects, project)
+    newer = newer_revisions(tenant.roots.projects, tenant.variants, project)
     items.extend(_part_item(part, newer) for part in newest_parts(tenant.roots.projects, project))
     items.extend(
         _check_item(tenant.roots, project, one) for one in agent_checks.named(tenant.roots, project)
