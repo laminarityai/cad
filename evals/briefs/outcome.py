@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict
 from tracking import By, Decided
 
 RESULT: Final = "result.json"
+TRY: Final = "try-"
 
 
 class Frozen(BaseModel):
@@ -100,3 +101,8 @@ def write_result(out: Path, result: BriefResult) -> None:
 def read_results(out: Path, ids: list[str]) -> list[BriefResult]:
     paths = [result_path(out, one) for one in ids]
     return [BriefResult.model_validate_json(path.read_text()) for path in paths if path.is_file()]
+
+
+def read_earlier_tries(out: Path, ids: list[str]) -> list[BriefResult]:
+    paths = [path for one in ids for path in sorted((out / one).glob(f"{TRY}*/{RESULT}"))]
+    return [BriefResult.model_validate_json(path.read_text()) for path in paths]

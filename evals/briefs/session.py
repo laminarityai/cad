@@ -3,6 +3,8 @@ import os
 import signal
 import subprocess
 import sys
+import time
+from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Final, cast
@@ -20,6 +22,7 @@ GUARD_LINES: Final = (
     "cad is not connected",
     "claude exited",
 )
+EXIT_WAIT_S: Final = 30.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,7 +52,8 @@ class SessionRun:
 def run_session(
     prompt: str, home: Path, transcript: Path, human_log: Path, model: str, timeout_s: float
 ) -> SessionRun:
-    """The process runs in its own session so a timeout stops claude and the cad server with it."""
+    """The process runs in its own session so a timeout stops claude and the cad server with it.
+    Either way it returns only once every process of that session has exited."""
     command = [
         sys.executable,
         str(SESSION),
@@ -78,12 +82,32 @@ def run_session(
         os.killpg(process.pid, signal.SIGKILL)
         output, _ = process.communicate()
         timed_out = True
+    _wait_for_group(process.pid)
     return SessionRun(
         None if timed_out else process.returncode,
         timed_out,
         failure_note(output),
         read_transcript(transcript),
     )
+
+
+def _wait_for_group(group: int) -> None:
+    """The cad server can still store a check record after claude exits. Wait for it to exit,
+    then stop what is left, so no record lands after the harness reads the stores."""
+    deadline = time.monotonic() + EXIT_WAIT_S
+    while _alive(group):
+        if time.monotonic() > deadline:
+            with suppress(ProcessLookupError):
+                os.killpg(group, signal.SIGKILL)
+        time.sleep(0.1)
+
+
+def _alive(group: int) -> bool:
+    try:
+        os.killpg(group, 0)
+    except ProcessLookupError:
+        return False
+    return True
 
 
 def failure_note(output: str) -> str:

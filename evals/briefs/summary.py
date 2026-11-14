@@ -63,6 +63,9 @@ def _row(one: BriefResult) -> str:
 
 
 class Overall(Frozen):
+    """The rates and the lines counted apart beside them pool the briefs that traced. A brief
+    that did not trace is not a result, so its rates are pooled apart, in `untraced_*`."""
+
     model: str
     briefs: int
     finished: int
@@ -73,6 +76,8 @@ class Overall(Frozen):
     read: Counted
     strict_pass: Share
     coverage: Share
+    untraced_strict_pass: Share
+    untraced_coverage: Share
     agent_coverage: Share
     described_coverage: Share
     agent_measurements: int
@@ -83,6 +88,8 @@ class Overall(Frozen):
     refused_tool_calls: int
     cut_off: int
     cost_usd: float
+    earlier_tries: int
+    earlier_cost_usd: float
     asked_before_build: int = 0
     questions: int = 0
     searched_before_build: int = 0
@@ -112,9 +119,17 @@ def _pooled_uncovered(traces: Sequence[Trace]) -> dict[str, int]:
     return dict(families.most_common())
 
 
-def summarize(results: Sequence[BriefResult], missing: Sequence[str], model: str) -> Summary:
+def summarize(
+    results: Sequence[BriefResult],
+    missing: Sequence[str],
+    model: str,
+    earlier: Sequence[BriefResult] = (),
+) -> Summary:
+    """`earlier` is the result of each try a brief was run again after. Only its cost counts."""
     finished = [one for one in results if one.status == "finished"]
     traces = [one.trace for one in finished if one.trace is not None]
+    rated = [one for one in traces if one.traced]
+    not_traced = [one for one in traces if not one.traced]
     minutes = [
         one.friction.minutes_to_first_result
         for one in finished
@@ -131,18 +146,22 @@ def summarize(results: Sequence[BriefResult], missing: Sequence[str], model: str
         traced=sum(one.traced for one in traces),
         shown=_pooled_counts([one.shown for one in traces]),
         read=_pooled_counts([one.read for one in traces]),
-        strict_pass=pooled([one.strict_pass for one in traces]),
-        coverage=pooled([one.coverage for one in traces]),
-        agent_coverage=pooled([one.agent_coverage for one in traces]),
-        described_coverage=pooled([one.described_coverage for one in traces]),
+        strict_pass=pooled([one.strict_pass for one in rated]),
+        coverage=pooled([one.coverage for one in rated]),
+        untraced_strict_pass=pooled([one.strict_pass for one in not_traced]),
+        untraced_coverage=pooled([one.coverage for one in not_traced]),
+        agent_coverage=pooled([one.agent_coverage for one in rated]),
+        described_coverage=pooled([one.described_coverage for one in rated]),
         agent_measurements=sum(len(one.agent_measurements) for one in traces),
-        by=_pooled_by(traces),
-        uncovered=_pooled_uncovered(traces),
+        by=_pooled_by(rated),
+        uncovered=_pooled_uncovered(rated),
         median_confirmation_pages=statistics.median(pages) if pages else None,
         median_minutes_to_first_result=statistics.median(minutes) if minutes else None,
         refused_tool_calls=sum(one.friction.refused_tool_calls for one in finished),
         cut_off=sum(len(one.cut_off) for one in traces),
-        cost_usd=sum(one.cost_usd or 0.0 for one in results),
+        cost_usd=sum(one.cost_usd or 0.0 for one in (*results, *earlier)),
+        earlier_tries=len(earlier),
+        earlier_cost_usd=sum(one.cost_usd or 0.0 for one in earlier),
         asked_before_build=sum(one.asked_before_build for one in asked),
         questions=sum(one.questions for one in asked),
         searched_before_build=sum(one.searched_before_build for one in asked),
@@ -165,13 +184,17 @@ def markdown(summary: Summary, missing: Sequence[str]) -> str:
         f"traced: {overall.traced}/{overall.briefs}",
         f"cards the session was shown: {_cards(overall.shown)}",
         f"cards {READ_AFTER}: {_cards(overall.read)}",
-        f"strict pass rate: {percent(overall.strict_pass)}",
+        f"strict pass rate, over the {overall.traced} traced briefs: "
+        f"{percent(overall.strict_pass)}",
         f"requirements covered by reviewed checks: {percent(overall.coverage)}",
         "requirements covered by agent-written checks the person approved: "
         f"{percent(overall.agent_coverage)}",
         "requirements decided on a load case the agent described, counted apart: "
         f"{percent(overall.described_coverage)}",
         *apart(overall.by, overall.uncovered),
+        f"the {overall.finished - overall.traced} finished brief(s) that did not trace, counted "
+        f"apart: strict pass {percent(overall.untraced_strict_pass)}, covered by reviewed checks "
+        f"{percent(overall.untraced_coverage)}",
         f"agent measurements: {overall.agent_measurements}, not verified",
         f"confirmation pages per brief: median {_number(overall.median_confirmation_pages)}",
         f"minutes to first result: median {_number(overall.median_minutes_to_first_result)}",
@@ -184,7 +207,8 @@ def markdown(summary: Summary, missing: Sequence[str]) -> str:
         f"{overall.questions} questions in all",
         f"searched before the first build: {overall.searched_before_build}/{overall.finished}",
         f"fully stated briefs that got no questions: {_fraction(overall.stated_unasked)}",
-        f"cost: ${overall.cost_usd:.2f}",
+        f"cost: ${overall.cost_usd:.2f}, of which ${overall.earlier_cost_usd:.2f} on "
+        f"{overall.earlier_tries} earlier tries",
         "",
         "| brief | domain | trace | strict pass | covered | pages | minutes | cost |",
         "|---|---|---|---|---|---|---|---|",
