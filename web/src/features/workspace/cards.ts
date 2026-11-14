@@ -3,13 +3,12 @@ import { useResources, type Resource } from "@/state/resource";
 import { restore, type DoneCheck, type ResultLine, type RunningCheck, type Scorecard } from "@/api/snapshot";
 import type { Source, Specimen } from "@/api/types";
 import type { Axis, Extents } from "@/features/viewer/dimensions";
+import { OUTDATED } from "@/features/viewer/useMesh";
 import type { Where } from "@/features/viewer/where";
 
 const POLL_MS = 1500;
 
-export type Card = { snapshot: Scorecard; stale?: true } | { snapshot: null; missing: "reading" | "not_scored" | "unread" };
-
-const NOT_SCORED = "NotScored";
+export type Card = { snapshot: Scorecard; stale?: true } | { snapshot: null; missing: "reading" | "not_scored" | "unread" | "outdated" };
 
 function cardOf(resource: Resource<Scorecard>): Card {
   switch (resource.status) {
@@ -18,7 +17,7 @@ function cardOf(resource: Resource<Scorecard>): Card {
     case "loading":
       return { snapshot: null, missing: "reading" };
     case "error":
-      return { snapshot: null, missing: resource.kind === NOT_SCORED ? "not_scored" : "unread" };
+      return { snapshot: null, missing: resource.kind === "NotScored" ? "not_scored" : resource.kind === OUTDATED ? "outdated" : "unread" };
     case "signed_out":
     case "not_found":
       return { snapshot: null, missing: "unread" };
@@ -361,6 +360,7 @@ export const MISSING: Record<Extract<Card, { snapshot: null }>["missing"], strin
   reading: "Reading the checks",
   not_scored: "Not checked yet.",
   unread: "The checks could not be read.",
+  outdated: "Built before an app update. Press Rebuild to check it.",
 };
 
 export function summaryOf(card: Card | undefined): {

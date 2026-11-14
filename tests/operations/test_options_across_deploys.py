@@ -9,6 +9,7 @@ from cad.accounts.principal import AccountId
 from cad.geometry import store
 from cad.operations import exports, reads
 from cad.operations.model import Tenant
+from cad.operations.rebuild import RebuildInput, rebuild_variant
 from cad.operations.scorecards import (
     ScorecardInput,
     ScoreVariantInput,
@@ -116,3 +117,23 @@ async def test_a_deploy_that_edits_build_code_rebuilds_once_and_every_read_names
     assert (builds, later.rebuilt_from, later.material_key) == (["build"], rebuilt, "prusament-pla")
     assert shown(alice, project) == [(later.variant_id, [later.variant_id])]
     assert exports.stem_of(alice, project.brief, rebuilt) == stem
+
+
+async def test_the_rebuild_a_person_asks_for_builds_and_scores_an_outdated_option_once(
+    alice: Tenant, builds: list[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    project = await confirmed(alice)
+    option = scored(alice, project)
+    deploy(monkeypatch, tmp_path, "sandbox/container.py")
+    builds.clear()
+    asked = RebuildInput(variant_id=option, brief_id=project.brief)
+    rebuilt = rebuild_variant(alice, asked)
+    assert (builds, rebuilt.rebuilt_from) == (["build"], option)
+    assert shown(alice, project) == [(rebuilt.variant_id, [rebuilt.variant_id])]
+    card = scorecard(alice, ScorecardInput(variant_id=rebuilt.variant_id, brief_id=project.brief))
+    assert (card.variant_id, card.rebuilt_from) == (rebuilt.variant_id, None)
+    builds.clear()
+    again = rebuild_variant(
+        alice, RebuildInput(variant_id=rebuilt.variant_id, brief_id=project.brief)
+    )
+    assert (builds, again.variant_id, again.rebuilt_from) == ([], rebuilt.variant_id, None)

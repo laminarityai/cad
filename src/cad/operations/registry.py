@@ -15,6 +15,7 @@ from cad.operations import (
     knowledge,
     questions,
     reads,
+    rebuild,
     research,
     scorecards,
     selections,
@@ -63,6 +64,7 @@ OPERATIONS: Final[tuple[Operation, ...]] = (
     *geometry.OPERATIONS,
     *exports.OPERATIONS,
     *reads.OPERATIONS,
+    *rebuild.OPERATIONS,
     *selections.OPERATIONS,
 )
 
@@ -78,6 +80,7 @@ ROUTES: Final[Mapping[str, Served]] = {
     "view": Served("/v1/variants/{variant_id}"),
     "geometry": Served("/v1/variants/{variant_id}/geometry"),
     "mesh": Served(reads.MESH_PATH, immutable=True),
+    "rebuild_variant": Served("/v1/variants/{variant_id}/rebuild", method="POST"),
     "export": Served("/v1/variants/{variant_id}/exports/{format}"),
     "export_file": Served(exports.EXPORT_PATH, immutable=True, download=True),
     "conversation": Served("/v1/conversations/{conversation_id}"),
