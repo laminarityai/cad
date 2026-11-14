@@ -52,8 +52,12 @@ _Avoid_: Design, batch, group, shortlist
 A place in a variant set, numbered 1 to 5, that keeps its number for as long as the set lives. It shows the latest revision of the variant the user is working on there.
 _Avoid_: Position, index
 
+**Body**:
+One or more solids of a variant that share a name and one material, such as the four steel gears of a gear train. The build code names each solid, and the name only selects which solids a check measures. A variant of one unnamed solid has one body. A requirement can name a body by a name the user confirmed. A context part is never a body.
+_Avoid_: Part, component, assembly
+
 **Material choice**:
-The material the agent picked for a slot when no confirmed requirement names one, with a one-line reason. It is a design choice, like the code: not a requirement and not a verdict. The server records it on the slot's revision, and the scorecard uses it and is labelled agent-chosen. A material the user names stays a confirmed requirement. The agent never asks the user to choose one.
+The material the agent picked for a slot, or for one body of it, when no confirmed requirement names one, with a one-line reason. It is a design choice, like the code: not a requirement and not a verdict. The server records it on the slot's revision, and the scorecard uses it and is labelled agent-chosen. A material the user names stays a confirmed requirement. The agent never asks the user to choose one.
 _Avoid_: Default material, assumed material
 
 **Revision**:

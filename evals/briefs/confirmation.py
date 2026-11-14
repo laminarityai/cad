@@ -1,5 +1,6 @@
 """Check a stored scorecard's basis against the signed brief store."""
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Final
 
@@ -7,7 +8,7 @@ import pint
 
 from cad.agent_checks.store import find
 from cad.briefs import store
-from cad.briefs.model import AgentLimit, Requirement, Target
+from cad.briefs.model import AgentLimit, Requirement, Target, deciding_check
 from cad.briefs.store import BriefRefused, BriefState, Status
 from cad.confirmations import agent_checks
 from cad.projects.model import ProjectRefused
@@ -22,7 +23,14 @@ from cad.scorecard.model import (
     Scorecard,
     Unverified,
 )
-from cad.scorecard.requirements import NoDecidingResult, assess_requirements, labelled
+from cad.scorecard.requirements import (
+    NoDecidingResult,
+    assess_requirements,
+    instance,
+    labelled,
+    result_of,
+)
+from cad.scorecard.unjudged import MeasureOnly, Reported
 from cad.scorecard.waiting import Waiting
 
 REFUSED: Final = (BriefRefused, ProjectRefused, StoreUnusable)
@@ -119,6 +127,9 @@ def _state(roots: Roots, brief_id: str) -> BriefState | Unconfirmed:
 def _misjudged(
     roots: Roots, card: Scorecard, basis: AgainstBrief, shown: Shown
 ) -> Misjudged | None:
+    unjudged = _without_verdict(card, shown)
+    if unjudged is not None:
+        return unjudged
     try:
         derived = assess_requirements(
             basis.brief_id, basis.decision_sha256, shown.requirements, card.results
@@ -145,6 +156,21 @@ def _misjudged(
         if held != again
     )
     return Misjudged(f"requirement {differs} is not what its check results give")
+
+
+def _without_verdict(card: Scorecard, shown: Shown) -> Misjudged | None:
+    """The server shows a result that a confirmed target reads with its verdict."""
+    results: Sequence[Reported] = card.results
+    for requirement in shown.requirements:
+        check_id = deciding_check(requirement.target)
+        if check_id is None:
+            continue
+        if isinstance(result_of(results, check_id, instance(requirement.target)), MeasureOnly):
+            return Misjudged(
+                f"requirement {requirement.id} is confirmed, but the card shows its {check_id} "
+                "result with no verdict"
+            )
+    return None
 
 
 def _mislabelled(basis: AgainstBrief, shown: Shown) -> Misjudged | None:

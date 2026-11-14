@@ -10,7 +10,8 @@ from typing import Any, Final, cast
 ROOT: Final = Path(__file__).resolve().parents[2]
 SESSION: Final = ROOT / ".claude/skills/verify/scripts/claude_session.py"
 HUMAN: Final = ROOT / ".claude/skills/verify/scripts/human.py"
-ASK: Final = "mcp__cad__ask_to_confirm"
+CAD: Final = "mcp__cad__"
+ASK: Final = f"{CAD}ask_to_confirm"
 GUARD_LINES: Final = (
     "tools outside cad",
     "tools available outside cad",
@@ -21,12 +22,17 @@ GUARD_LINES: Final = (
 
 @dataclass(frozen=True, slots=True)
 class SessionFacts:
+    """`refused_calls` counts the calls to a tool outside cad. `claude_session.py` fails a session
+    on any such call that Claude Code did not refuse, so in a session that passed each one was
+    refused and reached nothing."""
+
     model: str | None
     cost_usd: float | None
     turns: int | None
     ask_calls: int
     tool_calls: int
     is_error: bool
+    refused_calls: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -106,4 +112,5 @@ def read_transcript(path: Path) -> SessionFacts:
         ask_calls=names.count(ASK),
         tool_calls=len(names),
         is_error=bool(result.get("is_error", True)),
+        refused_calls=sum(not name.startswith(CAD) for name in names),
     )

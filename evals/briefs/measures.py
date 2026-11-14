@@ -1,5 +1,7 @@
 """Place a `Measure` of a check result: computed by a registered check at its current version, and
-read from the materials table by exact key when the check declares the read in `READS`.
+read from the materials table by exact key when the check declares the read in `READS`. Place a
+face index of its `where` the same way: the check found the face, and the agent never names one
+(ADR-0007).
 
 A result is a `CheckResult`, or a `MeasureOnly`: the same stored result, reported with no verdict
 because only a load nobody confirmed reads it. Both carry the check's measures, version and
@@ -7,13 +9,15 @@ sources, so one rule places both.
 
 On a card the session was shown, each measure must also equal the measure of the same name in
 the signed job result the card's own variant, material, table version and instance key
-(`signedjobs.py`). A result's verdict and its other fields are compared there.
+(`signedjobs.py`), and each face index the index at the same place in that result's `where`. A
+result's verdict and its other fields are compared there.
 """
 
 import math
 from collections.abc import Mapping
 
 import pint
+from cardnumbers import Where, numbers_in, path_of
 from chain import (
     CheckStep,
     Outcome,
@@ -88,6 +92,38 @@ def trace_measure(
             return read
         steps.append(read)
     return Resolved(tuple(steps))
+
+
+def trace_face(
+    result: Measuring,
+    at: Where,
+    value: str,
+    specs: Mapping[str, CheckSpec],
+    signed: SignedJobs | None,
+) -> Outcome:
+    """`at` is where the face index `value` sits in the result's `where`."""
+    spec = specs.get(result.check_id)
+    if spec is None:
+        return Unresolved(f"no check called {result.check_id!r} is registered")
+    if result.version != spec.version:
+        return Stale(
+            f"{spec.id} version {result.version[:12]} is not the current {spec.version[:12]}"
+        )
+    if signed is not None:
+        held = signed.result(result.check_id, result.instance)
+        if isinstance(held, Unresolved):
+            return held
+        faces = (
+            {}
+            if held.where is None
+            else {one.where: one.value for one in numbers_in(held.where.model_dump(mode="json"))}
+        )
+        if faces.get(at) != value:
+            return Unresolved(
+                f"face {path_of(at)} is {value} on the card, but the signed job result holds "
+                f"{faces.get(at, 'none there')}"
+            )
+    return Resolved((CheckStep(spec.id, spec.version),))
 
 
 def _unsigned(measure: Measure, held: CheckResult | Unresolved) -> Unresolved | None:

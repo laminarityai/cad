@@ -1,87 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "./tokens.css";
 
 @custom-variant dark (&:is([data-theme="dark"], [data-theme="dark"] *));
-
-:root {
-  --bg: #e9ecea;
-  --panel: #f6f7f6;
-  --panel-2: #ffffff;
-  --ink: #111517;
-  --ink-2: #4a5357;
-  --ink-3: #7d878b;
-  --rule: #c3cac8;
-  --rule-2: #dde2e0;
-  --accent: #0b5c8c;
-  --accent-ink: #ffffff;
-  --pass: #1d6b43;
-  --pass-bg: #dcefe3;
-  --fail: #a3221b;
-  --fail-bg: #f6dedb;
-  --wait: #8a5a00;
-  --wait-bg: #f6ead0;
-  --res: #5a3fa0;
-  --res-bg: #e6e0f4;
-  --unk: #5d666a;
-  --unk-bg: #e3e6e5;
-  --stop: #c0261c;
-  --stop-ink: #ffffff;
-  color-scheme: light;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #0d1012;
-    --panel: #14181b;
-    --panel-2: #191e22;
-    --ink: #dfe5e3;
-    --ink-2: #a3adb0;
-    --ink-3: #6c777b;
-    --rule: #2c3438;
-    --rule-2: #21282b;
-    --accent: #5fb0e0;
-    --accent-ink: #06141c;
-    --pass: #5cc68b;
-    --pass-bg: #11281c;
-    --fail: #ff7a6e;
-    --fail-bg: #2d1513;
-    --wait: #f0b44a;
-    --wait-bg: #2b2210;
-    --res: #b9a2ff;
-    --res-bg: #221b38;
-    --unk: #9aa4a8;
-    --unk-bg: #1d2326;
-    --stop: #ff5a4c;
-    --stop-ink: #1a0503;
-    color-scheme: dark;
-  }
-}
-
-:root[data-theme="dark"] {
-  --bg: #0d1012;
-  --panel: #14181b;
-  --panel-2: #191e22;
-  --ink: #dfe5e3;
-  --ink-2: #a3adb0;
-  --ink-3: #6c777b;
-  --rule: #2c3438;
-  --rule-2: #21282b;
-  --accent: #5fb0e0;
-  --accent-ink: #06141c;
-  --pass: #5cc68b;
-  --pass-bg: #11281c;
-  --fail: #ff7a6e;
-  --fail-bg: #2d1513;
-  --wait: #f0b44a;
-  --wait-bg: #2b2210;
-  --res: #b9a2ff;
-  --res-bg: #221b38;
-  --unk: #9aa4a8;
-  --unk-bg: #1d2326;
-  --stop: #ff5a4c;
-  --stop-ink: #1a0503;
-  color-scheme: dark;
-}
 
 /* shadcn's variable names, each an alias of one prototype token */
 :root {

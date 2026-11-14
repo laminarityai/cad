@@ -1,0 +1,84 @@
+{
+  "facts": [
+    {
+      "id": "verify-by-hand",
+      "value": "89%",
+      "claim": "of engineers say they trust AI results only after checking them by hand.",
+      "source": {
+        "kind": "survey",
+        "label": "Omni Calculator, AI adoption in engineering, 2026. 402 engineering professionals and students in the United States.",
+        "url": "https://www.omnicalculator.com/reports/ai-adoption-in-engineering"
+      }
+    },
+    {
+      "id": "back-of-envelope",
+      "value": "52%",
+      "claim": "check the AI with a quick back-of-the-envelope calculation of their own.",
+      "source": {
+        "kind": "survey",
+        "label": "Omni Calculator, AI adoption in engineering, 2026. Same survey of 402.",
+        "url": "https://www.omnicalculator.com/reports/ai-adoption-in-engineering"
+      }
+    },
+    {
+      "id": "transparency",
+      "value": "61%",
+      "claim": "of surveyed manufacturers said their trust in AI recommendations would grow with both transparency and explainability.",
+      "source": {
+        "kind": "survey",
+        "label": "IoT Analytics, The AI trust gap in design and engineering software, 2026. Design and engineering decision-makers at 120 manufacturers.",
+        "url": "https://iot-analytics.com/the-ai-trust-gap-in-design-and-engineering-software/"
+      }
+    },
+    {
+      "id": "fea-with",
+      "value": "59%",
+      "claim": "of runs reached the target safety factor when the agent got finite element results back (49 of 83).",
+      "source": {
+        "kind": "survey",
+        "label": "Physics-in-the-Loop, arXiv 2605.19717, section 8.1. Agents designed a part for a given load case. A research system, not this product.",
+        "url": "https://arxiv.org/html/2605.19717"
+      }
+    },
+    {
+      "id": "fea-without",
+      "value": "22%",
+      "claim": "of runs reached the target safety factor when the agent got only pictures of the part (6 of 27).",
+      "source": {
+        "kind": "survey",
+        "label": "Physics-in-the-Loop, arXiv 2605.19717, section 8.1. The same study, with the physics tools switched off.",
+        "url": "https://arxiv.org/html/2605.19717"
+      }
+    },
+    {
+      "id": "checks",
+      "value": "8",
+      "claim": "checks written by our team, fixed code the agent cannot change, can measure an option.",
+      "source": {
+        "kind": "repo",
+        "label": "Counted in this repository: the length of CHECKS in src/cad/checks/container/suite.py.",
+        "measure": "checks"
+      }
+    },
+    {
+      "id": "options",
+      "value": "3 to 5",
+      "claim": "options come from one brief.",
+      "source": {
+        "kind": "repo",
+        "label": "The agent's instructions in src/cad/operations/guidance.py say 3 to 5, and a variant set holds at most 5 (MAX_MEMBERS in src/cad/variant_sets/model.py).",
+        "measure": "options"
+      }
+    },
+    {
+      "id": "materials",
+      "value": "27",
+      "claim": "materials are in the table the checks read. Every value cites its datasheet or says unknown.",
+      "source": {
+        "kind": "repo",
+        "label": "Counted in this repository: the rows of tables/materials.yaml.",
+        "measure": "materials"
+      }
+    }
+  ]
+}
