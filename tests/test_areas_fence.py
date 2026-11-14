@@ -41,10 +41,13 @@ CARRIERS = frozenset(
         "geometry/container/coloured_step.py",
     }
 )
-COLOUR_NAMES = frozenset({"Area", "Areas", "AREAS", "read_areas", "on_faces", "MAX_AREAS"})
+COLOUR_NAMES = frozenset(
+    {"Area", "Areas", "AREAS", "read_areas", "on_faces", "MAX_AREAS", "ToldOutcome", "told"}
+)
+TELLS_THE_AGENT = {"operations/variants.py": frozenset({"ToldOutcome", "told"})}
 COLOUR_FIELDS = frozenset({"areas", "areas_dropped"})
 LOOKUPS = frozenset({"getattr", "hasattr", "setattr", "delattr"})
-HOLDERS = frozenset({"outcome", "manifest"})
+HOLDERS = frozenset({"outcome", "manifest", "built"})
 CASE: LoadCaseWire = {
     "support": {"kind": "flat_end"},
     "load": {"kind": "far_end", "force_n": 10.0, "direction": {"kind": "any"}},
@@ -68,6 +71,10 @@ def touches_colour(tree: ast.AST) -> list[str]:
             found.append(f"line {node.lineno}: getattr {cast(ast.Constant, node.args[1]).value}")
         if isinstance(node, ast.Call) and dumps_an_outcome(node):
             found.append(f"line {node.lineno}: dump of outcome")
+        if isinstance(node, ast.Subscript) and is_colour_key(node.slice):
+            found.append(f"line {node.lineno}: [{cast(ast.Constant, node.slice).value!r}]")
+        if isinstance(node, ast.Attribute | ast.Call) and holder_name(node) in HOLDERS:
+            found.append(f"line {node.lineno}: namespace of {holder_name(node)}")
         if isinstance(node, ast.MatchClass) and COLOUR_FIELDS & set(node.kwd_attrs):
             found += [
                 f"line {node.lineno}: case {k}=" for k in node.kwd_attrs if k in COLOUR_FIELDS
@@ -91,8 +98,25 @@ def dumps_an_outcome(node: ast.Call) -> bool:
     if not (isinstance(func, ast.Attribute) and func.attr.startswith("model_dump")):
         return False
     held = func.value
-    name = held.attr if isinstance(held, ast.Attribute) else getattr(held, "id", None)
-    return name in HOLDERS
+    if isinstance(held, ast.Call) and isinstance(held.func, ast.Name):
+        return held.func.id == "told"
+    return name_of(held) in HOLDERS
+
+
+def is_colour_key(node: ast.expr) -> bool:
+    return isinstance(node, ast.Constant) and node.value in COLOUR_FIELDS
+
+
+def holder_name(node: ast.Attribute | ast.Call) -> str | None:
+    if isinstance(node, ast.Attribute) and node.attr == "__dict__":
+        return name_of(node.value)
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "vars":
+        return name_of(node.args[0]) if node.args else None
+    return None
+
+
+def name_of(node: ast.expr) -> str | None:
+    return node.attr if isinstance(node, ast.Attribute) else getattr(node, "id", None)
 
 
 def is_built_call(node: ast.expr) -> bool:
@@ -105,7 +129,13 @@ def test_only_the_carriers_touch_the_areas() -> None:
     touched = {
         str(path.relative_to(SOURCE)): hits
         for path in sorted(SOURCE.rglob("*.py"))
-        if (hits := touches_colour(ast.parse(path.read_text())))
+        if (
+            hits := [
+                hit
+                for hit in touches_colour(ast.parse(path.read_text()))
+                if hit.split(": ")[-1] not in TELLS_THE_AGENT.get(str(path.relative_to(SOURCE)), ())
+            ]
+        )
     }
     assert set(touched) <= CARRIERS, {k: v for k, v in touched.items() if k not in CARRIERS}
 
@@ -130,6 +160,14 @@ def test_the_fence_sees_a_check_that_reads_the_areas() -> None:
             "match built:\n    case Built(areas=painted):\n        pass",
             "line 2: case areas=",
             id="match",
+        ),
+        pytest.param("sha256(built.model_dump_json())", "line 1: dump of outcome", id="built"),
+        pytest.param("told(o).model_dump()", "line 1: dump of outcome", id="told"),
+        pytest.param("painted = held['areas']", "line 1: ['areas']", id="key"),
+        pytest.param("everything = outcome.__dict__", "line 1: namespace of outcome", id="dict"),
+        pytest.param("everything = vars(outcome)", "line 1: namespace of outcome", id="vars"),
+        pytest.param(
+            "from cad.sandbox.outcome import ToldOutcome", "line 1: ToldOutcome", id="told-import"
         ),
     ],
 )

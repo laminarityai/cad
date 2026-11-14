@@ -19,7 +19,8 @@ EXPORT = (
     "to fetch the file from and the file name it is saved under, pending while the job runs: "
     "ask again, or failed with the reason. The file is the BREP the checks measured, in "
     "millimetres. The STEP carries the colours the build code gave its areas; the STL and 3MF "
-    "carry none."
+    "carry none. When the coloured STEP could not be written, the plain one is served and "
+    "colours_left_out on the STEP says why."
 )
 EXPORT_FILE = (
     "One exported file of one BREP, with the colours its build code set, made by one export job "
@@ -51,6 +52,7 @@ class ExportReady(BaseModel):
     kind: Literal["ready"] = "ready"
     url: str
     filename: str
+    colours_left_out: str | None = Field(default=None, exclude_if=lambda why: why is None)
 
 
 class ExportPreparing(BaseModel):
@@ -95,7 +97,10 @@ def export(tenant: Tenant, arguments: ExportInput) -> ExportView:
     if not isinstance(read, Exported):
         return ExportPreparing()
     path = EXPORT_PATH.format(version=job.VERSION, key=key_of(held), format=arguments.format)
-    return ExportReady(url=f"{path}?name={stem}", filename=f"{stem}.{arguments.format}")
+    left_out = read.colours_left_out if arguments.format == "step" else None
+    return ExportReady(
+        url=f"{path}?name={stem}", filename=f"{stem}.{arguments.format}", colours_left_out=left_out
+    )
 
 
 def export_file(tenant: Tenant, arguments: ExportFileInput) -> Download:

@@ -62,7 +62,7 @@ def export(
         return {"kind": "unreadable", "reason": shape.reason}
     room = max(report_cap - BASE64_ENVELOPE_BYTES, 0) // 4 * 3
     try:
-        coloured = _coloured(brep, areas, bodies, room)
+        coloured, left_out = _coloured(brep, areas, bodies, room)
         step = kernel.step_bytes(shape, room) if coloured is None else coloured
     except Exception as error:
         return {
@@ -81,6 +81,7 @@ def export(
                         "step": _encoded(step),
                         "stl": _encoded(stl),
                         "threemf": _encoded(threemf),
+                        "colours_left_out": left_out,
                     }
     except Exception as error:
         return {"kind": "unreadable", "reason": f"{type(error).__name__}: {first_line(str(error))}"}
@@ -89,16 +90,19 @@ def export(
 
 def _coloured(
     brep: bytes, areas: list[AreaReport], bodies: list[BodyReport], room: int
-) -> bytes | StepTooLarge | None:
+) -> tuple[bytes | StepTooLarge | None, str | None]:
     """None when there are no areas or bodies, or the coloured writer fails, so the plain STEP
     is written: colour and names are how the model looks, and losing them must not lose the
     file."""
     if not areas and not bodies:
-        return None
+        return None, None
     try:
-        return coloured_step.step_bytes(brep, areas, bodies, room)
-    except Exception:
-        return None
+        return coloured_step.step_bytes(brep, areas, bodies, room), None
+    except Exception as error:
+        return (
+            None,
+            f"the coloured STEP writer raised {type(error).__name__}: {first_line(str(error))}",
+        )
 
 
 def _meshes(

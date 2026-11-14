@@ -198,6 +198,24 @@ async def test_a_failed_export_says_why_and_a_variant_outside_the_brief_is_refus
         exports.export(alice, asked.model_copy(update={"variant_id": stray}))
 
 
+async def test_a_step_that_lost_its_colours_tells_the_person_why_and_the_meshes_say_nothing(
+    confirming_tenants: Tenants, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    alice = confirming_tenants.of(ALICE)
+    brief, _, second = await a_confirmed_set(alice, None)
+    why = "the coloured STEP writer raised RuntimeError: no transfer"
+    run = Gated(job.Ran(Exported(key=SHA, version=job.VERSION, colours_left_out=why), True, MADE))
+    run.gate.set()
+    lane = Exports(run)
+    monkeypatch.setattr(exports, "EXPORTS", lane)
+    lane.read(alice.geometry, entry.open_entry(alice.variants, second, image_tag(BUILD)), 5)
+    asked = exports.ExportInput(variant_id=second, brief_id=brief, format="step")
+    step = exports.export(alice, asked)
+    stl = exports.export(alice, asked.model_copy(update={"format": "stl"}))
+    assert isinstance(step, exports.ExportReady) and step.colours_left_out == why
+    assert isinstance(stl, exports.ExportReady) and stl.colours_left_out is None
+
+
 def test_the_download_record_keeps_a_name_from_breaking_the_header() -> None:
     assert Download(filename="a-b.step", data=b"").filename == "a-b.step"
     for bad in ('a"b.step', "a\r\nb.step", "../a.step", ""):
