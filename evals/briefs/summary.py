@@ -94,6 +94,8 @@ class Overall(Frozen):
     questions: int = 0
     searched_before_build: int = 0
     stated_unasked: Share = Share(numerator=0, denominator=0)
+    older_traces: int = 0
+    """Traced briefs whose result.json predates the `by` field, so they add nothing to `by`."""
 
 
 class Summary(Frozen):
@@ -154,6 +156,7 @@ def summarize(
         described_coverage=pooled([one.described_coverage for one in rated]),
         agent_measurements=sum(len(one.agent_measurements) for one in traces),
         by=_pooled_by(rated),
+        older_traces=sum(not one.by for one in rated),
         uncovered=_pooled_uncovered(rated),
         median_confirmation_pages=statistics.median(pages) if pages else None,
         median_minutes_to_first_result=statistics.median(minutes) if minutes else None,
@@ -192,6 +195,7 @@ def markdown(summary: Summary, missing: Sequence[str]) -> str:
         "requirements decided on a load case the agent described, counted apart: "
         f"{percent(overall.described_coverage)}",
         *apart(overall.by, overall.uncovered),
+        *_older(overall.older_traces),
         f"the {overall.finished - overall.traced} finished brief(s) that did not trace, counted "
         f"apart: strict pass {percent(overall.untraced_strict_pass)}, covered by reviewed checks "
         f"{percent(overall.untraced_coverage)}",
@@ -221,6 +225,15 @@ def markdown(summary: Summary, missing: Sequence[str]) -> str:
         if one.trace and one.trace.cut_off:
             lines += ["", f"## Cut off in {one.id}", *(f"- {name}" for name in one.trace.cut_off)]
     return "\n".join(lines) + "\n"
+
+
+def _older(count: int) -> list[str]:
+    if not count:
+        return []
+    return [
+        f"{count} traced brief(s) come from an older run that kept no `by` counts, so the "
+        "requirements-by lines leave them out"
+    ]
 
 
 def _fraction(share: Share) -> str:

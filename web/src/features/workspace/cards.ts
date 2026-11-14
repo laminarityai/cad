@@ -249,7 +249,6 @@ export function linesOf(snapshot: Scorecard, busy: "running" | "not_answering" =
         // The person confirmed these words, so the row keeps them whole beside its reason.
         why: described ? `${one.statement}. ${reason}` : reason,
         formula: result?.formula ?? "",
-        // A table row the requirement's own limits came from is cited before the check's sources.
         sources: [...("sources" in one ? (one.sources ?? []) : []), ...(result?.sources ?? [])],
         ...(described ? { tag: DESCRIBED_TAG } : {}),
         ...(where ? { where } : {}),

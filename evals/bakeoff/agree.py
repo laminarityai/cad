@@ -42,6 +42,7 @@ VOLUME_TOL_MM3: Final = 0.01
 EXTENT_TOL_MM: Final = 0.002
 INVALID_CATEGORIES: Final = frozenset({"no_output", "invalid_solid"})
 UNSCORED: Final = "unscored"
+NOT_GRADED: Final = "not graded"
 FLOAT_SLACK: Final = 1e-9
 DRIVER_FAILURES: Final = (
     "claude exited",
@@ -77,8 +78,12 @@ class GraderSide:
 
 @dataclass(frozen=True, slots=True)
 class Agreement:
+    """`graded` is False for a row grade.py could not read, because the scorecard keeps no STEP.
+    Such a row neither agrees nor disagrees, and the tally leaves it out."""
+
     agrees: bool
     reasons: tuple[str, ...]
+    graded: bool = True
 
 
 def within(a: float, b: float, tolerance: float) -> bool:
@@ -159,12 +164,19 @@ class EvidenceError(Exception):
     pass
 
 
+class StepNotKept(Exception):
+    def __init__(self, card: "CardSide", reason: str) -> None:
+        super().__init__(reason)
+        self.card = card
+
+
 def sha256_of(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def card_side(root: Path, variant_id: str) -> CardSide:
-    """Raises EvidenceError when the stored files are not the ones the scorecard names."""
+    """Raises EvidenceError when the stored files are not the ones the scorecard names, and
+    StepNotKept, with the card's verdict alone, when the scorecard keeps no STEP for grade.py."""
     directory = root / variant_id
     try:
         card = score.peek_variant(variant_id, MATERIAL_KEY, root)
@@ -176,7 +188,8 @@ def card_side(root: Path, variant_id: str) -> CardSide:
     if card.brep_sha256 != sha256_of(directory / entry.BREP):
         raise EvidenceError("result.brep is not the BREP the scorecard measured")
     if isinstance(card.step, StepMissing):
-        raise EvidenceError(f"the scorecard keeps no STEP: {card.step.reason}")
+        side = CardSide(verdict.value, None, None)
+        raise StepNotKept(side, f"the scorecard keeps no STEP: {card.step.reason}")
     if card.step.sha256 != sha256_of(directory / entry.STEP):
         raise EvidenceError("result.step is not the STEP the scorecard names")
     if verdict != Verdict.PASS:
@@ -197,17 +210,19 @@ def sorted_extents(result: CheckResult) -> Extents | None:
 
 def evaluate(label: str, part: str, variant_id: str | None, root: Path, seconds: float) -> Row:
     unscored = CardSide(UNSCORED, None, None)
+    ungraded = GraderSide(NOT_GRADED, None, None)
     if variant_id is None:
         no_variant = Agreement(False, ("no variant was scored",))
-        return Row(label, None, unscored, GraderSide("not graded", None, None), no_variant, seconds)
+        return Row(label, None, unscored, ungraded, no_variant, seconds)
     directory = root / variant_id
     try:
         card = card_side(root, variant_id)
+    except StepNotKept as kept:
+        alone = Agreement(False, (str(kept),), graded=False)
+        return Row(label, variant_id, kept.card, ungraded, alone, seconds)
     except EvidenceError as error:
         evidence = Agreement(False, (str(error),))
-        return Row(
-            label, variant_id, unscored, GraderSide("not graded", None, None), evidence, seconds
-        )
+        return Row(label, variant_id, unscored, ungraded, evidence, seconds)
     graded = grader_side(part, directory / entry.STEP)
     return Row(label, variant_id, card, graded, agree_rule(card, graded), seconds)
 
@@ -287,8 +302,14 @@ def cells(row: Row) -> list[str]:
         row.grader.category,
         volume(row.grader.volume_mm3),
         box(row.grader.extents_mm),
-        "agree" if row.agreement.agrees else "DISAGREE",
+        verdict_of(row.agreement),
     ]
+
+
+def verdict_of(agreement: Agreement) -> str:
+    if not agreement.graded:
+        return NOT_GRADED
+    return "agree" if agreement.agrees else "DISAGREE"
 
 
 def format_row(row: Row) -> str:
@@ -353,9 +374,19 @@ def main(argv: list[str]) -> int:
         print(f"cost: ${sum(row.cost_usd or 0.0 for row in rows):.3f}")
     if args.markdown:
         args.markdown.write_text(markdown(rows))
-    agreed = sum(row.agreement.agrees for row in rows)
-    print(f"{agreed}/{len(rows)} agree")
-    return 0 if rows and agreed == len(rows) else 1
+    said, passed = tally(rows)
+    print(said)
+    return 0 if passed else 1
+
+
+def tally(rows: list[Row]) -> tuple[str, bool]:
+    """The agreement count over the graded rows, and whether every one agrees. A row grade.py
+    could not read is counted apart."""
+    graded = [row for row in rows if row.agreement.graded]
+    agreed = sum(row.agreement.agrees for row in graded)
+    left = len(rows) - len(graded)
+    said = f"{agreed}/{len(graded)} agree" + (f", {left} not graded" if left else "")
+    return said, bool(graded) and agreed == len(graded)
 
 
 if __name__ == "__main__":
