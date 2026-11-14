@@ -2,6 +2,7 @@ import pytest
 from pydantic import ValidationError
 
 from cad.checks.result import Measure
+from cad.tables.materials import UNITS
 
 
 @pytest.mark.parametrize(
@@ -18,3 +19,14 @@ def test_a_measure_that_cannot_be_read_as_a_quantity_is_a_validation_error(
 def test_a_measure_with_a_known_unit_reads_as_that_quantity() -> None:
     measure = Measure.model_validate({"name": "mass", "value": {"magnitude": 2.0, "unit": "g"}})
     assert f"{measure.value:~P}" == "2.0 g"
+
+
+def test_a_fault_in_the_unit_registry_is_raised_and_not_read_as_a_bad_measure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def broken(*_: object) -> object:
+        raise RecursionError("the unit registry recursed")
+
+    monkeypatch.setattr(UNITS, "Quantity", broken)
+    with pytest.raises(RecursionError):
+        Measure.model_validate({"name": "mass", "value": {"magnitude": 2.0, "unit": "g"}})

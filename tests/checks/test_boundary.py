@@ -215,12 +215,19 @@ def test_only_a_run_past_the_wall_time_is_marked_timed_out(request_for_pla: Requ
         name: parse(seen, request_for_pla, OWN_LIMITS).timed_out
         for name, seen in [
             ("timeout", ran(b"", killed=True)),
+            ("flood, killed", ran(TooMuchOutput(), killed=True)),
             ("oom", ran(b"", oom=True, exit_code=137)),
             ("exit", ran(b"", exit_code=139)),
             ("good", sent(good_report())),
         ]
     }
-    assert timed_out == {"timeout": True, "oom": False, "exit": False, "good": False}
+    assert timed_out == {
+        "timeout": True,
+        "flood, killed": True,
+        "oom": False,
+        "exit": False,
+        "good": False,
+    }
 
 
 RESULTS_LINE = lines(good_report()).partition(b"\n")[0] + b"\n"

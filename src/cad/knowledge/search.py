@@ -9,9 +9,9 @@ The score is BM25F over four fields of a unit: a name, its source's title, its h
 section title and its keys), and its text. A unit's names are its subject and each alias, and it
 scores with the name that fits the query best, so a family file's long chemical name does not
 dilute its short one. A word in the name or the heading counts three times a word in the text or
-the title, so "ABS density"
-ranks the ABS density section above a PLA section whose text mentions ABS. Both sides read words
-through `cad.knowledge.text`, so case, dashes, Unicode forms and the spellings of "PLA+" match.
+the title, so "ABS density" ranks the ABS density section above a PLA section whose text mentions
+ABS. Both sides read words through `cad.knowledge.text`, so case, dashes, Unicode forms and the
+spellings of "PLA+" match.
 """
 
 import math

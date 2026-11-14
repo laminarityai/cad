@@ -221,7 +221,11 @@ class Parsed:
 def parse(ran: Ran, request: Request, job: Job) -> Parsed:
     """The container sends the results as one line and then the STEP as another. Results whose
     line is whole stand even when the container dies after it, as while it writes the STEP."""
-    expected = closure(request.wire["checks"])
+    parsed = _read(ran, request, job, closure(request.wire["checks"]))
+    return replace(parsed, timed_out=ran.attended.killed_at_deadline)
+
+
+def _read(ran: Ran, request: Request, job: Job, expected: Sequence[CheckSpec]) -> Parsed:
     seen, state = ran.attended, ran.state
     if isinstance(seen.report, TooMuchOutput):
         if state.OOMKilled:
@@ -231,25 +235,22 @@ def parse(ran: Ran, request: Request, job: Job) -> Parsed:
     line, newline, rest = seen.report.partition(b"\n")
     stopped = _stopped(ran, job)
     if stopped is not None and not newline:
-        parsed = _refused(f"{stopped} before it sent a report", expected)
-    elif not seen.report:
-        parsed = _refused("the check container sent no report", expected)
-    else:
-        try:
-            report = REPORT.validate_json(line, strict=True)
-            step: StepWire = (
-                {"kind": "missing", "reason": f"{stopped} while it wrote the STEP"}
-                if stopped is not None
-                else STEP.validate_json(rest, strict=True)
-            )
-        except ValidationError as error:
-            first = error.errors()[0]
-            where = ".".join(str(part) for part in first["loc"])
-            reason = f"the check container sent a malformed report: {where}: {first['msg']}"
-            parsed = _refused(reason, expected)
-        else:
-            parsed = _accepted(report, step, request, expected)
-    return replace(parsed, timed_out=seen.killed_at_deadline)
+        return _refused(f"{stopped} before it sent a report", expected)
+    if not seen.report:
+        return _refused("the check container sent no report", expected)
+    try:
+        report = REPORT.validate_json(line, strict=True)
+        step: StepWire = (
+            {"kind": "missing", "reason": f"{stopped} while it wrote the STEP"}
+            if stopped is not None
+            else STEP.validate_json(rest, strict=True)
+        )
+    except ValidationError as error:
+        first = error.errors()[0]
+        where = ".".join(str(part) for part in first["loc"])
+        reason = f"the check container sent a malformed report: {where}: {first['msg']}"
+        return _refused(reason, expected)
+    return _accepted(report, step, request, expected)
 
 
 def _stopped(ran: Ran, job: Job) -> str | None:

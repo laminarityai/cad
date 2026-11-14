@@ -1,6 +1,7 @@
+import tokenize
 from collections.abc import Mapping
 from enum import StrEnum
-from typing import Annotated, Literal, Self, TypedDict, cast
+from typing import Annotated, Final, Literal, Self, TypedDict, cast
 
 import pint
 from pydantic import Field, NonNegativeInt, PlainSerializer, PlainValidator, model_validator
@@ -27,17 +28,27 @@ class QuantityJson(TypedDict):
     unit: str
 
 
+# Pint raises AttributeError, ZeroDivisionError or TokenError for some units, and pydantic makes
+# a ValidationError only of a ValueError.
+_UNREADABLE: Final = (
+    pint.errors.PintError,
+    AttributeError,
+    TypeError,
+    ValueError,
+    ZeroDivisionError,
+    tokenize.TokenError,
+)
+
+
 def _to_quantity(raw: object) -> pint.Quantity:
     if isinstance(raw, pint.Quantity):
         return cast(pint.Quantity, raw)
     if isinstance(raw, dict):
         fields = cast(Mapping[str, object], raw)
         if set(fields) == {"magnitude", "unit"}:
-            # Pint raises AttributeError, ZeroDivisionError or TokenError for some units, and
-            # pydantic makes a ValidationError only of a ValueError.
             try:
                 return UNITS.Quantity(float(cast(float, fields["magnitude"])), str(fields["unit"]))
-            except Exception as error:
+            except _UNREADABLE as error:
                 raise ValueError(f"not a quantity: {error}") from error
     raise ValueError("a measured value is a quantity or {'magnitude', 'unit'}")
 
