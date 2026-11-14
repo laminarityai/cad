@@ -11,9 +11,9 @@ Each fact carries one of three labels:
 ## What trunk does today
 
 - **A variant is one solid of one material.** `closed_solid` passes only when `solids = 1` (read, `src/cad/checks/container/closed_solid.py`). `mass`, `extents`, `holes`, `min_wall` and `fea` each list it in `REQUIRES` (read), so a result of two solids gets no mass, no size, no hole reading, no wall reading and no stress result.
-- **One material key per scored variant.** A slot's revision records one `MaterialChoice` (read, `src/cad/variant_sets/model.py:55`). A check result and a scorecard carry one `material_key` (read, `src/cad/checks/result.py:154`, `src/cad/scorecard/model.py:220`). `mass` reads one density, and `fea` reads one modulus and one strength.
+- **One material key per scored variant.** A slot's revision records one `MaterialChoice` (read, `src/cad/variant_sets/model.py:95`). A check run and a scorecard carry one `material_key` (read, `src/cad/checks/result.py:154`, `src/cad/scorecard/model.py:220`). `mass` reads one density, and `fea` reads one modulus and one strength.
 - **A confirmed material pins the whole variant.** `MadeOf` holds one material key and no place for a body (read, `src/cad/briefs/model.py:122`).
-- **`interference` already reads pairs of solids.** It passes when no two solids share more than 0.001 mm^3 (read, `src/cad/checks/container/interference.py`). Today it only ever sees one.
+- **`interference` already reads pairs of solids.** It passes when no two solids share more than 0.001 mm^3 (read, `src/cad/checks/container/interference.py`). It requires no other check, so it already runs on a result of two solids today, while `closed_solid` fails that result.
 - **A supplied part is never inside `result`.** ADR-0012 keeps the person's own parts apart from the agent's body, and draws them beside it. This design leaves that as it is.
 
 ## What the stage 1 prototype measured
@@ -37,7 +37,7 @@ A variant with one unnamed solid has one body. Everything about it stays as it i
 
 Build code returns `result` as a compound. Each child solid carries the kernel's `label`, and solids with the same label are one body. The runner reads the labels where it already reads stage 1's areas, and stores the list beside the BREP: each body's name and the solids it covers.
 
-The list is agent output crossing a boundary, so the server parses it into a typed, frozen, bounded record. A name is lowercase letters, digits and hyphens, up to 32 characters. This differs from stage 1 in one way. A bad colour list drops the colours and the build goes on. A bad body list refuses the build, because checks read it. The refusal names the fix, such as "two solids have no label".
+The list is agent output crossing a boundary, so the server parses it into a typed, frozen, bounded record. A name starts with a lowercase letter and holds lowercase letters, digits and hyphens, up to 32 characters, so it never reads as a solid index. This differs from stage 1 in one way. A bad colour list drops the colours and the build goes on. A bad body list refuses the build, because checks read it. The refusal names the fix, such as "two solids have no label".
 
 A check never takes geometry from the list. It reads the solids from the BREP itself and uses the list only to learn which solid has which name.
 
@@ -45,21 +45,23 @@ A check never takes geometry from the list. It reads the solids from the BREP it
 
 `build_variant` takes a `materials` list in place of the one `material_key`. Each entry names a body, a material key and a one-line reason. The rule per body is the rule for the one material today (`src/cad/variant_sets/placement.py`):
 
-- A confirmed `made_of` that names the body pins its key. An entry that differs is refused, and nothing is built.
+- A confirmed `made_of` that names the body pins its key, and one that names no body pins every body's key. An entry that differs is refused, and nothing is built.
 - Otherwise the entry is the agent's material choice for that body, recorded with its reason and labelled agent-chosen.
 
 The server resolves every key by exact key before it builds. After the build it compares the names in `materials` with the names the code produced. If they differ, it stores nothing and says which names are on each side.
 
 The material is not written in build code. The kernel has no material on a shape, and an argument is typed and checked at the tool's boundary before a container starts.
 
+`score_variant`, the scorecard read and `auto_start` take the same `materials` list wherever they take `material_key` today. A single `material_key` on a variant of more than one body is refused.
+
 ### What a check reads
 
-One job per check per variant, as today. The job's material identity becomes one of two shapes: one key, as today, or a map from body name to key. A one-body variant keeps the first shape, so its stored results and its cache keys do not change. A check reports a per-body measure under the body's name, the way `interference` already reports `common_volume:0-1`.
+The jobs stay as today: one quick job for the quick checks, one `fea` job per load case and one `fit` job per context part (read, `src/cad/checks/jobs.py`). The job's material identity becomes one of two shapes: one key, as today, or a map from body name to key. A variant of one unnamed solid keeps the first shape, so its stored results keep their meaning. Every job key still changes once, because each check's version hashes the container's source (read, `src/cad/checks/report.py`). The body list goes to the container in the request wire, so it is part of every job key, and two builds with the same BREP and different names never share a result. A check reports a per-body measure as the measure's name, a colon and the body's name, such as `mass:plate`.
 
 | Check | Change |
 |---|---|
 | `closed_solid` | Every solid is closed, valid and not inside out, nothing lies outside a solid, and the solids are exactly the ones the bodies name. `solids = 1` goes away. |
-| `interference` | Same rule. Its message names bodies. Two bodies that touch on a face pass. A press fit drawn as an overlap fails, as it would today. |
+| `interference` | Same rule, over every pair of solids, two solids of one body included. Its message names each solid's body. Pair measures stay keyed by solid index, as `common_volume:0-1`. Its `bodies` measure counts solids, so it is renamed `solids`. Two bodies that touch on a face pass. A press fit drawn as an overlap fails, as it would today. |
 | `mass` | `mass = sum over bodies of volume × density`, each density read by that body's exact key. It also reports `mass:<body>`. If one body's density is unknown, the total is unknown and the card asks for research on that material. A partial sum is never shown as the mass. |
 | `extents` | The whole result. No change. |
 | `holes` | Reads each body's holes and reports them under the body's name. |
@@ -69,13 +71,15 @@ One job per check per variant, as today. The job's material identity becomes one
 
 Every changed check gets a new version, so `tests/checks/test_versions.py` and the stored results stay honest.
 
+An approved agent-written check (ADR-0011) reads one material today (read, `src/cad/operations/agent_checks.py:110`). On a variant of more than one body its verdict is unknown, and its reason says the check reads one material.
+
 ### Stress, one body at a time
 
 A stress result across two bodies depends on how they are joined: bolted, glued, pressed or only touching. Nothing in the model says which. So this stage does not solve across a joint.
 
-- A load case on a multi-body variant names one body. The check takes that body's solid out of the result and solves it alone, in that body's material. It finds the supports and the load on that body with the same geometry rules as today (ADR-0007). The person confirms the load case's words, which now name the body.
+- A load case on a variant of more than one solid names one body. The check takes that body's solid out of the result and solves it alone, in that body's material. It finds the supports and the load on that body with the same geometry rules as today (ADR-0007). The person confirms the load case's words, which now name the body.
 - A load case that names no body, or a body of several solids, is unknown, and the reason says to name one body of one solid.
-- Every scorecard of a multi-body variant lists one more requirement under "No test yet", which reads "How the bodies are joined is not checked." It counts in coverage, so an option of several bodies never looks more checked than it is.
+- Every scorecard of a variant of more than one solid lists one more requirement under "No test yet", which reads "How the bodies are joined is not checked." It counts in coverage, so an option of several bodies never looks more checked than it is.
 
 A solve that treats touching bodies as bonded is possible and is left for later. It needs its own reference cases, such as a two-metal beam with a known answer, and its own decision.
 
@@ -83,7 +87,7 @@ A solve that treats touching bodies as bonded is possible and is left for later.
 
 A requirement applies to the whole variant unless it names a body. `made_of`, the mass limits, the two hole requirements, a limit on a per-body measure such as the thinnest wall, and a load case gain an optional `body`.
 
-The names are bound by exact key, never by matching words. When a person's brief tells bodies apart ("gray steel gears on a black carbon plate"), the proposal lists the body names, each quoting the words that state it. The person confirms the names on the card with the rest of the brief. A build for that brief must produce a body for each confirmed name, and it may add others of its own, such as a spacer. A build that lacks a confirmed name is refused, and nothing is built.
+The names are bound by exact key, never by matching words. When a person's brief tells bodies apart ("gray steel gears on a black carbon plate"), the proposal lists the body names, each quoting the words that state it. The person confirms the names on the card with the rest of the brief. A build for that brief must produce a body for each confirmed name, and it may add others of its own, such as a spacer. A build that lacks a confirmed name is refused, and nothing is built. A variant built before the names were confirmed may lack one. A requirement that names a body the variant lacks is unknown, and its reason names the body.
 
 A brief that names no body works as it does today. The agent may still build several bodies and choose each material, and each choice is labelled agent-chosen.
 
@@ -102,7 +106,8 @@ The agent gains two choices. It chooses which solid carries which name. It choos
 |---|---|
 | The person confirms "the plate is carbon fibre", and the agent gives the name `plate` to a sliver. | No rule can know which solid is the plate. The card and the scorecard show each body's volume, mass and colour beside its name, and the viewer shows it alone. This risk is accepted and stated in the ADR. |
 | The agent drops a body a requirement names. | The build is refused. |
-| The agent splits one part into two bodies so each passes alone. | The joint line under "No test yet" is on every multi-body scorecard and counts in coverage. |
+| The agent splits one part into two solids, in one body or two, so each passes alone. | The joint line under "No test yet" is on every scorecard of more than one solid and counts in coverage. |
+| The agent gives a load case's body name to the stiffest solid. | The same guard as the sliver, and the same accepted risk. The supports and the load inside the body still come from ADR-0007's fixed rules. |
 | A colour or a name reaches a verdict. | Stage 1's test, that no check and no table reads a colour, stays. A name only selects solids that the check then measures itself. |
 | A material value is forged. | No change. Every value comes from the tables by exact key, or from research under ADR-0009. |
 
@@ -122,6 +127,8 @@ Stage 2 starts after stage 1 merges, because it extends the list stage 1 stores 
 1. **Bodies through the pipeline.** The stored list, `materials` on `build_variant`, the geometry checks and `mass`, the scorecard's bodies list, the explorer, and the exports.
 2. **Requirements that name a body.** Body names on the proposal and the card, and `body` on `made_of`, the mass limits, the hole requirements and a limit on a per-body measure.
 3. **Stress on one named body.**
+
+The independent review of this design left gaps for the builder, sorted by step in [issue 311](https://github.com/laminarityai/cad/issues/311). One of them is SPEC.md's line on the universal checks, which still says "one closed solid". It changes with step 1 and needs the operator's word.
 
 Each step is one PR with one live walk. The walk for step 1 is the operator's own example: gray steel gears on a black carbon fibre plate, with a mass on the scorecard that is the sum of both.
 
