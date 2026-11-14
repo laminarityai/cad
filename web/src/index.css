@@ -161,3 +161,33 @@ html body {
 [data-viewer] .tcv_status_line {
   display: none !important;
 }
+
+/* Streaming text, after Beautiful UI's keyframes (MIT, Copyright (c) 2026 Shane Levine). */
+@keyframes word-in {
+  from {
+    opacity: 0;
+    filter: blur(4px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+@keyframes caret-blink {
+  50% {
+    opacity: 0.2;
+  }
+}
+.stream-word {
+  display: inline-block;
+  animation: word-in 260ms ease-out both;
+}
+.stream-caret {
+  animation: caret-blink 1s steps(2, jump-none) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stream-word,
+  .stream-caret {
+    animation: none;
+  }
+}
