@@ -9,6 +9,7 @@ script never answers with the page. Any other path under `/app` is a route of th
 not.
 """
 
+import logging
 from pathlib import Path
 from typing import Final
 
@@ -22,7 +23,11 @@ PREFIX: Final = "/app"
 LANDING: Final = "landing.html"
 ASSET_CACHE: Final = "public, max-age=31536000, immutable"
 PAGE_CACHE: Final = "no-cache"
-NOT_BUILT: Final = "The web app is not built. Run `npm run build` in web/, or `uv run verify`."
+NOT_BUILT: Final = (
+    "This page cannot be shown just now. This is a fault on the server, and nothing in your "
+    "projects changed. Try again later."
+)
+LOG = logging.getLogger(__name__)
 
 
 def web_routes(dist: Path = DIST) -> list[Route]:
@@ -34,13 +39,13 @@ def web_routes(dist: Path = DIST) -> list[Route]:
     async def landing(_: Request) -> Response:
         page = base / LANDING
         if not page.is_file():
-            return PlainTextResponse(NOT_BUILT, status_code=503)
+            return _not_built(base)
         return FileResponse(page, headers={"Cache-Control": PAGE_CACHE})
 
     async def serve(request: Request) -> Response:
         index = base / "index.html"
         if not index.is_file():
-            return PlainTextResponse(NOT_BUILT, status_code=503)
+            return _not_built(base)
         name: str = request.path_params.get("path", "")
         found = _inside(base, name)
         if found is not None and found.is_file():
@@ -66,3 +71,8 @@ def _inside(base: Path, name: str) -> Path | None:
         return None
     candidate = (base / name).resolve()
     return candidate if candidate.is_relative_to(base) else None
+
+
+def _not_built(dist: Path) -> Response:
+    LOG.error("the web app is not built in %s; npm builds it in web/", dist)
+    return PlainTextResponse(NOT_BUILT, status_code=503)

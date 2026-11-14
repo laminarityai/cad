@@ -7,6 +7,7 @@ import pytest
 from cad.checks.report import DEPENDENCIES, specs
 from cad.sandbox import __main__ as cli
 from cad.sandbox import image
+from cad.sandbox.container import SANDBOX_DOWN
 from cad.sandbox.host import run_checks
 from cad.sandbox.image import ANALYSIS, BUILD, IMAGES, Image, current_image, image_tag
 from cad.sandbox.outcome import SandboxUnavailable
@@ -53,12 +54,13 @@ def test_a_new_analysis_context_changes_every_check_version_and_no_variant_id(
     assert all(a.version != b.version for a, b in zip(old, new, strict=True))
 
 
-def test_a_missing_image_names_the_command_that_builds_it() -> None:
+def test_a_missing_image_is_a_fault_on_the_server_and_the_log_names_the_command(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
     with pytest.raises(SandboxUnavailable) as raised:
         current_image("cad-sandbox:000000000000")
-    assert str(raised.value) == (
-        "sandbox image cad-sandbox:000000000000 is missing; run `uv run cad-sandbox build-image`"
-    )
+    assert str(raised.value) == SANDBOX_DOWN
+    assert "cad-sandbox:000000000000 is missing; the cad-sandbox command builds it" in caplog.text
 
 
 def test_build_image_is_a_no_op_when_both_images_are_current(
@@ -80,9 +82,13 @@ def test_build_image_says_docker_is_down_and_logs_the_cause(
     assert "unix:///nonexistent/docker.sock" in caplog.text
 
 
-def test_build_image_says_so_when_docker_is_not_installed(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture[str]
+def test_without_docker_the_answer_is_a_fault_on_the_server_and_the_log_says_why(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     monkeypatch.setenv("PATH", str(tmp_path))
     assert cli.main(["build-image"]) == 1
-    assert capsys.readouterr().out == "docker is not installed: no `docker` command on PATH\n"
+    assert capsys.readouterr().out == f"{SANDBOX_DOWN}\n"
+    assert "no `docker` command on PATH" in caplog.text

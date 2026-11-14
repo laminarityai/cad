@@ -27,7 +27,11 @@ OUTPUT_TAIL = 8 * 1024
 CHUNK = 64 * 1024
 DOCKER_TIMEOUT_SECONDS = 15
 KILL_GRACE_SECONDS = 10
-NO_DOCKER = "docker is not installed: no `docker` command on PATH"
+SANDBOX_DOWN = (
+    "the server cannot build or check designs just now; this is a fault on the server, and "
+    "nothing in the project changed: try again later"
+)
+NO_DOCKER = "no `docker` command on PATH"
 STOPPING = "the server is stopping, so it ended this run and kept nothing from it; run it again"
 OWNER = "cad.owner-pid"
 PID = re.compile("[1-9][0-9]{0,9}")
@@ -194,7 +198,7 @@ def attend(name: str, argv: tuple[str, ...], stdin: bytes, wall_seconds: int) ->
             argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE
         )
     except FileNotFoundError as error:
-        raise SandboxUnavailable(NO_DOCKER) from error
+        raise SandboxUnavailable.hiding_host(SANDBOX_DOWN, NO_DOCKER) from error
     with process, ThreadPoolExecutor(max_workers=3) as pool:
         pool.submit(feed, pipe(process.stdin), stdin)
         head = pool.submit(read_head, pipe(process.stdout), REPORT_CAP)
@@ -259,7 +263,7 @@ def docker(*args: str) -> subprocess.CompletedProcess[str]:
             timeout=DOCKER_TIMEOUT_SECONDS,
         )
     except FileNotFoundError as error:
-        raise SandboxUnavailable(NO_DOCKER) from error
+        raise SandboxUnavailable.hiding_host(SANDBOX_DOWN, NO_DOCKER) from error
     except subprocess.TimeoutExpired as error:
         raise SandboxUnavailable(
             f"docker did not answer `docker {args[0]}` within {DOCKER_TIMEOUT_SECONDS} s"

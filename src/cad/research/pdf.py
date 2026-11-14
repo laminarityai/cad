@@ -24,7 +24,10 @@ from cad.sandbox.outcome import SandboxUnavailable
 READER: Final = Image(
     "cad-reader", image.SANDBOX_DIR / "reader", ("Dockerfile", "requirements.txt")
 )
-BUILD_IMAGE: Final = "uv run cad-reader build-image"
+READER_DOWN: Final = (
+    "the server cannot read a PDF just now; this is a fault on the server: use a source that is "
+    "a web page, or try again later"
+)
 SCRIPT: Final = (Path(__file__).parent / "pdf_reader.py").read_text()
 MAX_PAGES: Final = 200
 MAX_CHARS: Final = 4_000_000
@@ -91,7 +94,9 @@ def reader_image() -> str:
     tag = image_tag(READER)
     found = find_image(tag)
     if found is None:
-        raise SandboxUnavailable(f"reader image {tag} is missing; run `{BUILD_IMAGE}`")
+        raise SandboxUnavailable.hiding_host(
+            READER_DOWN, f"reader image {tag} is missing; the cad-reader command builds it"
+        )
     return found
 
 
