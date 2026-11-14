@@ -161,6 +161,7 @@ export class FakeChat implements ChatApi {
   autoRun: AutoRun | null = null;
   stoppedRun: string | null = null;
   briefId: string | null = "b1";
+  checksSettling = false;
   onSend: (text: string) => void = () => undefined;
   private readonly open = new Set<Follower>();
 
@@ -174,6 +175,7 @@ export class FakeChat implements ChatApi {
       project_id: "p1",
       brief_id: this.briefId,
       run: this.autoRun,
+      checks_settling: this.checksSettling,
     }),
   );
 

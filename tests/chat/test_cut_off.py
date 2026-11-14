@@ -75,3 +75,23 @@ async def test_a_turn_a_graceful_stop_cancels_says_so_and_stays_said_after_the_r
         events = await restarted.events(client, cid)
     assert tail(events) == ["turn_failed", "turn_ended"]
     assert "Send a message" in events[-2]["message"]
+
+
+async def test_a_second_stream_opened_during_a_live_turn_does_not_cut_it_off_or_start_another(
+    chat: Chat,
+) -> None:
+    model = Hanging()
+    chat.app.state.chat.model = model
+    async with chat.client() as client:
+        cid = await chat.conversation(client)
+        await chat.say(client, cid, "a hook")
+        await model.started.wait()
+        second = await chat.events(client, cid)
+        third = await chat.events(client, cid)
+        turns = tuple(chat.app.state.chat._turns)
+        for turn in turns:
+            turn.cancel()
+        await asyncio.gather(*turns, return_exceptions=True)
+    assert [one["kind"] for one in second] == ["user"]
+    assert third == second
+    assert len(turns) == 1

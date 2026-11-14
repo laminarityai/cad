@@ -18,6 +18,7 @@ from tests.support.lanes import (
     quick_only,
     ran,
     wait_for,
+    wait_until,
     with_fea,
 )
 
@@ -220,3 +221,17 @@ def test_a_drop_notifies_nobody_because_the_store_did_not_change(
     lanes.subscribe(heard)
     lanes.drop_unstarted(tmp_path, lambda: {OTHER})
     assert heard.jobs == []
+
+
+def test_busy_is_true_only_while_a_background_job_of_those_variants_is_queued_or_running(
+    tmp_path: Path, runner: GatedRunner
+) -> None:
+    runner.background.gate.clear()
+    lanes = Lanes(runner)
+    assert not lanes.busy(tmp_path, {VID})
+    lanes.settle(with_fea(tmp_path), 0)
+    assert lanes.busy(tmp_path, {VID})
+    assert not lanes.busy(tmp_path, {OTHER})
+    assert not lanes.busy(tmp_path / "elsewhere", {VID})
+    runner.background.gate.set()
+    wait_until(lambda: not lanes.busy(tmp_path, {VID}))

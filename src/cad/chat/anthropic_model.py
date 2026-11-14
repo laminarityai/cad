@@ -23,7 +23,7 @@ from anthropic.types.tool_result_block_param import (
     Content,
 )
 
-from cad.chat.guidance import CHAT_WEB_SEARCH
+from cad.chat.guidance import CHAT_TOO_LONG, CHAT_WEB_SEARCH
 from cad.chat.model import (
     HEARD,
     Block,
@@ -111,6 +111,8 @@ class AnthropicModel:
                         heard(text)
                 response = await stream.get_final_message()
         except anthropic.APIStatusError as error:
+            if _too_long(error):
+                raise ModelUnavailable(CHAT_TOO_LONG) from error
             raise ModelUnavailable(
                 f"the model answered with HTTP {error.status_code}, so this turn stopped"
             ) from error
@@ -138,6 +140,12 @@ class AnthropicModel:
                 raise ModelUnavailable(f"the server has no {KEY_VARIABLE}, so the agent cannot run")
             self._client = anthropic.AsyncAnthropic(api_key=key, timeout=TIMEOUT_SECONDS)
         return self._client
+
+
+def _too_long(error: anthropic.APIStatusError) -> bool:
+    return error.status_code == 413 or (
+        error.status_code == 400 and "too long" in error.message.lower()
+    )
 
 
 def _object(raw: object) -> dict[str, Any]:

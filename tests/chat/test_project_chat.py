@@ -81,6 +81,7 @@ async def test_the_project_chat_names_the_project_and_its_briefs_to_the_agent(
         "project_id": made.project_id,
         "brief_id": made.brief_id,
         "run": None,
+        "checks_settling": False,
     }
     system = recording.systems[0]
     assert f"chat of project {made.project_id}" in system

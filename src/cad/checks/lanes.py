@@ -94,6 +94,15 @@ class Lanes:
             return None
         return Settled(quick, tuple(self._look(job) for job in plan.background))
 
+    def busy(self, root: Path, variant_ids: Collection[str]) -> bool:
+        """Whether a background job of one of these variants is queued or runs here now. It reads
+        and starts nothing."""
+        with self._lock:
+            jobs = [job for _, job, _ in self._queue]
+            if self._running is not None:
+                jobs.append(self._running)
+        return any(job.root == root and job.variant_id in variant_ids for job in jobs)
+
     def subscribe(self, listener: Listener) -> Callable[[], None]:
         """Call `listener(job)` after each job of this process stores its result, on the thread
         that ran it. A listener that raises is logged and does not stop the job's callers, the

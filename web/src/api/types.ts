@@ -955,6 +955,19 @@ export interface components {
             holes: number;
             left_out: string | null;
         };
+        /**
+         * ContextTrimmed
+         * @description The conversation grew past its cap, so the agent no longer sees the full results of its
+         *     earliest steps. Stored once. The agent is not told: its standing text already says so.
+         */
+        ContextTrimmed: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "context_trimmed";
+            text: string;
+        };
         /** ConversationCreated */
         ConversationCreated: {
             conversation_id: string;
@@ -973,6 +986,7 @@ export interface components {
             project_id: string | null;
             brief_id: string | null;
             run: components["schemas"]["AutoRun"] | null;
+            checks_settling: boolean;
         };
         /**
          * Curve
@@ -1071,7 +1085,7 @@ export interface components {
             error: string;
             kind?: string;
         };
-        Event: components["schemas"]["UserSaid"] | components["schemas"]["DriverSaid"] | components["schemas"]["AgentSaid"] | components["schemas"]["ToolCalled"] | components["schemas"]["ToolReturned"] | components["schemas"]["WebSearched"] | components["schemas"]["WebFound"] | components["schemas"]["StopReport"] | components["schemas"]["TurnFailed"] | components["schemas"]["TurnEnded"];
+        Event: components["schemas"]["UserSaid"] | components["schemas"]["DriverSaid"] | components["schemas"]["AgentSaid"] | components["schemas"]["ToolCalled"] | components["schemas"]["ToolReturned"] | components["schemas"]["WebSearched"] | components["schemas"]["WebFound"] | components["schemas"]["StopReport"] | components["schemas"]["ContextTrimmed"] | components["schemas"]["TurnFailed"] | components["schemas"]["TurnEnded"];
         /** ExportFailure */
         ExportFailure: {
             /**
@@ -2542,6 +2556,7 @@ export type Comparator = components['schemas']['Comparator'];
 export type Comparison = components['schemas']['Comparison'];
 export type ConfirmationCard = components['schemas']['ConfirmationCard'];
 export type ContextPartView = components['schemas']['ContextPartView'];
+export type ContextTrimmed = components['schemas']['ContextTrimmed'];
 export type ConversationCreated = components['schemas']['ConversationCreated'];
 export type ConversationState = components['schemas']['ConversationState'];
 export type ConversationView = components['schemas']['ConversationView'];

@@ -121,6 +121,14 @@ class StopReport(Frozen):
     report: str
 
 
+class ContextTrimmed(Frozen):
+    """The conversation grew past its cap, so the agent no longer sees the full results of its
+    earliest steps. Stored once. The agent is not told: its standing text already says so."""
+
+    kind: Literal["context_trimmed"] = "context_trimmed"
+    text: str
+
+
 class TurnFailed(Frozen):
     kind: Literal["turn_failed"] = "turn_failed"
     message: str
@@ -142,6 +150,7 @@ type Event = Annotated[
     | WebSearched
     | WebFound
     | StopReport
+    | ContextTrimmed
     | TurnFailed
     | TurnEnded,
     Field(discriminator="kind"),
@@ -294,7 +303,7 @@ def messages_of(events: Sequence[Event]) -> list[Message]:
                     add("assistant", ServerBlock(raw=event.raw))
             case WebFound():
                 add("assistant", ServerBlock(raw=event.raw))
-            case StopReport() | TurnFailed() | TurnEnded():
+            case StopReport() | ContextTrimmed() | TurnFailed() | TurnEnded():
                 pass
     close_calls()
     return messages
