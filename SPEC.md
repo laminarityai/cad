@@ -64,7 +64,7 @@ Deeper analysis is not a mode. When you ask whether a chosen variant will hold a
 
 A check is a fixed, deterministic piece of code that measures a variant and returns pass or fail with its formula and source. The agent cannot edit checks or their inputs. Its only move is to change the design and run the checks again.
 
-- **Universal checks** run on every variant: builds as one closed solid, no interference, mass and center of mass from the materials table, and FEA under the loads you state.
+- **Universal checks** run on every variant: builds as closed solids, each body of one material, no interference, mass and center of mass from each body's row of the materials table, and FEA under the loads you state.
   - You state the load, and the agent says where the part is held and where the load acts, never by naming a face. It uses a phrase our team reviewed, or combines fixed terms before the brief has any stress result, and the server writes those terms into words. You confirm the words with the target. A verdict on a load case the agent described is labelled and counted apart ([ADR-0007](docs/adr/0007-a-load-names-anchors-never-faces.md)).
 - **A wall thickness you state** is a requirement like any other, not printability. The `min_wall` check holds it to the limit you confirm, with no default taken from a printer and no verdict on walls you did not state ([ADR-0011](docs/adr/0011-agent-written-checks-are-frozen-gated-and-approved-per-project.md)).
 - **The fit check** measures each variant against the confirmed context parts of its project. It reports the volume where they overlap and the minimum clearance between them. Our team writes and reviews it, as it does the universal checks, and it ships in phase 2.
