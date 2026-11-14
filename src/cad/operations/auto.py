@@ -3,7 +3,7 @@ from typing import Annotated, Final
 
 from pydantic import BaseModel, Field
 
-from cad.auto import log
+from cad.auto import building, log
 from cad.auto.bounds import bounds_conflicts
 from cad.auto.gate import gate, record_proposals, stops_at_the_limit, watermark
 from cad.auto.model import (
@@ -31,7 +31,7 @@ from cad.operations.agent_checks import approved_checks
 from cad.operations.conversations import ConversationState
 from cad.operations.guidance import AUTO_AGENT_CHECKS, AUTO_BUILDS, AUTO_DESCRIBED
 from cad.operations.model import Audience, Input, Tenant, operation
-from cad.operations.variants import MAX_CODE_CHARS, chooser, count_build, with_out_of_date
+from cad.operations.variants import MAX_CODE_CHARS, chooser, counter, with_out_of_date
 from cad.sandbox import image
 from cad.sandbox.outcome import Built
 from cad.scorecard import material
@@ -215,8 +215,13 @@ def auto_start(tenant: Tenant, arguments: StartInput) -> AutoRun:
 
 
 def auto_revise(tenant: Tenant, arguments: ReviseInput) -> RevisedRun:
+    _refuse_unless_held(tenant, arguments.run_id)
+    with building.building(arguments.run_id, code_sha256(arguments.code)):
+        return _revise(tenant, arguments)
+
+
+def _revise(tenant: Tenant, arguments: ReviseInput) -> RevisedRun:
     roots, run_id = tenant.roots, arguments.run_id
-    _refuse_unless_held(tenant, run_id)
     brief_id = log.read_run(roots, run_id).state.start.brief_id
     running = gate(tenant.roots, tenant.conversations, tenant.bound_run, brief_id)
     assert running is not None
@@ -231,7 +236,13 @@ def auto_revise(tenant: Tenant, arguments: ReviseInput) -> RevisedRun:
         start = running.start
         resolve = chooser(tenant, brief_id, start.material_key, start.material_reason)
         built = variant_sets.build_into_set(
-            roots, tenant.variants, brief_id, arguments.code, arguments.slot, resolve
+            roots,
+            tenant.variants,
+            brief_id,
+            arguments.code,
+            arguments.slot,
+            resolve,
+            on_built=counter(tenant, sha),
         )
         if isinstance(built.outcome, Built):
             scored = scorecards.ScoreVariantInput(
@@ -241,7 +252,6 @@ def auto_revise(tenant: Tenant, arguments: ReviseInput) -> RevisedRun:
             )
             standing = standing_of(score_until_settled(tenant, scored), revision, sha)
             if isinstance(standing, Unsettled):
-                count_build(tenant, sha, built.variant_id)
                 return RevisedRun(run_id=run_id, state=running, settling=True)
         else:
             standing = Standing(
@@ -291,7 +301,10 @@ def _refuse_unless_held(tenant: Tenant, run_id: str) -> None:
 
 
 def auto_stop(tenant: Tenant, arguments: StopInput) -> PersonStop:
-    run, held = conversations.stop_by_person(tenant.roots, tenant.conversations, arguments.run_id)
+    run_id = arguments.run_id
+    run, held = conversations.stop_by_person(
+        tenant.roots, tenant.conversations, run_id, lambda state: building.uncounted(run_id, state)
+    )
     conversation = ConversationState(
         conversation_id=run.state.start.conversation,
         auto_run=held.auto_run,

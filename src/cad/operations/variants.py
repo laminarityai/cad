@@ -1,7 +1,9 @@
+from collections.abc import Callable
 from typing import Annotated, Final
 
 from pydantic import BaseModel, Field
 
+from cad.auto.building import building
 from cad.auto.gate import gate, stops_at_the_limit
 from cad.auto.model import Running, Tried
 from cad.briefs import store as briefs
@@ -154,7 +156,8 @@ class BuildReply(BaseModel):
 
 def build_variant(tenant: Tenant, arguments: BuildVariantInput) -> BuildReply:
     """A built variant's mesh starts at once, beside its checks, so the viewer has it sooner."""
-    built = _build(tenant, arguments)
+    with building(tenant.bound_run, code_sha256(arguments.code)):
+        built = _build(tenant, arguments)
     if isinstance(built.outcome, Built):
         held = entry.open_entry(tenant.variants, built.variant_id, image.image_tag(image.BUILD))
         TESSELLATIONS.start(tenant.geometry, held)
@@ -186,9 +189,8 @@ def _build(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResult:
                 arguments.slot,
                 resolve,
                 option,
+                on_built=counter(tenant, code_sha256(arguments.code)),
             )
-            if running is not None:
-                count_build(tenant, code_sha256(arguments.code), built.variant_id)
             return with_out_of_date(tenant, arguments.brief_id, built)
         if arguments.slot is not None:
             raise SlotRefused("slot names a place in a brief's variant set, so pass brief_id too")
@@ -205,14 +207,21 @@ def _build(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResult:
     return SetBuildResult(variant_id=built.variant_id, outcome=built.outcome, output=built.output)
 
 
-def count_build(tenant: Tenant, sha: str, variant_id: str) -> None:
-    """A build under the run counts among its builds, once per code (ADR-0010)."""
-    assert tenant.bound_run is not None
+def counter(tenant: Tenant, sha: str) -> Callable[[str], None]:
+    """Counts a build under the conversation's run among its builds, once per code (ADR-0010).
+    With no run it counts nothing."""
+    run_id = tenant.bound_run
 
-    def make(state: Running) -> Tried | None:
-        return None if sha in state.builds else Tried(code_sha256=sha, variant_id=variant_id)
+    def count(variant_id: str) -> None:
+        if run_id is None:
+            return
 
-    record_event(tenant.roots, tenant.conversations, tenant.bound_run, make)
+        def make(state: Running) -> Tried | None:
+            return None if sha in state.builds else Tried(code_sha256=sha, variant_id=variant_id)
+
+        record_event(tenant.roots, tenant.conversations, run_id, make)
+
+    return count
 
 
 def with_out_of_date(tenant: Tenant, brief_id: str, built: SetBuildResult) -> SetBuildResult:

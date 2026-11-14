@@ -198,7 +198,7 @@ The order of `auto_start`'s reads matters. It reads the watermark, then checks f
 | `Propose`, `Answer` | `propose_requirements` from any caller, and the person's page answer |
 | `acted`, `holdAt`, `on`, `untouched` | ghosts: the person acted since the last stop, the act count at that stop, the act a turn serves, and a crash-cut stop no call has healed |
 
-`record_proposals` reads the run and the proposals and then records, and the model makes that one step. A proposal that lands between the read and the record is caught at the next gate. The stop rules themselves (all pass, conflict, the agent asks) are the pure fold in `auto/step.py`, which `tests/auto/test_step.py` covers. The model only needs to know that a record stops a run. `Tried`, which `build_variant` and an `auto_revise` whose checks still run append through `record_event`, changes no hold and stops no run, so the model leaves it out.
+`record_proposals` reads the run and the proposals and then records, and the model makes that one step. A proposal that lands between the read and the record is caught at the next gate. The stop rules themselves (all pass, conflict, the agent asks) are the pure fold in `auto/step.py`, which `tests/auto/test_step.py` covers. The model only needs to know that a record stops a run. `Tried`, which every build under a run appends through `record_event` when its container returns, changes no hold and stops no run, so the model leaves it out. The person's `PersonStopped` also records whether a build under the run was still running, read from `auto/building.py` in memory under the same lock. That flag changes only the report, so `Stop(r)` stays one step.
 
 ## Known findings
 
@@ -218,14 +218,14 @@ When a check fails, read the trace as a story in code terms: which thread or pro
 
 ## Keeping the models in sync
 
-`check_models.py` reads the block below. It warns when a covered file changed after the sync commit, and it prints a note instead when the commit is not in the clone (CI checks out shallow). The warning does not fail the run. When you see it, read the diff, update the model if the protocol changed, run the checks and the mutants, and only then move `sync` to the new commit. Use `/maintain-formal-verification-skill` for that work.
+`check_models.py` reads the block below. It warns when a covered file changed after the sync commit, and it prints a note instead when the commit is not in the clone (CI checks out shallow). The warning does not fail the run. When you see it, read the diff, update the model if the protocol changed, run the checks and the mutants, and only then move the sync commit. `sync:` is the commit for every model line that names none. A line written `Model@<commit>:` has its own, so you can move one model after you audit only that one. Use `/maintain-formal-verification-skill` for that work.
 
 ```coverage
 sync: 21a7efb
 JobLanes: src/cad/checks/lanes.py src/cad/checks/job_store.py src/cad/checks/jobs.py src/cad/sandbox/container.py src/cad/server/stopping.py src/cad/variant_sets/store.py
 Answers: src/cad/confirmations/web.py src/cad/confirmations/snapshot.py src/cad/operations/confirmation.py src/cad/confirmations/page.py src/cad/confirmations/answers.py src/cad/confirmations/items.py src/cad/records/signed.py
 CarryOn: src/cad/chat/routes.py src/cad/chat/answer_driver.py src/cad/chat/turn.py src/cad/chat/log.py src/cad/conversations/store.py src/cad/operations/confirmation.py src/cad/confirmations/web.py
-AutoHold: src/cad/auto/gate.py src/cad/auto/log.py src/cad/operations/auto.py src/cad/conversations/store.py src/cad/chat/routes.py src/cad/operations/tenants.py src/cad/operations/variants.py
+AutoHold@72b073d: src/cad/auto/gate.py src/cad/auto/log.py src/cad/operations/auto.py src/cad/conversations/store.py src/cad/chat/routes.py src/cad/operations/tenants.py src/cad/operations/variants.py src/cad/auto/building.py
 ```
 
 ## Planned targets, not built yet

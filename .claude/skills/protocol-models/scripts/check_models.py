@@ -148,20 +148,24 @@ def mutate(mutant: Mutant, tools: Path, java: str, trace: bool) -> bool:
     return caught
 
 
-def coverage() -> tuple[str, list[str]]:
-    """The sync commit and the code files the models cover, from SKILL.md's coverage block."""
+def coverage() -> list[tuple[str, list[str]]]:
+    """Each model's sync commit and the code files it covers, from SKILL.md's coverage block. A
+    model line names its own sync commit as `Model@<commit>:`, and the others take `sync:`."""
     block = re.search(r"```coverage\n(.*?)```", (SKILL / "SKILL.md").read_text(), re.DOTALL)
     if block is None:
         raise SystemExit("SKILL.md has no coverage block")
     lines = [line.split() for line in block.group(1).splitlines() if line.strip()]
-    sync = next(words[1] for words in lines if words[0] == "sync:")
-    files = [path for words in lines if words[0] != "sync:" for path in words[1:]]
-    return sync, files
+    default = next(words[1] for words in lines if words[0] == "sync:")
+    return [
+        (words[0].rstrip(":").partition("@")[2] or default, words[1:])
+        for words in lines
+        if words[0] != "sync:"
+    ]
 
 
 def changed_since(ref: str) -> list[str]:
     """The files that decide a TLC result, or that a model covers, changed since ref."""
-    _, files = coverage()
+    files = [path for _, paths in coverage() for path in paths]
     return subprocess.run(
         ["git", "diff", "--name-only", ref, "--", str(SKILL.relative_to(REPO)), *files],
         cwd=REPO, capture_output=True, text=True, check=True,
@@ -169,20 +173,24 @@ def changed_since(ref: str) -> list[str]:
 
 
 def drift() -> None:
-    """Warn when the code a model covers changed after the commit the skill last synced to."""
-    sync, files = coverage()
-    known = subprocess.run(
-        ["git", "cat-file", "-e", f"{sync}^{{commit}}"], cwd=REPO, capture_output=True, check=False
-    )
-    if known.returncode != 0:
-        print(f"note: sync commit {sync} is not in this clone, so drift was not checked")
-        return
-    changed = subprocess.run(
-        ["git", "diff", "--name-only", sync, "--", *files],
-        cwd=REPO, capture_output=True, text=True, check=True,
-    ).stdout.split()  # fmt: skip
-    for path in changed:
-        print(f"warning: {path} changed since sync commit {sync}; recheck the model against it")
+    """Warn when the code a model covers changed after the commit the model last synced to."""
+    by_sync: dict[str, list[str]] = {}
+    for sync, paths in coverage():
+        by_sync.setdefault(sync, []).extend(paths)
+    for sync, files in by_sync.items():
+        known = subprocess.run(
+            ["git", "cat-file", "-e", f"{sync}^{{commit}}"],
+            cwd=REPO, capture_output=True, check=False,
+        )  # fmt: skip
+        if known.returncode != 0:
+            print(f"note: sync commit {sync} is not in this clone, so drift was not checked")
+            continue
+        changed = subprocess.run(
+            ["git", "diff", "--name-only", sync, "--", *dict.fromkeys(files)],
+            cwd=REPO, capture_output=True, text=True, check=True,
+        ).stdout.split()  # fmt: skip
+        for path in changed:
+            print(f"warning: {path} changed since sync commit {sync}; recheck the model against it")
 
 
 def main(argv: Sequence[str]) -> int:

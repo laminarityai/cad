@@ -68,8 +68,15 @@ def record_event(roots: Roots, directory: Path, run_id: str, make: log.Make) -> 
         return run
 
 
-def stop_by_person(roots: Roots, directory: Path, run_id: str) -> tuple[AutoRun, Conversation]:
-    run = record_event(roots, directory, run_id, lambda _: PersonStopped())
+def stop_by_person(
+    roots: Roots,
+    directory: Path,
+    run_id: str,
+    unfinished: Callable[[Running], bool] = lambda _: False,
+) -> tuple[AutoRun, Conversation]:
+    run = record_event(
+        roots, directory, run_id, lambda state: PersonStopped(unfinished=unfinished(state))
+    )
     return run, read(directory, run.state.start.conversation)
 
 

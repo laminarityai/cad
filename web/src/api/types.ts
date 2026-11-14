@@ -2033,6 +2033,8 @@ export interface components {
              * @enum {string}
              */
             kind: "stopped_by_person";
+            /** @default false */
+            unfinished?: boolean;
         };
         Support: components["schemas"]["Holes"] | components["schemas"]["LargestFlat"] | components["schemas"]["FlatEnd"] | components["schemas"]["EndOf"] | components["schemas"]["Facing"] | components["schemas"]["Each"] | components["schemas"]["InOneFlatFace"];
         Target: components["schemas"]["ClosedSolid"] | components["schemas"]["MaxMass"] | components["schemas"]["MinMass"] | components["schemas"]["Envelope"] | components["schemas"]["MeasureLimit"] | components["schemas"]["Unchecked"] | components["schemas"]["MadeOf"] | components["schemas"]["MinSafetyFactor"] | components["schemas"]["MaxDeflection"] | components["schemas"]["MinClearance"] | components["schemas"]["MaxClearance"] | components["schemas"]["FastenerHoles"] | components["schemas"]["PlainHoles"] | components["schemas"]["FitsWith"] | components["schemas"]["AgentLimit"];
