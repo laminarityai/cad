@@ -36,6 +36,7 @@ from cad.scorecard.model import (
 from cad.scorecard.requirements import result_of
 from cad.scorecard.waiting import Waiting
 
+UNNAMED: Final = "a requirement the project no longer holds"
 NO_STATEMENTS: Final[Mapping[str, str]] = MappingProxyType({})
 PASSING: Final = frozenset(
     {Mark.PASS, Mark.PASS_RESEARCHED, Mark.PASS_AGENT_CHECK, Mark.UNVERIFIED}
@@ -199,27 +200,34 @@ def report(
     reason: StopReason,
     said: Mapping[str, str] = NO_STATEMENTS,
     option: str | None = None,
+    *,
+    for_person: bool = False,
 ) -> str:
     """The stop report. `builds` counts every build under the run. The agent's copy names ids.
     The person's passes `said`, each requirement's statement, and `option`, the name the latest
-    checked variant has in its set."""
+    checked variant has in its set, and names no id where either has no name."""
+    unnamed = UNNAMED if for_person else None
+
+    def name_of(rid: str) -> str:
+        return said.get(rid, unnamed or f"requirement {rid}")
 
     def named(rids: Sequence[str]) -> str:
-        return ", ".join(said.get(rid, rid) for rid in rids)
+        return ", ".join(said.get(rid, unnamed or rid) for rid in rids)
 
     lines = [_reason(reason, named), _builds(builds, reason)]
     if history:
         latest = history[-1]
-        name = option or f"variant {latest.variant_id}"
-        lines.append(
-            f"The latest the run checked is {name}."
-            if latest.built
-            else "The latest the run checked did not build."
-        )
+        if not latest.built:
+            lines.append("The latest the run checked did not build.")
+        elif option is None and for_person:
+            lines.append("The latest the run checked built.")
+        else:
+            lines.append(
+                f"The latest the run checked is {option or f'variant {latest.variant_id}'}."
+            )
         because = dict(latest.reasons)
         lines.extend(
-            f"- {said.get(rid, f'requirement {rid}')}: {WORDS[mark]}{_because(because.get(rid))}"
-            f"{_described(rid, latest)}"
+            f"- {name_of(rid)}: {WORDS[mark]}{_because(because.get(rid))}{_described(rid, latest)}"
             for rid, mark in latest.marks
         )
     return "\n".join(lines)

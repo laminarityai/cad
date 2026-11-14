@@ -29,7 +29,9 @@ from cad.chat.model import ToolResult, ToolUse
 from cad.confirmations.requirements import plain_names
 from cad.conversations import store
 from cad.operations.model import Tenant
-from cad.projects.model import ProjectRefused
+from cad.projects.membership import project_briefs
+from cad.projects.model import ProjectId, ProjectRefused
+from cad.records.roots import Roots
 from cad.variant_sets import store as variant_sets
 from cad.variant_sets.model import Member, SetRefused
 
@@ -82,7 +84,12 @@ class AutoDriver:
         brief_id = state.start.brief_id
         option = self._option(brief_id, state.history[-1].code_sha256) if state.history else None
         said = report(
-            state.history, len(state.builds), state.reason, self._statements(brief_id), option
+            state.history,
+            len(state.builds),
+            state.reason,
+            project_statements(self.tenant.roots, ProjectId(state.start.project)),
+            option,
+            for_person=True,
         )
         return StopReport(run_id=run.run_id, reason=state.reason.kind, report=said)
 
@@ -93,15 +100,6 @@ class AutoDriver:
             return None
         self.nudges += 1
         return CHAT_AUTO_NUDGE.format(run_id=self.run_id)
-
-    def _statements(self, brief_id: str) -> dict[str, str]:
-        roots = self.tenant.roots
-        try:
-            proposals = briefs.read_state(roots, brief_id).proposals
-            names = plain_names(roots, brief_id)
-        except (BriefRefused, ProjectRefused):
-            return {}
-        return {r.id: describe(r, names) for one in proposals for r in one.requirements}
 
     def _option(self, brief_id: str, code_sha256: str) -> str | None:
         """The name the person sees for the slot that holds this code, and its revision."""
@@ -120,6 +118,19 @@ class AutoDriver:
         except UnknownRun:
             return None
         return run if isinstance(run.state, Stopped) else None
+
+
+def project_statements(roots: Roots, project: ProjectId) -> dict[str, str]:
+    """Each requirement's statement, from every brief of `project`, for the person's report."""
+    said: dict[str, str] = {}
+    try:
+        for brief in project_briefs(roots, project):
+            names = plain_names(roots, brief)
+            for one in briefs.read_state(roots, brief).proposals:
+                said |= {r.id: describe(r, names) for r in one.requirements}
+    except (BriefRefused, ProjectRefused):
+        return said
+    return said
 
 
 def _named(member: Member, code_sha256: str) -> str | None:
