@@ -93,13 +93,13 @@ def _drop_replaced(
     if member is None or len(member.revisions) < 2:
         return
     tag = image.image_tag(image.BUILD)
-    earlier = {
-        one
-        for revision in member.revisions[:-1]
-        for one in builds(variants_root, revision, tag).ids
-    }
 
     def unshown() -> set[VariantId]:
+        earlier = {
+            one
+            for revision in member.revisions[:-1]
+            for one in builds(variants_root, revision, tag).ids
+        }
         latest = (held.latest for _, held in account_slots(root))
         return earlier - {one for shown in latest for one in builds(variants_root, shown, tag).ids}
 
