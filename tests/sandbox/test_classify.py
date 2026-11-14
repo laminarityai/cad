@@ -13,14 +13,23 @@ from cad.sandbox.container import (
     run_argv,
 )
 from cad.sandbox.host import TEXT_CAP, Artifacts, build_job, classify
-from cad.sandbox.outcome import BuildFailed, Failure, NoResult, OutOfMemory, TimedOut
+from cad.sandbox.outcome import (
+    MAX_AREAS,
+    Area,
+    BuildFailed,
+    Built,
+    Failure,
+    NoResult,
+    OutOfMemory,
+    TimedOut,
+)
 
 OWN_LIMITS = Job("build", "sha256:sandbox", (), b"", wall_seconds=60, memory_mb=1536)
 CONTRACT = "assign the final shape to `result`"
 MALFORMED = BuildFailed(error="the build sent a malformed result", traceback="")
 
 
-def built_report(brep: bytes = b"brep bytes", **extra: str) -> bytes:
+def built_report(brep: bytes = b"brep bytes", **extra: object) -> bytes:
     return json.dumps({"kind": "built", "brep": b64encode(brep).decode(), **extra}).encode()
 
 
@@ -50,13 +59,13 @@ def exited_without_report(code: int) -> BuildFailed:
             TimedOut(limit_seconds=OWN_LIMITS.wall_seconds),
             id="kill",
         ),
-        pytest.param(seen(built_report()), state(0), Artifacts(b"brep bytes"), id="built"),
+        pytest.param(seen(built_report()), state(0), Artifacts(b"brep bytes", Built()), id="built"),
         pytest.param(
             seen(built_report(step=b64encode(b"FORGED-STEP").decode())), state(0),
-            Artifacts(b"brep bytes"), id="a-step-in-the-report-is-discarded",
+            Artifacts(b"brep bytes", Built()), id="a-step-in-the-report-is-discarded",
         ),
         pytest.param(
-            seen(built_report()), state(0, oom=True), Artifacts(b"brep bytes"),
+            seen(built_report()), state(0, oom=True), Artifacts(b"brep bytes", Built()),
             id="report-beats-a-child-oom",
         ),
         pytest.param(
@@ -105,6 +114,45 @@ def test_classify(
     attended: Attended, container: ContainerState, expected: Artifacts | Failure
 ) -> None:
     assert classify(attended, container, OWN_LIMITS) == expected
+
+
+GRIP = {"name": "grip", "colour": "#1a1a1a", "faces": [3, 4]}
+
+
+@pytest.mark.parametrize(
+    ("areas", "dropped"),
+    [
+        pytest.param(
+            [{**GRIP, "faces": [3]}, {**GRIP, "faces": [3]}], "a face is in two areas", id="overlap"
+        ),
+        pytest.param([{**GRIP, "colour": "black"}], "0.colour", id="not-a-hex-colour"),
+        pytest.param([{**GRIP, "name": "a\nb"}], "0.name", id="control-character"),
+        pytest.param([{**GRIP, "faces": [-1]}], "0.faces.0", id="negative-face"),
+        pytest.param([{**GRIP, "faces": ["3"]}], "0.faces.0", id="face-as-text"),
+        pytest.param([{**GRIP, "faces": []}], "0.faces", id="no-faces"),
+        pytest.param(
+            [{**GRIP, "faces": [n]} for n in range(MAX_AREAS + 1)], "areas", id="too-many"
+        ),
+        pytest.param({"grip": GRIP}, "areas", id="not-a-list"),
+        pytest.param("ValueError: no faces", "could not be read: ValueError", id="runner-error"),
+    ],
+)  # fmt: skip
+def test_a_bad_list_of_areas_drops_the_colours_and_keeps_the_build(
+    areas: object, dropped: str
+) -> None:
+    verdict = classify(seen(built_report(areas=areas)), state(0), OWN_LIMITS)
+    assert isinstance(verdict, Artifacts)
+    assert verdict.brep == b"brep bytes"
+    assert verdict.built.areas == ()
+    assert verdict.built.areas_dropped is not None
+    assert dropped in verdict.built.areas_dropped
+
+
+def test_a_good_list_of_areas_is_kept() -> None:
+    verdict = classify(seen(built_report(areas=[GRIP])), state(0), OWN_LIMITS)
+    assert verdict == Artifacts(
+        b"brep bytes", Built(areas=(Area(name="grip", colour="#1a1a1a", faces=(3, 4)),))
+    )
 
 
 def test_report_strings_keep_the_error_head_and_the_traceback_tail() -> None:

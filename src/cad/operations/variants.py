@@ -9,7 +9,7 @@ from cad.context_parts.model import UPDATE_PART
 from cad.context_parts.store import out_of_date_in
 from cad.conversations.store import record_event
 from cad.geometry.lane import TESSELLATIONS
-from cad.operations.guidance import AUTO_BUILDS
+from cad.operations.guidance import AUTO_BUILDS, COLOURS
 from cad.operations.model import Audience, Input, Tenant, operation
 from cad.operations.research import brief_table
 from cad.operations.scorecards import MaterialKey
@@ -80,7 +80,7 @@ BUILD_VARIANT = (
     "answers. A build of code the store does not hold is charged to the account's usage "
     "limit, whose refusal stops the run. "
     "context_parts_out_of_date names the confirmed context parts that came from an "
-    "earlier revision of the slot this build joined: " + UPDATE_PART
+    "earlier revision of the slot this build joined: " + UPDATE_PART + " " + COLOURS
 )
 
 

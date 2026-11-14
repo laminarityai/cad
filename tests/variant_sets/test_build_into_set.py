@@ -119,7 +119,7 @@ async def test_a_build_that_fails_joins_no_set(s: Session) -> None:
 
 async def test_a_build_with_no_brief_joins_no_set(s: Session) -> None:
     built = await s.call("build_variant", code=PLATE)
-    assert built["outcome"] == {"kind": "built"}
+    assert built["outcome"] == {"kind": "built", "areas": [], "areas_dropped": None}
     assert built["variant_set"] is None
     assert not (s.tmp / "projects").exists()
 

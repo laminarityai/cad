@@ -27,7 +27,7 @@ async def test_a_change_to_slot_2_becomes_its_next_revision_and_the_old_one_stay
     bracket = await s.call("build_variant", code=BRACKET, brief_id=brief_id)
     assert bracket["variant_set"]["slot"] == 2
     changed = await s.call("build_variant", code=THICKER, brief_id=brief_id, slot=2)
-    assert changed["outcome"] == {"kind": "built"}
+    assert changed["outcome"] == {"kind": "built", "areas": [], "areas_dropped": None}
     assert changed["variant_id"] != bracket["variant_id"]
     assert changed["variant_set"] == {
         "kind": "joined",

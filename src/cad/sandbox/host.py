@@ -13,11 +13,13 @@ from cad.sandbox import container, image, stage
 from cad.sandbox.container import Attended, ContainerState, Job, TooMuchOutput
 from cad.sandbox.outcome import (
     BuildFailed,
+    Built,
     Failure,
     NoResult,
     OutOfMemory,
     SandboxUnavailable,
     TimedOut,
+    read_areas,
 )
 from cad.sandbox.wire import Report
 from cad.tables.materials import TABLE_PATH, MaterialsTable, load_materials
@@ -32,6 +34,7 @@ REPORT = TypeAdapter[Report](Annotated[Report, Field(discriminator="kind")])
 @dataclass(frozen=True, slots=True)
 class Artifacts:
     brep: bytes
+    built: Built
 
 
 @dataclass(frozen=True, slots=True)
@@ -163,9 +166,10 @@ def reported(raw: bytes) -> Artifacts | Failure | None:
     match report["kind"]:
         case "built":
             try:
-                return Artifacts(b64decode(report["brep"], validate=True))
+                brep = b64decode(report["brep"], validate=True)
             except ValueError:
                 return None
+            return Artifacts(brep, read_areas(report.get("areas", [])))
         case "build_failed":
             return BuildFailed(
                 error=report["error"][:TEXT_CAP], traceback=report["traceback"][-TEXT_CAP:]
