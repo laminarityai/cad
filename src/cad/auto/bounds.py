@@ -100,6 +100,7 @@ def unweighed(requirements: Sequence[Requirement], table: MaterialsTable) -> Not
         f"least {lowest.value:g} g within {room.space} is not checked until its density is "
         "researched",
         requirements=tuple(dict.fromkeys((*lowest.requirements, made_of.id, *room.requirements))),
+        mass_requirements=lowest.requirements,
     )
 
 

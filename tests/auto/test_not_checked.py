@@ -68,7 +68,9 @@ async def test_a_run_whose_material_has_a_density_records_no_unchecked_pair(s: S
 def test_the_stop_report_drops_the_unchecked_pair_once_research_gave_it_a_verdict(
     mass: Mark, shown: bool
 ) -> None:
-    note = NotChecked(statement=NOT_CHECKED, requirements=("mass", "asa", "cube"))
+    note = NotChecked(
+        statement=NOT_CHECKED, requirements=("mass", "asa", "cube"), mass_requirements=("mass",)
+    )
     latest = Standing(
         revision=1,
         variant_id="v",
@@ -80,3 +82,13 @@ def test_the_stop_report_drops_the_unchecked_pair_once_research_gave_it_a_verdic
     for for_person in (False, True):
         said = report((latest,), 1, reason, for_person=for_person, not_checked=note)
         assert (f"Not checked: {NOT_CHECKED}." in said) is shown
+
+
+def test_the_stop_report_drops_the_note_once_the_mass_has_a_verdict_not_the_envelope() -> None:
+    note = NotChecked(
+        statement=NOT_CHECKED, requirements=("mass", "asa", "cube"), mass_requirements=("mass",)
+    )
+    marks = (("cube", Mark.UNKNOWN), ("mass", Mark.PASS_RESEARCHED))
+    latest = Standing(revision=1, variant_id="v", code_sha256="c", built=True, marks=marks)
+    said = report((latest,), 1, AllPass(researched=(), unverified=()), not_checked=note)
+    assert f"Not checked: {NOT_CHECKED}." not in said

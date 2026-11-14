@@ -276,13 +276,9 @@ def test_the_scorecard_names_a_context_part_by_its_name() -> None:
     assert judged.statement == "At least 0.2 mm gap to Rail"
 
 
-def test_the_page_names_the_part_and_the_clearance() -> None:
-    assert (
-        describe(clearance("min_clearance", 0.2)) == f"At least 0.2 mm clear of context part {RAIL}"
-    )
-    assert (
-        describe(clearance("max_clearance", 0.5)) == f"At most 0.5 mm clear of context part {RAIL}"
-    )
+def test_a_clearance_on_a_part_with_no_name_says_no_id() -> None:
+    assert describe(clearance("min_clearance", 0.2)) == "At least 0.2 mm gap to the context part"
+    assert describe(clearance("max_clearance", 0.5)) == "At most 0.5 mm gap to the context part"
 
 
 def test_demand_reads_the_load_of_every_target_it_is_given_assumed_ones_included() -> None:

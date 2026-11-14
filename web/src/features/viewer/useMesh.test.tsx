@@ -96,22 +96,20 @@ describe("useMesh", () => {
     expect(geometry.mock.calls.filter(([id]) => id === "v1")).toHaveLength(asked);
   });
 
-  it("says in words, with no id, that an option an earlier version built needs a rebuild", async () => {
+  it("marks an option an earlier version built as outdated, so the stage can offer a rebuild", async () => {
     const outdated = new Refused(409, "OutdatedVariant: variant 4f2b440edaf2134a was stored by an earlier version of the sandbox", "OutdatedVariant");
     const { result } = mount(fakeApi(["v1"], { view: () => Promise.reject(outdated) }));
     await waitFor(() => {
       expect(result.current.status).toBe("failed");
     });
-    const reason = result.current.status === "failed" ? result.current.reason : "";
-    expect(reason).toMatch(/earlier version of the app/);
-    expect(reason).not.toMatch(/4f2b440edaf2134a|OutdatedVariant|sandbox/);
+    expect(result.current).toMatchObject({ status: "failed", outdated: true });
   });
 
   it("says why a mesh failed", async () => {
     const geometry = vi.fn().mockResolvedValue({ kind: "failed", brep_sha256: "b", version: "v", reason: "not a solid" });
     const { result } = mount(fakeApi(["v1"], { view: () => Promise.resolve(pendingView("v1")), geometry }));
     await waitFor(() => {
-      expect(result.current).toEqual({ status: "failed", reason: "not a solid" });
+      expect(result.current).toEqual({ status: "failed", reason: "not a solid", outdated: false });
     });
   });
 });

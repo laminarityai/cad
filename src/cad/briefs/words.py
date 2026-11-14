@@ -130,5 +130,5 @@ def _of_a_diameter(target: PlainHoles) -> str:
 def _clearance(clearance: Length, part: str, names: Mapping[str, str]) -> str:
     name = names.get(part)
     if name is None:
-        return f"{amount(clearance)} clear of context part {part}"
+        return f"{amount(clearance)} gap to the context part"
     return f"{amount(clearance)} gap to {name}"

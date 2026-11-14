@@ -7,6 +7,7 @@ import type {
   ExportFormat,
   ExportView,
   Declined,
+  Rebuilt,
   GeometryRead,
   MaterialListings,
   ProjectConversation,
@@ -61,6 +62,7 @@ export interface Api {
   exportOf(variantId: string, briefId: string, format: ExportFormat): Promise<ExportView>;
   addFile(projectId: string, file: File, unit: Unit | null, withheld: boolean): Promise<Added>;
   declinePart(projectId: string, partId: string): Promise<Declined>;
+  rebuild(variantId: string, briefId: string): Promise<Rebuilt>;
 }
 
 export type Unit = "mm" | "in";
@@ -81,7 +83,7 @@ type BodyOf<O> = O extends { requestBody: { content: { "application/json": infer
 type JsonOf<O> = O extends { responses: infer R } ? (R[Extract<keyof R, 200 | 201 | 202>] extends { content: { "application/json": infer T } } ? T : never) : never;
 type StreamRoute = { [P in Route<"get">]: Op<P, "get"> extends { responses: { 200: { content: { "text/event-stream": unknown } } } } ? P : never }[Route<"get">];
 
-type Options<O> = ([PathOf<O>] extends [never] ? unknown : { path: PathOf<O> }) &
+type Options<O> = { timeoutMs?: number } & ([PathOf<O>] extends [never] ? unknown : { path: PathOf<O> }) &
   ([QueryOf<O>] extends [never] ? unknown : { query?: QueryOf<O> }) &
   ([BodyOf<O>] extends [never] ? unknown : { body: BodyOf<O> });
 type Args<O> = Partial<Options<O>> extends Options<O> ? [options?: Options<O>] : [options: Options<O>];
@@ -90,6 +92,7 @@ interface Loose {
   path?: Record<string, string>;
   query?: Record<string, string | number | boolean | null | undefined>;
   body?: unknown;
+  timeoutMs?: number;
 }
 
 /** The URL of a route in `paths`, its `{name}` parts filled in from `path` and its query from `query`. */
@@ -100,12 +103,14 @@ function urlOf(route: string, { path = {}, query = {} }: Loose): string {
 }
 
 export const ANSWER_TIMEOUT_MS = 30_000;
+/** A rebuild starts a container and then runs the checks, so it is given longer than an answer. */
+export const REBUILD_TIMEOUT_MS = 180_000;
 
-async function fetchJson<T>(method: Uppercase<Method>, url: string, body?: unknown): Promise<T> {
+async function fetchJson<T>(method: Uppercase<Method>, url: string, body?: unknown, timeoutMs = ANSWER_TIMEOUT_MS): Promise<T> {
   const timeout = new AbortController();
   const timer = setTimeout(() => {
     timeout.abort();
-  }, ANSWER_TIMEOUT_MS);
+  }, timeoutMs);
   try {
     const response = await fetch(url, {
       method,
@@ -117,7 +122,7 @@ async function fetchJson<T>(method: Uppercase<Method>, url: string, body?: unkno
     if (!response.ok) throw await refusal(response, url);
     return (await response.json()) as T;
   } catch (error) {
-    if (timeout.signal.aborted) throw new Error(`the server did not answer in ${String(ANSWER_TIMEOUT_MS / 1000)} s`, { cause: error });
+    if (timeout.signal.aborted) throw new Error(`the server did not answer in ${String(timeoutMs / 1000)} s`, { cause: error });
     throw error;
   } finally {
     clearTimeout(timer);
@@ -148,7 +153,7 @@ async function addFile(project_id: string, file: File, unit: Unit | null, withhe
  * `paths` (generated from the server) does not have fails the type check. */
 export function request<M extends Method, P extends Route<M>>(method: M, route: P, ...[options]: Args<Op<P, M>>): Promise<JsonOf<Op<P, M>>> {
   const given: Loose = options ?? {};
-  return fetchJson(method.toUpperCase() as Uppercase<M>, urlOf(route, given), given.body);
+  return fetchJson(method.toUpperCase() as Uppercase<M>, urlOf(route, given), given.body, given.timeoutMs);
 }
 
 /** The open response of a server-sent-event route. The caller reads it and tells 401 from 404. */
@@ -184,5 +189,6 @@ export const httpApi: Api = {
   geometry: (variant_id) => request("get", "/v1/variants/{variant_id}/geometry", { path: { variant_id } }),
   exportOf: (variant_id, brief_id, format) => request("get", "/v1/variants/{variant_id}/exports/{format}", { path: { variant_id, format }, query: { brief_id } }),
   addFile,
+  rebuild: (variant_id, brief_id) => request("post", "/v1/variants/{variant_id}/rebuild", { path: { variant_id }, body: { brief_id }, timeoutMs: REBUILD_TIMEOUT_MS }),
   declinePart: (project_id, part_id) => request("post", "/v1/projects/{project_id}/parts/{part_id}/decline", { path: { project_id, part_id }, body: {} }),
 };
