@@ -1,14 +1,14 @@
 import type { ReactNode } from "react";
-import { ChevronDown, CircleCheck, Crosshair, CircleDashed, CircleX, Sparkles } from "lucide-react";
+import { ChevronDown, CircleCheck, Crosshair, CircleDashed, CircleX, Sparkles, Unplug } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "@/components/ui/collapsible";
 import { Spinner } from "@/components/ui/busy";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { Line, Status } from "./cards";
-import { assumedOf, awaitingOf, linesOf, MISSING, type Card } from "./cards";
+import { assumedOf, awaitingOf, linesOf, MISSING, NOT_ANSWERING, type Card } from "./cards";
 import type { Material } from "./model";
 
-const DOT: Record<Exclude<Status, "running"> | "none", string> = {
+const DOT: Record<Exclude<Status, "running" | "not_answering"> | "none", string> = {
   pass: "bg-pass",
   researched: "bg-res",
   agent: "bg-accent",
@@ -20,6 +20,8 @@ const DOT: Record<Exclude<Status, "running"> | "none", string> = {
 
 export function Dot({ status, className }: { status: Status | "none"; className?: string }) {
   if (status === "running") return <Spinner className={cn("size-3", className)} />;
+  if (status === "not_answering")
+    return <span role="img" aria-label={NOT_ANSWERING} className={cn("inline-block size-2.5 shrink-0 rounded-full border-2 border-ink-3", className)} />;
   return <span aria-hidden className={cn("inline-block size-2.5 shrink-0 rounded-full", DOT[status], className)} />;
 }
 
@@ -30,6 +32,7 @@ const PILL: Record<Status, { text: string; tone: string; Icon: (props: { classNa
   fail: { text: "Fail", tone: "text-fail", Icon: CircleX },
   unknown: { text: "Unknown", tone: "text-unk", Icon: CircleDashed },
   running: { text: "Checking", tone: "text-wait", Icon: Spinner },
+  not_answering: { text: NOT_ANSWERING, tone: "text-ink-3", Icon: Unplug },
   unchecked: { text: "No test yet", tone: "text-ink-3", Icon: CircleDashed },
 };
 
@@ -152,7 +155,7 @@ const NO_WHERE: WhereControl = { shown: null, hidden: false, onToggle: () => und
 
 export function Checks({ card, material, where = NO_WHERE }: { card: Card | undefined; material: Material | null; where?: WhereControl }) {
   const snapshot = card?.snapshot ?? null;
-  const { asked, also } = snapshot ? linesOf(snapshot) : { asked: [], also: [] };
+  const { asked, also } = card?.snapshot ? linesOf(card.snapshot, card.stale) : { asked: [], also: [] };
   const assumed = snapshot ? assumedOf(snapshot) : [];
   const waiting = snapshot ? awaitingOf(snapshot) : [];
   const loud = also.filter((one) => one.status !== "pass" && one.status !== "researched");

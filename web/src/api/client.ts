@@ -99,15 +99,30 @@ function urlOf(route: string, { path = {}, query = {} }: Loose): string {
   return search === "" ? filled : `${filled}?${search}`;
 }
 
+/** How long a call may go unanswered before it fails like any other failed read. TIMEOUT_NOTE */
+export const READ_TIMEOUT_MS = 30_000;
+
 async function fetchJson<T>(method: Uppercase<Method>, url: string, body?: unknown): Promise<T> {
-  const response = await fetch(url, {
-    method,
-    credentials: "same-origin",
-    headers: body === undefined ? { accept: "application/json" } : { accept: "application/json", "content-type": "application/json" },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  });
-  if (!response.ok) throw await refusal(response, url);
-  return (await response.json()) as T;
+  const timeout = new AbortController();
+  const timer = setTimeout(() => {
+    timeout.abort();
+  }, READ_TIMEOUT_MS);
+  try {
+    const response = await fetch(url, {
+      method,
+      credentials: "same-origin",
+      headers: body === undefined ? { accept: "application/json" } : { accept: "application/json", "content-type": "application/json" },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      signal: timeout.signal,
+    });
+    if (!response.ok) throw await refusal(response, url);
+    return (await response.json()) as T;
+  } catch (error) {
+    if (timeout.signal.aborted) throw new Error(`the server did not answer in ${String(READ_TIMEOUT_MS / 1000)} s`, { cause: error });
+    throw error;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function refusal(response: Response, url: string): Promise<Error> {

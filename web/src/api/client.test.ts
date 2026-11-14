@@ -33,7 +33,7 @@ describe("httpApi requests", () => {
   it.each(reads)("%s is one GET with the session cookie", async (_name, call, url) => {
     const fetcher = reply(200);
     await call();
-    expect(fetcher.mock.calls).toEqual([[url, JSON_GET]]);
+    expect(fetcher.mock.calls).toEqual([[url, { ...JSON_GET, signal: expect.any(AbortSignal) as AbortSignal }]]);
   });
 
   it("posts a confirmation answer as a form and reads the page's words", async () => {
@@ -83,7 +83,7 @@ describe("a read the server never answers", () => {
     expect(said).toBeNull();
     await vi.advanceTimersByTimeAsync(1);
     expect(said).toBeInstanceOf(Error);
-    expect(String((said as Error).message)).toMatch(/did not answer/);
+    expect((said as Error).message).toMatch(/did not answer/);
     vi.useRealTimers();
   });
 });

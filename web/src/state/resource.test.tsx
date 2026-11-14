@@ -52,7 +52,7 @@ describe("useResource", () => {
     expect(load).toHaveBeenCalledTimes(2);
   });
 
-  it("follows: loads again followMs after each load ends, and keeps the data when a follow fails", async () => {
+  it("follows: loads again followMs after each load ends, and keeps the data marked stale when a follow fails", async () => {
     const load = vi
       .fn<() => Promise<string>>()
       .mockResolvedValueOnce("one")
@@ -66,7 +66,7 @@ describe("useResource", () => {
     expect(result.current.resource).toEqual({ status: "ok", data: "two" });
     await tick(1000);
     expect(load).toHaveBeenCalledTimes(3);
-    expect(result.current.resource).toEqual({ status: "ok", data: "two" });
+    expect(result.current.resource).toEqual({ status: "ok", data: "two", stale: true });
     await tick(1000);
     expect(result.current.resource).toEqual({ status: "ok", data: "four" });
   });
@@ -201,7 +201,7 @@ describe("useResources", () => {
     expect(result.current.resources).toEqual({ b: { status: "ok", data: "B" }, c: { status: "ok", data: "C" } });
   });
 
-  it("keeps the data of a key that stays when its read after a key change fails", async () => {
+  it("keeps the data of a key that stays, marked stale, when its read after a key change fails", async () => {
     let down = false;
     const load = (key: string) => (down ? Promise.reject(new Error("server restarting")) : Promise.resolve(key.toUpperCase()));
     const { result, rerender } = renderHook(({ keys }) => useResources(keys, load), { initialProps: { keys: ["a"] } });
@@ -209,7 +209,7 @@ describe("useResources", () => {
     down = true;
     rerender({ keys: ["a", "b"] });
     await settle();
-    expect(result.current.resources).toEqual({ a: { status: "ok", data: "A" }, b: { status: "error", message: "server restarting", kind: null } });
+    expect(result.current.resources).toEqual({ a: { status: "ok", data: "A", stale: true }, b: { status: "error", message: "server restarting", kind: null } });
   });
 
   it("follows each key on its own, and a sign-out ends only the key that had it", async () => {

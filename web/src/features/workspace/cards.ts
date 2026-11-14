@@ -8,15 +8,16 @@ import type { Where } from "@/features/viewer/where";
 const POLL_MS = 1500;
 
 /** A card with no scorecard says why: its first read has not answered, the option was never
- * scored, or the read failed. Only the first is work that is happening. */
-export type Card = { snapshot: Scorecard } | { snapshot: null; missing: "reading" | "not_scored" | "unread" };
+ * scored, or the read failed. Only the first is work that is happening. A `stale` card's last read
+ * failed, so a check it shows running may not be. */
+export type Card = { snapshot: Scorecard; stale?: true } | { snapshot: null; missing: "reading" | "not_scored" | "unread" };
 
 const NOT_SCORED = "NotScored";
 
 function cardOf(resource: Resource<Scorecard>): Card {
   switch (resource.status) {
     case "ok":
-      return { snapshot: resource.data };
+      return resource.stale ? { snapshot: resource.data, stale: true } : { snapshot: resource.data };
     case "loading":
       return { snapshot: null, missing: "reading" };
     case "error":
@@ -58,7 +59,7 @@ function short(statement: string): string {
 }
 
 /** `agent` is a pass by an agent-written check the person approved, which our team has not reviewed. */
-export type Status = "pass" | "fail" | "unknown" | "running" | "unchecked" | "researched" | "agent";
+export type Status = "pass" | "fail" | "unknown" | "running" | "not_answering" | "unchecked" | "researched" | "agent";
 
 export interface Line {
   key: string;
@@ -175,7 +176,9 @@ function withUnpassedCheckReason(reason: string, result: DoneCheck | undefined):
   return result && result.verdict !== "pass" ? `${reason} ${sentence(result.reason)}` : reason;
 }
 
-export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
+/** `stale` shows a running check as not answering, since no read says it still runs. */
+export function linesOf(snapshot: Scorecard, stale = false): { asked: Line[]; also: Line[] } {
+  const busy = stale ? "not_answering" : "running";
   const results = snapshot.results;
   const done = (id: string, instance: string) => results.find((one): one is DoneCheck => isDone(one) && one.check_id === id && one.instance === instance);
   const running = (id: string, instance: string) => results.some((one) => isRunning(one) && one.check_id === id && one.instance === instance);
@@ -216,7 +219,7 @@ export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
         asked.push({
           key,
           label: short(one.statement),
-          status: "running",
+          status: busy,
           value: "",
           why: "",
           formula: "",
@@ -255,7 +258,7 @@ export function linesOf(snapshot: Scorecard): { asked: Line[]; also: Line[] } {
         return {
           key: `check:${one.check_id}`,
           label,
-          status: "running" as const,
+          status: busy,
           value: "",
           why: "",
           formula: one.formula,
@@ -342,6 +345,8 @@ function holesBand(holes: WaitingHoles): Awaiting["values"][number] {
   };
 }
 
+export const NOT_ANSWERING = "Not answering";
+
 export const MISSING: Record<Extract<Card, { snapshot: null }>["missing"], string> = {
   reading: "Reading the checks",
   not_scored: "Not checked yet.",
@@ -354,9 +359,10 @@ export function summaryOf(card: Card | undefined): {
 } {
   if (!card) return { status: "none", text: "" };
   if (!card.snapshot) return { status: "none", text: MISSING[card.missing] };
-  const { asked, also } = linesOf(card.snapshot);
+  const { asked, also } = linesOf(card.snapshot, card.stale);
   const all = [...asked, ...also];
   if (all.some((one) => one.status === "running")) return { status: "running", text: "Checking" };
+  if (all.some((one) => one.status === "not_answering")) return { status: "not_answering", text: NOT_ANSWERING };
   const fails = all.filter((one) => one.status === "fail").length;
   if (fails > 0)
     return {
