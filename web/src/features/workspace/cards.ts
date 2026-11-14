@@ -74,7 +74,7 @@ export interface Line {
 }
 
 const CHECK_NAMES: Record<string, string> = {
-  closed_solid: "One solid",
+  closed_solid: "Closed solid",
   interference: "No parts overlap",
   mass: "Mass",
   extents: "Size",
@@ -276,7 +276,8 @@ export function linesOf(snapshot: Scorecard, busy: "running" | "not_answering" =
         ...(specimen ? { specimen } : {}),
       };
     });
-  return { asked, also };
+  const untested = snapshot.untested.map((text, n): Line => ({ key: `untested:${String(n)}`, label: text, status: "unchecked", value: "", why: "", formula: "", sources: [] }));
+  return { asked, also: [...also, ...untested] };
 }
 
 export interface Assumed {

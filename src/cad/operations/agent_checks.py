@@ -99,7 +99,7 @@ def with_agent_checks(
     approved = approved_checks(roots, confirmed)
     if not approved:
         return card
-    if run:
+    if run and not card.bodies:
         brep = entry.open_entry(variants, card.variant_id, image.image_tag(image.BUILD)).brep
         stored = [one.stored for one in approved]
         verdicts.run_geometry(roots.projects, project, brep, card.brep_sha256, stored)
@@ -107,7 +107,7 @@ def with_agent_checks(
     def geometry(stored: StoredCheck) -> GeometryRun | None:
         return runs.read(roots.projects, project, verdicts.version(stored), card.brep_sha256)
 
-    material = table.get_material(card.material_key)
+    material = None if card.material_key is None else table.get_material(card.material_key)
     judged = verdicts.judged(basis, approved, card.results, material, geometry)
     return card.model_copy(update={"basis": judged})
 

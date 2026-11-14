@@ -3,6 +3,7 @@ from datetime import date
 
 from cad.checks.container import closed_solid, interference
 from cad.checks.container.check import (
+    BodyPart,
     CheckModule,
     Quick,
     Subject,
@@ -12,13 +13,17 @@ from cad.checks.container.check import (
     required_pass,
 )
 from cad.checks.container.inputs import Input
-from cad.checks.container.kernel import Unreadable
-from cad.checks.container.wire import FindingWire, SourceLiteral
+from cad.checks.container.kernel import Kernel, Point, Shape, Unreadable
+from cad.checks.container.wire import FindingWire, MeasuredWire, SourceLiteral
 
 ID = "mass"
 FORMULA = (
     "mass = volume * density, with volume and center of mass from surface integration over the "
-    "shape and density from the materials table row for the given key; unknown, with no "
+    "shape and density from the materials table row for the given key; for a variant of named "
+    "bodies, each body's volume, density and mass are volume:<body>, density:<body> and "
+    "mass:<body>, from its own solids and its own material's row, mass is their sum and "
+    "center_of_mass the mean of the bodies' centers weighted by mass, and while any body's "
+    "density is unknown neither mass nor center_of_mass is measured; unknown, with no "
     "measured value, unless closed_solid and interference pass"
 )
 SOURCES: tuple[SourceLiteral, ...] = (
@@ -51,6 +56,8 @@ def run(subject: Subject) -> FindingWire:
     unmet = required_pass(subject, REQUIRES, "weigh")
     if unmet is not None:
         return unmet
+    if subject.bodies:
+        return _weighed(subject.kernel, subject.kernel.solids(shape), subject.bodies)
     props = subject.kernel.volume_props(shape)
     if not math.isfinite(props.volume):
         return finding("fail", "the volume is not a finite number")
@@ -76,3 +83,56 @@ def run(subject: Subject) -> FindingWire:
         measure("density", kg_per_mm3, "kg/mm^3"),
         measure("mass", props.volume * kg_per_mm3, "kg"),
     )
+
+
+def _weighed(
+    kernel: Kernel, solids: tuple[Shape, ...], bodies: tuple[BodyPart, ...]
+) -> FindingWire:
+    each: list[MeasuredWire] = []
+    weights: list[tuple[float, Point]] = []
+    unknown: list[str] = []
+    whole = 0.0
+    for body in bodies:
+        props = [kernel.volume_props(solids[index]) for index in body.solids]
+        volume = sum(one.volume for one in props)
+        if not (math.isfinite(volume) and volume > 0):
+            return finding(
+                "fail", f"the volume of {body.name} is {volume:g} mm^3; it must be above 0"
+            )
+        whole += volume
+        each.append(measure(f"volume:{body.name}", volume, "mm^3"))
+        density = body.inputs.value(Input.DENSITY)
+        if density["kind"] == "unknown":
+            unknown.append(f"{body.name}: {density['reason']}")
+            continue
+        mass = volume * density["magnitude"]
+        each.append(measure(f"density:{body.name}", density["magnitude"], "kg/mm^3"))
+        each.append(measure(f"mass:{body.name}", mass, "kg"))
+        centre = _mean([(one.volume, one.center) for one in props])
+        weights.append((mass, centre))
+    if unknown:
+        said = "; ".join(unknown)
+        return finding(
+            "unknown",
+            f"no mass is measured while a density is unknown: {said}",
+            measure("volume", whole, "mm^3"),
+            *each,
+        )
+    total = sum(mass for mass, _ in weights)
+    x, y, z = _mean(weights)
+    return finding(
+        "pass",
+        f"{total:g} kg over {len(bodies)} bodies, each at its own material's density",
+        measure("volume", whole, "mm^3"),
+        measure("center_of_mass:x", x, "mm"),
+        measure("center_of_mass:y", y, "mm"),
+        measure("center_of_mass:z", z, "mm"),
+        *each,
+        measure("mass", total, "kg"),
+    )
+
+
+def _mean(weighted: list[tuple[float, Point]]) -> Point:
+    total = sum(weight for weight, _ in weighted)
+    x, y, z = (sum(weight * at[axis] for weight, at in weighted) / total for axis in range(3))
+    return (x, y, z)

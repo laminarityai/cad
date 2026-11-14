@@ -6,7 +6,7 @@ from typing import cast
 
 from cad.checks.container.calculix import Material, NodalField, NodalLoads, SolveFailed, solve
 from cad.checks.container.channel import serve
-from cad.checks.container.check import Fem, Subject, finding
+from cad.checks.container.check import BodyPart, Fem, Subject, finding
 from cad.checks.container.inputs import Inputs
 from cad.checks.container.kernel import (
     Kernel,
@@ -63,8 +63,15 @@ def run(
     results: list[ResultWire] = []
     for check in with_requirements(request["checks"]):
         reported = {result["id"]: result for result in results}
-        inputs = Inputs(check.TAKES, request["values"], tuple(request["load_cases"]))
-        subject = Subject(kernel, engines, shape, inputs, reported, context)
+        cases = tuple(request["load_cases"])
+        inputs = Inputs(check.TAKES, request["values"], cases)
+        bodies = tuple(
+            BodyPart(
+                body["name"], tuple(body["solids"]), Inputs(check.TAKES, body["values"], cases)
+            )
+            for body in request["bodies"]
+        )
+        subject = Subject(kernel, engines, shape, inputs, reported, context, bodies)
         results.append(_run_check(check.ID, check.run, subject))
     report: CheckedReport = {"kind": "checked", "results": results}
     yield report

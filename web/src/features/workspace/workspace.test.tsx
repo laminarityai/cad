@@ -66,7 +66,7 @@ describe("loadWorkspace", () => {
           context_parts: [
             { ...variantPart, part_id: "k1", name: "rail", variant_id: "v9", outcome: "confirmed" as const, size_mm: [30, 20, 10] as [number, number, number] },
             { ...variantPart, part_id: "k2", name: "shelf", variant_id: "v8", outcome: "waiting" as const, size_mm: [1, 2, 3] as [number, number, number] },
-            { ...variantPart, part_id: "k3", name: "motor", origin: "upload" as const, brief_id: null, variant_id: null, file_name: "motor.step", solids: 3, holes: 4, left_out: "1 of 4 bodies could not be read" },
+            { ...variantPart, part_id: "k3", name: "motor", origin: "upload" as const, brief_id: null, variant_id: null, file_name: "motor.step", solids: 3, holes: 4, left_out: "1 of 4 solids or shells could not be read" },
           ],
           documents: [{ file_id: "file-0123456789abcdef", name: "spec.pdf", media_type: "application/pdf" as const, size: 10, withheld: false }],
         }),
@@ -84,7 +84,7 @@ describe("loadWorkspace", () => {
     expect(one?.materialOf[2]).toBeNull();
     expect(one?.fits).toEqual([{ name: "rail", variantId: "v9" }]);
     expect(model.parts[0]).toEqual({ id: "k1", name: "rail", size: "30 × 20 × 10 mm", state: "confirmed", uploaded: false, leftOut: null });
-    expect(model.parts[2]).toMatchObject({ size: "30 × 20 × 10 mm · 3 solids · 4 holes", uploaded: true, leftOut: "1 of 4 bodies could not be read" });
+    expect(model.parts[2]).toMatchObject({ size: "30 × 20 × 10 mm · 3 solids · 4 holes", uploaded: true, leftOut: "1 of 4 solids or shells could not be read" });
     expect(model.documents).toEqual([{ id: "file-0123456789abcdef", name: "spec.pdf", withheld: false }]);
     expect(model.conversationId).toBe("c1");
   });

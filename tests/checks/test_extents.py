@@ -26,7 +26,11 @@ LOOSE_FACE = (
     + "result = Compound([Box(10, 10, 10), Pos(30, 0, 0) * Box(10, 10, 10).faces()[0]])\n"
 )
 OPEN_SHELL = STAR_IMPORT + "result = Shell(Box(10, 10, 10).faces()[:-1])\n"
-TWO_BOXES = STAR_IMPORT + "result = Compound([Box(10, 10, 10), Pos(100, 0, 0) * Box(10, 10, 10)])\n"
+TWO_BOXES = (
+    STAR_IMPORT
+    + 'box = Box(10, 10, 10)\nbox.label = "box"\nlid = Pos(100, 0, 0) * Box(10, 10, 10)\n'
+    + 'lid.label = "lid"\nresult = Compound(children=[box, lid])\n'
+)
 DIAGONAL = 10 * 2**0.5
 SORTED_NAMES = ("smallest", "middle", "largest")
 GRADE_PY_142404A_SORTED_EXTENTS_MM = {
@@ -79,7 +83,13 @@ def test_where_the_part_sits_does_not_change_its_extents(check: Check) -> None:
     assert along_axes(extents) == pytest.approx([10.0, 20.0, 30.0], abs=1e-9)
 
 
-@pytest.mark.parametrize("code", [OPEN_SHELL, LOOSE_FACE, TWO_BOXES], ids=["shell", "face", "two"])
+def test_the_extents_of_named_bodies_bound_the_whole_result(check: Check) -> None:
+    extents = check(TWO_BOXES).result("extents")
+    assert extents.verdict == Verdict.PASS, extents.reason
+    assert along_axes(extents) == pytest.approx([110.0, 10.0, 10.0], abs=1e-9)
+
+
+@pytest.mark.parametrize("code", [OPEN_SHELL, LOOSE_FACE], ids=["shell", "face"])
 def test_a_shape_that_is_not_one_closed_solid_has_unknown_extents_and_no_number(
     code: str, check: Check
 ) -> None:

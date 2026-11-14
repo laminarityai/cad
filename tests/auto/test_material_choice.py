@@ -55,3 +55,16 @@ async def test_a_start_with_a_choice_records_it_on_every_revision_it_builds(s: S
         "key": "prusament-pla",
         "set_by": {"kind": "agent_argument", "statement": AGENT_CHOSE, "reason": REASON},
     }
+
+
+async def test_a_start_whose_materials_differ_from_the_confirmed_material_is_refused(
+    s: Session,
+) -> None:
+    pla = {"target": {"kind": "made_of", "material": "prusament-pla"}, "quote": "PLA"}
+    brief_id = await s.confirmed("A PLA plate under 150 g", pla, UNDER_150)
+    steel = {"body": "gear", "key": "cliffs-hot-rolled-cs-type-b", "reason": "steel wears well"}
+    text = await s.refusal("auto_start", brief_id=brief_id, materials=[steel])
+    assert "MaterialPinned" in text
+    assert "materials names cliffs-hot-rolled-cs-type-b, but the user confirmed" in text
+    project = read_brief(s.roots, brief_id).project
+    assert not (s.roots.projects / project / "auto").exists()

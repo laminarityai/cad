@@ -22,6 +22,7 @@ from cad.scorecard.model import (
 from cad.scorecard.waiting import Waiting
 
 NO_REQUIREMENTS: Final = "no requirements"
+UNTESTED: Final = "untested:"
 
 
 class By(StrEnum):
@@ -100,10 +101,12 @@ class Tracking:
 
 
 def outcomes_of(card: Scorecard) -> tuple[RequirementOutcome, ...]:
+    """Each requirement of the brief, and each line the card lists as untested, such as how its
+    bodies are joined, which counts as a requirement no check decides, once per scored variant."""
     basis = card.basis
     if not isinstance(basis, AgainstBrief):
         return ()
-    return tuple(
+    stated = tuple(
         RequirementOutcome(
             one.requirement_id,
             one.verdict if isinstance(one, Checked | AgentChecked) else Verdict.UNKNOWN,
@@ -112,6 +115,11 @@ def outcomes_of(card: Scorecard) -> tuple[RequirementOutcome, ...]:
         )
         for one in basis.requirements
     )
+    untested = tuple(
+        RequirementOutcome(f"{UNTESTED}{number}", Verdict.UNKNOWN, By.NONE, line)
+        for number, line in enumerate(card.untested)
+    )
+    return stated + untested
 
 
 def by_of(result: RequirementResult) -> By:

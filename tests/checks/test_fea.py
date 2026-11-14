@@ -160,4 +160,4 @@ def test_fea_needs_one_closed_solid() -> None:
     inputs = Inputs(fea.TAKES, {}, (CASE,))
     found = fea.run(Subject(FakeKernel(), NoFem(), FakeShape(), inputs, reported))
     assert found["verdict"] == "unknown"
-    assert found["reason"].startswith("closed_solid is fail, so there is no one solid to load")
+    assert found["reason"].startswith("closed_solid is fail, so there is no sound solid to load")

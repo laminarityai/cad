@@ -283,16 +283,35 @@ AGENT_CHECKS = (
 )
 
 COLOURS: Final = (
-    "Colour the model the way CAD does, by material and by area, such as a grey aluminium body "
-    "and a black rubber grip. The model is still one solid: fuse it first, then set color and "
-    "label on the final shape after its booleans and fillets, and for some of its faces list "
+    "Colour every model the way CAD does: give each body its material's colour, such as black "
+    "for carbon fibre and grey for steel, and give its own colour and label to each area a "
+    "person would point at, such as a grip or a mounting face. When the brief has parts of "
+    "different materials, such as steel gears on a carbon fibre plate, build each part as its "
+    "own body: the solids that share a label, all of one material. Fuse only what is one piece. "
+    "result = plate + gears fuses the gears into the plate, and the build gives one solid of one "
+    "material with no warning. Set each body's label after its last shape operation, because a "
+    "fuse, a fillet, the mirror and scale functions and a BuildPart block drop it, then return "
+    "result = Compound(children=[plate, gears]), where gears is a solid or Compound(children="
+    '[...], label="gear"). A body name is lowercase letters, digits and hyphens, such as '
+    "base-plate. A build of more than one solid in which a solid has no label is refused. The "
+    "build's outcome lists bodies, each with its name and solid indexes, and a result of one "
+    "solid has none. For some faces of a body, list "
     'Compound(faces, label="grip", color=Color(0.1, 0.1, 0.1)) in a module-level list named '
-    "areas. Colour needs no rebuild of its own: set it with the next change. Colour is how the "
-    "model looks and never a result: no check reads it and it decides nothing. To see what was "
-    "kept, read areas in the build's outcome, which gives each area's name, colour and "
-    "face_count. A colour lost to a fuse, a fillet or a Pos(...) * move is simply missing from "
-    "areas. areas_dropped is set only when the colours could not be read or broke a limit, such as "
-    "too many faces."
+    "areas. A label in areas names an area and never a body. Colour needs no rebuild of its "
+    "own: set it with the next change. Colour is how the model looks and never a result: no "
+    "check reads it and it decides nothing. To see what was kept, read areas in the build's "
+    "outcome, which gives each area's name, colour and face_count. A colour lost to a fuse, a "
+    "fillet or a Pos(...) * move is simply missing from areas. areas_dropped is set only when "
+    "the colours could not be read or broke a limit, such as too many faces."
+)
+
+BODY_MATERIALS: Final = (
+    "A variant of named bodies takes materials in place of material_key: one entry for each "
+    "body, with its name as its label sets it and its key, and on build_variant and auto_start "
+    "a one-line reason. Omit an entry to keep the material the slot recorded for that body, or "
+    "omit materials to keep them all. A confirmed made_of names the material of every body, so "
+    "pass none. One material_key for a variant of more than one body is refused, unless it is "
+    "the confirmed material."
 )
 
 MATERIAL = (
@@ -302,7 +321,7 @@ MATERIAL = (
     "one-line material_reason. It is a design choice, not a requirement and not a verdict, and "
     "the scorecard says the agent chose it. When the person asks for a particular material, "
     "propose it as a made_of requirement for them to confirm. Never ask the person which "
-    "material to use."
+    "material to use. " + BODY_MATERIALS
 )
 
 INSTRUCTIONS: Final = " ".join(
@@ -323,77 +342,9 @@ INSTRUCTIONS: Final = " ".join(
     )
 )
 
-CHAT_AUTO: Final = (
-    "You act when the person writes or answers the confirmation page. After ask_to_confirm "
-    "returns pending, the page shows a Confirm card in this chat. Tell the person in one short "
-    "sentence to confirm it there, and end your message. When a scored option fails a "
-    "requirement the person confirmed and a check decides, or an agent-written check the "
-    "person approved decides, or that check reads unknown with a reason that says to change "
-    "the design, such as a part that bends too far for the stress check, call auto_start with "
-    "its brief_id, then call auto_revise with new build123d code for the requirements that "
-    "fail or are unknown until the run stops. Call auto_ask when you are stuck or the person "
-    "must decide. The server decides when the run stops, and the person can press Stop at any "
-    "time. After a stop, give the person the stop's report and end your message: nothing "
-    "builds in this conversation until the person writes or answers."
-)
-
-CHAT_AUTO_NUDGE: Final = (
-    "Auto run {run_id} has not stopped. Call auto_revise with new build123d code for the "
-    "failing requirements, or auto_ask with a note if you are stuck or the person must decide. "
-    "Do not end your message while the run is running."
-)
-
-CHAT_PAGE_ANSWERED: Final = (
-    "The person answered the confirmation page of project {project}: they confirmed {confirmed} "
-    "and declined {declined}.{notes} Call ask_to_confirm with project_id {project} to read each "
-    "item's outcome, and list_requirements for what they confirmed. Nothing you built is gone, "
-    "and the scorecards now judge it against what they confirmed with no rebuild. Then carry on "
-    "without waiting for them. Score again to read the verdicts. For what they declined, read "
-    "their note and propose again, file the value as an assumption, or drop it. When nothing "
-    "waits for the person and an option fails a requirement they confirmed that a check "
-    "decides, call auto_start with its brief_id, then auto_revise until the run stops."
-)
-
-CHAT_OPEN_PROJECT: Final = (
-    "This conversation is the chat of project {project_id}. Its briefs, oldest first, each with "
-    "its brief_id and its first words:\n{briefs}\nThe person's page shows every brief of this "
-    "project. A new part is a new brief in this project: call create_brief with this project_id. "
-    "A slot they name is a slot of the brief they are talking about; ask which brief only when "
-    "it is unclear. Call variant_set with this project_id and that brief_id for each slot's "
-    "variant_id and revision, and variant_code for the code a variant was built from. To change "
-    "a slot, edit that code and build it with build_variant, that brief_id and that slot. A "
-    "change to a slot stays in its brief: a revision when no number is stated, and a new "
-    "proposal on that brief when one is. Then score the new variant with score_variant and that "
-    "brief_id: only that runs the checks, and the person's scorecard waits on it. The "
-    "material is the one the brief's made_of requirement confirms (list_requirements shows it). "
-    "When none does, choose one for each variant and pass it to build_variant as material_key "
-    "with a one-line material_reason: omit both to keep the slot's choice. When the person asks "
-    "for a particular material, propose it as a made_of requirement for them to confirm. Never "
-    "ask the person to choose a material. Do not "
-    "ask the person for code, a brief, a material or an id that these tools return."
-)
 
 WITHHELD_REFUSAL: Final = (
     "{name} is a licensed standard the person kept from you, so you cannot read it. Ask the "
     "person for the figure you need, in their own words. A requirement may quote {name} only "
     "with words the person typed, and the server checks them against the file."
-)
-WITHHELD_NOTE: Final = ", withheld: a standard the person kept from you"
-CHAT_ADDED: Final = (
-    "The person added these files to the project:\n{files}\nA part they added is confirmed by "
-    "the upload. Call list_files for its facts before you design with it, and read_file for a "
-    "document you may read."
-)
-
-CHAT_ON_THE_PAGE: Final = (
-    "The person reads this chat beside their project page. The page shows every brief, every "
-    "variant in its own tab with its 3D view, its scorecard as it runs, and each slot's earlier "
-    "revisions, and it updates by itself after each build and score. So never restate a "
-    "scorecard, a check result, a measurement, a list of variants or an id in your reply, and "
-    "never write a table. After you build or score, reply in one or two short sentences that "
-    "say what changed and point at the page, for example: Built 3 lid options, see the tabs. "
-    "When the person must choose, ask one short question. When a target the person stated waits "
-    "for them, call ask_to_confirm after you build and score. The page draws the items in this "
-    "chat with a Confirm button, so do not list them yourself. Never ask the person for an id "
-    "or a material."
 )

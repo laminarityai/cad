@@ -24,12 +24,24 @@ class ValueUnknown(TypedDict):
 type ValueWire = ValueKnown | ValueUnknown
 
 
+class BodyWire(TypedDict):
+    """A body of the variant: the solids that share a name, as indices in the kernel's explorer
+    order of the BREP, and the values its own material gives."""
+
+    name: str
+    solids: list[int]
+    values: dict[str, ValueWire]
+
+
 class RequestWire(TypedDict):
     checks: list[str]
     values: dict[str, ValueWire]
+    """The material values of a variant with no named body. Empty when `bodies` is not."""
     load_cases: list["LoadCaseWire"]
     context_bytes: int
     """The last `context_bytes` bytes of stdin are the context part's BREP; 0 sends none."""
+    bodies: list[BodyWire]
+    """Empty for a variant of one unnamed body."""
 
 
 class MeasuredWire(TypedDict):

@@ -692,6 +692,41 @@ export interface components {
          */
         Axis: "long" | "hole_axis";
         Basis: components["schemas"]["NoBrief"] | components["schemas"]["AwaitingConfirmation"] | components["schemas"]["AgainstBrief"];
+        Bodies: components["schemas"]["Body"][];
+        /**
+         * Body
+         * @description The solids of a variant's result that share a name, numbered as the kernel's explorer
+         *     numbers them.
+         */
+        Body: {
+            name: components["schemas"]["BodyName"];
+            solids: components["schemas"]["SolidIndex"][];
+        };
+        /**
+         * BodyChoice
+         * @description The material the agent chose for one named body of a slot, when no confirmed made_of
+         *     names one.
+         */
+        BodyChoice: {
+            body: components["schemas"]["BodyName"];
+            key: string;
+            reason: components["schemas"]["Reason"];
+        };
+        /** BodyMaterial */
+        BodyMaterial: {
+            body: components["schemas"]["BodyName"];
+            key: string;
+        };
+        /**
+         * BodyMaterialUse
+         * @description What one named body is made of and what set it.
+         */
+        BodyMaterialUse: {
+            key: string;
+            set_by: components["schemas"]["SetBy"];
+            body: components["schemas"]["BodyName"];
+        };
+        BodyName: string;
         /** BoundingBoxWire */
         BoundingBoxWire: {
             xmin: number;
@@ -1414,6 +1449,8 @@ export interface components {
             option: components["schemas"]["Option"] | null;
             material_name: string | null;
             card_etag: string | null;
+            /** @default [] */
+            body_materials: components["schemas"]["BodyMaterialUse"][];
         };
         /** MessageSent */
         MessageSent: {
@@ -1722,6 +1759,8 @@ export interface components {
             field: string;
             /** @default null */
             specimen?: components["schemas"]["Specimen"] | null;
+            /** @default  */
+            body?: string;
         };
         /**
          * ReadMissing
@@ -1735,6 +1774,8 @@ export interface components {
             kind: "missing";
             field: string;
             reason: string;
+            /** @default  */
+            body?: string;
         };
         /**
          * ReadResearched
@@ -1751,7 +1792,10 @@ export interface components {
             url: string;
             quote: string;
             sha256: string;
+            /** @default  */
+            body?: string;
         };
+        Reason: string;
         Reported: components["schemas"]["CheckResult"] | components["schemas"]["PendingCheck"] | components["schemas"]["MeasureOnly"];
         RequiredCount: number;
         /** Requirement */
@@ -1815,7 +1859,8 @@ export interface components {
             variant_id: string;
             /** @default null */
             rebuilt_from: string | null;
-            material_key: string;
+            /** @default null */
+            material_key?: string | null;
             table_version: string;
             check_image_digest: string;
             brep_sha256: string;
@@ -1826,7 +1871,18 @@ export interface components {
             basis: components["schemas"]["Basis"];
             /** @default [] */
             not_verified?: components["schemas"]["AgentMeasurement"][];
-            material: components["schemas"]["MaterialUse"];
+            /** @default [] */
+            materials?: components["schemas"]["BodyMaterial"][];
+            /** @default [] */
+            bodies?: components["schemas"]["Bodies"];
+            /** @default null */
+            bodies_sha256?: string | null;
+            /** @default [] */
+            untested?: string[];
+            /** @default null */
+            material?: components["schemas"]["MaterialUse"] | null;
+            /** @default [] */
+            body_materials?: components["schemas"]["BodyMaterialUse"][];
             /** @default [] */
             assumptions?: components["schemas"]["AssumedRow"][];
             /** @default [] */
@@ -1836,6 +1892,12 @@ export interface components {
             /** @default null */
             research_problem?: string | null;
             etag: string;
+        };
+        ScoredBodies: components["schemas"]["ScoredBody"][];
+        /** ScoredBody */
+        ScoredBody: {
+            body: components["schemas"]["BodyName"];
+            key: components["schemas"]["MaterialKey"];
         };
         /**
          * SelectionNote
@@ -1924,6 +1986,7 @@ export interface components {
              */
             form: "sheet";
         };
+        SolidIndex: number;
         /** Source */
         Source: {
             url: string;
@@ -1964,7 +2027,8 @@ export interface components {
             brief_id: string;
             project: string;
             decision_sha256: string;
-            material_key: string;
+            /** @default null */
+            material_key?: string | null;
             /** @default null */
             material_reason: string | null;
             watermark: [
@@ -1972,6 +2036,8 @@ export interface components {
                 number
             ][];
             conflicts: components["schemas"]["Bounds"][];
+            /** @default [] */
+            materials?: components["schemas"]["BodyChoice"][];
         };
         /**
          * Status
@@ -2356,6 +2422,12 @@ export type AwaitingValue = components['schemas']['AwaitingValue'];
 export type Away = components['schemas']['Away'];
 export type Axis = components['schemas']['Axis'];
 export type Basis = components['schemas']['Basis'];
+export type Bodies = components['schemas']['Bodies'];
+export type Body = components['schemas']['Body'];
+export type BodyChoice = components['schemas']['BodyChoice'];
+export type BodyMaterial = components['schemas']['BodyMaterial'];
+export type BodyMaterialUse = components['schemas']['BodyMaterialUse'];
+export type BodyName = components['schemas']['BodyName'];
 export type BoundingBoxWire = components['schemas']['BoundingBoxWire'];
 export type Bounds = components['schemas']['Bounds'];
 export type BriefSpan = components['schemas']['BriefSpan'];
@@ -2469,6 +2541,7 @@ export type QuantityJson = components['schemas']['QuantityJson'];
 export type ReadCited = components['schemas']['ReadCited'];
 export type ReadMissing = components['schemas']['ReadMissing'];
 export type ReadResearched = components['schemas']['ReadResearched'];
+export type Reason = components['schemas']['Reason'];
 export type Reported = components['schemas']['Reported'];
 export type RequiredCount = components['schemas']['RequiredCount'];
 export type Requirement = components['schemas']['Requirement'];
@@ -2478,6 +2551,8 @@ export type ResearchRequest = components['schemas']['ResearchRequest'];
 export type RevisionView = components['schemas']['RevisionView'];
 export type Running = components['schemas']['Running'];
 export type ScorecardSnapshot = components['schemas']['ScorecardSnapshot'];
+export type ScoredBodies = components['schemas']['ScoredBodies'];
+export type ScoredBody = components['schemas']['ScoredBody'];
 export type SelectionNote = components['schemas']['SelectionNote'];
 export type ServerInfo = components['schemas']['ServerInfo'];
 export type SetBy = components['schemas']['SetBy'];
@@ -2486,6 +2561,7 @@ export type SetByRequirement = components['schemas']['SetByRequirement'];
 export type ShapeWire = components['schemas']['ShapeWire'];
 export type ShapesWire = components['schemas']['ShapesWire'];
 export type Sheet = components['schemas']['Sheet'];
+export type SolidIndex = components['schemas']['SolidIndex'];
 export type Source = components['schemas']['Source'];
 export type Specimen = components['schemas']['Specimen'];
 export type Standing = components['schemas']['Standing'];
@@ -2560,6 +2636,7 @@ export interface operations {
         parameters: {
             query?: {
                 material_key?: components["schemas"]["MaterialKey"] | null;
+                materials?: components["schemas"]["ScoredBodies"] | null;
                 brief_id?: string | null;
             };
             header?: never;

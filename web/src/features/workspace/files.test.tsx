@@ -8,7 +8,7 @@ import { FakeChat, FakeViewer, fakeApi } from "@/test/fakes";
 import { Files } from "./Files";
 import type { Doc, Part } from "./model";
 
-const motor: Part = { id: "part-0123456789abcdef", name: "motor", size: "42 × 42 × 40 mm · 4 holes", state: "confirmed", uploaded: true, leftOut: "1 of 3 bodies could not be read" };
+const motor: Part = { id: "part-0123456789abcdef", name: "motor", size: "42 × 42 × 40 mm · 4 holes", state: "confirmed", uploaded: true, leftOut: "1 of 3 solids or shells could not be read" };
 
 function calls() {
   const addFile = vi.fn((_projectId: string, file: File) =>
@@ -97,7 +97,7 @@ describe("adding files", () => {
     const { api, declinePart } = calls();
     const { onChanged } = shown(api, [motor]);
     expect(screen.getByText("42 × 42 × 40 mm · 4 holes · supplied by you")).toBeInTheDocument();
-    expect(screen.getByText("1 of 3 bodies could not be read")).toBeInTheDocument();
+    expect(screen.getByText("1 of 3 solids or shells could not be read")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Decline motor" }));
     await waitFor(() => {
       expect(onChanged).toHaveBeenCalledTimes(1);

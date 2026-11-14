@@ -3,15 +3,19 @@ from typing import Annotated, Final, Literal, Self
 from pydantic import Field, model_validator
 
 from cad.checks.result import (
+    BodyMaterial,
     CheckResult,
     Comparator,
+    Materials,
     Measured,
     Read,
     ReadResearched,
     Step,
     Verdict,
+    made_of_problem,
 )
 from cad.frozen import Frozen
+from cad.sandbox.bodies import Bodies, bodies_sha256
 from cad.scorecard.waiting import Waiting
 from cad.tables.materials import Source
 
@@ -202,6 +206,9 @@ class AgentMeasurement(Frozen):
     note: str | None = Field(default=None, exclude_if=lambda note: note is None)
 
 
+JOINTS: Final = "How the bodies are joined is not checked."
+
+
 class Scorecard(Frozen):
     """All of a variant's check results, each with its formula and source.
 
@@ -213,11 +220,13 @@ class Scorecard(Frozen):
     `not_verified` holds the agent's own measurements, which are information and never a verdict.
     `rebuilt_from` names the variant an earlier sandbox stored, when the checks scored its stored
     code rebuilt as `variant_id`.
+    A variant of named bodies has `bodies`, hashed as `bodies_sha256`, and `materials`, one per
+    body, in place of `material_key`. `untested` then says what no check covers on any such card.
     """
 
     variant_id: str
     rebuilt_from: str | None = None
-    material_key: str
+    material_key: str | None = Field(default=None, exclude_if=lambda key: key is None)
     table_version: str
     check_image_digest: str
     brep_sha256: str
@@ -226,10 +235,31 @@ class Scorecard(Frozen):
     pending: tuple[str, ...] = ()
     basis: Basis
     not_verified: tuple[AgentMeasurement, ...] = Field(default=(), exclude_if=lambda rows: not rows)
+    materials: tuple[BodyMaterial, ...] = Field(default=(), exclude_if=lambda each: not each)
+    bodies: Bodies = Field(default=(), exclude_if=lambda each: not each)
+    bodies_sha256: str | None = Field(default=None, exclude_if=lambda sha256: sha256 is None)
+    untested: tuple[str, ...] = Field(default=(), exclude_if=lambda lines: not lines)
 
     @property
     def finished(self) -> tuple[CheckResult, ...]:
         return tuple(one for one in self.results if isinstance(one, CheckResult))
+
+    @model_validator(mode="after")
+    def _names_each_body(self) -> Self:
+        problem = made_of_problem(self.material_key, self.materials, self.bodies_sha256)
+        if problem is not None:
+            raise ValueError(problem)
+        if [one.body for one in self.materials] != [body.name for body in self.bodies]:
+            raise ValueError("materials must name the bodies in order")
+        if self.bodies_sha256 != bodies_sha256(self.bodies):
+            raise ValueError("bodies_sha256 must hash the bodies")
+        if self.untested != ((JOINTS,) if self.bodies else ()):
+            raise ValueError("a card of named bodies says that their joints are not checked")
+        return self
+
+    @property
+    def scored_with(self) -> Materials:
+        return self.materials or str(self.material_key)
 
     @model_validator(mode="after")
     def _lists_the_pending_checks(self) -> Self:

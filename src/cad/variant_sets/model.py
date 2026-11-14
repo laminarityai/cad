@@ -10,6 +10,7 @@ from cad.briefs.model import BriefId
 from cad.errors import Refused
 from cad.frozen import Frozen
 from cad.projects.model import ProjectId
+from cad.sandbox.bodies import Bodies, BodyName
 from cad.variants.entry import VariantId, variant_id
 from cad.variants.store import BuildResult
 
@@ -46,6 +47,10 @@ class MaterialMissing(SetRefused):
     pass
 
 
+class BodyMaterialsRefused(SetRefused):
+    pass
+
+
 type Reason = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1, max_length=200, pattern=r"^[^\n\r]+$"),
@@ -79,9 +84,27 @@ class Option(Frozen):
     differs: Differs
 
 
-type Resolve = Callable[[MaterialChoice | None], MaterialChoice | None]
-"""Given the slot's latest choice, the choice the new revision records. Refuses when the build
-may not go ahead."""
+class BodyChoice(Frozen):
+    """The material the agent chose for one named body of a slot, when no confirmed made_of
+    names one."""
+
+    body: BodyName
+    key: str
+    reason: Reason
+
+
+@dataclass(frozen=True, slots=True)
+class Chosen:
+    """What a revision records: one choice for a variant of one unnamed body, one per named body,
+    or neither when the person's made_of sets the material of every body."""
+
+    material: MaterialChoice | None = None
+    materials: tuple[BodyChoice, ...] = ()
+
+
+type Resolve = Callable[[Revision | None, Bodies | None], Chosen]
+"""Given the slot's latest revision and the bodies the code built, None before it is built, what
+the new revision records. Refuses when the build may not go ahead."""
 
 
 class Revision(Frozen):
@@ -94,6 +117,7 @@ class Revision(Frozen):
     joined_at: datetime
     material: MaterialChoice | None = None
     option: Option | None = None
+    materials: tuple[BodyChoice, ...] = Field(default=(), exclude_if=lambda each: not each)
 
     def live_id(self, image_tag: str) -> VariantId:
         return variant_id(self.code, image_tag)

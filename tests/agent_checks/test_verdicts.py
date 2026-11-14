@@ -9,19 +9,21 @@ import pytest
 from cad.agent_checks import turned, verdicts
 from cad.agent_checks.model import AgentCheck
 from cad.briefs.store import ConfirmedSet
-from cad.checks.result import Verdict
+from cad.checks.result import BodyMaterial, Verdict
 from cad.context_parts.model import Outcome
 from cad.operations.agent_checks import with_agent_checks
 from cad.records.roots import Roots
+from cad.sandbox.bodies import bodies_sha256
 from cad.sandbox.host import SandboxUnavailable
 from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.outcome import Build, Built
 from cad.scorecard import material
-from cad.scorecard.model import AGENT_CHECK, AgainstBrief, AgentChecked, Unverified
+from cad.scorecard.model import AGENT_CHECK, JOINTS, AgainstBrief, AgentChecked, Unverified
 from cad.tables.materials import UNITS
 from cad.variants import entry
 from tests.support.agent_checks import answer, write
 from tests.support.cards import BREP, genuine_card, judged_card, table
+from tests.support.named_bodies import GEAR, PLATE, PLATE_AND_GEARS
 
 pytestmark = pytest.mark.usefixtures("no_sandbox")
 CODE = "result = Box(20, 5, 2)"
@@ -41,12 +43,26 @@ def deflected(y: float) -> Run:
     return on_variant
 
 
+NAMED: dict[str, object] = {
+    "material_key": None,
+    "materials": (BodyMaterial(body="plate", key=PLATE), BodyMaterial(body="gear", key=GEAR)),
+    "bodies": PLATE_AND_GEARS,
+    "bodies_sha256": bodies_sha256(PLATE_AND_GEARS),
+    "untested": (JOINTS,),
+}
+
+
 def scored(
-    roots: Roots, variants: Path, confirmed: ConfirmedSet, *, run: bool = True
+    roots: Roots,
+    variants: Path,
+    confirmed: ConfirmedSet,
+    *,
+    run: bool = True,
+    named: bool = False,
 ) -> AgainstBrief:
     vid = entry.variant_id(CODE, image_tag(BUILD))
     entry.save(variants, vid, CODE, Build(outcome=Built(), output=""), BREP)
-    card = judged_card(confirmed).model_copy(update={"variant_id": vid})
+    card = judged_card(confirmed).model_copy(update={"variant_id": vid, **(NAMED if named else {})})
     reported = material.reported(card, confirmed)
     found = with_agent_checks(reported, roots, variants, confirmed, table(), run=run).basis
     assert isinstance(found, AgainstBrief)
@@ -75,6 +91,17 @@ def test_an_approved_check_decides_its_requirement_with_its_label(
     assert [one.read for one in row.inputs][1:] == ["geometry:h", "geometry:l", "geometry:y"]
     assert basis.unverified_requirements == ()
     assert basis.agent_checked_requirements == (row.requirement_id,)
+
+
+def test_an_approved_check_on_a_card_of_named_bodies_is_unknown(
+    roots: Roots, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    brief_id, stored = write(roots)
+    confirmed = answer(roots, brief_id, stored, "confirmed")
+    monkeypatch.setattr(turned, "on_variant", deflected(1.0))
+    [row] = scored(roots, tmp_path / "variants", confirmed, named=True).requirements
+    assert isinstance(row, AgentChecked)
+    assert (row.verdict, row.reason, row.value) == (Verdict.UNKNOWN, verdicts.NAMED_BODIES, None)
 
 
 @pytest.mark.parametrize("check", ["declined", "waiting"])

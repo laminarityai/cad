@@ -13,12 +13,13 @@ ALLOWED_ARGUMENTS = {
         "slot",
         "material_key",
         "material_reason",
+        "materials",
         "label",
         "differs",
     },
     # own_measurements is the agent's measuring code, shown as not verified, never a verdict.
-    "score_variant": {"variant_id", "material_key", "brief_id", "own_measurements"},
-    "scorecard": {"variant_id", "material_key", "brief_id"},
+    "score_variant": {"variant_id", "material_key", "materials", "brief_id", "own_measurements"},
+    "scorecard": {"variant_id", "material_key", "materials", "brief_id"},
     "list_materials": set[str](),
     "create_brief": {"text", "name", "project_id"},
     # assumptions are the agent's own numbers, listed with the measure, never a verdict.
@@ -35,7 +36,7 @@ ALLOWED_ARGUMENTS = {
     # and it decides nothing until the person approves it on the confirmation page.
     "write_check": {"brief_id", "requirement_id", "check"},
     # The agent gives code or a note; the run's verdict comes from the server's scorecards.
-    "auto_start": {"brief_id", "material_key", "material_reason"},
+    "auto_start": {"brief_id", "material_key", "material_reason", "materials"},
     "auto_revise": {"run_id", "code", "slot"},
     "auto_ask": {"run_id", "note"},
     "variant_set": {"project_id", "brief_id", "material_key"},

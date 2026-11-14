@@ -18,6 +18,13 @@ from mcp.server import MCPServer
 from cad.accounts.principal import AgentToken, PersonSession
 from cad.briefs import store as briefs
 from cad.chat.auto_driver import AutoDriver
+from cad.chat.guidance import (
+    CHAT_ADDED,
+    CHAT_AUTO,
+    CHAT_ON_THE_PAGE,
+    CHAT_OPEN_PROJECT,
+    WITHHELD_NOTE,
+)
 from cad.chat.log import (
     AgentSaid,
     Channel,
@@ -43,14 +50,7 @@ from cad.context_parts.model import FromUpload
 from cad.context_parts.store import newest_parts
 from cad.conversations import store
 from cad.conversations.model import ConversationId
-from cad.operations.guidance import (
-    CHAT_ADDED,
-    CHAT_AUTO,
-    CHAT_ON_THE_PAGE,
-    CHAT_OPEN_PROJECT,
-    INSTRUCTIONS,
-    WITHHELD_NOTE,
-)
+from cad.operations.guidance import INSTRUCTIONS
 from cad.operations.model import Tenant
 from cad.operations.registry import OPERATIONS
 from cad.operations.tenants import Tenants, bind

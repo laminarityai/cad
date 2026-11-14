@@ -5,11 +5,12 @@ from typing import Final
 from cad.checks import jobs
 from cad.checks.lanes import LANES, WAIT_SECONDS, Done, Lanes, Pending, Settled
 from cad.checks.report import SPECS, CheckSpec, Request, build_request, reads_of, unknown_for_all
-from cad.checks.result import CheckResult
+from cad.checks.result import CheckResult, Materials, per_body, single_key
 from cad.errors import Refused
 from cad.sandbox import host, image
+from cad.sandbox.bodies import Bodies, bodies_sha256
 from cad.sandbox.outcome import Built
-from cad.scorecard.model import Basis, NoBrief, PendingCheck, Scorecard
+from cad.scorecard.model import JOINTS, Basis, NoBrief, PendingCheck, Scorecard
 from cad.tables.materials import MaterialsTable
 from cad.variants import entry
 from cad.variants import store as variants
@@ -18,6 +19,10 @@ type Results = tuple[CheckResult | PendingCheck, ...]
 type Assess = Callable[[Results], Basis]
 
 NO_DEMAND: Final = jobs.Demand()
+
+
+class BodiesChanged(Refused):
+    pass
 
 
 class NotScored(Refused):
@@ -33,9 +38,12 @@ def no_brief(results: Results) -> Basis:
     return NoBrief()
 
 
+type MadeOf = Materials | Callable[[Bodies], Materials]
+
+
 def score_variant(
     variant_id: str,
-    material_key: str,
+    material: MadeOf,
     root: Path = entry.VARIANTS_ROOT,
     assess: Assess = no_brief,
     lanes: Lanes = LANES,
@@ -43,13 +51,13 @@ def score_variant(
     table: MaterialsTable | None = None,
 ) -> Scorecard:
     held, rebuilt_from = open_or_rebuild(variant_id, root)
-    request, plan = planned(root, held, material_key, table, demand)
+    request, plan = planned(root, held, material, table, demand)
     return scorecard_of(plan, request, lanes.settle(plan, WAIT_SECONDS), assess, rebuilt_from)
 
 
 def peek_variant(
     variant_id: str,
-    material_key: str,
+    material: MadeOf,
     root: Path,
     assess: Assess = no_brief,
     lanes: Lanes = LANES,
@@ -60,7 +68,7 @@ def peek_variant(
     waited for: a background job with no stored result is pending, or refused once interrupted
     too often."""
     held = entry.open_entry(root, variant_id, image.image_tag(image.BUILD))
-    request, plan = planned(root, held, material_key, table, demand)
+    request, plan = planned(root, held, material, table, demand)
     settled = lanes.peek(plan)
     if settled is None:
         raise NotScored(variant_id)
@@ -70,13 +78,27 @@ def peek_variant(
 def planned(
     root: Path,
     held: entry.Entry,
-    material_key: str,
+    material: MadeOf,
     table: MaterialsTable | None,
     demand: jobs.Demand,
 ) -> tuple[Request, jobs.Plan]:
     table = table or host.materials_table()
-    request = build_request(material_key, table)
+    made = material(held.bodies) if callable(material) else material
+    try:
+        request = build_request(made, table, bodies=held.bodies)
+    except ValueError as error:
+        raise BodiesChanged(_changed(held)) from error
     return request, jobs.plan(root, held, request, table, demand)
+
+
+def _changed(held: entry.Entry) -> str:
+    if not held.bodies:
+        return f"variant {held.id} is one unnamed body: score it with material_key, not materials"
+    names = ", ".join(body.name for body in held.bodies)
+    return (
+        f"variant {held.id} holds the bodies {names}: score it with materials, one entry for "
+        "each body, or with none to use the materials its slot records"
+    )
 
 
 def open_or_rebuild(variant_id: str, root: Path) -> tuple[entry.Entry, str | None]:
@@ -117,7 +139,11 @@ def scorecard_of(
     return Scorecard(
         rebuilt_from=rebuilt_from,
         variant_id=plan.quick.variant_id,
-        material_key=request.material_key,
+        material_key=single_key(request.material),
+        materials=per_body(request.material),
+        bodies=request.bodies,
+        bodies_sha256=bodies_sha256(request.bodies),
+        untested=(JOINTS,) if request.bodies else (),
         table_version=request.table_version,
         check_image_digest=settled.quick.check_image_digest,
         brep_sha256=plan.quick.brep_sha256,

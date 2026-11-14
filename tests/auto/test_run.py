@@ -128,7 +128,7 @@ async def test_a_proposal_that_lands_during_auto_start_never_runs_under_the_run(
         return found
 
     monkeypatch.setattr(owner, read, then_propose)
-    arguments = StartInput(brief_id=brief_id, **PLA_CHOICE)
+    arguments = StartInput.model_validate({"brief_id": brief_id, **PLA_CHOICE})
     if read == "watermark":
         with pytest.raises(RunRefused, match="waits for the person"):
             auto_start(s.bound, arguments)
@@ -143,7 +143,7 @@ async def test_a_proposal_that_lands_during_auto_start_never_runs_under_the_run(
 
 async def test_two_concurrent_starts_of_one_brief_make_one_run(s: Session) -> None:
     brief_id = await s.confirmed(TEXT, UNDER_150)
-    arguments = StartInput(brief_id=brief_id, **PLA_CHOICE)
+    arguments = StartInput.model_validate({"brief_id": brief_id, **PLA_CHOICE})
     other = ConversationId("c-other")
     store.create(s.tenant.conversations, other)
     callers = [s.bound, s.bound, bind(s.tenant, other)]

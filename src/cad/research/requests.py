@@ -1,7 +1,7 @@
 from collections.abc import Iterable, Sequence
 from typing import Final, Protocol
 
-from cad.checks.result import Read, ReadMissing
+from cad.checks.result import Materials, Read, ReadMissing
 from cad.frozen import Frozen
 from cad.research.overlay import Dropped
 from cad.tables.fields import FIELDS, Field
@@ -73,26 +73,32 @@ def request_for(
 
 def requests_on(
     results: Iterable[Reading],
-    material_key: str,
+    material: Materials,
     table: MaterialsTable,
     brief_id: str | None,
     dropped: Sequence[Dropped] = (),
 ) -> tuple[ResearchRequest, ...]:
-    material = row_or_blank(table.materials, material_key)
-    if material is None:
-        return ()
-    problems: dict[str, list[str]] = {}
+    """A request for each value a check read that the material of its body lacks."""
+    keys = {"": material} if isinstance(material, str) else {one.body: one.key for one in material}
+    problems: dict[tuple[str, Field], list[str]] = {}
     for one in dropped:
-        if one.record.key == material_key:
-            problems.setdefault(one.record.field, []).extend(one.problems)
-    wanted: dict[Field, None] = {}
+        field = _field(one.record.field)
+        if field is not None:
+            problems.setdefault((one.record.key, field), []).extend(one.problems)
+    wanted: dict[tuple[str, Field], None] = {}
     for result in results:
         for read in result.reads:
-            field = _field(read.field) if isinstance(read, ReadMissing) else None
-            if field is not None and isinstance(material.value(field), Unknown):
-                wanted[field] = None
+            if not isinstance(read, ReadMissing):
+                continue
+            key = keys.get(read.body)
+            row = None if key is None else row_or_blank(table.materials, key)
+            field = _field(read.field)
+            if key is None or row is None or field is None:
+                continue
+            if isinstance(row.value(field), Unknown):
+                wanted[key, field] = None
     return tuple(
-        request_for(brief_id, material_key, field, problems.get(field, ())) for field in wanted
+        request_for(brief_id, key, field, problems.get((key, field), ())) for key, field in wanted
     )
 
 

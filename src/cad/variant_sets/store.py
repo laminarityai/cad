@@ -13,11 +13,14 @@ from cad.checks.lanes import LANES, Lanes
 from cad.projects.model import PROJECT_ID, ProjectId
 from cad.records import files, signed
 from cad.records.roots import Roots, project_store
+from cad.sandbox.bodies import Bodies
 from cad.sandbox.outcome import Built
 from cad.variant_sets.model import (
     MAX_MEMBERS,
+    BodyMaterialsRefused,
+    Chosen,
     Joined,
-    MaterialChoice,
+    MaterialMissing,
     Member,
     NotJoined,
     Option,
@@ -67,7 +70,7 @@ def build_into_set(
     built = variants.build_variant(code, variants_root)
     on_built(built.variant_id)
     joined = (
-        join(root, key, code, built.variant_id, slot, resolve, option)
+        join(root, key, code, built.variant_id, slot, resolve, option, built.outcome.bodies)
         if isinstance(built.outcome, Built)
         else NotJoined()
     )
@@ -100,17 +103,22 @@ def set_key(roots: Roots, brief_id: str) -> SetKey:
     return SetKey(brief.project, brief.id)
 
 
-def _no_choice(previous: MaterialChoice | None) -> MaterialChoice | None:
-    return None
+def _no_choice(previous: Revision | None, bodies: Bodies | None) -> Chosen:
+    return Chosen()
 
 
 def _resolved(
-    held: tuple[Member, ...], sha256: str, slot: int | None, resolve: Resolve, option: Option | None
+    held: tuple[Member, ...],
+    sha256: str,
+    slot: int | None,
+    resolve: Resolve,
+    option: Option | None,
+    bodies: Bodies | None = None,
 ) -> Design:
     slot_now = shown(held, sha256, slot)
     latest = None if slot_now is None else slot_now.latest
     return Design(
-        material=resolve(None if latest is None else latest.material),
+        chosen=resolve(latest, bodies),
         option=option or (None if latest is None else latest.option),
     )
 
@@ -123,11 +131,13 @@ def join(
     slot: int | None = None,
     resolve: Resolve = _no_choice,
     option: Option | None = None,
+    bodies: Bodies = (),
 ) -> Joined:
     """Make `code` what `slot` shows, as a new revision. With no slot, new code takes a free one.
 
     `resolve` runs on the log being appended to, so a choice made by a build that finished first
-    is the one it sees."""
+    is the one it sees. It reads `bodies`, the bodies the code built, so a material that names a
+    body the code did not build joins nothing."""
     sha256 = code_sha256(code)
     directory = _directory(root, key)
     outcome: list[Placement | SetRefused] = []
@@ -136,14 +146,14 @@ def join(
         outcome.clear()
         try:
             held = group(_parse(key, directory, existing))
-            design = _resolved(held, sha256, slot, resolve, option)
+            design = _resolved(held, sha256, slot, resolve, option, bodies)
             placed = place(held, sha256, design, slot)
         except SetFull:
             outcome.append(_full(key, built_as))
             return None
-        except SlotRefused as error:
+        except (SlotRefused, MaterialMissing, BodyMaterialsRefused) as error:
             kept = f"It was built as variant {built_as} and is stored."
-            outcome.append(SlotRefused(f"{error} {kept}"))
+            outcome.append(type(error)(f"{str(error).rstrip('.')}. {kept}"))
             return None
         outcome.append(placed)
         return None if placed.unchanged else _record(code, placed.slot, built_as, key, design)
@@ -164,8 +174,9 @@ def _record(code: str, slot: int, built_as: VariantId, key: SetKey, design: Desi
             code_sha256=code_sha256(code),
             built_as=built_as,
             joined_at=datetime.now(UTC),
-            material=design.material,
+            material=design.chosen.material,
             option=design.option,
+            materials=design.chosen.materials,
         )
         .model_dump_json()
         .encode()
@@ -175,11 +186,12 @@ def _record(code: str, slot: int, built_as: VariantId, key: SetKey, design: Desi
     return record
 
 
-def choice_of(root: Path, key: SetKey, variant_id: str, image_tag: str) -> MaterialChoice | None:
-    """The material the agent chose for the slot whose latest revision shows `variant_id`."""
+def showing(root: Path, key: SetKey, variant_id: str, image_tag: str) -> Revision | None:
+    """The latest revision of the slot that shows `variant_id`, with the material the agent chose
+    for it."""
     for member in members(root, key):
         if variant_id in (member.latest.built_as, member.latest.live_id(image_tag)):
-            return member.latest.material
+            return member.latest
     return None
 
 

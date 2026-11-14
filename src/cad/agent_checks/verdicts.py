@@ -45,6 +45,10 @@ NOT_RUN: Final = (
 )
 PASSED: Final = "The agent-written check's value meets the limit you confirmed."
 MISSED: Final = "The agent-written check's value does not meet the limit you confirmed."
+NAMED_BODIES: Final = (
+    "The variant holds named bodies, each of its own material, and an agent-written check reads "
+    "one material and one shape, so it measured nothing here."
+)
 _CODE: Final = (harness.__file__, turned.__file__, formula.__file__)
 
 type Results = Sequence[Reported]
@@ -111,10 +115,11 @@ def judged(
     basis: AgainstBrief,
     approved: Sequence[Approved],
     results: Results,
-    material: Material,
+    material: Material | None,
     geometry: Callable[[StoredCheck], GeometryRun | None],
 ) -> AgainstBrief:
-    """`basis` with each approved check's Unverified row replaced by its labelled verdict."""
+    """`basis` with each approved check's Unverified row replaced by its labelled verdict. With no
+    material, for a variant of named bodies, each verdict is unknown."""
     by_id: dict[str, Approved] = {one.requirement.id: one for one in approved}
     rows = tuple(
         _decided(by_id[row.requirement_id], row.statement, results, material, geometry)
@@ -140,20 +145,21 @@ def _decided(
     one: Approved,
     statement: str,
     results: Results,
-    material: Material,
+    material: Material | None,
     geometry: Callable[[StoredCheck], GeometryRun | None],
 ) -> AgentChecked:
     check = one.stored.check
     limit = _limit(one)
     inputs: list[AgentCheckValue] = []
-    reason: str | None = None
-    run = geometry(one.stored) if check.geometry is not None else None
-    for bound in check.inputs:
-        found = _input(bound, one.stored, run, results, material)
-        if isinstance(found, str):
-            reason = reason or found
-        else:
-            inputs.append(found)
+    reason: str | None = None if material is not None else NAMED_BODIES
+    if material is not None:
+        run = geometry(one.stored) if check.geometry is not None else None
+        for bound in check.inputs:
+            found = _input(bound, one.stored, run, results, material)
+            if isinstance(found, str):
+                reason = reason or found
+            else:
+                inputs.append(found)
     value = None
     if reason is None:
         found = _value(check.formula, {each.name: each.value for each in inputs})

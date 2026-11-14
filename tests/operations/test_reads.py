@@ -28,7 +28,7 @@ from cad.projects.model import UnknownProject
 from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.outcome import Build, Built
 from cad.variant_sets import store as variant_sets
-from cad.variant_sets.model import MaterialChoice
+from cad.variant_sets.model import Chosen, MaterialChoice
 from cad.variants import entry
 from cad.variants.entry import UnknownVariant
 from tests.support.browser import local_pages
@@ -162,7 +162,12 @@ async def test_a_member_never_scored_has_no_card_etag_and_names_its_material(
     key = variant_sets.set_key(alice.roots, brief)
     choice = MaterialChoice(key="prusament-pla", reason="light")
     variant_sets.join(
-        alice.roots.projects, key, "result = 1", entry.VariantId(vid), None, lambda _: choice
+        alice.roots.projects,
+        key,
+        "result = 1",
+        entry.VariantId(vid),
+        None,
+        lambda _, __: Chosen(material=choice),
     )
     asked = reads.VariantSetInput(project_id=project, brief_id=brief, material_key="prusament-pla")
     [member] = reads.variant_set(alice, asked).members

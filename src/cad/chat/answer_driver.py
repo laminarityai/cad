@@ -13,10 +13,10 @@ from typing import Final
 
 from pydantic import ValidationError
 
+from cad.chat.guidance import CHAT_PAGE_ANSWERED
 from cad.chat.log import Answered, DriverSaid, Event, ToolCalled, ToolReturned
 from cad.confirmations.answers import Ledger
 from cad.operations.confirmation import AskResult
-from cad.operations.guidance import CHAT_PAGE_ANSWERED
 from cad.projects.model import ProjectId
 
 ASK: Final = "ask_to_confirm"

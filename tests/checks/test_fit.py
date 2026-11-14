@@ -22,6 +22,7 @@ def fitted(variant: Shape, context: Shape | None = RAIL) -> ResultWire:
         "values": {},
         "load_cases": [],
         "context_bytes": len(tail),
+        "bodies": [],
     }
     report, _ = run_report(request, brep_bytes(variant) + tail, KERNEL)
     assert [one["id"] for one in report["results"]] == ["interference", "fit"]

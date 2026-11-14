@@ -8,9 +8,10 @@ from typing import Final
 from pydantic import TypeAdapter, ValidationError
 
 from cad.checks.container.check import Budget, CheckModule, Quick
-from cad.checks.container.inputs import WIRE_UNITS, Input
+from cad.checks.container.inputs import Input
 from cad.checks.container.suite import CHECKS, with_requirements
 from cad.checks.container.wire import (
+    BodyWire,
     CheckedReport,
     FacesWire,
     LoadCaseWire,
@@ -23,31 +24,20 @@ from cad.checks.container.wire import (
 from cad.checks.result import (
     CheckResult,
     Faces,
+    Materials,
     Measure,
     Read,
-    ReadCited,
-    ReadMissing,
-    ReadResearched,
     StepMissing,
     Verdict,
     Where,
 )
+from cad.checks.values import ReadKey, TableRead, reads_from, values_of
 from cad.sandbox import container
+from cad.sandbox.bodies import Bodies
 from cad.sandbox.container import Job, Ran, TooMuchOutput
 from cad.sandbox.image import ANALYSIS, image_tag
 from cad.sandbox.stage import CONTAINER_ENTRY, PACKAGE_PATH, Sources, read_sources
-from cad.tables.materials import (
-    PROJECT_PREFIX,
-    UNITS,
-    Basis,
-    FromResearch,
-    FromTable,
-    Known,
-    Material,
-    MaterialsTable,
-    Source,
-    UnknownMaterial,
-)
+from cad.tables.materials import UNITS, MaterialsTable, Source
 
 REASON_CAP = 1024
 SCORER: Final = "cad.scorecard.score"
@@ -139,81 +129,54 @@ def closure(check_ids: Sequence[str]) -> tuple[CheckSpec, ...]:
 
 
 @dataclass(frozen=True, slots=True)
-class TableRead:
-    magnitude: float
-    source: Source
-    basis: Basis
-
-
-@dataclass(frozen=True, slots=True)
 class Request:
     wire: RequestWire
-    material_key: str
-    reads: Mapping[Input, TableRead]
+    material: Materials
+    reads: Mapping[ReadKey, TableRead]
     table_version: str
+    bodies: Bodies = ()
 
 
 def build_request(
-    material_key: str,
+    material: Materials,
     table: MaterialsTable,
     checks: Sequence[CheckSpec] = QUICK,
     load_cases: Sequence[LoadCaseWire] = (),
     *,
+    bodies: Bodies = (),
     context_bytes: int = 0,
 ) -> Request:
+    """Raises ValueError when `material` is not one key for a variant of no named body, or one
+    key for each of `bodies` in order."""
     ids = [spec.id for spec in checks]
     taken = sorted(set[Input]().union(*(spec.takes for spec in closure(ids))))
-    try:
-        material = table.get_material(material_key)
-    except UnknownMaterial as error:
-        missing: ValueWire = {"kind": "unknown", "reason": str(error)}
-        wire = _wire(ids, dict.fromkeys(taken, missing), load_cases, context_bytes)
-        return Request(wire, material_key, {}, table.version)
-    reads = {wanted: read for wanted in taken if (read := _read(material, wanted)) is not None}
-    values: dict[str, ValueWire] = {
-        wanted: _value(material, wanted, reads.get(wanted)) for wanted in taken
-    }
-    wire = _wire(ids, values, load_cases, context_bytes)
-    return Request(wire, material_key, reads, table.version)
-
-
-def _read(material: Material, wanted: Input) -> TableRead | None:
-    known = material.value(wanted)
-    if not isinstance(known, Known):
-        return None
-    magnitude = known.magnitude_in(WIRE_UNITS[wanted])
-    return TableRead(magnitude, known.source, known.basis)
-
-
-def _value(material: Material, wanted: Input, read: TableRead | None) -> ValueWire:
-    if read is None and material.key.startswith(PROJECT_PREFIX):
-        reason = f"{material.key} has no row in the materials table, and no {wanted} is researched"
-        return {"kind": "unknown", "reason": reason}
-    if read is None:
-        reason = f"the materials table has no {wanted} for {material.key}: it says unknown"
-        return {"kind": "unknown", "reason": reason}
-    return {"kind": "known", "magnitude": read.magnitude}
+    if isinstance(material, str):
+        if bodies:
+            raise ValueError("a variant of named bodies is scored with a material for each body")
+        values, reads = values_of(material, table, taken, "")
+        wire = _wire(ids, values, load_cases, context_bytes, [])
+        return Request(wire, material, reads, table.version)
+    if [one.body for one in material] != [body.name for body in bodies]:
+        raise ValueError("the materials do not name the variant's bodies in order")
+    each: list[BodyWire] = []
+    reads: dict[ReadKey, TableRead] = {}
+    for body, made in zip(bodies, material, strict=True):
+        values, read = values_of(made.key, table, taken, body.name)
+        each.append({"name": body.name, "solids": list(body.solids), "values": values})
+        reads |= read
+    wire = _wire(ids, {}, load_cases, context_bytes, each)
+    return Request(wire, material, reads, table.version, bodies)
 
 
 def reads_of(spec: CheckSpec, request: Request) -> tuple[Read, ...]:
-    reads: list[Read] = []
-    for wanted in sorted(spec.takes):
-        read = request.reads.get(wanted)
-        value = request.wire["values"].get(wanted)
-        if read is not None:
-            match read.basis:
-                case FromResearch(sha256=sha256):
-                    source = read.source
-                    reads.append(
-                        ReadResearched(
-                            field=wanted, url=source.url, quote=source.quote, sha256=sha256
-                        )
-                    )
-                case FromTable(specimen=specimen):
-                    reads.append(ReadCited(field=wanted, specimen=specimen))
-        elif value is not None and value["kind"] == "unknown":
-            reads.append(ReadMissing(field=wanted, reason=value["reason"]))
-    return tuple(reads)
+    """What each value `spec` takes was read from, body by body on a variant of named bodies."""
+    if not request.bodies:
+        return reads_from(spec.takes, request.reads, request.wire["values"], "")
+    return tuple(
+        read
+        for body in request.wire["bodies"]
+        for read in reads_from(spec.takes, request.reads, body["values"], body["name"])
+    )
 
 
 def _wire(
@@ -221,12 +184,14 @@ def _wire(
     values: dict[str, ValueWire],
     load_cases: Sequence[LoadCaseWire],
     context_bytes: int,
+    bodies: list[BodyWire],
 ) -> RequestWire:
     return {
         "checks": ids,
         "values": values,
         "load_cases": list(load_cases),
         "context_bytes": context_bytes,
+        "bodies": bodies,
     }
 
 
@@ -320,7 +285,8 @@ def _problem(spec: CheckSpec, wire: ResultWire, request: Request) -> str | None:
             return f"{measured['name']} is not a finite number"
         read = spec.reads.get(name)
         if read is not None:
-            sent = request.reads.get(read)
+            body = measured["name"].partition(":")[2] if request.bodies else ""
+            sent = request.reads.get((read, body))
             if sent is None:
                 return f"{measured['name']} reads {read}, which the host sent no value for"
             if not math.isclose(measured["magnitude"], sent.magnitude, rel_tol=1e-9):
@@ -338,10 +304,14 @@ def _problem(spec: CheckSpec, wire: ResultWire, request: Request) -> str | None:
 
 
 def _result(spec: CheckSpec, wire: ResultWire, request: Request) -> CheckResult:
+    bodies = [body.name for body in request.bodies] or [""]
     rows = tuple(
-        request.reads[read].source
-        for read in dict.fromkeys(spec.reads.values())
-        if read in request.reads
+        dict.fromkeys(
+            request.reads[key].source
+            for body in bodies
+            for read in dict.fromkeys(spec.reads.values())
+            if (key := (read, body)) in request.reads
+        )
     )
     return CheckResult(
         check_id=spec.id,
@@ -375,12 +345,12 @@ def _faces(wire: FacesWire) -> Faces:
     return Faces(support=tuple(wire["support"]), load=tuple(wire["load"]))
 
 
-def _one_line(text: str) -> str:
-    return " ".join(text.split())[:REASON_CAP]
-
-
 def _refused(reason: str, expected: Sequence[CheckSpec]) -> Parsed:
     return Parsed(unknown_for_all(reason, expected), StepMissing(reason=reason))
+
+
+def _one_line(text: str) -> str:
+    return " ".join(text.split())[:REASON_CAP]
 
 
 def unknown_for_all(reason: str, checks: Sequence[CheckSpec] = QUICK) -> tuple[CheckResult, ...]:

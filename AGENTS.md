@@ -40,7 +40,7 @@ Each row is the one way. Start in the named file and copy the entry beside yours
 | A record model | Derive from `Frozen` in `src/cad/frozen.py` | `tests/test_frozen.py` |
 | A quantity field | `Length`, `Force`, `Mass`, or `AnyQuantity` from `src/cad/checks/units.py` | |
 | A stored file | `replace` in `src/cad/records/files.py`. A file the agent must not forge goes through `records/signed.py`. | |
-| Text the agent is told | A named constant in `src/cad/operations/guidance.py` | |
+| Text the agent is told | A named constant in `src/cad/operations/guidance.py`, or in `src/cad/chat/guidance.py` for what a chat turn adds | |
 | A package under `src/cad` | A place in the `layers` contract in `pyproject.toml` | `layers` |
 | A server read in the web app | `useResource` in `web/src/state/resource.ts`, calling `request` in `web/src/api/client.ts` | `web lint` |
 | A web widget (tabs, expander, tooltip, menu, toast) | A wrapper in `web/src/components/ui/`. It is the one place that imports base-ui (`@base-ui/react`) or Sonner. | `web lint` (`no-restricted-imports`) |

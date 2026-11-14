@@ -24,7 +24,14 @@ from cad.checks.container.kernel import (
 )
 from cad.checks.container.mesher import MeshFailed, TetMesh
 from cad.checks.container.suite import CHECKS
-from cad.checks.container.wire import CheckedReport, RequestWire, StepWire, ValueKnown, ValueWire
+from cad.checks.container.wire import (
+    BodyWire,
+    CheckedReport,
+    RequestWire,
+    StepWire,
+    ValueKnown,
+    ValueWire,
+)
 
 KNOWN: ValueKnown = {"kind": "known", "magnitude": 1.24e-6}
 UNREADABLE_BREP = b"unreadable"
@@ -86,6 +93,8 @@ class FakeKernel:
     face_list: tuple[FaceInfo, ...] = ()
     mouths: tuple[Opening, ...] = ()
     wall: FakeWalls = field(default_factory=FakeWalls)
+    solid_props: dict[int, VolumeProps] = field(default_factory=dict[int, VolumeProps])
+    solid_walls: dict[int, FakeWalls] = field(default_factory=dict[int, FakeWalls])
 
     def read_brep(self, data: bytes) -> Shape | Unreadable:
         return Unreadable("not a BREP") if data == UNREADABLE_BREP else FakeShape()
@@ -117,6 +126,8 @@ class FakeKernel:
         return self.outside
 
     def volume_props(self, shape: Shape) -> VolumeProps:
+        if isinstance(shape, FakeShape) and shape.index in self.solid_props:
+            return self.solid_props[shape.index]
         return self.props
 
     def bounds(self, shape: Shape) -> tuple[Point, Point] | None:
@@ -157,6 +168,8 @@ class FakeKernel:
         raise NotImplementedError("no quick check measures a distance")
 
     def walls(self, shape: Shape) -> FakeWalls:
+        if isinstance(shape, FakeShape) and shape.index in self.solid_walls:
+            return self.solid_walls[shape.index]
         return self.wall
 
     def step_bytes(self, shape: Shape, cap: int) -> bytes | StepTooLarge:
@@ -165,14 +178,23 @@ class FakeKernel:
         return StepTooLarge(len(self.step)) if len(self.step) > cap else self.step
 
 
-def request(density: ValueWire = KNOWN, checks: tuple[str, ...] | None = None) -> RequestWire:
+def body(name: str, solids: Sequence[int], density: ValueWire) -> BodyWire:
+    return {"name": name, "solids": list(solids), "values": {Input.DENSITY: density}}
+
+
+def request(
+    density: ValueWire = KNOWN,
+    checks: tuple[str, ...] | None = None,
+    bodies: Sequence[BodyWire] = (),
+) -> RequestWire:
     quick = [check.ID for check in CHECKS if isinstance(check.BUDGET, Quick)]
     ids = quick if checks is None else list(checks)
     return {
         "checks": ids,
-        "values": {Input.DENSITY: density},
+        "values": {} if bodies else {Input.DENSITY: density},
         "load_cases": [],
         "context_bytes": 0,
+        "bodies": list(bodies),
     }
 
 

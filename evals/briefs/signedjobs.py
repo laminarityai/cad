@@ -140,7 +140,7 @@ def signed_jobs(
     loads: dict[str, LoadCaseWire] = {
         load.id: load.wire() for one in targets if (load := load_of(one)) is not None
     }
-    request = build_request(card.material_key, table)
+    request = build_request(card.scored_with, table, bodies=held.bodies)
     plan = jobs.plan(root, held, request, table, jobs.Demand(loads=loads, parts=parts))
     read = [job_store.read(job) for job in (plan.quick, *plan.background)]
     results = {
@@ -157,7 +157,7 @@ def signed_jobs(
 def _job(card: Scorecard, result: Reported) -> Job:
     return (
         card.variant_id,
-        card.material_key,
+        card.material_key or ",".join(f"{one.body}={one.key}" for one in card.materials),
         card.table_version,
         result.check_id,
         result.instance,

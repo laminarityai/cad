@@ -57,8 +57,12 @@ class JobSpec:
     @property
     def key(self) -> JobKey:
         reads = {
-            name: [read.magnitude, dataclasses.asdict(read.source), dataclasses.asdict(read.basis)]
-            for name, read in sorted(self.request.reads.items())
+            f"{wanted}:{body}" if body else wanted: [
+                read.magnitude,
+                dataclasses.asdict(read.source),
+                dataclasses.asdict(read.basis),
+            ]
+            for (wanted, body), read in sorted(self.request.reads.items())
         }
         versions = [one.version for one in self.checks]
         context = None if self.context is None else self.context.sha256
@@ -92,7 +96,7 @@ def plan(root: Path, held: Entry, request: Request, table: MaterialsTable, deman
             held.brep_sha256,
             (FEA,),
             FEA.budget,
-            build_request(request.material_key, table, (FEA,), (case,)),
+            build_request(request.material, table, (FEA,), (case,), bodies=request.bodies),
             instance,
         )
         for instance, case in sorted(demand.loads.items())
@@ -104,7 +108,13 @@ def plan(root: Path, held: Entry, request: Request, table: MaterialsTable, deman
             held.brep_sha256,
             (FIT,),
             FIT.budget,
-            build_request(request.material_key, table, (FIT,), context_bytes=len(part.data)),
+            build_request(
+                request.material,
+                table,
+                (FIT,),
+                bodies=request.bodies,
+                context_bytes=len(part.data),
+            ),
             instance,
             part,
         )

@@ -16,7 +16,7 @@ def store(tmp_path_factory: pytest.TempPathFactory) -> Path:
 def built(store: Path) -> Callable[[str], str]:
     def build(code: str) -> str:
         result = build_variant(code, store)
-        assert result.outcome == Built(), result.output
+        assert isinstance(result.outcome, Built), result.output
         return result.variant_id
 
     return build

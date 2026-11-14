@@ -28,7 +28,7 @@ A requirement applies to the whole variant unless it names a body. A body name a
 
 ### Each check reads each body's own material
 
-`mass` is the sum over bodies of volume times that body's density, and it is unknown when any one density is unknown. `closed_solid`, `holes` and `min_wall` read each body. `interference` fails two bodies that share volume. `extents` and `fit` read the whole result. Each changed check gets a new version.
+`mass` is the sum over bodies of volume times that body's density, and it is unknown when any one density is unknown. `closed_solid` and `min_wall` read each body. `holes` reads the whole result for a requirement on the whole variant, and the named body's solids for a requirement that names a body. `interference` fails two bodies that share volume. `extents` and `fit` read the whole result. Each changed check gets a new version.
 
 ### The stress check solves one named body alone, and the joint is listed as not checked
 
@@ -46,3 +46,9 @@ It also chooses which solid a load case on a named body acts on. ADR-0007 reject
 - A colour as an input to any verdict. A body name selects solids and their material, and nothing else.
 - A material written in build code. It is a typed argument, resolved by exact key before a container starts.
 - Whole-assembly checks that include supplied parts. ADR-0012 keeps them as later work.
+
+## Amendment 2026-11-13: a hole requirement on the whole variant reads the whole result
+
+Status: Accepted. The operator approved this amendment on 2026-11-13, in the words "Option 1 is fine."
+
+The decision first said that `holes` reads each body. A hole requirement on the whole variant now reads the whole result, so a hole through two stacked bodies counts once, as it does in one solid. A requirement that names a body reads that body's solids. The design's trial measured why: a sum over bodies counts a stacked hole twice. The sentence under "Each check reads each body's own material" is changed to match.

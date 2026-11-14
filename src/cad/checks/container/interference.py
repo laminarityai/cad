@@ -10,8 +10,8 @@ from cad.checks.container.wire import FindingWire, SourceLiteral
 ID = "interference"
 THRESHOLD_MM3: Final = 0.001
 FORMULA = (
-    "pass iff, for every pair of solids, the volume of their common part is at most 0.001 mm^3; "
-    "one solid has no pairs and passes with bodies = 1"
+    "pass iff, for every pair of solids, two solids of one body included, the volume of their "
+    "common part is at most 0.001 mm^3; one solid has no pairs and passes with solids = 1"
 )
 SOURCES: tuple[SourceLiteral, ...] = (
     {
@@ -27,7 +27,7 @@ SOURCES: tuple[SourceLiteral, ...] = (
     },
 )
 MEASURES = {
-    "bodies": DIMENSIONLESS,
+    "solids": DIMENSIONLESS,
     "interfering_pairs": DIMENSIONLESS,
     "max_common_volume": "mm^3",
     "common_volume": "mm^3",
@@ -47,6 +47,7 @@ def run(subject: Subject) -> FindingWire:
     bodies = kernel.solids(shape)
     if not bodies:
         return finding("unknown", "the shape has no solid to intersect")
+    named = {solid: f" ({body.name})" for body in subject.bodies for solid in body.solids}
     interfering: list[tuple[int, int, float]] = []
     undone: list[tuple[int, int]] = []
     largest = 0.0
@@ -60,15 +61,19 @@ def run(subject: Subject) -> FindingWire:
             if common > THRESHOLD_MM3:
                 interfering.append((first, second, common))
     measured = (
-        measure("bodies", len(bodies), DIMENSIONLESS),
+        measure("solids", len(bodies), DIMENSIONLESS),
         measure("interfering_pairs", len(interfering), DIMENSIONLESS),
         measure("max_common_volume", largest, "mm^3"),
         *(measure(f"common_volume:{a}-{b}", volume, "mm^3") for a, b, volume in interfering),
     )
-    skipped = "; ".join(f"solids {a} and {b} could not be intersected" for a, b in undone)
+    skipped = "; ".join(
+        f"solids {a}{named.get(a, '')} and {b}{named.get(b, '')} could not be intersected"
+        for a, b in undone
+    )
     if interfering:
         overlaps = "; ".join(
-            f"solids {a} and {b} share {volume:g} mm^3" for a, b, volume in interfering
+            f"solids {a}{named.get(a, '')} and {b}{named.get(b, '')} share {volume:g} mm^3"
+            for a, b, volume in interfering
         )
         return finding("fail", overlaps + (f"; {skipped}" if skipped else ""), *measured)
     if undone:

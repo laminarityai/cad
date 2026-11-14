@@ -59,7 +59,7 @@ def with_research(
 ) -> ReportedScorecard:
     if table.problem is not None:
         return card.model_copy(update={"research_problem": table.problem})
-    research = requests_on(card.results, card.material_key, table.table, brief_id, table.dropped)
+    research = requests_on(card.results, card.scored_with, table.table, brief_id, table.dropped)
     return card.model_copy(update={"research": research}) if research else card
 
 
