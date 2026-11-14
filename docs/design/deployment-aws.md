@@ -90,7 +90,7 @@ UMask=0022
 TimeoutStopSec=15
 ```
 
-`fetch-secrets` writes `ANTHROPIC_API_KEY=<key>` to `/run/cad/env`, which is memory, with mode 0600. The Clerk publishable key and the public URL are not secrets.
+`fetch-secrets` writes `ANTHROPIC_API_KEY=<key>` to `/run/cad/env`, which is memory, with mode 0600. The Clerk publishable key and the public URL are not secrets. The unit above does not set `CAD_CHAT_MODEL`, so the server would run `claude-haiku-5-5`, the low-cost default chosen for testing. Which model the hosted product runs has not been decided. An `Environment=CAD_CHAT_MODEL=<model id>` line in the unit picks another.
 
 ### Sign-in
 

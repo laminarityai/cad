@@ -13,7 +13,7 @@ from pydantic import Field
 
 from cad.frozen import Frozen
 
-DEFAULT_MODEL: Final = "claude-sonnet-5-5"
+DEFAULT_MODEL: Final = "claude-haiku-5-5"
 MODEL_VARIABLE: Final = "CAD_CHAT_MODEL"
 SCRIPTED_PREFIX: Final = "scripted:"
 
