@@ -1,11 +1,13 @@
+from collections.abc import Sequence
+from fractions import Fraction
 from pathlib import Path
 from typing import Final
 
 from chain import NotVerified, Stale, Unresolved
 from outcome import NONE_COUNTED, Counted, Share, Trace
 from readings import READ_AFTER, read_after
-from trace_store import TracedStore, exit_code, tally, trace_cards
-from tracking import NoRequirements, track
+from trace_store import TracedCard, TracedStore, exit_code, tally, trace_cards
+from tracking import NoRequirements, Tracking, track
 from tracking import Share as TrackedShare
 from transcript_cards import read_cards
 
@@ -24,12 +26,13 @@ def _share(found: TrackedShare) -> Share:
 def trace_session(home: Path, transcript: Path) -> Trace:
     """Trace the cards the session was shown, each bound to the signed job results its own
     variant, material and table version key, and the server's reading of each variant the session
-    scored with a brief, and count the two apart. The rates come from
-    the reading of the last variant scored, the judged state the person sees after Confirm, or
-    from the last card when nothing was scored with a brief. A check job a reading shows running
-    has no stored result after the session: the session's end cut it off, it was refused and not
-    retried, or it timed out. It is named apart, and its requirement still counts against both
-    rates, so a session that ends early never raises one."""
+    scored with a brief, and count the two apart. The rates come from the best reading, the
+    judged state the person sees after Confirm on the option they would pick, or from the best
+    card when nothing was scored with a brief. Best is the most strict passes, then the most
+    coverage, so the order the agent scored its options in does not move the rates. A check job
+    a reading shows running has no stored result after the session: the session's end cut it
+    off, it was refused and not retried, or it timed out. It is named apart, and its requirement
+    still counts against both rates, so a session that ends early never raises one."""
     stores = home / ".cad"
     variants = stores / "variants"
     roots = Roots(briefs=stores / "briefs", projects=stores / "projects")
@@ -57,8 +60,7 @@ def trace_session(home: Path, transcript: Path) -> Trace:
         untraced.append(f"{counts.no_brief} card(s) scored with no brief")
     if not counts.cards:
         untraced.append(NO_CARD)
-    last = (read.cards or shown.cards)[-1:]
-    tracking = track(last[0].outcomes if last else ())
+    tracking = _best(read.cards or shown.cards)
     return Trace(
         traced=exit_code(counts, require_judged=True) == 0,
         shown=_counted(shown),
@@ -79,6 +81,22 @@ def trace_session(home: Path, transcript: Path) -> Trace:
             for variant, _, _, check_id, instance in sorted(card.trace.binding.running)
         ),
     )
+
+
+def _best(cards: Sequence[TracedCard]) -> Tracking:
+    tracked = [(track(one.outcomes), one.trace.variant_id) for one in cards]
+    return max(tracked, key=_rank, default=(track(()), ""))[0]
+
+
+def _rank(tracked: tuple[Tracking, str]) -> tuple[Fraction, Fraction, str]:
+    tracking, variant_id = tracked
+    return (_fraction(tracking.strict_pass_rate), _fraction(tracking.reviewed_coverage), variant_id)
+
+
+def _fraction(found: TrackedShare) -> Fraction:
+    if isinstance(found, NoRequirements):
+        return Fraction(-1)
+    return Fraction(found.numerator, found.denominator)
 
 
 def _counted(store: TracedStore) -> Counted:

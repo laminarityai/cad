@@ -11,7 +11,8 @@ scripted person (`human.py`) answering the confirmation page, then runs the trac
 with the same `--out` skips the briefs that finished and runs the rest from a fresh HOME. A brief
 whose session failed is run again, and its earlier try is kept whole under `<out>/<id>/try-<n>`.
 `summary.md` and `summary.json` are rewritten from the result files on every run, so they count
-the last try of each brief, its cost included. Briefs run in parallel, at most `--jobs` at once.
+the last try of each brief, and a cost that adds the earlier tries. Briefs run in parallel, at
+most `--jobs` at once.
 
 The `inprocess` driver runs the chat agent in this process and stops at the Auto stop. See
 `inprocess.py`.
@@ -36,7 +37,16 @@ from autoresult import AutoResult, expect_problems
 from brief_set import BriefInput, load_set, prompt_for
 from friction import minutes_to_first_result, read_pages
 from inprocess import SCRIPTED, MissingKey, require_key, run_set
-from outcome import BriefResult, Friction, Trace, is_finished, read_results, write_result
+from outcome import (
+    TRY,
+    BriefResult,
+    Friction,
+    Trace,
+    is_finished,
+    read_earlier_tries,
+    read_results,
+    write_result,
+)
 from session import run_session
 from summary import markdown, summarize
 from tracefacts import failed_trace, trace_session
@@ -46,9 +56,6 @@ from cad.chat.key_file import load_key
 MODEL: Final = "sonnet"
 JOBS: Final = 3
 TIMEOUT_S: Final = 1800.0
-
-
-TRY: Final = "try-"
 
 
 def _keep_earlier_try(directory: Path) -> None:
@@ -199,7 +206,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     ids = [one.id for one in chosen]
     results = read_results(args.out, ids)
     missing = [one for one in ids if one not in {r.id for r in results}]
-    summary = summarize(results, missing, args.model)
+    summary = summarize(results, missing, args.model, read_earlier_tries(args.out, ids))
     text = markdown(summary, missing)
     (args.out / "summary.md").write_text(text)
     (args.out / "summary.json").write_text(summary.model_dump_json(indent=2) + "\n")

@@ -182,7 +182,7 @@ def test_a_card_judged_against_a_confirmed_brief_is_traced(tmp_path: Path) -> No
     )
 
 
-def test_rates_count_the_requirements_of_the_last_card_once(tmp_path: Path) -> None:
+def test_rates_count_the_requirements_of_one_variant_once(tmp_path: Path) -> None:
     home, variants = a_home(tmp_path)
     roots = Roots(home / ".cad" / "briefs", home / ".cad" / "projects")
     brief_id = briefs.create_brief(roots, BRIEF_TEXT, new_project_id()).id
@@ -213,7 +213,7 @@ def test_a_card_with_no_brief_is_not_traced(tmp_path: Path) -> None:
     assert "1 card(s) scored with no brief" in traced.untraced
 
 
-def test_the_summary_pools_requirements_and_names_untraced_numbers() -> None:
+def test_the_summary_pools_traced_briefs_and_counts_untraced_ones_apart() -> None:
     results = [
         a_result("a", a_trace()),
         a_result(
@@ -235,12 +235,16 @@ def test_the_summary_pools_requirements_and_names_untraced_numbers() -> None:
         1,
         1,
     )
-    assert summary.overall.strict_pass == Share(numerator=1, denominator=6)
-    assert summary.overall.coverage == Share(numerator=3, denominator=6)
-    assert summary.overall.agent_coverage == Share(numerator=2, denominator=6)
+    assert summary.overall.strict_pass == Share(numerator=1, denominator=2)
+    assert summary.overall.coverage == Share(numerator=2, denominator=2)
+    assert summary.overall.agent_coverage == Share(numerator=0, denominator=2)
     text = markdown(summary, ["d"])
-    assert "requirements covered by reviewed checks: 3/6 (50%)" in text
-    assert "requirements covered by agent-written checks the person approved: 2/6 (33%)" in text
+    assert "requirements covered by reviewed checks: 2/2 (100%)" in text
+    assert "requirements covered by agent-written checks the person approved: 0/2 (0%)" in text
+    assert (
+        "the 1 finished brief(s) that did not trace, counted apart: strict pass 0/4 (0%), "
+        "covered by reviewed checks 1/4 (25%)"
+    ) in text
     assert "v1: mass.volume = 3: Stale old" in text
     assert "SESSION FAILED: timed out" in text
     assert "| d | - | not run" in text

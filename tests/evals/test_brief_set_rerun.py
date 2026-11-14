@@ -48,6 +48,22 @@ def test_a_rerun_keeps_each_earlier_try_beside_the_next(
     assert [one.id for one in read_results(out, ["one"])] == ["one"]
 
 
+def test_the_summary_costs_every_try(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    briefs_dir, out = tmp_path / "set", tmp_path / "out"
+    briefs_dir.mkdir()
+    (briefs_dir / "one.yaml").write_text("id: one\ndomain: tests\nbrief: x\n")
+
+    def session(prompt: str, home: Path, transcript: Path, *_: object) -> SessionRun:
+        return SessionRun(1, False, "boom", SessionFacts("m", 0.25, 2, 0, 1, is_error=True))
+
+    monkeypatch.setattr(run, "run_session", session)
+    for _ in range(3):
+        run.main(["--briefs", str(briefs_dir), "--out", str(out)])
+    overall = json.loads((out / "summary.json").read_text())["overall"]
+    assert (overall["cost_usd"], overall["earlier_cost_usd"]) == (0.75, 0.5)
+    assert "cost: $0.75, of which $0.50 on 2 earlier tries" in (out / "summary.md").read_text()
+
+
 def test_the_session_counts_the_calls_outside_cad(tmp_path: Path) -> None:
     transcript = tmp_path / "transcript.json"
     shutil.copy(TRANSCRIPTS / "refused_unprefixed.json", transcript)
