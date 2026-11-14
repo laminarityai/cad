@@ -263,3 +263,27 @@ def test_marking_each_bound_leaves_the_requirement_verdict_as_the_count_decides(
     assert verdict_of(M5_CLEARANCE, counted(4.2, 7.0), count=1) == Verdict.FAIL
     assert marks(M5_CLEARANCE, 4.2, 7.0, count=1) == [Verdict.PASS, Verdict.PASS]
     assert verdict_of(M5_CLEARANCE, counted(5.5, 5.5, 5.5), count=2) == Verdict.FAIL
+
+
+def test_a_whole_variant_count_reads_the_whole_result_and_a_body_count_reads_that_body() -> None:
+    holes = suite(
+        result(
+            "holes",
+            Verdict.PASS,
+            hole_count=(2, "dimensionless"),
+            hole_diameter__0=(5.5, "mm"),
+            hole_diameter__1=(5.5, "mm"),
+            unclassified_openings=(0, "dimensionless"),
+            hole_count__plate=(2, "dimensionless"),
+            hole_diameter__plate__0=(5.5, "mm"),
+            hole_diameter__plate__1=(5.5, "mm"),
+            unclassified_openings__plate=(0, "dimensionless"),
+            hole_count__spacer=(1, "dimensionless"),
+            hole_diameter__spacer__0=(5.5, "mm"),
+            unclassified_openings__spacer=(0, "dimensionless"),
+        )
+    )
+    assert verdict_of(M5_CLEARANCE, holes, count=2) == Verdict.PASS
+    assert verdict_of(M5_CLEARANCE, holes, count=2, body="plate") == Verdict.PASS
+    assert verdict_of(M5_CLEARANCE, holes, count=1, body="spacer") == Verdict.PASS
+    assert verdict_of(M5_CLEARANCE, holes, count=2, body="spacer") == Verdict.FAIL

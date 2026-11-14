@@ -3,7 +3,7 @@ import type { Link } from "@/api/chat";
 
 export type Line =
   | { seq: number; kind: "user"; text: string; selection: string | null }
-  | { seq: number; kind: "agent" | "driver"; text: string }
+  | { seq: number; kind: "agent" | "driver"; text: string; streaming?: true }
   | { seq: number; kind: "tool"; callId: string; name: string; input: Record<string, unknown>; result: { text: string; isError: boolean } | null }
   | { seq: number; kind: "stop_report"; runId: string; reason: string; report: string }
   | { seq: number; kind: "notice"; text: string }
@@ -87,5 +87,5 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
 /** The lines to draw: the stored ones, then the reply heard so far as the agent's newest line. */
 export function shownLines(state: ChatState): readonly Line[] {
-  return state.partial === null ? state.lines : [...state.lines, { seq: state.seen + 0.5, kind: "agent", text: state.partial }];
+  return state.partial === null ? state.lines : [...state.lines, { seq: state.seen + 0.5, kind: "agent", text: state.partial, streaming: true }];
 }
