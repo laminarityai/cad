@@ -22,11 +22,25 @@ type Call = Extract<Line, { kind: "tool" }>;
 
 type Turn = Pick<ChatState, "lines" | "turn" | "turnStartSeq" | "link">;
 
+export const STALLED = "The server is not answering. The page is reconnecting.";
+
 /** A turn runs, but the stream dropped, so nothing on the page knows whether it still moves. */
 export const stalledOf = (chat: Turn): boolean => chat.turn === "running" && chat.link === "reconnecting";
 
+function created(call: Call): string | null {
+  if (call.name !== "create_brief" || call.result === null || call.result.isError) return null;
+  try {
+    const said = (JSON.parse(call.result.text) as { brief_id?: unknown } | null)?.brief_id;
+    return typeof said === "string" ? said : null;
+  } catch {
+    return null;
+  }
+}
+
 function briefOf(call: Call, runBrief: string | null): string | null {
   if (typeof call.input.brief_id === "string") return call.input.brief_id;
+  const made = created(call);
+  if (made !== null) return made;
   return AUTO_TOOLS.has(call.name) ? runBrief : null;
 }
 

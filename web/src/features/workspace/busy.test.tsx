@@ -1,43 +1,12 @@
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { describe, expect, it, vi } from "vitest";
-import { ServicesProvider } from "@/app/context";
+import { describe, expect, it } from "vitest";
 import { Gate } from "@/components/Gate";
-import { Refused, type Api } from "@/api/client";
-import { FakeChat, FakeViewer, fakeApi, runningRun, setOf } from "@/test/fakes";
-import { brief } from "@/test/fixtures";
+import { FakeChat, runningRun } from "@/test/fakes";
+import { mountWorkspace as mount, say } from "@/test/workspace";
 import { ChatPane } from "./Chat";
-import { Workspace } from "./Workspace";
 
 const built = JSON.stringify({ outcome: { kind: "built" }, output: "", variant_id: "v2" });
-
-const briefOn = (id: string) => ({ brief_id: id, created_at: "2026-11-10T00:00:00Z", proposals: 1, confirmed_proposal: 1 });
-
-function mount(chat: FakeChat, members: string[], emptyBrief: string | null = null, scorecard?: Api["scorecard"]) {
-  const briefs = emptyBrief === null ? [briefOn("b1")] : [briefOn(emptyBrief), briefOn("b1")];
-  const api = fakeApi(members, {
-    ...(scorecard ? { scorecard } : {}),
-    project: vi.fn(() => Promise.resolve({ project_id: "p1", briefs, context_parts: [], documents: [] })),
-    brief: vi.fn((briefId: string) => Promise.resolve({ ...brief(true), brief_id: briefId })),
-    variantSet: vi.fn((_project: string, briefId: string) => Promise.resolve(setOf(briefId === emptyBrief ? [] : members))),
-  });
-  return render(
-    <ServicesProvider services={{ api, viewer: new FakeViewer(), chat }}>
-      <MemoryRouter initialEntries={["/projects/p1"]}>
-        <Routes>
-          <Route path="projects/:projectId" element={<Workspace />} />
-        </Routes>
-      </MemoryRouter>
-    </ServicesProvider>,
-  );
-}
-
-const say = (chat: FakeChat, ...events: Parameters<FakeChat["say"]>[0][]) => {
-  act(() => {
-    for (const event of events) chat.say(event);
-  });
-};
 
 describe("a brief with no options", () => {
   it("says there are none, and never says it is building, when nothing runs", async () => {
@@ -193,6 +162,25 @@ describe("an empty brief while another brief is worked on", () => {
     expect(within(explorer).queryByRole("status")).toBeNull();
     expect(within(explorer).getByText("No options yet")).toBeInTheDocument();
   });
+
+  it("puts no work on an earlier brief of the turn once the new part's brief is created", async () => {
+    const chat = new FakeChat();
+    mount(chat, ["v1"], "b0");
+    const explorer = await screen.findByRole("region", { name: "Explorer" });
+    await within(explorer).findByText("No options yet");
+    say(
+      chat,
+      { kind: "user", text: "a lid too", selection: null },
+      { kind: "tool_call", call_id: "a", name: "propose_requirements", input: { brief_id: "b0" } },
+      { kind: "tool_result", call_id: "a", text: "{}", is_error: false },
+      { kind: "tool_call", call_id: "b", name: "create_brief", input: {} },
+      { kind: "tool_result", call_id: "b", text: JSON.stringify({ brief_id: "b9", project_id: "p1", text: "a lid too" }), is_error: false },
+    );
+    await screen.findAllByText("Working");
+    expect(within(explorer).queryByRole("status")).toBeNull();
+    expect(explorer.querySelector("[data-shimmer]")).toBeNull();
+    expect(within(explorer).getByText("No options yet")).toBeInTheDocument();
+  });
 });
 
 describe("the chat while the server does not answer", () => {
@@ -214,34 +202,6 @@ describe("the chat while the server does not answer", () => {
     expect(pane.querySelector("[data-spinner]")).toBeNull();
     expect(within(pane).queryByText(/Building an option/)).toBeNull();
     expect(within(pane).queryByText(/\ds$/)).toBeNull();
-  });
-});
-
-describe("the checks of an option", () => {
-  const checks = () => screen.findByRole("region", { name: "Checks" });
-
-  it("says an option nobody scored is not checked yet, with nothing moving", async () => {
-    const notScored = vi.fn(() => Promise.reject(new Refused(400, "NotScored: variant v1 has no stored check result", "NotScored")));
-    mount(new FakeChat(), ["v1"], null, notScored);
-    const pane = await checks();
-    expect(await within(pane).findByText("Not checked yet.")).toBeInTheDocument();
-    expect(pane.querySelector("[data-spinner], [data-shimmer]")).toBeNull();
-    expect(within(pane).queryByText(/Checking/)).toBeNull();
-  });
-
-  it("says the checks could not be read when the read fails another way, with nothing moving", async () => {
-    mount(new FakeChat(), ["v1"], null, vi.fn(() => Promise.reject(new Error("down"))));
-    const pane = await checks();
-    expect(await within(pane).findByText("The checks could not be read.")).toBeInTheDocument();
-    expect(pane.querySelector("[data-spinner], [data-shimmer]")).toBeNull();
-  });
-
-  it("says it is reading them while the first read has not answered", async () => {
-    mount(new FakeChat(), ["v1"], null, vi.fn(() => new Promise<never>(() => undefined)));
-    const pane = await checks();
-    expect(await within(pane).findByText("Reading the checks")).toBeInTheDocument();
-    expect(pane.querySelector("[data-spinner]")).toBeNull();
-    expect(within(pane).queryByText(/once an option is built/)).toBeNull();
   });
 });
 
@@ -282,7 +242,10 @@ describe("a build that failed", () => {
     );
     const log = screen.getByRole("log");
     await userEvent.click(await within(log).findByRole("button", { name: "Build finished" }));
-    expect(within(log).getByRole("listitem")).toHaveTextContent("Build finished");
+    const row = within(log).getByRole("listitem");
+    expect(row).toHaveTextContent("Build finished");
+    expect(row.querySelector("svg")).not.toBeNull();
+    expect(row.querySelector("svg.lucide-check")).toBeNull();
     expect(within(log).queryByText(/Built/)).toBeNull();
   });
 });
@@ -337,6 +300,24 @@ describe("the Auto run line", () => {
     });
     expect(run).not.toHaveTextContent(/Nothing is working/);
     expect(run).not.toHaveTextContent(/\ds/);
+  });
+
+  it("says the server is not answering, not that nothing works on it, while the stream reconnects mid-turn", async () => {
+    const chat = idleRun();
+    mount(chat, ["v1"]);
+    const run = await screen.findByRole("region", { name: "Auto run" }, { timeout: 6000 });
+    say(chat, { kind: "user", text: "carry on", selection: null });
+    await waitFor(() => {
+      expect(run.querySelector("[data-loading]")).not.toBeNull();
+    });
+    act(() => {
+      chat.drop();
+    });
+    await waitFor(() => {
+      expect(run).toHaveTextContent("The server is not answering. The page is reconnecting.");
+    });
+    expect(run).not.toHaveTextContent(/Nothing is working/);
+    expect(run.querySelector("[data-loading]")).toBeNull();
   });
 });
 

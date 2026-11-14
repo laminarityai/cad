@@ -20,15 +20,15 @@ describe("httpChat requests", () => {
     await httpChat.create();
     await httpChat.create("p1");
     expect(fetcher.mock.calls).toEqual([
-      ["/v1/conversations", { method: "POST", credentials: "same-origin", headers: JSON_BODY, body: "{}" }],
-      ["/v1/conversations", { method: "POST", credentials: "same-origin", headers: JSON_BODY, body: '{"project_id":"p1"}' }],
+      ["/v1/conversations", { method: "POST", credentials: "same-origin", headers: JSON_BODY, body: "{}", signal: expect.any(AbortSignal) as AbortSignal }],
+      ["/v1/conversations", { method: "POST", credentials: "same-origin", headers: JSON_BODY, body: '{"project_id":"p1"}', signal: expect.any(AbortSignal) as AbortSignal }],
     ]);
   });
 
   it("reads one conversation", async () => {
     const fetcher = reply();
     await httpChat.read("c 1");
-    expect(fetcher.mock.calls).toEqual([["/v1/conversations/c%201", { method: "GET", credentials: "same-origin", headers: JSON_ACCEPT }]]);
+    expect(fetcher.mock.calls).toEqual([["/v1/conversations/c%201", { method: "GET", credentials: "same-origin", headers: JSON_ACCEPT, signal: expect.any(AbortSignal) as AbortSignal }]]);
   });
 
   it("sends a message with its selection only when there is one", async () => {
@@ -36,8 +36,8 @@ describe("httpChat requests", () => {
     await httpChat.send("c1", "thicker");
     await httpChat.send("c1", "thicker", { variant_id: "v1", part: true });
     expect(fetcher.mock.calls).toEqual([
-      ["/v1/conversations/c1/messages", { method: "POST", credentials: "same-origin", headers: JSON_BODY, body: '{"text":"thicker"}' }],
-      ["/v1/conversations/c1/messages", { method: "POST", credentials: "same-origin", headers: JSON_BODY, body: '{"text":"thicker","selection":{"variant_id":"v1","part":true}}' }],
+      ["/v1/conversations/c1/messages", { method: "POST", credentials: "same-origin", headers: JSON_BODY, body: '{"text":"thicker"}', signal: expect.any(AbortSignal) as AbortSignal }],
+      ["/v1/conversations/c1/messages", { method: "POST", credentials: "same-origin", headers: JSON_BODY, body: '{"text":"thicker","selection":{"variant_id":"v1","part":true}}', signal: expect.any(AbortSignal) as AbortSignal }],
     ]);
   });
 
@@ -45,7 +45,7 @@ describe("httpChat requests", () => {
     const fetcher = reply();
     await httpChat.stop("run 1");
     expect(fetcher.mock.calls).toEqual([
-      ["/v1/auto/run%201/stop", { method: "POST", credentials: "same-origin", headers: JSON_ACCEPT }],
+      ["/v1/auto/run%201/stop", { method: "POST", credentials: "same-origin", headers: JSON_ACCEPT, signal: expect.any(AbortSignal) as AbortSignal }],
     ]);
   });
 });

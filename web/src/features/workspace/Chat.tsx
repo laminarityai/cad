@@ -8,7 +8,7 @@ import { ToolChips, type ToolRow } from "@/components/ui/tool-chips";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { isStopKind, reasonText } from "@/features/auto/run";
-import { nowLabel, workingLabel, type Working } from "@/features/chat/working";
+import { nowLabel, STALLED, workingLabel, type Working } from "@/features/chat/working";
 import { buildOf } from "@/features/chat/built";
 import { Markdown } from "./Markdown";
 
@@ -112,7 +112,11 @@ type Phase = "live" | "stalled" | "over";
 function statusesOf(lines: readonly Call[], phase: Phase): ToolRow["status"][] {
   const first = lines.findIndex((one) => one.result === null);
   return lines.map((one, at) => {
-    if (one.result !== null) return one.result.isError ? "refused" : buildOf(one.name, one.result.text) === "failed" ? "failed" : "done";
+    if (one.result !== null) {
+      if (one.result.isError) return "refused";
+      const build = buildOf(one.name, one.result.text);
+      return build === "failed" ? "failed" : build === "unread" ? "unread" : "done";
+    }
     if (phase === "over") return "unfinished";
     if (phase === "stalled") return "unanswered";
     return at === first ? "running" : "queued";
@@ -126,7 +130,7 @@ const builds = (n: number) => `${String(n)} ${n === 1 ? "build" : "builds"}`;
 function summaryText(lines: readonly Call[], phase: Phase): string {
   const statuses = statusesOf(lines, phase);
   const count = (status: ToolRow["status"]) => statuses.filter((one) => one === status).length;
-  const done = lines.filter((_, at) => statuses[at] === "done").map(doneWord);
+  const done = lines.filter((_, at) => statuses[at] === "done" || statuses[at] === "unread").map(doneWord);
   const running = lines.find((_, at) => statuses[at] === "running");
   const parts = [
     ...(done.length > 0 ? [activityText(done)] : []),
@@ -142,7 +146,7 @@ function summaryText(lines: readonly Call[], phase: Phase): string {
 
 function labelOf(line: Call, status: ToolRow["status"]): string {
   if (status === "failed") return "Build failed";
-  return status === "done" || status === "refused" ? activityText([doneWord(line)]) : nowLabel(line.name);
+  return status === "done" || status === "unread" || status === "refused" ? activityText([doneWord(line)]) : nowLabel(line.name);
 }
 
 function Activity({ lines, phase }: { lines: Call[]; phase: Phase }) {
@@ -293,7 +297,6 @@ export function Composer(props: { placeholder: string; onSend: (text: string) =>
   );
 }
 
-const STALLED = "The server is not answering. The page is reconnecting.";
 
 export function ChatPane(props: { lines: readonly Line[]; working: Working | null; stalled?: boolean; since?: number | null; card: ReactNode; composer: ReactNode; status?: ReactNode }) {
   const { lines, working, stalled = false, since = null, card, composer, status } = props;

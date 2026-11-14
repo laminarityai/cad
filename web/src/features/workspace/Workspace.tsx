@@ -214,8 +214,9 @@ function Page({ model, reload }: { model: Model; reload: () => void }) {
     />
   );
   const working = workingOf(chat, auto.run);
-  const status = <RunStatus run={auto.run} working={working} problem={auto.problem} onStop={() => void auto.stop()} />;
-  const chatPane = <ChatPane lines={chat.lines} working={working} stalled={stalledOf(chat)} since={sinceOf(chat, sent)} card={card} composer={composer} status={status} />;
+  const stalled = stalledOf(chat);
+  const status = <RunStatus run={auto.run} working={working} stalled={stalled} problem={auto.problem} onStop={() => void auto.stop()} />;
+  const chatPane = <ChatPane lines={chat.lines} working={working} stalled={stalled} since={sinceOf(chat, sent)} card={card} composer={composer} status={status} />;
   const center = <Center brief={brief} view={view} cards={cards} dispatch={dispatch} where={where} selection={selection} onPick={onPick} working={working} />;
 
   const explorer = (
