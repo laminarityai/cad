@@ -33,4 +33,4 @@ Free proofs: `tests/geometry/test_exports.py` (pending, stored, failed, the reco
 
 ## Evidence
 
-Look at `download-menu.png`: the menu lists STEP, STL and 3MF under the button, over the shaded part. The JSON line has equal STEP hashes, an STL and 3MF box equal to `extents`, and `"threemf_unit": "millimeter"`. The run's `cad-http` log holds the local sign-in token, so keep it out of anything shared.
+Look at `download-menu.png`: the menu lists STEP, STL and 3MF under the button, over the shaded part. The JSON line has equal STEP hashes, an STL and 3MF box equal to `extents`, and `"threemf_unit": "millimeter"`. A variant whose code set colours downloads a STEP that carries them, so its hash is not the card's `step` hash and the script exits 1 on that claim. The STL and 3MF claims still hold. A STEP of named bodies holds one `PRODUCT('result'` and unnamed solids: names by body are not exported yet. The run's `cad-http` log holds the local sign-in token, so keep it out of anything shared.
