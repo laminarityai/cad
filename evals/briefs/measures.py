@@ -15,9 +15,10 @@ result's verdict and its other fields are compared there.
 
 import math
 from collections.abc import Mapping
+from typing import cast
 
 import pint
-from cardnumbers import Where, numbers_in, path_of
+from cardnumbers import Where, path_of
 from chain import (
     CheckStep,
     Outcome,
@@ -31,7 +32,7 @@ from chain import (
 from signedjobs import SignedJobs
 
 from cad.checks.report import CheckSpec
-from cad.checks.result import CheckResult, Measure
+from cad.checks.result import CheckResult, Faces, Measure
 from cad.scorecard.model import Scorecard
 from cad.scorecard.unjudged import MeasureOnly
 from cad.tables.materials import (
@@ -113,17 +114,27 @@ def trace_face(
         held = signed.result(result.check_id, result.instance)
         if isinstance(held, Unresolved):
             return held
-        faces = (
-            {}
-            if held.where is None
-            else {one.where: one.value for one in numbers_in(held.where.model_dump(mode="json"))}
-        )
-        if faces.get(at) != value:
+        shown, kept = _face_at(result.where, at), _face_at(held.where, at)
+        if shown is None or shown != kept:
             return Unresolved(
-                f"face {path_of(at)} is {value} on the card, but the signed job result holds "
-                f"{faces.get(at, 'none there')}"
+                f"face {path_of(at)} is {value if shown is None else shown} on the card, but the "
+                f"signed job result holds {'none there' if kept is None else kept}"
             )
     return Resolved((CheckStep(spec.id, spec.version),))
+
+
+def _face_at(where: Faces | None, at: Where) -> int | None:
+    """The face index at `at`, as the exact integer, since a `:g` string rounds a large one."""
+    data: object = None if where is None else where.model_dump(mode="json")
+    for step in at:
+        if isinstance(step, str) and isinstance(data, dict):
+            data = cast(dict[str, object], data).get(step)
+        elif isinstance(step, int) and isinstance(data, list):
+            items = cast(list[object], data)
+            data = items[step] if step < len(items) else None
+        else:
+            return None
+    return data if isinstance(data, int) and not isinstance(data, bool) else None
 
 
 def _unsigned(measure: Measure, held: CheckResult | Unresolved) -> Unresolved | None:

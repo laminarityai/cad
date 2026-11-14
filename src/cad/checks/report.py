@@ -40,9 +40,9 @@ from cad.sandbox.stage import CONTAINER_ENTRY, PACKAGE_PATH, Sources, read_sourc
 from cad.tables.materials import UNITS, MaterialsTable, Source
 
 REASON_CAP = 1024
-NAME_THE_BODY: Final = (
-    "A variant of named bodies has a material for each body and none for the whole, so name "
-    "the body in the load case and the check solves that body alone"
+ONE_NAMED_BODY: Final = (
+    "This variant has a material for each named body and none for the whole part, so the stress "
+    "check solves only a load case that names the one body the force acts on"
 )
 SCORER: Final = "cad.scorecard.score"
 
@@ -350,12 +350,12 @@ def _result(spec: CheckSpec, wire: ResultWire, request: Request) -> CheckResult:
 
 
 def _reason(spec: CheckSpec, wire: ResultWire, request: Request) -> str:
-    """The check's reason, plus what to do when a load case names no body of a variant of named
-    bodies. The verdict and the measures are the check's own."""
+    """The check's reason, plus why a load case that names no body is not solved. The person's
+    card shows it too, so it states a fact. The verdict and the measures are the check's own."""
     reason = _one_line(wire["reason"])
     lacking = reason.startswith("the host sent no ") and wire["verdict"] == "unknown"
     if lacking and spec.id == "fea" and request.bodies:
-        return _one_line(f"{reason}. {NAME_THE_BODY}")
+        return _one_line(f"{reason}. {ONE_NAMED_BODY}")
     return reason
 
 
