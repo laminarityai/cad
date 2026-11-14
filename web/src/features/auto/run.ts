@@ -30,6 +30,13 @@ export function reasonText(kind: StopKind, agentChecked = 0, described = 0): str
   }
 }
 
+export const UNFINISHED = "A build was still running when you stopped it, and it is not counted.";
+
+function noteOf(reason: StopReason): string {
+  if (reason.kind === "needs_person") return reason.note;
+  return reason.kind === "stopped_by_person" && reason.unfinished === true ? UNFINISHED : "";
+}
+
 export function viewOf(run: AutoRun): RunView {
   if (run.state.kind === "running") {
     return { runId: run.run_id, status: "running", builds: run.state.builds.length, briefId: run.state.start.brief_id };
@@ -42,7 +49,7 @@ export function viewOf(run: AutoRun): RunView {
     reason: reason.kind,
     agentChecked: reason.kind === "all_pass" ? reason.agent_checked.length : 0,
     described: reason.kind === "all_pass" ? (reason.described?.length ?? 0) : 0,
-    note: reason.kind === "needs_person" ? reason.note : "",
+    note: noteOf(reason),
     report: run.state.report,
   };
 }

@@ -8,6 +8,8 @@ export type Link = "connecting" | "live" | "reconnecting" | "signed_out" | "not_
 export interface Follower {
   onEvent(seq: number, event: Event): void;
   onLink(link: Link): void;
+  /** The reply text heard so far, which the next event replaces. */
+  onPartial?(text: string): void;
 }
 
 export type Unfollow = () => void;
@@ -23,6 +25,17 @@ export interface ChatApi {
 
 const RETRY_MS = 1000;
 const EVENT_KINDS: ReadonlySet<string> = new Set<Event["kind"]>(["user", "driver", "agent", "tool_call", "tool_result", "web_search", "web_search_result", "stop_report", "turn_failed", "turn_ended"]);
+
+const PARTIAL = "agent_partial";
+
+function partialText(data: string): string | null {
+  try {
+    const { text } = JSON.parse(data) as { text?: unknown };
+    return typeof text === "string" ? text : null;
+  } catch {
+    return null;
+  }
+}
 
 /** Not `EventSource`: it hides the status, and the page must tell a conversation that is not in the
  * account (404) from a stream that dropped. */
@@ -45,6 +58,11 @@ async function follow(conversationId: string, from: number, handlers: Follower, 
         const { done, value } = await reader.read();
         if (done) break;
         for (const frame of frames.push(value)) {
+          if (frame.event === PARTIAL) {
+            const heard = partialText(frame.data);
+            if (heard !== null) handlers.onPartial?.(heard);
+            continue;
+          }
           const seq = Number(frame.id);
           if (!EVENT_KINDS.has(frame.event) || !Number.isInteger(seq)) continue;
           after = Math.max(after, seq);

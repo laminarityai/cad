@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Event } from "@/api/types";
-import { chatReducer, chatStart, type ChatAction, type ChatState } from "./state";
+import { chatReducer, chatStart, shownLines, type ChatAction, type ChatState } from "./state";
 
 const play = (state: ChatState, events: Event[], from = 1): ChatState =>
   events.reduce((held, event, at) => chatReducer(held, { type: "event", seq: from + at, event } satisfies ChatAction), state);
@@ -40,5 +40,14 @@ describe("chatReducer", () => {
       { kind: "user", selection: "2 faces" },
       { kind: "user", selection: null },
     ]);
+  });
+
+  it("draws the reply as it is heard and then only the stored reply, and drops it when the stream drops", () => {
+    const asked = play(chatStart("c1"), [{ kind: "user", text: "a hook", selection: null }]);
+    const typing = chatReducer(chatReducer(asked, { type: "partial", text: "Built " }), { type: "partial", text: "Built 3 options." });
+    expect(shownLines(typing).map((one) => one.kind === "agent" && one.text)).toEqual([false, "Built 3 options."]);
+    const stored = play(typing, [{ kind: "agent", text: "Built 3 options." }], 2);
+    expect(shownLines(stored).filter((one) => one.kind === "agent")).toHaveLength(1);
+    expect(shownLines(chatReducer(typing, { type: "link", link: "reconnecting" }))).toHaveLength(1);
   });
 });

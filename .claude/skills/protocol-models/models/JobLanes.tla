@@ -289,9 +289,9 @@ Peek(t) ==
     /\ Stored("quick")
     /\ peeked' = [peeked EXCEPT ![t] =
                  IF Stored("fea") THEN [kind |-> "done", value |-> disk["fea"]]
-                 ELSE IF flying[p]["fea"] = "none" /\ attempt["fea"] >= Cap
-                   THEN [kind |-> "refused", why |-> "interrupted"]
-                 ELSE [kind |-> "pending"]]
+                 ELSE IF flying[p]["fea"] # "none" THEN [kind |-> "pending"]
+                 ELSE IF attempt["fea"] >= Cap THEN [kind |-> "refused", why |-> "interrupted"]
+                 ELSE [kind |-> "refused", why |-> "notrunning"]]
     /\ UNCHANGED <<disk, attempt, flying, queue, worker, wpc, wjob, wres, cpc, cfea, cquick,
                    cres, seen, crashes, faults, tampers, cut, drops, told, life>>
 
@@ -534,7 +534,8 @@ Handles ==
     {Nothing, [kind |-> "pending"]}
       \cup [kind : {"future"}, st : FutureStates]
       \cup [kind : {"done"}, value : {"honest", "forged"}]
-      \cup [kind : {"refused"}, why : {"interrupted", "unavailable", "superseded", "stopped"}]
+      \cup [kind : {"refused"}, why : {"interrupted", "unavailable", "superseded", "stopped",
+                                        "notrunning"}]
 
 TypeOK ==
     /\ disk \in [Jobs -> {"none", "honest", "forged"}]
@@ -581,6 +582,12 @@ InterruptedMeansInterrupted ==
 \* The same for Lanes.peek: it reports fea refused only after Cap attempts in a row were cut off.
 PeekMeansInterrupted ==
     \A t \in Threads : peeked[t] = [kind |-> "refused", why |-> "interrupted"] => cut >= Cap
+
+\* Lanes.peek calls fea pending only while it is queued or runs in the peeking process, so the
+\* page never shows a check as running that no process will finish.
+PeekPendingMeansRunning ==
+    [][\A t \in Threads :
+         Peek(t) /\ peeked'[t] = [kind |-> "pending"] => flying[t[1]]["fea"] # "none"]_vars
 
 \* A drop leaves no job queued from before it in that process: every queued job took off after
 \* the last drop, so no container starts for a variant that left its last set while its job

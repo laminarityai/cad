@@ -1,4 +1,4 @@
-import { useEffect, useReducer, useState, type Dispatch } from "react";
+import { useEffect, useReducer, useRef, useState, type Dispatch } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useServices } from "@/app/context";
 import { Gate } from "@/components/Gate";
@@ -298,6 +298,7 @@ export function Start() {
   const navigate = useNavigate();
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [sent, setSent] = useState<{ seq: number; at: number } | null>(null);
+  const created = useRef<string | null>(null);
   const state = useProjectChat(conversationId, () => {
     if (conversationId === null) return;
     chat.read(conversationId).then(
@@ -309,9 +310,10 @@ export function Start() {
   });
   const send = async (text: string) => {
     const at = Date.now();
-    const id = conversationId ?? (await chat.create()).conversation_id;
-    setConversationId(id);
+    const id = conversationId ?? created.current ?? (await chat.create()).conversation_id;
+    created.current = id;
     const { seq } = await chat.send(id, text);
+    setConversationId(id);
     setSent({ seq, at });
   };
   if (conversationId !== null) {

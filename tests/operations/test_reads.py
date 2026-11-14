@@ -262,3 +262,22 @@ async def test_a_body_s_own_made_of_shows_on_the_slot_before_it_is_scored(alice:
         ("plate", "cliffs-hot-rolled-cs-type-b", "requirement"),
         ("gear", "prusament-pla", "requirement"),
     ]
+
+
+async def test_an_option_an_older_sandbox_stored_shows_its_rebuild_once_it_is_rebuilt(
+    alice: Tenant,
+) -> None:
+    project, brief = await confirmed(alice)
+    code = "result = 1"
+    old = entry.variant_id(code, "cad-sandbox:before-a-deploy")
+    entry.save(alice.variants, old, code, Build(outcome=Built(), output=""), RAIL)
+    key = variant_sets.set_key(alice.roots, brief)
+    variant_sets.join(alice.roots.projects, key, code, old, None)
+    asked = reads.VariantSetInput(project_id=project, brief_id=brief)
+    [before] = reads.variant_set(alice, asked).members
+    assert before.variant_id == old
+    rebuilt = built(alice, code)
+    [after] = reads.variant_set(alice, asked).members
+    assert after.variant_id == rebuilt
+    assert [one.variant_id for one in after.revisions] == [rebuilt]
+    assert reads.view(alice, reads.VariantInput(variant_id=after.variant_id)).variant_id == rebuilt

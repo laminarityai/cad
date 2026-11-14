@@ -6,7 +6,7 @@ restart loses nothing.
 
 import asyncio
 import json
-from collections.abc import Sequence
+from collections.abc import AsyncIterator, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Annotated, Any, Final, Literal, cast
@@ -130,6 +130,9 @@ class TurnEnded(Frozen):
     kind: Literal["turn_ended"] = "turn_ended"
 
 
+PARTIAL: Final = "agent_partial"
+KEEPALIVE_SECONDS: Final = 15.0
+
 type Event = Annotated[
     UserSaid
     | DriverSaid
@@ -160,10 +163,13 @@ def transcript_path(conversations: Path, cid: ConversationId) -> Path:
 @dataclass
 class Channel:
     """One conversation's transcript, with a signal for each append and a flag for a running turn.
-    Everything that appends runs on the server's event loop, so an append needs no lock."""
+    Everything that appends runs on the server's event loop, so an append needs no lock.
+    `partial` is the reply text heard so far and not yet stored. It lives only here, and each
+    append clears it."""
 
     path: Path
     running: bool = False
+    partial: str = ""
     _stamped: list[Stamped] = field(default_factory=list[Stamped])
     _changed: asyncio.Event = field(default_factory=asyncio.Event)
 
@@ -176,19 +182,27 @@ class Channel:
         with self.path.open("ab") as file:
             file.write(stamped.model_dump_json().encode() + b"\n")
         self._stamped.append(stamped)
+        self.partial = ""
+        self._release()
+        return stamped
+
+    def hear(self, text: str) -> None:
+        self.partial += text
+        self._release()
+
+    def _release(self) -> None:
         released, self._changed = self._changed, asyncio.Event()
         released.set()
-        return stamped
 
     def after(self, seq: int) -> Sequence[Stamped]:
         return self._stamped[seq:]
 
-    async def wait_after(self, seq: int) -> Sequence[Stamped]:
+    async def wait_change(self, seq: int, partial: str) -> None:
+        """Return once an event after `seq` is held or the partial text is no longer `partial`."""
         while True:
             changed = self._changed
-            held = self.after(seq)
-            if held:
-                return held
+            if self.after(seq) or self.partial != partial:
+                return
             await changed.wait()
 
     def events(self) -> Sequence[Event]:
@@ -301,7 +315,38 @@ def _told(event: UserSaid | DriverSaid) -> str:
     )
 
 
+def partial_line(text: str) -> str:
+    """The reply text heard so far, as a server-sent event with no id: it is not stored, so a
+    client never resumes from it."""
+    data = json.dumps({"text": text}, separators=(",", ":"))
+    return f"event: {PARTIAL}\ndata: {data}\n\n"
+
+
 def line(stamped: Stamped) -> str:
     """One server-sent event: the seq is its id, so a client can resume with Last-Event-ID."""
     data = json.dumps(stamped.event.model_dump(mode="json"), separators=(",", ":"))
     return f"id: {stamped.seq}\nevent: {stamped.event.kind}\ndata: {data}\n\n"
+
+
+async def frames(channel: Channel, seen: int, follow: bool) -> AsyncIterator[str]:
+    """Everything after `seen`, then each event as it is appended, and the reply text heard so
+    far whenever it grows. A stored event replaces the text before it, so a client drops its
+    partial text at each one. `follow=false` ends after what is held, for a reload or a `curl`."""
+    shown = ""
+    while True:
+        held = channel.after(seen)
+        for stamped in held:
+            yield line(stamped)
+            seen = stamped.seq
+        if held:
+            shown = ""
+        if channel.partial != shown:
+            shown = channel.partial
+            if shown:
+                yield partial_line(shown)
+        if not follow:
+            return
+        try:
+            await asyncio.wait_for(channel.wait_change(seen, shown), KEEPALIVE_SECONDS)
+        except TimeoutError:
+            yield ": keepalive\n\n"
