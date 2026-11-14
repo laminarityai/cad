@@ -27,6 +27,7 @@ from cad.briefs.model import (
     Requirement,
     Target,
     Unchecked,
+    body_of,
     deciding_check,
     limits,
     load_of,
@@ -63,6 +64,7 @@ UNDECIDED: Final = (
     "The deciding check did not pass, so there is no measure to compare; its reason says why."
 )
 NO_MEASURE: Final = "The deciding check passed but reported no measure to compare."
+NO_BODY: Final = "The variant holds no body named {body}, so no check measured it."
 ROTATION: Final = (
     "The bounding box in the part's own axes is larger than the confirmed box. A rotated part "
     "might still fit, and no check measures the smallest box over all rotations."
@@ -172,15 +174,7 @@ def judge(
             verdict=Verdict.UNKNOWN,
             reason=UNCONFIRMED_PART,
             waits_on="context_part",
-            comparisons=tuple(
-                Comparison(
-                    measure=limit.measure,
-                    comparator=limit.comparator,
-                    limit=limit.quantity,
-                    verdict=Verdict.UNKNOWN,
-                )
-                for limit in limits(requirement.target)
-            ),
+            comparisons=_unmeasured(requirement.target),
         )
     if isinstance(result, PendingCheck):
         return Waiting(
@@ -188,6 +182,16 @@ def judge(
             statement=statement,
             check_id=check_id,
             load_case=labelled(requirement.target),
+        )
+    body = body_of(requirement.target)
+    if body is not None and result.verdict is Verdict.PASS and not _measures_body(result, body):
+        return Checked(
+            requirement_id=requirement.id,
+            statement=statement,
+            check_id=check_id,
+            verdict=Verdict.UNKNOWN,
+            reason=NO_BODY.format(body=body),
+            comparisons=_unmeasured(requirement.target),
         )
     if isinstance(requirement.target, FastenerHoles | PlainHoles):
         return holes.judged(requirement, statement, result)
@@ -245,6 +249,24 @@ def _compare(result: CheckResult, limit: Limit, missed: Verdict, error: float) -
 
 class NoDecidingResult(Exception):
     pass
+
+
+def _unmeasured(target: Target) -> tuple[Comparison, ...]:
+    return tuple(
+        Comparison(
+            measure=limit.measure,
+            comparator=limit.comparator,
+            limit=limit.quantity,
+            verdict=Verdict.UNKNOWN,
+        )
+        for limit in limits(target)
+    )
+
+
+def _measures_body(result: CheckResult, body: str) -> bool:
+    """Whether the check reported any measure of the body: `mass:plate` or `hole_count:plate`. A
+    body name starts with a letter, so the whole variant's `hole_diameter:0` is never one."""
+    return any(one.name.split(":")[1:2] == [body] for one in result.measured)
 
 
 def _measured(result: CheckResult, name: str) -> Measured | None:

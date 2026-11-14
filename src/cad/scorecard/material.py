@@ -1,12 +1,12 @@
 """`cad.scorecard.score` must never import this module: check versions hash what it imports."""
 
 import hashlib
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from typing import Annotated, Final, Literal, Self
 
 from pydantic import Field, model_validator
 
-from cad.briefs.model import MadeOf, Requirement
+from cad.briefs.model import MadeOf, Requirement, body_of
 from cad.briefs.store import ConfirmedSet
 from cad.briefs.words import describe
 from cad.checks.result import BodyMaterial, Materials
@@ -108,34 +108,50 @@ def snapshot(card: ReportedScorecard) -> ScorecardSnapshot:
     return ScorecardSnapshot(**dict(card), etag=etag)
 
 
-def pinned_by(confirmed: ConfirmedSet | None) -> Requirement | None:
-    if confirmed is None:
-        return None
-    return next((r for r in confirmed.requirements if isinstance(r.target, MadeOf)), None)
+type Pins = Mapping[str | None, str]
+"""The key each confirmed made_of fixes, by the body it names, None for one that names no body and
+so pins every body."""
+
+
+def pinned_by(confirmed: ConfirmedSet | None, body: str | None = None) -> Requirement | None:
+    """The made_of that fixes the body's material: the one naming it, else one naming no body."""
+    made: Sequence[Requirement] = () if confirmed is None else confirmed.requirements
+    pins = [r for r in made if isinstance(r.target, MadeOf)]
+    named = next((r for r in pins if body is not None and body_of(r.target) == body), None)
+    return named or next((r for r in pins if body_of(r.target) is None), None)
+
+
+def pins(confirmed: ConfirmedSet | None, table: MaterialsTable) -> Pins:
+    made = () if confirmed is None else confirmed.requirements
+    return {
+        r.target.body: table.row_key(r.target.material)
+        for r in made
+        if isinstance(r.target, MadeOf)
+    }
+
+
+def pin_for(pinned: Pins, body: str | None) -> str | None:
+    named = None if body is None else pinned.get(body)
+    return named or pinned.get(None)
 
 
 def refuse_other_material(
-    confirmed: ConfirmedSet | None, material_key: str, table: MaterialsTable
+    pinned: Pins, body: str | None, material_key: str, table: MaterialsTable
 ) -> None:
-    pin = pinned_by(confirmed)
-    if pin is None or not isinstance(pin.target, MadeOf):
-        return
-    pinned = table.row_key(pin.target.material)
-    if pinned == material_key:
+    pin = pin_for(pinned, body)
+    if pin is None or table.row_key(material_key) == pin:
         return
     raise MaterialPinned(
         f"material_key {material_key!r} differs from the material the user confirmed, "
-        f"{pinned!r} (requirement {pin.id}), which every body is made of. "
-        f"Call score_variant again with material_key {pinned!r}, or with no material_key and no "
-        "materials. No variant was scored."
+        f"{pin!r}, {_which(pinned, body)}. Call score_variant again with that material, or with "
+        "no material_key and no materials. No variant was scored."
     )
 
 
-def pinned_key(confirmed: ConfirmedSet | None, table: MaterialsTable) -> str | None:
-    pin = pinned_by(confirmed)
-    if pin is None or not isinstance(pin.target, MadeOf):
-        return None
-    return table.row_key(pin.target.material)
+def _which(pinned: Pins, body: str | None) -> str:
+    if body is not None and body in pinned:
+        return f"which the {body} is made of"
+    return "which every body is made of"
 
 
 type MaterialsOf = Callable[[Bodies], Materials]
@@ -145,19 +161,19 @@ def made_of(
     bodies: Bodies,
     single: str | None,
     asked: Mapping[str, str],
-    pinned: str | None,
+    pinned: Pins,
     revision: Revision | None,
 ) -> Materials:
     """One key for a variant of one unnamed body. For a variant of named bodies, each body's key:
-    its entry in `asked`, else the person's made_of, which pins every body, else the choice the
-    slot recorded for a body of that name."""
+    the person's made_of that names it or names no body, else its entry in `asked`, else the
+    choice the slot recorded for a body of that name."""
     if not bodies:
         if asked:
             raise BodyMaterialsRefused(
                 "this variant is one unnamed body: score it with material_key, not materials"
             )
         chose = None if revision is None or revision.material is None else revision.material.key
-        key = single or pinned or chose
+        key = single or pinned.get(None) or chose
         if key is None:
             raise MaterialMissing(NO_MATERIAL)
         return key
@@ -175,7 +191,7 @@ def made_of(
     kept = {} if revision is None else {one.body: one.key for one in revision.materials}
     if len(names) == 1 and revision is not None and revision.material is not None:
         kept = {names[0]: revision.material.key}
-    keys = {name: given.get(name) or pinned or kept.get(name) for name in names}
+    keys = {name: pin_for(pinned, name) or given.get(name) or kept.get(name) for name in names}
     missing = [name for name, key in keys.items() if key is None]
     if missing:
         raise MaterialMissing(
@@ -194,11 +210,14 @@ NO_MATERIAL: Final = (
 
 
 def used(
-    key: str, confirmed: ConfirmedSet | None, choice: MaterialChoice | BodyChoice | None
+    key: str,
+    confirmed: ConfirmedSet | None,
+    choice: MaterialChoice | BodyChoice | None,
+    body: str | None = None,
 ) -> MaterialUse:
-    """What set `key`: the requirement the person confirmed, else the agent, with its reason when
-    `choice` records this key."""
-    pin = pinned_by(confirmed)
+    """What set `key` for the body: the requirement the person confirmed, else the agent, with its
+    reason when `choice` records this key."""
+    pin = pinned_by(confirmed, body)
     if pin is not None:
         return MaterialUse(
             key=key,
@@ -216,7 +235,9 @@ def reported(
     choice = None if revision is None else revision.material
     kept = {} if revision is None else {one.body: one for one in revision.materials}
     each = tuple(
-        BodyMaterialUse(body=one.body, **dict(used(one.key, confirmed, kept.get(one.body))))
+        BodyMaterialUse(
+            body=one.body, **dict(used(one.key, confirmed, kept.get(one.body), one.body))
+        )
         for one in card.materials
     )
     single = None if card.material_key is None else used(card.material_key, confirmed, choice)

@@ -193,13 +193,17 @@ def _edited(requirement: Requirement, text: str) -> Requirement | str:
                 return "This row has no number to change."
             case FastenerHoles():
                 new = FastenerHoles(
-                    size=target.size, fit=target.fit, count=target.count, series=_series(text)
+                    size=target.size,
+                    fit=target.fit,
+                    count=target.count,
+                    series=_series(text),
+                    body=target.body,
                 )
             case PlainHoles():
                 new = _plain_hole(target, text)
             case MaxMass() | MinMass():
                 [mass] = _quantities(text, MASS)
-                new = type(target).model_validate({"mass": mass})
+                new = type(target).model_validate({"mass": mass, "body": target.body})
             case MaxDeflection():
                 [deflection] = _quantities(text, LENGTH)
                 new = MaxDeflection(load=target.load, deflection=deflection)
@@ -265,7 +269,7 @@ def _read_plain_hole(target: PlainHoles, text: str, keys: list[str]) -> PlainHol
     diameter = target.diameter
     if diameter_text.strip():
         [diameter] = _quantities(diameter_text, LENGTH)
-    return PlainHoles(diameter=diameter, count=target.count, tolerance=tolerance)
+    return PlainHoles(diameter=diameter, count=target.count, tolerance=tolerance, body=target.body)
 
 
 def _has_unit(amount_text: str) -> bool:

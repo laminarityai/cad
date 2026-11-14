@@ -160,7 +160,7 @@ def chooser(
 
     def resolve(previous: Revision | None, bodies: Bodies | None) -> Chosen:
         table = brief_table(tenant.roots, brief_id).table
-        pinned = material.pinned_key(briefs.confirmed_requirements(tenant.roots, brief_id), table)
+        pinned = material.pins(briefs.confirmed_requirements(tenant.roots, brief_id), table)
         asked = [one.model_copy(update={"key": table.row_key(one.key)}) for one in materials]
         return choose_each(pinned, previous, bodies, (key, reason), asked, table)
 

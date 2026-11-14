@@ -266,21 +266,21 @@ def judged(
         targets = _targets(confirmed, waiting, held)
         demand = requirements.demand(targets, _context(tenant.roots, brief_id, targets))
     table = brief_table(tenant.roots, brief_id)
-    pinned = material.pinned_key(confirmed, table.table)
+    pinned = material.pins(confirmed, table.table)
     revision = None
-    if brief_id is not None and pinned is None and variant_id:
+    if brief_id is not None and None not in pinned and variant_id:
         revision = _slot_choice(tenant, brief_id, variant_id)
     given = None if material_key is None else table.table.row_key(material_key)
     asked = {one.body: table.table.row_key(one.key) for one in materials or ()}
     if given is not None and asked:
         raise BodyMaterialsRefused("pass material_key or materials, not both. Nothing was scored.")
-    for key in (given, *asked.values()):
+    for body, key in ((None, given), *asked.items()):
         if key is not None:
-            material.refuse_other_material(confirmed, key, table.table)
+            material.refuse_other_material(pinned, body, key, table.table)
     # The confirmed key names every body's material, not a variant of one body.
-    single = None if given == pinned else given
+    single = None if given == pinned.get(None) else given
     chose = revision is not None and (revision.material is not None or bool(revision.materials))
-    if single is None and not asked and pinned is None and not chose:
+    if single is None and not asked and not pinned and not chose:
         raise MaterialMissing(material.NO_MATERIAL)
 
     def materials_of(bodies: Bodies) -> Materials:
