@@ -149,13 +149,12 @@ def refuse_lacking(named: Sequence[str], bodies: Bodies | None) -> None:
     if bodies is None:
         return
     built = {body.name for body in bodies}
-    wanted = list(dict.fromkeys(named))
-    lacking = [name for name in wanted if name not in built]
+    lacking = [name for name in dict.fromkeys(named) if name not in built]
     if lacking:
         raise BodiesMissing(
-            f"the person confirmed requirements on the bodies {', '.join(wanted)}, and this build "
-            f"has no body named {', '.join(lacking)}. Label a body with each of those names and "
-            "build again. Nothing joined the variant set"
+            f"this build has no body named {', '.join(lacking)}, and a requirement the person "
+            "confirmed names it. Label a body with that name and build again. Nothing joined the "
+            "variant set"
         )
 
 
