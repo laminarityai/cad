@@ -19,7 +19,7 @@ from cad.projects.model import UnknownProject, parse_project_id
 from cad.sandbox import image
 from cad.sandbox.outcome import Areas, on_faces
 from cad.scorecard import material, score
-from cad.scorecard.material import BodyMaterialUse, MaterialUse
+from cad.scorecard.material import BodyMaterialUse, MaterialUse, ScorecardSnapshot
 from cad.tables.materials import MaterialsTable
 from cad.uploads.store import documents
 from cad.uploads.views import ContextPartView, DocumentView, document_view, part_view
@@ -40,7 +40,9 @@ VARIANT_SET = (
     "requirement the person confirmed, or the agent, with the reason it recorded; it is empty "
     "when neither named one. A member's card_etag is the etag of its scorecard for that "
     "material, or for material_key when you pass it. It is empty when the variant was never "
-    "scored for that material. material_name is the name a person reads for the material. A "
+    "scored for that material. For a variant of named bodies, body_materials is each body's "
+    "material and what set it, as its card states, or as the slot records until it is scored. "
+    "material_name is the name a person reads for the material. A "
     "brief nothing was built for has an empty set."
 )
 VIEW = (
@@ -206,6 +208,11 @@ def _member(
     latest = member.latest
     choice = latest.material
     key = pinned or (None if choice is None else choice.key)
+    card = _card(tenant, brief_id, asked or key, latest.built_as, bool(latest.materials))
+    recorded = tuple(
+        BodyMaterialUse(body=one.body, **dict(material.used(pinned or one.key, confirmed, one)))
+        for one in latest.materials
+    )
     return MemberView(
         slot=member.slot,
         variant_id=latest.built_as,
@@ -222,22 +229,19 @@ def _member(
         material=None if key is None else material.used(key, confirmed, choice),
         option=latest.option,
         material_name=None if key is None else table.name_of(key),
-        card_etag=_etag(tenant, brief_id, asked or key, latest.built_as, bool(latest.materials)),
-        body_materials=tuple(
-            BodyMaterialUse(body=one.body, **dict(material.used(one.key, confirmed, one)))
-            for one in latest.materials
-        ),
+        card_etag=None if card is None else card.etag,
+        body_materials=recorded if card is None else card.body_materials,
     )
 
 
-def _etag(
+def _card(
     tenant: Tenant, brief_id: str, material_key: str | None, variant_id: str, each_body: bool
-) -> str | None:
+) -> ScorecardSnapshot | None:
     if material_key is None and not each_body:
         return None
     asked = ScorecardInput(variant_id=variant_id, material_key=material_key, brief_id=brief_id)
     try:
-        return scorecard(tenant, asked).etag
+        return scorecard(tenant, asked)
     except (entry.VariantRefused, score.NotScored):
         return None
 
