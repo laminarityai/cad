@@ -15,8 +15,6 @@ export interface CardQuestion {
   suggestions: readonly string[];
 }
 
-/** One question at a time, each with its suggested answers, a typed answer and its default. Skip
- * sends what is answered so far, and Continue moves on, sending the answers on the last question. */
 export function QuestionCard({ questions, onSend }: { questions: readonly CardQuestion[]; onSend: (answers: readonly string[]) => Promise<void> }) {
   const [at, setAt] = useState(0);
   const [answers, setAnswers] = useState<readonly string[]>(() => questions.map(() => ""));

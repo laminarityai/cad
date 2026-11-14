@@ -2,10 +2,6 @@
 
 The client is built on the first reply and reads the key from the environment it was given. The
 key is never logged, never part of an error, and never sent to a tool.
-
-The model may search the web with the API's own web search tool, at most `CAD_WEB_SEARCHES` times
-in a turn (5 when unset, none when 0). A search and its result come back as blocks the API ran
-itself, and each goes back unchanged on every later step.
 """
 
 import logging
@@ -139,9 +135,9 @@ def _searches(environ: Mapping[str, str]) -> int:
 
 
 def _tools(specs: Sequence[ToolSpec], searches: int) -> list[ToolUnionParam]:
-    """The web search tool, then ours, with a cache breakpoint after the last. The request's own
-    breakpoint moves to the end of the conversation each step. This one holds the tools when the
-    system text changes under them, such as when a turn stores a brief."""
+    """The request's own breakpoint moves to the end of the conversation each step. The one on the
+    last tool holds the tools when the system text changes under them, such as when a turn stores
+    a brief."""
     ours: list[ToolParam] = [
         {"name": one.name, "description": one.description, "input_schema": one.input_schema}
         for one in specs
@@ -157,8 +153,7 @@ def _tools(specs: Sequence[ToolSpec], searches: int) -> list[ToolUnionParam]:
 
 
 def _blocks(content: Sequence[ContentBlock]) -> tuple[Block, ...]:
-    """Our blocks from the API's. Text the API split at its citations is one text again, and a
-    thinking block is left out."""
+    """Text the API split at its citations is one text again."""
     blocks: list[Block] = []
     for block in content:
         if block.type == "text" and block.text:

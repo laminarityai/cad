@@ -93,7 +93,6 @@ function num(magnitude: number): string {
 
 /** A requirement on a body compares a measure named `<measure>:<body>`, so its row shows that body's number, and
  * nothing when the variant has no such body. */
-/** A body is a name, so `hole_diameter:0`, one hole of the whole part, names none. */
 function bodyOf(measures: readonly string[], measure: string): string | undefined {
   return measures.map((one) => (one.startsWith(`${measure}:`) ? one.slice(measure.length + 1) : "")).find((one) => /^[a-z]/i.test(one));
 }

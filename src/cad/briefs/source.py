@@ -23,9 +23,6 @@ class WordsRefused(BriefRefused):
 
 
 class FirstWords(NamedTuple):
-    """The words a new brief holds: the request, and the person's answers to the questions the
-    agent asked about it, each stored as said so a quote from an answer is the person's own."""
-
     request: Spoken
     answers: tuple[Spoken, ...] = ()
 
@@ -43,7 +40,7 @@ def first_words(directory: Path, cid: ConversationId | None, given: str | None) 
     said = [(one.seq, one.event.text) for one in stamped if isinstance(one.event, UserSaid)]
     if not said:
         raise WordsRefused("the person has said nothing in this conversation yet")
-    asked = _asked_at(stamped)
+    asked = _first_ask_since_brief(stamped)
     newest = FirstWords(Spoken(*said[-1]))
     if asked is None:
         return newest
@@ -54,8 +51,7 @@ def first_words(directory: Path, cid: ConversationId | None, given: str | None) 
     return FirstWords(request[-1], _fitting(request[-1], answers))
 
 
-def _asked_at(stamped: Sequence[Stamped]) -> int | None:
-    """The seq of the first ask_questions that returned since the newest brief was stored."""
+def _first_ask_since_brief(stamped: Sequence[Stamped]) -> int | None:
     called = {
         one.event.call_id: (one.seq, one.event.name)
         for one in stamped
@@ -75,7 +71,6 @@ def _asked_at(stamped: Sequence[Stamped]) -> int | None:
 
 
 def _fitting(request: Spoken, answers: Sequence[Spoken]) -> tuple[Spoken, ...]:
-    """The answers that fit in one brief after the request, oldest first."""
     room = MAX_BRIEF_CHARS - len(request.text)
     kept: list[Spoken] = []
     for one in answers:

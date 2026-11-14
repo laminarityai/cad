@@ -25,7 +25,6 @@ ALLOWED_ARGUMENTS = {
     # assumptions are the agent's own numbers, listed with the measure, never a verdict.
     "propose_requirements": {"brief_id", "requirements", "remove", "assumptions", "said"},
     "ask_to_confirm": {"project_id"},
-    # Questions with their defaults, shown to the person; the server stores nothing from them.
     "ask_questions": {"questions"},
     "list_requirements": {"brief_id"},
     "propose_context_part": {"brief_id", "quote", "name", "variant_id"},

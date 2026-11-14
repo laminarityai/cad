@@ -1,9 +1,3 @@
-"""The questions the agent asks once about a fresh brief, before its first build.
-
-The server stores nothing here. In chat the page draws the questions as a card, and the person's
-answer is their next message, which create_brief copies into the brief beside the request.
-"""
-
 from typing import Annotated, Final
 
 from pydantic import BaseModel, ConfigDict, Field

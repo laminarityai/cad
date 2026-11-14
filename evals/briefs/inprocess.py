@@ -5,9 +5,6 @@
 
 Briefs run one after another: each has its own home under `<out>/<id>/home`, and the
 sandbox is shared. `<out>/<id>/auto.json` holds the result and `events.json` the transcript.
-When the agent asks its questions before the first build, the run answers once with the card's
-Skip message, so the agent builds on its defaults. `CAD_WEB_SEARCHES=0` runs a live model with no
-paid web searches.
 """
 
 import asyncio
@@ -144,7 +141,6 @@ async def say(client: httpx2.AsyncClient, cid: str, text: str) -> None:
 
 
 def calls_of(events: Sequence[Mapping[str, Any]]) -> list[Call]:
-    """The agent's calls in order, a web search the API ran among them."""
     return [
         (str(one["name"]), one.get("input") or {})
         if one.get("kind") == "tool_call"
@@ -155,7 +151,6 @@ def calls_of(events: Sequence[Mapping[str, Any]]) -> list[Call]:
 
 
 def asked_only(events: Sequence[Mapping[str, Any]]) -> bool:
-    """The turn asked its questions and stored no brief, so it waits on the person."""
     names = [name for name, _ in calls_of(events)]
     return ASK in names and "create_brief" not in names
 

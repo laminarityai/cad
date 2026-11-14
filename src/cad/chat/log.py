@@ -212,7 +212,6 @@ def _readable_prefix(path: Path) -> list[Stamped]:
 
 
 def transcript(conversations: Path, cid: ConversationId) -> tuple[Stamped, ...]:
-    """The transcript as the file holds it now, up to its first unreadable line."""
     try:
         lines = transcript_path(conversations, cid).read_bytes().splitlines()
     except FileNotFoundError:

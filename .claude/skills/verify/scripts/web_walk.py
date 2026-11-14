@@ -5,11 +5,11 @@
 
 <run> is the data root of a running local `cad-http` (its `local-issuer.pem` signs the sign-in
 token) and <out> the folder the screenshots go to. The walk starts on the empty `/app`, types the
-brief, waits for the options (a brief builds at once), confirms the chat card when the brief states
-a target, asks for a change and steps back to the earlier revision, asks for a lid, waits for its
-options, confirms its card when there is one, and turns the fit ghost on. It shoots each step in
-dark mode at 1440 px, and the lid's workspace at 400 px, and exits 1 at the first step that did
-not happen, naming it.
+brief, skips the questions card when the agent asks first, waits for the options, confirms the chat
+card when the brief states a target, asks for a change and steps back to the earlier revision,
+asks for a lid, waits for its options, confirms its card when there is one, and turns the fit
+ghost on. It shoots each step in dark mode at 1440 px, and the lid's workspace at 400 px, and
+exits 1 at the first step that did not happen, naming it.
 """
 
 from __future__ import annotations
@@ -131,6 +131,24 @@ def confirm_if_asked(page: Page, out: Path, name: str) -> bool:
     return True
 
 
+QUESTIONS = "[data-questions]"
+
+
+def skip_if_asked(page: Page, out: Path, name: str) -> bool:
+    """The agent may ask a few questions before the first build. They show on /app, before the
+    page moves to the project, and Skip builds with the agent's defaults."""
+    asked_or_built = (
+        f"() => location.pathname.includes('/projects/') || document.querySelector({QUESTIONS!r})"
+    )
+    step("asked or built", page, asked_or_built)
+    if not page.locator(QUESTIONS).count():
+        print("no questions", flush=True)
+        return False
+    shoot(page, out, name)
+    page.locator(QUESTIONS).get_by_role("button", name="Skip").click()
+    return True
+
+
 def walk(run: Path, out: Path, given: dict[str, str]) -> None:
     drawn = "() => document.querySelector('[data-stage] canvas')"
     with sync_playwright() as playwright:
@@ -140,6 +158,7 @@ def walk(run: Path, out: Path, given: dict[str, str]) -> None:
         step("chat start", page, "() => document.querySelector('textarea')", 30)
         shoot(page, out, "walk-1-start")
         say(page, given["brief"])
+        skip_if_asked(page, out, "walk-1b-questions")
         step("project page", page, "() => location.pathname.includes('/projects/')")
         step("options", page, "() => document.querySelectorAll('[data-slot-tab]').length > 0")
         step("drawn", page, drawn)

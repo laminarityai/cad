@@ -1,9 +1,3 @@
-"""Whether a session read and asked before its first build.
-
-A brief whose grader holds `stated: true` states everything that changes the shape, so it should
-get no questions. The measure is per session: the calls in the order the agent made them.
-"""
-
 from collections.abc import Mapping, Sequence
 from typing import Any, Final, cast
 
@@ -19,8 +13,6 @@ type Call = tuple[str, Mapping[str, Any]]
 
 
 class Asking(Frozen):
-    """`stated_unasked` is None for a brief that is not marked as stating everything."""
-
     asked_before_build: bool
     questions: int
     searched_before_build: bool

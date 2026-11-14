@@ -45,8 +45,6 @@ FOUND = WebSearchToolResultBlock.model_validate(
 
 
 class Messages:
-    """Answers each request with the next of `replies`, each a stop reason and its content."""
-
     def __init__(self, *replies: tuple[str, Sequence[object]]) -> None:
         self.replies = list(replies) or [("end_turn", [TextBlock(type="text", text="Done.")])]
         self.requests: list[dict[str, Any]] = []
