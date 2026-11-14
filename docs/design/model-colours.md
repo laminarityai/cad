@@ -14,6 +14,7 @@ An area is how the model looks. No check, table read, requirement verdict or Aut
 
 - It scans `src/cad` and fails when any module outside a short list of carriers reads `.areas` or `.areas_dropped`, or imports the area types. The carriers are the sandbox, the variant entry and store, the view, and the export.
 - It checks that `jobs.plan` gives a variant the same checks whether its faces are coloured or grey.
+- It fails on `outcome == Built()` outside the carriers. A coloured build is not equal to `Built()`, so that test would treat a coloured build as one that failed. The live walk found two of them: one kept every coloured build out of its set, and one would have ended an Auto run. Both now test the outcome's type.
 
 ## What the prototype answered
 

@@ -1,6 +1,7 @@
 """Colour is how a model looks, never a result. Only the modules that carry the areas from the
 runner to the viewer and the STEP may touch them: a check, a table read, a verdict or Auto that
-reads one would let the agent's paint decide something."""
+reads one would let the agent's paint decide something. So would `outcome == Built()`, which a
+coloured build fails: it once kept every coloured build out of its set."""
 
 import ast
 from pathlib import Path
@@ -42,9 +43,19 @@ def touches_colour(tree: ast.AST) -> list[str]:
     for node in ast.walk(tree):
         if isinstance(node, ast.Attribute) and node.attr in COLOUR_FIELDS:
             found.append(f"line {node.lineno}: .{node.attr}")
+        if isinstance(node, ast.Compare) and any(
+            map(is_built_call, [node.left, *node.comparators])
+        ):
+            found.append(f"line {node.lineno}: == Built()")
         if isinstance(node, ast.ImportFrom) and node.module == "cad.sandbox.outcome":
             found += [f"line {node.lineno}: {a.name}" for a in node.names if a.name in COLOUR_NAMES]
     return found
+
+
+def is_built_call(node: ast.expr) -> bool:
+    return (
+        isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "Built"
+    )
 
 
 def test_only_the_carriers_touch_the_areas() -> None:
@@ -59,6 +70,7 @@ def test_only_the_carriers_touch_the_areas() -> None:
 def test_the_fence_sees_a_check_that_reads_the_areas() -> None:
     sneaky = "from cad.sandbox.outcome import Areas\n\ndef run(held):\n    return held.areas\n"
     assert touches_colour(ast.parse(sneaky)) == ["line 1: Areas", "line 4: .areas"]
+    assert touches_colour(ast.parse("ok = built.outcome == Built()\n")) == ["line 1: == Built()"]
 
 
 def test_the_checks_a_variant_gets_do_not_depend_on_its_colours(tmp_path: Path) -> None:

@@ -47,6 +47,18 @@ async def test_a_change_to_slot_2_becomes_its_next_revision_and_the_old_one_stay
     assert len(held(s, brief_id)[1].revisions) == 2
 
 
+async def test_a_coloured_revision_joins_its_slot(s: Session) -> None:
+    brief_id = await s.confirmed_brief()
+    await s.call("build_variant", code=PLATE, brief_id=brief_id)
+    painted = THICKER + (
+        'from build123d import Color\nresult.color = Color("gray")\nresult.label = "steel plate"\n'
+    )
+    changed = await s.call("build_variant", code=painted, brief_id=brief_id, slot=1)
+    assert changed["outcome"]["areas"][0]["name"] == "steel plate"
+    assert changed["variant_set"]["kind"] == "joined"
+    assert held(s, brief_id)[0].latest.code == painted
+
+
 async def test_a_revision_drops_the_unstarted_checks_of_the_one_it_replaced_and_nothing_else(
     s: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
