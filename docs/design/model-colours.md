@@ -77,4 +77,5 @@ These rules apply:
 
 - **Variant ids.** The id of a variant hashes the sandbox and variant code, and this change edits both. Every stored variant is now out of date (Read). Scoring an old variant rebuilds it from its stored code, and its checks run again. No check changed, so its results are new runs of the same checks, not different ones. This cannot be avoided, because the runner must report the colours.
 - **Meshes and exports.** The mesh code changed (the grey default), so meshes are made again the first time each one is opened. Exports are also made again on first use.
-- **Nothing is migrated.** An old variant that has not been rebuilt has no areas, so it draws grey.
+- **Nothing is migrated.** A variant built on this code with no colour draws grey. A variant stored before it does not draw at all (Measured): its page says `OutdatedVariant: ... build its code again, or score it with score_variant to rebuild it`, and its checks say they could not be read. Every change to the sandbox or variant code since 2026-11-06 has done the same.
+- **A slot keeps its old copy (Measured).** Scoring an old variant rebuilds it under a new id, but the slot still names the old id. Building the slot's same code again answers `already_member` and also leaves the old id. So the page keeps the message until the slot gets a new revision. This is older than this change.
