@@ -99,11 +99,11 @@ class ToleranceClass(Frozen):
 @dataclass(frozen=True, slots=True)
 class Limits:
     """The diameters a hole of this class may have, inclusive, in mm, and the cited row they
-    come from."""
+    come from: its size range, when the table quotes that apart, then its limit."""
 
     low_mm: float
     high_mm: float
-    source: Source
+    sources: tuple[Source, ...]
 
 
 class UnknownClass(LookupError):
@@ -137,17 +137,21 @@ class TolerancesTable:
             )
         limit = found.limit_mm(row)
         origin = found.origin
-        source = Source(
-            url=origin.url,
-            title=origin.title,
-            page=origin.page,
-            retrieved=origin.retrieved,
-            standard=origin.standard,
-            quote=row.quote,
+        quotes = (row.quote,) if row.range_quote is None else (row.range_quote, row.quote)
+        sources = tuple(
+            Source(
+                url=origin.url,
+                title=origin.title,
+                page=origin.page,
+                retrieved=origin.retrieved,
+                standard=origin.standard,
+                quote=quote,
+            )
+            for quote in quotes
         )
         if found.shape is Shape.ABOVE:
-            return Limits(diameter_mm, diameter_mm + limit, source)
-        return Limits(diameter_mm - limit, diameter_mm + limit, source)
+            return Limits(diameter_mm, diameter_mm + limit, sources)
+        return Limits(diameter_mm - limit, diameter_mm + limit, sources)
 
 
 def load_tolerances(path: Path = TABLE_PATH) -> TolerancesTable:
