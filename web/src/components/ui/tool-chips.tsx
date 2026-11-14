@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, ChevronDown, CircleDashed, X } from "lucide-react";
+import { Check, ChevronDown, CircleDashed, Minus, X } from "lucide-react";
 import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "@/components/ui/collapsible";
 import { Shimmer, Spinner } from "@/components/ui/busy";
 import { cn } from "@/lib/utils";
@@ -13,7 +13,7 @@ export interface ToolRow {
   key: number;
   label: string;
   chip: string | null;
-  status: "running" | "queued" | "done" | "failed" | "refused" | "unfinished" | "unanswered";
+  status: "running" | "queued" | "done" | "unread" | "failed" | "refused" | "unfinished" | "unanswered";
   detail: readonly string[];
 }
 
@@ -26,6 +26,7 @@ function Row({ row }: { row: ToolRow }) {
     unanswered: <CircleDashed aria-hidden className="size-4 shrink-0 text-ink-3" />,
     unfinished: <X aria-hidden className="size-4 shrink-0 text-ink-3" />,
     done: <Check aria-hidden className="size-4 shrink-0 text-ink-3" />,
+    unread: <Minus aria-hidden className="size-4 shrink-0 text-ink-3" />,
   }[row.status];
   const head = (
     <>

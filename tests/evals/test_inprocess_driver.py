@@ -113,7 +113,7 @@ def test_a_live_model_without_its_key_is_refused_before_any_server_starts(
             "--driver",
             "inprocess",
             "--model",
-            "claude-haiku-4-5-20251001",
+            "claude-haiku-5-5",
             "--briefs",
             str(tmp_path / "briefs"),
             "--out",
@@ -125,7 +125,7 @@ def test_a_live_model_without_its_key_is_refused_before_any_server_starts(
     assert not (tmp_path / "out").exists()
     require_key(SCRIPTED, {})
     with pytest.raises(MissingKey):
-        require_key("claude-haiku-4-5-20251001", {KEY: " "})
+        require_key("claude-haiku-5-5", {KEY: " "})
 
 
 def test_the_driver_runs_the_set_through_run_main(
