@@ -8,7 +8,6 @@ from cad.checks.container.check import Quick
 from cad.checks.container.wire import LoadCaseWire
 from cad.checks.jobs import FEA, JobSpec
 from cad.checks.report import (
-    NAME_THE_BODY,
     QUICK,
     SPECS,
     Request,
@@ -152,7 +151,7 @@ def test_a_stress_result_cites_only_the_body_its_load_case_solved(
     assert set(stress.sources) == {*FEA.sources, *rows}
 
 
-def test_a_stress_reason_that_lacks_the_whole_part_s_value_says_to_name_the_body() -> None:
+def test_a_stress_reason_that_lacks_the_whole_part_s_value_says_why_and_gives_no_order() -> None:
     case: LoadCaseWire = {
         "support": {"kind": "flat_end"},
         "load": {"kind": "far_end", "force_n": 10.0, "direction": {"kind": "any"}},
@@ -170,4 +169,8 @@ def test_a_stress_reason_that_lacks_the_whole_part_s_value_says_to_name_the_body
     ]
     stress = parse(sent(report), request, OWN_LIMITS).results[-1]
     assert stress.verdict == Verdict.UNKNOWN
-    assert stress.reason == f"the host sent no elastic_modulus. {NAME_THE_BODY}"
+    assert stress.reason == (
+        "the host sent no elastic_modulus. This variant has a material for each named body and "
+        "none for the whole part, so the stress check solves only a load case that names the "
+        "one body the force acts on"
+    )

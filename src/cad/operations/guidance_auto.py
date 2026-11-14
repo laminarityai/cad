@@ -26,8 +26,9 @@ AUTO_AGENT_CHECKS: Final = (
 )
 
 AUTO_NEW_BODY_MATERIAL: Final = (
-    "No confirmed made_of names a material for a body this code built, and a run records only the "
-    "materials auto_start was given, which were none. Inside this run, revise a slot that already "
+    "No confirmed made_of names a material for a body this code built, and neither do the "
+    "materials auto_start was given, if any. A run records only those. Inside this run, revise a "
+    "slot that already "
     "holds these bodies by passing its slot, or build code whose every body a confirmed made_of "
     "names. To add a body of a material no made_of names, call auto_ask to say so. The person's "
     "reply lets you start a new run with materials for each such body."

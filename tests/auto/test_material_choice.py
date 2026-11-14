@@ -82,15 +82,21 @@ async def test_a_start_whose_only_made_of_names_a_body_needs_no_choice(s: Sessio
     assert (run.state.start.material_key, run.state.start.materials) == (None, ())
 
 
+PLATE_PLA: Final = {"body": "plate", "key": "prusament-pla", "reason": REASON}
+
+
+@pytest.mark.parametrize("materials", [None, [PLATE_PLA]], ids=["no materials", "materials"])
 async def test_a_new_slot_with_a_body_no_made_of_names_gets_advice_a_run_can_follow(
-    s: Session, monkeypatch: pytest.MonkeyPatch
+    s: Session, monkeypatch: pytest.MonkeyPatch, materials: list[dict[str, str]] | None
 ) -> None:
     plate = {
         "target": {"kind": "made_of", "material": "prusament-pla", "body": "plate"},
         "quote": "PLA",
     }
     brief_id = await s.confirmed("A PLA plate under 150 g", plate, UNDER_150)
-    run = await s.start(brief_id=brief_id)
+    given = {} if materials is None else {"materials": materials}
+    run = await s.start(brief_id=brief_id, **given)
+    assert len(run.state.start.materials) == len(materials or ())
 
     def refused(*args: object, **kwargs: object) -> None:
         raise MaterialMissing(
@@ -104,4 +110,6 @@ async def test_a_new_slot_with_a_body_no_made_of_names_gets_advice_a_run_can_fol
     assert "MaterialMissing" in text
     assert "Inside this run, revise a slot that already holds these bodies" in text
     assert "pass materials" not in text
+    assert "which were none" not in text
+    assert "neither do the materials auto_start was given, if any" in text
     assert text.endswith("It was built as variant v1 and is stored.")
