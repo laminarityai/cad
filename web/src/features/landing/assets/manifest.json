@@ -1,0 +1,50 @@
+{
+  "hero-dark.webm": [
+    800,
+    500
+  ],
+  "hero-light.webm": [
+    800,
+    500
+  ],
+  "hero-poster-dark.webp": [
+    800,
+    500
+  ],
+  "hero-poster-light.webp": [
+    800,
+    500
+  ],
+  "options-dark-narrow.webp": [
+    390,
+    844
+  ],
+  "options-dark.webp": [
+    1280,
+    800
+  ],
+  "options-light-narrow.webp": [
+    390,
+    844
+  ],
+  "options-light.webp": [
+    1280,
+    800
+  ],
+  "scorecard-dark.webp": [
+    678,
+    2230
+  ],
+  "scorecard-light.webp": [
+    678,
+    2230
+  ],
+  "waiting-dark.webp": [
+    678,
+    1538
+  ],
+  "waiting-light.webp": [
+    678,
+    1538
+  ]
+}

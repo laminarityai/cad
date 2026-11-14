@@ -48,6 +48,7 @@ Cost: **free** is `cad-call` alone. The cost table in `../SKILL.md` gives the ti
 `docs/design/phase-4.md` designs these surfaces, and each is built. Unit 3 is [Hosted MCP and accounts](./hosted-mcp.md), unit 4 [Hosted confirmation](./phase-4/hosted-confirmation.md), unit 5 [Geometry](./geometry.md) and the [Download](./download.md) that follows it.
 
 - [Web shell](./phase-4/web-shell.md): the React app at `/app`, its viewers and its scorecards. Unit 6.
+- [Landing page](./landing.md): the public page at `/`, and the script that retakes its pictures.
 - [Auto](./phase-4/auto.md): the server-held Auto run, its stops and the hold a stop puts on the conversation. Units 7 and 9.
 - [Chat](./phase-4/chat.md): the chat routes and the project workspace. Unit 8.
 
