@@ -1,6 +1,6 @@
 # Multi-material models: several bodies in one variant
 
-This note says how a variant comes to hold several bodies, each made of its own material, such as steel gears on a carbon fibre plate. It is stage 2 of the colour plan in [issue 285](https://github.com/laminarityai/cad/issues/285). Stage 1 colours the areas of one body and changes no check. This stage changes what several checks read, so it needs [ADR-0014](../adr/0014-a-variant-holds-named-bodies-each-of-one-material.md), which is proposed and not accepted. Nothing here is built.
+This note says how a variant comes to hold several bodies, each made of its own material, such as steel gears on a carbon fibre plate. It is stage 2 of the colour plan in [issue 285](https://github.com/laminarityai/cad/issues/285). Stage 1 colours the areas of one body and changes no check. This stage changes what several checks read, so it rests on [ADR-0014](../adr/0014-a-variant-holds-named-bodies-each-of-one-material.md), which the operator accepted on 2026-11-13. Nothing here is built yet.
 
 Each fact carries one of three labels:
 
@@ -125,11 +125,13 @@ Stage 2 starts after stage 1 merges, because it extends the list stage 1 stores 
 
 Each step is one PR with one live walk. The walk for step 1 is the operator's own example: gray steel gears on a black carbon fibre plate, with a mass on the scorecard that is the sum of both.
 
-## Calls that are the operator's
+## The operator's calls
 
-1. **Accept ADR-0014.** A variant may hold several named bodies, each of one material, and the agent chooses a body's material unless the person confirmed it.
-2. **Stress across joined bodies.** This design solves one named body alone and lists the joint as not checked. The other choice is to treat touching bodies as bonded and label every such verdict. That is faster to a number and can pass a part that would come apart.
-3. **The word.** This design says "body", as Fusion does. Onshape says "part", which this project already uses for a context part.
+The operator made all three on 2026-11-13.
+
+1. **ADR-0014 is accepted.** A variant may hold several named bodies, each of one material, and the agent chooses a body's material unless the person confirmed it.
+2. **The stress check solves one named body alone.** The joint is listed as not checked. A solve that treats touching bodies as bonded stays out.
+3. **The word is "body".**
 
 ## Not verified
 

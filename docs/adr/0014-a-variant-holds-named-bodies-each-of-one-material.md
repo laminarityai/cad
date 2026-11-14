@@ -1,6 +1,6 @@
 # A variant holds named bodies, each of one material
 
-Status: Proposed, 2026-11-13. Not accepted. The operator asked for the design on 2026-11-13 and has not approved any rule below. Nothing here is built.
+Status: Accepted, 2026-11-13. Every rule below was the design's pick. The operator accepted the ADR on 2026-11-13, chose the word "body", and chose that the stress check solves one body alone. Nothing here is built yet.
 
 The operator wants models coloured the way CAD models are, by part and by area, and gave the example of gray gears beside black carbon fibre ([issue 285](https://github.com/laminarityai/cad/issues/285)). Colouring areas of one body is presentation only and needs no decision. Gears beside a plate is one model in two materials, and that reaches the checks. Today a variant is one solid of one material. `closed_solid` passes only on one solid, `mass` reads one density, and `fea` reads one modulus and one strength. This ADR records how a variant comes to hold several bodies, and why the checks still decide.
 
@@ -12,7 +12,7 @@ The design note [multi-material-models.md](../design/multi-material-models.md) h
 
 A variant's `result` holds 1 to 12 bodies. A body is the solids that share a name, and it has exactly one material. A variant with one unnamed solid has one body, and nothing about it changes. No stored variant, result or scorecard is migrated.
 
-"Body" goes into GLOSSARY.md when this ADR is accepted. "Assembly" stays avoided. A supplied part stays outside `result`, as ADR-0012 says.
+GLOSSARY.md defines "Body". "Assembly" stays avoided. A supplied part stays outside `result`, as ADR-0012 says.
 
 ### The build names bodies, and a name only selects solids
 
