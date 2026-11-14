@@ -14,12 +14,15 @@ requirement's verdict counts the holes that meet both. A reason holds no digit, 
 reasons hold none.
 """
 
+import re
+from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Final
 
 from cad.briefs.holes import ByClass, FastenerHoles, HoleFit, PlainHoles, PlusMinus
 from cad.briefs.model import Requirement
-from cad.checks.result import CheckResult, Comparator, Verdict
+from cad.briefs.on_body import per_body
+from cad.checks.result import CheckResult, Comparator, Measure, Measured, Verdict
 from cad.scorecard.model import Checked, Comparison
 from cad.tables.fasteners import load_fasteners
 from cad.tables.materials import UNITS, magnitude
@@ -76,7 +79,7 @@ def judged(requirement: Requirement, statement: str, result: CheckResult) -> Che
         raise TypeError(f"{type(target).__name__} is not a holes requirement")
     wanted = band(target)
     low, high = wanted.low - DIAMETER_NOISE_MM, wanted.high + DIAMETER_NOISE_MM
-    sizes = _diameters(result)
+    sizes = [magnitude(one, "mm") for one in diameters(result.measured, target.body)]
     matching = sum(low <= size <= high for size in sizes)
     verdict, reason = _verdict(result, matching, target.count)
     limits = (
@@ -91,7 +94,7 @@ def judged(requirement: Requirement, statement: str, result: CheckResult) -> Che
         reason=reason,
         comparisons=tuple(
             Comparison(
-                measure=MEASURE,
+                measure=per_body(MEASURE, target.body),
                 comparator=comparator,
                 limit=UNITS.Quantity(limit, "mm"),
                 verdict=_bound(result, meeting, target.count),
@@ -101,9 +104,10 @@ def judged(requirement: Requirement, statement: str, result: CheckResult) -> Che
     )
 
 
-def _diameters(result: CheckResult) -> list[float]:
-    named = (m for m in result.measured if m.name.startswith(f"{MEASURE}:"))
-    return [magnitude(m.value, "mm") for m in named]
+def diameters(measured: Sequence[Measure], body: str | None) -> tuple[Measured, ...]:
+    """The diameters the check lists for the whole variant, or for the one body named."""
+    listed = re.compile(re.escape(per_body(MEASURE, body)) + r":\d+")
+    return tuple(one.value for one in measured if listed.fullmatch(one.name))
 
 
 def _bound(result: CheckResult, meeting: int, count: int | None) -> Verdict:

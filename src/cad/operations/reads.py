@@ -187,7 +187,7 @@ def variant_set(tenant: Tenant, arguments: VariantSetInput) -> VariantSetView:
     key = variant_sets.set_key(tenant.roots, brief_id)
     confirmed = briefs.confirmed_requirements(tenant.roots, brief_id)
     table = brief_table(tenant.roots, brief_id).table
-    pinned = material.pinned_key(confirmed, table)
+    pinned = material.pins(confirmed, table)
     return VariantSetView(
         project_id=arguments.project_id,
         brief_id=brief_id,
@@ -203,16 +203,23 @@ def _member(
     brief_id: str,
     asked: str | None,
     confirmed: ConfirmedSet | None,
-    pinned: str | None,
+    pinned: material.Pins,
     table: MaterialsTable,
     member: Member,
 ) -> MemberView:
     latest = member.latest
     choice = latest.material
-    key = pinned or (None if choice is None else choice.key)
+    key = pinned.get(None) or (None if choice is None else choice.key)
     card = _card(tenant, brief_id, asked or key, latest.built_as, bool(latest.materials))
     recorded = tuple(
-        BodyMaterialUse(body=one.body, **dict(material.used(pinned or one.key, confirmed, one)))
+        BodyMaterialUse(
+            body=one.body,
+            **dict(
+                material.used(
+                    material.pin_for(pinned, one.body) or one.key, confirmed, one, one.body
+                )
+            ),
+        )
         for one in latest.materials
     )
     return MemberView(

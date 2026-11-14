@@ -174,13 +174,17 @@ def _assumed(
 def _made_of_requests(
     table: ProjectTable, brief_id: str, targets: Sequence[Target]
 ) -> tuple[ResearchRequest, ...]:
-    key = next((one.material for one in targets if isinstance(one, MadeOf)), None)
-    if key is None or table.problem is not None:
+    keys = dict.fromkeys(one.material for one in targets if isinstance(one, MadeOf))
+    if not keys or table.problem is not None:
         return ()
     checks = [spec.id for spec in QUICK]
     checks += [check for one in targets if (check := deciding_check(one)) is not None]
     fields = sorted({str(one) for spec in closure(checks) for one in spec.takes})
-    return requests_before_scoring(table.table, key, fields, brief_id, AFTER_PROPOSAL)
+    return tuple(
+        request
+        for key in keys
+        for request in requests_before_scoring(table.table, key, fields, brief_id, AFTER_PROPOSAL)
+    )
 
 
 def _user_edit(proposed: Requirement, confirmed: Requirement) -> UserEdit | None:

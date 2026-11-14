@@ -1,7 +1,8 @@
 """Requirements whose bounds no design can meet together, said in the words the person reads.
 
-Each quantity gathers its lower and upper bounds. Mass also gains the upper bound that the
-material's density puts on it inside the tightest volume, when the table knows the density."""
+Each quantity gathers its lower and upper bounds, and a bound on one body is a quantity of its own.
+Mass also gains the upper bound that the material's density puts on it inside the tightest volume,
+when the table knows the density and one made_of names the material of every body."""
 
 import math
 from collections import defaultdict
@@ -29,6 +30,7 @@ from cad.briefs.model import (
     Unchecked,
     amount,
 )
+from cad.briefs.on_body import per_body
 from cad.checks.result import Comparator
 from cad.scorecard.requirements import UNIT_CONVERSION_NOISE
 from cad.tables.materials import FromResearch, Known, MaterialsTable, magnitude
@@ -63,6 +65,12 @@ class _Gathered:
     lows: defaultdict[str, list[_Bound]]
     highs: defaultdict[str, list[_Bound]]
     made_of: Requirement | None = None
+    on_a_body: bool = False
+
+    @property
+    def pin(self) -> Requirement | None:
+        """The made_of every body is made of. A made_of on one body leaves the rest unknown."""
+        return None if self.on_a_body else self.made_of
 
 
 def bounds_conflicts(
@@ -83,7 +91,7 @@ def unweighed(requirements: Sequence[Requirement], table: MaterialsTable) -> Unw
     gathered = _gather(requirements)
     lowest = max(gathered.lows[MASS], key=lambda bound: bound.value, default=None)
     room = min(gathered.highs[VOLUME], key=lambda bound: bound.value, default=None)
-    made_of = gathered.made_of
+    made_of = gathered.pin
     if made_of is None or lowest is None or room is None:
         return None
     assert isinstance(made_of.target, MadeOf)
@@ -110,18 +118,20 @@ def _gather(requirements: Sequence[Requirement]) -> _Gathered:
                 gathered.highs[VOLUME].append(_Bound(volume, words, rid, space=space))
             case MeasureLimit() as limit:
                 _gather_limit(gathered, limit, rid)
-            case MaxMass(mass=mass):
+            case MaxMass(mass=mass, body=body):
                 grams = magnitude(mass, "g")
-                gathered.highs[MASS].append(
-                    _Bound(grams, f"the mass must be at most {grams:g} g", rid)
+                gathered.highs[per_body(MASS, body)].append(
+                    _Bound(grams, _on(body, f"the mass must be at most {grams:g} g"), rid)
                 )
-            case MinMass(mass=mass):
+            case MinMass(mass=mass, body=body):
                 grams = magnitude(mass, "g")
-                gathered.lows[MASS].append(
-                    _Bound(grams, f"the mass must be at least {grams:g} g", rid)
+                gathered.lows[per_body(MASS, body)].append(
+                    _Bound(grams, _on(body, f"the mass must be at least {grams:g} g"), rid)
                 )
-            case MadeOf():
+            case MadeOf(body=None):
                 gathered.made_of = one
+            case MadeOf():
+                gathered.on_a_body = True
             case (
                 ClosedSolid()
                 | Unchecked()
@@ -144,18 +154,19 @@ def _gather_limit(gathered: _Gathered, limit: MeasureLimit, rid: tuple[str, ...]
     key = (limit.check_id, limit.measure)
     bindable = BINDABLE[key]
     value = magnitude(limit.limit, bindable.unit)
-    quantity = VOLUME if key == _VOLUME_MEASURE else f"{limit.check_id}:{limit.measure}"
+    whole = VOLUME if key == _VOLUME_MEASURE else f"{limit.check_id}:{limit.measure}"
+    quantity = per_body(whole, limit.body)
     if limit.comparator is Comparator.AT_MOST:
-        words = f"{bindable.words} must be at most {amount(limit.limit)}"
+        words = _on(limit.body, f"{bindable.words} must be at most {amount(limit.limit)}")
         space = f"the most volume allowed ({amount(limit.limit)})"
         gathered.highs[quantity].append(_Bound(value, words, rid, space=space))
     else:
-        words = f"{bindable.words} must be at least {amount(limit.limit)}"
+        words = _on(limit.body, f"{bindable.words} must be at least {amount(limit.limit)}")
         gathered.lows[quantity].append(_Bound(value, words, rid))
 
 
 def _through_density(gathered: _Gathered, table: MaterialsTable) -> _Bound | None:
-    made_of = gathered.made_of
+    made_of = gathered.pin
     room = min(gathered.highs[VOLUME], key=lambda bound: bound.value, default=None)
     if made_of is None or room is None:
         return None
@@ -189,6 +200,10 @@ def _conflict(quantity: str, lows: list[_Bound], highs: list[_Bound]) -> Bounds 
         requirements=tuple(dict.fromkeys((*lo.requirements, *hi.requirements))),
         reads=(*lo.reads, *hi.reads),
     )
+
+
+def _on(body: str | None, words: str) -> str:
+    return words if body is None else f"for the {body}, {words}"
 
 
 def _capital(words: str) -> str:

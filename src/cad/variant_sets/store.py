@@ -17,6 +17,7 @@ from cad.sandbox.bodies import Bodies
 from cad.sandbox.outcome import Built
 from cad.variant_sets.model import (
     MAX_MEMBERS,
+    BodiesMissing,
     BodyMaterialsRefused,
     Chosen,
     Joined,
@@ -151,7 +152,7 @@ def join(
         except SetFull:
             outcome.append(_full(key, built_as))
             return None
-        except (SlotRefused, MaterialMissing, BodyMaterialsRefused) as error:
+        except (SlotRefused, MaterialMissing, BodyMaterialsRefused, BodiesMissing) as error:
             kept = f"It was built as variant {built_as} and is stored."
             outcome.append(type(error)(f"{str(error).rstrip('.')}. {kept}"))
             return None

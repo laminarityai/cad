@@ -65,6 +65,6 @@ async def test_a_start_whose_materials_differ_from_the_confirmed_material_is_ref
     steel = {"body": "gear", "key": "cliffs-hot-rolled-cs-type-b", "reason": "steel wears well"}
     text = await s.refusal("auto_start", brief_id=brief_id, materials=[steel])
     assert "MaterialPinned" in text
-    assert "materials names cliffs-hot-rolled-cs-type-b, but the user confirmed" in text
+    assert "materials names cliffs-hot-rolled-cs-type-b for gear, but the user confirmed" in text
     project = read_brief(s.roots, brief_id).project
     assert not (s.roots.projects / project / "auto").exists()

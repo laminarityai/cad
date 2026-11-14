@@ -22,6 +22,7 @@ from cad.briefs.model import (
     Target,
     Unchecked,
     amount,
+    body_of,
 )
 from cad.checks.result import Comparator
 from cad.loads.words import describe_case
@@ -51,6 +52,13 @@ def describe(requirement: Requirement, names: Mapping[str, str] = NO_NAMES) -> s
 
 
 def describe_target(target: Target, names: Mapping[str, str] = NO_NAMES) -> str:
+    """The plain words of a target, led by the body it names: "plate: mass at most 20 g"."""
+    words = _words(target, names)
+    body = body_of(target)
+    return words if body is None else f"{body}: {words[:1].lower()}{words[1:]}"
+
+
+def _words(target: Target, names: Mapping[str, str]) -> str:
     match target:
         case ClosedSolid():
             return "The part is one closed solid"

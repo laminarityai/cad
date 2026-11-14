@@ -15,7 +15,7 @@ from cad.briefs.model import Requirement, Target, deciding_check, limits
 from cad.briefs.words import NO_NAMES, describe
 from cad.checks.result import CheckResult, Measure, Measured
 from cad.frozen import Frozen
-from cad.scorecard.holes import MEASURE, band
+from cad.scorecard.holes import band, diameters
 from cad.scorecard.requirements import instance, result_of
 from cad.scorecard.unjudged import MeasureOnly, Reported
 from cad.tables.materials import UNITS
@@ -98,5 +98,5 @@ def _holes(target: Target, measures: Sequence[Measure]) -> AwaitingHoles | None:
         count=target.count,
         low=UNITS.Quantity(wanted.low, "mm"),
         high=UNITS.Quantity(wanted.high, "mm"),
-        measured=tuple(one.value for one in measures if one.name.startswith(f"{MEASURE}:")),
+        measured=diameters(measures, target.body),
     )

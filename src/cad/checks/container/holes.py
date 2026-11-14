@@ -22,9 +22,9 @@ from cad.checks.container.features import (
     holes,
 )
 from cad.checks.container.inputs import Input
-from cad.checks.container.kernel import Arc, Opening, Point, Unreadable
+from cad.checks.container.kernel import Arc, Inertia, Kernel, Opening, Point, Shape, Unreadable
 from cad.checks.container.vectors import angle, cross, norm, scale, sub
-from cad.checks.container.wire import FindingWire, SourceLiteral
+from cad.checks.container.wire import FindingWire, MeasuredWire, SourceLiteral
 
 ID = "holes"
 FORMULA = (
@@ -34,7 +34,9 @@ FORMULA = (
     "is an opening, and an opening is explained when it is one full circle, coaxial with a hole "
     "and no narrower than that hole; hole_diameter:i lists the holes from the narrowest, "
     "hole_count their number and unclassified_openings the openings no hole explains, which are "
-    "not round holes, as a slot, a polygon and an oval are not; unknown, with the diameters "
+    "not round holes, as a slot, a polygon and an oval are not; a variant of named bodies also "
+    "reads each body's own solids alone, as hole_count:<body>, hole_diameter:<body>:i and "
+    "unclassified_openings:<body>; unknown, with the diameters "
     "kept, when any opening is unclassified, and unknown with no measured value unless "
     "closed_solid passes"
 )
@@ -68,6 +70,7 @@ TAKES: frozenset[Input] = frozenset()
 READS: dict[str, Input] = {}
 REQUIRES: tuple[CheckModule, ...] = (closed_solid,)
 BUDGET = Quick()
+type MeasuredRow = tuple[MeasuredWire, ...]
 ERROR_BOUNDS: dict[str, float] = {}
 
 
@@ -80,15 +83,12 @@ def run(subject: Subject) -> FindingWire:
         return unmet
     kernel = subject.kernel
     inertia = kernel.inertia(shape)
-    found = holes(kernel.faces(shape), inertia)
-    tol = OFFSET_TOL_FRACTION * extent(inertia)
-    open_ended = sum(not explained(one, found, tol) for one in kernel.openings(shape))
-    diameters = sorted(hole.diameter for hole in found)
-    measured = (
-        measure("hole_count", len(diameters), DIMENSIONLESS),
-        *(measure(f"hole_diameter:{at}", size, "mm") for at, size in enumerate(diameters)),
-        measure("unclassified_openings", open_ended, DIMENSIONLESS),
-    )
+    diameters, open_ended = _read(kernel, (shape,), inertia)
+    measured = _measured(None, diameters, open_ended)
+    solids = kernel.solids(shape) if subject.bodies else ()
+    for body in subject.bodies:
+        own = _read(kernel, tuple(solids[index] for index in body.solids), inertia)
+        measured += _measured(body.name, *own)
     sizes = ", ".join(f"{size:g}" for size in diameters) or "none"
     if open_ended:
         return finding(
@@ -99,6 +99,27 @@ def run(subject: Subject) -> FindingWire:
             *measured,
         )
     return finding("pass", f"{len(diameters)} round holes, diameters in mm: {sizes}", *measured)
+
+
+def _read(kernel: Kernel, shapes: Sequence[Shape], inertia: Inertia) -> tuple[list[float], int]:
+    """The diameters of the round holes in the shapes, narrowest first, and how many openings no
+    hole explains. The tolerance is the whole variant's, so a body is read as it is in the part."""
+    found = holes([face for one in shapes for face in kernel.faces(one)], inertia)
+    tol = OFFSET_TOL_FRACTION * extent(inertia)
+    openings = [opening for one in shapes for opening in kernel.openings(one)]
+    return sorted(hole.diameter for hole in found), sum(
+        not explained(one, found, tol) for one in openings
+    )
+
+
+def _measured(body: str | None, diameters: Sequence[float], open_ended: int) -> MeasuredRow:
+    """The whole variant's measures with `body` None, or the measures of the body it names."""
+    on = "" if body is None else f":{body}"
+    return (
+        measure(f"hole_count{on}", len(diameters), DIMENSIONLESS),
+        *(measure(f"hole_diameter{on}:{at}", size, "mm") for at, size in enumerate(diameters)),
+        measure(f"unclassified_openings{on}", open_ended, DIMENSIONLESS),
+    )
 
 
 def explained(opening: Opening, found: Sequence[Hole], tol: float) -> bool:

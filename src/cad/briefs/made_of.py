@@ -21,4 +21,4 @@ def _resolved(index: int, draft: Draft, table: MaterialsTable) -> Draft:
             f"table, so its key gains the {PROJECT_PREFIX!r} prefix; name it in at most {room} "
             "characters"
         )
-    return replace(draft, target=MadeOf(material=key))
+    return replace(draft, target=MadeOf(material=key, body=draft.target.body))

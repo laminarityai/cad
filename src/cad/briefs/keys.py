@@ -25,20 +25,22 @@ from cad.briefs.model import (
 )
 
 LOAD_CASE: Final = "load case"
+BODY: Final = "body"
 PER: Final[Mapping[Kind, str]] = {
     Kind.ENVELOPE: "",
-    Kind.MADE_OF: "",
-    Kind.MAX_MASS: "",
-    Kind.MIN_MASS: "",
+    Kind.MADE_OF: BODY,
+    Kind.MAX_MASS: BODY,
+    Kind.MIN_MASS: BODY,
     Kind.MIN_SAFETY_FACTOR: LOAD_CASE,
     Kind.MAX_DEFLECTION: LOAD_CASE,
     Kind.MIN_CLEARANCE: "part",
     Kind.MAX_CLEARANCE: "part",
     Kind.FITS_WITH: "part",
-    Kind.MEASURE_LIMIT: "measure and comparator",
+    Kind.MEASURE_LIMIT: "measure, comparator and body",
     Kind.AGENT_LIMIT: "check_sha256 and comparator",
 }
 """Each kind a brief holds one of, with the subject it holds one per, empty for one per brief.
+A target that names no body is about the whole variant, which counts as one more body here.
 The agent's guidance is written from this table, so the rule it is told is the rule refused."""
 
 
@@ -59,14 +61,16 @@ class TargetKey:
 def target_key(target: Target) -> TargetKey | None:
     """None for a target a brief may hold many of, such as two sets of holes."""
     match target:
-        case MaxMass() | MinMass() | Envelope() | MadeOf():
+        case Envelope():
             return TargetKey(target.kind)
+        case MaxMass() | MinMass() | MadeOf():
+            return TargetKey(target.kind, target.body or "", BODY)
         case MinSafetyFactor() | MaxDeflection():
             return TargetKey(target.kind, target.load.unit_case, PER[target.kind])
         case MinClearance() | MaxClearance() | FitsWith():
             return TargetKey(target.kind, target.part, PER[target.kind])
         case MeasureLimit():
-            about = f"{target.check_id}:{target.measure}:{target.comparator}"
+            about = f"{target.check_id}:{target.measure}:{target.comparator}:{target.body or ''}"
             return TargetKey(target.kind, about, PER[target.kind])
         case AgentLimit():
             about = f"{target.check_sha256}:{target.comparator}"

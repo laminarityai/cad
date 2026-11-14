@@ -3,10 +3,11 @@ from dataclasses import dataclass
 from typing import Literal
 
 from cad.sandbox.bodies import Bodies
-from cad.scorecard.material import MaterialPinned
+from cad.scorecard.material import MaterialPinned, Pins, pin_for
 from cad.tables.materials import MaterialsTable
 from cad.variant_sets.model import (
     MAX_MEMBERS,
+    BodiesMissing,
     BodyChoice,
     BodyMaterialsRefused,
     Chosen,
@@ -64,7 +65,7 @@ EACH_BODY = (
 
 
 def choose_each(
-    pinned: str | None,
+    pinned: Pins,
     previous: Revision | None,
     bodies: Bodies | None,
     single: tuple[str | None, str | None],
@@ -73,11 +74,14 @@ def choose_each(
 ) -> Chosen:
     """What a revision records, given the bodies the code built, None before the build. A body
     with no entry in `asked` keeps the choice the slot's previous revision made for a body of that
-    name. `single` is the material_key and material_reason, for a variant of one body."""
+    name. `single` is the material_key and material_reason, for a variant of one body. A body the
+    person's made_of names records nothing, as the made_of sets it."""
     key, reason = single
-    if pinned is not None:
-        refuse_unpinned(pinned, [one.key for one in asked], table, "Build")
-        return Chosen(material=choose(pinned, None, key, reason, table))
+    refuse_unpinned(pinned, [(one.body, one.key) for one in asked], table, "Build")
+    every = pinned.get(None)
+    if every is not None:
+        return Chosen(material=choose(every, None, key, reason, table))
+    asked = [one for one in asked if one.body not in pinned]
     if asked and (key is not None or reason is not None):
         raise BodyMaterialsRefused(
             "pass material_key and material_reason, or materials, not both. Nothing was built."
@@ -87,6 +91,8 @@ def choose_each(
     if bodies is None:
         if asked or (kept and key is None and reason is None):
             return Chosen(materials=tuple(asked) or kept)
+        if pinned and key is None and reason is None:
+            return Chosen()
         return Chosen(material=choose(None, before, key, reason, table))
     if not bodies:
         if asked:
@@ -95,18 +101,21 @@ def choose_each(
                 "materials"
             )
         return Chosen(material=choose(None, before, key, reason, table))
-    return Chosen(materials=_each(bodies, before, kept, single, asked, table))
+    names = [body.name for body in bodies if body.name not in pinned]
+    return Chosen(materials=_each(names, before, kept, single, asked, table))
 
 
 def _each(
-    bodies: Bodies,
+    names: Sequence[str],
     before: MaterialChoice | None,
     kept: Sequence[BodyChoice],
     single: tuple[str | None, str | None],
     asked: Sequence[BodyChoice],
     table: MaterialsTable,
 ) -> tuple[BodyChoice, ...]:
-    names = [body.name for body in bodies]
+    """The choice of each named body no made_of names."""
+    if not names:
+        return ()
     if single != (None, None):
         if len(names) > 1:
             raise BodyMaterialsRefused(
@@ -135,15 +144,39 @@ def _each(
     return tuple(held[name] for name in names)
 
 
+def refuse_lacking(named: Sequence[str], bodies: Bodies | None) -> None:
+    """Refuses a build that lacks a body a confirmed requirement names. Before the build, None."""
+    if bodies is None:
+        return
+    built = {body.name for body in bodies}
+    wanted = list(dict.fromkeys(named))
+    lacking = [name for name in wanted if name not in built]
+    if lacking:
+        raise BodiesMissing(
+            f"the person confirmed requirements on the bodies {', '.join(wanted)}, and this build "
+            f"has no body named {', '.join(lacking)}. Label a body with each of those names and "
+            "build again. Nothing joined the variant set"
+        )
+
+
 def refuse_unpinned(
-    pinned: str, keys: Sequence[str], table: MaterialsTable, again: Literal["Build", "Start"]
+    pinned: Pins,
+    asked: Sequence[tuple[str, str]],
+    table: MaterialsTable,
+    again: Literal["Build", "Start"],
 ) -> None:
-    other = sorted({key for key in keys if table.row_key(key) != pinned})
-    if other:
+    """Refuses an entry of materials, a body and its key, that differs from the made_of fixing
+    that body."""
+    for body, key in asked:
+        pin = pin_for(pinned, body)
+        if pin is None or table.row_key(key) == pin:
+            continue
         nothing = "Nothing was built." if again == "Build" else "No run was started."
+        what = f"the {body} is" if body in pinned else "the part is"
+        every = "" if body in pinned else ", which pins every body"
         raise MaterialPinned(
-            f"materials names {', '.join(other)}, but the user confirmed that the part is made of "
-            f"{pinned!r}, which pins every body. {again} again without materials. {nothing}"
+            f"materials names {key} for {body}, but the user confirmed that {what} made of "
+            f"{pin!r}{every}. {again} again without that entry. {nothing}"
         )
 
 

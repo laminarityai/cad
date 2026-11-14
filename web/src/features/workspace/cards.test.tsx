@@ -173,6 +173,29 @@ describe("linesOf holes", () => {
     expect(lineOf(holes([]))?.value).toBe("no round holes");
   });
 
+  it("counts the whole part's holes once on a variant of named bodies", () => {
+    const whole = holes([5, 6]);
+    const plate = { name: "hole_diameter:plate:0", value: { magnitude: 5, unit: "mm" } };
+    expect(lineOf({ ...whole, measured: [...whole.measured, plate] })?.value).toBe("2 holes: 5, 6 mm");
+  });
+
+  it("shows beside a requirement on a body that body's own number, and none for a body the variant lacks", () => {
+    const on = (measure: string, requirement_id: string): Checked => {
+      const base = deflectionDone();
+      const check_id = measure.split(":")[0] === "hole_diameter" ? "holes" : (measure.split(":")[0] ?? "");
+      return { ...base, check_id, requirement_id, comparisons: base.comparisons.map((one) => ({ ...one, measure })) };
+    };
+    const weighed = massResult(33.9);
+    const plate = { name: "mass:plate", value: { magnitude: 14.9, unit: "g" } };
+    const whole = holes([5]);
+    const hole = { name: "hole_diameter:plate:0", value: { magnitude: 5, unit: "mm" } };
+    const walls = { ...weighed, check_id: "min_wall", measured: [{ name: "min_wall", value: { magnitude: 2, unit: "mm" } }, { name: "min_wall:plate", value: { magnitude: 4, unit: "mm" } }] };
+    const results = [{ ...weighed, measured: [...weighed.measured, plate] }, { ...whole, measured: [...whole.measured, hole] }, walls];
+    const requirements = [on("mass:plate", "r1"), on("mass:spacer", "r2"), on("hole_diameter:gear", "r3"), on("hole_diameter:plate", "r4"), on("min_wall:plate", "r5")];
+    const { asked } = linesOf(restore(snapshot("v1", requirements, results)));
+    expect(asked.map((one) => one.value)).toEqual(["14.9 g", "", "no round holes", "1 hole: 5 mm", "4 mm"]);
+  });
+
   it("keeps the diameters of a part the check could not fully read, with status unknown", () => {
     const line = lineOf(holes([5.5], "unknown"));
     expect(line?.value).toBe("1 hole: 5.5 mm");

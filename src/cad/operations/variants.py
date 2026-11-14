@@ -7,6 +7,7 @@ from cad.auto.building import building
 from cad.auto.gate import gate, stops_at_the_limit
 from cad.auto.model import Running, Tried
 from cad.briefs import store as briefs
+from cad.briefs.model import body_of
 from cad.context_parts.model import UPDATE_PART
 from cad.context_parts.store import out_of_date_in
 from cad.conversations.store import record_event
@@ -37,7 +38,7 @@ from cad.variant_sets.model import (
     SlotRefused,
     code_sha256,
 )
-from cad.variant_sets.placement import choose_each
+from cad.variant_sets.placement import choose_each, refuse_lacking
 from cad.variants import entry, store
 from cad.variants.entry import VariantId
 
@@ -160,7 +161,10 @@ def chooser(
 
     def resolve(previous: Revision | None, bodies: Bodies | None) -> Chosen:
         table = brief_table(tenant.roots, brief_id).table
-        pinned = material.pinned_key(briefs.confirmed_requirements(tenant.roots, brief_id), table)
+        confirmed = briefs.confirmed_requirements(tenant.roots, brief_id)
+        named = () if confirmed is None else confirmed.requirements
+        refuse_lacking([body for one in named if (body := body_of(one.target))], bodies)
+        pinned = material.pins(confirmed, table)
         asked = [one.model_copy(update={"key": table.row_key(one.key)}) for one in materials]
         return choose_each(pinned, previous, bodies, (key, reason), asked, table)
 

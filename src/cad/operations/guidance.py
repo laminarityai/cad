@@ -3,6 +3,7 @@ from typing import Final
 
 from cad.briefs.bindable import BINDABLE
 from cad.briefs.keys import LOAD_CASE, PER
+from cad.briefs.model import ON_BODY
 
 BUILD_FIRST = (
     "A brief builds at once, so nothing waits on the person before you build. Work in this "
@@ -46,6 +47,18 @@ def _one_per() -> str:
     return f"A brief holds {'; '.join(rules[:-1])}; and {rules[-1]}."
 
 
+def _on_body() -> str:
+    kinds = _listed([str(target.model_fields["kind"].default) for target in ON_BODY])
+    return (
+        f"{kinds} take an optional body, the exact name a build labels one body with, when the "
+        "person's words say which part a target is about, such as the plate in \"the plate "
+        'weighs at most 20 g": its check then reads that body alone. With no body a target is '
+        "about the whole variant. Once the person confirms a target on a body, a build for the "
+        "brief that has no body of that name is refused, and a variant built before that reads "
+        "the target as unknown."
+    )
+
+
 PROPOSE_REQUIREMENTS = (
     "If the brief names a material, call list_materials before you propose. Propose the "
     "requirements for a brief. Each has a target and a quote copied exactly from the "
@@ -59,7 +72,7 @@ PROPOSE_REQUIREMENTS = (
         for (check, measure), bound in BINDABLE.items()
     )
     + "; made_of with a "
-    "material, only when the brief names one, quoting its words (at most one per brief). When the "
+    "material, only when the brief names one, quoting its words. When the "
     "brief names no material, propose no made_of and do not ask the person for one: you choose "
     "it for each variant when you build it. When the brief names one, call "
     "list_materials first, and copy the key of the table's row for that material when it lists "
@@ -88,6 +101,8 @@ PROPOSE_REQUIREMENTS = (
     "new or changed requirements. A declined proposal does not carry: after a decline, pass "
     "again each of its requirements that should stay. "
     + _one_per()
+    + " "
+    + _on_body()
     + " To drop or change a requirement in the set being carried, pass its id from "
     "list_requirements in remove, with any replacement in requirements. The user sees the "
     "removal of a requirement they confirmed as its own row, and it stays in force until they "
@@ -309,9 +324,10 @@ BODY_MATERIALS: Final = (
     "A variant of named bodies takes materials in place of material_key: one entry for each "
     "body, with its name as its label sets it and its key, and on build_variant and auto_start "
     "a one-line reason. Omit an entry to keep the material the slot recorded for that body, or "
-    "omit materials to keep them all. A confirmed made_of names the material of every body, so "
-    "pass none. One material_key for a variant of more than one body is refused, unless it is "
-    "the confirmed material."
+    "omit materials to keep them all. A confirmed made_of with no body names the material of "
+    "every body, so pass none, and one that names a body fixes that body's, so leave it out. "
+    "One material_key for a variant of more than one body is refused, unless it is the "
+    "confirmed material."
 )
 
 MATERIAL = (

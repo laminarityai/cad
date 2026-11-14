@@ -81,6 +81,7 @@ EXPECTED: Final[dict[str, Answer]] = {
     "cad.uploads.model.BadUpload": ("400 named", "named"),
     "cad.uploads.model.UnknownFile": ("404 named", "named"),
     "cad.uploads.model.Withheld": ("400 named", "named"),
+    "cad.variant_sets.model.BodiesMissing": ("400 named", "named"),
     "cad.variant_sets.model.BodyMaterialsRefused": ("400 named", "named"),
     "cad.variant_sets.model.MaterialMissing": ("400 named", "named"),
     "cad.variant_sets.model.SetBusy": ("400 named", "named"),

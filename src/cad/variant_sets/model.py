@@ -51,6 +51,10 @@ class BodyMaterialsRefused(SetRefused):
     pass
 
 
+class BodiesMissing(SetRefused):
+    pass
+
+
 type Reason = Annotated[
     str,
     StringConstraints(strip_whitespace=True, min_length=1, max_length=200, pattern=r"^[^\n\r]+$"),

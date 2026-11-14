@@ -1165,6 +1165,8 @@ export interface components {
             count: components["schemas"]["RequiredCount"] | null;
             /** @default null */
             series: components["schemas"]["ClearanceSeries"] | null;
+            /** @default null */
+            body?: components["schemas"]["BodyName"] | null;
         };
         /** @enum {string} */
         Field: "density" | "elastic_modulus" | "poisson_ratio" | "yield_strength" | "tensile_strength";
@@ -1315,7 +1317,8 @@ export interface components {
         ];
         /**
          * MadeOf
-         * @description The brief names the material. A confirmed one pins the `material_key` that scoring accepts.
+         * @description The brief names the material. A confirmed one pins the `material_key` that scoring accepts,
+         *     for the body it names, or for every body when it names none.
          *
          *     The key is an exact key of the materials table, or, for a material the table lacks, a key of
          *     your own that names it. The server stores that material as the project's own row, `project-`
@@ -1328,6 +1331,8 @@ export interface components {
              */
             kind: "made_of";
             material: string;
+            /** @default null */
+            body?: components["schemas"]["BodyName"] | null;
         };
         /**
          * Mark
@@ -1388,6 +1393,8 @@ export interface components {
              */
             kind: "max_mass";
             mass: components["schemas"]["Mass"];
+            /** @default null */
+            body?: components["schemas"]["BodyName"] | null;
         };
         /** Measure */
         Measure: {
@@ -1413,6 +1420,8 @@ export interface components {
                 magnitude: number;
                 unit: string;
             };
+            /** @default null */
+            body?: components["schemas"]["BodyName"] | null;
         };
         /**
          * MeasureOnly
@@ -1485,6 +1494,8 @@ export interface components {
              */
             kind: "min_mass";
             mass: components["schemas"]["Mass"];
+            /** @default null */
+            body?: components["schemas"]["BodyName"] | null;
         };
         /**
          * MinSafetyFactor
@@ -1693,6 +1704,8 @@ export interface components {
              *     }
              */
             tolerance: components["schemas"]["HoleTolerance"];
+            /** @default null */
+            body?: components["schemas"]["BodyName"] | null;
         };
         /**
          * PlusMinus

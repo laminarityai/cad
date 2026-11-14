@@ -197,9 +197,8 @@ def auto_start(tenant: Tenant, arguments: StartInput) -> AutoRun:
         raise RunRefused(CHOOSE)
     basis = scorecards.judged(tenant, arguments.brief_id, arguments.material_key, None, each)
     table = basis.table.table
-    pin = material.pinned_key(confirmed, table)
-    if pin is not None:
-        refuse_unpinned(pin, [one.key for one in arguments.materials or ()], table, "Start")
+    asked = [(one.body, one.key) for one in arguments.materials or ()]
+    refuse_unpinned(material.pins(confirmed, table), asked, table, "Start")
     started = Started(
         conversation=cid,
         brief_id=confirmed.brief_id,

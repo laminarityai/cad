@@ -22,6 +22,7 @@ from pydantic import (
 from cad.briefs.bindable import BINDABLE
 from cad.briefs.holes import FastenerHoles, PlainHoles
 from cad.briefs.kind import Kind
+from cad.briefs.on_body import on_body, per_body
 from cad.briefs.origins import Origin
 from cad.checks.container import closed_solid, extents, fea, fit, holes, mass
 from cad.checks.result import Comparator
@@ -30,6 +31,7 @@ from cad.context_parts.ids import PART_ID_PATTERN, ContextPartId
 from cad.frozen import Frozen
 from cad.loads.model import LoadCase
 from cad.projects.model import NEW_PROJECT_ID, NewProjectId, ProjectId, legacy_project
+from cad.sandbox.bodies import BodyName
 from cad.tables.materials import KEY_PATTERN, UNITS, magnitude
 
 BriefId = NewType("BriefId", str)
@@ -54,11 +56,13 @@ class ClosedSolid(Frozen):
 class MaxMass(Frozen):
     kind: Literal[Kind.MAX_MASS] = Kind.MAX_MASS
     mass: Mass
+    body: BodyName | None = on_body()
 
 
 class MinMass(Frozen):
     kind: Literal[Kind.MIN_MASS] = Kind.MIN_MASS
     mass: Mass
+    body: BodyName | None = on_body()
 
 
 class Envelope(Frozen):
@@ -92,6 +96,7 @@ class MeasureLimit(Frozen):
     measure: str
     comparator: Comparator
     limit: AnyQuantity
+    body: BodyName | None = on_body()
 
     @model_validator(mode="after")
     def _bindable(self) -> "MeasureLimit":
@@ -120,7 +125,8 @@ class Unchecked(Frozen):
 
 
 class MadeOf(Frozen):
-    """The brief names the material. A confirmed one pins the `material_key` that scoring accepts.
+    """The brief names the material. A confirmed one pins the `material_key` that scoring accepts,
+    for the body it names, or for every body when it names none.
 
     The key is an exact key of the materials table, or, for a material the table lacks, a key of
     your own that names it. The server stores that material as the project's own row, `project-`
@@ -131,6 +137,7 @@ class MadeOf(Frozen):
     material: Annotated[
         str, Field(pattern=f"^{KEY_PATTERN.pattern}$", max_length=MAX_MATERIAL_KEY_CHARS)
     ]
+    body: BodyName | None = on_body()
 
 
 class MinSafetyFactor(Frozen):
@@ -197,6 +204,8 @@ class AgentLimit(Frozen):
 
 ON_PART: Final = (MinClearance, MaxClearance, FitsWith)
 """The targets that name a context part, which the fit check decides against that part."""
+ON_BODY: Final = (MaxMass, MinMass, MeasureLimit, MadeOf, FastenerHoles, PlainHoles)
+"""The targets that may name one body of the variant. Every other target reads the whole of it."""
 
 
 type Target = Annotated[
@@ -267,6 +276,11 @@ def load_of(target: Target) -> LoadCase | None:
             assert_never(target)
 
 
+def body_of(target: Target) -> BodyName | None:
+    """The body the target names, or None for the whole variant."""
+    return target.body if isinstance(target, ON_BODY) else None
+
+
 @dataclass(frozen=True, slots=True)
 class Limit:
     measure: str
@@ -287,9 +301,9 @@ def limits(target: Target) -> tuple[Limit, ...]:
         ):
             return ()
         case MaxMass():
-            return (Limit("mass", Comparator.AT_MOST, target.mass),)
+            return (Limit(per_body("mass", target.body), Comparator.AT_MOST, target.mass),)
         case MinMass():
-            return (Limit("mass", Comparator.AT_LEAST, target.mass),)
+            return (Limit(per_body("mass", target.body), Comparator.AT_LEAST, target.mass),)
         case Envelope():
             return tuple(
                 Limit(f"sorted_extent:{name}", Comparator.AT_MOST, edge)
@@ -301,7 +315,8 @@ def limits(target: Target) -> tuple[Limit, ...]:
         case MaxDeflection():
             return (Limit("max_displacement", Comparator.AT_MOST, target.deflection),)
         case MeasureLimit():
-            return (Limit(target.measure, target.comparator, target.limit),)
+            measure = per_body(target.measure, target.body)
+            return (Limit(measure, target.comparator, target.limit),)
         case MinClearance():
             return (Limit("min_clearance", Comparator.AT_LEAST, target.clearance),)
         case MaxClearance():
