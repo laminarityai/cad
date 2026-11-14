@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
+import type { Area } from "@/api/types";
 import type { Shapes } from "./engine";
-import { splitFaces, type Where } from "./where";
+import { paintAreas, splitFaces, type Where } from "./where";
 
 /** A part that must fit is built in that part's frame, so the two draw together as they are. */
 export function withFit(part: Shapes, fit: Shapes): Shapes {
@@ -33,14 +34,16 @@ function useSameWhere(where: Where | null): Where | null {
   return sameWhere(held, where) ? held : where;
 }
 
-/** What the viewer draws: the part with the stress check's faces marked and the context part beside it.
- * The same object comes back while the mesh, the ghost and the marked faces are unchanged, because the
- * canvas draws the whole model again for each new object, and a redraw drops the person's section. */
-export function useDrawn(part: Shapes | null, ghost: Shapes | null, where: Where | null): Shapes | null {
+/** What the viewer draws: the part in the colours its build code gave its areas, or with the stress check's
+ * faces marked on grey, since a check's marks win over the model's colours, and the context part beside it.
+ * `areas` is null when the colours are not to be drawn. The same object comes back while the mesh, the
+ * ghost, the areas and the marked faces are unchanged, because the canvas draws the whole model again for
+ * each new object, and a redraw drops the person's section. */
+export function useDrawn(part: Shapes | null, ghost: Shapes | null, where: Where | null, areas: readonly Area[] | null = null): Shapes | null {
   const faces = useSameWhere(where);
   return useMemo(() => {
     if (part === null) return null;
-    const marked = faces ? splitFaces(part, faces) : part;
+    const marked = faces ? splitFaces(part, faces) : areas ? paintAreas(part, areas) : part;
     return ghost ? withFit(marked, ghost) : marked;
-  }, [part, ghost, faces]);
+  }, [part, ghost, faces, areas]);
 }

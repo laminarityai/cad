@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field, StringConstraints
 from cad.briefs import store as briefs
 from cad.geometry import store as meshes
 from cad.geometry.exports import job, store
-from cad.geometry.exports.lane import EXPORTS
+from cad.geometry.exports.lane import EXPORTS, key_of
 from cad.geometry.exports.model import Exported, ExportFailed, ExportFormat, UnknownExport
 from cad.operations.model import Audience, Download, Input, Tenant, operation
 from cad.sandbox import image
@@ -18,16 +18,18 @@ EXPORT = (
     "image writes the three files once per BREP, in the background. Returns ready with the url "
     "to fetch the file from and the file name it is saved under, pending while the job runs: "
     "ask again, or failed with the reason. The file is the BREP the checks measured, in "
-    "millimetres."
+    "millimetres. The STEP carries the colours the build code gave its areas; the STL and 3MF "
+    "carry none."
 )
 EXPORT_FILE = (
-    "One exported file of one BREP made by one export job version, sent as an attachment. Those "
-    "two name the bytes, so a client may cache them for good. A version that is no longer "
-    "current, or a BREP that was not exported, is not found, so take the URL from the export. "
+    "One exported file of one BREP, with the colours its build code set, made by one export job "
+    "version, sent as an attachment. The key and the version name the bytes, so a client may "
+    "cache them for good. A version that is no longer current, or a key that was not exported, "
+    "is not found, so take the URL from the export. "
     "`name` is the file name without its extension, cleaned to lowercase letters, digits and "
     "dashes."
 )
-EXPORT_PATH: Final = "/v1/exports/{version}/{brep_sha256}.{format}"
+EXPORT_PATH: Final = "/v1/exports/{version}/{key}.{format}"
 UNNAMED: Final = "part"
 NOT_ALNUM: Final = re.compile(r"[^a-z0-9]+")
 
@@ -40,7 +42,7 @@ class ExportInput(Input):
 
 class ExportFileInput(Input):
     version: Annotated[str, Field(pattern=r"^[0-9a-f]{12}$")]
-    brep_sha256: Annotated[str, Field(pattern=meshes.SHA256.pattern)]
+    key: Annotated[str, Field(pattern=meshes.SHA256.pattern)]
     format: ExportFormat
     name: Annotated[str, StringConstraints(max_length=200)] = UNNAMED
 
@@ -91,19 +93,17 @@ def export(tenant: Tenant, arguments: ExportInput) -> ExportView:
         return ExportFailure(reason=read.reason)
     if not isinstance(read, Exported):
         return ExportPreparing()
-    path = EXPORT_PATH.format(
-        version=job.VERSION, brep_sha256=held.brep_sha256, format=arguments.format
-    )
+    path = EXPORT_PATH.format(version=job.VERSION, key=key_of(held), format=arguments.format)
     return ExportReady(url=f"{path}?name={stem}", filename=f"{stem}.{arguments.format}")
 
 
 def export_file(tenant: Tenant, arguments: ExportFileInput) -> Download:
-    stored = store.read(tenant.geometry, arguments.brep_sha256)
-    data = store.read_file(tenant.geometry, arguments.brep_sha256, arguments.format)
+    stored = store.read(tenant.geometry, arguments.key)
+    data = store.read_file(tenant.geometry, arguments.key, arguments.format)
     if not isinstance(stored, Exported) or arguments.version != job.VERSION or data is None:
         raise UnknownExport(
             f"no {arguments.format} of export job {arguments.version} is stored "
-            f"for BREP {arguments.brep_sha256}"
+            f"for key {arguments.key}"
         )
     return Download(filename=f"{slug(arguments.name)}.{arguments.format}", data=data)
 

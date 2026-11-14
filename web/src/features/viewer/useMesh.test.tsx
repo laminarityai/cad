@@ -11,6 +11,7 @@ const pendingView = (variantId: string): VariantView => ({
   brep_sha256: "b".repeat(64),
   mesh: "pending",
   mesh_url: null,
+  areas: [],
 });
 
 function mount(api: ReturnType<typeof fakeApi>) {
@@ -49,6 +50,18 @@ describe("useMesh", () => {
       { timeout: 3000 },
     );
     expect(geometry).toHaveBeenCalledTimes(2);
+  });
+
+  it("reads the view again for the areas once the mesh it waited for is made", async () => {
+    const grip = { name: "grip", colour: "#1a1a1a", faces: [1] };
+    const view = vi.fn().mockResolvedValueOnce(pendingView("v1")).mockResolvedValue({ ...pendingView("v1"), mesh: "tessellated", mesh_url: "/v1/geometry/0123456789ab/v1.json", areas: [grip] });
+    const geometry = vi.fn().mockResolvedValue(meshOf("v1"));
+    const { result } = mount(fakeApi(["v1"], { view, geometry }));
+    await waitFor(() => {
+      expect(result.current.status).toBe("ready");
+    });
+    expect(result.current.status === "ready" ? result.current.areas : null).toEqual([grip]);
+    expect(view).toHaveBeenCalledTimes(2);
   });
 
   it("keeps the drawn mesh on screen while the next variant's mesh is made", async () => {

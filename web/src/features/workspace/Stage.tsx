@@ -1,5 +1,7 @@
 import { Box, ChevronLeft, ChevronRight, Ruler, Slice } from "lucide-react";
 import { useMemo, useState, type Dispatch, type ReactElement } from "react";
+import type { Area } from "@/api/types";
+import { AreaList } from "@/features/viewer/AreaList";
 import { DimensionOverlay } from "@/features/viewer/DimensionOverlay";
 import type { Extents } from "@/features/viewer/dimensions";
 import type { OnPick, Track } from "@/features/viewer/engine";
@@ -57,8 +59,37 @@ const NO_PICKS: readonly Pick[] = [];
 const ignore: OnPick = () => undefined;
 
 const unmeasured: Measure = () => null;
+const NO_AREAS: readonly Area[] = [];
 
-/** `extents` is the size check's numbers to draw, or null for none. `cut` is the section the person chose, or null for the whole part. */
+const LEGEND: readonly (readonly [keyof Where, string])[] = [
+  ["support", "Held in place"],
+  ["load", "Pushed on"],
+];
+
+/** Says what the two colours on the part mean, for the faces the stress check used. */
+function WhereLegend({ where }: { where: Where }) {
+  return (
+    <ul data-where-legend className="space-y-1 rounded-md bg-panel/85 px-2.5 py-1.5 text-[13px] text-ink-2">
+      {LEGEND.filter(([role]) => where[role].length > 0).map(([role, text]) => (
+        <li key={role} data-where-role={role} className="flex items-center gap-2">
+          <span aria-hidden className="inline-block size-3 rounded-sm" style={{ backgroundColor: ROLE_COLOUR[role] }} />
+          {text}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Why the model is drawn grey though its build code coloured it, or null when its colours show. A check's
+ * marks win over the colours, and a cut needs the whole part drawn as one, as the marks do. */
+function greyedBy(where: Where | null, cut: Cut | null): string | null {
+  if (where) return "Grey while the stress check's faces show";
+  if (cut) return "Grey while the section shows";
+  return null;
+}
+
+/** `extents` is the size check's numbers to draw, or null for none. `cut` is the section the person chose, or null for the whole part.
+ * `where` is the stress check's faces to mark, or null for none. */
 function Mesh(props: {
   variantId: string;
   label: string;
@@ -80,7 +111,9 @@ function Mesh(props: {
   const readout = useMemo(() => (topology ? readoutOf(picks, topology, measure ?? unmeasured) : null), [picks, topology, measure]);
   const part = mesh.status === "ready" ? mesh.shapes : mesh.status === "loading" ? mesh.lastDrawn : null;
   const ghost = fitMesh?.status === "ready" ? fitMesh.shapes : null;
-  const drawn = useDrawn(part, ghost, where);
+  const areas = mesh.status === "ready" ? mesh.areas : NO_AREAS;
+  const greyed = greyedBy(where, cut);
+  const drawn = useDrawn(part, ghost, where, greyed ? null : areas);
   // The box of everything drawn, so a cut can reach the context part beside the part.
   const bb = drawn?.bb ?? null;
   const axis = cut?.axis;
@@ -115,26 +148,11 @@ function Mesh(props: {
       {cut && bb && plane ? <SectionPanel cut={cut} at={plane.at} bb={bb} onChange={onCut} /> : null}
       {extents && mesh.status === "ready" ? <DimensionOverlay extents={extents} bb={mesh.shapes.bb} track={track} /> : null}
       <SelectionNote selection={selection} readout={readout} />
+      <div className="pointer-events-none absolute bottom-3 right-3 z-30 flex max-w-[45%] flex-col items-end gap-1.5">
+        <AreaList areas={areas} greyed={greyed} />
+        {where ? <WhereLegend where={where} /> : null}
+      </div>
     </>
-  );
-}
-
-const LEGEND: readonly (readonly [keyof Where, string])[] = [
-  ["support", "Held in place"],
-  ["load", "Pushed on"],
-];
-
-/** Says what the two colours on the part mean, for the faces the stress check used. */
-function WhereLegend({ where }: { where: Where }) {
-  return (
-    <ul data-where-legend className="pointer-events-none absolute bottom-3 right-3 z-30 space-y-1 rounded-md bg-panel/85 px-2.5 py-1.5 text-[13px] text-ink-2">
-      {LEGEND.filter(([role]) => where[role].length > 0).map(([role, text]) => (
-        <li key={role} data-where-role={role} className="flex items-center gap-2">
-          <span aria-hidden className="inline-block size-3 rounded-sm" style={{ backgroundColor: ROLE_COLOUR[role] }} />
-          {text}
-        </li>
-      ))}
-    </ul>
   );
 }
 
@@ -164,8 +182,9 @@ export function Stage(props: {
   const setCut = (next: Cut | null) => {
     dispatch({ type: "cut", key, cut: next });
   };
-  // A cut draws a cap across a closed solid. The held and pushed faces are drawn apart from the part, which
-  // leaves it open, and the library then fills the cap across them, so the colours wait for the whole part.
+  // A cut draws a cap across a closed solid. The held and pushed faces, and the coloured areas, are drawn
+  // apart from the part, which leaves it open, and the library then fills the cap across them, so the
+  // colours wait for the whole part.
   const marked = cut ? null : where;
   const step = (n: number) => {
     dispatch({ type: "revision", key, n: n === newest ? null : n });
@@ -229,7 +248,6 @@ export function Stage(props: {
           ) : null}
           <Download key={shown.variantId} variantId={shown.variantId} briefId={briefId} />
         </div>
-        {marked ? <WhereLegend where={marked} /> : null}
       </div>
       <div className="flex items-center gap-3 border-t border-rule-2 px-4 py-2.5 text-[14px]" data-revisions>
         <button

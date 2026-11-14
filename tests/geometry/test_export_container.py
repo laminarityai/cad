@@ -114,8 +114,39 @@ def test_the_3mf_names_millimetres_and_has_the_same_box(plate: Plate, tmp_path: 
 
 
 def test_the_same_brep_exported_again_gives_the_same_files(plate: Plate) -> None:
-    again = job.export(plate.held.brep, plate.held.brep_sha256)
+    again = job.export(plate.held.brep, plate.held.brep_sha256, ())
     assert again.made == plate.made
+
+
+COLOURED = """
+from build123d import *
+plate = Box(30, 20, 4)
+plate.color, plate.label = Color(0.5, 0.5, 0.5), "aluminium plate"
+top = plate.faces().sort_by(Axis.Z)[-1]
+areas = [Compound([top], label="rubber pad", color=Color(0.1, 0.1, 0.1))]
+result = plate
+"""
+
+
+def test_the_step_of_a_coloured_variant_carries_each_area_and_the_stl_does_not(
+    tmp_path: Path,
+) -> None:
+    built = build_variant(COLOURED, tmp_path / "variants")
+    assert isinstance(built.outcome, Built) and len(built.outcome.areas) == 2, built.output
+    held = entry.open_entry(tmp_path / "variants", built.variant_id, image.image_tag(image.BUILD))
+    plain = job.export(held.brep, held.brep_sha256, ())
+    coloured = job.export(held.brep, "c" * 64, held.areas)
+    assert plain.made is not None and coloured.made is not None
+    step = coloured.made.step.decode()
+    assert step.startswith("ISO-10303-21;") and "2000-01-01T00:00:00" in step
+    assert "COLOUR_RGB" not in plain.made.step.decode()
+    written = {
+        tuple(round(float(value), 3) for value in found.split(","))
+        for found in re.findall(r"COLOUR_RGB\('[^']*',([^)]*)\)", step)
+    }
+    assert written == {(0.502, 0.502, 0.502), (0.102, 0.102, 0.102)}
+    assert coloured.made.stl == plain.made.stl
+    assert coloured.made == job.export(held.brep, "c" * 64, held.areas).made
 
 
 def test_a_brep_that_will_not_read_is_a_lasting_failure_with_a_reason(tmp_path: Path) -> None:

@@ -148,7 +148,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/v1/exports/{version}/{brep_sha256}.{format}": {
+    "/v1/exports/{version}/{key}.{format}": {
         parameters: {
             query?: never;
             header?: never;
@@ -558,6 +558,18 @@ export interface components {
             kind: "any";
         };
         /**
+         * Area
+         * @description A name and a colour that the build code gave a set of the variant's faces, numbered as
+         *     the BREP numbers them. It is how the model looks: no check, table or verdict reads it.
+         */
+        Area: {
+            name: components["schemas"]["AreaName"];
+            colour: components["schemas"]["Colour"];
+            faces: components["schemas"]["FaceNumber"][];
+        };
+        AreaName: string;
+        Areas: components["schemas"]["Area"][];
+        /**
          * AssumedRow
          * @description The agent filled in this value. The measure of the deciding check is beside it, and it is
          *     never graded. `instance` names the result of `check_id` that read the assumed load, which is
@@ -842,6 +854,7 @@ export interface components {
              */
             kind: "closed_solid";
         };
+        Colour: string;
         /**
          * Comparator
          * @enum {string}
@@ -1054,6 +1067,7 @@ export interface components {
             axis: components["schemas"]["Vec"] | null;
             edges: number[];
         };
+        FaceNumber: number;
         /**
          * Faces
          * @description Faces of the variant that the `fea` check fixed (`support`) and pressed on (`load`), as
@@ -2165,6 +2179,7 @@ export interface components {
             /** @enum {string} */
             mesh: "tessellated" | "failed" | "pending";
             mesh_url: string | null;
+            areas: components["schemas"]["Areas"];
         };
         Vec: [
             number,
@@ -2323,6 +2338,9 @@ export type AllPass = components['schemas']['AllPass'];
 export type Along = components['schemas']['Along'];
 export type Answered = components['schemas']['Answered'];
 export type AnyWay = components['schemas']['AnyWay'];
+export type Area = components['schemas']['Area'];
+export type AreaName = components['schemas']['AreaName'];
+export type Areas = components['schemas']['Areas'];
 export type AssumedRow = components['schemas']['AssumedRow'];
 export type AssumedValue = components['schemas']['AssumedValue'];
 export type AssumptionRow = components['schemas']['AssumptionRow'];
@@ -2349,6 +2367,7 @@ export type CheckResult = components['schemas']['CheckResult'];
 export type Checked = components['schemas']['Checked'];
 export type ClearanceSeries = components['schemas']['ClearanceSeries'];
 export type ClosedSolid = components['schemas']['ClosedSolid'];
+export type Colour = components['schemas']['Colour'];
 export type Comparator = components['schemas']['Comparator'];
 export type Comparison = components['schemas']['Comparison'];
 export type ConfirmationCard = components['schemas']['ConfirmationCard'];
@@ -2374,6 +2393,7 @@ export type ExportPreparing = components['schemas']['ExportPreparing'];
 export type ExportReady = components['schemas']['ExportReady'];
 export type ExportView = components['schemas']['ExportView'];
 export type FaceFacts = components['schemas']['FaceFacts'];
+export type FaceNumber = components['schemas']['FaceNumber'];
 export type Faces = components['schemas']['Faces'];
 export type Facing = components['schemas']['Facing'];
 export type FarEnd = components['schemas']['FarEnd'];
@@ -2762,8 +2782,8 @@ export interface operations {
             };
             header?: never;
             path: {
-                brep_sha256: string;
                 format: components["schemas"]["ExportFormat"];
+                key: string;
                 version: string;
             };
             cookie?: never;

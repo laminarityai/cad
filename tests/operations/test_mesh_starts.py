@@ -6,6 +6,7 @@ import pytest
 
 from cad.accounts.principal import AccountId
 from cad.geometry import job
+from cad.geometry.container.wire import FaceFacts
 from cad.geometry.lane import TESSELLATIONS
 from cad.geometry.model import Tessellated
 from cad.operations import reads
@@ -13,7 +14,7 @@ from cad.operations.model import Tenant
 from cad.operations.tenants import Tenants
 from cad.operations.variants import BuildVariantInput, build_variant
 from cad.sandbox.image import BUILD, image_tag
-from cad.sandbox.outcome import Build, Built, NoResult
+from cad.sandbox.outcome import Area, Build, Built, NoResult
 from cad.variants import entry
 
 RAIL = b"CASCADE Topology V3, a rail\n"
@@ -38,6 +39,7 @@ MESH = Tessellated.model_validate(
 
 class Gated:
     def __init__(self) -> None:
+        self.mesh = MESH
         self.calls: list[str] = []
         self.started = threading.Event()
         self.gate = threading.Event()
@@ -47,7 +49,7 @@ class Gated:
         self.calls.append(brep_sha256)
         self.started.set()
         self.gate.wait(5)
-        return job.Ran(MESH, True)
+        return job.Ran(self.mesh, True)
 
 
 @pytest.fixture
@@ -105,3 +107,36 @@ def test_a_build_with_no_shape_starts_no_mesh(alice: Tenant, run: Gated) -> None
     stored_build(alice, "result = None", NoResult(reason="no shape"))
     build_variant(alice, BuildVariantInput(code="result = None"))
     assert not run.started.wait(0.2)
+
+
+FACE: FaceFacts = {
+    "type": "plane",
+    "area": 1.0,
+    "center": (0, 0, 0),
+    "normal": (0, 0, 1),
+    "radius": None,
+    "axis": None,
+    "edges": [],
+}
+TWO_FACES = MESH.model_copy(update={"topology": {"faces": [FACE, FACE], "edges": []}})
+GRIP = Area(name="grip", colour="#1a1a1a", faces=(1,))
+
+
+@pytest.mark.parametrize(
+    ("areas", "shown"),
+    [
+        pytest.param((GRIP,), (GRIP,), id="every-face-on-the-mesh"),
+        pytest.param((GRIP.model_copy(update={"faces": (1, 2)}),), (), id="a-face-past-the-mesh"),
+    ],
+)
+def test_view_shows_the_areas_only_when_the_mesh_has_every_face_they_name(
+    alice: Tenant, run: Gated, areas: tuple[Area, ...], shown: tuple[Area, ...]
+) -> None:
+    run.mesh = TWO_FACES
+    vid = stored_build(alice, f"result = {len(areas[0].faces)}", Built(areas=areas))
+    held = entry.open_entry(alice.variants, vid, image_tag(BUILD))
+    pending = reads.view(alice, reads.VariantInput(variant_id=vid))
+    assert (pending.mesh, pending.areas) == ("pending", ())
+    run.gate.set()
+    assert TESSELLATIONS.read(alice.geometry, held, 5) == TWO_FACES
+    assert reads.view(alice, reads.VariantInput(variant_id=vid)).areas == shown

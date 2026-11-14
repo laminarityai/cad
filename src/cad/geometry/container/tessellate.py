@@ -20,7 +20,7 @@ from cad.geometry.container.wire import (
 RELATIVE_TOLERANCE: Final = 0.0005
 MIN_TOLERANCE_MM: Final = 0.001
 ANGULAR_TOLERANCE: Final = 0.1
-COLOR: Final = "#e8b024"
+COLOR: Final = "#a6abb0"
 ORIGIN: Final[Location] = ((0.0, 0.0, 0.0), (0.0, 0.0, 0.0, 1.0))
 # three-cad-viewer numbers face and edge types as OCCT's GeomAbs enums do.
 FACE_TYPES: Final = {

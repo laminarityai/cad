@@ -12,7 +12,7 @@ from cad.geometry.exports.lane import Exports
 from cad.geometry.exports.model import Exported, ExportFailed, ExportPending
 from cad.records import files
 from cad.sandbox.meter import Kind, Reservation, charged, metered
-from cad.sandbox.outcome import SandboxUnavailable
+from cad.sandbox.outcome import Area, Areas, SandboxUnavailable
 from cad.variants import entry
 from cad.variants.entry import Entry, VariantId
 
@@ -20,10 +20,11 @@ BREP = b"CASCADE Topology V3, a part\n"
 SHA = hashlib.sha256(BREP).hexdigest()
 HELD = Entry(VariantId("0123456789abcdef"), Path("/nowhere"), BREP, SHA)
 MADE = job.Made(step=b"step", stl=b"stl", threemf=b"3mf")
-EXPORTED = Exported(brep_sha256=SHA, version=job.VERSION)
+EXPORTED = Exported(key=SHA, version=job.VERSION)
 NEW_CODE = (
     "cad/geometry/exports/",
     "cad/geometry/container/export",
+    "cad/geometry/container/coloured_step.py",
     "cad/operations/exports.py",
     "cad/geometry/flights.py",
 )
@@ -34,7 +35,7 @@ def made() -> job.Ran:
 
 
 def failed(reason: str, lasting: bool) -> job.Ran:
-    return job.Ran(ExportFailed(brep_sha256=SHA, version=job.VERSION, reason=reason), lasting)
+    return job.Ran(ExportFailed(key=SHA, version=job.VERSION, reason=reason), lasting)
 
 
 class Gated:
@@ -43,8 +44,8 @@ class Gated:
         self.calls = 0
         self.gate = threading.Event()
 
-    def __call__(self, brep: bytes, brep_sha256: str) -> job.Ran:
-        assert (brep, brep_sha256) == (BREP, SHA)
+    def __call__(self, brep: bytes, key: str, areas: Areas) -> job.Ran:
+        assert (brep, key, areas) == (BREP, SHA, ())
         self.calls += 1
         self.gate.wait(5)
         return self.ran
@@ -55,8 +56,8 @@ def test_a_read_while_the_job_runs_is_pending_and_starts_no_second_job_then_it_i
 ) -> None:
     run = Gated(made())
     lane = Exports(run)
-    assert lane.read(tmp_path, HELD) == ExportPending(brep_sha256=SHA)
-    assert lane.read(tmp_path, HELD) == ExportPending(brep_sha256=SHA)
+    assert lane.read(tmp_path, HELD) == ExportPending(key=SHA)
+    assert lane.read(tmp_path, HELD) == ExportPending(key=SHA)
     run.gate.set()
     assert lane.read(tmp_path, HELD, wait_seconds=5) == EXPORTED
     assert run.calls == 1
@@ -76,8 +77,8 @@ def test_a_read_that_missed_the_record_just_before_the_job_stored_it_starts_no_s
     assert lane.read(tmp_path, HELD, wait_seconds=5) == EXPORTED
     real, missed = store.read, [None]
 
-    def misses_once(root: Path, brep_sha256: str) -> Exported | ExportFailed | None:
-        return missed.pop() if missed else real(root, brep_sha256)
+    def misses_once(root: Path, key: str) -> Exported | ExportFailed | None:
+        return missed.pop() if missed else real(root, key)
 
     monkeypatch.setattr(store, "read", misses_once)
     assert lane.read(tmp_path, HELD, wait_seconds=5) == EXPORTED
@@ -132,7 +133,7 @@ def test_a_job_that_raises_raises_for_its_reader_and_the_next_read_retries(
 ) -> None:
     calls: list[int] = []
 
-    def down(brep: bytes, brep_sha256: str) -> job.Ran:
+    def down(brep: bytes, key: str, areas: Areas) -> job.Ran:
         calls.append(1)
         raise SandboxUnavailable("docker is not reachable")
 
@@ -166,7 +167,7 @@ class Charges:
 def test_a_first_export_is_charged_as_one_check_to_the_account_that_asked_and_a_stored_one_is_free(
     tmp_path: Path,
 ) -> None:
-    def charging(brep: bytes, brep_sha256: str) -> job.Ran:
+    def charging(brep: bytes, key: str, areas: Areas) -> job.Ran:
         with charged("check", 1):
             return made()
 
@@ -195,3 +196,25 @@ def test_no_export_file_feeds_a_check_version_the_mesh_version_or_a_variant_id()
 
 def trusted_files() -> list[Path]:
     return [path for directory in entry.TRUSTED_DIRECTORIES for path in directory.glob("*.py")]
+
+
+GRIP = Area(name="grip", colour="#1a1a1a", faces=(0,))
+
+
+def test_a_coloured_variant_exports_apart_from_the_same_brep_with_no_colour(
+    tmp_path: Path,
+) -> None:
+    painted = Entry(HELD.id, HELD.directory, BREP, SHA, (GRIP,))
+    asked: list[tuple[str, Areas]] = []
+
+    def run(brep: bytes, key: str, areas: Areas) -> job.Ran:
+        asked.append((key, areas))
+        return job.Ran(Exported(key=key, version=job.VERSION), True, MADE)
+
+    lane = Exports(run)
+    lane.read(tmp_path, HELD, wait_seconds=5)
+    lane.read(tmp_path, painted, wait_seconds=5)
+    key = job.key_of(SHA, (GRIP,))
+    assert asked == [(SHA, ()), (key, (GRIP,))]
+    assert key not in (SHA, job.key_of(SHA, (GRIP.model_copy(update={"colour": "#1a1a1b"}),)))
+    assert store.read(tmp_path, key) == Exported(key=key, version=job.VERSION)

@@ -17,6 +17,7 @@ from cad.operations.server import NoArguments
 from cad.projects.membership import stored_projects
 from cad.projects.model import UnknownProject, parse_project_id
 from cad.sandbox import image
+from cad.sandbox.outcome import Areas, on_faces
 from cad.scorecard import material, score
 from cad.scorecard.material import MaterialUse
 from cad.tables.materials import MaterialsTable
@@ -46,7 +47,10 @@ VIEW = (
     "What the viewer needs for one built variant: the hash that names its BREP, whether its mesh "
     "is tessellated, failed or pending, and once it is tessellated, the mesh_url to fetch it from. "
     "A build starts its mesh, and this read starts it too when no job is making it, so pending "
-    "means a job is running: read it again."
+    "means a job is running: read it again. Once the mesh is tessellated, areas are the names "
+    "and colours the build code gave sets of faces, numbered as the mesh numbers them, and "
+    "empty when it gave none or named a face the mesh does not have. They are how the model "
+    "looks, and no check reads them."
 )
 MESH = (
     "The mesh of one BREP made by one tessellator version, in three-cad-viewer's shapes format. "
@@ -129,6 +133,7 @@ class VariantView(BaseModel):
     brep_sha256: str
     mesh: Literal["tessellated", "failed", "pending"]
     mesh_url: str | None
+    areas: Areas
 
 
 def list_projects(tenant: Tenant, arguments: NoArguments) -> ProjectList:
@@ -233,13 +238,15 @@ def _etag(tenant: Tenant, brief_id: str, material_key: str | None, variant_id: s
 def view(tenant: Tenant, arguments: VariantInput) -> VariantView:
     held = entry.open_entry(tenant.variants, arguments.variant_id, image.image_tag(image.BUILD))
     stored = TESSELLATIONS.start(tenant.geometry, held)
+    tessellated = isinstance(stored, Tessellated)
     return VariantView(
         variant_id=held.id,
         brep_sha256=held.brep_sha256,
         mesh="pending" if stored is None else stored.kind,
         mesh_url=MESH_PATH.format(version=job.VERSION, brep_sha256=held.brep_sha256)
-        if isinstance(stored, Tessellated)
+        if tessellated
         else None,
+        areas=on_faces(held.areas, len(stored.topology["faces"])) if tessellated else (),
     )
 
 
