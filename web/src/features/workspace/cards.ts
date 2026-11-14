@@ -7,9 +7,6 @@ import type { Where } from "@/features/viewer/where";
 
 const POLL_MS = 1500;
 
-/** A card with no scorecard says why: its first read has not answered, the option was never
- * scored, or the read failed. Only the first is work that is happening. A `stale` card's last read
- * failed, so a check it shows running may not be. */
 export type Card = { snapshot: Scorecard; stale?: true } | { snapshot: null; missing: "reading" | "not_scored" | "unread" };
 
 const NOT_SCORED = "NotScored";
@@ -176,9 +173,9 @@ function withUnpassedCheckReason(reason: string, result: DoneCheck | undefined):
   return result && result.verdict !== "pass" ? `${reason} ${sentence(result.reason)}` : reason;
 }
 
-/** `stale` shows a running check as not answering, since no read says it still runs. */
-export function linesOf(snapshot: Scorecard, stale = false): { asked: Line[]; also: Line[] } {
-  const busy = stale ? "not_answering" : "running";
+export const linesOfCard = (card: Extract<Card, { snapshot: Scorecard }>) => linesOf(card.snapshot, card.stale ? "not_answering" : "running");
+
+export function linesOf(snapshot: Scorecard, busy: "running" | "not_answering" = "running"): { asked: Line[]; also: Line[] } {
   const results = snapshot.results;
   const done = (id: string, instance: string) => results.find((one): one is DoneCheck => isDone(one) && one.check_id === id && one.instance === instance);
   const running = (id: string, instance: string) => results.some((one) => isRunning(one) && one.check_id === id && one.instance === instance);
@@ -359,7 +356,7 @@ export function summaryOf(card: Card | undefined): {
 } {
   if (!card) return { status: "none", text: "" };
   if (!card.snapshot) return { status: "none", text: MISSING[card.missing] };
-  const { asked, also } = linesOf(card.snapshot, card.stale);
+  const { asked, also } = linesOfCard(card);
   const all = [...asked, ...also];
   if (all.some((one) => one.status === "running")) return { status: "running", text: "Checking" };
   if (all.some((one) => one.status === "not_answering")) return { status: "not_answering", text: NOT_ANSWERING };

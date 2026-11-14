@@ -13,7 +13,6 @@ export interface ToolRow {
   key: number;
   label: string;
   chip: string | null;
-  /** `unread` is a call that finished with a result too long to read, so it claims no outcome. */
   status: "running" | "queued" | "done" | "unread" | "failed" | "refused" | "unfinished" | "unanswered";
   detail: readonly string[];
 }

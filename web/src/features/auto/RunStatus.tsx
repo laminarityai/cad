@@ -7,7 +7,6 @@ const tried = (builds: number) => (builds === 0 ? "nothing built yet" : `${Strin
 
 const IDLE = "Nothing is working on it now. Send a message to carry it on, or stop it.";
 
-/** `stalled` is a turn that runs while the stream reconnects, so the page cannot say whether anything works. */
 export function RunStatus(props: { run: RunView | null; working: Working | null; stalled: boolean; problem: string | null; onStop: () => void }) {
   const { run, working, stalled, problem, onStop } = props;
   const running = run?.status === "running";

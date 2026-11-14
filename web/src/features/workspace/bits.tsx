@@ -5,7 +5,7 @@ import { Spinner } from "@/components/ui/busy";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import type { Line, Status } from "./cards";
-import { assumedOf, awaitingOf, linesOf, MISSING, NOT_ANSWERING, type Card } from "./cards";
+import { assumedOf, awaitingOf, linesOfCard, MISSING, NOT_ANSWERING, type Card } from "./cards";
 import type { Material } from "./model";
 
 const DOT: Record<Exclude<Status, "running" | "not_answering"> | "none", string> = {
@@ -155,7 +155,7 @@ const NO_WHERE: WhereControl = { shown: null, hidden: false, onToggle: () => und
 
 export function Checks({ card, material, where = NO_WHERE }: { card: Card | undefined; material: Material | null; where?: WhereControl }) {
   const snapshot = card?.snapshot ?? null;
-  const { asked, also } = card?.snapshot ? linesOf(card.snapshot, card.stale) : { asked: [], also: [] };
+  const { asked, also } = card?.snapshot ? linesOfCard(card) : { asked: [], also: [] };
   const assumed = snapshot ? assumedOf(snapshot) : [];
   const waiting = snapshot ? awaitingOf(snapshot) : [];
   const loud = also.filter((one) => one.status !== "pass" && one.status !== "researched");

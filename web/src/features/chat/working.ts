@@ -37,8 +37,6 @@ function created(call: Call): string | null {
   }
 }
 
-/** The brief a call works on: the one its input names, the one a finished create_brief made, or an
- * Auto tool's run brief. */
 function briefOf(call: Call, runBrief: string | null): string | null {
   if (typeof call.input.brief_id === "string") return call.input.brief_id;
   const made = created(call);

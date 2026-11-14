@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { httpApi, NotFound, READ_TIMEOUT_MS, Refused, SignedOut } from "./client";
+import { httpApi, NotFound, ANSWER_TIMEOUT_MS, Refused, SignedOut } from "./client";
 
 const JSON_GET = { method: "GET", credentials: "same-origin", headers: { accept: "application/json" } };
 
@@ -79,7 +79,7 @@ describe("a read the server never answers", () => {
     void httpApi.scorecard("v1", "b1", null).catch((error: unknown) => {
       said = error;
     });
-    await vi.advanceTimersByTimeAsync(READ_TIMEOUT_MS - 1);
+    await vi.advanceTimersByTimeAsync(ANSWER_TIMEOUT_MS - 1);
     expect(said).toBeNull();
     await vi.advanceTimersByTimeAsync(1);
     expect(said).toBeInstanceOf(Error);

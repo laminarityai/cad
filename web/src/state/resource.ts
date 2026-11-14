@@ -55,9 +55,9 @@ export interface LoadedSet<T> {
 /** Load each of `keys` once. With `followMs`, load again that long after each load ends while the tab
  * is visible, and again the moment it becomes visible, so the data on screen follows the server. A
  * load that fails for any reason but sign-out or not-found keeps the data already on screen, marked
- * `stale`, so a server restart does not blank the page and nothing claims the data is current. A key that stays in `keys` keeps its data while the others
- * change; a key that leaves is forgotten. `load` gets a signal that aborts when the keys change or the
- * page leaves. */
+ * `stale`, so a server restart does not blank the page. A key that stays in `keys` keeps its data
+ * while the others change; a key that leaves is forgotten. `load` gets a signal that aborts when the
+ * keys change or the page leaves. */
 export function useResources<T>(keys: readonly string[], load: (key: string, signal: AbortSignal) => Promise<T>, followMs?: number): LoadedSet<T> {
   const joined = JSON.stringify([...new Set(keys)]);
   const [state, dispatch] = useReducer(reduce<T>, {});
