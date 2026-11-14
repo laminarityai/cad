@@ -36,6 +36,8 @@ from cad.variants import entry, store
 HERE: Final = Path(__file__).resolve().parent
 ROOT: Final = HERE.parents[1]
 SESSION: Final = ROOT / ".claude/skills/verify/scripts/claude_session.py"
+# The driver whose rule reads a failed drive. A test may run a fake SESSION, never a fake rule.
+DRIVER: Final = SESSION
 MATERIAL_KEY: Final = "prusament-pla"
 MODEL: Final = "sonnet"
 VOLUME_TOL_MM3: Final = 0.01
@@ -44,13 +46,6 @@ INVALID_CATEGORIES: Final = frozenset({"no_output", "invalid_solid"})
 UNSCORED: Final = "unscored"
 NOT_GRADED: Final = "not graded"
 FLOAT_SLACK: Final = 1e-9
-DRIVER_FAILURES: Final = (
-    "claude exited",
-    "cad is not connected",
-    "tools available outside cad:",
-    "tools outside cad:",
-)
-
 type Extents = tuple[float, float, float]
 
 
@@ -149,6 +144,22 @@ def grader() -> Grade:
     return cast(Grade, cast(object, module))
 
 
+class Driver(Protocol):
+    def failure_of(self, stdout: str, stderr: str) -> str: ...
+
+
+def _driver() -> Driver:
+    """The session driver, loaded once by path and shared, as it is a script and not a package."""
+    if "claude_session" not in sys.modules:
+        spec = importlib.util.spec_from_file_location("claude_session", DRIVER)
+        assert spec is not None
+        assert spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        sys.modules["claude_session"] = module
+    return cast(Driver, cast(object, sys.modules["claude_session"]))
+
+
 def grader_side(part: str, step: Path) -> GraderSide:
     graded = grader().grade(part, step)
     measured: dict[str, Any] = graded.get("measured") or {}
@@ -236,14 +247,8 @@ def replay_one(attempt: Attempt, root: Path) -> Row:
 
 
 def session_failure(stdout: str, stderr: str) -> str:
-    """Why the session driver exited 1: its own failure lines, else the last line of the
-    traceback it raised, else the error the session reported. The driver's last stdout line is
-    often the model's reply, so it is not a reason."""
-    failures = [line for line in stdout.splitlines() if line.startswith(DRIVER_FAILURES)]
-    if failures:
-        return "; ".join(failures)
-    raised = stderr.strip().splitlines()
-    return raised[-1] if raised else "the session reported an error"
+    """Why the session driver exited 1, read by the driver's own rule."""
+    return _driver().failure_of(stdout, stderr)
 
 
 def live_one(part: str, brief: str, out: Path, model: str) -> Row:
@@ -380,13 +385,13 @@ def main(argv: list[str]) -> int:
 
 
 def tally(rows: list[Row]) -> tuple[str, bool]:
-    """The agreement count over the graded rows, and whether every one agrees. A row grade.py
-    could not read is counted apart."""
+    """The agreement count over the graded rows, and whether every row agrees. A row grade.py
+    could not read is counted apart, and the run does not pass while one is left."""
     graded = [row for row in rows if row.agreement.graded]
     agreed = sum(row.agreement.agrees for row in graded)
     left = len(rows) - len(graded)
     said = f"{agreed}/{len(graded)} agree" + (f", {left} not graded" if left else "")
-    return said, bool(graded) and agreed == len(graded)
+    return said, bool(graded) and agreed == len(graded) and not left
 
 
 if __name__ == "__main__":

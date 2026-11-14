@@ -65,7 +65,7 @@ def band(target: FastenerHoles | PlainHoles) -> Band:
                 return Band(wanted - around, wanted + around)
             case ByClass(key=key):
                 limits = load_tolerances().limits(key, wanted)
-                return Band(limits.low_mm, limits.high_mm, (limits.source,))
+                return Band(limits.low_mm, limits.high_mm, limits.sources)
     row = load_fasteners().get(target.size)
     if target.fit is HoleFit.TAPPED:
         return Band(row.tapped.minor_min_mm, row.tapped.minor_max_mm, (row.tapped.source,))

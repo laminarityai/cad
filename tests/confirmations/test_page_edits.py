@@ -200,6 +200,34 @@ async def test_the_recorded_page_says_what_the_person_changed(s: Session) -> Non
     assert "Fits inside a box" not in body
 
 
+async def test_a_changed_clearance_names_its_part_and_not_its_id(s: Session) -> None:
+    text = "A clip that slides onto the rail, at least 0.2 mm clear of it"
+    created = await s.call("create_brief", text=text)
+    rail = s.variant("result = Box(30, 20, 10)\n")
+    part = await s.call(
+        "propose_context_part",
+        brief_id=created["brief_id"],
+        quote="the rail",
+        name="rail",
+        variant_id=rail,
+    )
+    clear = {
+        "target": {
+            "kind": "min_clearance",
+            "part": part["part_id"],
+            "clearance": {"magnitude": 0.2, "unit": "mm"},
+        },
+        "quote": "at least 0.2 mm clear of it",
+    }
+    await s.call("propose_requirements", brief_id=created["brief_id"], requirements=[clear])
+    [row] = row_ids(s, created["brief_id"])
+    await s.call("ask_to_confirm", project_id=created["project_id"])
+    status, body = s.post(s.person.url, "confirm", fields={f"edit-0-{row}": "0.5 mm"})
+    assert status == 200
+    assert "At least 0.5 mm gap to rail (you changed it from 0.2 mm)." in body
+    assert part["part_id"] not in body
+
+
 async def test_a_refusal_on_a_page_of_two_briefs_names_the_item(s: Session) -> None:
     first = await s.proposed(s.rows.under_150)
     second = await s.proposed(s.rows.under_150, project_id=first.project_id)

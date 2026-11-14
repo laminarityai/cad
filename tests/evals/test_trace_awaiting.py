@@ -17,7 +17,7 @@ from cad.records.roots import Roots
 from cad.scorecard import assumed, awaiting, material
 from cad.scorecard.material import ReportedScorecard
 from cad.scorecard.model import AwaitingConfirmation
-from cad.tables.materials import UNITS
+from cad.tables.materials import UNITS, load_materials
 from tests.support.cards import (
     TARGET,
     drafts,
@@ -43,7 +43,7 @@ def waiting_card(roots: Roots) -> tuple[ReportedScorecard, str]:
     )
     card = with_result(genuine_card(), "holes", measured=sizes)
     card = card.model_copy(update={"basis": AwaitingConfirmation(brief_id=brief_id)})
-    reported = material.reported(card, None)
+    reported = material.reported(card, None, load_materials())
     waiting = briefs.read_state(roots, brief_id).proposals[-1].proposal.requirements
     rows = awaiting.rows(waiting, reported.results)
     return reported.model_copy(update={"awaiting": rows}), brief_id
@@ -93,7 +93,7 @@ def test_an_assumed_value_traces_to_the_assumption_in_force(store: Path, roots: 
     held = assumptions.assume(roots, brief_id, [Assumption(target=target, why="light")], ())
     assert held is not None
     card = genuine_card(basis=AwaitingConfirmation(brief_id=brief_id))
-    reported = material.reported(card, None)
+    reported = material.reported(card, None, load_materials())
     rows = assumed.rows(held.assumptions, reported.results)
     reported = reported.model_copy(update={"assumptions": rows})
     step = AssumedStep(brief_id, held.number, "mass", "")

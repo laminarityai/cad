@@ -4,7 +4,8 @@ from typing import TYPE_CHECKING, Final
 
 import pytest
 
-from cad.auto.model import Running, Stopped
+from cad.auto.model import AllPass, Mark, NotChecked, Running, Standing, Stopped
+from cad.auto.step import report
 from cad.chat.auto_driver import AutoDriver
 from cad.chat.log import StopReport
 
@@ -59,3 +60,23 @@ async def test_a_run_whose_material_has_a_density_records_no_unchecked_pair(s: S
     run = await s.start(brief_id=brief_id)
     assert isinstance(run.state, Running)
     assert "not_checked" not in run.state.start.model_dump()
+
+
+@pytest.mark.parametrize(
+    ("mass", "shown"), [(Mark.UNKNOWN, True), (Mark.PASS_RESEARCHED, False), (Mark.FAIL, False)]
+)
+def test_the_stop_report_drops_the_unchecked_pair_once_research_gave_it_a_verdict(
+    mass: Mark, shown: bool
+) -> None:
+    note = NotChecked(statement=NOT_CHECKED, requirements=("mass", "asa", "cube"))
+    latest = Standing(
+        revision=1,
+        variant_id="v",
+        code_sha256="c",
+        built=True,
+        marks=(("cube", Mark.PASS), ("mass", mass)),
+    )
+    reason = AllPass(researched=(), unverified=())
+    for for_person in (False, True):
+        said = report((latest,), 1, reason, for_person=for_person, not_checked=note)
+        assert (f"Not checked: {NOT_CHECKED}." in said) is shown

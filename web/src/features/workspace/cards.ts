@@ -65,7 +65,8 @@ export interface Line {
   value: string;
   why: string;
   formula: string;
-  sources: Pick<Source, "url" | "title">[];
+  /** A table row cited twice, for its size range and its limit, carries each quote. */
+  sources: (Pick<Source, "url" | "title"> & Partial<Pick<Source, "quote">>)[];
   /** The label a verdict carries when no reviewed check reached it. */
   tag?: string;
   /** The faces the stress check held and pushed on, for the row of a requirement that check decided. */

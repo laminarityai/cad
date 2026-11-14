@@ -38,7 +38,8 @@ def test_a_stored_step_the_scorecard_marks_missing_is_not_graded(
     assert row.card.closed_solid == "pass"
     assert agree.cells(row)[-1] == "not graded"
     agreed = agree.Row("bracket", VARIANT_ID, row.card, row.grader, agree.Agreement(True, ()), 0.0)
-    assert agree.tally([row, agreed]) == ("1/1 agree, 1 not graded", True)
+    assert agree.tally([row, agreed]) == ("1/1 agree, 1 not graded", False)
+    assert agree.tally([agreed]) == ("1/1 agree", True)
     assert agree.tally([row]) == ("0/0 agree, 1 not graded", False)
 
 

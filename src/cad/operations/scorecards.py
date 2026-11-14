@@ -312,7 +312,9 @@ def score_variant(tenant: Tenant, arguments: ScoreVariantInput) -> material.Repo
             table=basis.table.table,
         )
     card = with_research(
-        material.reported(scored, basis.confirmed, basis.revision), basis.table, arguments.brief_id
+        material.reported(scored, basis.confirmed, basis.table.table, basis.revision),
+        basis.table,
+        arguments.brief_id,
     )
     card = with_assumptions(card, tenant, basis, arguments.brief_id)
     card = with_agent_checks(
@@ -340,7 +342,7 @@ def scorecard(tenant: Tenant, arguments: ScorecardInput) -> material.ScorecardSn
         demand=basis.demand,
         table=basis.table.table,
     )
-    reported = material.reported(peeked, basis.confirmed, basis.revision)
+    reported = material.reported(peeked, basis.confirmed, basis.table.table, basis.revision)
     card = with_research(reported, basis.table, arguments.brief_id)
     card = with_assumptions(card, tenant, basis, arguments.brief_id)
     card = with_agent_checks(

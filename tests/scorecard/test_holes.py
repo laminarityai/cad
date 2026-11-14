@@ -169,6 +169,15 @@ def test_the_card_cites_the_table_row_its_band_was_read_from(
     assert source["quote"]
 
 
+def test_a_general_tolerance_cites_the_size_range_that_picked_its_row_and_the_limit() -> None:
+    general = {**SHAFT, "tolerance": {"kind": "class", "key": "ISO 2768-m"}}
+    card = checked(requirements.judge(requirement(general), counted(8.0))).model_dump(mode="json")
+    assert [one["quote"] for one in card["sources"]] == [
+        "0.5 Note 1 up to 3 over 3 up to 6 over 6 up to 30 over 30 up to 120 over 120 up to 400",
+        "m ±0.1 ±0.1 ±0.2 ±0.3 ±0.5",
+    ]
+
+
 def test_a_band_the_person_stated_cites_no_table() -> None:
     card = checked(requirements.judge(requirement(SHAFT_WIDE), counted(8.0)))
     assert "sources" not in card.model_dump(mode="json")
