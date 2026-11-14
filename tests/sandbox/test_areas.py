@@ -65,15 +65,15 @@ def test_each_child_of_a_compound_keeps_its_own_colour(tmp_path: Path) -> None:
     code = """
 from build123d import *
 gear = Cylinder(10, 4)
-gear.color, gear.label = Color("gray"), "steel gear"
+gear.color, gear.label = Color("gray"), "gear"
 plate = Pos(0, 0, -6) * Box(40, 40, 2)
-plate.color, plate.label = Color("black"), "carbon plate"
+plate.color, plate.label = Color("black"), "plate"
 result = Compound(children=[gear, plate])
 """
     gear, plate = built(code, tmp_path).areas
-    assert (gear.name, gear.colour, gear.faces) == ("steel gear", "#808080", (0, 1, 2))
+    assert (gear.name, gear.colour, gear.faces) == ("gear", "#808080", (0, 1, 2))
     assert (plate.name, plate.colour, plate.faces) == (
-        "carbon plate",
+        "plate",
         "#000000",
         tuple(range(3, 9)),
     )

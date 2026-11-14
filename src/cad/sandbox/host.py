@@ -10,6 +10,7 @@ from pydantic import Field, TypeAdapter, ValidationError
 from cad.checks.report import IMAGE_TAG, Request, build_request, parse
 from cad.checks.result import CheckRun, StepMissing, StepStored
 from cad.sandbox import container, image, stage
+from cad.sandbox.bodies import read_bodies
 from cad.sandbox.container import Attended, ContainerState, Job, TooMuchOutput
 from cad.sandbox.outcome import (
     BuildFailed,
@@ -169,7 +170,11 @@ def reported(raw: bytes) -> Artifacts | Failure | None:
                 brep = b64decode(report["brep"], validate=True)
             except ValueError:
                 return None
-            return Artifacts(brep, read_areas(report.get("areas", [])))
+            bodies = read_bodies(report.get("bodies", []))
+            if isinstance(bodies, str):
+                return NoResult(reason=bodies)
+            painted = read_areas(report.get("areas", []))
+            return Artifacts(brep, painted.model_copy(update={"bodies": bodies}))
         case "build_failed":
             return BuildFailed(
                 error=report["error"][:TEXT_CAP], traceback=report["traceback"][-TEXT_CAP:]

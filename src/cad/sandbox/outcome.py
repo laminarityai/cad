@@ -6,6 +6,7 @@ from pydantic import AfterValidator, Field, Strict, StringConstraints, TypeAdapt
 
 from cad.errors import Unavailable
 from cad.frozen import Frozen
+from cad.sandbox.bodies import Bodies
 
 LOG = logging.getLogger(__name__)
 MAX_AREAS: Final = 16
@@ -43,11 +44,13 @@ AREAS: Final = TypeAdapter[Areas](Areas)
 
 class Built(Frozen):
     """`areas` are the colours the build code set, or none. `areas_dropped` says why the
-    colours it set were not kept; the build stands either way."""
+    colours it set were not kept; the build stands either way. `bodies` names the solids of a
+    result of more than one, and is empty for one unnamed body."""
 
     kind: Literal["built"] = "built"
     areas: Areas = ()
     areas_dropped: str | None = None
+    bodies: Bodies = Field(default=(), exclude_if=lambda bodies: not bodies)
 
 
 class AreaCount(Frozen):
@@ -63,6 +66,7 @@ class BuiltTold(Frozen):
     kind: Literal["built"] = "built"
     areas: tuple[AreaCount, ...] = ()
     areas_dropped: str | None = None
+    bodies: Bodies = Field(default=(), exclude_if=lambda bodies: not bodies)
 
 
 def read_areas(raw: object) -> Built:
@@ -105,9 +109,10 @@ class OutOfMemory(Frozen):
 
 
 class NoResult(Frozen):
-    """The code ran to the end, but `result` was missing or not a Shape.
+    """The code ran to the end, but `result` was missing, not a Shape, or held solids that do
+    not name their bodies.
 
-    `reason` is written by the host and always names the contract.
+    `reason` is written by the host and says what to change.
     """
 
     kind: Literal["no_result"] = "no_result"
@@ -125,7 +130,9 @@ def told(outcome: Built | Failure) -> BuiltTold | Failure:
     counted = (
         AreaCount(name=a.name, colour=a.colour, face_count=len(a.faces)) for a in outcome.areas
     )
-    return BuiltTold(areas=tuple(counted), areas_dropped=outcome.areas_dropped)
+    return BuiltTold(
+        areas=tuple(counted), areas_dropped=outcome.areas_dropped, bodies=outcome.bodies
+    )
 
 
 class Build(Frozen):

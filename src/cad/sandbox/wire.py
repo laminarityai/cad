@@ -9,11 +9,13 @@ class AreaReport(TypedDict):
 
 class BuiltReport(TypedDict):
     """`areas` is what the runner read off the shape, or the error that stopped it; the host
-    parses it apart from the rest, so a bad list never fails the build."""
+    parses it apart from the rest, so a bad list never fails the build. `bodies` is the name of
+    each solid, or the error that stopped the runner reading them; a bad one refuses the build."""
 
     kind: Literal["built"]
     brep: str
     areas: NotRequired[object]
+    bodies: NotRequired[object]
 
 
 class FailedReport(TypedDict):

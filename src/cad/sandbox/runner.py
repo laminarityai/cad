@@ -34,6 +34,10 @@ class Coloured(Protocol):
     def faces(self) -> Sequence[object]: ...
 
 
+class Solid(Protocol):
+    def IsPartner(self, other: Solid) -> bool: ...
+
+
 def main() -> None:
     root = os.getpid()
     report_channel = os.dup(1)
@@ -78,7 +82,71 @@ def result_report(namespace: dict[str, object]) -> Report:
     if not build123d.export_brep(shape, brep):
         raise RuntimeError("build123d could not export `result` as BREP")
     painted = areas(cast(Coloured, shape), namespace)
-    return {"kind": "built", "brep": b64encode(brep.getvalue()).decode(), "areas": painted}
+    named = bodies(shape)
+    return {
+        "kind": "built",
+        "brep": b64encode(brep.getvalue()).decode(),
+        "areas": painted,
+        "bodies": named,
+    }
+
+
+def bodies(shape: object) -> list[str | None] | str:
+    """The name of each solid of `shape`, numbered by the kernel's explorer as the checks number
+    them: the `label` of its nearest labelled node in the `children` tree, or None. A label in
+    the `areas` list never names a body. Empty for one solid or none, which is one unnamed body
+    whatever its label says."""
+    try:
+        every = solids_of(shape)
+        if len(every) <= 1:
+            return []
+        named: list[str | None] = []
+        pending: list[tuple[object, str | None]] = [(shape, None)]
+        while pending:
+            node, inherited = pending.pop()
+            label = utf8(str(getattr(node, "label", "") or "")) or inherited
+            children = list(cast(Iterable[object], getattr(node, "children", ())))
+            if children:
+                pending.extend((child, label) for child in reversed(children))
+                continue
+            for solid in solids_of(node):
+                if len(named) == len(every) or not alike(every[len(named)], solid):
+                    raise ValueError("the solids of the children tree are not those of `result`")
+                named.append(label)
+        if len(named) != len(every):
+            raise ValueError("the children tree holds fewer solids than `result`")
+        return named
+    except Exception as error:
+        return utf8(f"{type(error).__name__}: {error}")
+
+
+def alike(solid: Solid, other: Solid) -> bool:
+    """A moved Compound keeps its children where they were, so a solid and the child it came
+    from can differ in place but never in volume."""
+    if solid.IsPartner(other):
+        return True
+    one, two = volume_of(solid), volume_of(other)
+    return abs(one - two) <= 1e-6 * max(abs(one), abs(two))
+
+
+def volume_of(solid: Solid) -> float:
+    props = importlib.import_module("OCP.GProp").GProp_GProps()
+    importlib.import_module("OCP.BRepGProp").BRepGProp.VolumeProperties_s(solid, props)
+    return float(props.Mass())
+
+
+def solids_of(shape: object) -> list[Solid]:
+    explorers = importlib.import_module("OCP.TopExp")
+    kinds = importlib.import_module("OCP.TopAbs")
+    wrapped = getattr(shape, "wrapped", None)
+    if wrapped is None:
+        return []
+    explorer = explorers.TopExp_Explorer(wrapped, kinds.TopAbs_SOLID)
+    found: list[Solid] = []
+    while explorer.More():
+        found.append(explorer.Current())
+        explorer.Next()
+    return found
 
 
 def areas(shape: Coloured, namespace: dict[str, object]) -> list[AreaReport] | str:
