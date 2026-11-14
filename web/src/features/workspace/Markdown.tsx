@@ -1,16 +1,19 @@
 import type { ReactNode } from "react";
+import { CodeBlock } from "@/components/ui/code-block";
+import { StreamCaret, StreamWords } from "@/components/ui/stream-text";
 
-function inline(text: string, key: string): ReactNode[] {
+function inline(text: string, key: string, streaming: boolean): ReactNode[] {
+  const plain = (piece: string, at: string): ReactNode => (streaming ? <StreamWords key={at} text={piece} /> : piece);
   const out: ReactNode[] = [];
   const pattern = /(\*\*[^*]+\*\*|`[^`]+`|\*[^*\s][^*]*\*|\[[^\]]+\]\([^)\s]+\))/g;
   let last = 0;
   let n = 0;
   for (const match of text.matchAll(pattern)) {
     const at = match.index;
-    if (at > last) out.push(text.slice(last, at));
+    if (at > last) out.push(plain(text.slice(last, at), `${key}-o${String(last)}`));
     const token = match[0];
     const k = `${key}-${String(n++)}`;
-    if (token.startsWith("**")) out.push(<strong key={k}>{inline(token.slice(2, -2), k)}</strong>);
+    if (token.startsWith("**")) out.push(<strong key={k}>{inline(token.slice(2, -2), k, streaming)}</strong>);
     else if (token.startsWith("`"))
       out.push(
         <code key={k} className="rounded bg-panel-2 px-1 font-mono text-[0.9em]">
@@ -28,7 +31,7 @@ function inline(text: string, key: string): ReactNode[] {
     } else out.push(<em key={k}>{token.slice(1, -1)}</em>);
     last = at + token.length;
   }
-  if (last < text.length) out.push(text.slice(last));
+  if (last < text.length) out.push(plain(text.slice(last), `${key}-o${String(last)}`));
   return out;
 }
 
@@ -39,10 +42,15 @@ const cells = (line: string) =>
     .split("|")
     .map((one) => one.trim());
 
-export function Markdown({ text }: { text: string }) {
+export function Markdown({ text, streaming = false }: { text: string; streaming?: boolean }) {
   const lines = text.split("\n");
   const blocks: ReactNode[] = [];
   let i = 0;
+  let inText = false;
+  const caretAt = (done: number) => {
+    const last = streaming && lines.slice(done).every((rest) => rest.trim() === "");
+    return last ? <StreamCaret /> : null;
+  };
   while (i < lines.length) {
     const line = lines[i] ?? "";
     const key = `b${String(i)}`;
@@ -50,16 +58,14 @@ export function Markdown({ text }: { text: string }) {
       i++;
       continue;
     }
+    inText = false;
     if (line.startsWith("```")) {
       const body: string[] = [];
+      const language = line.slice(3).trim();
       i++;
       while (i < lines.length && !(lines[i] ?? "").startsWith("```")) body.push(lines[i++] ?? "");
       i++;
-      blocks.push(
-        <pre key={key} className="overflow-x-auto rounded-md bg-panel-2 p-3 font-mono text-[13px]">
-          {body.join("\n")}
-        </pre>,
-      );
+      blocks.push(<CodeBlock key={key} code={body.join("\n")} language={language === "" ? undefined : language} />);
       continue;
     }
     if (/^\s*\|/.test(line) && /^\s*\|?\s*:?-{2,}/.test(lines[i + 1] ?? "")) {
@@ -74,7 +80,7 @@ export function Markdown({ text }: { text: string }) {
               <tr>
                 {head.map((one, c) => (
                   <th key={c} className="border-b border-rule px-2 py-1.5 text-left font-semibold">
-                    {inline(one, `${key}h${String(c)}`)}
+                    {inline(one, `${key}h${String(c)}`, streaming)}
                   </th>
                 ))}
               </tr>
@@ -84,7 +90,7 @@ export function Markdown({ text }: { text: string }) {
                 <tr key={r}>
                   {row.map((one, c) => (
                     <td key={c} className="border-b border-rule-2 px-2 py-1.5 align-top">
-                      {inline(one, `${key}r${String(r)}c${String(c)}`)}
+                      {inline(one, `${key}r${String(r)}c${String(c)}`, streaming)}
                     </td>
                   ))}
                 </tr>
@@ -99,9 +105,11 @@ export function Markdown({ text }: { text: string }) {
     if (heading) {
       blocks.push(
         <p key={key} className="font-semibold">
-          {inline(heading[2] ?? "", key)}
+          {inline(heading[2] ?? "", key, streaming)}
+          {caretAt(i + 1)}
         </p>,
       );
+      inText = true;
       i++;
       continue;
     }
@@ -113,15 +121,30 @@ export function Markdown({ text }: { text: string }) {
       blocks.push(
         <List key={key} className={ordered ? "list-decimal space-y-1 pl-5" : "list-disc space-y-1 pl-5"}>
           {items.map((one, n) => (
-            <li key={n}>{inline(one, `${key}-${String(n)}`)}</li>
+            <li key={n}>
+              {inline(one, `${key}-${String(n)}`, streaming)}
+              {n === items.length - 1 ? caretAt(i) : null}
+            </li>
           ))}
         </List>,
       );
+      inText = true;
       continue;
     }
     const para: string[] = [];
     while (i < lines.length && (lines[i] ?? "").trim() !== "" && !/^\s*([-*]|\d+\.)\s+|^\s*\||^```|^#{1,4}\s/.test(lines[i] ?? "")) para.push(lines[i++] ?? "");
-    blocks.push(<p key={key}>{inline(para.join(" "), key)}</p>);
+    blocks.push(
+      <p key={key}>
+        {inline(para.join(" "), key, streaming)}
+        {caretAt(i)}
+      </p>,
+    );
+    inText = true;
   }
-  return <div className="space-y-2.5 break-words">{blocks}</div>;
+  return (
+    <div className="space-y-2.5 break-words">
+      {blocks}
+      {streaming && !inText ? <StreamCaret /> : null}
+    </div>
+  );
 }

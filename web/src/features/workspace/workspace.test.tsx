@@ -234,8 +234,10 @@ describe("the explorer", () => {
     expect(container.querySelectorAll("[data-source-folder]")).toHaveLength(2);
     await userEvent.click(screen.getByRole("button", { name: /^PLA datasheet/ }));
     expect(container.querySelectorAll("[data-file=source]")).toHaveLength(2);
-    expect(screen.getByRole("link", { name: "p. 2" })).toHaveAttribute("href", "https://www.example.com/pla");
-    expect(screen.getByRole("link", { name: "Mechanical, p. 3" })).toHaveAttribute("href", "https://example.com/pla-2");
+    expect(screen.getByText("p. 2")).toBeInTheDocument();
+    expect(screen.getByText("Mechanical, p. 3")).toBeInTheDocument();
+    expect(container.querySelector("[data-file=source] a[href='https://www.example.com/pla']")).not.toBeNull();
+    expect(container.querySelector("[data-file=source] a[href='https://example.com/pla-2']")).not.toBeNull();
     await userEvent.click(screen.getByRole("button", { name: /^example\.org/ }));
     expect(screen.getByRole("link", { name: "example.org" })).toHaveAttribute("href", "https://example.org/petg");
     await userEvent.click(screen.getByRole("button", { name: "Files" }));

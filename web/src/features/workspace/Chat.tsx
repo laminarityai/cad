@@ -201,7 +201,7 @@ function Said({ line }: { line: Line }) {
     case "agent":
       return (
         <div data-said="agent" className="text-[15px] leading-relaxed">
-          <Markdown text={line.text} />
+          <Markdown text={line.text} streaming={line.streaming === true} />
         </div>
       );
     case "stop_report":
