@@ -25,6 +25,7 @@ from cad.operations.model import Tenant
 from cad.operations.server import NoArguments
 from cad.operations.tenants import Tenants
 from cad.projects.model import UnknownProject
+from cad.sandbox.bodies import Body
 from cad.sandbox.image import BUILD, image_tag
 from cad.sandbox.outcome import Build, Built
 from cad.variant_sets import store as variant_sets
@@ -229,3 +230,35 @@ async def test_another_account_reads_nothing_of_alices(alice: Tenant, bob: Tenan
         reads.view(bob, reads.VariantInput(variant_id=vid))
     with pytest.raises(UnknownMesh):
         reads.mesh(bob, reads.MeshInput(version=job.VERSION, brep_sha256=sha))
+
+
+async def test_a_body_s_own_made_of_shows_on_the_slot_before_it_is_scored(alice: Tenant) -> None:
+    created = create_brief(alice, CreateBriefInput(text="A PLA part with a steel plate"))
+    made_of = [
+        RequirementDraft.model_validate({"target": target, "quote": quote})
+        for target, quote in (
+            ({"kind": "made_of", "material": "prusament-pla"}, "PLA part"),
+            (
+                {"kind": "made_of", "material": "cliffs-hot-rolled-cs-type-b", "body": "plate"},
+                "steel plate",
+            ),
+        )
+    ]
+    propose_requirements(
+        alice, ProposeRequirementsInput(brief_id=created.brief_id, requirements=made_of)
+    )
+    answer = await ask_to_confirm(alice, AskToConfirmInput(project_id=created.project_id))
+    assert answer.status == "answered"
+    code = "result = 'gears on a plate'"
+    bodies = (Body(name="plate", solids=(0,)), Body(name="gear", solids=(1,)))
+    vid = entry.variant_id(code, image_tag(BUILD))
+    entry.save(alice.variants, vid, code, Build(outcome=Built(bodies=bodies), output=""), RAIL)
+    key = variant_sets.set_key(alice.roots, created.brief_id)
+    variant_sets.join(alice.roots.projects, key, code, entry.VariantId(vid), None)
+    asked = reads.VariantSetInput(project_id=created.project_id, brief_id=created.brief_id)
+    [member] = reads.variant_set(alice, asked).members
+    assert member.material is None
+    assert [(one.body, one.key, one.set_by.kind) for one in member.body_materials] == [
+        ("plate", "cliffs-hot-rolled-cs-type-b", "requirement"),
+        ("gear", "prusament-pla", "requirement"),
+    ]

@@ -29,6 +29,7 @@ from cad.tables.materials import UNITS, magnitude
 from cad.tables.tolerances import load_tolerances
 
 MEASURE: Final = "hole_diameter"
+OPENINGS: Final = "unclassified_openings"
 DIAMETER_NOISE_MM: Final = 1e-4
 """A cylinder's diameter in the part is exact to float and STEP rounding, far below 1e-4 mm, so a
 hole drawn at the table's own number matches it. Nothing wider is allowed on a table band."""
@@ -81,7 +82,8 @@ def judged(requirement: Requirement, statement: str, result: CheckResult) -> Che
     low, high = wanted.low - DIAMETER_NOISE_MM, wanted.high + DIAMETER_NOISE_MM
     sizes = [magnitude(one, "mm") for one in diameters(result.measured, target.body)]
     matching = sum(low <= size <= high for size in sizes)
-    verdict, reason = _verdict(result, matching, target.count)
+    complete = _all_counted(result, target.body)
+    verdict, reason = _verdict(complete, matching, target.count)
     limits = (
         (Comparator.AT_LEAST, wanted.low, sum(size >= low for size in sizes)),
         (Comparator.AT_MOST, wanted.high, sum(size <= high for size in sizes)),
@@ -97,7 +99,7 @@ def judged(requirement: Requirement, statement: str, result: CheckResult) -> Che
                 measure=per_body(MEASURE, target.body),
                 comparator=comparator,
                 limit=UNITS.Quantity(limit, "mm"),
-                verdict=_bound(result, meeting, target.count),
+                verdict=_bound(complete, meeting, target.count),
             )
             for comparator, limit, meeting in limits
         ),
@@ -110,20 +112,29 @@ def diameters(measured: Sequence[Measure], body: str | None) -> tuple[Measured, 
     return tuple(one.value for one in measured if listed.fullmatch(one.name))
 
 
-def _bound(result: CheckResult, meeting: int, count: int | None) -> Verdict:
+def _all_counted(result: CheckResult, body: str | None) -> bool:
+    if body is None:
+        return result.verdict is Verdict.PASS
+    left = next(
+        (one.value for one in result.measured if one.name == per_body(OPENINGS, body)), None
+    )
+    return left is not None and magnitude(left, "dimensionless") == 0
+
+
+def _bound(complete: bool, meeting: int, count: int | None) -> Verdict:
     """A bound waits for a full count, as every other kind's comparison waits for a measured
     result."""
-    if result.verdict is not Verdict.PASS:
+    if not complete:
         return Verdict.UNKNOWN
     return Verdict.PASS if meeting >= (1 if count is None else count) else Verdict.FAIL
 
 
-def _verdict(result: CheckResult, matching: int, count: int | None) -> tuple[Verdict, str]:
+def _verdict(complete: bool, matching: int, count: int | None) -> tuple[Verdict, str]:
     """Too many holes fail even when the check is unknown, since an opening it could not classify
     cannot remove a hole that already matches. Every other shortfall waits for a full count."""
     if count is not None and matching > count:
         return Verdict.FAIL, TOO_MANY
-    if result.verdict is not Verdict.PASS:
+    if not complete:
         return Verdict.UNKNOWN, UNMEASURED
     if count is None:
         return (Verdict.PASS, ENOUGH) if matching >= 1 else (Verdict.FAIL, NONE)

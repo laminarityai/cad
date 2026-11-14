@@ -69,7 +69,8 @@ FORMULA = (
     "uniformly over the loaded faces; a direction the load case leaves free goes to the worst "
     "case over unit solves; max_displacement and max_von_mises are the fine mesh's largest, "
     "von Mises stress within 0.5 * bore diameter of a support hole is reported as "
-    "support_max_von_mises and not judged; safety_factor = yield_strength / max_von_mises; "
+    "support_max_von_mises and not judged, and is left out when no support holds a hole; "
+    "safety_factor = yield_strength / max_von_mises; "
     "on a variant of more than one solid the load case names one body of one solid, which is "
     "taken out and solved alone in its own material, its faces numbered as the variant's; "
     "unknown when closed_solid or interference does not pass, the variant has more than one "
@@ -125,8 +126,8 @@ CLAMPED_FACE_NOTE: Final = (
 )
 LARGE_DISPLACEMENT_FRACTION: Final = 0.05
 STIFFER: Final = (
-    "make it stiffer where it bends, for example thicker or deeper there, shorter, or in a "
-    "stiffer material, and score it again"
+    "make it stiffer where it deforms most, for example thicker or deeper there, shorter, or in "
+    "a stiffer material, and score it again"
 )
 TOL_FRACTION: Final = 1e-4
 
@@ -135,7 +136,7 @@ TOL_FRACTION: Final = 1e-4
 class Peaks:
     displacement: float
     von_mises: float
-    support_von_mises: float
+    support_von_mises: float | None
 
 
 @dataclass(frozen=True, slots=True)
@@ -247,12 +248,13 @@ def judged(
             f"{over_cap.reason}"
         )
     )
+    near_hole = fine.peaks.support_von_mises
     measured = [
         *echoed,
         measure("mesh_size", fine.size_mm, "mm"),
         measure("max_displacement", fine.peaks.displacement, "mm"),
         measure("max_von_mises", fine.peaks.von_mises, "MPa"),
-        measure("support_max_von_mises", fine.peaks.support_von_mises, "MPa"),
+        *([] if near_hole is None else [measure("support_max_von_mises", near_hole, "MPa")]),
         measure("displacement_change", change, DIMENSIONLESS),
     ]
     if change > MESH_CHANGE_LIMIT:
@@ -266,9 +268,9 @@ def judged(
     if fine.peaks.displacement > LARGE_DISPLACEMENT_FRACTION * part_extent:
         return finding(
             "unknown",
-            f"the part bends {fine.peaks.displacement:.3g} mm under this load, over "
-            f"{LARGE_DISPLACEMENT_FRACTION:.0%} of its {part_extent:.3g} mm size, which is too "
-            f"far for a linear analysis to give a verdict; {STIFFER}{floored}",
+            f"the part deforms {fine.peaks.displacement:.3g} mm under this load, over "
+            f"{LARGE_DISPLACEMENT_FRACTION:.0%} of its size, which is too far for a linear "
+            f"analysis to give a verdict; {STIFFER}{floored}",
             *measured,
             where=fine.where,
         )
@@ -301,12 +303,13 @@ def solve_at(
             return found
         pairs.append(found)
     peaks = [one.peaks for one in pairs]
+    near_holes = [one.support_von_mises for one in peaks if one.support_von_mises is not None]
     return Solved(
         size_mm,
         Peaks(
             force_n * max(one.displacement for one in peaks),
             force_n * max(one.von_mises for one in peaks),
-            force_n * max(one.support_von_mises for one in peaks),
+            force_n * max(near_holes) if near_holes else None,
         ),
         where_of(pairs),
     )
@@ -356,7 +359,7 @@ def _unit_solve(
     peaks = Peaks(
         worst_displacement([field.displacement for field in fields]),
         _worst_stress(fields, [i for i, inside in enumerate(near) if not inside]),
-        _worst_stress(fields, [i for i, inside in enumerate(near) if inside]),
+        _worst_stress(fields, [i for i, inside in enumerate(near) if inside]) if bores else None,
     )
     where: FacesWire = {
         "support": list(surfaces_of(mesh, fixed)),

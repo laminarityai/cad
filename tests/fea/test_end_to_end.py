@@ -116,7 +116,7 @@ def test_a_pla_cantilever_that_bends_past_the_linear_gate_is_unknown_and_told_to
     card = scored(built.variant_id, tmp_path, assess)
     found = fea_result(card)
     assert found.verdict == Verdict.UNKNOWN
-    assert found.reason.startswith("the part bends")
+    assert found.reason.startswith("the part deforms")
     assert STIFFER in found.reason
     measured = magnitude(found.value("max_displacement"), "mm")
     print(f"fea max_displacement {measured:.4f} mm, hand {hand:.4f} mm")

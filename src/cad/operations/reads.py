@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Annotated, Final, Literal
 
@@ -25,7 +26,7 @@ from cad.tables.materials import MaterialsTable
 from cad.uploads.store import documents
 from cad.uploads.views import ContextPartView, DocumentView, document_view, part_view
 from cad.variant_sets import store as variant_sets
-from cad.variant_sets.model import MAX_MEMBERS, Member, Option
+from cad.variant_sets.model import MAX_MEMBERS, BodyChoice, MaterialMissing, Member, Option
 from cad.variants import entry
 
 LIST_PROJECTS = "The signed-in person's projects, newest first, each with its briefs."
@@ -209,18 +210,13 @@ def _member(
 ) -> MemberView:
     latest = member.latest
     choice = latest.material
-    key = pinned.get(None) or (None if choice is None else choice.key)
-    card = _card(tenant, brief_id, asked or key, latest.built_as, bool(latest.materials))
-    recorded = tuple(
-        BodyMaterialUse(
-            body=one.body,
-            **dict(
-                material.used(
-                    material.pin_for(pinned, one.body) or one.key, confirmed, one, one.body
-                )
-            ),
-        )
-        for one in latest.materials
+    key = _whole_variant_pin(pinned) or (None if choice is None else choice.key)
+    names = _body_names(tenant, latest.built_as)
+    card = _card(tenant, brief_id, asked or key, latest.built_as, bool(names))
+    each = (
+        _unscored_body_materials(names, latest.materials, confirmed, pinned)
+        if card is None
+        else card.body_materials
     )
     return MemberView(
         slot=member.slot,
@@ -239,8 +235,41 @@ def _member(
         option=latest.option,
         material_name=None if key is None else table.name_of(key),
         card_etag=None if card is None else card.etag,
-        body_materials=recorded if card is None else card.body_materials,
+        body_materials=each,
     )
+
+
+def _whole_variant_pin(pinned: material.Pins) -> str | None:
+    every = pinned.get(None)
+    if any(key != every for key in pinned.values()):
+        return None
+    return every
+
+
+def _body_names(tenant: Tenant, variant_id: str) -> tuple[str, ...]:
+    try:
+        held = entry.open_entry(tenant.variants, variant_id, image.image_tag(image.BUILD))
+    except entry.VariantRefused:
+        return ()
+    return tuple(body.name for body in held.bodies)
+
+
+def _unscored_body_materials(
+    names: Sequence[str],
+    chosen: Sequence[BodyChoice],
+    confirmed: ConfirmedSet | None,
+    pinned: material.Pins,
+) -> tuple[BodyMaterialUse, ...]:
+    kept = {one.body: one for one in chosen}
+    each: list[BodyMaterialUse] = []
+    for name in names or kept:
+        choice = kept.get(name)
+        key = material.pin_for(pinned, name) or (None if choice is None else choice.key)
+        if key is not None:
+            each.append(
+                BodyMaterialUse(body=name, **dict(material.used(key, confirmed, choice, name)))
+            )
+    return tuple(each)
 
 
 def _card(
@@ -251,7 +280,7 @@ def _card(
     asked = ScorecardInput(variant_id=variant_id, material_key=material_key, brief_id=brief_id)
     try:
         return scorecard(tenant, asked)
-    except (entry.VariantRefused, score.NotScored):
+    except (entry.VariantRefused, score.NotScored, MaterialMissing):
         return None
 
 

@@ -172,11 +172,27 @@ def reads_of(spec: CheckSpec, request: Request) -> tuple[Read, ...]:
     """What each value `spec` takes was read from, body by body on a variant of named bodies."""
     if not request.bodies:
         return reads_from(spec.takes, request.reads, request.wire["values"], "")
+    wanted = resting_on(request)
     return tuple(
         read
         for body in request.wire["bodies"]
+        if body["name"] in wanted
         for read in reads_from(spec.takes, request.reads, body["values"], body["name"])
     )
+
+
+def resting_on(request: Request) -> tuple[str, ...]:
+    """The bodies whose values a result rests on, "" for a variant of no named body. A load case
+    is solved on the one body it names alone, so it rests on that body, and on none when it names
+    no body."""
+    names = tuple(body.name for body in request.bodies)
+    if not names:
+        return ("",)
+    cases = request.wire["load_cases"]
+    if not cases:
+        return names
+    solved = {case.get("body") for case in cases}
+    return tuple(name for name in names if name in solved)
 
 
 def _wire(
@@ -304,11 +320,10 @@ def _problem(spec: CheckSpec, wire: ResultWire, request: Request) -> str | None:
 
 
 def _result(spec: CheckSpec, wire: ResultWire, request: Request) -> CheckResult:
-    bodies = [body.name for body in request.bodies] or [""]
     rows = tuple(
         dict.fromkeys(
             request.reads[key].source
-            for body in bodies
+            for body in resting_on(request)
             for read in dict.fromkeys(spec.reads.values())
             if (key := (read, body)) in request.reads
         )
