@@ -27,8 +27,9 @@ def trace_session(home: Path, transcript: Path) -> Trace:
     scored with a brief, and count the two apart. The rates come from
     the reading of the last variant scored, the judged state the person sees after Confirm, or
     from the last card when nothing was scored with a brief. A check job a reading shows running
-    was cut off by the session's end: it is named apart, and its requirement still counts against
-    both rates, so a session that ends early never raises one."""
+    has no stored result after the session: the session's end cut it off, it was refused and not
+    retried, or it timed out. It is named apart, and its requirement still counts against both
+    rates, so a session that ends early never raises one."""
     stores = home / ".cad"
     variants = stores / "variants"
     roots = Roots(briefs=stores / "briefs", projects=stores / "projects")

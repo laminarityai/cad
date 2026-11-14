@@ -165,8 +165,9 @@ def markdown(summary: Summary, missing: Sequence[str]) -> str:
         f"minutes to first result: median {_number(overall.median_minutes_to_first_result)}",
         f"tool calls Claude Code refused as no such tool, model friction: "
         f"{overall.refused_tool_calls}",
-        f"check jobs still running when the session ended, cut off: {overall.cut_off}; their "
-        f"requirements count as by {By.WAITING}, and against both rates",
+        "check jobs with no stored result after the session (cut off, refused and not retried, "
+        f"or timed out): {overall.cut_off}; their requirements count as by {By.WAITING}, and "
+        "against both rates",
         f"cost: ${overall.cost_usd:.2f}",
         "",
         "| brief | domain | trace | strict pass | covered | pages | minutes | cost |",

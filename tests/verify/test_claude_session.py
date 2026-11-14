@@ -92,7 +92,13 @@ def unanswered(result: dict[str, Any]) -> None:
     result["tool_use_id"] = "toolu_other"
 
 
-@pytest.mark.parametrize("change", [ran, not_an_error, names_another_tool, as_blocks, unanswered])
+def trailing(result: dict[str, Any]) -> None:
+    result["content"] += " and then it ran"
+
+
+@pytest.mark.parametrize(
+    "change", [ran, not_an_error, names_another_tool, as_blocks, unanswered, trailing]
+)
 def test_a_call_outside_cad_that_was_not_refused_fails(
     tmp_path: Path, change: Callable[[dict[str, Any]], None]
 ) -> None:

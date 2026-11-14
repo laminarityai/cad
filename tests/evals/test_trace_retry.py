@@ -3,6 +3,7 @@ scores the same variant again, and the second try stores a result. Once a job is
 server always shows it, so the refusal traces only when it comes before every card bound to that
 record, and a later card shows the retry: the stored result, or the job still running."""
 
+import dataclasses
 import json
 import threading
 from pathlib import Path
@@ -25,6 +26,7 @@ from tests.support.background import (
     sandbox,
 )
 from tests.support.cards import transcript_of, write_transcript
+from tests.support.readings import built
 
 HOLDS = "unknown, but its signed job result holds pass"
 
@@ -104,5 +106,35 @@ def test_a_later_card_that_does_not_show_the_stored_job_retries_nothing(
     scoring, refusal, stored = refused_then_stored(tmp_path, monkeypatch)
     fea_of(stored)["verdict"] = "fail"
     traced = shown(scoring, refusal, stored)
+    assert not traced.traced
+    assert [line for line in traced.untraced if line.endswith(HOLDS)], traced.untraced
+
+
+def test_a_changed_result_before_the_genuine_card_is_untraced(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Only the server's refusal shape can be a retry, so any other change to a signed result
+    fails even when a later card shows the record."""
+    scoring = a_scoring(tmp_path, stated=True)
+    sandbox(monkeypatch, ran(Verdict.FAIL))
+    genuine = scoring.score()
+    changed = json.loads(json.dumps(genuine))
+    fea_of(changed)["formula"] = "a formula the check never used"
+    traced = shown(scoring, changed, genuine)
+    assert not traced.traced
+    assert any("differs from the signed job result in formula" in line for line in traced.untraced)
+
+
+def test_a_card_for_another_variant_retries_nothing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A retry is keyed by variant, material and table version as well as check and instance, so
+    a genuine card for another variant under the same brief does not explain the refusal."""
+    scoring, refusal, _ = refused_then_stored(tmp_path, monkeypatch)
+    other = dataclasses.replace(scoring, variant_id=built(scoring.variants, code="y = 2\n").id)
+    genuine = other.score()
+    assert fea_of(genuine)["verdict"] == "pass"
+    assert fea_of(genuine)["instance"] == fea_of(refusal)["instance"]
+    traced = shown(scoring, refusal, genuine)
     assert not traced.traced
     assert [line for line in traced.untraced if line.endswith(HOLDS)], traced.untraced

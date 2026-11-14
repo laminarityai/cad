@@ -32,8 +32,10 @@ NONE_COUNTED: Final = Counted(cards=0, judged=0, numbers=0, resolved=0)
 
 class Trace(Frozen):
     """`awaiting` and `no_brief` count over both origins, since a reading can judge a card the
-    session was shown. `cut_off` names each check job the server's reading after the session
-    shows still running. The server ends its checks when it stops, so none of them will report.
+    session was shown. `cut_off` names each check job with no stored result after the session:
+    one the session's end cut off, one refused and not retried, or one that timed out. The
+    server's reading in the tracer's own process shows each of them still running, and none of
+    them will report.
     `failed` says the tracer itself raised, so the trace counts nothing."""
 
     traced: bool

@@ -1,6 +1,6 @@
 """A brief run again into the same `--out` keeps its earlier try. A call Claude Code refused as no
-such tool is counted apart as the model's friction, and a check job the session's end cut off is
-named apart."""
+such tool is counted apart as the model's friction, and a check job with no stored result
+after the session is named apart."""
 
 import json
 import shutil
@@ -97,5 +97,8 @@ def test_the_summary_pools_refused_calls_and_cut_off_jobs_of_finished_briefs() -
     assert (summary.overall.refused_tool_calls, summary.overall.cut_off) == (3, 2)
     text = markdown(summary, [])
     assert "tool calls Claude Code refused as no such tool, model friction: 3" in text
-    assert "check jobs still running when the session ended, cut off: 2" in text
+    assert (
+        "check jobs with no stored result after the session "
+        "(cut off, refused and not retried, or timed out): 2"
+    ) in text
     assert "## Cut off in a\n- v1: fea for 557d8d82" in text
