@@ -156,12 +156,13 @@ def _gather_limit(gathered: _Gathered, limit: MeasureLimit, rid: tuple[str, ...]
     value = magnitude(limit.limit, bindable.unit)
     whole = VOLUME if key == _VOLUME_MEASURE else f"{limit.check_id}:{limit.measure}"
     quantity = per_body(whole, limit.body)
+    stated = _cm3(value) if whole == VOLUME else amount(limit.limit)
     if limit.comparator is Comparator.AT_MOST:
-        words = _on(limit.body, f"{bindable.words} must be at most {amount(limit.limit)}")
-        space = f"the most volume allowed ({amount(limit.limit)})"
+        words = _on(limit.body, f"{bindable.words} must be at most {stated}")
+        space = f"the most volume allowed ({stated})"
         gathered.highs[quantity].append(_Bound(value, words, rid, space=space))
     else:
-        words = _on(limit.body, f"{bindable.words} must be at least {amount(limit.limit)}")
+        words = _on(limit.body, f"{bindable.words} must be at least {stated}")
         if whole == VOLUME:
             _add_low(gathered, VOLUME, limit.body, _Bound(value, words, rid, body=limit.body))
         else:
@@ -177,7 +178,7 @@ def _add_low(gathered: _Gathered, whole: str, body: str | None, low: _Bound) -> 
 def _sum_the_bodies(gathered: _Gathered) -> None:
     """The variant is the sum of its bodies, so the minimums of two or more bodies add up to a
     minimum of the whole."""
-    for whole, unit in ((MASS, "g"), (VOLUME, BINDABLE[_VOLUME_MEASURE].unit)):
+    for whole, unit, per_unit in ((MASS, "g", 1), (VOLUME, "cm³", 1000)):
         biggest: dict[str, _Bound] = {}
         for low in gathered.lows[whole]:
             if low.body is not None and low.value >= biggest.get(low.body, low).value:
@@ -185,11 +186,12 @@ def _sum_the_bodies(gathered: _Gathered) -> None:
         if len(biggest) < 2:
             continue
         total = sum(one.value for one in biggest.values())
-        parts = ", ".join(f"the {body}'s {one.value:g}" for body, one in biggest.items())
+        parts = ", ".join(f"the {body}'s {one.value / per_unit:g}" for body, one in biggest.items())
         gathered.lows[whole].append(
             _Bound(
                 total,
-                f"the {whole} minimums of the bodies add up to {total:g} {unit} ({parts})",
+                f"the {whole} minimums of the bodies add up to {total / per_unit:g} {unit} "
+                f"({parts})",
                 tuple(dict.fromkeys(rid for one in biggest.values() for rid in one.requirements)),
             )
         )

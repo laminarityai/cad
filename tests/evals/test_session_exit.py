@@ -10,7 +10,6 @@ from session import run_session
 
 LATE_WRITER = """
 import subprocess, sys
-import subprocess
 from pathlib import Path
 home, transcript = Path(sys.argv[-3]), Path(sys.argv[-1])
 late = (

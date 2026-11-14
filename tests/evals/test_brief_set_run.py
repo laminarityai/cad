@@ -351,3 +351,24 @@ def test_a_tracer_failure_fails_that_briefs_trace_and_the_other_briefs_run(
         "the tracer failed: AssertionError: only a finished check has measures",
     )
     assert two.trace == a_trace() and three.trace == a_trace()
+
+
+def test_a_group_that_will_not_die_fails_its_brief_and_the_summary_is_still_written(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    briefs_dir, out = tmp_path / "set", tmp_path / "out"
+    briefs_dir.mkdir()
+    for name in ("one", "two"):
+        write_brief(briefs_dir, name, "x")
+
+    def stuck(prompt: str, home: Path, *_: object) -> SessionRun:
+        if home.parent.name == "two":
+            raise RuntimeError("process group 42 was still alive 5 s after SIGKILL")
+        return SessionRun(0, False, "", SessionFacts("m", 0.1, 2, 1, 4, is_error=False))
+
+    monkeypatch.setattr(run, "run_session", stuck)
+    assert run.main(["--briefs", str(briefs_dir), "--out", str(out)]) == 1
+    [one, two] = read_results(out, ["one", "two"])
+    assert (one.status, two.status) == ("finished", "session_failed")
+    assert two.note == "process group 42 was still alive 5 s after SIGKILL"
+    assert (out / "summary.md").is_file()
