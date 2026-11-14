@@ -178,6 +178,18 @@ async def test_a_result_stored_on_a_rebuilt_option_closes_the_rule(s: Session) -
     assert REFUSAL in await refused(s, brief_id, row(CLAMPED))
 
 
+async def test_a_result_stored_two_sandboxes_ago_closes_the_rule(s: Session) -> None:
+    brief_id = await brief_of(s, row(shelf()))
+    code = "# a bracket two deploys old\n"
+    first = entry.variant_id(code, "cad-sandbox:deploy-a")
+    entry.save(s.variants, first, code, Build(outcome=Built(), output=""), RAIL)
+    store.join(s.roots.projects, store.set_key(s.roots, brief_id), code, first)
+    rescored = entry.variant_id(code, "cad-sandbox:deploy-b")
+    entry.save(s.variants, rescored, code, Build(outcome=Built(), output=""), RAIL)
+    store_a_fea_result(s, rescored)
+    assert REFUSAL in await refused(s, brief_id, row(CLAMPED))
+
+
 async def test_a_variant_of_another_brief_does_not_close_this_one(s: Session) -> None:
     other = await brief_of(s)
     store_a_fea_result(s, build_into_the_set(s, other, "# another brief's part\n"))
