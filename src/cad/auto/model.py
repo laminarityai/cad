@@ -91,6 +91,8 @@ class NotChecked(Frozen):
 
     statement: str
     requirements: tuple[str, ...]
+    mass_requirements: tuple[str, ...] = ()
+    """The minimum-mass rows of the pair. The report drops the note once one has a verdict."""
 
 
 class AllPass(Frozen):

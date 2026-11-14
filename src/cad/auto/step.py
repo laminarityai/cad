@@ -240,10 +240,10 @@ def report(
 
 
 def _unweighed_still(note: NotChecked, history: tuple[Standing, ...]) -> bool:
-    """Whether the latest standing leaves the start's unchecked pair unknown. Research during the
+    """Whether the latest standing leaves the start's minimum mass unknown. Research during the
     run can give it a verdict, and the report then drops the note so it does not contradict it."""
     marks = dict(history[-1].marks) if history else {}
-    weighed = [marks[rid] for rid in note.requirements if rid in marks]
+    weighed = [marks[rid] for rid in note.mass_requirements if rid in marks]
     return not weighed or Mark.UNKNOWN in weighed
 
 

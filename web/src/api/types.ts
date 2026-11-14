@@ -244,6 +244,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/variants/{variant_id}/rebuild": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["rebuild_variant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/v1/conversations": {
         parameters: {
             query?: never;
@@ -1574,6 +1590,8 @@ export interface components {
         NotChecked: {
             statement: string;
             requirements: string[];
+            /** @default [] */
+            mass_requirements: string[];
         };
         /**
          * OnFarthest
@@ -1860,6 +1878,11 @@ export interface components {
             body?: string;
         };
         Reason: string;
+        /** Rebuilt */
+        Rebuilt: {
+            variant_id: string;
+            rebuilt_from: string | null;
+        };
         Reported: components["schemas"]["CheckResult"] | components["schemas"]["PendingCheck"] | components["schemas"]["MeasureOnly"];
         RequiredCount: number;
         /** Requirement */
@@ -2655,6 +2678,7 @@ export type ReadCited = components['schemas']['ReadCited'];
 export type ReadMissing = components['schemas']['ReadMissing'];
 export type ReadResearched = components['schemas']['ReadResearched'];
 export type Reason = components['schemas']['Reason'];
+export type Rebuilt = components['schemas']['Rebuilt'];
 export type Reported = components['schemas']['Reported'];
 export type RequiredCount = components['schemas']['RequiredCount'];
 export type Requirement = components['schemas']['Requirement'];
@@ -3148,6 +3172,39 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            400: components["responses"]["Refused"];
+            401: components["responses"]["SignedOut"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Malformed"];
+            503: components["responses"]["Unavailable"];
+        };
+    };
+    rebuild_variant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                variant_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    brief_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description the result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Rebuilt"];
+                };
             };
             400: components["responses"]["Refused"];
             401: components["responses"]["SignedOut"];

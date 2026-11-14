@@ -14,6 +14,7 @@ from cad.variants.entry import (
     StaleVariant,
     UnknownVariant,
     VariantId,
+    built_from,
     open_entry,
     read_manifest,
     save,
@@ -202,6 +203,25 @@ def test_an_entry_stored_by_an_older_sandbox_hands_back_its_stored_code(tmp_path
     with pytest.raises(OutdatedVariant) as raised:
         open_entry(tmp_path, vid, TAG)
     assert (raised.value.id, raised.value.code) == (vid, CODE)
+
+
+def test_built_from_lists_every_id_stored_with_the_code_and_none_for_other_code(
+    tmp_path: Path,
+) -> None:
+    old = variant_id(CODE, OLD_TAG)
+    new = stored(tmp_path)
+    save(tmp_path, old, CODE, BUILT, BREP)
+    other = stored(tmp_path, code="result = Box(2, 2, 2)\n")
+    assert built_from(tmp_path, CODE) == tuple(sorted((old, new)))
+    assert built_from(tmp_path, "result = Box(2, 2, 2)\n") == (other,)
+    assert built_from(tmp_path, "result = Box(3, 3, 3)\n") == ()
+
+
+def test_built_from_ignores_a_name_in_the_index_that_is_not_an_id(tmp_path: Path) -> None:
+    vid = stored(tmp_path)
+    directory = tmp_path / entry.BY_CODE / hashlib.sha256(CODE.encode()).hexdigest()
+    (directory / "not-an-id").write_bytes(b"")
+    assert built_from(tmp_path, CODE) == (vid,)
 
 
 def test_an_older_entry_whose_build_failed_hands_back_its_stored_code(tmp_path: Path) -> None:
