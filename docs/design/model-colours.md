@@ -26,6 +26,7 @@ An area is how the model looks. No check, table read, requirement verdict or Aut
    - Fusing with `+` loses them, and so does `fillet`.
    - A colour set on one face from `faces()` is lost, because each call returns a new wrapper.
    - So the guidance tells the agent to set `color` and `label` on the final shape, or on each child of a Compound.
+   - `Compound([a, b])` keeps the faces of `a` and `b` but not their colours, and the compound has no children (Measured). The agent in the live walk wrote exactly this. So the runner also reads the colour of each shape the module keeps, such as `a` and `b`, for the faces the result still shares with it.
    - For some faces of one solid, the agent lists `Compound(faces, label=..., color=...)` in a module-level `areas` list. The runner reads that list after the shape, so a face named there takes that area's colour.
 2. **Do face numbers on the built shape match the BREP the mesh reads?** Yes (Measured).
    - 12 of 12 faces match on a filleted block with a hole, and 9 of 9 on a two-child Compound.

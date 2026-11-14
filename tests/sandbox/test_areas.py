@@ -79,6 +79,21 @@ result = Compound(children=[gear, plate])
     )
 
 
+def test_a_compound_made_from_a_list_keeps_the_colours_of_its_parts(tmp_path: Path) -> None:
+    """A walk's agent wrote this: Compound([...]) holds the parts' faces but drops their labels."""
+    code = """
+from build123d import *
+gear = Cylinder(10, 4)
+gear.color, gear.label = Color("gray"), "steel gear"
+plate = Pos(0, 0, -6) * Box(40, 40, 2)
+plate.color, plate.label = Color("black"), "carbon plate"
+result = Compound([gear, plate], label="whole")
+"""
+    gear, plate = built(code, tmp_path).areas
+    assert (gear.name, gear.faces) == ("steel gear", (0, 1, 2))
+    assert (plate.name, plate.faces) == ("carbon plate", tuple(range(3, 9)))
+
+
 def test_a_colour_list_that_cannot_be_read_keeps_the_build(tmp_path: Path) -> None:
     code = BLOCK + (
         "class Odd:\n    color = (1, 0, 0)\n"

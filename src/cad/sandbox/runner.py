@@ -82,17 +82,20 @@ def result_report(namespace: dict[str, object]) -> Report:
 
 
 def areas(shape: Coloured, namespace: dict[str, object]) -> list[AreaReport] | str:
-    """The faces of `shape` that the code coloured, by the kernel's `color` and `label` on the
-    shape, on each child of a Compound, and on each shape in a list named `areas`, which is how
-    a set of faces gets a colour: a face object from `faces()` is new on every call, so a colour
-    set on one is gone. A later, nearer one wins, and faces are numbered as `faces()` numbers
-    them, which is the order the BREP keeps."""
+    """The faces of `shape` that the code coloured, by the kernel's `color` and `label` on a
+    shape the module keeps whose faces are still the result's, on the shape, on each child of a
+    Compound, and on each shape in a list named `areas`, which is how a set of faces gets a
+    colour: a face object from `faces()` is new on every call, so a colour set on one is gone.
+    A later, nearer one wins, and faces are numbered as `faces()` numbers them, which is the
+    order the BREP keeps. `Compound([a, b])` keeps the faces of `a` and `b` but not their
+    colours, so the module's own `a` and `b` give them back."""
     try:
         listed = namespace.get(AREAS, ())
         named = cast(Iterable[object], listed) if isinstance(listed, list | tuple) else ()
+        kept = [one for one in namespace.values() if not isinstance(one, type) and one is not shape]
         number = {face: index for index, face in enumerate(shape.faces())}
         painted: dict[int, tuple[str, str]] = {}
-        for one in [*tree(shape), *named]:
+        for one in [*kept, *tree(shape), *named]:
             colour: object = getattr(one, "color", None)
             if colour is None or not callable(getattr(one, "faces", None)):
                 continue
