@@ -5,7 +5,8 @@ from typing import Any
 import pytest
 
 from cad.checks.container.check import Quick
-from cad.checks.jobs import JobSpec
+from cad.checks.container.wire import LoadCaseWire
+from cad.checks.jobs import FEA, JobSpec
 from cad.checks.report import QUICK, SPECS, Request, build_request, parse, reads_of
 from cad.checks.result import BodyMaterial, ReadCited, ReadMissing, Verdict
 from cad.sandbox.bodies import BODIES, MAX_BODIES, MAX_SOLIDS
@@ -118,3 +119,26 @@ def test_the_largest_request_a_variant_can_send_fits_one_container_argument() ->
         wire = build_request(made, TABLE, tuple(SPECS), bodies=bodies).wire
         size = len(json.dumps(wire).encode())
         assert size < ARGUMENT_CAP // 2, size
+
+
+@pytest.mark.parametrize(("body", "cited"), [("plate", ["plate"]), (None, [])])
+def test_a_stress_result_cites_only_the_body_its_load_case_solved(
+    body: str | None, cited: list[str]
+) -> None:
+    case: LoadCaseWire = {
+        "support": {"kind": "flat_end"},
+        "load": {"kind": "far_end", "force_n": 10.0, "direction": {"kind": "any"}},
+    }
+    if body is not None:
+        case["body"] = body
+    request = build_request(MADE_OF, TABLE, (FEA,), (case,), bodies=PLATE_AND_GEARS)
+    report = good_report()
+    report["results"] = [
+        *report["results"][:2],
+        {"id": "fea", "verdict": "unknown", "measured": [], "reason": "not solved"},
+    ]
+    stress = parse(sent(report), request, OWN_LIMITS).results[-1]
+    assert stress.check_id == "fea"
+    assert sorted({one.body for one in stress.reads}) == cited
+    rows = {request.reads[key].source for key in request.reads if key[1] in cited}
+    assert set(stress.sources) == {*FEA.sources, *rows}

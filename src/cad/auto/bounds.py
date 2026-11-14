@@ -1,6 +1,7 @@
 """Requirements whose bounds no design can meet together, said in the words the person reads.
 
 Each quantity gathers its lower and upper bounds, and a bound on one body is a quantity of its own.
+A lower bound on one body's mass or volume also bounds the whole variant's, which sums its bodies.
 Mass also gains the upper bound that the material's density puts on it inside the tightest volume,
 when the table knows the density and one made_of names the material of every body."""
 
@@ -125,9 +126,8 @@ def _gather(requirements: Sequence[Requirement]) -> _Gathered:
                 )
             case MinMass(mass=mass, body=body):
                 grams = magnitude(mass, "g")
-                gathered.lows[per_body(MASS, body)].append(
-                    _Bound(grams, _on(body, f"the mass must be at least {grams:g} g"), rid)
-                )
+                low = _Bound(grams, _on(body, f"the mass must be at least {grams:g} g"), rid)
+                _add_low(gathered, MASS, body, low)
             case MadeOf(body=None):
                 gathered.made_of = one
             case MadeOf():
@@ -162,7 +162,16 @@ def _gather_limit(gathered: _Gathered, limit: MeasureLimit, rid: tuple[str, ...]
         gathered.highs[quantity].append(_Bound(value, words, rid, space=space))
     else:
         words = _on(limit.body, f"{bindable.words} must be at least {amount(limit.limit)}")
-        gathered.lows[quantity].append(_Bound(value, words, rid))
+        if whole == VOLUME:
+            _add_low(gathered, VOLUME, limit.body, _Bound(value, words, rid))
+        else:
+            gathered.lows[quantity].append(_Bound(value, words, rid))
+
+
+def _add_low(gathered: _Gathered, whole: str, body: str | None, low: _Bound) -> None:
+    gathered.lows[per_body(whole, body)].append(low)
+    if body is not None:
+        gathered.lows[whole].append(low)
 
 
 def _through_density(gathered: _Gathered, table: MaterialsTable) -> _Bound | None:

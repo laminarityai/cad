@@ -68,3 +68,13 @@ async def test_a_start_whose_materials_differ_from_the_confirmed_material_is_ref
     assert "materials names cliffs-hot-rolled-cs-type-b for gear, but the user confirmed" in text
     project = read_brief(s.roots, brief_id).project
     assert not (s.roots.projects / project / "auto").exists()
+
+
+async def test_a_start_whose_only_made_of_names_a_body_needs_no_choice(s: Session) -> None:
+    plate = {
+        "target": {"kind": "made_of", "material": "prusament-pla", "body": "plate"},
+        "quote": "PLA",
+    }
+    brief_id = await s.confirmed("A PLA plate under 150 g", plate, UNDER_150)
+    run = await s.start(brief_id=brief_id)
+    assert (run.state.start.material_key, run.state.start.materials) == (None, ())

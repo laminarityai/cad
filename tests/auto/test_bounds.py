@@ -168,3 +168,14 @@ def test_a_made_of_or_a_mass_on_one_body_bounds_only_that_body() -> None:
         "For the plate, the mass must be at least 60 g, but for the plate, the mass must be at "
         "most 50 g"
     )
+
+
+def test_a_body_heavier_than_the_whole_part_may_weigh_conflicts() -> None:
+    [found] = bounds_conflicts(
+        brief(grams("max_mass", 10), on("plate", grams("min_mass", 20))), TABLE
+    )
+    assert found.quantity == "mass"
+    assert found.statement == (
+        "For the plate, the mass must be at least 20 g, but the mass must be at most 10 g"
+    )
+    assert found.requirements == ("r2", "r1")

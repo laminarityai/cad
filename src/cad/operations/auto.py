@@ -23,7 +23,7 @@ from cad.auto.model import (
 )
 from cad.auto.step import standing_of
 from cad.briefs import store as briefs
-from cad.briefs.model import MAX_NOTE_CHARS, deciding_check
+from cad.briefs.model import MAX_NOTE_CHARS, MadeOf, deciding_check
 from cad.context_parts.model import UPDATE_PART
 from cad.conversations import store as conversations
 from cad.operations import scorecards
@@ -191,20 +191,22 @@ def auto_start(tenant: Tenant, arguments: StartInput) -> AutoRun:
             "to revise against"
         )
     pinned = material.pinned_by(confirmed) is not None
+    some_pinned = any(isinstance(one.target, MadeOf) for one in confirmed.requirements)
     each = () if pinned else arguments.materials or ()
     single = (arguments.material_key, arguments.material_reason)
-    if not pinned and not each and None in single:
+    if not some_pinned and not each and None in single:
         raise RunRefused(CHOOSE)
     basis = scorecards.judged(tenant, arguments.brief_id, arguments.material_key, None, each)
     table = basis.table.table
     asked = [(one.body, one.key) for one in arguments.materials or ()]
     refuse_unpinned(material.pins(confirmed, table), asked, table, "Start")
+    key = None if each or not (pinned or arguments.material_key) else str(basis.materials_of(()))
     started = Started(
         conversation=cid,
         brief_id=confirmed.brief_id,
         project=project,
         decision_sha256=confirmed.decision_sha256,
-        material_key=None if each else str(basis.materials_of(())),
+        material_key=key,
         material_reason=None if pinned or each else arguments.material_reason,
         watermark=seen,
         conflicts=bounds_conflicts(confirmed.requirements, table),

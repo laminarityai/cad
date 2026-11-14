@@ -116,6 +116,27 @@ def test_more_matching_holes_than_confirmed_fails_even_when_an_opening_is_unclas
     assert verdict_of(M5_CLEARANCE, unmeasured, count=2) == Verdict.FAIL
 
 
+@pytest.mark.parametrize(
+    ("verdict", "whole", "plate", "judged"),
+    [(Verdict.UNKNOWN, 1, 0, Verdict.PASS), (Verdict.PASS, 0, 1, Verdict.UNKNOWN)],
+    ids=["another body's opening", "an opening another body's hole explains"],
+)
+def test_a_requirement_on_a_body_waits_only_for_that_body_s_own_openings(
+    verdict: Verdict, whole: int, plate: int, judged: Verdict
+) -> None:
+    holes = result(
+        "holes",
+        verdict,
+        hole_count=(1, "dimensionless"),
+        hole_diameter__0=(5.5, "mm"),
+        unclassified_openings=(whole, "dimensionless"),
+        hole_count__plate=(1, "dimensionless"),
+        hole_diameter__plate__0=(5.5, "mm"),
+        unclassified_openings__plate=(plate, "dimensionless"),
+    )
+    assert verdict_of(M5_CLEARANCE, suite(holes), body="plate") == judged
+
+
 def test_a_check_that_could_not_measure_leaves_the_requirement_unknown() -> None:
     assert verdict_of(M5_CLEARANCE, suite(result("holes", Verdict.UNKNOWN))) == Verdict.UNKNOWN
 
