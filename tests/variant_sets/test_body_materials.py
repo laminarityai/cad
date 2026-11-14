@@ -72,3 +72,51 @@ async def test_one_material_key_for_two_bodies_is_refused(s: Session) -> None:
         material_reason="it is light",
     )
     assert "the code built the bodies plate, gear, and material_key names" in text
+
+
+async def test_a_confirmed_made_of_scores_every_body_and_the_set_reads_the_card(
+    s: Session,
+) -> None:
+    brief_id = await s.confirmed_brief()
+    project = (await s.call("list_requirements", brief_id=brief_id))["project_id"]
+    built = await s.call("build_variant", code=GEARS_ON_A_PLATE, brief_id=brief_id)
+    card = await s.call("score_variant", variant_id=built["variant_id"], brief_id=brief_id)
+    assert by_body(card["body_materials"]) == {"plate": "prusament-pla", "gear": "prusament-pla"}
+    [member] = (await s.call("variant_set", project_id=project, brief_id=brief_id))["members"]
+    pinned = member["material"]["key"]
+    assert pinned == "prusament-pla"
+    read = await s.call(
+        "scorecard", variant_id=built["variant_id"], brief_id=brief_id, material_key=pinned
+    )
+    assert read["etag"] == member["card_etag"]
+    assert by_body(read["body_materials"]) == by_body(card["body_materials"])
+    assert by_body(member["body_materials"]) == by_body(card["body_materials"])
+    other = await s.refusal(
+        "scorecard", variant_id=built["variant_id"], brief_id=brief_id, material_key=PLATE
+    )
+    assert "differs from the material the user confirmed" in other
+
+
+async def test_a_later_made_of_shows_on_each_body_in_place_of_the_agent_s_choice(
+    s: Session,
+) -> None:
+    brief_id = await s.proposed_brief()
+    project = (await s.call("list_requirements", brief_id=brief_id))["project_id"]
+    built = await s.call("build_variant", code=GEARS_ON_A_PLATE, brief_id=brief_id, materials=EACH)
+    await s.confirm(brief_id)
+    await s.call("score_variant", variant_id=built["variant_id"], brief_id=brief_id)
+    [member] = (await s.call("variant_set", project_id=project, brief_id=brief_id))["members"]
+    assert by_body(member["body_materials"]) == {"plate": "prusament-pla", "gear": "prusament-pla"}
+    assert {one["set_by"]["kind"] for one in member["body_materials"]} == {"requirement"}
+
+
+async def test_one_material_key_on_an_unpinned_variant_of_two_bodies_reads_no_card(
+    s: Session,
+) -> None:
+    _, brief_id = await unpinned(s)
+    built = await s.call("build_variant", code=GEARS_ON_A_PLATE, brief_id=brief_id, materials=EACH)
+    await s.call("score_variant", variant_id=built["variant_id"], brief_id=brief_id)
+    text = await s.refusal(
+        "scorecard", variant_id=built["variant_id"], brief_id=brief_id, material_key=PLATE
+    )
+    assert "material_key names the material of a variant of one body" in text
