@@ -148,3 +148,23 @@ def test_nothing_is_said_when_the_density_is_known_or_not_needed(
     targets: tuple[dict[str, Any], ...],
 ) -> None:
     assert unweighed(brief(*targets), TABLE) is None
+
+
+def on(body: str, target: dict[str, Any]) -> dict[str, Any]:
+    return {**target, "body": body}
+
+
+def test_a_made_of_or_a_mass_on_one_body_bounds_only_that_body() -> None:
+    plate_pla = brief(CUBE, on("plate", PLA), grams("min_mass", 50))
+    assert bounds_conflicts(plate_pla, TABLE) == ()
+    assert bounds_conflicts(brief(CUBE, PLA, on("gear", PLA), grams("min_mass", 50)), TABLE) == ()
+    assert unweighed(brief(CUBE, on("plate", PLA), grams("min_mass", 50)), TABLE) is None
+    whole_low = brief(grams("min_mass", 60), on("plate", grams("max_mass", 50)))
+    assert bounds_conflicts(whole_low, TABLE) == ()
+    plate = brief(on("plate", grams("min_mass", 60)), on("plate", grams("max_mass", 50)))
+    [found] = bounds_conflicts(plate, TABLE)
+    assert found.quantity == "mass:plate"
+    assert found.statement == (
+        "For the plate, the mass must be at least 60 g, but for the plate, the mass must be at "
+        "most 50 g"
+    )

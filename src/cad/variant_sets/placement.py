@@ -7,6 +7,7 @@ from cad.scorecard.material import MaterialPinned, Pins, pin_for
 from cad.tables.materials import MaterialsTable
 from cad.variant_sets.model import (
     MAX_MEMBERS,
+    BodiesMissing,
     BodyChoice,
     BodyMaterialsRefused,
     Chosen,
@@ -141,6 +142,21 @@ def _each(
             f"requirement names one: {EACH_BODY}. Never ask the person to choose"
         )
     return tuple(held[name] for name in names)
+
+
+def refuse_lacking(named: Sequence[str], bodies: Bodies | None) -> None:
+    """Refuses a build that lacks a body a confirmed requirement names. Before the build, None."""
+    if bodies is None:
+        return
+    built = {body.name for body in bodies}
+    wanted = list(dict.fromkeys(named))
+    lacking = [name for name in wanted if name not in built]
+    if lacking:
+        raise BodiesMissing(
+            f"the person confirmed requirements on the bodies {', '.join(wanted)}, and this build "
+            f"has no body named {', '.join(lacking)}. Label a body with each of those names and "
+            "build again. Nothing joined the variant set"
+        )
 
 
 def refuse_unpinned(

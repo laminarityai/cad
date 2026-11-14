@@ -44,11 +44,12 @@ WHOLE: Final = [
 
 
 async def verdicts(s: Session, rows: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Built before the person confirms, so a variant may lack a body a requirement names."""
     brief_id = await s.proposed_brief(None, TEXT, *rows)
-    await s.confirm(brief_id)
     built = await s.call(
         "build_variant", code=GEARS_ON_A_HOLED_PLATE, brief_id=brief_id, materials=EACH
     )
+    await s.confirm(brief_id)
     card = await s.call("score_variant", variant_id=built["variant_id"], brief_id=brief_id)
     return {one["statement"]: one for one in card["basis"]["requirements"]}
 
@@ -75,6 +76,16 @@ async def test_a_requirement_on_a_body_the_variant_lacks_never_passes(s: Session
     spacer = rows["spacer: mass at most 100 g"]
     assert spacer["verdict"] == "unknown"
     assert "no body named spacer" in spacer["reason"]
+
+
+async def test_a_build_that_lacks_a_confirmed_body_is_refused_and_kept(s: Session) -> None:
+    brief_id = await s.proposed_brief(None, TEXT, *ROWS[2:])
+    await s.confirm(brief_id)
+    refused = await s.refusal(
+        "build_variant", code=GEARS_ON_A_HOLED_PLATE, brief_id=brief_id, materials=EACH
+    )
+    assert "spacer" in refused
+    assert "is stored" in refused
 
 
 async def test_a_made_of_on_one_body_pins_that_body_and_leaves_the_other_to_the_agent(

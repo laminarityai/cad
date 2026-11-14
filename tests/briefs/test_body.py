@@ -90,3 +90,21 @@ async def test_a_brief_holds_one_max_mass_per_body(s: Session) -> None:
     again = {**rows[0], "target": {**rows[0]["target"], "mass": {"magnitude": 30, "unit": "g"}}}
     said = await s.text("propose_requirements", brief_id=brief_id, requirements=[again])
     assert "one max_mass per body" in said
+
+
+@pytest.mark.anyio
+async def test_each_made_of_asks_for_the_research_its_own_material_needs(s: Session) -> None:
+    text = "an acme-silk plate with acme-matte gears"
+    brief_id = (await s.call("create_brief", text=text))["brief_id"]
+    rows: list[dict[str, Any]] = [
+        {"target": {"kind": "made_of", "material": key, "body": body}, "quote": quote}
+        for key, body, quote in (
+            ("acme-silk-pla", "plate", "acme-silk plate"),
+            ("acme-matte-pla", "gear", "acme-matte gears"),
+        )
+    ]
+    proposed = await s.call("propose_requirements", brief_id=brief_id, requirements=rows)
+    assert sorted({one["key"] for one in proposed["research"]}) == [
+        "project-acme-matte-pla",
+        "project-acme-silk-pla",
+    ]
