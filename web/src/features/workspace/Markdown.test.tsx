@@ -18,3 +18,19 @@ describe("Markdown streaming", () => {
     expect(caret?.parentElement?.tagName).toBe("P");
   });
 });
+
+describe("Markdown table rows", () => {
+  it("shows a row with no separator under it as text", () => {
+    const { container } = render(<Markdown text={"Hi\n\n| a | b |"} />);
+    expect(container.querySelector("table")).toBeNull();
+    expect(container).toHaveTextContent("| a | b |");
+  });
+
+  it("turns a streamed header into a table once its separator comes", () => {
+    const { container, rerender } = render(<Markdown text={"Options:\n\n| Option | Mass |"} streaming />);
+    expect(container.querySelector("table")).toBeNull();
+    rerender(<Markdown text={"Options:\n\n| Option | Mass |\n| --- | --- |\n| Slim | 12 g |"} streaming />);
+    expect(container.querySelector("th")).toHaveTextContent("Option");
+    expect(container.querySelector("td")).toHaveTextContent("Slim");
+  });
+});
