@@ -196,6 +196,13 @@ describe("linesOf holes", () => {
     expect(asked.map((one) => one.value)).toEqual(["14.9 g", "", "no round holes", "1 hole: 5 mm", "4 mm"]);
   });
 
+  it("reads a whole-part limit on one hole as the whole part's holes, not a body named by a number", () => {
+    const base = deflectionDone();
+    const limit: Checked = { ...base, check_id: "holes", requirement_id: "r1", comparisons: base.comparisons.map((one) => ({ ...one, measure: "hole_diameter:0" })) };
+    const { asked } = linesOf(restore(snapshot("v1", [limit], [holes([5, 6])])));
+    expect(asked[0]?.value).toBe("2 holes: 5, 6 mm");
+  });
+
   it("keeps the diameters of a part the check could not fully read, with status unknown", () => {
     const line = lineOf(holes([5.5], "unknown"));
     expect(line?.value).toBe("1 hole: 5.5 mm");

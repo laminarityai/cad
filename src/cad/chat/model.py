@@ -53,7 +53,15 @@ class ToolResult(Frozen):
     media: tuple[Media, ...] = ()
 
 
-type Block = Annotated[Text | ToolUse | ToolResult, Field(discriminator="kind")]
+class ServerBlock(Frozen):
+    """A block the API ran itself, a web search or its result. It goes back to the API exactly as
+    it came, on every later step, because the API refuses one that was changed."""
+
+    kind: Literal["server"] = "server"
+    raw: dict[str, Any]
+
+
+type Block = Annotated[Text | ToolUse | ToolResult | ServerBlock, Field(discriminator="kind")]
 
 
 class Message(Frozen):
@@ -63,6 +71,13 @@ class Message(Frozen):
     @property
     def calls(self) -> tuple[ToolUse, ...]:
         return tuple(one for one in self.blocks if isinstance(one, ToolUse))
+
+    @property
+    def searches(self) -> int:
+        return sum(
+            isinstance(one, ServerBlock) and one.raw.get("type") == "server_tool_use"
+            for one in self.blocks
+        )
 
 
 class ToolSpec(Frozen):
@@ -78,7 +93,11 @@ class ModelUnavailable(Exception):
 
 class Model(Protocol):
     async def reply(
-        self, system: str, messages: Sequence[Message], tools: Sequence[ToolSpec]
+        self,
+        system: str,
+        messages: Sequence[Message],
+        tools: Sequence[ToolSpec],
+        searches_spent: int,
     ) -> Message: ...
 
 

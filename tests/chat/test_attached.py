@@ -28,10 +28,14 @@ class Seen:
     messages: list[list[Message]] = field(default_factory=list[list[Message]])
 
     async def reply(
-        self, system: str, messages: Sequence[Message], tools: Sequence[ToolSpec]
+        self,
+        system: str,
+        messages: Sequence[Message],
+        tools: Sequence[ToolSpec],
+        searches_spent: int,
     ) -> Message:
         self.messages.append(list(messages))
-        return await self.inner.reply(system, messages, tools)
+        return await self.inner.reply(system, messages, tools, searches_spent)
 
 
 @pytest.fixture

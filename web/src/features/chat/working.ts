@@ -14,6 +14,8 @@ const NOW: Record<string, string> = {
   submit_research: "Researching a value",
   write_check: "Writing a check",
   search_knowledge: "Looking it up",
+  web_search: "Searching the web",
+  ask_questions: "Writing a few questions",
 };
 
 export const nowLabel = (name: string): string => NOW[name] ?? "Working";

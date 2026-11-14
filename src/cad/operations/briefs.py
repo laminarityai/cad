@@ -225,9 +225,11 @@ def create_brief(tenant: Tenant, arguments: CreateBriefInput) -> BriefCreated:
     if asked is None and cid is not None:
         asked = _project_of(tenant, cid)
     project = project_for_new_brief(tenant.roots, asked)
-    brief = store.create_brief(
-        tenant.roots, first.text, project, first.transcript_seq, arguments.name
+    request = first.request
+    created = store.create_brief(
+        tenant.roots, request.text, project, request.transcript_seq, arguments.name
     )
+    brief = store.add_said(tenant.roots, created, first.answers)
     if cid is not None:
         conversations.started(tenant.conversations, cid, project)
     return BriefCreated(brief_id=brief.id, project_id=project, text=brief.text)
@@ -332,7 +334,7 @@ def list_requirements(tenant: Tenant, arguments: ListRequirementsInput) -> Brief
 
 OPERATIONS: Final = (
     operation(
-        name="create_brief",
+        name=source.CREATE_BRIEF,
         audience=Audience.AGENT,
         description=CREATE_BRIEF,
         input=CreateBriefInput,

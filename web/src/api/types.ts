@@ -1064,7 +1064,7 @@ export interface components {
             error: string;
             kind?: string;
         };
-        Event: components["schemas"]["UserSaid"] | components["schemas"]["DriverSaid"] | components["schemas"]["AgentSaid"] | components["schemas"]["ToolCalled"] | components["schemas"]["ToolReturned"] | components["schemas"]["StopReport"] | components["schemas"]["TurnFailed"] | components["schemas"]["TurnEnded"];
+        Event: components["schemas"]["UserSaid"] | components["schemas"]["DriverSaid"] | components["schemas"]["AgentSaid"] | components["schemas"]["ToolCalled"] | components["schemas"]["ToolReturned"] | components["schemas"]["WebSearched"] | components["schemas"]["WebFound"] | components["schemas"]["StopReport"] | components["schemas"]["TurnFailed"] | components["schemas"]["TurnEnded"];
         /** ExportFailure */
         ExportFailure: {
             /**
@@ -1618,6 +1618,11 @@ export interface components {
         Origin: components["schemas"]["BriefSpan"] | components["schemas"]["FileQuote"];
         /** @enum {string} */
         Outcome: "waiting" | "confirmed" | "declined";
+        /** Page */
+        Page: {
+            title: string;
+            url: string;
+        };
         /**
          * PartAxis
          * @enum {string}
@@ -2311,6 +2316,42 @@ export interface components {
             load_case?: "described" | null;
         };
         /**
+         * WebFound
+         * @description What a web search found: the pages, or the API's error code.
+         */
+        WebFound: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "web_search_result";
+            call_id: string;
+            /** @default [] */
+            pages: components["schemas"]["Page"][];
+            /** @default null */
+            error: string | null;
+            raw: {
+                [key: string]: unknown;
+            };
+        };
+        /**
+         * WebSearched
+         * @description A web search the model ran through the API. `raw` is the API's block, sent back unchanged.
+         *     A search result is a pointer: no check reads a number from it.
+         */
+        WebSearched: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "web_search";
+            call_id: string;
+            query: string;
+            raw: {
+                [key: string]: unknown;
+            };
+        };
+        /**
          * Where
          * @description `support` and `load` are the faces of the candidates that decided the stress. `displacement`
          *     holds the faces of the candidates that decided the displacement, when they are others. A
@@ -2558,6 +2599,7 @@ export type OnOpposite = components['schemas']['OnOpposite'];
 export type Option = components['schemas']['Option'];
 export type Origin = components['schemas']['Origin'];
 export type Outcome = components['schemas']['Outcome'];
+export type Page = components['schemas']['Page'];
 export type PartAxis = components['schemas']['PartAxis'];
 export type PartId = components['schemas']['PartId'];
 export type PartWire = components['schemas']['PartWire'];
@@ -2628,6 +2670,8 @@ export type VariantView = components['schemas']['VariantView'];
 export type Vec = components['schemas']['Vec'];
 export type Verdict = components['schemas']['Verdict'];
 export type Waiting = components['schemas']['Waiting'];
+export type WebFound = components['schemas']['WebFound'];
+export type WebSearched = components['schemas']['WebSearched'];
 export type Where = components['schemas']['Where'];
 export type Wrought = components['schemas']['Wrought'];
 export type CadAutoModelRead = components['schemas']['cad__auto__model__Read'];

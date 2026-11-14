@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 from typing import Final, Literal
 
+from asking import Asking
 from pydantic import BaseModel, ConfigDict
 from tracking import By, Decided
 
@@ -64,6 +65,7 @@ class Friction(Frozen):
     ask_calls: int
     minutes_to_first_result: float | None
     refused_tool_calls: int = 0
+    asking: Asking | None = None
 
 
 class BriefResult(Frozen):

@@ -9,12 +9,12 @@ import json
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Annotated, Any, Final, Literal
+from typing import Annotated, Any, Final, Literal, cast
 
 from pydantic import Field, TypeAdapter, ValidationError
 
 from cad.accounts.principal import AccountId
-from cad.chat.model import Attached, Block, Message, Text, ToolResult, ToolUse
+from cad.chat.model import Attached, Block, Message, ServerBlock, Text, ToolResult, ToolUse
 from cad.conversations.model import ConversationId
 from cad.frozen import Frozen
 from cad.records import files
@@ -69,6 +69,49 @@ class ToolReturned(Frozen):
     attached: tuple[Attached, ...] = Field(default=(), exclude_if=lambda one: not one)
 
 
+class Page(Frozen):
+    title: str
+    url: str
+
+
+class WebSearched(Frozen):
+    """A web search the model ran through the API. `raw` is the API's block, sent back unchanged.
+    A search result is a pointer: no check reads a number from it."""
+
+    kind: Literal["web_search"] = "web_search"
+    call_id: str
+    query: str
+    raw: dict[str, Any]
+
+
+class WebFound(Frozen):
+    """What a web search found: the pages, or the API's error code."""
+
+    kind: Literal["web_search_result"] = "web_search_result"
+    call_id: str
+    pages: tuple[Page, ...] = ()
+    error: str | None = None
+    raw: dict[str, Any]
+
+
+def web_event(block: ServerBlock) -> WebSearched | WebFound | None:
+    raw = block.raw
+    if raw.get("type") == "server_tool_use":
+        query = raw.get("input", {}).get("query", "")
+        return WebSearched(call_id=raw["id"], query=str(query), raw=raw)
+    if raw.get("type") == "web_search_tool_result":
+        content = raw.get("content")
+        if isinstance(content, list):
+            pages = tuple(
+                Page(title=str(one.get("title", "")), url=str(one.get("url", "")))
+                for one in cast(list[dict[str, Any]], content)
+            )
+            return WebFound(call_id=raw["tool_use_id"], pages=pages, raw=raw)
+        code = cast(dict[str, Any], content or {}).get("error_code", "unavailable")
+        return WebFound(call_id=raw["tool_use_id"], error=str(code), raw=raw)
+    return None
+
+
 class StopReport(Frozen):
     """An Auto run stopped. `report` is the server's, from the signed run log."""
 
@@ -93,6 +136,8 @@ type Event = Annotated[
     | AgentSaid
     | ToolCalled
     | ToolReturned
+    | WebSearched
+    | WebFound
     | StopReport
     | TurnFailed
     | TurnEnded,
@@ -166,20 +211,18 @@ def _readable_prefix(path: Path) -> list[Stamped]:
     return loaded
 
 
-def person_said(conversations: Path, cid: ConversationId) -> tuple[tuple[int, str], ...]:
+def transcript(conversations: Path, cid: ConversationId) -> tuple[Stamped, ...]:
     try:
         lines = transcript_path(conversations, cid).read_bytes().splitlines()
     except FileNotFoundError:
         return ()
-    said: list[tuple[int, str]] = []
+    stamped: list[Stamped] = []
     for line in lines:
         try:
-            stamped = STAMPED.validate_json(line)
+            stamped.append(STAMPED.validate_json(line))
         except (ValidationError, ValueError):
             break
-        if isinstance(stamped.event, UserSaid):
-            said.append((stamped.seq, stamped.event.text))
-    return tuple(said)
+    return tuple(stamped)
 
 
 @dataclass
@@ -201,9 +244,11 @@ class Channels:
 
 def messages_of(events: Sequence[Event]) -> list[Message]:
     """The conversation as the model sees it. A call with no result, from a turn that died, gets
-    an error result, because the API refuses a call that nothing answers."""
+    an error result, because the API refuses a call that nothing answers. A web search with no
+    result is left out for the same reason."""
     messages: list[Message] = []
     open_calls: list[str] = []
+    found = {event.call_id for event in events if isinstance(event, WebFound)}
 
     def add(role: Literal["user", "assistant"], block: Block) -> None:
         if messages and messages[-1].role == role:
@@ -230,6 +275,11 @@ def messages_of(events: Sequence[Event]) -> list[Message]:
                 if event.call_id in open_calls:
                     open_calls.remove(event.call_id)
                     add("user", ToolResult(**event.model_dump(exclude={"kind"})))
+            case WebSearched():
+                if event.call_id in found:
+                    add("assistant", ServerBlock(raw=event.raw))
+            case WebFound():
+                add("assistant", ServerBlock(raw=event.raw))
             case StopReport() | TurnFailed() | TurnEnded():
                 pass
     close_calls()

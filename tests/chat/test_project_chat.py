@@ -32,10 +32,14 @@ class Recording:
     systems: list[str] = field(default_factory=list[str])
 
     async def reply(
-        self, system: str, messages: Sequence[Message], tools: Sequence[ToolSpec]
+        self,
+        system: str,
+        messages: Sequence[Message],
+        tools: Sequence[ToolSpec],
+        searches_spent: int,
     ) -> Message:
         self.systems.append(system)
-        return await self.inner.reply(system, messages, tools)
+        return await self.inner.reply(system, messages, tools, searches_spent)
 
 
 @pytest.fixture

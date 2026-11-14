@@ -20,6 +20,7 @@ from pathlib import Path
 from typing import Any, Final
 
 import httpx2
+from asking import ASK, Call, asking_of
 from autoresult import EVENTS, AutoResult, Expect, judge, summary_line, write_result
 from autoscript import script_for
 from brief_set import BriefInput, prompt_for
@@ -50,6 +51,7 @@ HUMAN: Final = Path(__file__).resolve().parents[2] / ".claude/skills/verify/scri
 HUMAN_LOG: Final = "human.jsonl"
 PERSON_ENV: Final = ("PATH", "HOME", "LANG", "LC_ALL", "CAD_HUMAN_DELAY")
 TURN_TIMEOUT_S: Final = 900.0
+SKIP: Final = "Build it with your defaults."
 
 
 class MissingKey(Exception):
@@ -121,15 +123,36 @@ async def converse(
             client.cookies.set("__session", local.mint_person(ACCOUNT))
             made = await client.post("/v1/conversations", headers=JSON, content=b"{}")
             cid = made.json()["conversation_id"]
-            body = json.dumps({"text": prompt_for(brief)})
-            sent = await client.post(
-                f"/v1/conversations/{cid}/messages", headers=JSON, content=body
-            )
-            if sent.status_code != 202:
-                raise RuntimeError(f"the message was refused: {sent.text}")
+            await say(client, cid, prompt_for(brief))
             await asyncio.wait_for(app.state.chat.idle(), timeout_s)
             streamed = await client.get(f"/v1/conversations/{cid}/stream?follow=false")
+            if asked_only(parse_stream(streamed.text)):
+                await say(client, cid, SKIP)
+                await asyncio.wait_for(app.state.chat.idle(), timeout_s)
+                streamed = await client.get(f"/v1/conversations/{cid}/stream?follow=false")
     return [{"conversation_id": cid}, *parse_stream(streamed.text)]
+
+
+async def say(client: httpx2.AsyncClient, cid: str, text: str) -> None:
+    body = json.dumps({"text": text})
+    sent = await client.post(f"/v1/conversations/{cid}/messages", headers=JSON, content=body)
+    if sent.status_code != 202:
+        raise RuntimeError(f"the message was refused: {sent.text}")
+
+
+def calls_of(events: Sequence[Mapping[str, Any]]) -> list[Call]:
+    return [
+        (str(one["name"]), one.get("input") or {})
+        if one.get("kind") == "tool_call"
+        else ("web_search", {})
+        for one in events
+        if one.get("kind") in ("tool_call", "web_search")
+    ]
+
+
+def asked_only(events: Sequence[Mapping[str, Any]]) -> bool:
+    names = [name for name, _ in calls_of(events)]
+    return ASK in names and "create_brief" not in names
 
 
 def run_brief(
@@ -206,6 +229,7 @@ def read_result(
         ),
         seconds=seconds,
         problems=(*problems, *judged),
+        asking=asking_of(calls_of(events), brief.grader),
     )
 
 

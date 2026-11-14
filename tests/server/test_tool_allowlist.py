@@ -25,6 +25,7 @@ ALLOWED_ARGUMENTS = {
     # assumptions are the agent's own numbers, listed with the measure, never a verdict.
     "propose_requirements": {"brief_id", "requirements", "remove", "assumptions", "said"},
     "ask_to_confirm": {"project_id"},
+    "ask_questions": {"questions"},
     "list_requirements": {"brief_id"},
     "propose_context_part": {"brief_id", "quote", "name", "variant_id"},
     # The person adds files from the workspace; a tool names a stored file only by its id.

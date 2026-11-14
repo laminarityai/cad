@@ -94,7 +94,7 @@ function num(magnitude: number): string {
 /** A requirement on a body compares a measure named `<measure>:<body>`, so its row shows that body's number, and
  * nothing when the variant has no such body. */
 function bodyOf(measures: readonly string[], measure: string): string | undefined {
-  return measures.find((one) => one.startsWith(`${measure}:`))?.slice(measure.length + 1);
+  return measures.map((one) => (one.startsWith(`${measure}:`) ? one.slice(measure.length + 1) : "")).find((one) => /^[a-z]/i.test(one));
 }
 
 function valueOf(result: DoneCheck | undefined, measures: readonly string[] = []): string {

@@ -22,7 +22,7 @@ export interface ChatApi {
 }
 
 const RETRY_MS = 1000;
-const EVENT_KINDS: ReadonlySet<string> = new Set<Event["kind"]>(["user", "driver", "agent", "tool_call", "tool_result", "stop_report", "turn_failed", "turn_ended"]);
+const EVENT_KINDS: ReadonlySet<string> = new Set<Event["kind"]>(["user", "driver", "agent", "tool_call", "tool_result", "web_search", "web_search_result", "stop_report", "turn_failed", "turn_ended"]);
 
 /** Not `EventSource`: it hides the status, and the page must tell a conversation that is not in the
  * account (404) from a stream that dropped. */

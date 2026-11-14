@@ -31,6 +31,7 @@ from functools import partial
 from pathlib import Path
 from typing import Final
 
+from asking import asking_of
 from autoresult import AutoResult, expect_problems
 from brief_set import BriefInput, load_set, prompt_for
 from friction import minutes_to_first_result, read_pages
@@ -80,6 +81,7 @@ def run_one(brief: BriefInput, out: Path, model: str, timeout_s: float) -> Brief
             stores / "briefs", stores / "variants", seconds
         ),
         refused_tool_calls=session.facts.refused_calls,
+        asking=asking_of(session.facts.calls, brief.grader),
     )
     failed = session.timed_out or session.exit_code != 0 or session.facts.is_error
     trace: Trace | None = None

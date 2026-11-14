@@ -57,6 +57,6 @@ Drive it with a live model. Start `cad-http` on a fresh root with the key loaded
 uv run python .claude/skills/verify/scripts/browser.py web walk "$RUN" "$RUN/shots" --url http://127.0.0.1:8765
 ```
 
-`walk` (`web_walk.py`) starts on the empty `/app`, types a box brief, waits for the options and their checks (the box brief states a number, so a Confirm card shows too, and the walk confirms it with no rebuild), asks for a change and steps back to the earlier revision, asks for a lid, waits for its options, confirms the card when one shows, and turns the fit ghost on. It shoots each step in dark mode at 1440 px and the last at 400 px, and exits 1 at the first step that did not happen, with `missed.png`. `--brief`, `--change` and `--lid` replace the words it types.
+`walk` (`web_walk.py`) starts on the empty `/app`, types a box brief, presses Skip on the questions card when the agent asks first (shot as `walk-1b-questions.png`), waits for the options and their checks (the box brief states a number, so a Confirm card shows too, and the walk confirms it with no rebuild), asks for a change and steps back to the earlier revision, asks for a lid, waits for its options, confirms the card when one shows, and turns the fit ghost on. It shoots each step in dark mode at 1440 px and the last at 400 px, and exits 1 at the first step that did not happen, with `missed.png`. `--brief`, `--change` and `--lid` replace the words it types.
 
 Free proofs: `npm run test` in `web/` (`features/workspace/workspace.test.tsx`).

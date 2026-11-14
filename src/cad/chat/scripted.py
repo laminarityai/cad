@@ -58,9 +58,13 @@ class Scripted:
         return Scripted(Script.model_validate_json(file.read_text()), file.parent)
 
     async def reply(
-        self, system: str, messages: Sequence[Message], tools: Sequence[ToolSpec]
+        self,
+        system: str,
+        messages: Sequence[Message],
+        tools: Sequence[ToolSpec],
+        searches_spent: int,
     ) -> Message:
-        del system, tools
+        del system, tools, searches_spent
         index = sum(one.role == "assistant" for one in messages)
         if index >= len(self.script.steps):
             return Message(role="assistant", blocks=(Text(text=EXHAUSTED),))

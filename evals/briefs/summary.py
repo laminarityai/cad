@@ -83,6 +83,10 @@ class Overall(Frozen):
     refused_tool_calls: int
     cut_off: int
     cost_usd: float
+    asked_before_build: int = 0
+    questions: int = 0
+    searched_before_build: int = 0
+    stated_unasked: Share = Share(numerator=0, denominator=0)
 
 
 class Summary(Frozen):
@@ -117,6 +121,7 @@ def summarize(results: Sequence[BriefResult], missing: Sequence[str], model: str
         if one.friction.minutes_to_first_result is not None
     ]
     pages = [float(one.friction.confirmation_pages) for one in finished]
+    asked = [one.friction.asking for one in finished if one.friction.asking is not None]
     overall = Overall(
         model=model,
         briefs=len(results) + len(missing),
@@ -138,6 +143,13 @@ def summarize(results: Sequence[BriefResult], missing: Sequence[str], model: str
         refused_tool_calls=sum(one.friction.refused_tool_calls for one in finished),
         cut_off=sum(len(one.cut_off) for one in traces),
         cost_usd=sum(one.cost_usd or 0.0 for one in results),
+        asked_before_build=sum(one.asked_before_build for one in asked),
+        questions=sum(one.questions for one in asked),
+        searched_before_build=sum(one.searched_before_build for one in asked),
+        stated_unasked=Share(
+            numerator=sum(one.stated_unasked is True for one in asked),
+            denominator=sum(one.stated_unasked is not None for one in asked),
+        ),
     )
     return Summary(overall=overall, briefs=tuple(results))
 
@@ -168,6 +180,10 @@ def markdown(summary: Summary, missing: Sequence[str]) -> str:
         "check jobs with no stored result after the session (cut off, refused and not retried, "
         f"or timed out): {overall.cut_off}; their requirements count as by {By.WAITING}, and "
         "against both rates",
+        f"asked before the first build: {overall.asked_before_build}/{overall.finished}, "
+        f"{overall.questions} questions in all",
+        f"searched before the first build: {overall.searched_before_build}/{overall.finished}",
+        f"fully stated briefs that got no questions: {_fraction(overall.stated_unasked)}",
         f"cost: ${overall.cost_usd:.2f}",
         "",
         "| brief | domain | trace | strict pass | covered | pages | minutes | cost |",
@@ -181,3 +197,7 @@ def markdown(summary: Summary, missing: Sequence[str]) -> str:
         if one.trace and one.trace.cut_off:
             lines += ["", f"## Cut off in {one.id}", *(f"- {name}" for name in one.trace.cut_off)]
     return "\n".join(lines) + "\n"
+
+
+def _fraction(share: Share) -> str:
+    return f"{share.numerator}/{share.denominator}" if share.denominator else "none marked"

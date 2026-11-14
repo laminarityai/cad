@@ -70,11 +70,15 @@ class Gated:
     gate: asyncio.Event
 
     async def reply(
-        self, system: str, messages: Sequence[Message], tools: Sequence[ToolSpec]
+        self,
+        system: str,
+        messages: Sequence[Message],
+        tools: Sequence[ToolSpec],
+        searches_spent: int,
     ) -> Message:
         if sum(one.role == "assistant" for one in messages) == self.at:
             await self.gate.wait()
-        return await self.inner.reply(system, messages, tools)
+        return await self.inner.reply(system, messages, tools, searches_spent)
 
 
 @pytest.fixture
