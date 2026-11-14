@@ -204,8 +204,8 @@ def report(
     for_person: bool = False,
 ) -> str:
     """The stop report. `builds` counts every build under the run. The agent's copy names ids.
-    The person's passes `said`, each requirement's statement, and `option`, the name the latest
-    checked variant has in its set, and names no id where either has no name."""
+    The person's sets `for_person` and passes `said`, each requirement's statement, and `option`,
+    the name the latest checked variant has in its set, and names no id where either has no name."""
     unnamed = UNNAMED if for_person else None
 
     def name_of(rid: str) -> str:

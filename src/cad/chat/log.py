@@ -165,7 +165,7 @@ class Channel:
     """One conversation's transcript, with a signal for each append and a flag for a running turn.
     Everything that appends runs on the server's event loop, so an append needs no lock.
     `partial` is the reply text heard so far and not yet stored. It lives only here, and each
-    append clears it, because the append stores the reply it was part of or ends the turn."""
+    append clears it."""
 
     path: Path
     running: bool = False

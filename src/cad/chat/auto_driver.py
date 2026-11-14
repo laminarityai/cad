@@ -12,6 +12,7 @@ id the agent names in a refused call is never followed.
 """
 
 from collections.abc import Sequence
+from contextlib import suppress
 from dataclasses import dataclass
 from typing import Final
 
@@ -123,13 +124,12 @@ class AutoDriver:
 def project_statements(roots: Roots, project: ProjectId) -> dict[str, str]:
     """Each requirement's statement, from every brief of `project`, for the person's report."""
     said: dict[str, str] = {}
-    try:
+    with suppress(ProjectRefused):
         for brief in project_briefs(roots, project):
-            names = plain_names(roots, brief)
-            for one in briefs.read_state(roots, brief).proposals:
-                said |= {r.id: describe(r, names) for r in one.requirements}
-    except (BriefRefused, ProjectRefused):
-        return said
+            with suppress(BriefRefused):
+                names = plain_names(roots, brief)
+                for one in briefs.read_state(roots, brief).proposals:
+                    said |= {r.id: describe(r, names) for r in one.requirements}
     return said
 
 

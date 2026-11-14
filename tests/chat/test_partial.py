@@ -12,8 +12,6 @@ pytestmark = pytest.mark.anyio
 
 @dataclass
 class Typing:
-    """A model that streams its reply in two pieces and reads the page's stream between them."""
-
     client: httpx2.AsyncClient | None = None
     cid: str = ""
     seen: list[str] = field(default_factory=list[str])

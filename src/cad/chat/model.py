@@ -91,8 +91,7 @@ type Heard = Callable[[str], None]
 
 HEARD: Final = ContextVar[Heard | None]("heard", default=None)
 """Where a model that streams sends each piece of reply text as it arrives. A turn sets it for
-its own task, so the open page shows the reply before it is whole. The text it hears is not
-stored: the reply is, once it is whole."""
+its own task. The text it hears is not stored: the reply is, once it is whole."""
 
 
 class ModelUnavailable(Exception):

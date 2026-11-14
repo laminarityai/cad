@@ -279,9 +279,8 @@ Land(t) ==
 
 \* Lanes.peek, for the scorecard operation: job_store.read of quick, then _look for fea in one
 \* `with self._lock:`: job_store.read, the _flying lookup, then unfinished_runs against the
-\* cap. A job flying here is pending, though its own attempt may have reached the cap. A job
-\* neither stored nor flying here is refused: interrupted at the cap, else not running, as after
-\* a restart lost its queue. No wait, and no job started.
+\* cap. A job flying here is pending, though its own attempt may have reached the cap. No wait,
+\* and no job started.
 Peek(t) ==
     LET p == t[1] IN
     /\ Peeks

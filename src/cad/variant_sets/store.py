@@ -199,7 +199,7 @@ def showing(root: Path, key: SetKey, variant_id: str, image_tag: str) -> Revisio
 
 def current_id(variants: Path, revision: Revision, image_tag: str) -> VariantId:
     """The id the page opens for `revision`: its rebuild by this sandbox once one is stored, else
-    the id it was built as, which opens as outdated until it is rebuilt."""
+    the id it was built as."""
     live = revision.live_id(image_tag)
     return live if files.is_directory(variants / live) else revision.built_as
 
