@@ -10,6 +10,7 @@ from pydantic import ValidationError
 from cad.briefs import store as briefs
 from cad.briefs.model import BriefId
 from cad.checks.lanes import LANES, Lanes
+from cad.errors import Unavailable
 from cad.projects.model import PROJECT_ID, ProjectId
 from cad.records import files, signed
 from cad.records.roots import Roots, project_store
@@ -95,7 +96,7 @@ def _drop_replaced(
 
     try:
         lanes.drop_unstarted(variants_root, unshown)
-    except SetRefused as error:
+    except (SetRefused, Unavailable, OSError) as error:
         LOG.warning("no queued check is dropped: %s", error)
 
 

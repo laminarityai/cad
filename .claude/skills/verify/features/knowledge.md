@@ -1,6 +1,6 @@
 # Knowledge
 
-The `search_knowledge(query, k)` tool returns the k sections of the cited sources in `knowledge/` that best match the query's words, best first. Each hit has its `id`, `subject`, source `title`, `url`, `page`, `section`, `retrieved` date and quoted `text`. The ranking is BM25 over the unit's name (subject and aliases), its heading and keys, and its text (`src/cad/knowledge/search.py`). A hit is a possible match, not checked for identity: the agent reads the subject and quote and chooses. No check reads a number from it.
+The `search_knowledge(query, k)` tool returns the k sections of the cited sources in `knowledge/` that best match the query's words, best first. Each hit has its `id`, `subject`, source `title`, `url`, `page`, `section`, `retrieved` date and quoted `text`. The ranking is BM25F over four fields of the unit: its name (subject and aliases), its source's title, its heading and keys, and its text (`src/cad/knowledge/search.py`). A hit is a possible match, not checked for identity: the agent reads the subject and quote and chooses. No check reads a number from it.
 
 ## Sub-features
 

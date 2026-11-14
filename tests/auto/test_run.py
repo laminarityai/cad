@@ -317,10 +317,10 @@ async def test_a_replayed_revision_appends_nothing_and_builds_nothing(
     assert first["state"]["kind"] == "running"
     [standing] = first["state"]["history"]
     assert (standing["variant_id"], standing["built"], standing["marks"]) == (vid, False, [])
-    written = records(s, run_id)
+    assert records(s, run_id) == 3
     again = await s.call("auto_revise", run_id=run_id, code=code)
     assert again == first
-    assert records(s, run_id) == written
+    assert records(s, run_id) == 3
     assert s.meter.asked == []
 
 

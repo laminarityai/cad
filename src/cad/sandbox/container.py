@@ -143,7 +143,7 @@ def run(job: Job) -> Ran:
             seen = attend(name, run_argv(name, job), job.stdin, job.wall_seconds)
             _refuse_when_stopping()
             state = inspect(name)
-            if state is None or state.Status == "created" or state.Error:
+            if state is None or state.Status in {"created", "running"} or state.Error:
                 cause = state.Error if state is not None and state.Error else seen.output
                 raise SandboxUnavailable.hiding_host("docker could not run the sandbox", cause)
             return Ran(seen, state)

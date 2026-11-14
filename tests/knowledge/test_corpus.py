@@ -1,6 +1,7 @@
 import subprocess
 import sys
 from pathlib import Path
+from typing import Final
 
 import pytest
 
@@ -148,12 +149,26 @@ def test_the_seeded_corpus_is_valid_and_ranks_its_questions() -> None:
     assert index.search("M5 clearance hole") == ()
 
 
+VERDICT_PACKAGES: Final = (
+    "cad.briefs",
+    "cad.scorecard",
+    "cad.checks",
+    "cad.research",
+    "cad.agent_checks",
+    "cad.tables",
+    "cad.confirmations",
+)
+LOADS_IT_THROUGH_A_LISTED_UPWARD_IMPORT: Final = "cad.confirmations.web"
+
+
 def test_verdicts_and_confirmations_never_load_the_knowledge_base() -> None:
     code = (
-        "import sys, importlib, pkgutil, cad.briefs, cad.scorecard.score, "
-        "cad.scorecard.requirements, cad.checks.container.runner; "
-        "[importlib.import_module(f'cad.briefs.{m.name}') "
-        "for m in pkgutil.iter_modules(cad.briefs.__path__)]; "
+        "import sys, importlib, pkgutil\n"
+        f"for name in {VERDICT_PACKAGES!r}:\n"
+        "    package = importlib.import_module(name)\n"
+        "    for m in pkgutil.walk_packages(package.__path__, name + '.'):\n"
+        f"        if m.name != {LOADS_IT_THROUGH_A_LISTED_UPWARD_IMPORT!r}:\n"
+        "            importlib.import_module(m.name)\n"
         "print([n for n in sys.modules if n.startswith('cad.knowledge')])"
     )
     result = subprocess.run(
