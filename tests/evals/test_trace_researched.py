@@ -20,7 +20,7 @@ from cad.research.submit import Question, ResearchAccepted, submit
 from cad.scorecard import material
 from cad.scorecard.model import AwaitingConfirmation
 from cad.server.app import build_server
-from cad.tables.materials import UNITS, Known, MaterialsTable
+from cad.tables.materials import UNITS, Known, MaterialsTable, load_materials
 from tests.support.cards import (
     BRIEF_TEXT,
     genuine_card,
@@ -119,7 +119,7 @@ def stored_researched_card(store: Path) -> tuple[material.ReportedScorecard, Mat
         results=(*genuine_card(KEY).results, fea_result(scored)),
         basis=AwaitingConfirmation(brief_id=brief_id),
     )
-    reported = material.reported(card, None)
+    reported = material.reported(card, None, load_materials())
     write_transcript(store, reported)
     return reported, scored
 

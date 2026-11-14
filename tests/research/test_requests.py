@@ -120,7 +120,7 @@ def card_asking() -> ReportedScorecard:
         pending=("fea",),
         basis=NoBrief(),
     )
-    return material.reported(card, None)
+    return material.reported(card, None, load_materials())
 
 
 def test_a_readable_project_gets_a_research_request() -> None:

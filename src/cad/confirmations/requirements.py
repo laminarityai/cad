@@ -73,12 +73,14 @@ class Requirements:
         )
 
     def edit(self, ref: ItemRef, edits: Sequence[Edit]) -> Refused | Changes:
-        proposed = self._shown(ref)[1].proposal.requirements
-        applied = apply_edits(proposed, edits)
+        proposal = self._shown(ref)[1].proposal
+        names = plain_names(self._roots, proposal.brief_id)
+        proposed = proposal.requirements
+        applied = apply_edits(proposed, edits, names)
         if isinstance(applied, str):
             return Refused(applied)
         return tuple(
-            f"{describe(new)} (you changed it from {placeholder(old)})."
+            f"{describe(new, names)} (you changed it from {placeholder(old)})."
             for old, new in zip(proposed, applied, strict=True)
             if new.id != old.id
         )

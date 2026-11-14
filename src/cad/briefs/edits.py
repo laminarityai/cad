@@ -44,7 +44,7 @@ from cad.briefs.model import (
     amount,
     requirement_id,
 )
-from cad.briefs.words import describe
+from cad.briefs.words import NO_NAMES, describe
 from cad.confirmations.answers import Edit
 from cad.tables.fasteners import ClearanceSeries
 from cad.tables.materials import UNITS
@@ -156,7 +156,9 @@ def _tolerance_text(tolerance: HoleTolerance) -> str:
 
 
 def apply_edits(
-    requirements: Sequence[Requirement], edits: Sequence[Edit]
+    requirements: Sequence[Requirement],
+    edits: Sequence[Edit],
+    names: Mapping[str, str] = NO_NAMES,
 ) -> tuple[Requirement, ...] | str:
     """The requirements with each edit applied, or a message for the person refusing them."""
     by_row = {edit.row: edit.text for edit in edits}
@@ -168,7 +170,7 @@ def apply_edits(
         text = by_row.get(requirement.id)
         one = requirement if text is None else _edited(requirement, text)
         if isinstance(one, str):
-            return f"{describe(requirement)}: {one}"
+            return f"{describe(requirement, names)}: {one}"
         changed.append(one)
     if len({r.id for r in changed}) != len(changed):
         return "Two rows would say the same thing. Change one of them, or decline."

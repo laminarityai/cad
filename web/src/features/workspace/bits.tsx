@@ -56,7 +56,7 @@ function Row({ line, where }: { line: Line; where: WhereControl }) {
       >
         <pill.Icon className={cn("mt-0.5 size-[18px] shrink-0", pill.tone)} />
         <span className="min-w-0 flex-1 text-[15px] leading-snug">{line.label}</span>
-        <span className="shrink-0 text-right">
+        <span className="max-w-[45%] shrink-0 text-right">
           {line.value ? <span className="block font-mono text-[14px] tabular-nums">{line.value}</span> : <span className={cn("block text-[13px]", pill.tone)}>{pill.text}</span>}
           {line.status === "researched" ? <span className="block text-[12px] text-res">researched</span> : null}
           {line.tag ? (
@@ -73,10 +73,15 @@ function Row({ line, where }: { line: Line; where: WhereControl }) {
       </CollapsibleTrigger>
       <CollapsiblePanel className="space-y-1.5 px-4 pb-3 pl-11 text-[14px] text-ink-2">
         {line.why ? <p>{line.why}</p> : null}
-        {line.sources.slice(0, 2).map((one) => (
-          <a key={one.url} href={one.url} target="_blank" rel="noreferrer" className="block truncate text-accent underline">
-            {one.title}
-          </a>
+        {line.sources.slice(0, 2).map((one, at, shown) => (
+          <div key={`${one.url}:${String(at)}`}>
+            {shown[at - 1]?.url === one.url ? null : (
+              <a href={one.url} target="_blank" rel="noreferrer" className="block truncate text-accent underline">
+                {one.title}
+              </a>
+            )}
+            {one.quote ? <q data-quote className="block text-[13px] text-ink-3">{one.quote}</q> : null}
+          </div>
         ))}
       </CollapsiblePanel>
       {line.where ? (

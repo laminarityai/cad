@@ -727,12 +727,13 @@ export interface components {
         };
         /**
          * BodyMaterialUse
-         * @description What one named body is made of and what set it.
+         * @description What one named body is made of, the name a person reads for it, and what set it.
          */
         BodyMaterialUse: {
             key: string;
             set_by: components["schemas"]["SetBy"];
             body: components["schemas"]["BodyName"];
+            name: string;
         };
         BodyName: string;
         /** BoundingBoxWire */

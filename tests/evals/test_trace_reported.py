@@ -12,6 +12,7 @@ from cad.projects.model import new_project_id
 from cad.scorecard import material, unjudged
 from cad.scorecard.material import ReportedScorecard
 from cad.scorecard.model import AwaitingConfirmation
+from cad.tables.materials import load_materials
 from tests.support.cards import (
     BRIEF_TEXT,
     genuine_card,
@@ -32,7 +33,7 @@ def reported_with_a_measure_only(store: Path) -> ReportedScorecard:
     fea = genuine_result(SPEC_BY_ID["fea"]).model_copy(update={"instance": LOAD})
     card = genuine_card(basis=AwaitingConfirmation(brief_id=brief_id))
     results = unjudged.without_verdicts((*card.results, fea), frozenset({("fea", LOAD)}))
-    return material.reported(card, None).model_copy(update={"results": results})
+    return material.reported(card, None, load_materials()).model_copy(update={"results": results})
 
 
 def test_a_measure_only_result_traces_each_measure_to_its_check(store: Path) -> None:

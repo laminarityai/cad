@@ -262,6 +262,10 @@ async def test_a_body_s_own_made_of_shows_on_the_slot_before_it_is_scored(alice:
         ("plate", "cliffs-hot-rolled-cs-type-b", "requirement"),
         ("gear", "prusament-pla", "requirement"),
     ]
+    assert [one.name for one in member.body_materials] == [
+        "Cleveland-Cliffs hot-rolled Commercial Steel (CS Type B) mild steel sheet",
+        "Prusament PLA",
+    ]
 
 
 async def test_an_option_an_older_sandbox_stored_shows_its_rebuild_once_it_is_rebuilt(

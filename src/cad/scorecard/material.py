@@ -63,9 +63,10 @@ class MaterialUse(Frozen):
 
 
 class BodyMaterialUse(MaterialUse):
-    """What one named body is made of and what set it."""
+    """What one named body is made of, the name a person reads for it, and what set it."""
 
     body: BodyName
+    name: str
 
 
 class ReportedScorecard(Scorecard):
@@ -228,7 +229,10 @@ def used(
 
 
 def reported(
-    card: Scorecard, confirmed: ConfirmedSet | None, revision: Revision | None = None
+    card: Scorecard,
+    confirmed: ConfirmedSet | None,
+    table: MaterialsTable,
+    revision: Revision | None = None,
 ) -> ReportedScorecard:
     """The card with what set each material: the person's made_of, else the agent, with the
     reason its slot recorded."""
@@ -236,7 +240,9 @@ def reported(
     kept = {} if revision is None else {one.body: one for one in revision.materials}
     each = tuple(
         BodyMaterialUse(
-            body=one.body, **dict(used(one.key, confirmed, kept.get(one.body), one.body))
+            body=one.body,
+            name=table.name_of(one.key),
+            **dict(used(one.key, confirmed, kept.get(one.body), one.body)),
         )
         for one in card.materials
     )

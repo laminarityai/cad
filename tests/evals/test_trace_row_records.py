@@ -16,6 +16,7 @@ from cad.records.roots import Roots
 from cad.scorecard import assumed, material
 from cad.scorecard.material import ReportedScorecard
 from cad.scorecard.model import AwaitingConfirmation
+from cad.tables.materials import load_materials
 from tests.support.cards import TARGET, drafts, genuine_card, reasons, trace
 
 
@@ -25,7 +26,9 @@ def light(ounces: float) -> Assumption:
 
 
 def assumed_card(brief_id: str, held: AssumptionSet) -> ReportedScorecard:
-    reported = material.reported(genuine_card(basis=AwaitingConfirmation(brief_id=brief_id)), None)
+    reported = material.reported(
+        genuine_card(basis=AwaitingConfirmation(brief_id=brief_id)), None, load_materials()
+    )
     return reported.model_copy(
         update={"assumptions": assumed.rows(held.assumptions, reported.results)}
     )

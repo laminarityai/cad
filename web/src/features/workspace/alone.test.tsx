@@ -53,8 +53,8 @@ async function open() {
   const members = setOf(["v1"]).members.map((member) => ({
     ...member,
     body_materials: [
-      { body: "plate", key: "polymaker-fiberon-pa6-cf20", set_by: AGENT },
-      { body: "gear", key: "cliffs-hot-rolled-cs-type-b", set_by: AGENT },
+      { body: "plate", key: "polymaker-fiberon-pa6-cf20", name: "Polymaker Fiberon PA6-CF20", set_by: AGENT },
+      { body: "gear", key: "cliffs-hot-rolled-cs-type-b", name: "Cleveland-Cliffs hot-rolled steel", set_by: AGENT },
     ],
   }));
   const api = fakeApi(["v1"], {

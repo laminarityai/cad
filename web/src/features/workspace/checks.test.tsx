@@ -2,7 +2,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { restore } from "@/api/snapshot";
-import { massResult, mass, snapshot } from "@/test/fixtures";
+import { deflectionDone, massResult, mass, snapshot } from "@/test/fixtures";
 import { Checks } from "./bits";
 import { summaryOf } from "./cards";
 
@@ -100,5 +100,28 @@ describe("the Checks pane", () => {
     expect(within(row).getByText("Waiting for you, no verdict yet")).toBeInTheDocument();
     expect(within(row).getByText("mass: 41.2 g, your target 30 g")).toBeInTheDocument();
     expect(within(row).queryByText(/Pass|Fail/)).not.toBeInTheDocument();
+  });
+
+  it("quotes both the size range and the limit of the tolerance row a holes line cites", async () => {
+    const base = deflectionDone();
+    const cited = { url: "https://example.com/iso-2768", title: "ISO 2768-1", page: "1", retrieved: "2026-11-11", standard: "ISO 2768-1" };
+    const range = "over 6 up to 30";
+    const limit = "m ±0.1 ±0.1 ±0.2";
+    const judged = {
+      ...base,
+      check_id: "holes",
+      requirement_id: "r1",
+      statement: "8 holes of 8 mm, ISO 2768-m (7.800 to 8.200 mm)",
+      sources: [
+        { ...cited, quote: range },
+        { ...cited, quote: limit },
+      ],
+      comparisons: base.comparisons.map((one) => ({ ...one, measure: "hole_diameter" })),
+    };
+    const result = { ...massResult(), check_id: "holes", sources: [], measured: [{ name: "hole_diameter:0", value: { magnitude: 8, unit: "mm" } }] };
+    const { container } = render(<Checks card={{ snapshot: restore(snapshot("v1", [judged], [result])) }} material={null} />);
+    await userEvent.click(screen.getByText(/^8 holes of 8 mm/));
+    expect([...container.querySelectorAll("[data-quote]")].map((one) => one.textContent)).toEqual([range, limit]);
+    expect(screen.getAllByRole("link", { name: "ISO 2768-1" })).toHaveLength(1);
   });
 });

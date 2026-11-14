@@ -9,6 +9,8 @@ import { Workspace } from "./Workspace";
 
 const PLATE = "polymaker-fiberon-pa6-cf20";
 const GEAR = "cliffs-hot-rolled-cs-type-b";
+const PLATE_NAME = "Polymaker Fiberon PA6-CF20";
+const GEAR_NAME = "Cleveland-Cliffs hot-rolled steel";
 const JOINTS = "How the bodies are joined is not checked.";
 const AGENT = { kind: "agent_argument" as const, statement: "The agent chose this material." };
 const meshNeverArrives = () => new Promise<never>(() => undefined);
@@ -40,8 +42,8 @@ function bodied(gear: boolean) {
       { name: "gear", solids: [1, 2] },
     ],
     body_materials: [
-      { body: "plate", key: PLATE, set_by: AGENT },
-      { body: "gear", key: GEAR, set_by: AGENT },
+      { body: "plate", key: PLATE, name: PLATE_NAME, set_by: AGENT },
+      { body: "gear", key: GEAR, name: GEAR_NAME, set_by: AGENT },
     ],
     untested: [JOINTS],
   };
@@ -90,13 +92,13 @@ describe("the bodies of a variant", () => {
   it("each show their colour, material, who chose it, solids, and what the mass check measured of that body", async () => {
     const list = await open(true);
     const plate = row(list, "plate");
-    expect(within(plate).getByText(`${PLATE} · chosen by the agent · 1 solid`)).toBeInTheDocument();
+    expect(within(plate).getByText(`${PLATE_NAME} · chosen by the agent · 1 solid`)).toBeInTheDocument();
     expect(within(plate).getByText("12.8 cm³ · 15 g")).toBeInTheDocument();
     await waitFor(() => {
       expect(plate.querySelector("[data-swatch]")).toHaveStyle({ backgroundColor: "#1a1a1a" });
     });
     const gear = row(list, "gear");
-    expect(within(gear).getByText(`${GEAR} · chosen by the agent · 2 solids`)).toBeInTheDocument();
+    expect(within(gear).getByText(`${GEAR_NAME} · chosen by the agent · 2 solids`)).toBeInTheDocument();
     expect(within(gear).getByText("6.03 cm³ · 47.5 g")).toBeInTheDocument();
   });
 
