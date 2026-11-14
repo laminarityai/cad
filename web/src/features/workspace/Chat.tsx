@@ -211,6 +211,12 @@ function Said({ line }: { line: Line }) {
           <Markdown text={line.report} />
         </div>
       );
+    case "notice":
+      return (
+        <p data-said="notice" className="text-[14px] text-ink-2">
+          {line.text}
+        </p>
+      );
     case "failed":
       return <p className="text-[15px] text-fail">{line.message}</p>;
     default:

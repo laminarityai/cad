@@ -6,6 +6,7 @@ export type Line =
   | { seq: number; kind: "agent" | "driver"; text: string }
   | { seq: number; kind: "tool"; callId: string; name: string; input: Record<string, unknown>; result: { text: string; isError: boolean } | null }
   | { seq: number; kind: "stop_report"; runId: string; reason: string; report: string }
+  | { seq: number; kind: "notice"; text: string }
   | { seq: number; kind: "failed"; message: string };
 
 export interface ChatState {
@@ -52,6 +53,8 @@ function withEvent(lines: readonly Line[], seq: number, event: Event): readonly 
     }
     case "stop_report":
       return [...lines, { seq, kind: "stop_report", runId: event.run_id, reason: event.reason, report: event.report }];
+    case "context_trimmed":
+      return [...lines, { seq, kind: "notice", text: event.text }];
     case "turn_failed":
       return [...lines, { seq, kind: "failed", message: event.message }];
     case "turn_ended":

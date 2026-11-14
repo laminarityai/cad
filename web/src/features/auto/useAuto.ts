@@ -17,7 +17,8 @@ function runToShow(view: ConversationView | null): RunView | null {
   if (view?.run == null) return null;
   const run = viewOf(view.run);
   const holds = view.stopped_run === run.runId || view.auto_run === run.runId;
-  return run.status === "running" || holds ? run : null;
+  if (run.status === "running") return { ...run, checksSettling: view.checks_settling };
+  return holds ? run : null;
 }
 
 export function useAuto(conversationId: string): Auto {

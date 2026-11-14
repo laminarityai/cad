@@ -1,7 +1,7 @@
 import type { AutoRun, StopReason } from "@/api/types";
 
 export type RunView =
-  | { runId: string; status: "running"; builds: number; briefId: string }
+  | { runId: string; status: "running"; builds: number; briefId: string; checksSettling: boolean }
   | { runId: string; status: "stopped"; builds: number; reason: StopKind; agentChecked: number; described: number; note: string; report: string };
 
 export type StopKind = StopReason["kind"];
@@ -39,7 +39,7 @@ function noteOf(reason: StopReason): string {
 
 export function viewOf(run: AutoRun): RunView {
   if (run.state.kind === "running") {
-    return { runId: run.run_id, status: "running", builds: run.state.builds.length, briefId: run.state.start.brief_id };
+    return { runId: run.run_id, status: "running", builds: run.state.builds.length, briefId: run.state.start.brief_id, checksSettling: false };
   }
   const { reason } = run.state;
   return {
