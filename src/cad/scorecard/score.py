@@ -28,6 +28,10 @@ class PlacedFitTarget(Refused):
     pass
 
 
+class PartsNotHeld(Refused):
+    pass
+
+
 class NotScored(Refused):
     def __init__(self, vid: str) -> None:
         super().__init__(
@@ -64,9 +68,12 @@ def score_variant(
     demand: jobs.Demand = NO_DEMAND,
     table: MaterialsTable | None = None,
     fetch: variants.Fetch = variants.no_parts,
+    parts: frozenset[str] | None = None,
 ) -> Scorecard:
+    """`parts` holds the ids of the parts the scoring brief's project confirmed, and is None
+    without a brief."""
     held, rebuilt_from = open_or_rebuild(variant_id, root, fetch)
-    request, plan = planned(root, held, material, table, demand)
+    request, plan = planned(root, held, material, table, demand, parts)
     return scorecard_of(plan, request, lanes.settle(plan, WAIT_SECONDS), assess, rebuilt_from)
 
 
@@ -78,13 +85,14 @@ def peek_variant(
     lanes: Lanes = LANES,
     demand: jobs.Demand = NO_DEMAND,
     table: MaterialsTable | None = None,
+    parts: frozenset[str] | None = None,
 ) -> Scorecard:
     """The card of `score_variant` as the signed results hold it now. Nothing is built, run or
     waited for: a background job with no stored result is pending while it runs or waits, and
     refused once interrupted too often or when nothing runs it, as after a restart or a failed
     run."""
     held = entry.open_entry(root, variant_id, image.image_tag(image.BUILD))
-    request, plan = planned(root, held, material, table, demand)
+    request, plan = planned(root, held, material, table, demand, parts)
     match lanes.peek(plan):
         case Settled() as settled:
             return scorecard_of(plan, request, settled, assess)
@@ -100,7 +108,9 @@ def planned(
     material: MadeOf,
     table: MaterialsTable | None,
     demand: jobs.Demand,
+    parts: frozenset[str] | None,
 ) -> tuple[Request, jobs.Plan]:
+    _refuse_parts_not_held(held, parts)
     _refuse_placed_fit_targets(held, demand)
     table = table or host.materials_table()
     made = material(held.bodies) if callable(material) else material
@@ -109,6 +119,25 @@ def planned(
     except ValueError as error:
         raise BodiesChanged(_changed(held)) from error
     return request, jobs.plan(root, held, request, table, demand)
+
+
+def _refuse_parts_not_held(held: entry.Entry, parts: frozenset[str] | None) -> None:
+    """A variant reads only the parts its brief's project confirmed, so a score is refused on a
+    brief whose project does not hold them now, as a build is (ADR-0012)."""
+    if not held.parts:
+        return
+    if parts is None:
+        raise PartsNotHeld(
+            f"variant {held.id} read supplied parts, so pass brief_id too: parts come from a "
+            "brief's project"
+        )
+    missing = [use.part_id for use in held.parts if use.part_id not in parts]
+    if missing:
+        raise PartsNotHeld(
+            f"variant {held.id} read {', '.join(missing)}, which the brief's project has not "
+            "confirmed; list_files lists the parts it holds. Score it with a brief of the "
+            "project it was built for, or build it again without those parts"
+        )
 
 
 def _refuse_placed_fit_targets(held: entry.Entry, demand: jobs.Demand) -> None:

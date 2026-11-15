@@ -11,18 +11,17 @@ from cad.auto.gate import gate, stops_at_the_limit
 from cad.briefs import assumptions as assuming
 from cad.briefs import store as briefs
 from cad.briefs.assumptions import Assumption
-from cad.briefs.model import ON_PART, Requirement, Target
+from cad.briefs.model import Requirement, Target
 from cad.briefs.store import ConfirmedSet
 from cad.checks import jobs
 from cad.checks.result import Materials
 from cad.confirmations.requirements import plain_names
-from cad.context_parts.ids import ContextPartId
-from cad.context_parts.store import ConfirmedPart, fit_targets, part_brep, stored_brep
+from cad.context_parts.store import ConfirmedPart, stored_brep
+from cad.operations import brief_parts
 from cad.operations.agent_checks import with_agent_checks
 from cad.operations.guidance import BODY_MATERIALS, NOT_VERIFIED, RULE
 from cad.operations.model import BOTH, Audience, Input, Tenant, operation
 from cad.operations.research import brief_table, with_research
-from cad.records.roots import Roots
 from cad.research.overlay import ProjectTable
 from cad.sandbox import image
 from cad.sandbox.bodies import MAX_BODIES, Bodies, BodyName
@@ -173,30 +172,15 @@ class Judged:
     revision: Revision | None
     assumptions: tuple[Assumption, ...]
     waiting: tuple[Requirement, ...]
+    parts: frozenset[str] | None
 
 
 def fit_parts(tenant: Tenant, brief_id: str) -> tuple[ConfirmedPart, ...]:
     """The parts the brief's fit check measures, as a card of it scores them."""
     confirmed = briefs.confirmed_requirements(tenant.roots, brief_id)
     waiting = _waiting(tenant, brief_id, confirmed)
-    return _fit_parts(
-        tenant.roots, brief_id, _targets(confirmed, waiting, _assumed(tenant, brief_id))
-    )
-
-
-def _fit_parts(roots: Roots, brief_id: str, targets: Sequence[Target]) -> tuple[ConfirmedPart, ...]:
-    project = briefs.read_brief(roots, brief_id).project
-    named = frozenset(one.part for one in targets if isinstance(one, ON_PART))
-    return fit_targets(roots.projects, project, brief_id, named)
-
-
-def _context(
-    roots: Roots, brief_id: str, targets: Sequence[Target]
-) -> dict[ContextPartId, jobs.PartBrep]:
-    return {
-        part.record.id: jobs.PartBrep(part.record.brep_sha256, part_brep(roots.projects, part))
-        for part in _fit_parts(roots, brief_id, targets)
-    }
+    targets = _targets(confirmed, waiting, _assumed(tenant, brief_id))
+    return brief_parts.measured(tenant.roots, brief_id, targets)
 
 
 def _slot_choice(tenant: Tenant, brief_id: str, variant_id: str) -> Revision | None:
@@ -269,7 +253,9 @@ def judged(
     assess, demand = score.no_brief, score.NO_DEMAND
     held = ()
     waiting: tuple[Requirement, ...] = ()
+    parts = None
     if brief_id is not None:
+        parts = brief_parts.held(tenant.roots, brief_id)
         confirmed = briefs.confirmed_requirements(tenant.roots, brief_id)
         assess = (
             requirements.awaiting(brief_id)
@@ -279,7 +265,7 @@ def judged(
         held = _assumed(tenant, brief_id)
         waiting = _waiting(tenant, brief_id, confirmed)
         targets = _targets(confirmed, waiting, held)
-        demand = requirements.demand(targets, _context(tenant.roots, brief_id, targets))
+        demand = requirements.demand(targets, brief_parts.context(tenant.roots, brief_id, targets))
     table = brief_table(tenant.roots, brief_id)
     pinned = material.pins(confirmed, table.table)
     revision = None
@@ -301,7 +287,7 @@ def judged(
     def materials_of(bodies: Bodies) -> Materials:
         return material.made_of(bodies, single, asked, pinned, revision)
 
-    return Judged(confirmed, assess, demand, table, materials_of, revision, held, waiting)
+    return Judged(confirmed, assess, demand, table, materials_of, revision, held, waiting, parts)
 
 
 def score_variant(tenant: Tenant, arguments: ScoreVariantInput) -> material.ReportedScorecard:
@@ -327,6 +313,7 @@ def score_variant(tenant: Tenant, arguments: ScoreVariantInput) -> material.Repo
             demand=basis.demand,
             table=basis.table.table,
             fetch=partial(stored_brep, tenant.roots.projects),
+            parts=basis.parts,
         )
     repair.collect_beside(tenant.variants, scored.variant_id, tag)
     card = with_research(
@@ -359,6 +346,7 @@ def scorecard(tenant: Tenant, arguments: ScorecardInput) -> material.ScorecardSn
         basis.assess,
         demand=basis.demand,
         table=basis.table.table,
+        parts=basis.parts,
     )
     reported = material.reported(peeked, basis.confirmed, basis.table.table, basis.revision)
     card = with_research(reported, basis.table, arguments.brief_id)
