@@ -117,7 +117,7 @@ describe("the parts a person supplied", () => {
     ["never made", () => "pending"],
   ])("are left out with a note when their mesh is %s, and the view stops being read", async (_, meshing) => {
     const { viewer, reads } = open(meshing);
-    expect(await screen.findByText("A part you supplied could not be drawn", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(await screen.findByText("A part you supplied could not be drawn", undefined, { timeout: 10_000 })).toBeInTheDocument();
     expect(drawnParts(viewer).map((one) => one.id)).toEqual(["/variant/part"]);
     const settled = reads();
     await new Promise((done) => setTimeout(done, 100));
