@@ -16,9 +16,10 @@ from typing import TYPE_CHECKING, Protocol, cast
 if TYPE_CHECKING:
     from types import TracebackType
 
-    from cad.sandbox.wire import AreaReport, FailedReport, Report
+    from cad.sandbox.wire import AreaReport, FailedReport, PartListing, Report
 
 VARIANT = Path("/tmp/variant.py")
+PARTS = Path("/tmp/parts")
 CPU_KILL_AFTER_SECONDS = 5
 AREAS = "areas"
 UNNAMED = "unnamed"
@@ -42,7 +43,7 @@ def main() -> None:
     root = os.getpid()
     report_channel = os.dup(1)
     os.dup2(2, 1)
-    report = run_variant(root, int(sys.argv[1]))
+    report = run_variant(root, int(sys.argv[1]), json.loads(sys.argv[2]))
     sys.stdout.flush()
     sys.stderr.flush()
     with os.fdopen(report_channel, "wb") as channel:
@@ -51,11 +52,11 @@ def main() -> None:
     os._exit(0)
 
 
-def run_variant(root: int, cpu_seconds: int) -> Report:
+def run_variant(root: int, cpu_seconds: int, listed: list[PartListing]) -> Report:
     try:
         resource.setrlimit(resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds + CPU_KILL_AFTER_SECONDS))
-        VARIANT.write_bytes(sys.stdin.buffer.read())
-        namespace = runpy.run_path(str(VARIANT), run_name="__main__")
+        helpers = unpack(sys.stdin.buffer.read(), listed)
+        namespace = runpy.run_path(str(VARIANT), init_globals=helpers, run_name="__main__")
     except BaseException as error:
         exit_if_forked_child(root)
         return failed(error)
@@ -64,6 +65,37 @@ def run_variant(root: int, cpu_seconds: int) -> Report:
         return result_report(namespace)
     except BaseException as error:
         return failed(error)
+
+
+def unpack(sent: bytes, listed: list[PartListing]) -> dict[str, object]:
+    """Write the code, and each supplied part's BREP that follows it on stdin, and give the code
+    `part` and `placed` to read them with."""
+    start = len(sent) - sum(one["size"] for one in listed)
+    VARIANT.write_bytes(sent[:start])
+    paths: dict[str, Path] = {}
+    for index, one in enumerate(listed):
+        PARTS.mkdir(exist_ok=True)
+        paths[one["id"]] = PARTS / f"{index}.brep"
+        paths[one["id"]].write_bytes(sent[start : start + one["size"]])
+        start += one["size"]
+    placements = {one["id"]: one["placements"] for one in listed}
+
+    def sent_part(part_id: str) -> Path:
+        if part_id not in paths:
+            raise ValueError(f"{part_id!r} is not a part this build reads; name it in parts")
+        return paths[part_id]
+
+    def part(part_id: str) -> object:
+        """The supplied part's solids, in the part's own frame."""
+        return importlib.import_module("build123d").import_brep(str(sent_part(part_id)))
+
+    def placed(part_id: str) -> list[object]:
+        """A build123d Location for each placement of the part that the build names."""
+        sent_part(part_id)
+        location = importlib.import_module("build123d").Location
+        return [location(tuple(p["at"]), tuple(p["rotate"])) for p in placements[part_id]]
+
+    return {"part": part, "placed": placed}
 
 
 def exit_if_forked_child(root: int) -> None:

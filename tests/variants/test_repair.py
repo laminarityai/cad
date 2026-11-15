@@ -31,7 +31,7 @@ def builds(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     for a code that says "another"."""
     built: list[str] = []
 
-    def build(code: str, image_id: str, *, wall_seconds: int) -> Run:
+    def build(code: str, image_id: str, *, wall_seconds: int, parts: object) -> Run:
         built.append(code)
         return Run(Artifacts(b"another shape" if "another" in code else BREP, Built()), "")
 

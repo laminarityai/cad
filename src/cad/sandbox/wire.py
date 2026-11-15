@@ -1,6 +1,20 @@
 from typing import Literal, NotRequired, TypedDict
 
 
+class PlacementListing(TypedDict):
+    at: list[float]
+    rotate: list[float]
+
+
+class PartListing(TypedDict):
+    """A supplied part the build reads. Its BREP is `size` bytes of stdin after the code, the
+    parts in the order listed."""
+
+    id: str
+    size: int
+    placements: list[PlacementListing]
+
+
 class AreaReport(TypedDict):
     name: str
     colour: str

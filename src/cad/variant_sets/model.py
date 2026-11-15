@@ -11,7 +11,8 @@ from cad.errors import Refused
 from cad.frozen import Frozen
 from cad.projects.model import ProjectId
 from cad.sandbox.bodies import Bodies, BodyName
-from cad.variants.entry import VariantId, variant_id
+from cad.sandbox.outcome import PartUse
+from cad.variants.entry import VariantId, build_sha256, variant_id
 from cad.variants.store import BuildResult
 
 MAX_MEMBERS: Final = 5
@@ -124,9 +125,16 @@ class Revision(Frozen):
     material: MaterialChoice | None = None
     option: Option | None = None
     materials: tuple[BodyChoice, ...] = Field(default=(), exclude_if=lambda each: not each)
+    parts: tuple[PartUse, ...] = Field(default=(), exclude_if=lambda each: not each)
 
     def live_id(self, image_tag: str) -> VariantId:
-        return variant_id(self.code, image_tag)
+        return variant_id(self.code, image_tag, self.parts)
+
+    @property
+    def build_sha256(self) -> str:
+        """What the build read, code and parts, so the same code placing a part elsewhere is
+        another revision."""
+        return build_sha256(self.code, self.parts)
 
 
 @dataclass(frozen=True, slots=True)

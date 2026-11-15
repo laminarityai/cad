@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Callable, Generator
+from collections.abc import Callable, Generator, Sequence
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
@@ -16,7 +16,8 @@ from cad.records import files, signed
 from cad.records.roots import Roots, project_store
 from cad.sandbox import image
 from cad.sandbox.bodies import Bodies
-from cad.sandbox.outcome import Built
+from cad.sandbox.builder import Supplied
+from cad.sandbox.outcome import Built, PartUse
 from cad.variant_sets.model import (
     MAX_MEMBERS,
     BodiesMissing,
@@ -59,23 +60,25 @@ def build_into_set(
     option: Option | None = None,
     lanes: Lanes = LANES,
     on_built: Callable[[VariantId], None] = lambda _: None,
+    parts: Sequence[Supplied] = (),
 ) -> SetBuildResult:
     """`on_built` runs once the build returns, before the join, so a join the set refuses
     still leaves the build counted."""
     root = roots.projects
     key = set_key(roots, brief_id)
     held = members(root, key)
-    sha256 = code_sha256(code)
+    uses = tuple(one.use for one in parts)
+    sha256 = entry.build_sha256(code, uses)
     try:
         design = _resolved(held, sha256, slot, resolve, option)
         place(held, sha256, design, slot)
     except SetFull:
         raise _full(key) from None
-    _record(code, 1, VariantId("0" * 16), key, design)
-    built = variants.build_variant(code, variants_root)
+    _record(code, uses, 1, VariantId("0" * 16), key, design)
+    built = variants.build_variant(code, variants_root, parts=parts)
     on_built(built.variant_id)
     joined = (
-        join(root, key, code, built.variant_id, slot, resolve, option, built.outcome.bodies)
+        join(root, key, code, built.variant_id, slot, resolve, option, built.outcome.bodies, uses)
         if isinstance(built.outcome, Built)
         else NotJoined()
     )
@@ -143,13 +146,14 @@ def join(
     resolve: Resolve = _no_choice,
     option: Option | None = None,
     bodies: Bodies = (),
+    parts: tuple[PartUse, ...] = (),
 ) -> Joined:
     """Make `code` what `slot` shows, as a new revision. With no slot, new code takes a free one.
 
     `resolve` runs on the log being appended to, so a choice made by a build that finished first
     is the one it sees. It reads `bodies`, the bodies the code built, so a material that names a
     body the code did not build joins nothing."""
-    sha256 = code_sha256(code)
+    sha256 = entry.build_sha256(code, parts)
     directory = _directory(root, key)
     outcome: list[Placement | SetRefused] = []
 
@@ -167,7 +171,9 @@ def join(
             outcome.append(type(error)(f"{str(error).rstrip('.')}. {kept}"))
             return None
         outcome.append(placed)
-        return None if placed.unchanged else _record(code, placed.slot, built_as, key, design)
+        if placed.unchanged:
+            return None
+        return _record(code, parts, placed.slot, built_as, key, design)
 
     with _without_host_paths(key, directory):
         signed.append(project_store(root), directory, _revision_slot(key), next_revision)
@@ -177,7 +183,14 @@ def join(
     return Joined(slot=result.slot, revision=result.revision, already_member=result.unchanged)
 
 
-def _record(code: str, slot: int, built_as: VariantId, key: SetKey, design: Design) -> bytes:
+def _record(
+    code: str,
+    parts: tuple[PartUse, ...],
+    slot: int,
+    built_as: VariantId,
+    key: SetKey,
+    design: Design,
+) -> bytes:
     record = (
         Revision(
             slot=slot,
@@ -188,6 +201,7 @@ def _record(code: str, slot: int, built_as: VariantId, key: SetKey, design: Desi
             material=design.chosen.material,
             option=design.option,
             materials=design.chosen.materials,
+            parts=parts,
         )
         .model_dump_json()
         .encode()
@@ -213,7 +227,7 @@ def builds(variants_root: Path, revision: Revision, image_tag: str) -> Builds:
     context parts and dropped checks. The code index finds a rebuild by any sandbox."""
     live = revision.live_id(image_tag)
     shown = live if files.is_directory(variants_root / live) else revision.built_as
-    stored = entry.built_from(variants_root, revision.code)
+    stored = entry.built_from(variants_root, revision.code, revision.parts)
     return Builds(shown, frozenset((revision.built_as, shown, *stored)))
 
 

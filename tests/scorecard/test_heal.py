@@ -18,7 +18,7 @@ BREP = b"CASCADE Topology V3, (c) Open Cascade\n"
 def builds(monkeypatch: pytest.MonkeyPatch) -> list[str]:
     built: list[str] = []
 
-    def build(code: str, image_id: str, *, wall_seconds: int) -> Run:
+    def build(code: str, image_id: str, *, wall_seconds: int, parts: object) -> Run:
         built.append(code)
         return Run(Artifacts(BREP, Built()), "")
 
