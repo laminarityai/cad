@@ -127,8 +127,8 @@ function Mesh(props: {
   const position = cut?.at;
   const plane = useMemo(() => (bb && axis ? sectionOf({ axis, at: position ?? null }, bb) : null), [bb, axis, position]);
   let body: ReactElement;
-  if (mesh.status === "failed" && mesh.outdated) {
-    body = <Rebuild variantId={variantId} briefId={briefId} onRebuilt={onRebuilt} />;
+  if (mesh.status === "failed" && mesh.rebuild) {
+    body = <Rebuild variantId={variantId} briefId={briefId} why={mesh.rebuild} onRebuilt={onRebuilt} />;
   } else if (mesh.status === "failed") {
     body = <p className="p-4 text-fail">{mesh.reason}</p>;
   } else if (drawn === null) {

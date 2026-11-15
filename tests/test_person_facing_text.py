@@ -5,11 +5,13 @@ from pathlib import Path
 import cad
 
 SOURCE = Path(cad.__file__).parent
-# Each names a step only someone with the server's files could take. `\s` before ".attempt" lets the
-# job store's own file suffix through.
+# Each names a step only someone with the server's files could take: a store's file, an image to
+# build, a command to run or a program to install. `\s` before ".attempt" lets the job store's own
+# file suffix through.
 DENIED = re.compile(
     r"\boperator\b|\badministrator\b|contact support|\s\.attempt\b"
-    r"|\bdelete the\b[^;]*\b(?:directory|file)\b",
+    r"|\bdelete the\b[^;]*\b(?:directory|file)\b"
+    r"|\buv run cad-|\bnpm run build\b|\buv run verify\b|\bdocker is not installed\b",
     re.IGNORECASE,
 )
 

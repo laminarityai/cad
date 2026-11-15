@@ -60,6 +60,7 @@ EXPECTED: Final[dict[str, Answer]] = {
     "cad.projects.model.ProjectRefused": ("400 named", "named"),
     "cad.projects.model.TamperedProject": ("400 named", "named"),
     "cad.projects.model.UnknownProject": ("404 named", "named"),
+    "cad.records.files.ReadFailed": ("503 plain", "plain"),
     "cad.records.signed.Contended": (None, None),
     "cad.records.signed.StoreUnusable": ("503 plain", "plain"),
     "cad.records.signed.Tampered": (None, None),
@@ -89,11 +90,13 @@ EXPECTED: Final[dict[str, Answer]] = {
     "cad.variant_sets.model.SetRefused": ("400 named", "named"),
     "cad.variant_sets.model.SlotRefused": ("400 named", "named"),
     "cad.variant_sets.model.TamperedSet": ("400 named", "named"),
+    "cad.variants.entry.DamagedShape": ("400 named", "named"),
     "cad.variants.entry.NotBuilt": ("400 named", "named"),
     "cad.variants.entry.OutdatedVariant": ("400 named", "named"),
     "cad.variants.entry.StaleVariant": ("400 named", "named"),
     "cad.variants.entry.UnknownVariant": ("404 named", "named"),
     "cad.variants.entry.VariantRefused": ("400 named", "named"),
+    "cad.variants.repair.ShapeNotRebuilt": ("400 named", "named"),
     "cad.variants.store.RebuildFailed": ("400 named", "named"),
 }
 

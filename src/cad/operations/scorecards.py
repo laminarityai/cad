@@ -29,6 +29,7 @@ from cad.scorecard import assumed, awaiting, material, requirements, score, unju
 from cad.tables.materials import KEY_PATTERN
 from cad.variant_sets import store as variant_sets
 from cad.variant_sets.model import BodyMaterialsRefused, MaterialMissing, Revision
+from cad.variants import repair
 
 MAX_KEY_CHARS: Final = 64
 type MaterialKey = Annotated[
@@ -300,6 +301,7 @@ def score_variant(tenant: Tenant, arguments: ScoreVariantInput) -> material.Repo
     )
     if arguments.own_measurements:
         own.refuse_unless_unchecked(basis.confirmed, arguments.own_measurements)
+    tag = image.image_tag(image.BUILD)
     with stops_at_the_limit(
         tenant.roots, tenant.conversations, tenant.bound_run, arguments.variant_id
     ):
@@ -311,6 +313,7 @@ def score_variant(tenant: Tenant, arguments: ScoreVariantInput) -> material.Repo
             demand=basis.demand,
             table=basis.table.table,
         )
+    repair.collect_beside(tenant.variants, scored.variant_id, tag)
     card = with_research(
         material.reported(scored, basis.confirmed, basis.table.table, basis.revision),
         basis.table,

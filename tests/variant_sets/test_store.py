@@ -1,4 +1,6 @@
+import hashlib
 import shutil
+from collections.abc import Callable, Collection
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
@@ -6,6 +8,8 @@ import pytest
 
 from cad.briefs.model import BriefId
 from cad.checks import report
+from cad.checks.jobs import run_job
+from cad.checks.lanes import Lanes
 from cad.projects.model import ProjectId
 from cad.variant_sets import store
 from cad.variant_sets.model import (
@@ -231,6 +235,28 @@ def test_a_revision_cannot_be_moved_to_another_slot_by_editing_its_record(
     record.write_bytes(record.read_bytes().replace(b'"slot":2', b'"slot":1'))
     with pytest.raises(TamperedSet):
         store.members(tmp_path, KEY)
+
+
+def test_a_rebuild_indexed_while_the_queue_lock_is_awaited_is_dropped_too(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    variants = tmp_path / "variants"
+    join(tmp_path, "a")
+    joined = join(tmp_path, "b", slot=1)
+    rebuilt = "5" * 16
+    lanes = Lanes(run_job)
+    dropped: list[str] = []
+
+    def drop_unstarted(root: Path, replaced: Callable[[], Collection[str]]) -> int:
+        note = variants / entry.BY_CODE / hashlib.sha256(b"a").hexdigest() / rebuilt
+        note.parent.mkdir(parents=True)
+        note.touch()
+        dropped.extend(replaced())
+        return 0
+
+    monkeypatch.setattr(lanes, "drop_unstarted", drop_unstarted)
+    store._drop_replaced(tmp_path, KEY, variants, joined, lanes)  # pyright: ignore[reportPrivateUsage]
+    assert rebuilt in dropped
 
 
 def test_no_variant_set_code_feeds_a_variant_id_or_a_check_version() -> None:

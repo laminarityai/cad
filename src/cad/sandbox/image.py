@@ -6,11 +6,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Final
 
-from cad.sandbox.container import docker
+from cad.sandbox.container import SANDBOX_DOWN, docker
 from cad.sandbox.outcome import SandboxUnavailable
 
 SANDBOX_DIR: Final = Path(__file__).resolve().parents[3] / "sandbox"
-BUILD_IMAGE: Final = "uv run cad-sandbox build-image"
 
 
 @dataclass(frozen=True, slots=True)
@@ -58,7 +57,9 @@ def find_image(tag: str) -> str | None:
 def current_image(tag: str) -> str:
     image_id = find_image(tag)
     if image_id is None:
-        raise SandboxUnavailable(f"sandbox image {tag} is missing; run `{BUILD_IMAGE}`")
+        raise SandboxUnavailable.hiding_host(
+            SANDBOX_DOWN, f"sandbox image {tag} is missing; the cad-sandbox command builds it"
+        )
     return image_id
 
 
