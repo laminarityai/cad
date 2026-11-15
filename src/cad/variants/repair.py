@@ -11,8 +11,8 @@ from typing import Final
 from cad.errors import Unavailable
 from cad.records import files
 from cad.sandbox import builder, container, image
-from cad.sandbox.outcome import SandboxUnavailable
-from cad.variants import entry
+from cad.sandbox.outcome import PartUse, SandboxUnavailable
+from cad.variants import entry, store
 
 SHAPE_FILES: Final = (entry.BREP, entry.STEP)
 ANOTHER_SHAPE: Final = (
@@ -27,10 +27,11 @@ class ShapeNotRebuilt(entry.StaleVariant):
         super().__init__(ANOTHER_SHAPE.format(vid=vid))
 
 
-def heal(root: Path, raw_id: str, image_tag: str) -> None:
-    """Rebuild a lost or altered result.brep of a current entry from the code its key signed, and
-    keep the build only when it is the shape that signed record names, so every stored check result
-    still reads the same bytes. Any other entry is left for `open_entry` to open or refuse."""
+def heal(root: Path, raw_id: str, image_tag: str, fetch: store.Fetch = store.no_parts) -> None:
+    """Rebuild a lost or altered result.brep of a current entry from the code and parts its key
+    signed, and keep the build only when it is the shape that signed record names, so every stored
+    check result still reads the same bytes. Any other entry, or one whose parts are gone, is left
+    for `open_entry` to open or refuse."""
     refused = _refusal(root, raw_id, image_tag)
     if not isinstance(refused, entry.DamagedShape):
         return
@@ -38,8 +39,12 @@ def heal(root: Path, raw_id: str, image_tag: str) -> None:
     signed = _signed_code(root, vid, image_tag)
     if signed is None:
         return
-    code, brep_sha256 = signed
-    run = builder.build(code, image.current_image(image_tag), wall_seconds=container.WALL_SECONDS)
+    code, brep_sha256, uses = signed
+    parts = store.fetched(uses, fetch)
+    if parts is None:
+        return
+    current = image.current_image(image_tag)
+    run = builder.build(code, current, wall_seconds=container.WALL_SECONDS, parts=parts)
     brep = run.verdict.brep if isinstance(run.verdict, builder.Artifacts) else None
     if brep is None or hashlib.sha256(brep).hexdigest() != brep_sha256:
         LOG.error("%s: its signed code did not build the shape its record signed", root / vid)
@@ -57,7 +62,8 @@ def collect_outdated(root: Path, vid: entry.VariantId, image_tag: str) -> bool:
     outdated = _refusal(root, vid, image_tag)
     if not isinstance(outdated, entry.OutdatedVariant):
         return False
-    if _refusal(root, entry.variant_id(outdated.code, image_tag), image_tag) is not None:
+    current = entry.variant_id(outdated.code, image_tag, outdated.parts)
+    if _refusal(root, current, image_tag) is not None:
         return False
     for name in SHAPE_FILES:
         (root / vid / name).unlink(missing_ok=True)
@@ -65,14 +71,15 @@ def collect_outdated(root: Path, vid: entry.VariantId, image_tag: str) -> bool:
 
 
 def collect_beside(root: Path, vid: str, image_tag: str) -> None:
-    """Collect every outdated build of the code `vid` holds. It runs after a score, so a fault is
-    logged and never answered."""
+    """Collect every outdated build of the code and parts `vid` holds. It runs after a score, so
+    a fault is logged and never answered."""
     try:
-        code = files.read_regular(
-            root / entry.parse_variant_id(vid) / entry.CODE, entry.MAX_FILE_BYTES
-        )
+        held = entry.parse_variant_id(vid)
+        code = files.read_regular(root / held / entry.CODE, entry.MAX_FILE_BYTES)
+        manifest = entry.read_manifest(root, held)
         text = None if code is None else code.decode("utf-8", "surrogatepass")
-        for other in () if text is None else entry.built_from(root, text):
+        parts = () if manifest is None else manifest.parts
+        for other in () if text is None else entry.built_from(root, text, parts):
             if other != vid and collect_outdated(root, other, image_tag):
                 LOG.info("collected the shapes of %s, outdated by %s", root / other, vid)
     except (OSError, ValueError, Unavailable, entry.VariantRefused) as error:
@@ -87,8 +94,10 @@ def _refusal(root: Path, raw_id: str, image_tag: str) -> entry.VariantRefused | 
     return None
 
 
-def _signed_code(root: Path, vid: entry.VariantId, image_tag: str) -> tuple[str, str] | None:
-    """The code and shape hash the key signed for `vid`, when that code still builds as `vid`."""
+def _signed_code(
+    root: Path, vid: entry.VariantId, image_tag: str
+) -> tuple[str, str, tuple[PartUse, ...]] | None:
+    """The code, shape hash and parts the key signed for `vid`, when they still build as `vid`."""
     code = files.read_regular(root / vid / entry.CODE, entry.MAX_FILE_BYTES)
     try:
         manifest = entry.read_manifest(root, vid)
@@ -99,4 +108,6 @@ def _signed_code(root: Path, vid: entry.VariantId, image_tag: str) -> tuple[str,
     if manifest.code_sha256 != hashlib.sha256(code).hexdigest():
         return None
     text = code.decode("utf-8", "surrogatepass")
-    return (text, manifest.brep_sha256) if entry.variant_id(text, image_tag) == vid else None
+    if entry.variant_id(text, image_tag, manifest.parts) != vid:
+        return None
+    return text, manifest.brep_sha256, manifest.parts

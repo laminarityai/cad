@@ -16,6 +16,9 @@ ALLOWED_ARGUMENTS = {
         "materials",
         "label",
         "differs",
+        # Supplied parts the person added, named by id, and where the build places copies. The
+        # server refuses placing a part a fit check measures where it was confirmed.
+        "parts",
     },
     # own_measurements is the agent's measuring code, shown as not verified, never a verdict.
     "score_variant": {"variant_id", "material_key", "materials", "brief_id", "own_measurements"},
@@ -38,7 +41,7 @@ ALLOWED_ARGUMENTS = {
     "write_check": {"brief_id", "requirement_id", "check"},
     # The agent gives code or a note; the run's verdict comes from the server's scorecards.
     "auto_start": {"brief_id", "material_key", "material_reason", "materials"},
-    "auto_revise": {"run_id", "code", "slot"},
+    "auto_revise": {"run_id", "code", "slot", "parts"},
     "auto_ask": {"run_id", "note"},
     "variant_set": {"project_id", "brief_id", "material_key"},
     "variant_code": {"variant_id"},

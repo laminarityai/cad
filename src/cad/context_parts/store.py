@@ -21,10 +21,11 @@ from cad.context_parts.model import (
     Outcome,
 )
 from cad.errors import Refused
-from cad.projects.model import ProjectBusy, ProjectId, TamperedProject
+from cad.projects.model import ProjectBusy, ProjectId, TamperedProject, parse_project_id
 from cad.records import files, key, signed
 from cad.records.roots import Roots, project_store
 from cad.sandbox import image
+from cad.sandbox.outcome import PartUse
 from cad.variant_sets import store as sets
 from cad.variant_sets.model import Member
 from cad.variants import entry
@@ -297,6 +298,12 @@ def part_brep(projects: Path, part: ConfirmedPart) -> bytes:
             f"context part {record.id} of project {record.project} has lost its geometry; {again}"
         )
     return data
+
+
+def stored_brep(projects: Path, use: PartUse) -> bytes | None:
+    """The BREP a build read, by its SHA-256, whatever geometry the part has now."""
+    path = brep_path(projects, parse_project_id(use.project), use.brep_sha256)
+    return files.read_regular(path, entry.MAX_FILE_BYTES)
 
 
 def _stored(projects: Path, project: ProjectId, raw: tuple[bytes, ...]) -> tuple[Stored, ...]:

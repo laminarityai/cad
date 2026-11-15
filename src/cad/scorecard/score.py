@@ -9,7 +9,6 @@ from cad.checks.result import CheckResult, Materials, per_body, single_key
 from cad.errors import Refused
 from cad.sandbox import host, image
 from cad.sandbox.bodies import Bodies, bodies_sha256
-from cad.sandbox.outcome import Built
 from cad.scorecard.model import JOINTS, Basis, NoBrief, PendingCheck, Scorecard
 from cad.tables.materials import MaterialsTable
 from cad.variants import entry, repair
@@ -22,6 +21,14 @@ NO_DEMAND: Final = jobs.Demand()
 
 
 class BodiesChanged(Refused):
+    pass
+
+
+class PlacedFitTarget(Refused):
+    pass
+
+
+class PartsNotHeld(Refused):
     pass
 
 
@@ -60,9 +67,13 @@ def score_variant(
     lanes: Lanes = LANES,
     demand: jobs.Demand = NO_DEMAND,
     table: MaterialsTable | None = None,
+    fetch: variants.Fetch = variants.no_parts,
+    parts: frozenset[str] | None = None,
 ) -> Scorecard:
-    held, rebuilt_from = open_or_rebuild(variant_id, root)
-    request, plan = planned(root, held, material, table, demand)
+    """`parts` holds the ids of the parts the scoring brief's project confirmed, and is None
+    without a brief."""
+    held, rebuilt_from = open_or_rebuild(variant_id, root, fetch)
+    request, plan = planned(root, held, material, table, demand, parts)
     return scorecard_of(plan, request, lanes.settle(plan, WAIT_SECONDS), assess, rebuilt_from)
 
 
@@ -74,13 +85,14 @@ def peek_variant(
     lanes: Lanes = LANES,
     demand: jobs.Demand = NO_DEMAND,
     table: MaterialsTable | None = None,
+    parts: frozenset[str] | None = None,
 ) -> Scorecard:
     """The card of `score_variant` as the signed results hold it now. Nothing is built, run or
     waited for: a background job with no stored result is pending while it runs or waits, and
     refused once interrupted too often or when nothing runs it, as after a restart or a failed
     run."""
     held = entry.open_entry(root, variant_id, image.image_tag(image.BUILD))
-    request, plan = planned(root, held, material, table, demand)
+    request, plan = planned(root, held, material, table, demand, parts)
     match lanes.peek(plan):
         case Settled() as settled:
             return scorecard_of(plan, request, settled, assess)
@@ -96,7 +108,10 @@ def planned(
     material: MadeOf,
     table: MaterialsTable | None,
     demand: jobs.Demand,
+    parts: frozenset[str] | None,
 ) -> tuple[Request, jobs.Plan]:
+    _refuse_parts_not_held(held, parts)
+    _refuse_placed_fit_targets(held, demand)
     table = table or host.materials_table()
     made = material(held.bodies) if callable(material) else material
     try:
@@ -104,6 +119,37 @@ def planned(
     except ValueError as error:
         raise BodiesChanged(_changed(held)) from error
     return request, jobs.plan(root, held, request, table, demand)
+
+
+def _refuse_parts_not_held(held: entry.Entry, parts: frozenset[str] | None) -> None:
+    """A variant reads only the parts its brief's project confirmed, so a score is refused on a
+    brief whose project does not hold them now, as a build is (ADR-0012)."""
+    if not held.parts:
+        return
+    if parts is None:
+        raise PartsNotHeld(
+            f"variant {held.id} read supplied parts, so pass brief_id too: parts come from a "
+            "brief's project"
+        )
+    missing = [use.part_id for use in held.parts if use.part_id not in parts]
+    if missing:
+        raise PartsNotHeld(
+            f"variant {held.id} read {', '.join(missing)}, which the brief's project has not "
+            "confirmed; list_files lists the parts it holds. Score it with a brief of the "
+            "project it was built for, or build it again without those parts"
+        )
+
+
+def _refuse_placed_fit_targets(held: entry.Entry, demand: jobs.Demand) -> None:
+    """The fit check measures a fit target where it was confirmed, so a variant that moved one
+    would show it where no check measured it (ADR-0012)."""
+    placed = [use.part_id for use in held.parts if use.placements and use.part_id in demand.parts]
+    if placed:
+        raise PlacedFitTarget(
+            f"variant {held.id} places {', '.join(placed)}, which the brief's fit check now "
+            "measures where it was confirmed; build it again reading that part without "
+            "placing it"
+        )
 
 
 def _changed(held: entry.Entry) -> str:
@@ -116,18 +162,20 @@ def _changed(held: entry.Entry) -> str:
     )
 
 
-def open_or_rebuild(variant_id: str, root: Path) -> tuple[entry.Entry, str | None]:
-    """Open the current build of `variant_id`, an outdated id going to the build of its code. The
-    build opened is healed first, so a damaged shape never stops a score under either id."""
+def open_or_rebuild(
+    variant_id: str, root: Path, fetch: variants.Fetch = variants.no_parts
+) -> tuple[entry.Entry, str | None]:
+    """Open the current build of `variant_id`, an outdated id going to the build of its code and
+    parts. The build opened is healed first, so a damaged shape never stops a score under either
+    id."""
     tag = image.image_tag(image.BUILD)
-    repair.heal(root, variant_id, tag)
+    repair.heal(root, variant_id, tag, fetch)
     try:
         return entry.open_entry(root, variant_id, tag), None
     except entry.OutdatedVariant as outdated:
-        repair.heal(root, entry.variant_id(outdated.code, tag), tag)
-        rebuilt = variants.build_variant(outdated.code, root)
-        if not isinstance(rebuilt.outcome, Built):
-            raise variants.RebuildFailed(outdated.id, rebuilt) from outdated
+        current = entry.variant_id(outdated.code, tag, outdated.parts)
+        repair.heal(root, current, tag, fetch)
+        rebuilt = variants.rebuild(outdated, root, fetch)
         return entry.open_entry(root, rebuilt.variant_id, tag), outdated.id
 
 

@@ -140,6 +140,29 @@ class Build(Frozen):
     output: str
 
 
+type Coordinate = Annotated[float, Field(allow_inf_nan=False)]
+type Triple = tuple[Coordinate, Coordinate, Coordinate]
+
+
+class PartPlacement(Frozen):
+    """One copy of a supplied part, where build123d's `Location(at, rotate)` puts it: `at` in
+    millimetres, `rotate` in degrees about x, y and z. No check reads it."""
+
+    at: Triple
+    rotate: Triple = (0.0, 0.0, 0.0)
+
+
+class PartUse(Frozen):
+    """A supplied part a build reads, by the SHA-256 of the BREP it was sent, and each copy it
+    places; none when it only reads the part. `project` is where a rebuild fetches the BREP, and
+    the variant id leaves it out."""
+
+    part_id: Annotated[str, StringConstraints(pattern=r"^part-[0-9a-f]{16}$")]
+    project: str
+    brep_sha256: Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
+    placements: tuple[PartPlacement, ...] = ()
+
+
 class SandboxUnavailable(Unavailable):
     @classmethod
     def hiding_host(cls, message: str, error: Exception | str, path: Path | None = None) -> Self:

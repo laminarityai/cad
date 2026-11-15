@@ -15,9 +15,11 @@ from cad.variants.entry import VariantId
 from tests.support.auto_session import PLA_CHOICE, running
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
     from pathlib import Path
 
     from cad.operations.model import Tenant
+    from cad.sandbox.builder import Supplied
     from cad.scorecard.material import ReportedScorecard
     from cad.variants.store import BuildResult
     from tests.support.auto_session import Session
@@ -110,8 +112,8 @@ async def test_a_build_whose_set_was_filled_while_it_ran_still_counts(
     key = variant_sets.set_key(s.roots, brief_id)
     real = variant_sets.variants.build_variant
 
-    def filled_while_it_ran(code: str, root: Path) -> BuildResult:
-        built = real(code, root)
+    def filled_while_it_ran(code: str, root: Path, parts: Sequence[Supplied]) -> BuildResult:
+        built = real(code, root, parts=parts)
         for number in range(MAX_MEMBERS):
             other = f"result = 'another client filled slot {number + 1}'"
             variant_sets.join(s.roots.projects, key, other, VariantId(f"{number:016x}"))
@@ -162,9 +164,9 @@ async def test_a_stop_while_a_build_runs_says_so_and_does_not_count_it(
     await s.call("build_variant", code=FIRST, brief_id=brief_id, **PLA_CHOICE)
     real = variant_sets.variants.build_variant
 
-    def stopped_while_it_ran(code: str, root: Path) -> BuildResult:
+    def stopped_while_it_ran(code: str, root: Path, parts: Sequence[Supplied]) -> BuildResult:
         auto.auto_stop(s.tenant, auto.StopInput(run_id=run_id))
-        return real(code, root)
+        return real(code, root, parts=parts)
 
     monkeypatch.setattr(variant_sets.variants, "build_variant", stopped_while_it_ran)
     arguments = (

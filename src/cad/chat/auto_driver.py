@@ -133,13 +133,13 @@ def post(channel: Channel, said: StopReport | TurnFailed) -> None:
     channel.append(said)
 
 
-def _option(roots: Roots, brief_id: str, code_sha256: str) -> str | None:
-    """The name the person sees for the slot that holds this code, and its revision."""
+def _option(roots: Roots, brief_id: str, build_sha256: str) -> str | None:
+    """The name the person sees for the slot that holds this build, and its revision."""
     try:
         held = variant_sets.members(roots.projects, variant_sets.set_key(roots, brief_id))
     except (BriefRefused, ProjectRefused, SetRefused):
         return None
-    return next((name for member in held if (name := _named(member, code_sha256))), None)
+    return next((name for member in held if (name := _named(member, build_sha256))), None)
 
 
 def project_statements(roots: Roots, project: ProjectId) -> dict[str, str]:
@@ -154,11 +154,11 @@ def project_statements(roots: Roots, project: ProjectId) -> dict[str, str]:
     return said
 
 
-def _named(member: Member, code_sha256: str) -> str | None:
+def _named(member: Member, build_sha256: str) -> str | None:
     labels = [one.option.label for one in member.revisions if one.option is not None]
     label = labels[-1] if labels else f"Option {member.slot}"
     numbers = [
-        n for n, one in enumerate(member.revisions, start=1) if one.code_sha256 == code_sha256
+        n for n, one in enumerate(member.revisions, start=1) if one.build_sha256 == build_sha256
     ]
     return f"{label}, revision {numbers[-1]}" if numbers else None
 

@@ -197,7 +197,8 @@ CONTEXT_PARTS = (
     "check and the page show them together. A STEP or STL file the person added is a part they "
     "already confirmed: list_files shows it with its facts, and needs no propose_context_part. "
     "When the new part must fit with it, propose fits_with, min_clearance or max_clearance on "
-    "its part_id, quoting the brief, and build in its frame. A document the person added is a "
+    "its part_id, quoting the brief, and build in its frame. build_variant's parts reads it, "
+    "or places copies of it, in a build. A document the person added is a "
     "source: read it with read_file, and a requirement may quote it by file_id. A document the "
     "person kept from you as a standard is listed as withheld: you cannot read it, and you quote "
     "it only with words the person typed."
@@ -336,6 +337,25 @@ BODY_MATERIALS: Final = (
     "recorded. "
     "One material_key for a variant of more than one body is refused, unless it is the "
     "confirmed material."
+)
+
+PARTS: Final = (
+    "To design around a STEP or STL file the person added, pass parts with brief_id: one entry "
+    "per part, its part_id from list_files and its placements, each an at in mm and a rotate in "
+    "degrees about x, y and z, as build123d's Location(at, rotate). The code reads "
+    "part(part_id), the part's solids in its own frame, and placed(part_id), a Location for each "
+    "placement, such as wheels = [spot * part(part_id) for spot in placed(part_id)]. Do not "
+    "name a variable part. result is your body only: never fuse a supplied part into it or add "
+    "it to result, because every check grades result and the part is the person's. A build "
+    "whose result holds more than half of a part, in its own frame or at a placement, fails "
+    "and names that copy. Use a part "
+    "to shape yours, such as a pocket around it or a hole pattern copied from it. Cut a part "
+    "of many solids, such as a board, against a simple envelope you model around it. A part "
+    "the brief must fit, proposed for it or named by its fits_with, min_clearance or "
+    "max_clearance, may be read but not placed, because the fit check measures it where it was "
+    "confirmed. You may place and copy any other confirmed part of the project, such as four "
+    "wheels from one. The variant records each part it read and each placement, and the same "
+    "code with other parts or placements is another variant."
 )
 
 MATERIAL = (

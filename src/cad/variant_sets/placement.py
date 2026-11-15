@@ -182,7 +182,7 @@ def refuse_unpinned(
 def shown(held: tuple[Member, ...], sha256: str, slot: int | None) -> Member | None:
     """The member `slot` names, or with no slot the member already showing this code."""
     if slot is None:
-        return next((m for m in held if m.latest.code_sha256 == sha256), None)
+        return next((m for m in held if m.latest.build_sha256 == sha256), None)
     return next((m for m in held if m.slot == slot), None)
 
 
@@ -196,7 +196,7 @@ def place(held: tuple[Member, ...], sha256: str, design: Design, slot: int | Non
     """Where code goes in a set. Raises SetFull when new code has no slot to take."""
     if slot is None:
         return _unslotted(held, sha256, design)
-    twin = next((m for m in held if m.slot != slot and m.latest.code_sha256 == sha256), None)
+    twin = next((m for m in held if m.slot != slot and m.latest.build_sha256 == sha256), None)
     if twin is not None:
         raise SlotRefused(
             f"this code is already what slot {twin.slot} shows, so it cannot also be slot {slot}. "
@@ -218,7 +218,7 @@ def _same(member: Member, sha256: str, design: Design) -> bool:
     latest = member.latest
     asked = design.chosen
     return (
-        latest.code_sha256 == sha256
+        latest.build_sha256 == sha256
         and _keys(latest.material, latest.materials) == _keys(asked.material, asked.materials)
         and latest.option == design.option
     )

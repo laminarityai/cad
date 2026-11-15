@@ -167,7 +167,8 @@ def test_report_strings_keep_the_error_head_and_the_traceback_tail() -> None:
 def test_the_container_runs_locked_down() -> None:
     runner = (Path(__file__).parents[2] / "src/cad/sandbox/runner.py").read_text()
     job = build_job("x = 1\n", "sha256:abc", OWN_LIMITS.wall_seconds)
-    assert job == Job("build", "sha256:abc", ("python", "-I", "-c", runner, "120"), b"x = 1\n")
+    command = ("python", "-I", "-c", runner, "120", "[]")
+    assert job == Job("build", "sha256:abc", command, b"x = 1\n")
     assert run_argv("cad-build-1", job) == (
         "docker", "run", "--name", "cad-build-1", "--label", "cad.sandbox=build",
         "--label", f"cad.owner-pid={os.getpid()}",
@@ -180,5 +181,5 @@ def test_the_container_runs_locked_down() -> None:
         "--user", "65534:65534", "--env", "HOME=/tmp", "--workdir", "/tmp",
         "sha256:abc",
         "timeout", "--signal", "KILL", "65",
-        "python", "-I", "-c", runner, "120",
+        "python", "-I", "-c", runner, "120", "[]",
     )  # fmt: skip

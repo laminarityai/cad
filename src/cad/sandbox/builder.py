@@ -1,4 +1,6 @@
+import json
 from base64 import b64decode
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Final
@@ -14,10 +16,11 @@ from cad.sandbox.outcome import (
     Failure,
     NoResult,
     OutOfMemory,
+    PartUse,
     TimedOut,
     read_areas,
 )
-from cad.sandbox.wire import Report
+from cad.sandbox.wire import PartListing, Report
 
 TEXT_CAP = 8 * 1024
 CONTRACT = "assign the final shape to `result`"
@@ -38,17 +41,41 @@ class Run:
     output: str
 
 
+@dataclass(frozen=True, slots=True)
+class Supplied:
+    """A supplied part's BREP, as the build is sent it, and the use its record keeps."""
+
+    use: PartUse
+    brep: bytes
+
+
 def encode_code(code: str) -> bytes:
     return code.encode("utf-8", "surrogatepass")
 
 
-def build_job(code: str, image_id: str, wall_seconds: int) -> Job:
-    command = ("python", "-I", "-c", RUNNER, str(wall_seconds * container.CPUS))
-    return Job("build", image_id, command, encode_code(code), wall_seconds=wall_seconds)
+def build_job(code: str, image_id: str, wall_seconds: int, parts: Sequence[Supplied] = ()) -> Job:
+    listed: list[PartListing] = [
+        {
+            "id": one.use.part_id,
+            "size": len(one.brep),
+            "placements": [{"at": [*p.at], "rotate": [*p.rotate]} for p in one.use.placements],
+        }
+        for one in parts
+    ]
+    cpu_seconds = str(wall_seconds * container.CPUS)
+    command = ("python", "-I", "-c", RUNNER, cpu_seconds, json.dumps(listed))
+    stdin = encode_code(code) + b"".join(one.brep for one in parts)
+    return Job("build", image_id, command, stdin, wall_seconds=wall_seconds)
 
 
-def build(code: str, image_id: str, *, wall_seconds: int = container.WALL_SECONDS) -> Run:
-    job = build_job(code, image_id, wall_seconds)
+def build(
+    code: str,
+    image_id: str,
+    *,
+    wall_seconds: int = container.WALL_SECONDS,
+    parts: Sequence[Supplied] = (),
+) -> Run:
+    job = build_job(code, image_id, wall_seconds, parts)
     ran = container.run(job)
     return Run(classify(ran.attended, ran.state, job), ran.attended.output)
 

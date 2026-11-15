@@ -15,7 +15,7 @@ from cad.errors import NotFound, Refused
 from cad.records import files, key
 from cad.sandbox.bodies import Bodies, bodies_sha256
 from cad.sandbox.builder import encode_code
-from cad.sandbox.outcome import Areas, Build, BuildOutcome, Built, SandboxUnavailable
+from cad.sandbox.outcome import Areas, Build, BuildOutcome, Built, PartUse, SandboxUnavailable
 
 VARIANTS_ROOT: Final = DATA_ROOT / "variants"
 CODE: Final = "code.py"
@@ -61,13 +61,14 @@ class StaleVariant(VariantRefused):
 
 
 class OutdatedVariant(StaleVariant):
-    def __init__(self, vid: VariantId, code: str) -> None:
+    def __init__(self, vid: VariantId, code: str, parts: tuple[PartUse, ...]) -> None:
         super().__init__(
             f"variant {vid} was stored by an earlier version of the sandbox; build its code "
             "again, or score it with score_variant to rebuild it"
         )
         self.id = vid
         self.code = code
+        self.parts = parts
 
 
 class DamagedShape(StaleVariant):
@@ -90,9 +91,21 @@ def trust_digest(root: Path = SOURCE, names: tuple[str, ...] = TRUSTED_FILES) ->
 TRUST_DIGEST: Final = trust_digest()
 
 
-def variant_id(code: str, image_tag: str) -> VariantId:
-    key = json.dumps([image_tag, TRUST_DIGEST, code])
-    return VariantId(hashlib.sha256(key.encode()).hexdigest()[:16])
+def variant_id(code: str, image_tag: str, parts: tuple[PartUse, ...] = ()) -> VariantId:
+    """The parts join the key only when there are some, so code that reads none keeps its id."""
+    key = [image_tag, TRUST_DIGEST, code, *([_parts_key(parts)] if parts else [])]
+    return VariantId(hashlib.sha256(json.dumps(key).encode()).hexdigest()[:16])
+
+
+def build_sha256(code: str, parts: tuple[PartUse, ...] = ()) -> str:
+    """What one build reads, under any sandbox: the code's own SHA-256 when it reads no part."""
+    if not parts:
+        return hashlib.sha256(encode_code(code)).hexdigest()
+    return hashlib.sha256(json.dumps([code, _parts_key(parts)]).encode()).hexdigest()
+
+
+def _parts_key(parts: tuple[PartUse, ...]) -> list[dict[str, object]]:
+    return [use.model_dump(mode="json", exclude={"project"}) for use in parts]
 
 
 def parse_variant_id(raw: str) -> VariantId:
@@ -105,6 +118,7 @@ class Manifest(Build):
     brep_sha256: str | None
     code_sha256: str | None = None
     bodies_sha256: str | None = Field(default=None, exclude_if=lambda sha256: sha256 is None)
+    parts: tuple[PartUse, ...] = Field(default=(), exclude_if=lambda parts: not parts)
 
     @model_validator(mode="after")
     def _hash_iff_built(self) -> Self:
@@ -127,13 +141,21 @@ class Entry:
     brep_sha256: str
     areas: Areas = ()
     bodies: Bodies = ()
+    parts: tuple[PartUse, ...] = ()
 
     def attach_step(self, step: bytes) -> str:
         files.replace(self.directory / STEP, step)
         return hashlib.sha256(step).hexdigest()
 
 
-def save(root: Path, vid: VariantId, code: str, build: Build, brep: bytes | None) -> Manifest:
+def save(
+    root: Path,
+    vid: VariantId,
+    code: str,
+    build: Build,
+    brep: bytes | None,
+    parts: tuple[PartUse, ...] = (),
+) -> Manifest:
     incoming = root / f".incoming-{secrets.token_hex(8)}"
     try:
         incoming.mkdir(parents=True)
@@ -148,11 +170,12 @@ def save(root: Path, vid: VariantId, code: str, build: Build, brep: bytes | None
             brep_sha256=None if brep is None else hashlib.sha256(brep).hexdigest(),
             code_sha256=code_sha256,
             bodies_sha256=_bodies_sha256(build.outcome),
+            parts=parts,
         )
         record = manifest.model_dump_json().encode()
         (incoming / MANIFEST).write_bytes(record)
         (incoming / MAC).write_bytes(key.sign(root, vid, record))
-        _index(root, code_sha256, vid)
+        _index(root, build_sha256(code, parts), vid)
         try:
             incoming.rename(root / vid)
         except OSError:
@@ -165,18 +188,18 @@ def save(root: Path, vid: VariantId, code: str, build: Build, brep: bytes | None
         shutil.rmtree(incoming, ignore_errors=True)
 
 
-def _index(root: Path, code_sha256: str, vid: VariantId) -> None:
-    """Note `vid` under its code before the entry lands, so no stored entry is missing from
-    `built_from`. A note whose entry never landed names nothing and is harmless."""
-    directory = root / BY_CODE / code_sha256
+def _index(root: Path, build: str, vid: VariantId) -> None:
+    """Note `vid` under its code and parts before the entry lands, so no stored entry is missing
+    from `built_from`. A note whose entry never landed names nothing and is harmless."""
+    directory = root / BY_CODE / build
     directory.mkdir(parents=True, exist_ok=True)
     files.replace(directory / vid, b"")
 
 
-def built_from(root: Path, code: str) -> tuple[VariantId, ...]:
-    """Every id stored with this code, whichever sandbox built it. Only `save` writes the index,
-    so it grows with the sandboxes that built the code, not with the store."""
-    directory = root / BY_CODE / hashlib.sha256(encode_code(code)).hexdigest()
+def built_from(root: Path, code: str, parts: tuple[PartUse, ...] = ()) -> tuple[VariantId, ...]:
+    """Every id stored with this code and these parts, whichever sandbox built it. Only `save`
+    writes the index, so it grows with the sandboxes that built the code, not with the store."""
+    directory = root / BY_CODE / build_sha256(code, parts)
     try:
         names = sorted(path.name for path in directory.iterdir())
     except OSError:
@@ -200,7 +223,7 @@ def open_entry(root: Path, raw_id: str, image_tag: str) -> Entry:
         raise UnknownVariant(f"no variant {vid} is stored; build its code with build_variant")
     code = files.read_regular(directory / CODE, MAX_FILE_BYTES)
     manifest = _signed_manifest(root, vid)
-    if _stored_id(code, image_tag) != vid:
+    if _stored_id(code, image_tag, () if manifest is None else manifest.parts) != vid:
         raise _outdated_or_refused(vid, code, manifest)
     if manifest is None:
         raise StaleVariant(_report_unsigned(root, vid))
@@ -214,14 +237,14 @@ def open_entry(root: Path, raw_id: str, image_tag: str) -> Entry:
     if brep is None or brep_sha256 != manifest.brep_sha256:
         raise DamagedShape(f"variant {vid} has a result.brep that its build did not store")
     outcome = manifest.outcome
-    return Entry(vid, directory, brep, brep_sha256, outcome.areas, outcome.bodies)
+    return Entry(vid, directory, brep, brep_sha256, outcome.areas, outcome.bodies, manifest.parts)
 
 
-def _stored_id(code: bytes | None, image_tag: str) -> VariantId | None:
+def _stored_id(code: bytes | None, image_tag: str, parts: tuple[PartUse, ...]) -> VariantId | None:
     if code is None:
         return None
     try:
-        return variant_id(code.decode("utf-8", "surrogatepass"), image_tag)
+        return variant_id(code.decode("utf-8", "surrogatepass"), image_tag, parts)
     except UnicodeDecodeError:  # `encode_code` never writes such bytes, so the entry was edited
         return None
 
@@ -243,7 +266,7 @@ def _outdated_or_refused(
             f"variant {vid} has a code.py that was altered after it was stored; "
             "build its code again"
         )
-    return OutdatedVariant(vid, code.decode("utf-8", "surrogatepass"))
+    return OutdatedVariant(vid, code.decode("utf-8", "surrogatepass"), manifest.parts)
 
 
 def _signed_manifest(root: Path, vid: VariantId) -> Manifest | None:

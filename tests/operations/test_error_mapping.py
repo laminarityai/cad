@@ -74,6 +74,8 @@ EXPECTED: Final[dict[str, Answer]] = {
     "cad.scorecard.score.BodiesChanged": ("400 named", "named"),
     "cad.scorecard.score.ChecksRunning": ("400 named", "named"),
     "cad.scorecard.score.NotScored": ("400 named", "named"),
+    "cad.scorecard.score.PlacedFitTarget": ("400 named", "named"),
+    "cad.scorecard.score.PartsNotHeld": ("400 named", "named"),
     "cad.selections.model.SelectionRefused": ("400 named", "named"),
     "cad.selections.model.UnknownSelection": ("400 named", "named"),
     "cad.tables.fasteners.UnknownFastener": (None, None),
