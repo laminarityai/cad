@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { Area } from "@/api/types";
 import type { Shapes } from "./engine";
+import { withSupplied, type Placed } from "./supplied";
 import { paintAreas, splitFaces, type Where } from "./where";
 
 /** A part that must fit is built in that part's frame, so the two draw together as they are. */
@@ -23,6 +24,8 @@ export function withFit(part: Shapes, fit: Shapes): Shapes {
   return { ...part, parts: [...part.parts, ...ghost], bb };
 }
 
+const NO_PLACED: readonly Placed[] = [];
+
 const sameWhere = (a: Where | null, b: Where | null) =>
   a === b || (a !== null && b !== null && a.support.join() === b.support.join() && a.load.join() === b.load.join());
 
@@ -35,15 +38,22 @@ function useSameWhere(where: Where | null): Where | null {
 }
 
 /** What the viewer draws: the part in the colours its build code gave its areas, or with the stress check's
- * faces marked on grey, since a check's marks win over the model's colours, and the context part beside it.
- * `areas` is null when the colours are not to be drawn. The same object comes back while the mesh, the
- * ghost, the areas and the marked faces are unchanged, because the canvas draws the whole model again for
+ * faces marked on grey, since a check's marks win over the model's colours, the context part beside it, and
+ * each copy of a part the person supplied where the build placed it. `areas` is null when the colours are
+ * not to be drawn. The same object comes back while the mesh, the ghost, the areas, the placed parts and the
+ * marked faces are unchanged, because the canvas draws the whole model again for
  * each new object, and a redraw drops the person's section. */
-export function useDrawn(part: Shapes | null, ghost: Shapes | null, where: Where | null, areas: readonly Area[] | null = null): Shapes | null {
+export function useDrawn(
+  part: Shapes | null,
+  ghost: Shapes | null,
+  where: Where | null,
+  areas: readonly Area[] | null = null,
+  placed: readonly Placed[] = NO_PLACED,
+): Shapes | null {
   const faces = useSameWhere(where);
   return useMemo(() => {
     if (part === null) return null;
     const marked = faces ? splitFaces(part, faces) : areas ? paintAreas(part, areas) : part;
-    return ghost ? withFit(marked, ghost) : marked;
-  }, [part, ghost, faces, areas]);
+    return withSupplied(ghost ? withFit(marked, ghost) : marked, placed);
+  }, [part, ghost, faces, areas, placed]);
 }

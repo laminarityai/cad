@@ -82,14 +82,14 @@ export function luminance(rgb: number): number {
 /** Where the light edge and the dark edge stand out from a face equally. */
 const EDGE_CROSSOVER = 0.18;
 
-/** The edge colour that stands out on most of the drawn part: the light one when most of its triangles are
+/** The edge colour that stands out on most of the agent's body: the light one when most of its triangles are
  * dark, such as black carbon fibre, and the dark one otherwise. The library takes one edge colour for the
- * whole model. */
+ * whole model, and the context part and the supplied parts beside the body do not sway it. */
 export function edgeFor(shapes: Shapes): number {
   let weighted = 0;
   let total = 0;
   for (const part of shapes.parts) {
-    if (part.id.startsWith("/fit")) continue;
+    if (!part.id.startsWith("/variant/")) continue;
     const count = part.shape.triangles.length;
     weighted += count * luminance(Number.parseInt(part.color.replace("#", ""), 16) || 0);
     total += count;

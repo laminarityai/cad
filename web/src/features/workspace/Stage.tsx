@@ -1,6 +1,6 @@
 import { Box, ChevronLeft, ChevronRight, Ruler, Slice } from "lucide-react";
 import { useMemo, useState, type Dispatch, type ReactElement } from "react";
-import type { Area } from "@/api/types";
+import type { Area, Component } from "@/api/types";
 import { AreaList } from "@/features/viewer/AreaList";
 import { DimensionOverlay } from "@/features/viewer/DimensionOverlay";
 import type { Extents } from "@/features/viewer/dimensions";
@@ -14,6 +14,7 @@ import { ViewerCanvas } from "@/features/viewer/ViewerCanvas";
 import { aloneOf } from "@/features/viewer/alone";
 import { useDrawn } from "@/features/viewer/useDrawn";
 import { useMesh } from "@/features/viewer/useMesh";
+import { SUPPLIED_COLOUR, usePlaced } from "@/features/viewer/supplied";
 import { ROLE_COLOUR, type Where } from "@/features/viewer/where";
 import { Loading } from "@/components/ui/busy";
 import { TabsList, TabsTab } from "@/components/ui/tabs";
@@ -62,6 +63,7 @@ const ignore: OnPick = () => undefined;
 
 const unmeasured: Measure = () => null;
 const NO_AREAS: readonly Area[] = [];
+const NO_COMPONENTS: readonly Component[] = [];
 
 const LEGEND: readonly (readonly [keyof Where, string])[] = [
   ["support", "Held in place"],
@@ -79,6 +81,16 @@ function WhereLegend({ where }: { where: Where }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+/** Says the parts drawn in the supplied colour are the person's, which the agent only placed. */
+function SuppliedLegend() {
+  return (
+    <p data-supplied-legend className="flex items-center gap-2 rounded-md bg-panel/85 px-2.5 py-1.5 text-[13px] text-ink-2">
+      <span aria-hidden className="inline-block size-3 rounded-sm" style={{ backgroundColor: SUPPLIED_COLOUR }} />
+      Supplied by you, placed by the agent
+    </p>
   );
 }
 
@@ -119,8 +131,9 @@ function Mesh(props: {
   const part = useMemo(() => (whole && topology && faces ? aloneOf(whole, topology, faces) : whole), [whole, topology, faces]);
   const ghost = fitMesh?.status === "ready" ? fitMesh.shapes : null;
   const areas = mesh.status === "ready" ? mesh.areas : NO_AREAS;
+  const placed = usePlaced(variantId, mesh.status === "ready" ? mesh.components : NO_COMPONENTS);
   const greyed = greyedBy(where, cut);
-  const drawn = useDrawn(part, ghost, where, greyed ? null : areas);
+  const drawn = useDrawn(part, ghost, where, greyed ? null : areas, placed);
   // The box of everything drawn, so a cut can reach the context part beside the part.
   const bb = drawn?.bb ?? null;
   const axis = cut?.axis;
@@ -160,6 +173,7 @@ function Mesh(props: {
       <div className="pointer-events-none absolute bottom-3 right-3 z-30 flex max-w-[45%] flex-col items-end gap-1.5">
         <AreaList areas={areas} greyed={greyed} />
         {where ? <WhereLegend where={where} /> : null}
+        {placed.length > 0 ? <SuppliedLegend /> : null}
       </div>
     </>
   );
