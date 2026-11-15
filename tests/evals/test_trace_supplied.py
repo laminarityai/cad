@@ -109,3 +109,13 @@ def test_a_row_naming_a_part_the_project_does_not_hold_fails(roots: Roots, store
     reasons = [one.reason for one in traced.failures if isinstance(one, Unsupplied)]
     assert f"the card lists {forged}, which the signed build record of" in reasons[0]
     assert f"{forged} with BREP" in reasons[-1]
+
+
+def test_a_card_that_lists_a_signed_part_twice_fails(roots: Roots, store: Path) -> None:
+    card = supplied_card(roots, store)
+    twice = card.model_copy(update={"supplied": card.supplied * 2})
+    traced = trace(twice, store)
+    part = card.supplied[0].part_id
+    assert Unsupplied(f"the card lists {part} 2 times, and the signed build record 1") in (
+        traced.failures
+    )

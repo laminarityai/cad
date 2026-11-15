@@ -8,12 +8,11 @@ from typing import Final, Literal
 
 from pydantic import BaseModel
 
-from cad.context_parts.store import newest_parts, stored_brep
+from cad.context_parts.store import stored_brep
 from cad.geometry import job
 from cad.geometry import store as meshes
 from cad.geometry.lane import TESSELLATIONS
 from cad.geometry.model import Stored, Tessellated
-from cad.projects.model import ProjectId, parse_project_id
 from cad.records.roots import Roots
 from cad.sandbox.outcome import PartPlacement, PartUse
 
@@ -26,7 +25,6 @@ class Component(BaseModel):
     `Location(at, rotate)`. Its mesh is the part in its own frame, read like a variant's."""
 
     part_id: str
-    name: str
     brep_sha256: str
     mesh: MeshState
     mesh_url: str | None
@@ -49,26 +47,20 @@ def mesh_state(stored: Stored | None) -> tuple[MeshState, str | None]:
 
 def components(roots: Roots, geometry: Path, uses: tuple[PartUse, ...]) -> tuple[Component, ...]:
     """Each part the build placed, by the SHA-256 its signed record names. Its mesh is started
-    when none is stored, and is failed when the project has lost that BREP."""
-    placed = [use for use in uses if use.placements]
-    names: dict[ProjectId, dict[str, str]] = {
-        project: {one.record.id: one.record.name for one in newest_parts(roots.projects, project)}
-        for project in {parse_project_id(use.project) for use in placed}
-    }
+    when none is stored, and is failed when the project has lost that BREP or its job failed."""
     each: list[Component] = []
-    for use in placed:
-        mesh, mesh_url = _meshed(roots.projects, geometry, use)
-        name = names[parse_project_id(use.project)].get(use.part_id, use.part_id)
-        each.append(
-            Component(
-                part_id=use.part_id,
-                name=name,
-                brep_sha256=use.brep_sha256,
-                mesh=mesh,
-                mesh_url=mesh_url,
-                placements=use.placements,
+    for use in uses:
+        if use.placements:
+            mesh, mesh_url = _meshed(roots.projects, geometry, use)
+            each.append(
+                Component(
+                    part_id=use.part_id,
+                    brep_sha256=use.brep_sha256,
+                    mesh=mesh,
+                    mesh_url=mesh_url,
+                    placements=use.placements,
+                )
             )
-        )
     return tuple(each)
 
 

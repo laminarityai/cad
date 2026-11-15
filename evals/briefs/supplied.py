@@ -2,7 +2,8 @@
 be a part a person confirmed in the card's project with that BREP (ADR-0012).
 
 The card tells the person which geometry is theirs and that the checks grade only the agent's
-body. A row the signed record does not hold, a part the record holds that the card leaves out, or
+body. A row the signed record does not hold, a part the record holds that the card leaves out or
+lists a different number of times than the record does, or
 a row whose BREP no confirmed record of that part has, or whose name or origin is not the
 part's newest confirmed record, fails the card. A placement
 number on the card resolves to the signed record: the agent chose it, and no check reads it.
@@ -55,6 +56,7 @@ def check_supplied(roots: Roots, card: Scorecard, signed: Signed) -> tuple[Unsup
             for use in signed
             if not any(_signs(row, (use,)) for row in card.supplied)
         ),
+        *_miscounted(card, signed),
     ]
     return (*failures, *_unconfirmed(roots, card, signed))
 
@@ -80,6 +82,20 @@ def _signs(row: SuppliedPart, signed: tuple[PartUse, ...]) -> bool:
         == (row.part_id, row.brep_sha256, row.placements)
         for use in signed
     )
+
+
+def _miscounted(card: Scorecard, signed: tuple[PartUse, ...]) -> list[Unsupplied]:
+    """Each row the signed record holds is on the card as often as the record holds it."""
+    rows = [(row.part_id, row.brep_sha256, row.placements) for row in card.supplied]
+    uses = [(use.part_id, use.brep_sha256, use.placements) for use in signed]
+    return [
+        Unsupplied(
+            f"the card lists {key[0]} {rows.count(key)} times, and the signed build record "
+            f"{uses.count(key)}"
+        )
+        for key in dict.fromkeys(rows)
+        if 0 < uses.count(key) != rows.count(key)
+    ]
 
 
 def _unsigned(card: Scorecard, row: SuppliedPart, signed: tuple[PartUse, ...]) -> Unsupplied:

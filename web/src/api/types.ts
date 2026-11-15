@@ -946,7 +946,6 @@ export interface components {
          */
         Component: {
             part_id: string;
-            name: string;
             brep_sha256: string;
             mesh: components["schemas"]["MeshState"];
             mesh_url: string | null;

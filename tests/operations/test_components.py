@@ -2,6 +2,7 @@
 read by the BREP's SHA-256 like a variant's (ADR-0012)."""
 
 import hashlib
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -11,7 +12,7 @@ from cad.accounts.principal import AccountId, PersonSession
 from cad.geometry import job
 from cad.geometry import store as meshes
 from cad.geometry.lane import TESSELLATIONS
-from cad.geometry.model import Tessellated
+from cad.geometry.model import Tessellated, TessellationFailed
 from cad.operations.components import components
 from cad.projects.model import new_project_id
 from cad.records.roots import Roots
@@ -62,9 +63,7 @@ def test_a_placed_part_is_listed_with_its_mesh_and_placements(
     monkeypatch.setattr(TESSELLATIONS, "_run", mesh_of)
     geometry = tmp_path / "geometry"
     first = components(roots, geometry, (wheel,))
-    assert [(one.part_id, one.name, one.placements) for one in first] == [
-        (wheel.part_id, "wheel", (CORNER,))
-    ]
+    assert [(one.part_id, one.placements) for one in first] == [(wheel.part_id, (CORNER,))]
     assert first[0].mesh in {"pending", "tessellated"}
     TESSELLATIONS.read(geometry, _Held(RAIL, SHA), wait_seconds=5)
     (again,) = components(roots, geometry, (wheel,))
@@ -85,6 +84,40 @@ def test_a_part_whose_brep_is_gone_has_a_failed_mesh(
     lost = wheel.model_copy(update={"brep_sha256": "e" * 64})
     (one,) = components(roots, tmp_path / "geometry", (lost,))
     assert (one.mesh, one.mesh_url) == ("failed", None)
+
+
+def timed_out(brep: bytes, brep_sha256: str) -> job.Ran:
+    failed = TessellationFailed(brep_sha256=brep_sha256, version=job.VERSION, reason="timed out")
+    return job.Ran(failed, lasting=False)
+
+
+def test_a_mesh_job_that_failed_briefly_is_reported_failed_not_pending_forever(
+    roots: Roots, tmp_path: Path, wheel: PartUse, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    jobs: list[str] = []
+
+    def counted(brep: bytes, brep_sha256: str) -> job.Ran:
+        jobs.append(brep_sha256)
+        return timed_out(brep, brep_sha256)
+
+    monkeypatch.setattr(TESSELLATIONS, "_run", counted)
+    geometry = tmp_path / "geometry"
+    states: list[tuple[str, str | None]] = []
+    for _ in range(200):
+        (one,) = components(roots, geometry, (wheel,))
+        states.append((one.mesh, one.mesh_url))
+        if one.mesh != "pending":
+            break
+        time.sleep(0.01)
+    assert (states[-1], len(jobs)) == (("failed", None), 1)
+    assert meshes.read(geometry, SHA) is None
+
+
+def test_the_view_names_no_part_from_a_record_the_agent_can_write(
+    roots: Roots, tmp_path: Path, wheel: PartUse
+) -> None:
+    (one,) = components(roots, tmp_path / "geometry", (wheel,))
+    assert set(one.model_dump()) == {"part_id", "brep_sha256", "mesh", "mesh_url", "placements"}
 
 
 @dataclass(frozen=True)

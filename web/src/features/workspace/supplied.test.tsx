@@ -25,11 +25,16 @@ const shapesOf = (bb: Shapes["bb"]) =>
     bb,
   }) as unknown as Shapes;
 
+// The view is read again every 500 ms while a supplied part's mesh is pending: a hundredth of that here.
+vi.mock("@/lib/sleep", () => ({ sleep: (ms: number) => new Promise<void>((done) => setTimeout(done, ms / 100)) }));
+
+type Meshing = (reads: number) => Component["mesh"];
+
 const meshOf = (shapes: Shapes): Tessellated => ({ kind: "tessellated", brep_sha256: "b".repeat(64), version: "0123456789ab", shapes, topology: { faces: [], edges: [] }, solid_faces: [] });
 
-function open() {
+function open(meshing: Meshing = (reads) => (reads === 1 ? "pending" : "tessellated")) {
   const viewer = new FakeViewer();
-  const wheel = (mesh: Component["mesh"]): Component => ({ part_id: WHEEL, name: "wheel", brep_sha256: WHEEL_SHA, mesh, mesh_url: mesh === "tessellated" ? WHEEL_URL : null, placements: CORNERS });
+  const wheel = (mesh: Component["mesh"]): Component => ({ part_id: WHEEL, brep_sha256: WHEEL_SHA, mesh, mesh_url: mesh === "tessellated" ? WHEEL_URL : null, placements: CORNERS });
   let reads = 0;
   const api = fakeApi(["v1"], {
     project: vi.fn(() =>
@@ -51,7 +56,7 @@ function open() {
         mesh_url: `/v1/geometry/0123456789ab/${variantId}.json`,
         areas: [],
         bodies: [],
-        components: [wheel(reads === 1 ? "pending" : "tessellated")],
+        components: [wheel(meshing(reads))],
       });
     }),
     mesh: vi.fn((url: string) =>
@@ -69,8 +74,10 @@ function open() {
       </MemoryRouter>
     </ServicesProvider>,
   );
-  return viewer;
+  return { viewer, reads: () => reads };
 }
+
+const drawnParts = (viewer: FakeViewer) => [...viewer.mounted, ...viewer.shown].at(-1)?.parts ?? [];
 
 describe("the parts a person supplied", () => {
   it("are listed on the card apart from the body the agent made, which alone is checked", async () => {
@@ -88,7 +95,7 @@ describe("the parts a person supplied", () => {
   });
 
   it("are drawn on the stage at each placement in their own colour once their mesh is made", async () => {
-    const viewer = open();
+    const { viewer } = open();
     await waitFor(
       () => {
         const drawn = [...viewer.mounted, ...viewer.shown].at(-1);
@@ -103,5 +110,18 @@ describe("the parts a person supplied", () => {
     // Turned 90 degrees about X, each wheel's 8 mm height lies along -Y from where it sits.
     expect(drawn?.bb.ymin).toBe(-33);
     expect(await screen.findByText("Supplied by you, placed by the agent")).toBeInTheDocument();
+  });
+
+  it.each<[string, Meshing]>([
+    ["failed", (reads) => (reads < 3 ? "pending" : "failed")],
+    ["never made", () => "pending"],
+  ])("are left out with a note when their mesh is %s, and the view stops being read", async (_, meshing) => {
+    const { viewer, reads } = open(meshing);
+    expect(await screen.findByText("A part you supplied could not be drawn", undefined, { timeout: 3000 })).toBeInTheDocument();
+    expect(drawnParts(viewer).map((one) => one.id)).toEqual(["/variant/part"]);
+    const settled = reads();
+    await new Promise((done) => setTimeout(done, 100));
+    expect(reads()).toBe(settled);
+    expect(settled).toBeLessThanOrEqual(152);
   });
 });

@@ -94,6 +94,14 @@ function SuppliedLegend() {
   );
 }
 
+function MissingNote({ count }: { count: number }) {
+  return (
+    <p data-supplied-missing className="rounded-md bg-panel/85 px-2.5 py-1.5 text-[13px] text-ink-2">
+      {count === 1 ? "A part you supplied could not be drawn" : `${String(count)} parts you supplied could not be drawn`}
+    </p>
+  );
+}
+
 /** Why the model is drawn grey though its build code coloured it, or null when its colours show. A check's
  * marks win over the colours, and a cut needs the whole part drawn as one, as the marks do. */
 function greyedBy(where: Where | null, cut: Cut | null): string | null {
@@ -131,7 +139,7 @@ function Mesh(props: {
   const part = useMemo(() => (whole && topology && faces ? aloneOf(whole, topology, faces) : whole), [whole, topology, faces]);
   const ghost = fitMesh?.status === "ready" ? fitMesh.shapes : null;
   const areas = mesh.status === "ready" ? mesh.areas : NO_AREAS;
-  const placed = usePlaced(variantId, mesh.status === "ready" ? mesh.components : NO_COMPONENTS);
+  const { placed, missing } = usePlaced(variantId, mesh.status === "ready" ? mesh.components : NO_COMPONENTS);
   const greyed = greyedBy(where, cut);
   const drawn = useDrawn(part, ghost, where, greyed ? null : areas, placed);
   // The box of everything drawn, so a cut can reach the context part beside the part.
@@ -174,6 +182,7 @@ function Mesh(props: {
         <AreaList areas={areas} greyed={greyed} />
         {where ? <WhereLegend where={where} /> : null}
         {placed.length > 0 ? <SuppliedLegend /> : null}
+        {missing > 0 ? <MissingNote count={missing} /> : null}
       </div>
     </>
   );
