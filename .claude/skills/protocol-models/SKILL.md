@@ -224,7 +224,7 @@ When a check fails, read the trace as a story in code terms: which thread or pro
 
 ```coverage
 sync: 6353b37d
-JobLanes: src/cad/checks/lanes.py src/cad/checks/job_store.py src/cad/checks/jobs.py src/cad/sandbox/container.py src/cad/server/stopping.py src/cad/variant_sets/store.py
+JobLanes@623cb46b: src/cad/checks/lanes.py src/cad/checks/job_store.py src/cad/checks/jobs.py src/cad/sandbox/container.py src/cad/server/stopping.py src/cad/variant_sets/store.py
 Answers: src/cad/confirmations/web.py src/cad/confirmations/snapshot.py src/cad/operations/confirmation.py src/cad/confirmations/page.py src/cad/confirmations/answers.py src/cad/confirmations/items.py src/cad/records/signed.py
 CarryOn: src/cad/chat/routes.py src/cad/chat/answer_driver.py src/cad/chat/turn.py src/cad/chat/log.py src/cad/conversations/store.py src/cad/operations/confirmation.py src/cad/confirmations/web.py
 AutoHold: src/cad/auto/gate.py src/cad/auto/log.py src/cad/operations/auto.py src/cad/conversations/store.py src/cad/chat/routes.py src/cad/operations/tenants.py src/cad/operations/variants.py src/cad/auto/building.py
