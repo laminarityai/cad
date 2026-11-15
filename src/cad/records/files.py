@@ -44,12 +44,14 @@ def read_regular(path: Path, limit: int = MAX_RECORD_BYTES) -> bytes | None:
             return None
         raise _failed(path, error) from error
     try:
-        with os.fdopen(descriptor, "rb") as file:
-            if not stat.S_ISREG(os.fstat(file.fileno()).st_mode):
-                return None
+        if not stat.S_ISREG(os.fstat(descriptor).st_mode):
+            return None
+        with os.fdopen(descriptor, "rb", closefd=False) as file:
             data = file.read(limit + 1)
     except OSError as error:
         raise _failed(path, error) from error
+    finally:
+        os.close(descriptor)
     return None if len(data) > limit else data
 
 

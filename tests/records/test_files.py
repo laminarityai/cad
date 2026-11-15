@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from cad.errors import Unavailable
-from cad.records import signed
+from cad.records import files, signed
 from cad.records.signed import Store
 
 
@@ -31,3 +31,8 @@ def test_a_read_that_fails_once_is_unavailable_not_tampered_and_the_next_read_wo
     assert signed.read(things, "thing/1", path.with_name("0002.signed")) is None
     path.with_name("0003.signed").symlink_to(path)
     assert signed.read(things, "thing/1", path.with_name("0003.signed")) is None
+
+
+def test_a_directory_where_a_record_should_be_reads_as_no_record(tmp_path: Path) -> None:
+    (tmp_path / "record").mkdir()
+    assert files.read_regular(tmp_path / "record") is None
