@@ -41,10 +41,17 @@ class SessionFacts:
 
 @dataclass(frozen=True, slots=True)
 class SessionRun:
+    """`left_running` says a process of the session outlived the kill, and `note` then says so."""
+
     exit_code: int | None
     timed_out: bool
     note: str
     facts: SessionFacts
+    left_running: bool = False
+
+
+class StillAlive(Exception):
+    """A session's process group outlived SIGKILL, so its stores are not safe to read."""
 
 
 def run_session(
@@ -80,25 +87,26 @@ def run_session(
         os.killpg(process.pid, signal.SIGKILL)
         output, raised = process.communicate()
         timed_out = True
-    wait_for_group(process.pid)
+    exit_code = None if timed_out else process.returncode
+    try:
+        wait_for_group(process.pid)
+    except StillAlive as error:
+        return SessionRun(exit_code, timed_out, str(error), read_transcript(transcript), True)
     return SessionRun(
-        None if timed_out else process.returncode,
-        timed_out,
-        failure_note(output, raised),
-        read_transcript(transcript),
+        exit_code, timed_out, failure_note(output, raised), read_transcript(transcript)
     )
 
 
 def wait_for_group(group: int, exit_s: float = EXIT_WAIT_S, kill_s: float = KILL_WAIT_S) -> None:
     """The cad server can still store a check record after claude exits. Wait for it to exit,
     then stop what is left, so no record lands after the harness reads the stores. A group that
-    outlives `kill_s` of SIGKILL is an error, since its stores are not safe to read."""
+    outlives `kill_s` of SIGKILL raises `StillAlive`."""
     killing = time.monotonic() + exit_s
     giving_up = killing + kill_s
     while alive(group):
         now = time.monotonic()
         if now > giving_up:
-            raise RuntimeError(
+            raise StillAlive(
                 f"process group {group} was still alive {kill_s:g} s after SIGKILL, "
                 f"which followed {exit_s:g} s of waiting for it to exit"
             )
@@ -140,7 +148,7 @@ def _driver() -> Driver:
 def read_transcript(path: Path) -> SessionFacts:
     try:
         events = cast(list[dict[str, Any]], json.loads(path.read_text()))
-    except (OSError, ValueError):
+    except (OSError, ValueError, RecursionError):
         return SessionFacts(None, None, None, 0, 0, True)
     model: str | None = None
     calls: list[Call] = []

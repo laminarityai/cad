@@ -11,8 +11,8 @@ scripted person (`human.py`) answering the confirmation page, then runs the trac
 with the same `--out` skips the briefs that finished and runs the rest from a fresh HOME. A brief
 whose session failed is run again, and its earlier try is kept whole under `<out>/<id>/try-<n>`.
 `summary.md` and `summary.json` are rewritten from the result files on every run, so they count
-the last try of each brief, and a cost that adds the earlier tries. Briefs run in parallel, at
-most `--jobs` at once.
+the last try of each brief, and costs that add the earlier tries, per brief and in all. Briefs run
+in parallel, at most `--jobs` at once.
 
 The `inprocess` driver runs the chat agent in this process and stops at the Auto stop. See
 `inprocess.py`.
@@ -47,7 +47,7 @@ from outcome import (
     read_results,
     write_result,
 )
-from session import SessionRun, read_transcript, run_session
+from session import run_session
 from summary import markdown, summarize
 from tracefacts import failed_trace, trace_session
 
@@ -76,10 +76,7 @@ def run_one(brief: BriefInput, out: Path, model: str, timeout_s: float) -> Brief
     human_log = directory / "human.jsonl"
     started = time.monotonic()
     transcript = directory / "transcript.json"
-    try:
-        session = run_session(prompt_for(brief), home, transcript, human_log, model, timeout_s)
-    except RuntimeError as error:
-        session = SessionRun(None, False, str(error), read_transcript(transcript))
+    session = run_session(prompt_for(brief), home, transcript, human_log, model, timeout_s)
     seconds = time.monotonic() - started
     pages = read_pages(human_log)
     stores = home / ".cad"
@@ -92,11 +89,18 @@ def run_one(brief: BriefInput, out: Path, model: str, timeout_s: float) -> Brief
         refused_tool_calls=session.facts.refused_calls,
         asking=asking_of(session.facts.calls, brief.grader),
     )
-    failed = session.timed_out or session.exit_code != 0 or session.facts.is_error
+    failed = (
+        session.timed_out
+        or session.left_running
+        or session.exit_code != 0
+        or session.facts.is_error
+    )
     trace: Trace | None = None
     note: str | None = None
     if session.timed_out:
-        note = f"timed out after {timeout_s:.0f}s"
+        note = "; ".join(
+            [f"timed out after {timeout_s:.0f}s", *([session.note] if session.left_running else [])]
+        )
     elif failed:
         note = session.note
     else:
@@ -125,8 +129,28 @@ def _trace(home: Path, transcript: Path) -> Trace:
         return failed_trace(error)
 
 
+def _run(brief: BriefInput, out: Path, model: str, timeout_s: float) -> BriefResult:
+    """A brief whose run raises fails that brief alone, and the other briefs still run."""
+    started = time.monotonic()
+    try:
+        return run_one(brief, out, model, timeout_s)
+    except Exception as error:
+        return BriefResult(
+            id=brief.id,
+            domain=brief.domain,
+            status="session_failed",
+            model=None,
+            cost_usd=None,
+            turns=None,
+            seconds=time.monotonic() - started,
+            note=f"the session raised {type(error).__name__}: {error}",
+            trace=None,
+            friction=Friction(confirmation_pages=0, ask_calls=0, minutes_to_first_result=None),
+        )
+
+
 def run_and_report(brief: BriefInput, out: Path, model: str, timeout_s: float) -> BriefResult:
-    result = run_one(brief, out, model, timeout_s)
+    result = _run(brief, out, model, timeout_s)
     write_result(out, result)
     trace = result.trace
     state = (

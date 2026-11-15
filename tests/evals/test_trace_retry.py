@@ -57,10 +57,11 @@ def test_a_refusal_before_the_retry_that_stored_the_job_traces(
     assert traced.traced, traced.untraced
 
 
-def test_a_refusal_before_a_retry_still_running_traces(
+def refused_running_stored(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """The retry's card shows the job running, and the job is stored after it."""
+) -> tuple[Scoring, Card, Card, Card]:
+    """A refusal, then a retry whose card shows the job running, then a card bound to the
+    record the retry stored."""
     scoring = a_scoring(tmp_path, stated=True)
     sandbox(monkeypatch, refused)
     refusal = scoring.score()
@@ -77,9 +78,31 @@ def test_a_refusal_before_a_retry_still_running_traces(
     assert fea_of(running)["kind"] == "pending"
     released.set()
     monkeypatch.setattr(score, "WAIT_SECONDS", 30)
-    assert fea_of(scoring.score())["verdict"] == "pass"
+    stored = scoring.score()
+    assert fea_of(stored)["verdict"] == "pass"
+    return scoring, refusal, running, stored
+
+
+def test_a_refusal_before_a_retry_still_running_traces(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The retry's card shows the job running, and the job is stored after it."""
+    scoring, refusal, running, _ = refused_running_stored(tmp_path, monkeypatch)
     traced = shown(scoring, refusal, running)
     assert traced.traced, traced.untraced
+
+
+def test_a_job_shown_running_after_a_card_bound_it_to_its_record_is_untraced(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Once a job is stored the server always shows its stored result, never the job running."""
+    scoring, _, running, stored = refused_running_stored(tmp_path, monkeypatch)
+    traced = shown(scoring, stored, running)
+    assert not traced.traced
+    assert any(
+        "running, but an earlier card showed it bound to its signed job result" in line
+        for line in traced.untraced
+    ), traced.untraced
 
 
 def test_a_refusal_after_a_card_bound_to_the_stored_job_is_untraced(

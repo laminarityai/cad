@@ -26,8 +26,9 @@ and it equals the refusal shape.
 A refused job can be stored later, when the agent scores the same variant and material again, and
 only `score_variant` runs a job, so the retry returns a card. Once a job is stored the server
 always shows its stored result. So a refusal shown over a signed record is a `Retry`, which the
-session decides (`unretried`): it is accepted only when no earlier card bound that job to its
-record, and a later card shows the job running or bound to its record.
+session decides (`out_of_order`): it is accepted only when no earlier card bound that job to its
+record, and a later card shows the job running or bound to its record. For the same reason a job
+shown running after an earlier card bound it to its record fails.
 """
 
 from collections.abc import Iterator, Mapping, Sequence
@@ -197,19 +198,29 @@ def bind_results(card: Scorecard, signed: SignedJobs) -> Binding:
     return Binding(tuple(failures), frozenset(bound), running(card).running, tuple(retries))
 
 
-def unretried(bindings: Sequence[Binding]) -> list[tuple[Unsigned, ...]]:
+def out_of_order(bindings: Sequence[Binding]) -> list[tuple[Unsigned, ...]]:
     """For each card in session order, the failures of each refusal it showed over a signed
-    record that no honest retry explains."""
+    record that no honest retry explains, and of each job it showed running after an earlier
+    card bound that job to its record."""
     failed: list[tuple[Unsigned, ...]] = []
     for at, one in enumerate(bindings):
         before = {job for earlier in bindings[:at] for job in earlier.bound}
         after = {job for later in bindings[at + 1 :] for job in (*later.bound, *later.running)}
         failed.append(
-            tuple(
-                failure
-                for retry in one.retries
-                if retry.job in before or retry.job not in after
-                for failure in retry.failures
+            (
+                *(
+                    failure
+                    for retry in one.retries
+                    if retry.job in before or retry.job not in after
+                    for failure in retry.failures
+                ),
+                *(
+                    Unsigned(
+                        f"the card shows {_named(job[3], job[4])} running, but an earlier card "
+                        "showed it bound to its signed job result"
+                    )
+                    for job in sorted(one.running & before)
+                ),
             )
         )
     return failed

@@ -40,7 +40,16 @@ def _number(value: float | None) -> str:
     return "-" if value is None else f"{value:.1f}"
 
 
-def _row(one: BriefResult) -> str:
+def _cost(one: BriefResult, earlier: Sequence[BriefResult]) -> str:
+    last = "-" if one.cost_usd is None else f"${one.cost_usd:.2f}"
+    tries = [try_ for try_ in earlier if try_.id == one.id]
+    if not tries:
+        return last
+    spent = sum(try_.cost_usd or 0.0 for try_ in tries)
+    return f"{last}, +${spent:.2f} on {len(tries)} earlier tries"
+
+
+def _row(one: BriefResult, earlier: Sequence[BriefResult]) -> str:
     trace = one.trace
     if one.status != "finished":
         verdict = f"SESSION FAILED: {one.note}"
@@ -54,7 +63,7 @@ def _row(one: BriefResult) -> str:
         strict = coverage = "trace failed"
     else:
         strict, coverage = percent(trace.strict_pass), percent(trace.coverage)
-    cost = "-" if one.cost_usd is None else f"${one.cost_usd:.2f}"
+    cost = _cost(one, earlier)
     return (
         f"| {one.id} | {one.domain} | {verdict} | {strict} | {coverage} "
         f"| {one.friction.confirmation_pages} "
@@ -99,8 +108,11 @@ class Overall(Frozen):
 
 
 class Summary(Frozen):
+    """`earlier` holds each try a brief was run again after, so each row can cost them."""
+
     overall: Overall
     briefs: tuple[BriefResult, ...]
+    earlier: tuple[BriefResult, ...] = ()
 
 
 def _pooled_by(traces: Sequence[Trace]) -> dict[By, Decided]:
@@ -173,7 +185,7 @@ def summarize(
             denominator=sum(one.stated_unasked is not None for one in asked),
         ),
     )
-    return Summary(overall=overall, briefs=tuple(results))
+    return Summary(overall=overall, briefs=tuple(results), earlier=tuple(earlier))
 
 
 def markdown(summary: Summary, missing: Sequence[str]) -> str:
@@ -216,7 +228,7 @@ def markdown(summary: Summary, missing: Sequence[str]) -> str:
         "",
         "| brief | domain | trace | strict pass | covered | pages | minutes | cost |",
         "|---|---|---|---|---|---|---|---|",
-        *(_row(one) for one in summary.briefs),
+        *(_row(one, summary.earlier) for one in summary.briefs),
         *(f"| {one} | - | not run | - | - | - | - | - |" for one in missing),
     ]
     for one in summary.briefs:
