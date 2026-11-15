@@ -43,7 +43,7 @@ Moving a fit target could pass a clearance check, so the agent never moves one. 
 
 A build names the parts it reads, each with its placements. The server sends their confirmed BREP bytes on stdin, after the code, so build containers still have no mounts. Build code calls `part(id)` to get the solids at the part's own frame. The variant id hashes the SHA-256 of each part's BREP and each placement, so one id never names two shapes. A rebuild under the ADR-0003 amendment fetches each part by its SHA-256, so an updated part rebuilds an old variant with the old geometry.
 
-Not built as of 2026-11-14. No build reads, places or copies a supplied part yet, so no variant id or build manifest covers a part or a placement. The sentences above, the component rule and the ADR-0003 line under Consequences say what holds once step 2 of Delivery is built.
+Built on 2026-11-14 for the build. `build_variant` and `auto_revise` take `parts`, and build code calls `part(id)` for the solids and `placed(id)` for the placements. The variant id and `build.json` cover each part's SHA-256 and placements. A build that places a fit target is refused, and so is scoring a stored variant that placed a part its brief later made a fit target. The card's `supplied` list, its tracer check and the viewer's drawing of placed parts are not built yet.
 
 ### The scorecard says which geometry the person supplied
 
