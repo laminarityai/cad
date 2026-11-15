@@ -10,12 +10,15 @@ from cad.context_parts.ids import PART_ID_PATTERN
 from cad.context_parts.store import BadContextPart, ConfirmedPart, confirmed_parts, part_brep
 from cad.operations.model import Input, Tenant
 from cad.operations.scorecards import fit_parts
+from cad.sandbox import container
 from cad.sandbox.builder import Supplied
 from cad.sandbox.outcome import PartPlacement, PartUse
 
 MAX_PARTS: Final = 8
 MAX_PLACEMENTS: Final = 32
 NOTHING_BUILT: Final = "Nothing was built."
+MAX_PARTS_BYTES: Final = container.TMPFS_MB * 2**20 * 3 // 4
+"""The build writes each part to its /tmp, and leaves a quarter of it to the code."""
 
 
 class PartInput(Input):
@@ -61,7 +64,7 @@ def supplied(
                 f"it where it was confirmed, so a build may read it but not place it. "
                 f"{NOTHING_BUILT}"
             )
-    return tuple(
+    found = tuple(
         Supplied(
             PartUse(
                 part_id=one.part_id,
@@ -73,6 +76,14 @@ def supplied(
         )
         for one in asked
     )
+    total = sum(len(one.brep) for one in found)
+    if total > MAX_PARTS_BYTES:
+        raise BadContextPart(
+            f"the parts named hold {total / 2**20:.0f} MiB of geometry, more than the "
+            f"{MAX_PARTS_BYTES // 2**20} MiB of parts one build can read; read fewer parts. "
+            f"{NOTHING_BUILT}"
+        )
+    return found
 
 
 def uses(parts: Sequence[Supplied]) -> tuple[PartUse, ...]:

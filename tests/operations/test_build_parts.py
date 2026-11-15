@@ -9,6 +9,7 @@ import pytest
 
 from cad.accounts.principal import AccountId, PersonSession
 from cad.context_parts.ids import ContextPartId
+from cad.operations import supplied
 from cad.projects.model import ProjectId
 from cad.sandbox import builder, image
 from cad.sandbox.builder import Artifacts, Run, Supplied
@@ -181,3 +182,13 @@ async def test_scoring_refuses_a_variant_whose_parts_the_briefs_project_has_not_
     )
     said = await s.text("scorecard", variant_id=vid, brief_id=brief)
     assert f"variant {vid} read {part}, which the brief's project has not confirmed" in said
+
+
+async def test_parts_too_big_for_the_sandbox_are_refused_before_the_build(
+    s: Session, sent: list[Sequence[Supplied]], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, brief, part = await project_with_part(s)
+    monkeypatch.setattr(supplied, "MAX_PARTS_BYTES", len(RAIL) - 1)
+    said = await s.text("build_variant", code=PLATE, brief_id=brief, parts=placing(part), **CHOSEN)
+    assert "more than the 0 MiB of parts one build can read" in said
+    assert sent == []
