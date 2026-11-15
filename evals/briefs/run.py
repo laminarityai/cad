@@ -129,8 +129,28 @@ def _trace(home: Path, transcript: Path) -> Trace:
         return failed_trace(error)
 
 
+def _run(brief: BriefInput, out: Path, model: str, timeout_s: float) -> BriefResult:
+    """A brief whose run raises fails that brief alone, and the other briefs still run."""
+    started = time.monotonic()
+    try:
+        return run_one(brief, out, model, timeout_s)
+    except Exception as error:
+        return BriefResult(
+            id=brief.id,
+            domain=brief.domain,
+            status="session_failed",
+            model=None,
+            cost_usd=None,
+            turns=None,
+            seconds=time.monotonic() - started,
+            note=f"the session raised {type(error).__name__}: {error}",
+            trace=None,
+            friction=Friction(confirmation_pages=0, ask_calls=0, minutes_to_first_result=None),
+        )
+
+
 def run_and_report(brief: BriefInput, out: Path, model: str, timeout_s: float) -> BriefResult:
-    result = run_one(brief, out, model, timeout_s)
+    result = _run(brief, out, model, timeout_s)
     write_result(out, result)
     trace = result.trace
     state = (

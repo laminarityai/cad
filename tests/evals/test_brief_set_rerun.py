@@ -120,3 +120,9 @@ def test_the_summary_pools_refused_calls_and_cut_off_jobs_of_finished_briefs() -
         "(cut off, refused and not retried, or timed out): 2"
     ) in text
     assert "## Cut off in a\n- v1: fea for 557d8d82" in text
+
+
+def test_a_deeply_nested_transcript_reads_as_an_error(tmp_path: Path) -> None:
+    transcript = tmp_path / "transcript.json"
+    transcript.write_text("[" * 100_000 + "]" * 100_000)
+    assert read_transcript(transcript).is_error

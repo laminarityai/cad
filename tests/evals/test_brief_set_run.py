@@ -351,3 +351,30 @@ def test_a_tracer_failure_fails_that_briefs_trace_and_the_other_briefs_run(
         "the tracer failed: AssertionError: only a finished check has measures",
     )
     assert two.trace == a_trace() and three.trace == a_trace()
+
+
+def test_a_session_that_raises_fails_that_brief_and_the_other_briefs_run(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    briefs_dir, out = tmp_path / "set", tmp_path / "out"
+    briefs_dir.mkdir()
+    for name in ("one", "two", "three"):
+        write_brief(briefs_dir, name, "x")
+    started = stub_session(monkeypatch, failing=set())
+    stubbed = run.run_session
+
+    def session(
+        prompt: str, home: Path, transcript: Path, log: Path, model: str, timeout_s: float
+    ) -> SessionRun:
+        if home.parent.name == "two":
+            raise RecursionError("maximum recursion depth exceeded")
+        return stubbed(prompt, home, transcript, log, model, timeout_s)
+
+    monkeypatch.setattr(run, "run_session", session)
+    arguments = ["--briefs", str(briefs_dir), "--out", str(out), "--jobs", "1"]
+    assert run.main(arguments) == 1
+    assert sorted(started) == ["one", "three"]
+    [one, three, two] = read_results(out, ["one", "three", "two"])
+    assert (one.status, two.status, three.status) == ("finished", "session_failed", "finished")
+    assert two.note == "the session raised RecursionError: maximum recursion depth exceeded"
+    assert (out / "summary.md").exists()

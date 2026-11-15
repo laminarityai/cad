@@ -148,7 +148,7 @@ def _driver() -> Driver:
 def read_transcript(path: Path) -> SessionFacts:
     try:
         events = cast(list[dict[str, Any]], json.loads(path.read_text()))
-    except (OSError, ValueError):
+    except (OSError, ValueError, RecursionError):
         return SessionFacts(None, None, None, 0, 0, True)
     model: str | None = None
     calls: list[Call] = []
