@@ -32,11 +32,14 @@ from cad.operations.conversations import ConversationState
 from cad.operations.guidance import BODY_MATERIALS
 from cad.operations.guidance_auto import (
     AUTO_AGENT_CHECKS,
+    AUTO_ASK,
     AUTO_BUILDS,
     AUTO_DESCRIBED,
     AUTO_NEW_BODY_MATERIAL,
+    AUTO_STOP,
 )
 from cad.operations.model import Audience, Input, Tenant, operation
+from cad.operations.supplied import Parts, Supplied, supplied, uses
 from cad.operations.variants import (
     MAX_CODE_CHARS,
     BodyMaterials,
@@ -48,7 +51,7 @@ from cad.sandbox import image
 from cad.sandbox.outcome import Built
 from cad.scorecard import material
 from cad.variant_sets import store as variant_sets
-from cad.variant_sets.model import BodyChoice, MaterialMissing, Reason, Slot, code_sha256
+from cad.variant_sets.model import BodyChoice, MaterialMissing, Reason, Slot
 from cad.variant_sets.placement import CHOOSE, refuse_unpinned
 from cad.variants import entry
 
@@ -94,8 +97,9 @@ STOPS = (
 )
 AUTO_REVISE = (
     "Build and score one revision of the design under this conversation's Auto run. Pass "
-    "run_id and the build123d code, colours and areas included, with slot as in build_variant: "
-    "a slot the run's brief's variant set holds, to revise that variant, or its next free slot. "
+    "run_id and the build123d code, colours and areas included, parts as in build_variant, and "
+    "slot as in build_variant: a slot the run's brief's variant set holds, to revise that "
+    "variant, or its next free slot. "
     "Any other slot is refused before anything is built, so to revise a variant the person "
     "names, start the run on the brief whose variant set holds it. The server builds the code "
     "into the run's brief's variant set, scores it with the run's material and returns the run. "
@@ -122,21 +126,6 @@ AUTO_REVISE = (
     + " "
     + STOPS
 )
-AUTO_ASK = (
-    "Stop an Auto run because you need the person: you are stuck, or only the person can "
-    "decide, such as which of two conflicting requirements to relax. note says what you tried "
-    "and what the person must decide, and names each requirement it is about. The stop's "
-    "report gives the note as you wrote it. Returns the stopped run. The stop holds the "
-    "conversation until the person writes or answers. On a run that has already stopped, "
-    "nothing is recorded and the call is refused."
-)
-AUTO_STOP = (
-    "Stop an Auto run for the person, who pressed Stop in the web app. When the run is its "
-    "conversation's current run, the stop holds the conversation, as every stop does: the "
-    "agent cannot build, score or start a run in it until the person writes or answers. On a "
-    "run that has already stopped, nothing more is recorded. Returns the stopped run and the "
-    "conversation's running run and stopped run."
-)
 
 
 class StartInput(Input):
@@ -150,6 +139,7 @@ class ReviseInput(Input):
     run_id: str
     code: Annotated[str, Field(max_length=MAX_CODE_CHARS)]
     slot: Slot | None = None
+    parts: Parts = ()
 
 
 class AskInput(Input):
@@ -246,22 +236,25 @@ def auto_start(tenant: Tenant, arguments: StartInput) -> AutoRun:
 
 def auto_revise(tenant: Tenant, arguments: ReviseInput) -> RevisedRun:
     _refuse_unless_held(tenant, arguments.run_id)
-    with building.building(arguments.run_id, code_sha256(arguments.code)):
-        return _revise(tenant, arguments)
+    brief_id = log.read_run(tenant.roots, arguments.run_id).state.start.brief_id
+    parts = supplied(tenant, brief_id, arguments.parts)
+    with building.building(arguments.run_id, entry.build_sha256(arguments.code, uses(parts))):
+        return _revise(tenant, arguments, brief_id, parts)
 
 
-def _revise(tenant: Tenant, arguments: ReviseInput) -> RevisedRun:
+def _revise(
+    tenant: Tenant, arguments: ReviseInput, brief_id: str, parts: tuple[Supplied, ...]
+) -> RevisedRun:
     roots, run_id = tenant.roots, arguments.run_id
-    brief_id = log.read_run(roots, run_id).state.start.brief_id
     running = gate(tenant.roots, tenant.conversations, tenant.bound_run, brief_id)
     assert running is not None
-    sha = code_sha256(arguments.code)
+    sha = entry.build_sha256(arguments.code, uses(parts))
     if (tried := _revision_of(running, sha)) is not None:
         return RevisedRun(run_id=run_id, state=running, revision=tried)
     if arguments.slot is not None:
         variant_sets.refuse_a_slot_out_of_turn(roots, brief_id, arguments.slot)
     revision = len(running.history) + 1
-    vid = entry.variant_id(arguments.code, image.image_tag(image.BUILD))
+    vid = entry.variant_id(arguments.code, image.image_tag(image.BUILD), uses(parts))
     with stops_at_the_limit(tenant.roots, tenant.conversations, tenant.bound_run, vid):
         start = running.start
         resolve = chooser(
@@ -276,6 +269,7 @@ def _revise(tenant: Tenant, arguments: ReviseInput) -> RevisedRun:
                 arguments.slot,
                 resolve,
                 on_built=counter(tenant, sha),
+                parts=parts,
             )
         except MaterialMissing as error:
             stored = str(error).rpartition(". ")[2]

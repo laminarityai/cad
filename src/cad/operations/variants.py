@@ -12,11 +12,12 @@ from cad.context_parts.model import UPDATE_PART
 from cad.context_parts.store import out_of_date_in
 from cad.conversations.store import record_event
 from cad.geometry.lane import TESSELLATIONS
-from cad.operations.guidance import BODY_MATERIALS, COLOURS
+from cad.operations.guidance import BODY_MATERIALS, COLOURS, PARTS
 from cad.operations.guidance_auto import AUTO_BUILDS
 from cad.operations.model import Audience, Input, Tenant, operation
 from cad.operations.research import brief_table
 from cad.operations.scorecards import MaterialKey, ScoredBody
+from cad.operations.supplied import PartInput, Parts, listed, supplied, uses
 from cad.sandbox import builder, container, image
 from cad.sandbox.bodies import MAX_BODIES, Bodies
 from cad.sandbox.outcome import Built, ToldOutcome, told
@@ -38,7 +39,6 @@ from cad.variant_sets.model import (
     SetRefused,
     Slot,
     SlotRefused,
-    code_sha256,
 )
 from cad.variant_sets.placement import choose_each, refuse_lacking
 from cad.variants import entry, store
@@ -96,6 +96,8 @@ BUILD_VARIANT = (
     + COLOURS
     + " "
     + BODY_MATERIALS
+    + " "
+    + PARTS
 )
 
 
@@ -103,7 +105,7 @@ VARIANT_CODE = (
     "The build123d code a stored variant was built from. To change a slot the user names, read "
     "the slot's variant_id from variant_set, read its code here, edit it, and build the edited "
     "code with build_variant, the brief_id and that slot, then score the new variant with "
-    "score_variant."
+    "score_variant. parts lists the supplied parts it read, as build_variant takes them."
 )
 
 
@@ -114,12 +116,13 @@ class VariantCodeInput(Input):
 class VariantCode(BaseModel):
     variant_id: str
     code: str
+    parts: tuple[PartInput, ...] = Field(default=(), exclude_if=lambda one: not one)
 
 
 def variant_code(tenant: Tenant, arguments: VariantCodeInput) -> VariantCode:
     held = entry.open_entry(tenant.variants, arguments.variant_id, image.image_tag(image.BUILD))
     code = (held.directory / entry.CODE).read_bytes().decode("utf-8", "surrogatepass")
-    return VariantCode(variant_id=held.id, code=code)
+    return VariantCode(variant_id=held.id, code=code, parts=listed(held.parts))
 
 
 class BodyMaterialInput(ScoredBody):
@@ -138,6 +141,7 @@ class BuildVariantInput(Input):
     materials: BodyMaterials | None = None
     label: Label | None = None
     differs: Differs | None = None
+    parts: Parts = ()
 
 
 def _option(label: str | None, differs: str | None) -> Option | None:
@@ -186,8 +190,9 @@ class BuildReply(BaseModel):
 
 def build_variant(tenant: Tenant, arguments: BuildVariantInput) -> BuildReply:
     """A built variant's mesh starts at once, beside its checks, so the viewer has it sooner."""
-    with building(tenant.bound_run, code_sha256(arguments.code)):
-        built = _build(tenant, arguments)
+    parts = supplied(tenant, arguments.brief_id, arguments.parts)
+    with building(tenant.bound_run, entry.build_sha256(arguments.code, uses(parts))):
+        built = _build(tenant, arguments, parts)
     if isinstance(built.outcome, Built):
         held = entry.open_entry(tenant.variants, built.variant_id, image.image_tag(image.BUILD))
         TESSELLATIONS.start(tenant.geometry, held)
@@ -200,12 +205,14 @@ def build_variant(tenant: Tenant, arguments: BuildVariantInput) -> BuildReply:
     )
 
 
-def _build(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResult:
+def _build(
+    tenant: Tenant, arguments: BuildVariantInput, parts: Sequence[builder.Supplied]
+) -> SetBuildResult:
     running = gate(tenant.roots, tenant.conversations, tenant.bound_run, arguments.brief_id)
     if running is not None and arguments.brief_id is not None and arguments.slot is not None:
         variant_sets.refuse_a_slot_out_of_turn(tenant.roots, arguments.brief_id, arguments.slot)
     option = _option(arguments.label, arguments.differs)
-    vid = entry.variant_id(arguments.code, image.image_tag(image.BUILD))
+    vid = entry.variant_id(arguments.code, image.image_tag(image.BUILD), uses(parts))
     with stops_at_the_limit(tenant.roots, tenant.conversations, tenant.bound_run, vid):
         if arguments.brief_id is not None:
             resolve = chooser(
@@ -226,7 +233,8 @@ def _build(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResult:
                 arguments.slot,
                 resolve,
                 option,
-                on_built=counter(tenant, code_sha256(arguments.code)),
+                on_built=counter(tenant, entry.build_sha256(arguments.code, uses(parts))),
+                parts=parts,
             )
             return with_out_of_date(tenant, arguments.brief_id, built)
         if arguments.slot is not None:
@@ -249,8 +257,8 @@ def _build(tenant: Tenant, arguments: BuildVariantInput) -> SetBuildResult:
 
 
 def counter(tenant: Tenant, sha: str) -> Callable[[str], None]:
-    """Counts a build under the conversation's run among its builds, once per code (ADR-0010).
-    With no run it counts nothing."""
+    """Counts a build under the conversation's run among its builds, once per code and parts
+    (ADR-0010), `sha` being their `entry.build_sha256`. With no run it counts nothing."""
     run_id = tenant.bound_run
 
     def count(variant_id: str) -> None:

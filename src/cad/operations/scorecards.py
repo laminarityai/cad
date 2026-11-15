@@ -1,5 +1,6 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
+from functools import partial
 from typing import Annotated, Final
 
 from pydantic import BaseModel, Field
@@ -16,7 +17,7 @@ from cad.checks import jobs
 from cad.checks.result import Materials
 from cad.confirmations.requirements import plain_names
 from cad.context_parts.ids import ContextPartId
-from cad.context_parts.store import fit_targets, part_brep
+from cad.context_parts.store import ConfirmedPart, fit_targets, part_brep, stored_brep
 from cad.operations.agent_checks import with_agent_checks
 from cad.operations.guidance import BODY_MATERIALS, NOT_VERIFIED, RULE
 from cad.operations.model import BOTH, Audience, Input, Tenant, operation
@@ -174,14 +175,27 @@ class Judged:
     waiting: tuple[Requirement, ...]
 
 
+def fit_parts(tenant: Tenant, brief_id: str) -> tuple[ConfirmedPart, ...]:
+    """The parts the brief's fit check measures, as a card of it scores them."""
+    confirmed = briefs.confirmed_requirements(tenant.roots, brief_id)
+    waiting = _waiting(tenant, brief_id, confirmed)
+    return _fit_parts(
+        tenant.roots, brief_id, _targets(confirmed, waiting, _assumed(tenant, brief_id))
+    )
+
+
+def _fit_parts(roots: Roots, brief_id: str, targets: Sequence[Target]) -> tuple[ConfirmedPart, ...]:
+    project = briefs.read_brief(roots, brief_id).project
+    named = frozenset(one.part for one in targets if isinstance(one, ON_PART))
+    return fit_targets(roots.projects, project, brief_id, named)
+
+
 def _context(
     roots: Roots, brief_id: str, targets: Sequence[Target]
 ) -> dict[ContextPartId, jobs.PartBrep]:
-    project = briefs.read_brief(roots, brief_id).project
-    named = frozenset(one.part for one in targets if isinstance(one, ON_PART))
     return {
         part.record.id: jobs.PartBrep(part.record.brep_sha256, part_brep(roots.projects, part))
-        for part in fit_targets(roots.projects, project, brief_id, named)
+        for part in _fit_parts(roots, brief_id, targets)
     }
 
 
@@ -312,6 +326,7 @@ def score_variant(tenant: Tenant, arguments: ScoreVariantInput) -> material.Repo
             basis.assess,
             demand=basis.demand,
             table=basis.table.table,
+            fetch=partial(stored_brep, tenant.roots.projects),
         )
     repair.collect_beside(tenant.variants, scored.variant_id, tag)
     card = with_research(
