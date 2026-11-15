@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useServices } from "@/app/context";
 import type { DoneCheck, Scorecard } from "@/api/snapshot";
+import type { VariantView } from "@/api/types";
+import { MESH_RETRY_MS } from "@/features/viewer/useMesh";
 import { useResource } from "@/state/resource";
 
 export interface BodyLine {
@@ -12,7 +14,7 @@ export interface BodyLine {
   measured: string;
 }
 
-const VIEW_POLL_MS = 1500;
+const FOLLOW_MS: Readonly<Record<VariantView["mesh"], number | undefined>> = { pending: 1500, failed: MESH_RETRY_MS, tessellated: undefined };
 
 const three = (magnitude: number) => String(Number(magnitude.toPrecision(3)));
 
@@ -41,10 +43,10 @@ export function bodiesOf(snapshot: Scorecard, colours: ReadonlyMap<string, strin
 
 function useViewUntilMeshed(variantId: string) {
   const { api } = useServices();
-  const [meshed, setMeshed] = useState(false);
-  const { resource } = useResource(() => api.view(variantId), variantId, meshed ? undefined : VIEW_POLL_MS);
+  const [mesh, setMesh] = useState<VariantView["mesh"]>("pending");
+  const { resource } = useResource(() => api.view(variantId), variantId, FOLLOW_MS[mesh]);
   const view = resource.status === "ok" ? resource.data : null;
-  if (!meshed && view !== null && view.mesh !== "pending") setMeshed(true);
+  if (view !== null && view.mesh !== mesh) setMesh(view.mesh);
   return view;
 }
 
