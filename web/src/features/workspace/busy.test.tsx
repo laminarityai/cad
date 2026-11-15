@@ -21,7 +21,7 @@ describe("a brief with no options", () => {
     const chat = new FakeChat();
     mount(chat, []);
     await screen.findAllByText(/No options yet/);
-    say(chat, { kind: "user", text: "a hook", selection: null }, { kind: "tool_call", call_id: "a", name: "build_variant", input: { brief_id: "b1", label: "Wide base", slot: 1 } });
+    say(chat, { kind: "user", text: "a hook", selection: null }, { kind: "tool_call", call_id: "a", name: "build_variant", input: { brief_id: "b1", label: "Wide base", slot: 1 } }, { kind: "tool_started", call_id: "a" });
     const centre = (await screen.findAllByRole("status")).filter((one) => /^Building an option/.test(one.textContent));
     expect(centre.length).toBeGreaterThanOrEqual(2);
     expect(screen.queryByText(/No options yet/)).toBeNull();
@@ -43,8 +43,8 @@ describe("the tool rows in the chat", () => {
     say(
       chat,
       { kind: "user", text: "build", selection: null },
-      { kind: "tool_call", call_id: "a", name: "build_variant", input: { label: "Wide base", slot: 1, code: "x".repeat(500) } },
-      { kind: "tool_call", call_id: "b", name: "score_variant", input: { variant_id: "v1" } },
+      { kind: "tool_call", call_id: "a", name: "build_variant", input: { label: "Wide base", slot: 1, code: "x".repeat(500) } }, { kind: "tool_started", call_id: "a" },
+      { kind: "tool_call", call_id: "b", name: "score_variant", input: { variant_id: "v1" } }, { kind: "tool_started", call_id: "b" },
     );
     const log = screen.getByRole("log");
     const rows = await within(log).findAllByRole("listitem");
@@ -64,7 +64,7 @@ describe("the tool rows in the chat", () => {
   it("shows the inputs of a call when its row opens, and never its code", async () => {
     render(
       <ChatPane
-        lines={[{ seq: 1, kind: "tool", callId: "a", name: "build_variant", input: { label: "Wide base", slot: 2, code: "secret_code()" }, result: { text: built, isError: false } }]}
+        lines={[{ seq: 1, kind: "tool", callId: "a", name: "build_variant", input: { label: "Wide base", slot: 2, code: "secret_code()" }, started: true, result: { text: built, isError: false } }]}
         ended={0}
         working={null}
         card={null}
@@ -86,9 +86,9 @@ describe("a tool row while its call runs", () => {
     say(
       chat,
       { kind: "user", text: "build", selection: null },
-      { kind: "tool_call", call_id: "s", name: "create_brief", input: {} },
+      { kind: "tool_call", call_id: "s", name: "create_brief", input: {} }, { kind: "tool_started", call_id: "s" },
       { kind: "tool_result", call_id: "s", text: "{}", is_error: false },
-      { kind: "tool_call", call_id: "a", name: "build_variant", input: { label: "Slim base", slot: 1 } },
+      { kind: "tool_call", call_id: "a", name: "build_variant", input: { label: "Slim base", slot: 1 } }, { kind: "tool_started", call_id: "a" },
     );
     const log = screen.getByRole("log");
     const row = (await within(log).findAllByRole("listitem"))[1] as HTMLElement;
@@ -107,6 +107,7 @@ describe("a turn the server cut off", () => {
     const chat = new FakeChat();
     chat.say({ kind: "user", text: "a hook", selection: null });
     chat.say({ kind: "tool_call", call_id: "a", name: "build_variant", input: { label: "Wide base", slot: 1 } });
+    chat.say({ kind: "tool_started", call_id: "a" });
     chat.say({ kind: "turn_failed", message: "The server stopped before this turn finished. Send a message to carry on." });
     chat.say({ kind: "turn_ended" });
     mount(chat, []);
@@ -127,7 +128,7 @@ describe("an empty brief while another brief is worked on", () => {
     mount(chat, ["v1"], "b0");
     const explorer = await screen.findByRole("region", { name: "Explorer" });
     await within(explorer).findByText("No options yet");
-    say(chat, { kind: "user", text: "another", selection: null }, { kind: "tool_call", call_id: "a", name: "build_variant", input: { brief_id: "b1", label: "Slim base", slot: 2 } });
+    say(chat, { kind: "user", text: "another", selection: null }, { kind: "tool_call", call_id: "a", name: "build_variant", input: { brief_id: "b1", label: "Slim base", slot: 2 } }, { kind: "tool_started", call_id: "a" });
     await screen.findAllByText(/Building an option/);
     expect(within(explorer).queryByText(/Building/)).toBeNull();
     expect(within(explorer).getByText("No options yet")).toBeInTheDocument();
@@ -155,9 +156,9 @@ describe("an empty brief while another brief is worked on", () => {
     say(
       chat,
       { kind: "user", text: "a lid too", selection: null },
-      { kind: "tool_call", call_id: "a", name: "propose_requirements", input: { brief_id: "b0" } },
+      { kind: "tool_call", call_id: "a", name: "propose_requirements", input: { brief_id: "b0" } }, { kind: "tool_started", call_id: "a" },
       { kind: "tool_result", call_id: "a", text: "{}", is_error: false },
-      { kind: "tool_call", call_id: "b", name: "create_brief", input: {} },
+      { kind: "tool_call", call_id: "b", name: "create_brief", input: {} }, { kind: "tool_started", call_id: "b" },
     );
     await screen.findAllByText(/Starting the part/);
     expect(within(explorer).queryByRole("status")).toBeNull();
@@ -172,9 +173,9 @@ describe("an empty brief while another brief is worked on", () => {
     say(
       chat,
       { kind: "user", text: "a lid too", selection: null },
-      { kind: "tool_call", call_id: "a", name: "propose_requirements", input: { brief_id: "b0" } },
+      { kind: "tool_call", call_id: "a", name: "propose_requirements", input: { brief_id: "b0" } }, { kind: "tool_started", call_id: "a" },
       { kind: "tool_result", call_id: "a", text: "{}", is_error: false },
-      { kind: "tool_call", call_id: "b", name: "create_brief", input: {} },
+      { kind: "tool_call", call_id: "b", name: "create_brief", input: {} }, { kind: "tool_started", call_id: "b" },
       { kind: "tool_result", call_id: "b", text: JSON.stringify({ brief_id: "b9", project_id: "p1", text: "a lid too" }), is_error: false },
     );
     await screen.findAllByText("Working");
@@ -189,7 +190,7 @@ describe("the chat while the server does not answer", () => {
     const chat = new FakeChat();
     mount(chat, ["v1"]);
     await userEvent.type(await screen.findByRole("textbox", { name: "Message" }), "build{Enter}");
-    say(chat, { kind: "tool_call", call_id: "a", name: "build_variant", input: { label: "Wide base", slot: 1 } });
+    say(chat, { kind: "tool_call", call_id: "a", name: "build_variant", input: { label: "Wide base", slot: 1 } }, { kind: "tool_started", call_id: "a" });
     const pane = screen.getByRole("region", { name: "Chat" });
     await waitFor(() => {
       expect(pane).toHaveAttribute("aria-busy", "true");
@@ -216,10 +217,10 @@ describe("a build that failed", () => {
     say(
       chat,
       { kind: "user", text: "build", selection: null },
-      { kind: "tool_call", call_id: "a", name: "build_variant", input: { label: "Wide base", slot: 1 } },
+      { kind: "tool_call", call_id: "a", name: "build_variant", input: { label: "Wide base", slot: 1 } }, { kind: "tool_started", call_id: "a" },
       { kind: "tool_result", call_id: "a", text: failedBuild, is_error: false },
-      { kind: "tool_call", call_id: "b", name: "auto_revise", input: { slot: 1 } },
-      { kind: "tool_result", call_id: "b", text: JSON.stringify({ ...runningRun(0), state: { ...runningRun(0).state, history: [{ revision: 1, variant_id: "v3", code_sha256: "e".repeat(64), built: false, marks: [] }], builds: ["e".repeat(64)] } }), is_error: false },
+      { kind: "tool_call", call_id: "b", name: "auto_revise", input: { slot: 1 } }, { kind: "tool_started", call_id: "b" },
+      { kind: "tool_result", call_id: "b", text: JSON.stringify({ ...runningRun(0), revision: 1, state: { ...runningRun(0).state, history: [{ revision: 1, variant_id: "v3", code_sha256: "e".repeat(64), built: false, marks: [] }], builds: ["e".repeat(64)] } }), is_error: false },
       { kind: "turn_ended" },
     );
     const log = screen.getByRole("log");
@@ -237,7 +238,7 @@ describe("a build that failed", () => {
     say(
       chat,
       { kind: "user", text: "build", selection: null },
-      { kind: "tool_call", call_id: "a", name: "build_variant", input: { label: "Wide base", slot: 1 } },
+      { kind: "tool_call", call_id: "a", name: "build_variant", input: { label: "Wide base", slot: 1 } }, { kind: "tool_started", call_id: "a" },
       { kind: "tool_result", call_id: "a", text: `${failedBuild.slice(0, 40)}\n[cut: 9 more characters]`, is_error: false },
       { kind: "turn_ended" },
     );
@@ -274,6 +275,7 @@ function idleRun(): FakeChat {
   chat.say({ kind: "user", text: "go", selection: null });
   chat.autoRun = runningRun(1);
   chat.say({ kind: "tool_call", call_id: "a", name: "auto_start", input: {} });
+  chat.say({ kind: "tool_started", call_id: "a" });
   chat.say({ kind: "tool_result", call_id: "a", text: JSON.stringify(chat.autoRun), is_error: false });
   chat.say({ kind: "turn_ended" });
   return chat;
@@ -340,7 +342,7 @@ describe("a build still running when the stop report comes", () => {
     say(
       chat,
       { kind: "driver", text: "Carry on with the run.", answered: null },
-      { kind: "tool_call", call_id: "a", name: "build_variant", input: { label: "Slim", slot: 1 } },
+      { kind: "tool_call", call_id: "a", name: "build_variant", input: { label: "Slim", slot: 1 } }, { kind: "tool_started", call_id: "a" },
       { kind: "stop_report", run_id: "r1", reason: "stopped", report: "You stopped the run." },
     );
     const log = screen.getByRole("log");
@@ -360,11 +362,11 @@ describe("a build still running when the stop report comes", () => {
     say(
       chat,
       { kind: "driver", text: "Carry on with the run.", answered: null },
-      { kind: "tool_call", call_id: "a", name: "build_variant", input: { label: "Slim", slot: 1 } },
+      { kind: "tool_call", call_id: "a", name: "build_variant", input: { label: "Slim", slot: 1 } }, { kind: "tool_started", call_id: "a" },
       { kind: "stop_report", run_id: "r1", reason: "stopped", report: "You stopped the run." },
       { kind: "turn_ended" },
       { kind: "user", text: "make it wider", selection: null },
-      { kind: "tool_call", call_id: "b", name: "build_variant", input: { label: "Wide", slot: 1 } },
+      { kind: "tool_call", call_id: "b", name: "build_variant", input: { label: "Wide", slot: 1 } }, { kind: "tool_started", call_id: "b" },
     );
     const log = screen.getByRole("log");
     expect(await within(log).findByRole("button", { name: /did not finish/ })).toBeInTheDocument();

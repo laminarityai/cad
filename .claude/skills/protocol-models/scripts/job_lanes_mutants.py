@@ -149,6 +149,19 @@ MUTANTS: Final = (
         "PeekPendingMeansRunning",
     ),
     Mutant(
+        "peek-checking-when-idle",
+        "peek says the quick checks are running when no quick job flies, so the page shows them"
+        " running for a variant nothing scores (#290)",
+        JOB_LANES_CAP,
+        (
+            (
+                '/\\ ~Stored("quick")\n          /\\ flying[p]["quick"] # "none"',
+                '/\\ ~Stored("quick")',
+            ),
+        ),
+        "PeekCheckingMeansRunning",
+    ),
+    Mutant(
         "stop-counts",
         "Lanes.close leaves the running attempt counted, so each deploy during a check counts"
         " toward the cap and the scorecard refuses the check as interrupted (#106)",

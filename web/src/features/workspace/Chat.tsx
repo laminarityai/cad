@@ -116,8 +116,7 @@ function detailOf(input: Record<string, unknown>): string[] {
 type Phase = "live" | "stalled" | "over";
 
 function statusesOf(lines: readonly Call[], phase: Phase): ToolRow["status"][] {
-  const first = lines.findIndex((one) => one.result === null);
-  return lines.map((one, at) => {
+  return lines.map((one) => {
     if (one.result !== null) {
       if (one.result.isError) return "refused";
       const build = buildOf(one.name, one.result.text);
@@ -125,7 +124,7 @@ function statusesOf(lines: readonly Call[], phase: Phase): ToolRow["status"][] {
     }
     if (phase === "over") return "unfinished";
     if (phase === "stalled") return "unanswered";
-    return at === first ? "running" : "queued";
+    return one.started ? "running" : "queued";
   });
 }
 

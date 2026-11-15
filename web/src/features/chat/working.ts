@@ -29,13 +29,16 @@ export const STALLED = "The server is not answering. The page is reconnecting.";
 /** A turn runs, but the stream dropped, so nothing on the page knows whether it still moves. */
 export const stalledOf = (chat: Turn): boolean => chat.turn === "running" && chat.link === "reconnecting";
 
+/** The server writes `brief_id` first, so a result it cut too long to parse still names it. */
+const LEADING_BRIEF = /^\{"brief_id":"([^"\\]+)"/;
+
 function created(call: Call): string | null {
   if (call.name !== "create_brief" || call.result === null || call.result.isError) return null;
   try {
     const said = (JSON.parse(call.result.text) as { brief_id?: unknown } | null)?.brief_id;
     return typeof said === "string" ? said : null;
   } catch {
-    return null;
+    return LEADING_BRIEF.exec(call.result.text)?.[1] ?? null;
   }
 }
 
@@ -50,7 +53,7 @@ export function workingOf(chat: Turn, run: RunView | null): Working | null {
   if (chat.turn !== "running" || stalledOf(chat)) return null;
   const runBrief = run?.status === "running" ? run.briefId : null;
   const calls = chat.lines.filter((line): line is Call => line.kind === "tool" && line.seq > (chat.turnStartSeq ?? 0));
-  const open = calls.find((call) => call.result === null);
+  const open = calls.find((call) => call.started && call.result === null);
   if (open) return { kind: "tool", name: open.name, briefId: briefOf(open, runBrief) };
   return { kind: "turn", briefId: calls.map((call) => briefOf(call, runBrief)).findLast((one) => one !== null) ?? null };
 }

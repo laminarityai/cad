@@ -6,6 +6,8 @@ import pytest
 from pydantic import ValidationError
 
 from cad.checks import job_store
+from cad.checks.jobs import Plan, run_job
+from cad.checks.lanes import Lanes, Pending
 from cad.checks.report import IMAGE_TAG
 from cad.checks.result import Comparator, Verdict
 from cad.sandbox.image import BUILD, current_image, image_tag
@@ -170,6 +172,20 @@ def test_peeking_a_variant_never_scored_for_that_material_is_refused(
     with pytest.raises(score.NotScored, match=variant_id):
         score.peek_variant(variant_id, "prusament-pla", store)
     assert not (store / variant_id / job_store.JOBS).exists()
+
+
+class QuickRunning(Lanes):
+    def peek(self, plan: Plan) -> Pending:
+        del plan
+        return Pending()
+
+
+def test_peeking_while_the_quick_checks_run_says_they_run_not_that_nothing_checked_it(
+    built: Build, store: Path
+) -> None:
+    variant_id = built(PLATE + "# its quick checks run now\n")
+    with pytest.raises(score.ChecksRunning, match=f"{variant_id} has its checks running"):
+        score.peek_variant(variant_id, "prusament-pla", store, lanes=QuickRunning(run_job))
 
 
 def test_an_unknown_variant_is_refused_naming_the_id_and_stores_nothing(

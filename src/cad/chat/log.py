@@ -61,6 +61,14 @@ class ToolCalled(Frozen):
     input: dict[str, Any]
 
 
+class ToolStarted(Frozen):
+    """The server began to run the call. The calls of one reply run one at a time, so a call with
+    no `ToolStarted` waits behind another."""
+
+    kind: Literal["tool_started"] = "tool_started"
+    call_id: str
+
+
 class ToolReturned(Frozen):
     kind: Literal["tool_result"] = "tool_result"
     call_id: str
@@ -146,6 +154,7 @@ type Event = Annotated[
     | DriverSaid
     | AgentSaid
     | ToolCalled
+    | ToolStarted
     | ToolReturned
     | WebSearched
     | WebFound
@@ -303,7 +312,7 @@ def messages_of(events: Sequence[Event]) -> list[Message]:
                     add("assistant", ServerBlock(raw=event.raw))
             case WebFound():
                 add("assistant", ServerBlock(raw=event.raw))
-            case StopReport() | ContextTrimmed() | TurnFailed() | TurnEnded():
+            case ToolStarted() | StopReport() | ContextTrimmed() | TurnFailed() | TurnEnded():
                 pass
     close_calls()
     return messages

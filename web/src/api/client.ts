@@ -119,6 +119,7 @@ async function fetchJson<T>(method: Uppercase<Method>, url: string, body?: unkno
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       signal: timeout.signal,
     });
+    clearTimeout(timer);
     if (!response.ok) throw await refusal(response, url);
     return (await response.json()) as T;
   } catch (error) {

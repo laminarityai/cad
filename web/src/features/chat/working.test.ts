@@ -8,6 +8,7 @@ import { sinceOf, stalledOf, workingLabel, workingOf } from "./working";
 const play = (events: Event[]): ChatState => events.reduce((held, event, at) => chatReducer(held, { type: "event", seq: at + 1, event }), chatStart("c1"));
 const user: Event = { kind: "user", text: "a hook", selection: null };
 const call = (id: string, name: string, input: Record<string, unknown> = {}): Event => ({ kind: "tool_call", call_id: id, name, input });
+const started = (id: string): Event => ({ kind: "tool_started", call_id: id });
 const done = (id: string): Event => ({ kind: "tool_result", call_id: id, text: "{}", is_error: false });
 const ended: Event = { kind: "turn_ended" };
 
@@ -17,10 +18,18 @@ describe("workingOf", () => {
     expect(workingOf(play([user, { kind: "agent", text: "Done." }, ended]), null)).toBeNull();
   });
 
-  it("is a turn while one runs, and the call that is running, which is the first open one", () => {
+  it("is a turn while one runs, and the call the server says it started", () => {
     expect(workingOf(play([user]), null)).toEqual({ kind: "turn", briefId: null });
-    expect(workingOf(play([user, call("a", "build_variant"), call("b", "score_variant")]), null)).toEqual({ kind: "tool", name: "build_variant", briefId: null });
-    expect(workingOf(play([user, call("a", "build_variant"), done("a")]), null)).toEqual({ kind: "turn", briefId: null });
+    expect(workingOf(play([user, call("a", "build_variant"), call("b", "score_variant")]), null)).toEqual({ kind: "turn", briefId: null });
+    expect(workingOf(play([user, call("a", "build_variant"), call("b", "score_variant"), started("a")]), null)).toEqual({ kind: "tool", name: "build_variant", briefId: null });
+    expect(workingOf(play([user, call("a", "build_variant"), call("b", "score_variant"), started("a"), done("a"), started("b")]), null)).toEqual({ kind: "tool", name: "score_variant", briefId: null });
+    expect(workingOf(play([user, call("a", "build_variant"), started("a"), done("a")]), null)).toEqual({ kind: "turn", briefId: null });
+  });
+
+  it("reads the new brief from a create_brief result the server cut too long to parse", () => {
+    const cut = `${JSON.stringify({ brief_id: "b9", project_id: "p1", text: "x".repeat(50) }).slice(0, 60)}\n[cut: 9 more characters]`;
+    const result: Event = { kind: "tool_result", call_id: "a", text: cut, is_error: false };
+    expect(workingOf(play([user, call("a", "create_brief"), started("a"), result]), null)).toEqual({ kind: "turn", briefId: "b9" });
   });
 
   it("is nothing while the stream reconnects, though the turn has not ended", () => {
@@ -32,10 +41,10 @@ describe("workingOf", () => {
 
   it("is on the brief the open call names, else the brief this turn last named, and an Auto tool's is the run's", () => {
     const run = viewOf(runningRun(1));
-    expect(workingOf(play([user, call("a", "build_variant", { brief_id: "b2" })]), run)).toMatchObject({ briefId: "b2" });
+    expect(workingOf(play([user, call("a", "build_variant", { brief_id: "b2" }), started("a")]), run)).toMatchObject({ briefId: "b2" });
     expect(workingOf(play([user, call("a", "build_variant", { brief_id: "b2" }), done("a")]), run)).toMatchObject({ briefId: "b2" });
-    expect(workingOf(play([user, call("a", "propose_requirements", { brief_id: "b2" }), done("a"), call("b", "create_brief")]), run)).toMatchObject({ briefId: null });
-    expect(workingOf(play([user, call("a", "auto_revise", { slot: 1 })]), run)).toMatchObject({ briefId: "b1" });
+    expect(workingOf(play([user, call("a", "propose_requirements", { brief_id: "b2" }), done("a"), call("b", "create_brief"), started("b")]), run)).toMatchObject({ briefId: null });
+    expect(workingOf(play([user, call("a", "auto_revise", { slot: 1 }), started("a")]), run)).toMatchObject({ briefId: "b1" });
     expect(workingOf(play([user]), run)).toMatchObject({ briefId: null });
     expect(workingOf(play([user, call("a", "build_variant", { brief_id: "b2" }), done("a"), ended, user]), run)).toMatchObject({ briefId: null });
   });

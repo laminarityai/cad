@@ -162,7 +162,10 @@ class StopInput(Input):
 
 
 class RevisedRun(AutoRun):
+    """`revision` is the history entry this code built as, an earlier one when it was tried."""
+
     context_parts_out_of_date: tuple[str, ...] = ()
+    revision: int | None = None
 
 
 class PersonStop(BaseModel):
@@ -253,8 +256,8 @@ def _revise(tenant: Tenant, arguments: ReviseInput) -> RevisedRun:
     running = gate(tenant.roots, tenant.conversations, tenant.bound_run, brief_id)
     assert running is not None
     sha = code_sha256(arguments.code)
-    if _tried(running, sha):
-        return RevisedRun(run_id=run_id, state=running)
+    if (tried := _revision_of(running, sha)) is not None:
+        return RevisedRun(run_id=run_id, state=running, revision=tried)
     if arguments.slot is not None:
         variant_sets.refuse_a_slot_out_of_turn(roots, brief_id, arguments.slot)
     revision = len(running.history) + 1
@@ -297,14 +300,18 @@ def _revise(tenant: Tenant, arguments: ReviseInput) -> RevisedRun:
             )
 
     def make(state: Running) -> Event | None:
-        if _tried(state, sha):
+        if _revision_of(state, sha) is not None:
             return None
         return Revised(standing=standing.model_copy(update={"revision": len(state.history) + 1}))
 
     run = conversations.record_event(tenant.roots, tenant.conversations, run_id, make)
     stale = with_out_of_date(tenant, brief_id, built).context_parts_out_of_date
     return RevisedRun(
-        run_id=run.run_id, state=run.state, settling=run.settling, context_parts_out_of_date=stale
+        run_id=run.run_id,
+        state=run.state,
+        settling=run.settling,
+        context_parts_out_of_date=stale,
+        revision=_revision_of(run.state, sha),
     )
 
 
@@ -322,8 +329,8 @@ def score_until_settled(
     return card
 
 
-def _tried(state: AutoState, sha: str) -> bool:
-    return any(one.code_sha256 == sha for one in state.history)
+def _revision_of(state: AutoState, sha: str) -> int | None:
+    return next((one.revision for one in state.history if one.code_sha256 == sha), None)
 
 
 def _refuse_unless_held(tenant: Tenant, run_id: str) -> None:

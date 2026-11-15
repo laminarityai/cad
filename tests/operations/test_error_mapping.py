@@ -17,6 +17,7 @@ from cad.operations.model import Audience, Input, Tenant, operation
 from cad.operations.routes import Served, person_route
 from cad.operations.tenants import open_tenant
 from cad.operations.tools import agent_facing
+from cad.projects.model import UnknownProject
 from cad.records.roots import Roots
 from cad.scorecard.score import NotScored
 
@@ -70,6 +71,7 @@ EXPECTED: Final[dict[str, Answer]] = {
     "cad.scorecard.material.MaterialPinned": ("400 named", "named"),
     "cad.scorecard.requirements.NoDecidingResult": (None, None),
     "cad.scorecard.score.BodiesChanged": ("400 named", "named"),
+    "cad.scorecard.score.ChecksRunning": ("400 named", "named"),
     "cad.scorecard.score.NotScored": ("400 named", "named"),
     "cad.selections.model.SelectionRefused": ("400 named", "named"),
     "cad.selections.model.UnknownSelection": ("400 named", "named"),
@@ -194,3 +196,13 @@ def test_a_refusal_names_its_kind_so_the_page_never_reads_the_message(tmp_path: 
     route.error = NotScored("v1")
     answer = route.client.get("/raise")
     assert (answer.status_code, answer.json()["kind"]) == (400, "NotScored")
+
+
+def test_a_not_found_body_carries_no_kind_so_the_page_reads_it_as_not_found(
+    tmp_path: Path,
+) -> None:
+    route = Raising(tmp_path)
+    route.error = UnknownProject("no project p1 is stored")
+    answer = route.client.get("/raise")
+    assert answer.status_code == 404
+    assert "kind" not in answer.json()

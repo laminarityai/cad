@@ -4,7 +4,16 @@ import type { Link } from "@/api/chat";
 export type Line =
   | { seq: number; kind: "user"; text: string; selection: string | null }
   | { seq: number; kind: "agent" | "driver"; text: string; streaming?: true }
-  | { seq: number; kind: "tool"; callId: string; name: string; input: Record<string, unknown>; result: { text: string; isError: boolean } | null }
+  | {
+      seq: number;
+      kind: "tool";
+      callId: string;
+      name: string;
+      input: Record<string, unknown>;
+      /** The server began to run it. The calls of one reply run one at a time. */
+      started: boolean;
+      result: { text: string; isError: boolean } | null;
+    }
   | { seq: number; kind: "stop_report"; runId: string; reason: string; report: string }
   | { seq: number; kind: "notice"; text: string }
   | { seq: number; kind: "failed"; message: string };
@@ -42,13 +51,15 @@ function withEvent(lines: readonly Line[], seq: number, event: Event): readonly 
     case "driver":
       return [...lines, { seq, kind: event.kind, text: event.text }];
     case "tool_call":
-      return [...lines, { seq, kind: "tool", callId: event.call_id, name: event.name, input: event.input, result: null }];
+      return [...lines, { seq, kind: "tool", callId: event.call_id, name: event.name, input: event.input, started: false, result: null }];
+    case "tool_started":
+      return lines.map((line) => (line.kind === "tool" && line.callId === event.call_id ? { ...line, started: true } : line));
     case "tool_result":
       return lines.map((line) =>
         line.kind === "tool" && line.callId === event.call_id ? { ...line, result: { text: event.text, isError: event.is_error } } : line,
       );
     case "web_search":
-      return [...lines, { seq, kind: "tool", callId: event.call_id, name: "web_search", input: { query: event.query }, result: null }];
+      return [...lines, { seq, kind: "tool", callId: event.call_id, name: "web_search", input: { query: event.query }, started: true, result: null }];
     case "web_search_result": {
       const text = event.error ?? event.pages.map((page) => `${page.title} · ${page.url}`).join("\n");
       return lines.map((line) => (line.kind === "tool" && line.callId === event.call_id ? { ...line, result: { text, isError: event.error !== null } } : line));

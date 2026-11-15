@@ -33,6 +33,17 @@ class NotScored(Refused):
         )
 
 
+class ChecksRunning(NotScored):
+    """The quick checks run now and have stored no result yet. Read the card again shortly."""
+
+    def __init__(self, vid: str) -> None:
+        Refused.__init__(
+            self,
+            f"variant {vid} has its checks running and no result stored yet; read it again "
+            "in a moment",
+        )
+
+
 def no_brief(results: Results) -> Basis:
     del results
     return NoBrief()
@@ -70,10 +81,13 @@ def peek_variant(
     run."""
     held = entry.open_entry(root, variant_id, image.image_tag(image.BUILD))
     request, plan = planned(root, held, material, table, demand)
-    settled = lanes.peek(plan)
-    if settled is None:
-        raise NotScored(variant_id)
-    return scorecard_of(plan, request, settled, assess)
+    match lanes.peek(plan):
+        case Settled() as settled:
+            return scorecard_of(plan, request, settled, assess)
+        case Pending():
+            raise ChecksRunning(variant_id)
+        case None:
+            raise NotScored(variant_id)
 
 
 def planned(
