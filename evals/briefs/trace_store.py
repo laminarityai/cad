@@ -33,6 +33,7 @@ from chain import (
     CheckStep,
     ConfirmedStep,
     NotVerified,
+    PlacedStep,
     ProposedStep,
     ResearchedStep,
     Resolved,
@@ -347,6 +348,11 @@ def _step(step: Step) -> str:
             return (
                 f"proposed by the agent, not confirmed: brief {step.brief_id}, proposal "
                 f"{step.proposal}, requirement {step.requirement_id} ({step.statement})"
+            )
+        case PlacedStep():
+            return (
+                f"placed by the agent, as the signed build record of {step.variant_id} holds "
+                f"it, no check reads it: {step.part_id}"
             )
         case AssumedStep():
             named = f" for {step.instance}" if step.instance else ""

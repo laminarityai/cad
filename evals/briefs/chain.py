@@ -70,8 +70,24 @@ class AssumedStep:
     instance: str
 
 
+@dataclass(frozen=True, slots=True)
+class PlacedStep:
+    """Where the agent placed a copy of a part the person supplied, as the signed build record of
+    `variant_id` holds it. No check reads it."""
+
+    variant_id: str
+    part_id: str
+
+
 type Step = (
-    CheckStep | TableStep | ResearchedStep | ConfirmedStep | BoundStep | ProposedStep | AssumedStep
+    CheckStep
+    | TableStep
+    | ResearchedStep
+    | ConfirmedStep
+    | BoundStep
+    | ProposedStep
+    | AssumedStep
+    | PlacedStep
 )
 
 

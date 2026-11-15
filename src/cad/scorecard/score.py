@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import Final
 
@@ -10,12 +10,14 @@ from cad.errors import Refused
 from cad.sandbox import host, image
 from cad.sandbox.bodies import Bodies, bodies_sha256
 from cad.scorecard.model import JOINTS, Basis, NoBrief, PendingCheck, Scorecard
+from cad.scorecard.supplied import Named, SuppliedPart, supplied
 from cad.tables.materials import MaterialsTable
 from cad.variants import entry, repair
 from cad.variants import store as variants
 
 type Results = tuple[CheckResult | PendingCheck, ...]
 type Assess = Callable[[Results], Basis]
+type Held = Mapping[str, Named]
 
 NO_DEMAND: Final = jobs.Demand()
 
@@ -68,13 +70,14 @@ def score_variant(
     demand: jobs.Demand = NO_DEMAND,
     table: MaterialsTable | None = None,
     fetch: variants.Fetch = variants.no_parts,
-    parts: frozenset[str] | None = None,
+    parts: Held | None = None,
 ) -> Scorecard:
-    """`parts` holds the ids of the parts the scoring brief's project confirmed, and is None
-    without a brief."""
+    """`parts` names each part the scoring brief's project confirmed, by id, and is None without
+    a brief."""
     held, rebuilt_from = open_or_rebuild(variant_id, root, fetch)
     request, plan = planned(root, held, material, table, demand, parts)
-    return scorecard_of(plan, request, lanes.settle(plan, WAIT_SECONDS), assess, rebuilt_from)
+    settled = lanes.settle(plan, WAIT_SECONDS)
+    return scorecard_of(plan, request, settled, assess, rebuilt_from, _supplied(held, parts))
 
 
 def peek_variant(
@@ -85,7 +88,7 @@ def peek_variant(
     lanes: Lanes = LANES,
     demand: jobs.Demand = NO_DEMAND,
     table: MaterialsTable | None = None,
-    parts: frozenset[str] | None = None,
+    parts: Held | None = None,
 ) -> Scorecard:
     """The card of `score_variant` as the signed results hold it now. Nothing is built, run or
     waited for: a background job with no stored result is pending while it runs or waits, and
@@ -95,7 +98,7 @@ def peek_variant(
     request, plan = planned(root, held, material, table, demand, parts)
     match lanes.peek(plan):
         case Settled() as settled:
-            return scorecard_of(plan, request, settled, assess)
+            return scorecard_of(plan, request, settled, assess, supplied=_supplied(held, parts))
         case Pending():
             raise ChecksRunning(variant_id)
         case None:
@@ -108,7 +111,7 @@ def planned(
     material: MadeOf,
     table: MaterialsTable | None,
     demand: jobs.Demand,
-    parts: frozenset[str] | None,
+    parts: Held | None,
 ) -> tuple[Request, jobs.Plan]:
     _refuse_parts_not_held(held, parts)
     _refuse_placed_fit_targets(held, demand)
@@ -121,7 +124,7 @@ def planned(
     return request, jobs.plan(root, held, request, table, demand)
 
 
-def _refuse_parts_not_held(held: entry.Entry, parts: frozenset[str] | None) -> None:
+def _refuse_parts_not_held(held: entry.Entry, parts: Held | None) -> None:
     """A variant reads only the parts its brief's project confirmed, so a score is refused on a
     brief whose project does not hold them now, as a build is (ADR-0012)."""
     if not held.parts:
@@ -138,6 +141,12 @@ def _refuse_parts_not_held(held: entry.Entry, parts: frozenset[str] | None) -> N
             "confirmed; list_files lists the parts it holds. Score it with a brief of the "
             "project it was built for, or build it again without those parts"
         )
+
+
+def _supplied(held: entry.Entry, parts: Held | None) -> tuple[SuppliedPart, ...]:
+    """The card's rows for the parts the signed build record names. `planned` has refused a
+    variant whose parts the project does not hold."""
+    return supplied(held.parts, parts or {})
 
 
 def _refuse_placed_fit_targets(held: entry.Entry, demand: jobs.Demand) -> None:
@@ -185,6 +194,7 @@ def scorecard_of(
     settled: Settled,
     assess: Assess,
     rebuilt_from: str | None = None,
+    supplied: tuple[SuppliedPart, ...] = (),
 ) -> Scorecard:
     by_check: dict[str, list[CheckResult | PendingCheck]] = {}
     for one in settled.quick.results:
@@ -218,6 +228,7 @@ def scorecard_of(
         results=results,
         pending=tuple(one.check_id for one in results if isinstance(one, PendingCheck)),
         basis=assess(results),
+        supplied=supplied,
     )
 
 

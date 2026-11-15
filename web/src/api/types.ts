@@ -940,6 +940,19 @@ export interface components {
             verdict: components["schemas"]["Verdict"];
         };
         /**
+         * Component
+         * @description One supplied part and each copy of it the build placed, at build123d's
+         *     `Location(at, rotate)`. Its mesh is the part in its own frame, read like a variant's.
+         */
+        Component: {
+            part_id: string;
+            name: string;
+            brep_sha256: string;
+            mesh: components["schemas"]["MeshState"];
+            mesh_url: string | null;
+            placements: components["schemas"]["PartPlacement"][];
+        };
+        /**
          * ConfirmationCard
          * @description `snapshot` goes back with the answer. It is null, and `items` empty, when nothing waits.
          */
@@ -1004,6 +1017,7 @@ export interface components {
             run: components["schemas"]["AutoRun"] | null;
             checks_settling: boolean;
         };
+        Coordinate: number;
         /**
          * Curve
          * @enum {string}
@@ -1252,6 +1266,18 @@ export interface components {
         Force: {
             magnitude: number;
             unit: string;
+        };
+        /**
+         * FromOption
+         * @description The person confirmed an option the agent built as the part.
+         */
+        FromOption: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "variant";
+            variant_id: string;
         };
         GeometryRead: components["schemas"]["Tessellated"] | components["schemas"]["TessellationFailed"] | components["schemas"]["TessellationPending"];
         HoleCount: number;
@@ -1514,6 +1540,8 @@ export interface components {
             /** @default [] */
             body_materials: components["schemas"]["BodyMaterialUse"][];
         };
+        /** @enum {string} */
+        MeshState: "tessellated" | "failed" | "pending";
         /** MessageSent */
         MessageSent: {
             seq: number;
@@ -1679,6 +1707,22 @@ export interface components {
          */
         PartAxis: "middle" | "short";
         PartId: string;
+        /**
+         * PartPlacement
+         * @description One copy of a supplied part, where build123d's `Location(at, rotate)` puts it: `at` in
+         *     millimetres, `rotate` in degrees about x, y and z. No check reads it.
+         */
+        PartPlacement: {
+            at: components["schemas"]["Triple"];
+            /**
+             * @default [
+             *       0,
+             *       0,
+             *       0
+             *     ]
+             */
+            rotate: components["schemas"]["Triple"];
+        };
         /** PartWire */
         PartWire: {
             /** @constant */
@@ -1966,6 +2010,8 @@ export interface components {
             bodies_sha256?: string | null;
             /** @default [] */
             untested?: string[];
+            /** @default [] */
+            supplied?: components["schemas"]["SuppliedPart"][];
             /** @default null */
             material?: components["schemas"]["MaterialUse"] | null;
             /** @default [] */
@@ -2191,6 +2237,22 @@ export interface components {
             /** @default false */
             unfinished?: boolean;
         };
+        SuppliedOrigin: components["schemas"]["Uploaded"] | components["schemas"]["FromOption"];
+        /**
+         * SuppliedPart
+         * @description One part the build read. `part_id`, `brep_sha256` and `placements` are the variant's signed
+         *     build record: the BREP the build was sent and each copy it placed, none when it only read the
+         *     part. `name` and `origin` are the project's confirmed record of the part. The card's own
+         *     `brep_sha256` is the body the agent made, and only that body is graded.
+         */
+        SuppliedPart: {
+            name: string;
+            origin: components["schemas"]["SuppliedOrigin"];
+            part_id: string;
+            brep_sha256: string;
+            /** @default [] */
+            placements: components["schemas"]["PartPlacement"][];
+        };
         Support: components["schemas"]["Holes"] | components["schemas"]["LargestFlat"] | components["schemas"]["FlatEnd"] | components["schemas"]["EndOf"] | components["schemas"]["Facing"] | components["schemas"]["Each"] | components["schemas"]["InOneFlatFace"];
         Target: components["schemas"]["ClosedSolid"] | components["schemas"]["MaxMass"] | components["schemas"]["MinMass"] | components["schemas"]["Envelope"] | components["schemas"]["MeasureLimit"] | components["schemas"]["Unchecked"] | components["schemas"]["MadeOf"] | components["schemas"]["MinSafetyFactor"] | components["schemas"]["MaxDeflection"] | components["schemas"]["MinClearance"] | components["schemas"]["MaxClearance"] | components["schemas"]["FastenerHoles"] | components["schemas"]["PlainHoles"] | components["schemas"]["FitsWith"] | components["schemas"]["AgentLimit"];
         /**
@@ -2277,6 +2339,11 @@ export interface components {
             faces: components["schemas"]["FaceFacts"][];
             edges: components["schemas"]["EdgeFacts"][];
         };
+        Triple: [
+            components["schemas"]["Coordinate"],
+            components["schemas"]["Coordinate"],
+            components["schemas"]["Coordinate"]
+        ];
         /** TurnEnded */
         TurnEnded: {
             /**
@@ -2319,6 +2386,18 @@ export interface components {
             requirement_id: string;
             statement: string;
         };
+        /**
+         * Uploaded
+         * @description The person added the part's file. The account and session that sent it stay off the card.
+         */
+        Uploaded: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "upload";
+            file_name: string;
+        };
         /** UserEdit */
         UserEdit: {
             proposed: string;
@@ -2357,6 +2436,8 @@ export interface components {
             areas: components["schemas"]["Areas"];
             /** @default [] */
             bodies: components["schemas"]["BodyFaces"][];
+            /** @default [] */
+            components: components["schemas"]["Component"][];
         };
         Vec: [
             number,
@@ -2590,12 +2671,14 @@ export type ClosedSolid = components['schemas']['ClosedSolid'];
 export type Colour = components['schemas']['Colour'];
 export type Comparator = components['schemas']['Comparator'];
 export type Comparison = components['schemas']['Comparison'];
+export type Component = components['schemas']['Component'];
 export type ConfirmationCard = components['schemas']['ConfirmationCard'];
 export type ContextPartView = components['schemas']['ContextPartView'];
 export type ContextTrimmed = components['schemas']['ContextTrimmed'];
 export type ConversationCreated = components['schemas']['ConversationCreated'];
 export type ConversationState = components['schemas']['ConversationState'];
 export type ConversationView = components['schemas']['ConversationView'];
+export type Coordinate = components['schemas']['Coordinate'];
 export type Curve = components['schemas']['Curve'];
 export type Declined = components['schemas']['Declined'];
 export type Differs = components['schemas']['Differs'];
@@ -2624,6 +2707,7 @@ export type FileQuote = components['schemas']['FileQuote'];
 export type FitsWith = components['schemas']['FitsWith'];
 export type FlatEnd = components['schemas']['FlatEnd'];
 export type Force = components['schemas']['Force'];
+export type FromOption = components['schemas']['FromOption'];
 export type GeometryRead = components['schemas']['GeometryRead'];
 export type HoleCount = components['schemas']['HoleCount'];
 export type HoleFit = components['schemas']['HoleFit'];
@@ -2657,6 +2741,7 @@ export type MeasureOnly = components['schemas']['MeasureOnly'];
 export type Measured = components['schemas']['Measured'];
 export type MediaType = components['schemas']['MediaType'];
 export type MemberView = components['schemas']['MemberView'];
+export type MeshState = components['schemas']['MeshState'];
 export type MessageSent = components['schemas']['MessageSent'];
 export type MinClearance = components['schemas']['MinClearance'];
 export type MinMass = components['schemas']['MinMass'];
@@ -2674,6 +2759,7 @@ export type Outcome = components['schemas']['Outcome'];
 export type Page = components['schemas']['Page'];
 export type PartAxis = components['schemas']['PartAxis'];
 export type PartId = components['schemas']['PartId'];
+export type PartPlacement = components['schemas']['PartPlacement'];
 export type PartWire = components['schemas']['PartWire'];
 export type PendingCheck = components['schemas']['PendingCheck'];
 export type PersonStop = components['schemas']['PersonStop'];
@@ -2724,6 +2810,8 @@ export type StopReason = components['schemas']['StopReason'];
 export type StopReport = components['schemas']['StopReport'];
 export type Stopped = components['schemas']['Stopped'];
 export type StoppedByPerson = components['schemas']['StoppedByPerson'];
+export type SuppliedOrigin = components['schemas']['SuppliedOrigin'];
+export type SuppliedPart = components['schemas']['SuppliedPart'];
 export type Support = components['schemas']['Support'];
 export type Target = components['schemas']['Target'];
 export type Tessellated = components['schemas']['Tessellated'];
@@ -2733,10 +2821,12 @@ export type ToolCalled = components['schemas']['ToolCalled'];
 export type ToolReturned = components['schemas']['ToolReturned'];
 export type ToolStarted = components['schemas']['ToolStarted'];
 export type TopologyWire = components['schemas']['TopologyWire'];
+export type Triple = components['schemas']['Triple'];
 export type TurnEnded = components['schemas']['TurnEnded'];
 export type TurnFailed = components['schemas']['TurnFailed'];
 export type Unchecked = components['schemas']['Unchecked'];
 export type Unverified = components['schemas']['Unverified'];
+export type Uploaded = components['schemas']['Uploaded'];
 export type UserEdit = components['schemas']['UserEdit'];
 export type UserSaid = components['schemas']['UserSaid'];
 export type VariantSetView = components['schemas']['VariantSetView'];

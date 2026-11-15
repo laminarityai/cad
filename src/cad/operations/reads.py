@@ -12,6 +12,7 @@ from cad.geometry import store as meshes
 from cad.geometry.bodies import BodyFaces, body_faces
 from cad.geometry.lane import TESSELLATIONS
 from cad.geometry.model import Tessellated, UnknownMesh
+from cad.operations.components import Component, components, mesh_state
 from cad.operations.model import BOTH, Audience, Input, Tenant, operation
 from cad.operations.research import brief_table
 from cad.operations.scorecards import MaterialKey, ScorecardInput, scorecard
@@ -54,14 +55,15 @@ VIEW = (
     "means a job is running: read it again. Once the mesh is tessellated, areas are the names "
     "and colours the build code gave sets of faces, numbered as the mesh numbers them, and "
     "empty when it gave none or named a face the mesh does not have. They are how the model "
-    "looks, and no check reads them."
+    "looks, and no check reads them. components are the parts the person supplied that the "
+    "build placed: each with its own mesh, in the part's frame, and each placement, a "
+    "build123d Location(at, rotate) in mm and degrees. No check reads them."
 )
 MESH = (
     "The mesh of one BREP made by one tessellator version, in three-cad-viewer's shapes format. "
     "Those two name the bytes, so a client may cache them for good. A version that is no longer "
     "current, or a BREP that did not tessellate, is not found, so take the URL from the view."
 )
-MESH_PATH: Final = "/v1/geometry/{version}/{brep_sha256}.json"
 
 
 class ProjectInput(Input):
@@ -140,6 +142,7 @@ class VariantView(BaseModel):
     mesh_url: str | None
     areas: Areas
     bodies: tuple[BodyFaces, ...] = ()
+    components: tuple[Component, ...] = ()
 
 
 def list_projects(tenant: Tenant, arguments: NoArguments) -> ProjectList:
@@ -301,15 +304,15 @@ def view(tenant: Tenant, arguments: VariantInput) -> VariantView:
     held = entry.open_entry(tenant.variants, arguments.variant_id, image.image_tag(image.BUILD))
     stored = TESSELLATIONS.start(tenant.geometry, held)
     tessellated = isinstance(stored, Tessellated)
+    mesh, mesh_url = mesh_state(stored)
     return VariantView(
         variant_id=held.id,
         brep_sha256=held.brep_sha256,
-        mesh="pending" if stored is None else stored.kind,
-        mesh_url=MESH_PATH.format(version=job.VERSION, brep_sha256=held.brep_sha256)
-        if tessellated
-        else None,
+        mesh=mesh,
+        mesh_url=mesh_url,
         areas=on_faces(held.areas, len(stored.topology["faces"])) if tessellated else (),
         bodies=body_faces(held.bodies, stored.solid_faces) if tessellated else (),
+        components=components(tenant.roots, tenant.geometry, held.parts),
     )
 
 
