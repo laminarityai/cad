@@ -31,6 +31,7 @@ from cad.chat.log import (
     Channels,
     DriverSaid,
     Event,
+    StopReport,
     TurnEnded,
     TurnFailed,
     UserSaid,
@@ -146,7 +147,7 @@ class Chat:
         if channel.running:
             return
         events = channel.events()
-        if events and _is_delivery(events[-1]):
+        if _ends_in_a_delivery(events):
             self._run(person, cid, channel)
             return
         if _turn_left_open(events):
@@ -356,8 +357,11 @@ async def _mint(tenant: Tenant, cid: ConversationId, picked: Picked) -> Selectio
     return mint.note(record)
 
 
-def _is_delivery(event: Event) -> bool:
-    return isinstance(event, DriverSaid) and event.answered is not None
+def _ends_in_a_delivery(events: Sequence[Event]) -> bool:
+    """The person's Stop posts its report outside a turn, so a report after the delivery does not
+    hide it."""
+    last = next((one for one in reversed(events) if not isinstance(one, StopReport)), None)
+    return isinstance(last, DriverSaid) and last.answered is not None
 
 
 def _turn_left_open(events: Sequence[Event]) -> bool:

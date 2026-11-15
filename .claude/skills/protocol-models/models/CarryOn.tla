@@ -6,6 +6,8 @@
 (* delivery), operations/confirmation.ask_to_confirm (answers_recorded)   *)
 (* and confirmations/web.py record (the on_recorded hook). A page answer   *)
 (* only tells the conversation. Lifting a stop's hold is AutoHold.tla's.   *)
+(* Chat.stopped, which posts the person's stop report when the stop is     *)
+(* recorded, is the one append outside a turn that is not a delivery.      *)
 (*                                                                         *)
 (* The transcript is the claim. What a conversation was told is derived    *)
 (* from its own transcript, which survives a crash with the ledger. The    *)
@@ -23,7 +25,8 @@ CONSTANTS
     MaxAsks,       \* ask_to_confirm calls
     MaxMessages,   \* messages the person may send, which start turns
     MaxCrashes,
-    MaxExtraHooks  \* extra on_recorded calls, as if record called it twice
+    MaxExtraHooks, \* extra on_recorded calls, as if record called it twice
+    MaxStops       \* the person's Stop presses whose report Chat.stopped posts
 
 VARIABLES
     \* On disk.
@@ -31,7 +34,7 @@ VARIABLES
     pending,    \* items.pending of the project is not empty
     wait,       \* waiting_on(transcript): -1 for None, else the pending result's answers_recorded
     told,       \* told_through(transcript)
-    tail,       \* the transcript's last event is a DriverSaid with `answered`
+    tail,       \* the transcript's last event other than a StopReport is a delivery DriverSaid
     \* In memory, lost on a crash.
     running,    \* Channel.running
     turn,       \* where the conversation's running turn is
@@ -48,13 +51,14 @@ VARIABLES
     dup,        \* a second turn acted on a delivery
     toldSet,    \* the answer numbers some event told the conversation
     twice,      \* an event told an answer the conversation was told before
+    owed,       \* a delivery was appended, and no turn acted and no message came since
     \* Bounds.
-    proposals, asks, messages, crashes, extra
+    proposals, asks, messages, crashes, extra, stops
 
 disk == <<ledger, pending, wait, told, tail>>
 memory == <<running, turn, seen, rec, asked, cached, callbacks, hooks>>
-ghost == <<dels, on, served, dup, toldSet, twice>>
-bounds == <<proposals, asks, messages, crashes, extra>>
+ghost == <<dels, on, served, dup, toldSet, twice, owed>>
+bounds == <<proposals, asks, messages, crashes, extra, stops>>
 vars == <<disk, memory, ghost, bounds>>
 
 Turns == {"none", "fresh", "busy", "items", "after", "return"}
@@ -80,7 +84,8 @@ Init ==
     /\ dup = FALSE
     /\ toldSet = [c \in Convs |-> {}]
     /\ twice = FALSE
-    /\ proposals = 0 /\ asks = 0 /\ messages = 0 /\ crashes = 0 /\ extra = 0
+    /\ owed = [c \in Convs |-> FALSE]
+    /\ proposals = 0 /\ asks = 0 /\ messages = 0 /\ crashes = 0 /\ extra = 0 /\ stops = 0
 
 -----------------------------------------------------------------------------
 (* Chat._deliver and the restart heal.                                     *)
@@ -98,6 +103,7 @@ Deliver(D) ==
     /\ told' = [c \in Convs |-> IF c \in D THEN L ELSE told[c]]
     /\ wait' = [c \in Convs |-> IF c \in D THEN None ELSE wait[c]]
     /\ tail' = [c \in Convs |-> IF c \in D THEN TRUE ELSE tail[c]]
+    /\ owed' = [c \in Convs |-> IF c \in D THEN TRUE ELSE owed[c]]
     /\ running' = [c \in Convs |-> IF c \in D THEN TRUE ELSE running[c]]
     /\ turn' = [c \in Convs |-> IF c \in D THEN "fresh" ELSE turn[c]]
     /\ dels' = [c \in Convs |-> IF c \in D THEN dels[c] + 1 ELSE dels[c]]
@@ -129,7 +135,7 @@ CatchUp(c) ==
             /\ turn' = [turn EXCEPT ![c] = "fresh"]
             /\ on' = [on EXCEPT ![c] = dels[c]]
             /\ UNCHANGED <<disk, seen, rec, asked, callbacks, hooks, dels, served, dup, toldSet,
-                           twice, bounds>>
+                           twice, owed, bounds>>
        ELSE IF CanDeliver(c) THEN
             /\ Deliver({c})
             /\ UNCHANGED <<callbacks, hooks>>
@@ -172,7 +178,7 @@ ExtraHook ==
     /\ extra' = extra + 1
     /\ hooks' = hooks + 1
     /\ UNCHANGED <<disk, running, turn, seen, rec, asked, cached, callbacks, ghost, proposals,
-                   asks, messages, crashes>>
+                   asks, messages, crashes, stops>>
 
 \* Chat.start: refused while running, else UserSaid and a turn.
 Start(c) ==
@@ -183,15 +189,31 @@ Start(c) ==
     /\ turn' = [turn EXCEPT ![c] = "fresh"]
     /\ on' = [on EXCEPT ![c] = 0]
     /\ tail' = [tail EXCEPT ![c] = FALSE]
+    /\ owed' = [owed EXCEPT ![c] = FALSE]
     /\ cached' = [cached EXCEPT ![c] = TRUE]
     /\ UNCHANGED <<ledger, pending, wait, told, seen, rec, asked, callbacks, hooks, dels,
-                   served, dup, toldSet, twice, proposals, asks, crashes, extra>>
+                   served, dup, toldSet, twice, proposals, asks, crashes, extra, stops>>
 
 \* The server process dies. The transcripts, the conversation records and the ledger stay.
 Crash ==
     /\ crashes < MaxCrashes
     /\ Lost
-    /\ UNCHANGED <<disk, dels, served, dup, toldSet, twice, proposals, asks, messages, extra>>
+    /\ UNCHANGED <<disk, dels, served, dup, toldSet, twice, owed, proposals, asks, messages,
+                   extra, stops>>
+
+\* The person presses Stop on the conversation's Auto run, while a turn runs or between turns.
+\* The auto_stop route's after hook, Chat.stopped, loads the channel into the cache and appends
+\* the StopReport on the loop. It starts no turn and tells no answer. catch_up reads past a
+\* StopReport to the event before it, so the report leaves the heal's tail as it was.
+StopTail(c) == tail[c]
+
+PersonStop(c) ==
+    /\ stops < MaxStops
+    /\ stops' = stops + 1
+    /\ cached' = [cached EXCEPT ![c] = TRUE]
+    /\ tail' = [tail EXCEPT ![c] = StopTail(c)]
+    /\ UNCHANGED <<ledger, pending, wait, told, running, turn, seen, rec, asked, callbacks,
+                   hooks, ghost, proposals, asks, messages, crashes, extra>>
 
 -----------------------------------------------------------------------------
 (* The running turn (chat/turn.py).                                        *)
@@ -204,6 +226,7 @@ TurnActs(c) ==
     /\ turn[c] = "fresh"
     /\ Go(c, "busy")
     /\ tail' = [tail EXCEPT ![c] = FALSE]
+    /\ owed' = [owed EXCEPT ![c] = FALSE]
     /\ dup' = (dup \/ (on[c] # 0 /\ on[c] \in served[c]))
     /\ served' = IF on[c] # 0 THEN [served EXCEPT ![c] = @ \cup {on[c]}] ELSE served
     /\ UNCHANGED <<ledger, pending, wait, told, running, seen, rec, asked, cached,
@@ -215,7 +238,8 @@ Propose(c) ==
     /\ proposals < MaxProposals
     /\ proposals' = proposals + 1
     /\ pending' = TRUE
-    /\ UNCHANGED <<ledger, wait, told, tail, memory, ghost, asks, messages, crashes, extra>>
+    /\ UNCHANGED <<ledger, wait, told, tail, memory, ghost, asks, messages, crashes, extra,
+                   stops>>
 
 \* ask_to_confirm, after its wait: answers_recorded = len(ledger.answers), read before the items.
 AskRead(c) ==
@@ -225,7 +249,7 @@ AskRead(c) ==
     /\ Go(c, "items")
     /\ seen' = [seen EXCEPT ![c] = Len(ledger)]
     /\ UNCHANGED <<disk, running, rec, asked, cached, callbacks, hooks, ghost, proposals,
-                   messages, crashes, extra>>
+                   messages, crashes, extra, stops>>
 
 \* ask_to_confirm reads the pending items. Pending: the result carries the count read before.
 AskItems(c) ==
@@ -264,7 +288,7 @@ AskReturn(c) ==
     /\ rec' = [rec EXCEPT ![c] = 0]
     /\ asked' = [asked EXCEPT ![c] = FALSE]
     /\ UNCHANGED <<ledger, pending, running, cached, callbacks, hooks, dels, on, served, dup,
-                   bounds>>
+                   owed, bounds>>
 
 \* run_turn returns; its finally clears running, and the loop schedules the done callback.
 TurnEnd(c) ==
@@ -274,7 +298,7 @@ TurnEnd(c) ==
     /\ on' = [on EXCEPT ![c] = 0]
     /\ callbacks' = [callbacks EXCEPT ![c] = @ + 1]
     /\ UNCHANGED <<disk, seen, rec, asked, cached, hooks, dels, served, dup, toldSet, twice,
-                   bounds>>
+                   owed, bounds>>
 
 -----------------------------------------------------------------------------
 
@@ -287,14 +311,14 @@ Finished ==
 Next ==
     \/ Answer \/ ExtraHook \/ Hook \/ Crash \/ Finished
     \/ \E c \in Convs :
-        \/ CatchUp(c) \/ DoneCallback(c) \/ Start(c)
+        \/ CatchUp(c) \/ DoneCallback(c) \/ Start(c) \/ PersonStop(c)
         \/ TurnActs(c) \/ Propose(c) \/ AskRead(c) \/ AskItems(c) \/ AskAfter(c)
         \/ AskReturn(c) \/ TurnEnd(c)
 
 Spec == Init /\ [][Next]_vars
 
 \* The loop runs what is due; the person's page reopens its stream. The person and the agent's
-\* choices (answer, message, propose, ask) are not fair.
+\* choices (answer, message, Stop, propose, ask) are not fair.
 Fairness ==
     /\ WF_vars(Hook)
     /\ \A c \in Convs :
@@ -325,6 +349,8 @@ TypeOK ==
     /\ dels \in [Convs -> Nat] /\ on \in [Convs -> Nat] /\ served \in [Convs -> SUBSET Nat]
     /\ dup \in BOOLEAN /\ twice \in BOOLEAN
     /\ toldSet \in [Convs -> SUBSET (1..MaxAnswers)]
+    /\ owed \in [Convs -> BOOLEAN]
+    /\ stops \in 0..MaxStops
 
 \* No two turns act on one delivery: not a double POST, a restart or an answer during a turn.
 \* The heal may start a turn again for a delivery whose turn a crash cut before it appended
@@ -342,6 +368,7 @@ EveryAnswerTold ==
     \A c \in Convs, n \in 1..MaxAnswers :
         [](wait[c] # None /\ wait[c] < n /\ Len(ledger) >= n => <>(told[c] >= n))
 
-\* Every delivery gets a turn that acts on it.
-EveryDeliveryRuns == \A c \in Convs : [](tail[c] => <>~tail[c])
+\* Every delivery gets a turn that acts on it, unless the person's message takes over first. A
+\* stop report posted after it is no turn.
+EveryDeliveryRuns == \A c \in Convs : [](owed[c] => <>~owed[c])
 =============================================================================

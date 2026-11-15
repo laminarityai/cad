@@ -1,6 +1,6 @@
 ---
 name: protocol-models
-description: Model-check the check job queue (src/cad/checks/lanes.py, job_store.py, including Lanes.peek, the completion listeners, drop_unstarted and Lanes.close, and how a stopping or restarted server ends its checks: server/stopping.py, container.stop_owned and remove_orphans) the confirmation answer flow (src/cad/confirmations/, operations/confirmation.py, records/signed.py) how the chat carries on after a page answer (chat/routes.py Chat._deliver, answered, catch_up; chat/answer_driver.py) and how a stop holds an Auto run's conversation until the person acts (conversations/store.py record_event, start_run, lift_hold; operations/tenants.bind; auto/gate.py; operations/auto.py auto_start; chat/routes.py Chat._begin) with TLA+. Use when you change how jobs take off, run, are stored or refused, how a worker starts or dies, what a server does to its checks when it stops or starts, or who may post the confirmation page, how its snapshot is sealed, or how an answer is appended; when you change what starts a chat turn, how a page answer reaches a conversation, what stops or holds an Auto run, or what auto_start reads before it opens one; when `verify` warns that covered code changed; or when a race, a crash, or a second session could break one of these flows.
+description: Model-check the check job queue (src/cad/checks/lanes.py, job_store.py, including Lanes.peek, the completion listeners, drop_unstarted and Lanes.close, and how a stopping or restarted server ends its checks: server/stopping.py, container.stop_owned and remove_orphans) the confirmation answer flow (src/cad/confirmations/, operations/confirmation.py, records/signed.py) how the chat carries on after a page answer (chat/routes.py Chat._deliver, answered, catch_up, stopped; chat/answer_driver.py; chat/auto_driver.post) and how a stop holds an Auto run's conversation until the person acts (conversations/store.py record_event, start_run, lift_hold; operations/tenants.bind; auto/gate.py; operations/auto.py auto_start; chat/routes.py Chat._begin) with TLA+. Use when you change how jobs take off, run, are stored or refused, how a worker starts or dies, what a server does to its checks when it stops or starts, or who may post the confirmation page, how its snapshot is sealed, or how an answer is appended; when you change what starts a chat turn, how a page answer reaches a conversation, what stops or holds an Auto run, or what auto_start reads before it opens one; when `verify` warns that covered code changed; or when a race, a crash, or a second session could break one of these flows.
 ---
 
 # Protocol models
@@ -124,7 +124,7 @@ The principals are the tenant's person sessions (`Persons`), a person of another
 
 ### CarryOn.tla: the chat carries on after a page answer
 
-After the person answers the confirmation page, the conversation that waits on the answer starts its next turn by itself. The answer only tells the conversation. `_begin` also lifts a stop's hold, which AutoHold.tla covers. The transcript is the claim. `waiting_on` is derived from the conversation's own transcript, which survives a crash with the ledger. `Channel.running`, the channel cache, pending `on_recorded` calls and scheduled done callbacks live in memory, and a crash loses them. Each `_deliver` runs synchronously on the one event loop, from its `running` check to its append, so the model makes it one step.
+After the person answers the confirmation page, the conversation that waits on the answer starts its next turn by itself. The answer only tells the conversation. `_begin` also lifts a stop's hold, which AutoHold.tla covers. The transcript is the claim. `waiting_on` is derived from the conversation's own transcript, which survives a crash with the ledger. `Channel.running`, the channel cache, pending `on_recorded` calls and scheduled done callbacks live in memory, and a crash loses them. Each `_deliver` runs synchronously on the one event loop, from its `running` check to its append, so the model makes it one step. The person's Stop on an Auto run posts its `StopReport` outside any turn, through `Chat.stopped`, and that is the one append outside a turn that is not a delivery. `catch_up`'s heal reads past a `StopReport`, so a report posted after a delivery that a crash cut off does not hide it (`heal-reads-the-last-event`).
 
 | Property | Kind | The harm it rules out |
 | --- | --- | --- |
@@ -132,31 +132,33 @@ After the person answers the confirmation page, the conversation that waits on t
 | `NoAnswerToldTwice` | invariant | A transcript event tells the conversation an answer that an earlier event already told it, so the agent acts on it twice. |
 | `NoDeliveryWhileRunning` | action | A delivery `DriverSaid` is appended while a turn runs, which starts a second turn beside the first. |
 | `EveryAnswerTold` | temporal | An answer recorded while the conversation waits is never told to it, so the chat stays silent after the person confirmed. |
-| `EveryDeliveryRuns` | temporal | A delivery is appended and no turn ever acts on it, for example after a crash between the append and the turn's start. |
+| `EveryDeliveryRuns` | temporal | A delivery is appended and no turn ever acts on it, for example after a crash between the append and the turn's start, or after a crash and then a Stop whose report lands after the delivery. The person's own message taking over also ends it. |
 | `TypeOK` | invariant | A variable takes a value the model did not mean to allow. |
 
 | Config | Bounds | Checks |
 | --- | --- | --- |
-| `CarryOn.cfg` | 2 conversations, 2 answers, 2 proposals, 2 asks, 2 messages, 1 crash, 1 extra `on_recorded` call, symmetry over the conversations | invariants and action properties |
-| `CarryOnLive.cfg` | 1 conversation, 2 answers, 2 proposals, 2 asks, 1 message, 1 crash | both temporal properties |
+| `CarryOn.cfg` | 2 conversations, 2 answers, 2 proposals, 2 asks, 2 messages, 1 crash, 1 extra `on_recorded` call, 1 Stop, symmetry over the conversations | invariants and action properties |
+| `CarryOnLive.cfg` | 1 conversation, 2 answers, 2 proposals, 2 asks, 1 message, 1 crash, 1 Stop | both temporal properties |
 
-Liveness holds under weak fairness on the loop's own steps (the hook, the done callback, the running turn) and on `catch_up`. `catch_up` is fair because the browser's EventSource opens the stream again by itself after a restart. A conversation whose page is closed hears its answer when the person opens it. The person's and the agent's choices (answer, message, propose, ask) are not fair. One conversation is enough for liveness, because each conversation's cursor and channel are its own.
+Liveness holds under weak fairness on the loop's own steps (the hook, the done callback, the running turn) and on `catch_up`. `catch_up` is fair because the browser's EventSource opens the stream again by itself after a restart. A conversation whose page is closed hears its answer when the person opens it. The person's and the agent's choices (answer, message, Stop, propose, ask) are not fair. One conversation is enough for liveness, because each conversation's cursor and channel are its own.
 
 How the model maps to the code:
 
 | Model | Code |
 | --- | --- |
 | `ledger`, `pending` | the project's signed answers (`read_ledger`), and whether `items.pending` is empty |
-| `wait`, `told`, `tail` | `answer_driver.waiting_on` (None is -1), the answers the transcript has told the conversation, and whether the transcript's last event is a `DriverSaid` with `answered` |
+| `wait`, `told`, `tail` | `answer_driver.waiting_on` (None is -1), the answers the transcript has told the conversation, and whether the transcript's last event other than a `StopReport` is a `DriverSaid` with `answered` (`_ends_in_a_delivery`) |
 | `Deliver(D)` | `Chat._deliver` for each conversation in `D`: return while `channel.running`, `waiting_on`, `delivery` over the ledger, then `_begin` (`lift_hold`, which AutoHold.tla covers, then set `running`, append `DriverSaid(answered=Answered(through=len(ledger)))`, create the turn task) |
 | `Hook` | `Chat.answered`, which `confirmations/web.py` `record` calls through `on_recorded` after a recorded answer: `_deliver` on every channel `Channels.open_in` holds |
 | `DoneCallback(c)` | the turn task's done callback, which the loop runs some time after `run_turn`'s `finally` cleared `running` |
-| `CatchUp(c)` | `Chat.catch_up` on stream open: the restart heal (not running and a `DriverSaid` tail, so start the turn and append nothing), else `_deliver`. Before `_deliver`, a turn a restart cut off after it started gets `TurnFailed` and `TurnEnded`. Neither is a delivery, and the tail was not one, so `tail`, `told` and `wait` stay as they were and the model has no step for it |
+| `CatchUp(c)` | `Chat.catch_up` on stream open: the restart heal (not running and a delivery tail, so start the turn and append nothing), else `_deliver`. Before `_deliver`, a turn a restart cut off after it started gets `TurnFailed` and `TurnEnded`. Neither is a delivery, and the tail was not one, so `tail`, `told` and `wait` stay as they were and the model has no step for it |
 | `Start(c)` | `Chat.start`: refused while running, else `UserSaid` and a turn |
-| `TurnActs(c)` | the turn's first append (`AgentSaid`, `ToolCalled`, a web search event or `TurnFailed`). The reply text a turn streams before its first append lives only in `Channel.partial` and is no append |
+| `TurnActs(c)` | the turn's first append (`AgentSaid`, `ToolCalled`, a web search event, `TurnFailed`, or the `StopReport` of a stop the turn sees as it starts). `ToolStarted` always follows its `ToolCalled`, so it is never first. The reply text a turn streams before its first append lives only in `Channel.partial` and is no append |
 | `AskRead`, `AskItems`, `AskAfter` | `operations/confirmation.ask_to_confirm` after its wait: `answers_recorded` read before the items, the items, and for a result that is not pending the ledger's length read again (see the `answered-count-before-items` mutant) |
 | `AskReturn(c)` | the `ToolReturned` append: the told cursor moves to `answers_recorded`, and a pending result starts the wait |
 | `Answer` | `web.py` `record`: one answer to everything pending in the project. Answers.tla shows one recorded POST per answer. `ExtraHook` calls `on_recorded` a second time anyway |
+| `PersonStop(c)` | `Chat.stopped`, the `auto_stop` route's `after` hook: `Channels.of` loads the channel, and `auto_driver.post` appends the `StopReport` unless the transcript holds one for the run. It starts no turn and tells no answer, and `StopTail` says what the heal reads after it |
+| `owed` | ghost: a delivery was appended, and no turn has acted and no message has come since |
 | `Crash` | the process dies: `running`, the channel cache, pending hooks and callbacks go |
 
 ### AutoHold.tla: a stop holds the conversation
@@ -190,7 +192,7 @@ The order of `auto_start`'s reads matters. It reads the watermark, then checks f
 | `props`, `Pending`, `Decision` | the brief's proposals, `BriefState.latest` with status PROPOSED, and `BriefState.confirmed`. A newer proposal supersedes an older one, so only the latest is answered |
 | `auto`, `stopped`, `Bound(c)` | `Conversation.auto_run` and `stopped_run`, and `tenants.bind` (`auto_run or stopped_run`) |
 | `Record(r)` | `store.record_event` for an event that stops the run: `append_event` (nothing on a stopped run), then `_held_by` when the run is the conversation's `auto_run`, also for a run already stopped |
-| `Stop(r)` | `auto_stop`, the person's Stop on any run, any time |
+| `Stop(r)` | `auto_stop`, the person's Stop on any run, any time. Its `after` hook posts the `StopReport`, which `catch_up`'s heal reads past, so `tail` stays as it was. CarryOn.tla checks that post against the heal |
 | `StopCrash(r)` | any stop whose process dies before `record_event` writes the conversation |
 | `Begin(c)`, `Run(c)` | `Chat._begin` while no turn runs: `lift_hold` (the stale current run, then `stopped_run`), then `channel.append`, then `_run`. `First` and `Second` name the two writes so a mutant can swap them |
 | `Heal(c)` | `Chat.catch_up`'s restart heal: a delivery tail and no turn, so the turn runs again with no lift |
@@ -226,7 +228,7 @@ When a check fails, read the trace as a story in code terms: which thread or pro
 sync: 6353b37d
 JobLanes@623cb46b: src/cad/checks/lanes.py src/cad/checks/job_store.py src/cad/checks/jobs.py src/cad/sandbox/container.py src/cad/server/stopping.py src/cad/variant_sets/store.py
 Answers: src/cad/confirmations/web.py src/cad/confirmations/snapshot.py src/cad/operations/confirmation.py src/cad/confirmations/page.py src/cad/confirmations/answers.py src/cad/confirmations/items.py src/cad/records/signed.py
-CarryOn: src/cad/chat/routes.py src/cad/chat/answer_driver.py src/cad/chat/turn.py src/cad/chat/log.py src/cad/conversations/store.py src/cad/operations/confirmation.py src/cad/confirmations/web.py
+CarryOn: src/cad/chat/routes.py src/cad/chat/answer_driver.py src/cad/chat/auto_driver.py src/cad/chat/turn.py src/cad/chat/log.py src/cad/conversations/store.py src/cad/operations/confirmation.py src/cad/confirmations/web.py
 AutoHold: src/cad/auto/gate.py src/cad/auto/log.py src/cad/operations/auto.py src/cad/conversations/store.py src/cad/chat/routes.py src/cad/operations/tenants.py src/cad/operations/variants.py src/cad/auto/building.py
 ```
 

@@ -158,7 +158,9 @@ Answer ==
     /\ \E a \in {"confirmed", "declined"} : props' = [props EXCEPT ![Len(props)] = a]
     /\ UNCHANGED <<runs, auto, stopped, tail, tailAct, memory, ghost, crashes>>
 
-\* auto_stop: the person presses Stop on a run, any time.
+\* auto_stop: the person presses Stop on a run, any time. Its after hook, Chat.stopped, then
+\* posts the StopReport to the run's conversation. catch_up's heal reads past a StopReport, so
+\* the post leaves the heal's tail as it was, and a delivery before the Stop still heals, held.
 Stop(r) ==
     /\ Record(r)
     /\ UNCHANGED <<props, tail, tailAct, memory, acts, on, untouched, flags, crashes>>
