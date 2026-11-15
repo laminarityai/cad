@@ -70,6 +70,11 @@ class OutdatedVariant(StaleVariant):
         self.code = code
 
 
+class DamagedShape(StaleVariant):
+    """The entry's result.brep is not the one its signed record names, so `repair.heal` can
+    rebuild it from the signed code."""
+
+
 class NotBuilt(VariantRefused):
     pass
 
@@ -207,7 +212,7 @@ def open_entry(root: Path, raw_id: str, image_tag: str) -> Entry:
     brep = files.read_regular(directory / BREP, MAX_FILE_BYTES)
     brep_sha256 = hashlib.sha256(brep or b"").hexdigest()
     if brep is None or brep_sha256 != manifest.brep_sha256:
-        raise StaleVariant(f"variant {vid} has a result.brep that its build did not store")
+        raise DamagedShape(f"variant {vid} has a result.brep that its build did not store")
     outcome = manifest.outcome
     return Entry(vid, directory, brep, brep_sha256, outcome.areas, outcome.bodies)
 

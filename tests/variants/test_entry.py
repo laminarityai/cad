@@ -9,6 +9,7 @@ from cad.records import key
 from cad.sandbox.outcome import Build, Built, NoResult, SandboxUnavailable
 from cad.variants import entry
 from cad.variants.entry import (
+    DamagedShape,
     NotBuilt,
     OutdatedVariant,
     StaleVariant,
@@ -105,7 +106,7 @@ def test_an_entry_whose_code_is_not_utf8_is_stale(tmp_path: Path) -> None:
 def test_an_entry_whose_brep_was_swapped_is_stale(tmp_path: Path) -> None:
     vid = stored(tmp_path)
     (tmp_path / vid / "result.brep").write_bytes(BREP + b"x")
-    with pytest.raises(StaleVariant, match=r"result\.brep"):
+    with pytest.raises(DamagedShape, match=r"result\.brep"):
         open_entry(tmp_path, vid, TAG)
 
 
@@ -156,8 +157,9 @@ def test_an_entry_whose_brep_is_a_link_is_stale(tmp_path: Path) -> None:
 def test_an_entry_with_an_unreadable_build_record_is_stale(tmp_path: Path) -> None:
     vid = stored(tmp_path)
     (tmp_path / vid / "build.json").write_text("{")
-    with pytest.raises(StaleVariant, match="build record"):
+    with pytest.raises(StaleVariant, match="build record") as refused:
         open_entry(tmp_path, vid, TAG)
+    assert not isinstance(refused.value, DamagedShape)
 
 
 def test_a_failed_build_has_no_shape_to_check(tmp_path: Path) -> None:

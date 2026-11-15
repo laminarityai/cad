@@ -90,6 +90,7 @@ EXPECTED: Final[dict[str, Answer]] = {
     "cad.variant_sets.model.SetRefused": ("400 named", "named"),
     "cad.variant_sets.model.SlotRefused": ("400 named", "named"),
     "cad.variant_sets.model.TamperedSet": ("400 named", "named"),
+    "cad.variants.entry.DamagedShape": ("400 named", "named"),
     "cad.variants.entry.NotBuilt": ("400 named", "named"),
     "cad.variants.entry.OutdatedVariant": ("400 named", "named"),
     "cad.variants.entry.StaleVariant": ("400 named", "named"),

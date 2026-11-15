@@ -13,15 +13,16 @@ export type MeshState =
   | { status: "failed"; reason: string; rebuild: Rebuildable | null };
 
 /** Why the server can build the option again from its signed code: an app update outdated it, or
- * its stored files were damaged. */
+ * its stored shape was damaged. */
 export type Rebuildable = "outdated" | "damaged";
 
 export const OUTDATED = "OutdatedVariant";
-const DAMAGED = "StaleVariant";
+const DAMAGED = "DamagedShape";
 const REBUILDABLE: Readonly<Record<string, Rebuildable>> = { [OUTDATED]: "outdated", [DAMAGED]: "damaged" };
 const POLL_MS = 250;
 const REFUSED_IN_WORDS: Readonly<Record<string, string>> = {
   NotBuilt: "This option did not build. Ask in the chat to fix it.",
+  StaleVariant: "This option's stored files are damaged and cannot be rebuilt here. Ask in the chat to build it again.",
 };
 
 interface Read {

@@ -32,7 +32,7 @@ def heal(root: Path, raw_id: str, image_tag: str) -> None:
     keep the build only when it is the shape that signed record names, so every stored check result
     still reads the same bytes. Any other entry is left for `open_entry` to open or refuse."""
     refused = _refusal(root, raw_id, image_tag)
-    if not isinstance(refused, entry.StaleVariant) or isinstance(refused, entry.OutdatedVariant):
+    if not isinstance(refused, entry.DamagedShape):
         return
     vid = entry.parse_variant_id(raw_id)
     signed = _signed_code(root, vid, image_tag)
