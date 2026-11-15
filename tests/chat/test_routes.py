@@ -26,12 +26,14 @@ async def test_a_message_runs_one_turn_and_the_stream_replays_it(chat: Chat) -> 
         "user",
         "agent",
         "tool_call",
+        "tool_started",
         "tool_result",
         "agent",
         "turn_ended",
     ]
-    assert [one["seq"] for one in events] == [1, 2, 3, 4, 5, 6]
-    assert json.loads(events[3]["text"])["brief_id"]
+    assert [one["seq"] for one in events] == [1, 2, 3, 4, 5, 6, 7]
+    assert events[3]["call_id"] == events[2]["call_id"]
+    assert json.loads(events[4]["text"])["brief_id"]
 
 
 async def test_a_stream_resumes_after_the_last_event_it_saw(chat: Chat) -> None:
@@ -39,14 +41,14 @@ async def test_a_stream_resumes_after_the_last_event_it_saw(chat: Chat) -> None:
         cid = await chat.conversation(client)
         await chat.say(client, cid, "make a hook")
         await chat.finish()
-        later = await chat.events(client, cid, after=4)
+        later = await chat.events(client, cid, after=5)
         resumed = await client.get(
             f"/v1/conversations/{cid}/stream",
             params={"follow": "false"},
-            headers={"Last-Event-ID": "5"},
+            headers={"Last-Event-ID": "6"},
         )
-    assert [one["seq"] for one in later] == [5, 6]
-    assert resumed.text.startswith("id: 6\n")
+    assert [one["seq"] for one in later] == [6, 7]
+    assert resumed.text.startswith("id: 7\n")
 
 
 async def test_a_second_message_while_a_turn_runs_is_409(chat: Chat) -> None:

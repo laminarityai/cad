@@ -12,6 +12,16 @@ function outcomeOf(text: string): unknown {
   }
 }
 
+/** The revision an `auto_revise` call's code built as, which is an earlier one when that code was
+ * already tried. */
+function revisionOf(text: string): unknown {
+  try {
+    return (JSON.parse(text) as { revision?: unknown } | null)?.revision;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Whether a build tool's result says the code built. A result the server cut too long to parse is
  * `unread`, so the page never says built without reading it. Null for a tool that builds nothing.
  * `settling` comes back only after a build that built, while its checks still run. */
@@ -24,6 +34,6 @@ export function buildOf(name: string, text: string): Build | null {
   const run = autoRunOf(text);
   if (run === null) return "unread";
   if (run.settling) return "built";
-  const last = run.state.history.at(-1);
-  return last === undefined ? "unread" : last.built ? "built" : "failed";
+  const own = run.state.history.find((one) => one.revision === revisionOf(text));
+  return own === undefined ? "unread" : own.built ? "built" : "failed";
 }

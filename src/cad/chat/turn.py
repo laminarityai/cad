@@ -36,6 +36,7 @@ from cad.chat.log import (
     DriverSaid,
     ToolCalled,
     ToolReturned,
+    ToolStarted,
     TurnEnded,
     TurnFailed,
     messages_of,
@@ -144,6 +145,7 @@ async def _converse(model: Model, tenants: Tenants, token: AgentToken, channel: 
             if calls:
                 results: list[ToolResult] = []
                 for call in calls:
+                    channel.append(ToolStarted(call_id=call.id))
                     result = _media_of(tenant_of(), await _call(client, call))
                     channel.append(
                         ToolReturned(

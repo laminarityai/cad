@@ -1101,7 +1101,7 @@ export interface components {
             error: string;
             kind?: string;
         };
-        Event: components["schemas"]["UserSaid"] | components["schemas"]["DriverSaid"] | components["schemas"]["AgentSaid"] | components["schemas"]["ToolCalled"] | components["schemas"]["ToolReturned"] | components["schemas"]["WebSearched"] | components["schemas"]["WebFound"] | components["schemas"]["StopReport"] | components["schemas"]["ContextTrimmed"] | components["schemas"]["TurnFailed"] | components["schemas"]["TurnEnded"];
+        Event: components["schemas"]["UserSaid"] | components["schemas"]["DriverSaid"] | components["schemas"]["AgentSaid"] | components["schemas"]["ToolCalled"] | components["schemas"]["ToolStarted"] | components["schemas"]["ToolReturned"] | components["schemas"]["WebSearched"] | components["schemas"]["WebFound"] | components["schemas"]["StopReport"] | components["schemas"]["ContextTrimmed"] | components["schemas"]["TurnFailed"] | components["schemas"]["TurnEnded"];
         /** ExportFailure */
         ExportFailure: {
             /**
@@ -2259,6 +2259,19 @@ export interface components {
             /** @default [] */
             attached?: components["schemas"]["Attached"][];
         };
+        /**
+         * ToolStarted
+         * @description The server began to run the call. The calls of one reply run one at a time, so a call with
+         *     no `ToolStarted` waits behind another.
+         */
+        ToolStarted: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            kind: "tool_started";
+            call_id: string;
+        };
         /** TopologyWire */
         TopologyWire: {
             faces: components["schemas"]["FaceFacts"][];
@@ -2718,6 +2731,7 @@ export type TessellationFailed = components['schemas']['TessellationFailed'];
 export type TessellationPending = components['schemas']['TessellationPending'];
 export type ToolCalled = components['schemas']['ToolCalled'];
 export type ToolReturned = components['schemas']['ToolReturned'];
+export type ToolStarted = components['schemas']['ToolStarted'];
 export type TopologyWire = components['schemas']['TopologyWire'];
 export type TurnEnded = components['schemas']['TurnEnded'];
 export type TurnFailed = components['schemas']['TurnFailed'];

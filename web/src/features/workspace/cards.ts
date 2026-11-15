@@ -8,7 +8,7 @@ import type { Where } from "@/features/viewer/where";
 
 const POLL_MS = 1500;
 
-export type Card = { snapshot: Scorecard; stale?: true } | { snapshot: null; missing: "reading" | "not_scored" | "unread" | "outdated" };
+export type Card = { snapshot: Scorecard; stale?: true } | { snapshot: null; missing: "reading" | "checking" | "not_scored" | "unread" | "outdated" };
 
 function cardOf(resource: Resource<Scorecard>): Card {
   switch (resource.status) {
@@ -17,12 +17,14 @@ function cardOf(resource: Resource<Scorecard>): Card {
     case "loading":
       return { snapshot: null, missing: "reading" };
     case "error":
-      return { snapshot: null, missing: resource.kind === "NotScored" ? "not_scored" : resource.kind === OUTDATED ? "outdated" : "unread" };
+      return { snapshot: null, missing: MISSING_OF[resource.kind ?? ""] ?? "unread" };
     case "signed_out":
     case "not_found":
       return { snapshot: null, missing: "unread" };
   }
 }
+
+const MISSING_OF: Record<string, Extract<Card, { snapshot: null }>["missing"]> = { ChecksRunning: "checking", NotScored: "not_scored", [OUTDATED]: "outdated" };
 
 export interface CardKey {
   variantId: string;
@@ -358,17 +360,15 @@ export const NOT_ANSWERING = "Not answering";
 
 export const MISSING: Record<Extract<Card, { snapshot: null }>["missing"], string> = {
   reading: "Reading the checks",
+  checking: "Running the checks",
   not_scored: "Not checked yet.",
   unread: "The checks could not be read.",
   outdated: "Built before an app update. Press Rebuild to check it.",
 };
 
-export function summaryOf(card: Card | undefined): {
-  status: Status | "none";
-  text: string;
-} {
+export function summaryOf(card: Card | undefined): { status: Status | "none"; text: string } {
   if (!card) return { status: "none", text: "" };
-  if (!card.snapshot) return { status: "none", text: MISSING[card.missing] };
+  if (!card.snapshot) return { status: card.missing === "checking" ? "running" : "none", text: MISSING[card.missing] };
   const { asked, also } = linesOfCard(card);
   const all = [...asked, ...also];
   if (all.some((one) => one.status === "running")) return { status: "running", text: "Checking" };

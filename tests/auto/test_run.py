@@ -320,8 +320,26 @@ async def test_a_replayed_revision_appends_nothing_and_builds_nothing(
     assert records(s, run_id) == 3
     again = await s.call("auto_revise", run_id=run_id, code=code)
     assert again == first
+    assert first["revision"] == 1
     assert records(s, run_id) == 3
     assert s.meter.asked == []
+
+
+async def test_a_replayed_revision_names_its_own_revision_not_the_newest(
+    s: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    code = "raise NameError('the first revision')"
+    later = "raise NameError('the second revision')"
+    s.failed_variant(code)
+    s.failed_variant(later)
+    _, run_id = await running(s)
+    monkeypatch.setenv("DOCKER_HOST", NO_DOCKER)
+    await s.call("auto_revise", run_id=run_id, code=code)
+    second = await s.call("auto_revise", run_id=run_id, code=later)
+    assert second["revision"] == 2
+    again = await s.call("auto_revise", run_id=run_id, code=code)
+    assert again["revision"] == 1
+    assert [one["revision"] for one in again["state"]["history"]] == [1, 2]
 
 
 async def test_a_run_builds_only_for_its_own_brief(s: Session) -> None:

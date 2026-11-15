@@ -106,12 +106,20 @@ export const ANSWER_TIMEOUT_MS = 30_000;
 /** A rebuild starts a container and then runs the checks, so it is given longer than an answer. */
 export const REBUILD_TIMEOUT_MS = 180_000;
 
+/** A mesh is a large download and parse, so its deadline is longer than a read's, but it still has one. */
+export const MESH_TIMEOUT_MS = 120_000;
+
+/** Every read settles: the deadline covers the headers and the body, so a body that stalls fails too. */
 async function fetchJson<T>(method: Uppercase<Method>, url: string, body?: unknown, timeoutMs = ANSWER_TIMEOUT_MS): Promise<T> {
   const timeout = new AbortController();
-  const timer = setTimeout(() => {
-    timeout.abort();
-  }, timeoutMs);
-  try {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      timeout.abort();
+      reject(new Error(`the server did not answer in ${String(timeoutMs / 1000)} s`));
+    }, timeoutMs);
+  });
+  const read = async (): Promise<T> => {
     const response = await fetch(url, {
       method,
       credentials: "same-origin",
@@ -121,6 +129,9 @@ async function fetchJson<T>(method: Uppercase<Method>, url: string, body?: unkno
     });
     if (!response.ok) throw await refusal(response, url);
     return (await response.json()) as T;
+  };
+  try {
+    return await Promise.race([read(), deadline]);
   } catch (error) {
     if (timeout.signal.aborted) throw new Error(`the server did not answer in ${String(timeoutMs / 1000)} s`, { cause: error });
     throw error;
@@ -185,7 +196,7 @@ export const httpApi: Api = {
   variantSet: (project_id, brief_id, material_key) => request("get", "/v1/projects/{project_id}/briefs/{brief_id}/set", { path: { project_id, brief_id }, query: { material_key: material_key || undefined } }),
   materials: () => request("get", "/v1/materials"),
   view: (variant_id) => request("get", "/v1/variants/{variant_id}", { path: { variant_id } }),
-  mesh: (meshUrl) => fetchJson("GET", meshUrl),
+  mesh: (meshUrl) => fetchJson("GET", meshUrl, undefined, MESH_TIMEOUT_MS),
   geometry: (variant_id) => request("get", "/v1/variants/{variant_id}/geometry", { path: { variant_id } }),
   exportOf: (variant_id, brief_id, format) => request("get", "/v1/variants/{variant_id}/exports/{format}", { path: { variant_id, format }, query: { brief_id } }),
   addFile,

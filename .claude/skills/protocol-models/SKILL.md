@@ -46,6 +46,7 @@ The properties are about the order in which threads, processes and crashes act o
 | `NotifiedAfterStore` | invariant | A completion listener runs before the result is on disk, so the snapshot it takes misses the result it was told about. |
 | `PeekMeansInterrupted` | invariant | The same as `InterruptedMeansInterrupted`, for what `Lanes.peek` reports. |
 | `PeekPendingMeansRunning` | action | `Lanes.peek` calls a check pending that no process queues or runs, as after a restart lost the queue, so the page shows it running forever. |
+| `PeekCheckingMeansRunning` | action | `Lanes.peek` says the quick checks of a variant are running when no quick job flies in this process, so the page shows them running for a variant nothing scores. |
 | `Converges` | temporal | After crashes, clean stops, store faults and tampering, a job never ends up stored. The run must end with each job stored, or with fea refused at the attempt cap. |
 | `PendingEnds` | temporal | A caller who saw a check pending can poll forever without getting a verdict or a refusal. |
 | `TypeOK` | invariant | A variable takes a value the model did not mean to allow. It covers every variable. |
@@ -57,12 +58,12 @@ TLC's deadlock check is on but proves nothing for this model. A caller can alway
 | Config | Bounds | Checks |
 | --- | --- | --- |
 | `JobLanes.cfg` | 1 process, 2 callers, 1 crash, 1 run fault, 1 tamper, 2 sets | invariants |
-| `JobLanesCap.cfg` | 1 process, 1 caller, 3 crashes, 1 fault, 1 tamper, 1 set, with `peek` | invariants, `PeekPendingMeansRunning` and both temporal properties |
-| `JobLanesStop.cfg` | 1 process, 1 caller, 1 clean stop, 2 crashes, 1 fault, 1 set, with `peek` | invariants, `PeekPendingMeansRunning` and both temporal properties |
+| `JobLanesCap.cfg` | 1 process, 1 caller, 3 crashes, 1 fault, 1 tamper, 1 set, with `peek` | invariants, `PeekPendingMeansRunning`, `PeekCheckingMeansRunning` and both temporal properties |
+| `JobLanesStop.cfg` | 1 process, 1 caller, 1 clean stop, 2 crashes, 1 fault, 1 set, with `peek` | invariants, `PeekPendingMeansRunning`, `PeekCheckingMeansRunning` and both temporal properties |
 | `JobLanesTwoServers.cfg` | 2 processes on one store, 1 caller, 1 crash, 2 sets | invariants (minus known finding 1) and both temporal properties |
 | `JobLanesTwoServersRefusal.cfg` | 2 processes on one store, 1 caller, 1 crash | known finding 1, which must still be found |
 
-Safety and liveness use separate configs because two callers with liveness takes minutes. One caller is enough for liveness, because a second caller only joins a flight the first one started. `CapStopsReruns` needs at least `Cap` crashes to be tested, so only `JobLanesCap` and `JobLanesStop` can catch a broken cap. A clean stop multiplies the states of every other bound, so only `JobLanesStop` has one. Its two crashes cover a deploy during a check and a stop that a SIGKILL cuts short. `Sets` is how many variant sets show the variant: with 2, one `Replace` keeps the queued job and the second drops it. The constant `Peeks` turns `Peek` on. `Peek` writes only `peeked`, so the configs that do not check `PeekMeansInterrupted` or `PeekPendingMeansRunning` leave it off, which keeps the run short.
+Safety and liveness use separate configs because two callers with liveness takes minutes. One caller is enough for liveness, because a second caller only joins a flight the first one started. `CapStopsReruns` needs at least `Cap` crashes to be tested, so only `JobLanesCap` and `JobLanesStop` can catch a broken cap. A clean stop multiplies the states of every other bound, so only `JobLanesStop` has one. Its two crashes cover a deploy during a check and a stop that a SIGKILL cuts short. `Sets` is how many variant sets show the variant: with 2, one `Replace` keeps the queued job and the second drops it. The constant `Peeks` turns `Peek` on. `Peek` writes only `peeked`, so the configs that do not check `PeekMeansInterrupted`, `PeekPendingMeansRunning` or `PeekCheckingMeansRunning` leave it off, which keeps the run short.
 
 How the model maps to the code:
 
@@ -77,7 +78,7 @@ How the model maps to the code:
 | `WorkerGet` ... `WorkerSettle` | `Lanes._drain` (`_wake.wait` and `popleft` under `_lock`), then `_fly` / `_attempt` on the worker thread: `begin_attempt`, run, `end_attempt` in `finally`, `job_store.write` (skipped on a timeout), then `del _flying` and settle in one lock |
 | `WorkerBegin` | `_attempt` under `_lock`: `SandboxUnavailable` when `_closed`, else `job_store.begin_attempt` and `_running = job`. `begin_attempt` is modeled as one step. The code reads the count and then replaces the file, which is two steps (see Not covered) |
 | `WorkerEnd` | `_attempt`'s `finally` under `_lock`: while `_running` still names the job, clear it and `end_attempt`. After `close` took the attempt back, it does neither |
-| `Peek` | `Lanes.peek` and `_look`, under `_lock`: `job_store.read`, then pending while the job is in `_flying`, else refused: `INTERRUPTED` when `unfinished_runs >= ATTEMPT_CAP`, else `NOT_RUNNING` |
+| `Peek` | `Lanes.peek` and `_look`, under `_lock`: `job_store.read`, then pending while the job is in `_flying`, else refused: `INTERRUPTED` when `unfinished_runs >= ATTEMPT_CAP`, else `NOT_RUNNING`. `peek` looks at the quick job first: not stored but flying is `checking` (`Pending`, which the scorecard read answers as `ChecksRunning`), neither is None (`NotScored`), which the model leaves as no step |
 | `WorkerExit` | `_drain`'s `finally`: clear `_worker`, restart it when the queue is not empty |
 | `WaitQuick`, `Land` | `settle`'s `quick.result()` and `_land`: Done, Pending on a timeout, Refused on `SandboxUnavailable` or `Superseded` |
 | `Close(p)` | `Lanes.close`, the first half of `server/stopping.end_checks`, under `_lock`: set `_closed`, refuse each queued job with `SandboxUnavailable(STOPPED)`, and `job_store.undo_attempt` the job `_running` names. The quick lane stays open |
@@ -223,7 +224,7 @@ When a check fails, read the trace as a story in code terms: which thread or pro
 
 ```coverage
 sync: 6353b37d
-JobLanes: src/cad/checks/lanes.py src/cad/checks/job_store.py src/cad/checks/jobs.py src/cad/sandbox/container.py src/cad/server/stopping.py src/cad/variant_sets/store.py
+JobLanes@623cb46b: src/cad/checks/lanes.py src/cad/checks/job_store.py src/cad/checks/jobs.py src/cad/sandbox/container.py src/cad/server/stopping.py src/cad/variant_sets/store.py
 Answers: src/cad/confirmations/web.py src/cad/confirmations/snapshot.py src/cad/operations/confirmation.py src/cad/confirmations/page.py src/cad/confirmations/answers.py src/cad/confirmations/items.py src/cad/records/signed.py
 CarryOn: src/cad/chat/routes.py src/cad/chat/answer_driver.py src/cad/chat/turn.py src/cad/chat/log.py src/cad/conversations/store.py src/cad/operations/confirmation.py src/cad/confirmations/web.py
 AutoHold: src/cad/auto/gate.py src/cad/auto/log.py src/cad/operations/auto.py src/cad/conversations/store.py src/cad/chat/routes.py src/cad/operations/tenants.py src/cad/operations/variants.py src/cad/auto/building.py

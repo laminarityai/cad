@@ -84,15 +84,19 @@ class Lanes:
         result = quick.result if isinstance(quick, Done) else quick.result()
         return Settled(result, tuple(_land(flight, deadline) for flight in flights))
 
-    def peek(self, plan: Plan) -> Settled | None:
+    def peek(self, plan: Plan) -> Settled | Pending | None:
         """What the store holds for `plan`, with no wait and no job started. A background job is
         done when its result is stored and pending only while it is queued or runs here.
-        Otherwise it is refused: interrupted too often, or not running. None when the quick
-        result is not stored: the variant was never scored."""
-        quick = job_store.read(plan.quick)
-        if quick is None:
-            return None
-        return Settled(quick, tuple(self._look(job) for job in plan.background))
+        Otherwise it is refused: interrupted too often, or not running. Pending when the quick
+        result is not stored but the quick job runs here. None when it is neither: the variant
+        was never scored."""
+        match self._look(plan.quick):
+            case Done(quick):
+                return Settled(quick, tuple(self._look(job) for job in plan.background))
+            case Pending():
+                return Pending()
+            case Refused():
+                return None
 
     def busy(self, root: Path, variant_ids: Collection[str]) -> bool:
         """Whether a background job of one of these variants is queued or runs here now. It reads

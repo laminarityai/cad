@@ -277,17 +277,21 @@ Land(t) ==
     /\ UNCHANGED <<disk, attempt, flying, queue, worker, wpc, wjob, wres,
                    cquick, cres, crashes, faults, tampers, cut, drops, told>>
 
-\* Lanes.peek, for the scorecard operation: job_store.read of quick, then _look for fea in one
+\* Lanes.peek, for the scorecard operation: _look for quick, then _look for fea, each in one
 \* `with self._lock:`: job_store.read, the _flying lookup, then unfinished_runs against the
-\* cap. A job flying here is pending, though its own attempt may have reached the cap. No wait,
-\* and no job started.
+\* cap. A job flying here is pending, though its own attempt may have reached the cap. A quick
+\* job that is not stored but flies here makes the whole peek "checking". One that does neither
+\* makes peek return None, which writes nothing. No wait, and no job started.
 Peek(t) ==
     LET p == t[1] IN
     /\ Peeks
     /\ up[p]
     /\ cpc[t] = "idle"
-    /\ Stored("quick")
-    /\ peeked' = [peeked EXCEPT ![t] =
+    /\ \/ /\ ~Stored("quick")
+          /\ flying[p]["quick"] # "none"
+          /\ peeked' = [peeked EXCEPT ![t] = [kind |-> "checking"]]
+       \/ /\ Stored("quick")
+          /\ peeked' = [peeked EXCEPT ![t] =
                  IF Stored("fea") THEN [kind |-> "done", value |-> disk["fea"]]
                  ELSE IF flying[p]["fea"] # "none" THEN [kind |-> "pending"]
                  ELSE IF attempt["fea"] >= Cap THEN [kind |-> "refused", why |-> "interrupted"]
@@ -531,7 +535,7 @@ Spec == Init /\ [][Next]_vars /\ Fairness
 (* Properties.                                                             *)
 
 Handles ==
-    {Nothing, [kind |-> "pending"]}
+    {Nothing, [kind |-> "pending"], [kind |-> "checking"]}
       \cup [kind : {"future"}, st : FutureStates]
       \cup [kind : {"done"}, value : {"honest", "forged"}]
       \cup [kind : {"refused"}, why : {"interrupted", "unavailable", "superseded", "stopped",
@@ -588,6 +592,12 @@ PeekMeansInterrupted ==
 PeekPendingMeansRunning ==
     [][\A t \in Threads :
          Peek(t) /\ peeked'[t] = [kind |-> "pending"] => flying[t[1]]["fea"] # "none"]_vars
+
+\* Lanes.peek says the quick checks are running only while the quick job flies in the peeking
+\* process, so the page never shows them running when nothing will store their result.
+PeekCheckingMeansRunning ==
+    [][\A t \in Threads :
+         Peek(t) /\ peeked'[t] = [kind |-> "checking"] => flying[t[1]]["quick"] # "none"]_vars
 
 \* A drop leaves no job queued from before it in that process: every queued job took off after
 \* the last drop, so no container starts for a variant that left its last set while its job

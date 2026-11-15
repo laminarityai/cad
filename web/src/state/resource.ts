@@ -35,7 +35,8 @@ function reduce<T>(state: State<T>, action: Action<T>): State<T> {
     case "failed": {
       const before = state[action.key];
       const next = failed<T>(action.error);
-      return { ...state, [action.key]: before?.status === "ok" && next.status === "error" ? { ...before, stale: true } : next };
+      const unanswered = next.status === "error" && !(action.error instanceof Refused);
+      return { ...state, [action.key]: before?.status === "ok" && unanswered ? { ...before, stale: true } : next };
     }
   }
 }

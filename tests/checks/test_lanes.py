@@ -7,7 +7,7 @@ import pytest
 
 from cad.checks import job_store
 from cad.checks.jobs import JobResult, JobSpec, Plan, Refused
-from cad.checks.lanes import INTERRUPTED, NOT_RUNNING, Done, Lanes, Pending
+from cad.checks.lanes import INTERRUPTED, NOT_RUNNING, Done, Lanes, Pending, Settled
 from cad.sandbox.meter import Kind, Reservation, charged, metered
 from cad.sandbox.outcome import SandboxUnavailable
 from tests.support.lanes import (
@@ -201,6 +201,23 @@ def test_a_peek_at_a_job_never_run_is_none_and_starts_nothing(
     assert runner.runs == []
 
 
+def test_a_peek_while_the_quick_job_runs_here_is_pending_and_starts_nothing_more(
+    tmp_path: Path, runner: GatedRunner
+) -> None:
+    runner.quick.gate.clear()
+    lanes = Lanes(runner)
+    plan = quick_only(tmp_path)
+    settling = threading.Thread(target=lambda: lanes.settle(plan, 0))
+    settling.start()
+    wait_until(lambda: len(runner.runs) == 1, "the quick job never started")
+    assert lanes.peek(plan) == Pending()
+    assert Lanes(runner).peek(plan) is None
+    assert len(runner.runs) == 1
+    runner.quick.gate.set()
+    settling.join(LONG)
+    assert isinstance(lanes.peek(plan), Settled)
+
+
 def test_a_peek_calls_a_background_job_pending_while_it_runs_here(
     tmp_path: Path, runner: GatedRunner
 ) -> None:
@@ -211,7 +228,7 @@ def test_a_peek_calls_a_background_job_pending_while_it_runs_here(
     wait_until(lambda: len(runner.runs) == 2, "the background job never started")
     runs = list(runner.runs)
     peeked = lanes.peek(plan)
-    assert peeked is not None
+    assert isinstance(peeked, Settled)
     assert peeked.quick == quick
     assert peeked.background == (Pending(),)
     assert runner.runs == runs
@@ -227,7 +244,7 @@ def test_a_peek_after_a_restart_calls_a_job_no_process_runs_not_running_and_star
     restarted = Lanes(runner)
     runs = list(runner.runs)
     peeked = restarted.peek(with_fea(tmp_path))
-    assert peeked is not None
+    assert isinstance(peeked, Settled)
     assert peeked.background == (Refused(NOT_RUNNING),)
     assert "score the variant again" in NOT_RUNNING
     assert runner.runs == runs
@@ -256,7 +273,7 @@ def test_a_peek_while_the_rerun_of_an_interrupted_job_runs_calls_it_pending(
     assert lanes.settle(with_fea(tmp_path), 0).background == (Pending(),)
     wait_until(lambda: job_store.unfinished_runs(fea) == job_store.ATTEMPT_CAP)
     peeked = lanes.peek(with_fea(tmp_path))
-    assert peeked is not None
+    assert isinstance(peeked, Settled)
     assert peeked.background == (Pending(),)
     runner.background.gate.set()
     wait_for(job_store.result_path(fea))
