@@ -10,13 +10,18 @@ import type { Topology } from "./readout";
 export type MeshState =
   | { status: "loading"; lastDrawn: Shapes | null }
   | { status: "ready"; shapes: Shapes; topology: Topology; areas: readonly Area[]; bodies: readonly BodyFaces[] }
-  | { status: "failed"; reason: string; outdated: boolean };
+  | { status: "failed"; reason: string; rebuild: Rebuildable | null };
+
+/** Why the server can build the option again from its signed code: an app update outdated it, or
+ * its stored files were damaged. */
+export type Rebuildable = "outdated" | "damaged";
 
 export const OUTDATED = "OutdatedVariant";
+const DAMAGED = "StaleVariant";
+const REBUILDABLE: Readonly<Record<string, Rebuildable>> = { [OUTDATED]: "outdated", [DAMAGED]: "damaged" };
 const POLL_MS = 250;
 const REFUSED_IN_WORDS: Readonly<Record<string, string>> = {
   NotBuilt: "This option did not build. Ask in the chat to fix it.",
-  StaleVariant: "This option's stored files do not match its build. Ask in the chat to build it again.",
 };
 
 interface Read {
@@ -51,7 +56,7 @@ async function readMesh(api: Api, variantId: string, signal: AbortSignal): Promi
     }
   } catch (error) {
     const words = error instanceof Refused && error.kind !== null ? REFUSED_IN_WORDS[error.kind] : undefined;
-    if (error instanceof Refused && error.kind === OUTDATED) throw error;
+    if (error instanceof Refused && error.kind !== null && error.kind in REBUILDABLE) throw error;
     throw new Error(words ?? said(error), { cause: error });
   }
 }
@@ -68,6 +73,6 @@ export function useMesh(variantId: string | null): MeshState | null {
   if (resource === null) return null;
   if (resource.status === "ok") return { status: "ready", ...resource.data };
   if (resource.status === "loading") return { status: "loading", lastDrawn: drawn };
-  if (resource.status === "error") return { status: "failed", reason: resource.message, outdated: resource.kind === OUTDATED };
-  return { status: "failed", reason: "The mesh did not load.", outdated: false };
+  if (resource.status === "error") return { status: "failed", reason: resource.message, rebuild: resource.kind === null ? null : (REBUILDABLE[resource.kind] ?? null) };
+  return { status: "failed", reason: "The mesh did not load.", rebuild: null };
 }

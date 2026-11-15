@@ -102,14 +102,14 @@ describe("useMesh", () => {
     await waitFor(() => {
       expect(result.current.status).toBe("failed");
     });
-    expect(result.current).toMatchObject({ status: "failed", outdated: true });
+    expect(result.current).toMatchObject({ status: "failed", rebuild: "outdated" });
   });
 
   it("says why a mesh failed", async () => {
     const geometry = vi.fn().mockResolvedValue({ kind: "failed", brep_sha256: "b", version: "v", reason: "not a solid" });
     const { result } = mount(fakeApi(["v1"], { view: () => Promise.resolve(pendingView("v1")), geometry }));
     await waitFor(() => {
-      expect(result.current).toEqual({ status: "failed", reason: "not a solid", outdated: false });
+      expect(result.current).toEqual({ status: "failed", reason: "not a solid", rebuild: null });
     });
   });
 });

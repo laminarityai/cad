@@ -305,7 +305,6 @@ def score_variant(tenant: Tenant, arguments: ScoreVariantInput) -> material.Repo
     with stops_at_the_limit(
         tenant.roots, tenant.conversations, tenant.bound_run, arguments.variant_id
     ):
-        repair.heal(tenant.variants, arguments.variant_id, tag)
         scored = score.score_variant(
             arguments.variant_id,
             basis.materials_of,

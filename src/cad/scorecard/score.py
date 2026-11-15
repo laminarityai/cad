@@ -12,7 +12,7 @@ from cad.sandbox.bodies import Bodies, bodies_sha256
 from cad.sandbox.outcome import Built
 from cad.scorecard.model import JOINTS, Basis, NoBrief, PendingCheck, Scorecard
 from cad.tables.materials import MaterialsTable
-from cad.variants import entry
+from cad.variants import entry, repair
 from cad.variants import store as variants
 
 type Results = tuple[CheckResult | PendingCheck, ...]
@@ -103,10 +103,14 @@ def _changed(held: entry.Entry) -> str:
 
 
 def open_or_rebuild(variant_id: str, root: Path) -> tuple[entry.Entry, str | None]:
+    """Open the current build of `variant_id`, an outdated id going to the build of its code. The
+    build opened is healed first, so a damaged shape never stops a score under either id."""
     tag = image.image_tag(image.BUILD)
+    repair.heal(root, variant_id, tag)
     try:
         return entry.open_entry(root, variant_id, tag), None
     except entry.OutdatedVariant as outdated:
+        repair.heal(root, entry.variant_id(outdated.code, tag), tag)
         rebuilt = variants.build_variant(outdated.code, root)
         if not isinstance(rebuilt.outcome, Built):
             raise variants.RebuildFailed(outdated.id, rebuilt) from outdated

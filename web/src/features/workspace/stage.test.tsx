@@ -50,4 +50,23 @@ describe("the stage", () => {
     await userEvent.click(button);
     expect(rebuild).toHaveBeenCalledWith("v1", "b1");
   });
+  it("offers Rebuild for an option whose stored files do not match its build, so the server can heal it", async () => {
+    const damaged = () => Promise.reject(new Refused(409, "variant v1 has a result.brep that its build did not store", "StaleVariant"));
+    const rebuild = vi.fn(() => Promise.resolve({ variant_id: "v1", rebuilt_from: null }));
+    const project = () =>
+      Promise.resolve({ project_id: "p1", briefs: [{ brief_id: "b1", created_at: "2026-11-10T00:00:00Z", proposals: 1, confirmed_proposal: 1 }], context_parts: [], documents: [] });
+    render(
+      <ServicesProvider services={{ api: fakeApi(["v1"], { project, view: damaged, rebuild }), viewer: new FakeViewer(), chat: new FakeChat() }}>
+        <MemoryRouter initialEntries={["/projects/p1"]}>
+          <Routes>
+            <Route path="projects/:projectId" element={<Workspace />} />
+          </Routes>
+        </MemoryRouter>
+      </ServicesProvider>,
+    );
+    const button = await screen.findByRole("button", { name: "Rebuild" });
+    expect(screen.getByText(/stored files do not match its build/i)).toBeTruthy();
+    await userEvent.click(button);
+    expect(rebuild).toHaveBeenCalledWith("v1", "b1");
+  });
 });
