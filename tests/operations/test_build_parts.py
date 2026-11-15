@@ -153,13 +153,15 @@ async def test_a_build_may_read_a_part_its_brief_must_fit_but_not_place_it(
 async def test_scoring_refuses_a_variant_that_placed_a_part_its_brief_now_must_fit(
     s: Session, sent: list[Sequence[Supplied]]
 ) -> None:
-    _, brief, part = await project_with_part(s)
+    project, brief, part = await project_with_part(s)
     built = await s.call(
         "build_variant", code=PLATE, brief_id=brief, parts=placing(part, SPOT), **CHOSEN
     )
     await fits_with(s, brief, part)
     said = await s.text("score_variant", variant_id=built["variant_id"], brief_id=brief)
     assert f"places {part}, which the brief's fit check now measures" in said
+    shown = await s.call("variant_set", project_id=project, brief_id=brief)
+    assert [one["card_etag"] for one in shown["members"]] == [None]
 
 
 async def test_scoring_refuses_a_variant_whose_parts_the_briefs_project_has_not_confirmed(
@@ -192,3 +194,19 @@ async def test_parts_too_big_for_the_sandbox_are_refused_before_the_build(
     said = await s.text("build_variant", code=PLATE, brief_id=brief, parts=placing(part), **CHOSEN)
     assert "more than the 0 MiB of parts one build can read" in said
     assert sent == []
+
+
+async def test_the_options_page_still_loads_after_a_built_part_is_declined(
+    s: Session, sent: list[Sequence[Supplied]]
+) -> None:
+    project, brief, part = await project_with_part(s)
+    built = await s.call(
+        "build_variant", code=PLATE, brief_id=brief, parts=placing(part, SPOT), **CHOSEN
+    )
+    plain = await s.call("build_variant", code=PLATE, brief_id=brief, **CHOSEN)
+    store.decline_part(
+        s.roots.projects, ProjectId(project), ContextPartId(part), "not this wheel", PERSON
+    )
+    shown = await s.call("variant_set", project_id=project, brief_id=brief)
+    cards = {one["variant_id"]: one["card_etag"] for one in shown["members"]}
+    assert cards == {built["variant_id"]: None, plain["variant_id"]: None}

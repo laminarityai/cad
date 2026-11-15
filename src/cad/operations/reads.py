@@ -287,7 +287,13 @@ def _card(
     asked = ScorecardInput(variant_id=variant_id, material_key=material_key, brief_id=brief_id)
     try:
         return scorecard(tenant, asked)
-    except (entry.VariantRefused, score.NotScored, MaterialMissing):
+    except (
+        entry.VariantRefused,
+        score.NotScored,
+        score.PartsNotHeld,
+        score.PlacedFitTarget,
+        MaterialMissing,
+    ):
         return None
 
 
