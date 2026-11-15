@@ -6,14 +6,23 @@ from cad.briefs import store as briefs
 from cad.briefs.model import ON_PART, Target
 from cad.checks import jobs
 from cad.context_parts.ids import ContextPartId
+from cad.context_parts.model import ContextPartRecord, FromUpload
 from cad.context_parts.store import ConfirmedPart, confirmed_parts, fit_targets, part_brep
 from cad.records.roots import Roots
+from cad.scorecard.supplied import FromOption, Named, Uploaded
 
 
-def held(roots: Roots, brief_id: str) -> frozenset[str]:
-    """The id of each part the brief's project confirmed."""
+def held(roots: Roots, brief_id: str) -> dict[str, Named]:
+    """What the confirmed record of each part the brief's project holds says it is, by id."""
     project = briefs.read_brief(roots, brief_id).project
-    return frozenset(one.record.id for one in confirmed_parts(roots.projects, project))
+    return {one.record.id: named(one.record) for one in confirmed_parts(roots.projects, project)}
+
+
+def named(record: ContextPartRecord) -> Named:
+    source = record.source
+    if isinstance(source, FromUpload):
+        return Named(name=record.name, origin=Uploaded(file_name=source.file_name))
+    return Named(name=record.name, origin=FromOption(variant_id=source.variant_id))
 
 
 def measured(roots: Roots, brief_id: str, targets: Sequence[Target]) -> tuple[ConfirmedPart, ...]:

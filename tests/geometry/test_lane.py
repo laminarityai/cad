@@ -1,5 +1,6 @@
 import hashlib
 import threading
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -78,6 +79,23 @@ def test_an_outcome_that_says_nothing_about_the_brep_is_not_stored(tmp_path: Pat
     assert lanes.read(tmp_path, HELD, wait_seconds=5) == run.ran.read
     assert store.read(tmp_path, SHA) is None
     lanes.read(tmp_path, HELD, wait_seconds=5)
+    assert run.calls == 2
+
+
+def test_a_failure_that_is_not_stored_is_reported_once_to_a_poller(tmp_path: Path) -> None:
+    run = Gated(failed("timed out", lasting=False))
+    lanes = Tessellations(run)
+    assert lanes.start(tmp_path, HELD) is None
+    assert lanes.read(tmp_path, HELD) == TessellationPending(brep_sha256=SHA)
+    run.gate.set()
+    polled = None
+    for _ in range(500):
+        polled = lanes.start(tmp_path, HELD)
+        if polled is not None:
+            break
+        time.sleep(0.01)
+    assert (polled, run.calls) == (run.ran.read, 1)
+    assert lanes.read(tmp_path, HELD, wait_seconds=5) == run.ran.read
     assert run.calls == 2
 
 

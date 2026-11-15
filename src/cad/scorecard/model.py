@@ -16,6 +16,7 @@ from cad.checks.result import (
 )
 from cad.frozen import Frozen
 from cad.sandbox.bodies import Bodies, bodies_sha256
+from cad.scorecard.supplied import SuppliedPart
 from cad.scorecard.waiting import Waiting
 from cad.tables.materials import Source
 
@@ -227,6 +228,8 @@ class Scorecard(Frozen):
     code rebuilt as `variant_id`.
     A variant of named bodies has `bodies`, hashed as `bodies_sha256`, and `materials`, one per
     body, in place of `material_key`. `untested` then says what no check covers on any such card.
+    `supplied` lists the parts the person supplied that the build read and placed, as its signed
+    build record names them. `brep_sha256` is the agent's body alone, and no check grades them.
     """
 
     variant_id: str
@@ -244,6 +247,7 @@ class Scorecard(Frozen):
     bodies: Bodies = Field(default=(), exclude_if=lambda each: not each)
     bodies_sha256: str | None = Field(default=None, exclude_if=lambda sha256: sha256 is None)
     untested: tuple[str, ...] = Field(default=(), exclude_if=lambda lines: not lines)
+    supplied: tuple[SuppliedPart, ...] = Field(default=(), exclude_if=lambda rows: not rows)
 
     @property
     def finished(self) -> tuple[CheckResult, ...]:

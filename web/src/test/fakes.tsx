@@ -68,6 +68,7 @@ export function fakeApi(variants: string[], overrides: Partial<Api> = {}): Api {
         mesh_url: `/v1/geometry/0123456789ab/${variantId}.json`,
         areas: [],
         bodies: [],
+        components: [],
       }),
     ),
     mesh: vi.fn((url: string) => Promise.resolve(meshOf(url))),

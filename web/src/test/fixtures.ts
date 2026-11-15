@@ -97,6 +97,7 @@ export function snapshot(
     awaiting: [],
     bodies: [],
     body_materials: [],
+    supplied: [],
     untested: [],
     material: { key: "prusament-pla", set_by: { kind: "agent_argument", statement: "The agent chose this material." } },
     research: [],

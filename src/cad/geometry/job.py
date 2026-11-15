@@ -29,7 +29,7 @@ REPORT: Final = TypeAdapter[TessellationReport](
 @dataclass(frozen=True, slots=True)
 class Ran:
     """`lasting` is false when the outcome says nothing about the BREP, such as a timeout, so
-    it is not stored and the next read runs the job again."""
+    it is not stored and the read after the one that reports it runs the job again."""
 
     read: Tessellated | TessellationFailed
     lasting: bool

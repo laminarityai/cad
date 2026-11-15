@@ -22,7 +22,9 @@ or against an older table, is stale: score the variant again.
 A card as a whole fails when it is bound to no signed build (`binding.bind`), names a
 `rebuilt_from` whose signed record pins other code (`binding.link`), is incomplete (no
 results, a registered check missing or repeated, an unregistered check, or no number at all), or
-fails `confirmation.check_basis`, or has a fit result that `fitted.check_fits` cannot place.
+fails `confirmation.check_basis`, or has a fit result that `fitted.check_fits` cannot place, or
+lists supplied parts that `supplied.check_supplied` cannot find in its signed build record and its
+project.
 
 A card is not signed, so with `bind_jobs` each result on a card the session was shown must equal
 the signed job result that the card's own variant, material, table version and instance key
@@ -60,6 +62,7 @@ from confirmation import BasisFailure, Shown, check_basis
 from fitted import Unfitted, check_fits
 from measures import same, trace_face, trace_measure
 from signedjobs import Binding, SignedJobs, Unsigned, bind_results, running, signed_jobs
+from supplied import Signed, Unsupplied, check_supplied, signed_parts, trace_placement
 
 from cad.briefs.holes import FastenerHoles, PlainHoles
 from cad.briefs.model import AgentLimit, Requirement, limits
@@ -99,7 +102,9 @@ class Incomplete:
     reason: str
 
 
-type CardFailure = Unreadable | Unbound | Unlinked | Incomplete | BasisFailure | Unfitted | Unsigned
+type CardFailure = (
+    Unreadable | Unbound | Unlinked | Incomplete | BasisFailure | Unfitted | Unsupplied | Unsigned
+)
 type BasisKind = Literal["no_brief", "awaiting_confirmation", "against_brief"]
 
 
@@ -126,8 +131,9 @@ def trace_card(
     store = rows.held(roots, card)
     signed = signed_jobs(card, root, roots, table, basis.shown) if bind_jobs else None
     binding = running(card) if signed is None else bind_results(card, signed)
+    parts = signed_parts(root, card)
     numbers = tuple(
-        _place(card, found, table, specs, basis.shown, store, signed)
+        _place(card, found, table, specs, basis.shown, store, signed, parts)
         for found in numbers_in(card.model_dump())
     )
     bound = bind(root, card)
@@ -138,6 +144,7 @@ def trace_card(
         *_incomplete(card, numbers, specs),
         *basis.failures,
         *check_fits(roots, card),
+        *check_supplied(roots, card, parts),
         *binding.failures,
     )
     named = (
@@ -154,6 +161,7 @@ def _place(
     shown: Shown | None,
     store: rows.Held | None,
     signed: SignedJobs | None,
+    parts: Signed,
 ) -> Traced:
     path = path_of(found.where)
     match found.where:
@@ -183,6 +191,16 @@ def _place(
             return Traced(path, found.value, AgentCheckedNumber())
         case ("not_verified", *_):
             return Traced(path, found.value, NotVerified())
+        case (
+            "supplied",
+            int() as row,
+            "placements",
+            int() as place,
+            "at" | "rotate" as axis,
+            int() as k,
+        ):
+            outcome = trace_placement(card, parts, (row, place, axis, k))
+            return Traced(path, found.value, outcome)
         case _:
             pass
     in_row = rows.place(card, found.where, store, table, specs, signed)

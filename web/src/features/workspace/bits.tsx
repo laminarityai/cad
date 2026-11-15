@@ -5,6 +5,7 @@ import { Spinner } from "@/components/ui/busy";
 import { Tooltip } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { BodyRows } from "./bodies";
+import { SuppliedRows } from "./supplied";
 import type { Line, Status } from "./cards";
 import { assumedOf, awaitingOf, linesOfCard, MISSING, NOT_ANSWERING, type Card } from "./cards";
 import type { Material } from "./model";
@@ -183,6 +184,7 @@ export function Checks({ card, material, where = NO_WHERE }: { card: Card | unde
         </p>
       ) : (
         <div className="min-h-0 overflow-y-auto">
+          {card.snapshot.supplied.length > 0 ? <SuppliedRows snapshot={card.snapshot} /> : null}
           {card.snapshot.bodies.length > 0 ? <BodyRows snapshot={card.snapshot} /> : null}
           {asked.length > 0 ? (
             <>

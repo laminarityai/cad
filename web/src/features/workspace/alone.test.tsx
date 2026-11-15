@@ -73,6 +73,7 @@ async function open() {
           { name: "plate", faces: [0] },
           { name: "gear", faces: [1] },
         ],
+        components: [],
       }),
     ),
     mesh: vi.fn(() => Promise.resolve({ ...meshOf("v1"), shapes: SHAPES } as Tessellated)),

@@ -2,7 +2,7 @@ import type { CheckResult, MeasureOnly, PendingCheck, ScorecardSnapshot } from "
 
 type Filled<T, K extends keyof T> = Omit<T, K> & Required<Pick<T, K>>;
 
-type OnSnapshot = "not_verified" | "research_problem" | "research" | "assumptions" | "awaiting" | "bodies" | "body_materials" | "untested";
+type OnSnapshot = "not_verified" | "research_problem" | "research" | "assumptions" | "awaiting" | "bodies" | "body_materials" | "supplied" | "untested";
 type OnResult = "reads" | "instance";
 
 /** A scorecard with the fields the server leaves out when empty always present, which is what the
@@ -24,6 +24,7 @@ export function restore(wire: ScorecardSnapshot): Scorecard {
     awaiting: wire.awaiting ?? [],
     bodies: wire.bodies ?? [],
     body_materials: wire.body_materials ?? [],
+    supplied: wire.supplied ?? [],
     untested: wire.untested ?? [],
     research_problem: wire.research_problem ?? null,
     results: wire.results.map((one) => ({ ...one, reads: one.reads ?? [], instance: one.instance ?? "" })),

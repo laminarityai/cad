@@ -172,7 +172,7 @@ class Judged:
     revision: Revision | None
     assumptions: tuple[Assumption, ...]
     waiting: tuple[Requirement, ...]
-    parts: frozenset[str] | None
+    parts: score.Held | None
 
 
 def fit_parts(tenant: Tenant, brief_id: str) -> tuple[ConfirmedPart, ...]:

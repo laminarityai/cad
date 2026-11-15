@@ -67,6 +67,7 @@ async function open(gear: boolean) {
           { name: "gear", colour: "#808080", faces: [6, 7, 8, 9, 10, 11] },
         ],
         bodies: [],
+        components: [],
       }),
     ),
   });
