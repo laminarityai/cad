@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useServices } from "@/app/context";
 import { Refused, type Api } from "@/api/client";
 import type { Area, BodyFaces, Component } from "@/api/types";
@@ -20,6 +20,9 @@ export const OUTDATED = "OutdatedVariant";
 const DAMAGED = "DamagedShape";
 const REBUILDABLE: Readonly<Record<string, Rebuildable>> = { [OUTDATED]: "outdated", [DAMAGED]: "damaged" };
 const POLL_MS = 250;
+/** How long the server reports a mesh job that failed for a reason that may pass, such as a timeout,
+ * before the next read runs the job again. */
+export const MESH_RETRY_MS = 60_000;
 const REFUSED_IN_WORDS: Readonly<Record<string, string>> = {
   NotBuilt: "This option did not build. Ask in the chat to fix it.",
   StaleVariant: "This option's stored files are damaged and cannot be rebuilt here. Ask in the chat to build it again.",
@@ -68,9 +71,17 @@ export function useMesh(variantId: string): MeshState;
 export function useMesh(variantId: string | null): MeshState | null;
 export function useMesh(variantId: string | null): MeshState | null {
   const { api } = useServices();
-  const { resources } = useResources(variantId === null ? [] : [variantId], (id, signal) => readMesh(api, id, signal));
+  const { resources, reload } = useResources(variantId === null ? [] : [variantId], (id, signal) => readMesh(api, id, signal));
   const [drawn, setDrawn] = useState<Shapes | null>(null);
   const resource = variantId === null ? null : (resources[variantId] ?? { status: "loading" });
+  const unrebuildable = resource?.status === "error" && !(resource.kind !== null && resource.kind in REBUILDABLE) ? resource : null;
+  useEffect(() => {
+    if (unrebuildable === null) return;
+    const timer = setTimeout(reload, MESH_RETRY_MS);
+    return () => {
+      clearTimeout(timer);
+    };
+  }, [unrebuildable, reload]);
   const onScreen = resource?.status === "ok" ? resource.data.shapes : resource?.status === "loading" ? drawn : null;
   if (onScreen !== drawn) setDrawn(onScreen);
   if (resource === null) return null;

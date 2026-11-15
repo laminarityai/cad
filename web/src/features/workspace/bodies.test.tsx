@@ -1,8 +1,9 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { ServicesProvider } from "@/app/context";
 import type { DoneCheck } from "@/api/snapshot";
+import type { VariantView } from "@/api/types";
 import { FakeChat, FakeViewer, fakeApi } from "@/test/fakes";
 import { massResult, snapshot } from "@/test/fixtures";
 import { Workspace } from "./Workspace";
@@ -49,27 +50,27 @@ function bodied(gear: boolean) {
   };
 }
 
-async function open(gear: boolean) {
+const meshedView = (variantId: string): VariantView => ({
+  variant_id: variantId,
+  brep_sha256: "b".repeat(64),
+  mesh: "tessellated",
+  mesh_url: `/v1/geometry/0123456789ab/${variantId}.json`,
+  areas: [
+    { name: "plate", colour: "#1a1a1a", faces: [0, 1, 2, 3, 4, 5] },
+    { name: "gear", colour: "#808080", faces: [6, 7, 8, 9, 10, 11] },
+  ],
+  bodies: [],
+  components: [],
+});
+
+async function open(gear: boolean, view = (variantId: string) => Promise.resolve(meshedView(variantId))) {
   const api = fakeApi(["v1"], {
     project: vi.fn(() =>
       Promise.resolve({ project_id: "p1", briefs: [{ brief_id: "b1", created_at: "2026-11-10T00:00:00Z", proposals: 1, confirmed_proposal: 1 }], context_parts: [], documents: [] }),
     ),
     scorecard: vi.fn(() => Promise.resolve(bodied(gear))),
     mesh: vi.fn(meshNeverArrives),
-    view: vi.fn((variantId: string) =>
-      Promise.resolve({
-        variant_id: variantId,
-        brep_sha256: "b".repeat(64),
-        mesh: "tessellated" as const,
-        mesh_url: `/v1/geometry/0123456789ab/${variantId}.json`,
-        areas: [
-          { name: "plate", colour: "#1a1a1a", faces: [0, 1, 2, 3, 4, 5] },
-          { name: "gear", colour: "#808080", faces: [6, 7, 8, 9, 10, 11] },
-        ],
-        bodies: [],
-        components: [],
-      }),
-    ),
+    view: vi.fn(view),
   });
   render(
     <ServicesProvider services={{ api, viewer: new FakeViewer(), chat: new FakeChat() }}>
@@ -119,5 +120,20 @@ describe("the bodies of a variant", () => {
     if (!(mass instanceof HTMLElement)) throw new Error("the mass row is missing");
     expect(mass).toHaveAttribute("data-line", "unknown");
     expect(within(mass).queryByText(/ g$/)).not.toBeInTheDocument();
+  });
+
+  it("show their colours once a mesh that failed is made on a later try", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      let made = false;
+      const list = await open(true, (variantId) => Promise.resolve(made ? meshedView(variantId) : { ...meshedView(variantId), mesh: "failed", mesh_url: null, areas: [] }));
+      await act(() => vi.advanceTimersByTimeAsync(3000));
+      expect(row(list, "plate").querySelector("[data-swatch]")).toBeNull();
+      made = true;
+      await act(() => vi.advanceTimersByTimeAsync(60_000));
+      expect(row(list, "plate").querySelector("[data-swatch]")).toHaveStyle({ backgroundColor: "#1a1a1a" });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
