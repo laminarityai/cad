@@ -56,6 +56,26 @@ FUSED_UNPLACED = """
 from build123d import *
 result = Box(20, 20, 2, align=Align.MIN) + part("%s")
 """
+MOVED = {
+    "apart": "Pos(0, 80, 0)",
+    "over the plate's edge": "Pos(0, 45, 0)",
+    "turned": "Pos(0, 80, 0) * Rot(0, 0, 30)",
+}
+FUSED_MOVED = f"""
+from build123d import *
+result = Box(100, 60, 5) + {{move}} * part("{WHEEL_ID}")
+"""
+OVERLAPPING = """
+from build123d import *
+result = Box(100, 60, 30)
+"""
+POCKETED = f"""
+from build123d import *
+plate = Box(100, 60, 30)
+for spot in placed("{WHEEL_ID}"):
+    plate -= spot * part("{WHEEL_ID}")
+result = plate
+"""
 ALONE = """
 from build123d import *
 plate = Box(100, 60, 5)
@@ -116,9 +136,7 @@ def test_the_stored_shape_is_the_agents_body_alone_whatever_parts_it_placed(
 def test_a_placed_copy_fused_into_result_fails_the_build_and_names_it(tmp_path: Path) -> None:
     result = build_variant(FUSED, tmp_path, parts=(WHEEL,))
     assert isinstance(result.outcome, BuildFailed), result.output
-    assert result.outcome.error.startswith(
-        f"result holds 100% of supplied part {WHEEL_ID} at placement 1 (30, 20, 0)"
-    )
+    assert f"of the surface of supplied part {WHEEL_ID} at placement " in result.outcome.error
     assert "Keep the part out of result" in result.outcome.error
 
 
@@ -128,3 +146,22 @@ def test_a_part_fused_into_result_in_its_own_frame_fails_the_build(tmp_path: Pat
     result = build_variant(code, tmp_path, parts=(BLOCK,))
     assert isinstance(result.outcome, BuildFailed), result.output
     assert f"supplied part {BLOCK.use.part_id} in its own frame" in result.outcome.error
+
+
+@pytest.mark.docker
+@pytest.mark.parametrize("move", MOVED.values(), ids=MOVED.keys())
+def test_a_copy_the_code_moves_and_fuses_into_result_fails_the_build(
+    tmp_path: Path, move: str
+) -> None:
+    result = build_variant(FUSED_MOVED.format(move=move), tmp_path, parts=(WHEEL,))
+    assert isinstance(result.outcome, BuildFailed), result.output
+    assert f"supplied part {WHEEL_ID} moved to (0, " in result.outcome.error
+
+
+@pytest.mark.docker
+@pytest.mark.parametrize("code", [OVERLAPPING, POCKETED], ids=["overlapping", "pocketed"])
+def test_a_body_that_fills_or_pockets_a_placement_builds_with_none_of_the_part_in_it(
+    tmp_path: Path, code: str
+) -> None:
+    result = build_variant(code, tmp_path, parts=(WHEEL,))
+    assert isinstance(result.outcome, Built), result.output
