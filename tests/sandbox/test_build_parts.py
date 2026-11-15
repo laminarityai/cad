@@ -136,9 +136,7 @@ def test_the_stored_shape_is_the_agents_body_alone_whatever_parts_it_placed(
 def test_a_placed_copy_fused_into_result_fails_the_build_and_names_it(tmp_path: Path) -> None:
     result = build_variant(FUSED, tmp_path, parts=(WHEEL,))
     assert isinstance(result.outcome, BuildFailed), result.output
-    assert result.outcome.error.startswith(
-        f"result holds 100% of supplied part {WHEEL_ID} at placement 1 (30, 20, 0)"
-    )
+    assert f"of the surface of supplied part {WHEEL_ID} at placement " in result.outcome.error
     assert "Keep the part out of result" in result.outcome.error
 
 

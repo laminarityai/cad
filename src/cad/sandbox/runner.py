@@ -11,17 +11,23 @@ import traceback
 from base64 import b64encode
 from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol, cast
+from typing import TYPE_CHECKING, Any, Protocol, cast
 
 if TYPE_CHECKING:
     from types import TracebackType
 
-    from cad.sandbox.wire import AreaReport, FailedReport, PartListing, Report
+    from cad.sandbox.wire import (
+        AreaReport,
+        FailedReport,
+        PartListing,
+        PlacementListing,
+        Report,
+    )
 
 VARIANT = Path("/tmp/variant.py")
 PARTS = Path("/tmp/parts")
 CPU_KILL_AFTER_SECONDS = 5
-FUSED_SHARE = 0.5
+FUSED_SHARE = 0.25
 AREAS = "areas"
 UNNAMED = "unnamed"
 
@@ -59,21 +65,22 @@ def main() -> None:
 
 
 def run_variant(root: int, cpu_seconds: int, listed: list[PartListing]) -> Report:
+    read: dict[str, Wrapped] = {}
     try:
         resource.setrlimit(resource.RLIMIT_CPU, (cpu_seconds, cpu_seconds + CPU_KILL_AFTER_SECONDS))
-        helpers = unpack(sys.stdin.buffer.read(), listed)
+        helpers = unpack(sys.stdin.buffer.read(), listed, read)
         namespace = runpy.run_path(str(VARIANT), init_globals=helpers, run_name="__main__")
     except BaseException as error:
         exit_if_forked_child(root)
         return failed(error)
     exit_if_forked_child(root)
     try:
-        return result_report(namespace, listed)
+        return result_report(namespace, listed, read)
     except BaseException as error:
         return failed(error)
 
 
-def unpack(sent: bytes, listed: list[PartListing]) -> dict[str, object]:
+def unpack(sent: bytes, listed: list[PartListing], read: dict[str, Wrapped]) -> dict[str, object]:
     """Write the code, and each supplied part's BREP that follows it on stdin, and give the code
     `part` and `placed` to read them with."""
     start = len(sent) - sum(one["size"] for one in listed)
@@ -93,7 +100,11 @@ def unpack(sent: bytes, listed: list[PartListing]) -> dict[str, object]:
 
     def part(part_id: str) -> object:
         """The supplied part's solids, in the part's own frame."""
-        return importlib.import_module("build123d").import_brep(str(sent_part(part_id)))
+        build123d = importlib.import_module("build123d")
+        if part_id not in read:
+            read[part_id] = build123d.import_brep(str(sent_part(part_id)))
+        identity = importlib.import_module("OCP.TopLoc").TopLoc_Location()
+        return build123d.Shape.cast(cast(Any, read[part_id].wrapped).Moved(identity))
 
     def placed(part_id: str) -> list[object]:
         """A build123d Location for each placement of the part that the build names."""
@@ -113,14 +124,16 @@ def exit_if_forked_child(root: int) -> None:
         os._exit(0)
 
 
-def result_report(namespace: dict[str, object], listed: list[PartListing]) -> Report:
+def result_report(
+    namespace: dict[str, object], listed: list[PartListing], read: dict[str, Wrapped]
+) -> Report:
     if "result" not in namespace:
         return {"kind": "no_result"}
     shape = namespace["result"]
     build123d = cast(Build123d, importlib.import_module("build123d"))
     if not isinstance(shape, build123d.Shape):
         return {"kind": "not_a_shape", "found": utf8(type(shape).__name__)}
-    fused = fused_part(cast(Wrapped, shape), listed)
+    fused = fused_part(cast(Wrapped, shape), listed, read)
     if fused is not None:
         return {"kind": "build_failed", "error": fused, "traceback": ""}
     brep = io.BytesIO()
@@ -136,50 +149,84 @@ def result_report(namespace: dict[str, object], listed: list[PartListing]) -> Re
     }
 
 
-def fused_part(shape: Wrapped, listed: list[PartListing]) -> str | None:
-    """Why `result` cannot stand when it holds most of a supplied part, in the part's own frame or
-    at one of its placements. That is a copy fused into it by mistake, and every check would grade
-    it as the agent's body (ADR-0012). A copy the kernel cannot intersect is let through."""
-    build123d = importlib.import_module("build123d")
-    for index, one in enumerate(listed):
-        read: Wrapped = build123d.import_brep(str(part_path(index)))
-        copies = [("in its own frame", read)]
-        for number, spot in enumerate(one["placements"], 1):
-            where = "at placement {} ({:g}, {:g}, {:g})".format(number, *spot["at"])
-            at = build123d.Location(tuple(spot["at"]), tuple(spot["rotate"]))
-            copies.append((where, cast(Wrapped, at * read)))
-        for where, copy in copies:
-            share = held_share(shape, copy)
-            if share > FUSED_SHARE:
-                return utf8(
-                    f"result holds {min(share, 1):.0%} of supplied part {one['id']} {where}. "
-                    "result is your body only, and every check grades it, so the checks would "
-                    "grade the person's part as yours. Keep the part out of result, and use it "
-                    "to shape your body, such as a pocket around it."
-                )
+def fused_part(shape: Wrapped, listed: list[PartListing], read: dict[str, Wrapped]) -> str | None:
+    origins = {
+        id(surface): (part_id, face.Orientation(), at, surface)
+        for part_id, one in read.items()
+        for face in faces_of(one.wrapped)
+        for surface, at in [surface_of(face)]
+    }
+    copies: dict[tuple[str, tuple[float, ...]], tuple[float, set[int]]] = {}
+    for face in faces_of(shape.wrapped):
+        surface, at = surface_of(face)
+        origin = origins.get(id(surface))
+        if origin is None:
+            continue
+        pocket_wall = face.Orientation() != origin[1]
+        if pocket_wall:
+            continue
+        copy = (origin[0], rounded_transform(at.Multiplied(origin[2].Inverted())))
+        area, sources = copies.get(copy, (0.0, set()))
+        copies[copy] = (area + area_of(face), sources | {id(surface)})
+    for (part_id, moved), (area, sources) in copies.items():
+        whole = faces_of(read[part_id].wrapped)
+        share = area / sum(area_of(face) for face in whole)
+        if share > FUSED_SHARE and more_than_a_lone_face(len(sources), len(whole)):
+            spots = next(one["placements"] for one in listed if one["id"] == part_id)
+            return utf8(
+                f"result holds {min(share, 1):.0%} of the surface of supplied part {part_id} "
+                f"{where(moved, spots)}. result is your body only, and every check grades it, so "
+                "the checks would grade the person's part as yours. Keep the part out of result, "
+                "and use it to shape your body, such as a pocket around it."
+            )
     return None
 
 
-def held_share(shape: Wrapped, copy: Wrapped) -> float:
-    """The share of the copy's volume that `shape` holds, 0 when their bounding boxes miss."""
-    try:
-        whole = volume_of(cast(Solid, copy.wrapped))
-        if whole <= 0 or apart(shape, copy):
-            return 0.0
-        common = importlib.import_module("OCP.BRepAlgoAPI").BRepAlgoAPI_Common(
-            shape.wrapped, copy.wrapped
-        )
-        return volume_of(common.Shape()) / whole if common.IsDone() else 0.0
-    except Exception:
-        return 0.0
+def more_than_a_lone_face(kept: int, faces: int) -> bool:
+    """An extruded face keeps one of the part's surfaces at its far end."""
+    return kept >= min(2, faces)
 
 
-def apart(one: Wrapped, other: Wrapped) -> bool:
-    bounds, add = importlib.import_module("OCP.Bnd"), importlib.import_module("OCP.BRepBndLib")
-    boxes = [bounds.Bnd_Box(), bounds.Bnd_Box()]
-    for shape, box in zip((one, other), boxes, strict=True):
-        add.BRepBndLib.Add_s(shape.wrapped, box)
-    return bool(boxes[0].IsOut(boxes[1]))
+def faces_of(shape: object) -> list[Any]:
+    kinds = importlib.import_module("OCP.TopAbs")
+    explorer = importlib.import_module("OCP.TopExp").TopExp_Explorer(shape, kinds.TopAbs_FACE)
+    found: list[Any] = []
+    while explorer.More():
+        found.append(explorer.Current())
+        explorer.Next()
+    return found
+
+
+def surface_of(face: object) -> tuple[Any, Any]:
+    """The face's surface as the kernel stores it, shared by every face cut from it, and the
+    location it sits at."""
+    at = importlib.import_module("OCP.TopLoc").TopLoc_Location()
+    topods = importlib.import_module("OCP.TopoDS").TopoDS
+    surface = importlib.import_module("OCP.BRep").BRep_Tool.Surface_s(topods.Face_s(face), at)
+    return surface, at
+
+
+def area_of(face: object) -> float:
+    props = importlib.import_module("OCP.GProp").GProp_GProps()
+    importlib.import_module("OCP.BRepGProp").BRepGProp.SurfaceProperties_s(face, props)
+    return float(props.Mass())
+
+
+def rounded_transform(location: Any) -> tuple[float, ...]:
+    moved = location.Transformation()
+    return tuple(round(moved.Value(row, col), 6) for row in (1, 2, 3) for col in (1, 2, 3, 4))
+
+
+def where(moved: tuple[float, ...], spots: list[PlacementListing]) -> str:
+    build123d = importlib.import_module("build123d")
+    if moved == rounded_transform(build123d.Location().wrapped):
+        return "in its own frame"
+    for number, spot in enumerate(spots, 1):
+        if moved == rounded_transform(
+            build123d.Location(tuple(spot["at"]), tuple(spot["rotate"])).wrapped
+        ):
+            return "at placement {} ({:g}, {:g}, {:g})".format(number, *spot["at"])
+    return "moved to ({:g}, {:g}, {:g})".format(*(round(moved[i], 3) for i in (3, 7, 11)))
 
 
 def bodies(shape: object) -> list[str | None] | str:
