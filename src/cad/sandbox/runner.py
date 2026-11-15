@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 VARIANT = Path("/tmp/variant.py")
 PARTS = Path("/tmp/parts")
 CPU_KILL_AFTER_SECONDS = 5
+FUSED_SHARE = 0.5
 AREAS = "areas"
 UNNAMED = "unnamed"
 
@@ -33,6 +34,11 @@ class Build123d(Protocol):
 
 class Coloured(Protocol):
     def faces(self) -> Sequence[object]: ...
+
+
+class Wrapped(Protocol):
+    @property
+    def wrapped(self) -> object: ...
 
 
 class Solid(Protocol):
@@ -62,7 +68,7 @@ def run_variant(root: int, cpu_seconds: int, listed: list[PartListing]) -> Repor
         return failed(error)
     exit_if_forked_child(root)
     try:
-        return result_report(namespace)
+        return result_report(namespace, listed)
     except BaseException as error:
         return failed(error)
 
@@ -75,7 +81,7 @@ def unpack(sent: bytes, listed: list[PartListing]) -> dict[str, object]:
     paths: dict[str, Path] = {}
     for index, one in enumerate(listed):
         PARTS.mkdir(exist_ok=True)
-        paths[one["id"]] = PARTS / f"{index}.brep"
+        paths[one["id"]] = part_path(index)
         paths[one["id"]].write_bytes(sent[start : start + one["size"]])
         start += one["size"]
     placements = {one["id"]: one["placements"] for one in listed}
@@ -98,18 +104,25 @@ def unpack(sent: bytes, listed: list[PartListing]) -> dict[str, object]:
     return {"part": part, "placed": placed}
 
 
+def part_path(index: int) -> Path:
+    return PARTS / f"{index}.brep"
+
+
 def exit_if_forked_child(root: int) -> None:
     if os.getpid() != root:
         os._exit(0)
 
 
-def result_report(namespace: dict[str, object]) -> Report:
+def result_report(namespace: dict[str, object], listed: list[PartListing]) -> Report:
     if "result" not in namespace:
         return {"kind": "no_result"}
     shape = namespace["result"]
     build123d = cast(Build123d, importlib.import_module("build123d"))
     if not isinstance(shape, build123d.Shape):
         return {"kind": "not_a_shape", "found": utf8(type(shape).__name__)}
+    fused = fused_part(cast(Wrapped, shape), listed)
+    if fused is not None:
+        return {"kind": "build_failed", "error": fused, "traceback": ""}
     brep = io.BytesIO()
     if not build123d.export_brep(shape, brep):
         raise RuntimeError("build123d could not export `result` as BREP")
@@ -121,6 +134,52 @@ def result_report(namespace: dict[str, object]) -> Report:
         "areas": painted,
         "bodies": named,
     }
+
+
+def fused_part(shape: Wrapped, listed: list[PartListing]) -> str | None:
+    """Why `result` cannot stand when it holds most of a supplied part, in the part's own frame or
+    at one of its placements. That is a copy fused into it by mistake, and every check would grade
+    it as the agent's body (ADR-0012). A copy the kernel cannot intersect is let through."""
+    build123d = importlib.import_module("build123d")
+    for index, one in enumerate(listed):
+        read: Wrapped = build123d.import_brep(str(part_path(index)))
+        copies = [("in its own frame", read)]
+        for number, spot in enumerate(one["placements"], 1):
+            where = "at placement {} ({:g}, {:g}, {:g})".format(number, *spot["at"])
+            at = build123d.Location(tuple(spot["at"]), tuple(spot["rotate"]))
+            copies.append((where, cast(Wrapped, at * read)))
+        for where, copy in copies:
+            share = held_share(shape, copy)
+            if share > FUSED_SHARE:
+                return utf8(
+                    f"result holds {min(share, 1):.0%} of supplied part {one['id']} {where}. "
+                    "result is your body only, and every check grades it, so the checks would "
+                    "grade the person's part as yours. Keep the part out of result, and use it "
+                    "to shape your body, such as a pocket around it."
+                )
+    return None
+
+
+def held_share(shape: Wrapped, copy: Wrapped) -> float:
+    """The share of the copy's volume that `shape` holds, 0 when their bounding boxes miss."""
+    try:
+        whole = volume_of(cast(Solid, copy.wrapped))
+        if whole <= 0 or apart(shape, copy):
+            return 0.0
+        common = importlib.import_module("OCP.BRepAlgoAPI").BRepAlgoAPI_Common(
+            shape.wrapped, copy.wrapped
+        )
+        return volume_of(common.Shape()) / whole if common.IsDone() else 0.0
+    except Exception:
+        return 0.0
+
+
+def apart(one: Wrapped, other: Wrapped) -> bool:
+    bounds, add = importlib.import_module("OCP.Bnd"), importlib.import_module("OCP.BRepBndLib")
+    boxes = [bounds.Bnd_Box(), bounds.Bnd_Box()]
+    for shape, box in zip((one, other), boxes, strict=True):
+        add.BRepBndLib.Add_s(shape.wrapped, box)
+    return bool(boxes[0].IsOut(boxes[1]))
 
 
 def bodies(shape: object) -> list[str | None] | str:

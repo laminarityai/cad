@@ -45,6 +45,17 @@ for spot in placed("{WHEEL_ID}"):
     plate -= spot * Cylinder(4, 10)
 result = plate
 """
+FUSED = f"""
+from build123d import *
+plate = Box(100, 60, 5)
+for spot in placed("{WHEEL_ID}"):
+    plate += spot * part("{WHEEL_ID}")
+result = plate
+"""
+FUSED_UNPLACED = """
+from build123d import *
+result = Box(20, 20, 2, align=Align.MIN) + part("%s")
+"""
 ALONE = """
 from build123d import *
 plate = Box(100, 60, 5)
@@ -99,3 +110,21 @@ def test_the_stored_shape_is_the_agents_body_alone_whatever_parts_it_placed(
         open_entry(tmp_path, one.variant_id, image_tag(BUILD)).brep for one in (placed, alone)
     }
     assert len(shapes) == 1
+
+
+@pytest.mark.docker
+def test_a_placed_copy_fused_into_result_fails_the_build_and_names_it(tmp_path: Path) -> None:
+    result = build_variant(FUSED, tmp_path, parts=(WHEEL,))
+    assert isinstance(result.outcome, BuildFailed), result.output
+    assert result.outcome.error.startswith(
+        f"result holds 100% of supplied part {WHEEL_ID} at placement 1 (30, 20, 0)"
+    )
+    assert "Keep the part out of result" in result.outcome.error
+
+
+@pytest.mark.docker
+def test_a_part_fused_into_result_in_its_own_frame_fails_the_build(tmp_path: Path) -> None:
+    code = FUSED_UNPLACED % BLOCK.use.part_id
+    result = build_variant(code, tmp_path, parts=(BLOCK,))
+    assert isinstance(result.outcome, BuildFailed), result.output
+    assert f"supplied part {BLOCK.use.part_id} in its own frame" in result.outcome.error
