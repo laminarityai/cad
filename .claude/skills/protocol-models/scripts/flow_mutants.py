@@ -105,6 +105,14 @@ MUTANTS: Final = (
         "Temporal",
     ),
     Mutant(
+        "heal-reads-the-last-event",
+        "catch_up heals only when the transcript's very last event is a delivery, so the stop"
+        " report the person's Stop posts after a delivery a crash cut off hides it for good",
+        CARRY_ON_LIVE,
+        (("StopTail(c) == tail[c]", "StopTail(c) == FALSE"),),
+        "Temporal",
+    ),
+    Mutant(
         "answered-count-before-items",
         "ask_to_confirm reads answers_recorded only before the items, so an answer that lands"
         " between the two reads returns answered, ends the wait and is never told",

@@ -22,7 +22,7 @@ from cad.conversations.model import ConversationId
 from cad.operations import confirmation
 from cad.operations.tenants import Tenants
 from cad.projects.model import ProjectId
-from tests.support.chat import ALICE, TEXT, Chat, call, script, step
+from tests.support.chat import ALICE, JSON, TEXT, Chat, call, script, step
 from tests.support.conversations import briefless_run_in
 from tests.support.rows import UNDER_150
 
@@ -310,6 +310,27 @@ async def test_a_restart_rerunning_a_delivery_keeps_a_stop_pressed_after_it(
     )
     run_id = hold(chat, cid)
     async with restarted.client() as client:
+        await restarted.events(client, cid)
+        await restarted.finish()
+        events = await restarted.events(client, cid)
+    assert kinds(events)[-4:] == ["driver", "stop_report", "agent", "turn_ended"]
+    assert stopped_run(restarted, cid) == run_id
+
+
+async def test_a_delivery_a_restart_cut_off_still_runs_after_the_persons_stop_posts_its_report(
+    chat: Chat, restarted: Chat
+) -> None:
+    async with chat.client() as client:
+        cid = await waiting(chat, client)
+        project = project_of(await chat.events(client, cid))
+    conversations = chat.tenants.of(AccountId(ALICE)).conversations
+    Channel(transcript_path(conversations, ConversationId(cid))).append(
+        DriverSaid(text="answered", answered=Answered(project_id=project, through=1))
+    )
+    run_id = briefless_run_in(chat.tenants, AccountId(ALICE), ConversationId(cid))
+    async with restarted.client() as client:
+        pressed = await client.post(f"/v1/auto/{run_id}/stop", headers=JSON, content=b"{}")
+        assert pressed.status_code == 200, pressed.text
         await restarted.events(client, cid)
         await restarted.finish()
         events = await restarted.events(client, cid)
