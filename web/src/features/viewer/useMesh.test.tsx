@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 import { ServicesProvider } from "@/app/context";
@@ -112,5 +112,19 @@ describe("useMesh", () => {
     await waitFor(() => {
       expect(result.current).toEqual({ status: "failed", reason: "not a solid", rebuild: null });
     });
+  });
+
+  it("asks again a minute after a mesh failed, so a failure that passes still draws", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const geometry = vi.fn().mockResolvedValueOnce({ kind: "failed", brep_sha256: "b", version: "v", reason: "timed out" }).mockResolvedValue(meshOf("v1"));
+      const { result } = mount(fakeApi(["v1"], { view: () => Promise.resolve(pendingView("v1")), geometry }));
+      await act(() => vi.advanceTimersByTimeAsync(0));
+      expect(result.current).toEqual({ status: "failed", reason: "timed out", rebuild: null });
+      await act(() => vi.advanceTimersByTimeAsync(60_000));
+      expect(result.current.status).toBe("ready");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -99,6 +99,43 @@ def test_a_failure_that_is_not_stored_is_reported_once_to_a_poller(tmp_path: Pat
     assert run.calls == 2
 
 
+class Clock:
+    def __init__(self) -> None:
+        self.now = 0.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+def failed_once(lanes: Tessellations, tmp_path: Path, run: Gated) -> None:
+    assert lanes.start(tmp_path, HELD) is None
+    run.gate.set()
+    for _ in range(500):
+        if lanes.start(tmp_path, HELD) is not None:
+            return
+        time.sleep(0.01)
+    pytest.fail("the job never ended")
+
+
+def test_every_reader_sees_a_failure_that_is_not_stored(tmp_path: Path) -> None:
+    run = Gated(failed("timed out", lasting=False))
+    lanes = Tessellations(run)
+    failed_once(lanes, tmp_path, run)
+    assert lanes.read(tmp_path, HELD) == run.ran.read
+    assert lanes.start(tmp_path, HELD) == run.ran.read
+    assert lanes.read(tmp_path, HELD, wait_seconds=5) == run.ran.read
+    assert run.calls == 1
+
+
+def test_a_failure_that_is_not_stored_is_forgotten_when_its_window_ends(tmp_path: Path) -> None:
+    run, clock = Gated(failed("timed out", lasting=False)), Clock()
+    lanes = Tessellations(run, clock)
+    failed_once(lanes, tmp_path, run)
+    clock.now = 3 * 60 * 60
+    assert lanes.read(tmp_path, HELD, wait_seconds=5) == run.ran.read
+    assert run.calls == 2
+
+
 def test_a_job_that_raises_raises_for_its_reader_and_the_next_read_retries(
     tmp_path: Path,
 ) -> None:
