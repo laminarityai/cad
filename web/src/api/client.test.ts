@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { httpApi, NotFound, ANSWER_TIMEOUT_MS, Refused, SignedOut } from "./client";
+import { httpApi, NotFound, ANSWER_TIMEOUT_MS, MESH_TIMEOUT_MS, Refused, SignedOut } from "./client";
 
 const JSON_GET = { method: "GET", credentials: "same-origin", headers: { accept: "application/json" } };
 
@@ -83,6 +83,36 @@ describe("a read the server never answers", () => {
     expect(said).toBeNull();
     await vi.advanceTimersByTimeAsync(1);
     expect(said).toBeInstanceOf(Error);
+    expect((said as Error).message).toMatch(/did not answer/);
+    vi.useRealTimers();
+  });
+});
+
+describe("a read whose body stalls after the headers", () => {
+  const stalled = () => vi.fn(() => Promise.resolve({ ok: true, json: () => new Promise<never>(() => undefined) } as unknown as Response));
+
+  it("fails once the read timeout passes, so the page does not spin forever", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", stalled());
+    let said: unknown = null;
+    void httpApi.scorecard("v1", "b1", null).catch((error: unknown) => {
+      said = error;
+    });
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect((said as Error).message).toMatch(/did not answer/);
+    vi.useRealTimers();
+  });
+
+  it("gives a mesh its longer deadline, and fails it once that passes", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("fetch", stalled());
+    let said: unknown = null;
+    void httpApi.mesh("/m.json").catch((error: unknown) => {
+      said = error;
+    });
+    await vi.advanceTimersByTimeAsync(MESH_TIMEOUT_MS - 1);
+    expect(said).toBeNull();
+    await vi.advanceTimersByTimeAsync(1);
     expect((said as Error).message).toMatch(/did not answer/);
     vi.useRealTimers();
   });
